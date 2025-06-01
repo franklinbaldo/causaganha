@@ -41,10 +41,10 @@ Milestone 2 – Extração com Gemini
 
 Status	Tarefa	Detalhes
 
-□	extractor.py	Classe GeminiExtractor com prompt parametrizado
-□	Formato de saída	JSON por decisão em data/json/{processo}.json
-□	Workflow 02_extract.yml	Gatilho: sucesso de 01_collect.yml; matriz paralela por página
-□	Cache de tokenização	Memória local para não reprocessar PDFs idênticos
+✓	extractor.py	Classe GeminiExtractor com prompt parametrizado
+✓	Formato de saída	JSON por decisão em data/json/{processo}.json
+✓	Workflow 02_extract.yml	Gatilho: sucesso de 01_collect.yml; matriz paralela por página
+✓	Cache de tokenização	Memória local para não reprocessar PDFs idênticos
 
 
 
