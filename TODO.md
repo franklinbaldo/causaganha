@@ -54,9 +54,9 @@ Milestone 3 – Modelo Elo
 
 Status	Tarefa	Detalhes
 
-□	elo.py	Funções expected(r_a,r_b) e update(r_a,r_b,score,k) (K = 16)
-□	ratings.csv & partidas.csv	Schema definido no README
-□	Validação	Testes unitários com cenários simples (vitória, derrota, empate)
+✓	elo.py	Funções expected(r_a,r_b) e update(r_a,r_b,score,k) (K = 16)
+✓	ratings.csv & partidas.csv	Schema definido no README
+✓	Validação	Testes unitários com cenários simples (vitória, derrota, empate)
 
 
 
