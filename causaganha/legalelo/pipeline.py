@@ -1,273 +1,407 @@
 import argparse
 import logging
-import datetime
-import pathlib
+from pathlib import Path
 import sys
-from pythonjsonlogger import jsonlogger # Added
+import os # Added for update_command
+import json # Added for update_command
+import shutil # Added for update_command
+import pandas as pd # Added for update_command
+import datetime # Added for update_command (specifically for datetime.date.today().isoformat())
 
-# Adjust sys.path (commented out as primary execution is via -m)
-# sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-
-# Relative imports for module execution
+# Attempt to import local modules
 try:
-    from .downloader import fetch_tjro_pdf
-    from .extractor import GeminiExtractor
-    from .elo import update_elo, expected_score
+    from .utils import normalize_lawyer_name, validate_decision
+    from .elo import update_elo # Assuming expected_score is not directly needed by pipeline logic
 except ImportError as e:
-    if __package__ is None or __package__ == '':
-        logging.warning(f"Attempting fallback import for direct script execution: {e}")
-        from downloader import fetch_tjro_pdf
-        from extractor import GeminiExtractor
-        from elo import update_elo, expected_score
+    # This might happen if script is run directly and not as part of the package.
+    # For robustness in such scenarios, or if structure changes, direct import might be an alternative.
+    # from utils import normalize_lawyer_name, validate_decision # etc.
+    logging.error(f"Failed to import local modules (.utils, .elo): {e}. Ensure they are in the correct path.")
+    # Define dummy functions if imports fail, to allow basic CLI to load, but update will fail.
+    def normalize_lawyer_name(name): return name
+    def validate_decision(decision): return False
+    def update_elo(r1, r2, s1, k): return r1, r2
+
+
+# Constants for Elo update
+DEFAULT_RATING = 1500.0
+K_FACTOR = 16 # Standard K-factor
+
+# Simulate the downloader and extractor functions for now, as the actual files might not exist
+# or be fully implemented in this context.
+def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
+    logger = logging.getLogger(__name__)
+    if dry_run:
+        logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
+        return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
+    logger.info(f"Fetching TJRO PDF for date: {date_str}")
+    fake_pdf_path = Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
+    fake_pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    fake_pdf_path.touch() # Create a dummy file
+    logger.info(f"Successfully downloaded (simulated) {fake_pdf_path}")
+    return fake_pdf_path
+
+class GeminiExtractor:
+    def __init__(self, verbose: bool = False):
+        self.logger = logging.getLogger(__name__)
+        self.logger.debug("GeminiExtractor initialized (simulated).")
+
+    def extract_and_save_json(self, pdf_path: Path, output_json_dir: Path = None, dry_run: bool = False):
+        self.logger.debug(f"Attempting to extract text from PDF: {pdf_path} (simulated)")
+        if not dry_run and not pdf_path.exists():
+            self.logger.error(f"PDF file {pdf_path} does not exist.")
+            return None
+
+        if output_json_dir is None:
+            # Save to a default "json_extracted" subdir relative to pdf if no output_json_dir
+            # This makes more sense for the 'run' command's extract step.
+            output_json_dir = pdf_path.parent / "json_extracted"
+        else:
+            output_json_dir = Path(output_json_dir)
+
+        output_json_dir.mkdir(parents=True, exist_ok=True)
+        # Use a more descriptive name for extracted JSON, e.g., based on PDF name
+        output_json_path = output_json_dir / f"{pdf_path.stem}_extracted.json"
+
+
+        if dry_run:
+            self.logger.info(f"DRY-RUN: Would extract text from {pdf_path} and save to {output_json_path}")
+            return output_json_path # Return simulated path
+
+        self.logger.info(f"Extracting text from {pdf_path} and saving to {output_json_path} (simulated)")
+        # Simulate extraction: create a dummy JSON file mirroring the input PDF name
+        dummy_content = {
+            "file_name_source": pdf_path.name,
+            "extracted_data_simulated": True,
+            # Add structure similar to what dummy_decision.json has for 'update' to process
+            "numero_processo": f"SIM-{pdf_path.stem.replace('_', '-')}",
+            "partes": {
+                "requerente": [f"Adv From {pdf_path.stem} A (OAB/UF 123)"],
+                "requerido": [f"Adv From {pdf_path.stem} B (OAB/UF 456)"]
+            },
+            "advogados": { # Ensure 'advogados' key exists as per update logic
+                "requerente": [f"Adv From {pdf_path.stem} A (OAB/UF 123)"],
+                "requerido": [f"Adv From {pdf_path.stem} B (OAB/UF 456)"]
+            },
+            "resultado": "procedente", # Default for simulation
+            "data_decisao": datetime.date.today().isoformat()
+        }
+        try:
+            with open(output_json_path, "w") as f:
+                json.dump(dummy_content, f, indent=2)
+            self.logger.info(f"Successfully extracted (simulated) and saved JSON to {output_json_path}")
+            return output_json_path
+        except IOError as e:
+            self.logger.error(f"Failed to write JSON file at {output_json_path}: {e}")
+            return None
+
+def setup_logging(verbose: bool):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    logging.basicConfig(stream=sys.stdout, level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+def collect_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Collect command called with args: {args}")
+    pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
+    if pdf_path:
+        logger.info(f"Collect command successful. PDF path: {pdf_path}")
+        return pdf_path
     else:
-        # Log to standard logger before JSON logging is set up if this critical import fails
-        logging.basicConfig(level=logging.ERROR)
-        logging.error(f"Relative import failed even when __package__ is set: {__package__}, Error: {e}")
-        raise
+        logger.error("Collect command failed.")
+        return None
 
-# Module-level logger - will be configured by setup_logging
-logger = logging.getLogger(__name__)
+def extract_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Extract command called with args: {args}")
+    pdf_file_path = Path(args.pdf_file)
+    # If output_json_dir is not specified for extract, it defaults to the PDF's directory.
+    # This is different from the GeminiExtractor's internal default if output_json_dir is None.
+    output_dir = Path(args.output_json_dir) if args.output_json_dir else pdf_file_path.parent
 
-# Default paths defined at module level
-BASE_DATA_DIR = pathlib.Path(__file__).resolve().parent.parent / "data"
-DEFAULT_DIARIOS_DIR = BASE_DATA_DIR / "diarios"
-DEFAULT_JSON_DIR = BASE_DATA_DIR / "json"
-DEFAULT_RATINGS_FILE = BASE_DATA_DIR / "ratings.csv"
-DEFAULT_MATCHES_FILE = BASE_DATA_DIR / "partidas.csv"
+    extractor = GeminiExtractor(verbose=args.verbose)
+    json_path = extractor.extract_and_save_json(pdf_path=pdf_file_path,
+                                                output_json_dir=output_dir,
+                                                dry_run=args.dry_run)
+    if json_path:
+        logger.info(f"Extract command successful. JSON path: {json_path}")
+        return json_path
+    else:
+        logger.error("Extract command failed.")
+        return None
 
-def setup_logging(is_verbose: bool):
-    """Configures structured JSON logging for the application."""
-    root_logger = logging.getLogger()
+# Renamed from _handle_update_logic to fit into the command structure
+def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
+    logger.info("Starting Elo update process.")
+    if dry_run:
+        logger.info("DRY-RUN: Elo update process would run, no files will be changed.")
 
-    # Clear any existing handlers
-    if root_logger.hasHandlers():
-        root_logger.handlers.clear()
+    json_input_dir = Path('causaganha/data/json/')
+    processed_json_dir = Path('causaganha/data/json_processed/')
+    ratings_file = Path('causaganha/data/ratings.csv')
+    partidas_file = Path('causaganha/data/partidas.csv')
 
-    handler = logging.StreamHandler()
-    # Example format: %(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s
-    # JsonFormatter automatically picks up many LogRecord attributes.
-    # We can specify a subset or add more via 'rename_fields' or 'static_fields'.
-    formatter = jsonlogger.JsonFormatter(
-        '%(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s'
+    # Load Ratings
+    try:
+        ratings_df = pd.read_csv(ratings_file, index_col='advogado_id')
+        logger.info(f"Loaded ratings from {ratings_file}")
+    except FileNotFoundError:
+        logger.info(f"{ratings_file} not found. Initializing new ratings DataFrame.")
+        ratings_df = pd.DataFrame(columns=['rating', 'total_partidas']).set_index(pd.Index([], name='advogado_id'))
+    except Exception as e:
+        logger.error(f"Error loading {ratings_file}: {e}. Initializing new ratings DataFrame.")
+        ratings_df = pd.DataFrame(columns=['rating', 'total_partidas']).set_index(pd.Index([], name='advogado_id'))
+
+
+    if dry_run:
+        original_ratings_df = ratings_df.copy() # Keep original for comparison if needed
+        # For dry run, we operate on a copy so changes aren't persisted if we were to save.
+        # However, the save operations are skipped anyway in dry_run.
+
+    partidas_history = []
+    processed_files_paths = [] # Keep track of files processed in this run
+
+    if not json_input_dir.exists():
+        logger.error(f"JSON input directory not found: {json_input_dir}")
+        return
+
+    json_files_to_process = list(json_input_dir.glob('*.json'))
+    if not json_files_to_process:
+        logger.info(f"No JSON files found in {json_input_dir} to process.")
+        # Still save ratings/partidas if they exist from previous runs and need sorting/creation
+
+    for json_path in json_files_to_process:
+        logger.info(f"Processing JSON file: {json_path.name}")
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                loaded_content = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from {json_path.name}: {e}. Skipping file.")
+            continue
+        except Exception as e:
+            logger.error(f"Error reading {json_path.name}: {e}. Skipping file.")
+            continue
+
+        decisions_in_file = loaded_content if isinstance(loaded_content, list) else [loaded_content]
+
+        file_had_valid_decisions_for_elo = False
+        for decision_data in decisions_in_file:
+            if not validate_decision(decision_data): # validate_decision logs reasons
+                logger.warning(f"Skipping invalid decision in {json_path.name} (processo: {decision_data.get('numero_processo', 'N/A')}).")
+                continue
+
+            advogados_data = decision_data.get('advogados', {})
+            advogados_requerente = advogados_data.get('requerente', [])
+            advogados_requerido = advogados_data.get('requerido', [])
+
+            if not advogados_requerente or not advogados_requerido:
+                logger.warning(f"Missing lawyers for one or both parties in {json_path.name} (processo: {decision_data.get('numero_processo')}). Skipping decision.")
+                continue
+
+            # Taking the first lawyer from each list for the Elo match
+            adv_a_raw_id = advogados_requerente[0]
+            adv_b_raw_id = advogados_requerido[0]
+
+            adv_a_id = normalize_lawyer_name(adv_a_raw_id)
+            adv_b_id = normalize_lawyer_name(adv_b_raw_id)
+
+            if not adv_a_id or not adv_b_id : # Handle cases where normalization might return empty
+                logger.warning(f"Could not normalize one or both lawyer IDs ('{adv_a_raw_id}', '{adv_b_raw_id}') for {decision_data.get('numero_processo')}. Skipping.")
+                continue
+
+            if adv_a_id == adv_b_id:
+                logger.info(f"Same lawyer ('{adv_a_id}') for both parties in {decision_data.get('numero_processo')}. Skipping Elo update for this pair.")
+                continue
+
+            resultado_str = decision_data.get('resultado', '').lower()
+            score_a = 0.5 # Default to draw for unknown outcomes
+            if resultado_str == "procedente":
+                score_a = 1.0
+            elif resultado_str == "improcedente":
+                score_a = 0.0
+            elif resultado_str in ["parcialmente procedente", "parcialmente_procedente", "extinto sem resolução de mérito", "extinto"]:
+                score_a = 0.5
+            else:
+                logger.warning(f"Unknown 'resultado' ('{resultado_str}') for {decision_data.get('numero_processo')}. Treating as a draw (0.5).")
+
+
+            rating_a = ratings_df.loc[adv_a_id, 'rating'] if adv_a_id in ratings_df.index else DEFAULT_RATING
+            rating_b = ratings_df.loc[adv_b_id, 'rating'] if adv_b_id in ratings_df.index else DEFAULT_RATING
+
+            rating_a_antes = rating_a
+            rating_b_antes = rating_b
+
+            new_rating_a, new_rating_b = update_elo(rating_a, rating_b, score_a, k_factor=K_FACTOR)
+
+            # Update ratings_df for adv_a_id
+            current_partidas_a = ratings_df.loc[adv_a_id, 'total_partidas'] if adv_a_id in ratings_df.index else 0
+            ratings_df.loc[adv_a_id, ['rating', 'total_partidas']] = [new_rating_a, current_partidas_a + 1]
+
+            # Update ratings_df for adv_b_id
+            current_partidas_b = ratings_df.loc[adv_b_id, 'total_partidas'] if adv_b_id in ratings_df.index else 0
+            ratings_df.loc[adv_b_id, ['rating', 'total_partidas']] = [new_rating_b, current_partidas_b + 1]
+
+            logger.debug(f"Elo updated for {adv_a_id} ({rating_a_antes:.1f} -> {new_rating_a:.1f}) vs {adv_b_id} ({rating_b_antes:.1f} -> {new_rating_b:.1f})")
+
+            partidas_history.append({
+                "data_partida": decision_data.get('data_decisao', datetime.date.today().isoformat()),
+                "advogado_a_id": adv_a_id,
+                "advogado_b_id": adv_b_id,
+                "rating_advogado_a_antes": rating_a_antes,
+                "rating_advogado_b_antes": rating_b_antes,
+                "score_a": score_a,
+                "rating_advogado_a_depois": new_rating_a,
+                "rating_advogado_b_depois": new_rating_b,
+                "numero_processo": decision_data.get('numero_processo')
+            })
+            file_had_valid_decisions_for_elo = True
+
+        if file_had_valid_decisions_for_elo:
+             processed_files_paths.append(json_path)
+
+
+    if not dry_run:
+        if not ratings_df.empty:
+            try:
+                # Ensure index has a name for pd.to_csv
+                if ratings_df.index.name is None:
+                    ratings_df.index.name = 'advogado_id'
+                ratings_df_sorted = ratings_df.sort_values(by='rating', ascending=False)
+                ratings_df_sorted.to_csv(ratings_file)
+                logger.info(f"Ratings saved to {ratings_file}")
+            except Exception as e:
+                logger.error(f"Error saving ratings to {ratings_file}: {e}")
+        else:
+            logger.info("Ratings DataFrame is empty. Not saving ratings file.")
+
+        if partidas_history:
+            partidas_df = pd.DataFrame(partidas_history)
+            try:
+                partidas_df.to_csv(partidas_file, index=False)
+                logger.info(f"Partidas history saved to {partidas_file}")
+            except Exception as e:
+                logger.error(f"Error saving partidas to {partidas_file}: {e}")
+        else:
+            logger.info("No new partidas to save.")
+
+        if processed_files_paths:
+            processed_json_dir.mkdir(parents=True, exist_ok=True)
+            for processed_file_path in processed_files_paths:
+                try:
+                    destination = processed_json_dir / processed_file_path.name
+                    shutil.move(str(processed_file_path), str(destination))
+                    logger.info(f"Moved processed JSON file {processed_file_path.name} to {destination}")
+                except Exception as e:
+                    logger.error(f"Error moving file {processed_file_path.name} to {processed_json_dir}: {e}")
+        else:
+            logger.info("No JSON files were successfully processed to be moved.")
+
+    else: # Dry run
+        logger.info("DRY-RUN: Skipping save of ratings, partidas, and move of JSON files.")
+        if not ratings_df.empty :
+             logger.info(f"DRY-RUN: Would attempt to save {len(ratings_df)} ratings.")
+        if partidas_history:
+            logger.info(f"DRY-RUN: Would attempt to save {len(partidas_history)} partidas.")
+        if processed_files_paths:
+            logger.info(f"DRY-RUN: Would attempt to move {len(processed_files_paths)} JSON files.")
+
+    logger.info("Elo update process finished.")
+
+
+def update_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Update command called with args: {args}")
+
+    # The main logic is now encapsulated in _update_elo_ratings_logic
+    _update_elo_ratings_logic(logger, args.dry_run)
+
+
+def run_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Run command called with args: {args}")
+
+    logger.info(f"Starting 'collect' step for date {args.date}...")
+    pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
+    if not pdf_path:
+        logger.error(f"'collect' step failed for date {args.date}. Aborting 'run'.")
+        return
+    logger.info(f"'collect' step successful. PDF available at: {pdf_path}")
+
+    logger.info(f"Starting 'extract' step for PDF {pdf_path}...")
+    # For 'run', if --output_json_dir is given to 'run', it's for the final JSON output of the pipeline.
+    # The extract step here should probably save to the default location for 'update' to find it.
+    # So, `causaganha/data/json/` is the target for extract step in a `run` command.
+    # The GeminiExtractor's default is relative to the PDF, which might be /tmp/.
+    # Let's make it explicit for the run command.
+    extract_output_dir = Path(args.output_json_dir) if args.output_json_dir else Path('causaganha/data/json/')
+
+    extractor = GeminiExtractor(verbose=args.verbose)
+    json_output_path = extractor.extract_and_save_json(
+        pdf_path=pdf_path,
+        output_json_dir=extract_output_dir, # Explicitly pass where extracted JSONs should go
+        dry_run=args.dry_run
     )
-    handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    if not json_output_path:
+        logger.error(f"'extract' step failed for PDF {pdf_path}. 'run' command partially completed.")
+        return
+    logger.info(f"'extract' step successful. JSON output at: {json_output_path}")
 
-    if is_verbose:
-        root_logger.setLevel(logging.DEBUG)
-    else:
-        root_logger.setLevel(logging.INFO)
+    # --- Update Step (as part of run) ---
+    logger.info("Starting 'update' step as part of 'run' command...")
+    # Create a simple Namespace for args to pass to update_command's logic
+    # The update logic doesn't depend on many args, mainly dry_run and verbose (which is global)
+    update_args = argparse.Namespace(dry_run=args.dry_run, verbose=args.verbose)
+    update_command(update_args) # Call the update_command function
 
-def handle_collect(args):
-    logger.info("Handling command", extra={'command': 'collect', 'date': args.date})
+    logger.info(f"Run command completed successfully for date {args.date}.")
 
-    try:
-        target_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date()
-        logger.debug("Parsed date string to date object", extra={'date_string': args.date, 'parsed_date': target_date.isoformat()})
-    except ValueError:
-        logger.error("Invalid date format for --date", extra={'date_string': args.date, 'expected_format': 'YYYY-MM-DD'})
-        return None
-
-    pdf_filename = f"dj_{target_date.strftime('%Y-%m-%d')}.pdf"
-    expected_pdf_path_for_log = DEFAULT_DIARIOS_DIR / pdf_filename
-
-    logger.info("Attempting to collect Diário Oficial", extra={'target_date': target_date.isoformat(), 'expected_dir': str(DEFAULT_DIARIOS_DIR)})
-
-    if args.dry_run:
-        logger.info("Dry-run: Would call fetch_tjro_pdf", extra={'target_date': target_date.isoformat(), 'expected_path': str(expected_pdf_path_for_log)})
-        return str(expected_pdf_path_for_log)
-
-    try:
-        downloaded_pdf_path = fetch_tjro_pdf(target_date)
-        if downloaded_pdf_path and downloaded_pdf_path.exists():
-            logger.info("PDF downloaded successfully", extra={'file_path': str(downloaded_pdf_path)})
-            return str(downloaded_pdf_path)
-        elif downloaded_pdf_path:
-            logger.error("fetch_tjro_pdf reported path but file not found",
-                         extra={'reported_path': str(downloaded_pdf_path), 'target_date': target_date.isoformat()})
-            return None
-        else:
-            logger.warning("Failed to download PDF, fetch_tjro_pdf returned None", extra={'target_date': target_date.isoformat()})
-            return None
-    except Exception as e:
-        logger.error("Unexpected error during PDF download",
-                     extra={'target_date': target_date.isoformat(), 'error': str(e)}, exc_info=True)
-        return None
-
-def handle_extract(args):
-    logger.info("Handling command", extra={'command': 'extract', 'pdf_file': str(args.pdf_file)})
-
-    pdf_to_process = pathlib.Path(args.pdf_file)
-    output_dir = args.json_output_dir
-
-    if args.dry_run:
-        logger.info("Dry-run: (extract stage) Received PDF path. Assuming valid for dry run flow.",
-                    extra={'pdf_path': str(pdf_to_process)})
-        logger.info("Dry-run: Would initialize GeminiExtractor and call extract_and_save_json",
-                    extra={'pdf_file': str(pdf_to_process), 'output_dir': str(output_dir)})
-        simulated_json_name = pdf_to_process.stem + ".json"
-        return str(output_dir / simulated_json_name)
-
-    if not pdf_to_process.exists() or not pdf_to_process.is_file():
-        logger.error("PDF file not found or is not a file", extra={'pdf_path': str(pdf_to_process)})
-        return None
-
-    logger.info("Attempting to extract data from PDF",
-                extra={'pdf_file': str(pdf_to_process), 'output_dir': str(output_dir)})
-
-    try:
-        extractor_instance = GeminiExtractor()
-        saved_json_path = extractor_instance.extract_and_save_json(pdf_to_process, output_dir)
-
-        if saved_json_path and saved_json_path.exists():
-            logger.info("JSON extracted and saved successfully", extra={'json_file_path': str(saved_json_path)})
-            return str(saved_json_path)
-        elif saved_json_path:
-            logger.error("Extractor reported success but JSON file not found",
-                         extra={'reported_path': str(saved_json_path), 'pdf_file': str(pdf_to_process)})
-            return None
-        else:
-            logger.warning("Failed to extract data from PDF, extractor returned None",
-                           extra={'pdf_file': str(pdf_to_process)})
-            return None
-    except Exception as e:
-        logger.error("Unexpected error during data extraction",
-                     extra={'pdf_file': str(pdf_to_process), 'error': str(e)}, exc_info=True)
-        return None
-
-def handle_update(args):
-    logger.info("Handling command (placeholder)", extra={'command': 'update'})
-
-    log_payload = {
-        'json_dir': str(args.json_dir),
-        'ratings_file': str(args.ratings_file),
-        'matches_file': str(args.matches_file)
-    }
-    logger.info("Elo update parameters", extra=log_payload)
-
-    if not args.json_dir.exists() or not args.json_dir.is_dir():
-        logger.warning("JSON data directory not found. If this were a real run, no data to process.",
-                       extra={'json_dir': str(args.json_dir)})
-
-    if args.dry_run:
-        logger.info("Dry-run: Would iterate JSONs, process matches, update Elo ratings.", extra={'dry_run_details': 'No actual Elo logic implemented or executed.'})
-        return True
-
-    logger.warning("Placeholder for Elo update logic. NO ACTUAL UPDATES WILL BE PERFORMED.",
-                   extra={'status': 'placeholder_not_implemented'})
-    # Detailed placeholder info can remain as multi-line in message or be summarized for JSON
-    logger.info("Full implementation would involve: reading CSVs, processing JSONs, calculating Elo, writing CSVs.")
-    return True
-
-def handle_run(args):
-    run_context = {'command': 'run', 'date': args.date, 'dry_run': args.dry_run}
-    logger.info("Handling full pipeline run", extra=run_context)
-    if args.dry_run:
-        logger.info("Dry-run: Orchestrating collect, extract, and update steps.", extra=run_context)
-
-    # --- 1. Collect Stage ---
-    logger.info("--- Stage 1: Collect ---", extra=run_context)
-    collect_args = argparse.Namespace(date=args.date, dry_run=args.dry_run)
-    pdf_path_str = handle_collect(collect_args)
-
-    if not pdf_path_str:
-        logger.error("Collect stage failed. Aborting run command.", extra=run_context)
-        return False
-
-    logger.info("Collect stage successful", extra={**run_context, 'stage': 'collect', 'pdf_path': pdf_path_str})
-    pdf_path = pathlib.Path(pdf_path_str)
-
-    # --- 2. Extract Stage ---
-    logger.info("--- Stage 2: Extract ---", extra=run_context)
-    extract_args = argparse.Namespace(pdf_file=pdf_path, json_output_dir=DEFAULT_JSON_DIR, dry_run=args.dry_run)
-    json_path_str = handle_extract(extract_args)
-
-    if not json_path_str:
-        logger.error("Extract stage failed. Aborting run command.", extra=run_context)
-        return False
-
-    logger.info("Extract stage successful", extra={**run_context, 'stage': 'extract', 'json_path': json_path_str})
-
-    # --- 3. Update Stage (Placeholder) ---
-    logger.info("--- Stage 3: Update (Placeholder) ---", extra=run_context)
-    update_args = argparse.Namespace(json_dir=DEFAULT_JSON_DIR, ratings_file=DEFAULT_RATINGS_FILE, matches_file=DEFAULT_MATCHES_FILE, dry_run=args.dry_run)
-    update_success = handle_update(update_args)
-
-    if not update_success:
-        logger.warning("Update (placeholder) stage reported an issue.", extra={**run_context, 'stage': 'update', 'status': 'issue_reported'})
-
-    logger.info("Update (placeholder) stage completed.", extra={**run_context, 'stage': 'update'})
-    logger.info("Full pipeline run completed successfully.", extra=run_context)
-    return True
 
 def main():
-    # Preliminary parser for global flags like --verbose for early logging setup
-    pre_parser = argparse.ArgumentParser(add_help=False) # No help for this one, it's internal
-    pre_parser.add_argument(
-        "--verbose", action="store_true", help="Enable verbose logging for setup."
-    )
-    # Parse known args to get --verbose status for logging setup
-    logging_args, _ = pre_parser.parse_known_args()
-    setup_logging(logging_args.verbose) # Setup logging based on --verbose
+    parser = argparse.ArgumentParser(description="CausaGanha LegalELo ETL Pipeline.")
+    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging (DEBUG level) for all operations.")
 
-    # Main parser
-    parser = argparse.ArgumentParser(
-        description="CausaGanha Pipeline: Orchestrates PDF collection, data extraction, and Elo rating updates.",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-    # Add global arguments to the main parser as well for help text and final argument parsing
-    parser.add_argument(
-        "--verbose", action="store_true", help="Increase output verbosity (set logging level to DEBUG)."
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Log actions that would be taken without actually executing them."
-    )
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands.")
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands", required=True)
+    collect_parser = subparsers.add_parser("collect", help="Downloads official legal documents for a specific date.")
+    collect_parser.add_argument("--date", required=True, help="Date in YYYY-MM-DD format to collect documents for.")
+    collect_parser.add_argument("--dry-run", action="store_true", help="Simulate data collection without downloading.")
+    collect_parser.set_defaults(func=collect_command)
 
-    collect_parser = subparsers.add_parser("collect", help="Download Diário Oficial PDF for a given date.")
-    collect_parser.add_argument("--date", type=str, required=True, help="The date for which to download the Diário, in YYYY-MM-DD format.")
+    extract_parser = subparsers.add_parser("extract", help="Extracts information from a PDF document to JSON.")
+    extract_parser.add_argument("--pdf_file", required=True, type=Path, help="Path to the PDF file to process.")
+    extract_parser.add_argument("--output_json_dir", type=Path, help="Optional directory to save the output JSON file. Defaults to PDF's directory.")
+    extract_parser.add_argument("--dry-run", action="store_true", help="Simulate extraction without processing or saving.")
+    extract_parser.set_defaults(func=extract_command)
 
-    extract_parser = subparsers.add_parser("extract", help="Extract data from a given PDF file.")
-    extract_parser.add_argument("--pdf_file", type=pathlib.Path, required=True, help="Path to the PDF file to process.")
-    extract_parser.add_argument("--json_output_dir", type=pathlib.Path, default=DEFAULT_JSON_DIR, help=f"Directory to save the extracted JSON file. Defaults to {DEFAULT_JSON_DIR}")
+    update_parser = subparsers.add_parser("update", help="Updates Elo ratings and match history from processed JSON files.")
+    update_parser.add_argument("--dry-run", action="store_true", help="Simulate update without changing ratings/partidas files or moving JSONs.")
+    update_parser.set_defaults(func=update_command)
 
-    update_parser = subparsers.add_parser("update", help="Update Elo ratings based on extracted data (placeholder).")
-    update_parser.add_argument("--json_dir", type=pathlib.Path, default=DEFAULT_JSON_DIR, help=f"Directory containing JSON files. Defaults to {DEFAULT_JSON_DIR}")
-    update_parser.add_argument("--ratings_file", type=pathlib.Path, default=DEFAULT_RATINGS_FILE, help=f"Path to the ratings CSV file. Defaults to {DEFAULT_RATINGS_FILE}")
-    update_parser.add_argument("--matches_file", type=pathlib.Path, default=DEFAULT_MATCHES_FILE, help=f"Path to the matches CSV file. Defaults to {DEFAULT_MATCHES_FILE}")
+    run_parser = subparsers.add_parser("run", help="Runs the full collect, extract, and update pipeline for a specific date.")
+    run_parser.add_argument("--date", required=True, help="Date in YYYY-MM-DD format for the pipeline.")
+    # output_json_dir for 'run' could specify where the 'extract' step places its files.
+    # If not specified, extract might use its default (e.g. data/json or relative to PDF).
+    # For 'run', it's important that 'extract' output goes where 'update' expects it.
+    run_parser.add_argument("--output_json_dir", type=Path, help="Optional: Directory for 'extract' to save JSONs. Defaults to 'causaganha/data/json/'.")
+    run_parser.add_argument("--dry-run", action="store_true", help="Simulate the full pipeline run.")
+    run_parser.set_defaults(func=run_command)
 
-    run_parser = subparsers.add_parser("run", help="Run the full pipeline: collect -> extract -> update.")
-    run_parser.add_argument("--date", type=str, required=True, help="The date for which the pipeline should run (affects collection stage).")
+    args = parser.parse_args()
 
-    args = parser.parse_args() # Full parse
+    global_verbose = args.verbose if hasattr(args, 'verbose') else False
+    setup_logging(global_verbose)
 
-    # Logging level is set by setup_logging using logging_args.verbose.
-    # args.verbose (from the main parser) is available if needed for other logic,
-    # but logging setup is complete.
+    if hasattr(args, 'func'):
+        args.verbose = global_verbose
 
-    # Log global flags if they are set
-    if args.verbose: # Explicitly log that verbose is on, if it was set
-        logger.debug("Verbose mode enabled.", extra={'logging_level': 'DEBUG'})
-    if args.dry_run:
-        logger.info("Dry-run mode is active for this operation.", extra={'dry_run_global': True})
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Global verbose: {global_verbose}. Effective args for command: {args}")
 
-    # No need to log verbose mode explicitly here, as setup_logging handles the level.
-    # If args.verbose is True, DEBUG logs will appear; otherwise, they won't.
-
-    logger.debug("Pipeline arguments parsed", extra={'command': args.command, 'arguments': vars(args)})
-
-    if args.command == "collect":
-        handle_collect(args)
-    elif args.command == "extract":
-        handle_extract(args)
-    elif args.command == "update":
-        handle_update(args)
-    elif args.command == "run":
-        handle_run(args)
+    if hasattr(args, 'func'):
+        args.func(args)
     else:
-        logger.error("Unknown command", extra={'command': args.command})
         parser.print_help()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

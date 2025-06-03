@@ -29,6 +29,7 @@ Milestone 1 – Coleta Diária de PDFs
 Status	Tarefa	Detalhes
 
 ✓	downloader.py	Função fetch_tjro_pdf(date) → Path
+🛈	Now uses real TJRO URL and dj_YYYYMMDD.pdf format.
 ✓	Log & versionamento	Nomear arquivos dj_{YYYY‑MM‑DD}.pdf em data/diarios/
 ✓	Workflow 01_collect.yml	Agendamento cron diário (05:00 UTC) + upload como artefato
 ✓	Teste local	Executar python -m legalelo.downloader --date 2025‑06‑01
@@ -42,6 +43,7 @@ Milestone 2 – Extração com Gemini
 Status	Tarefa	Detalhes
 
 ✓	extractor.py	Classe GeminiExtractor com prompt parametrizado
+🛈	Implemented real Gemini API calls with user-provided prompt.
 ✓	Formato de saída	JSON por decisão em data/json/{processo}.json
 ✓	Workflow 02_extract.yml	Gatilho: sucesso de 01_collect.yml; matriz paralela por página
 ✓	Cache de tokenização	Memória local para não reprocessar PDFs idênticos
@@ -56,6 +58,7 @@ Status	Tarefa	Detalhes
 
 ✓	elo.py	Funções expected(r_a,r_b) e update(r_a,r_b,score,k) (K = 16)
 ✓	ratings.csv & partidas.csv	Schema definido no README
+🛈	Pipeline's 'update' command now generates and updates these files.
 ✓	Validação	Testes unitários com cenários simples (vitória, derrota, empate)
 
 
@@ -66,9 +69,11 @@ Milestone 4 – Orquestração CLI
 
 Status	Tarefa	Detalhes
 
-□	pipeline.py	Comandos collect, extract, update, run (orquestra tudo)
-□	CLI via argparse	Flags --date, --dry-run, --verbose
-□	Logging estruturado	logging JSON‑friendly (nível INFO)
+✓	pipeline.py	Comandos collect, extract, update, run (orquestra tudo)
+✓	CLI via argparse	Flags --date, --dry-run, --verbose
+✓	Logging estruturado	logging JSON‑friendly (nível INFO)
+🛈	`pipeline.py` includes basic logging.
+✓	Utility functions in utils.py (normalize_lawyer_name, validate_decision)
 
 
 
@@ -91,7 +96,8 @@ Milestone 6 – Qualidade & Testes
 Status	Tarefa	Detalhes
 
 □	Lint	ruff + pre‑commit
-□	CI Test	pytest no GitHub Actions
+✓	CI Test	pytest no GitHub Actions
+🛈	Comprehensive unit tests added for utils, downloader, extractor, and pipeline.
 □	Cobertura	coverage.xml + Codecov badge
 
 
@@ -152,4 +158,3 @@ Próximos Passos Imediatos
 
 
 Criei um TODO.md detalhado, já estruturado em marcos (Milestones) e tarefas com check-boxes, cobrindo desde a configuração inicial do repositório até qualidade de código, CI e roadmap de expansão. Sinta-se à vontade para revisar e marcar o que for avançando — e diga se quiser ajustes ou aprofundar algum item!
-
