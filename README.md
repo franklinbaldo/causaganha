@@ -1,8 +1,3 @@
-Claro. Aqui está o README.md reescrito com um tom mais sério e acadêmico, adequado para apresentação do projeto CausaGanha como uma iniciativa de pesquisa aplicada ou prova de conceito técnico-jurídico:
-
-
----
-
 # CausaGanha
 
 **CausaGanha** é uma plataforma automatizada de extração e análise de decisões judiciais que aplica o sistema de pontuação **Elo** — originalmente desenvolvido para classificar jogadores de xadrez — à atuação de advogados em processos judiciais. A proposta consiste em construir um modelo dinâmico e transparente de avaliação de desempenho com base em decisões publicadas diariamente no Diário de Justiça do Tribunal de Justiça de Rondônia (TJRO).
@@ -171,6 +166,4 @@ Google Gemini API – developers.generativeai.google
 ---
 
 CausaGanha é uma proposta de aproximação entre o direito e a ciência de dados, com o objetivo de fomentar novas formas de análise empírica da atuação processual. O projeto está aberto à colaboração e feedback da comunidade jurídica, técnica e acadêmica.
-
-Se quiser, posso gerar esse arquivo como `README.md` e montar os três arquivos iniciais do projeto em um repositório para começar. Deseja isso?
 
