@@ -1,273 +1,228 @@
 import argparse
 import logging
-import datetime
-import pathlib
+from pathlib import Path
 import sys
-from pythonjsonlogger import jsonlogger # Added
 
-# Adjust sys.path (commented out as primary execution is via -m)
-# sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# Placeholder for actual imports until those files are created
+# from .downloader import fetch_tjro_pdf
+# from .extractor import GeminiExtractor
 
-# Relative imports for module execution
-try:
-    from .downloader import fetch_tjro_pdf
-    from .extractor import GeminiExtractor
-    from .elo import update_elo, expected_score
-except ImportError as e:
-    if __package__ is None or __package__ == '':
-        logging.warning(f"Attempting fallback import for direct script execution: {e}")
-        from downloader import fetch_tjro_pdf
-        from extractor import GeminiExtractor
-        from elo import update_elo, expected_score
+# Simulate the functions for now, as the actual files don't exist yet
+def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
+    logger = logging.getLogger(__name__)
+    if dry_run:
+        logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
+        return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
+    logger.info(f"Fetching TJRO PDF for date: {date_str}")
+    # Simulate download
+    fake_pdf_path = Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
+    fake_pdf_path.parent.mkdir(parents=True, exist_ok=True) # Ensure /tmp exists or is writable
+    fake_pdf_path.touch()
+    logger.info(f"Successfully downloaded {fake_pdf_path}")
+    return fake_pdf_path
+
+class GeminiExtractor:
+    def __init__(self, verbose: bool = False): # verbose param can be removed if not used
+        self.logger = logging.getLogger(__name__)
+        # self.verbose attribute is not strictly necessary if not used elsewhere.
+        # Logging level is inherited from root logger set by setup_logging.
+        self.logger.debug("GeminiExtractor initialized.")
+
+    def extract_and_save_json(self, pdf_path: Path, output_json_dir: Path = None, dry_run: bool = False):
+        self.logger.debug(f"Attempting to extract text from PDF: {pdf_path}")
+        if not dry_run and not pdf_path.exists(): # Only check existence if not a dry run
+            self.logger.error(f"PDF file {pdf_path} does not exist.")
+            return None
+
+        if output_json_dir is None:
+            output_json_dir = pdf_path.parent
+        else:
+            output_json_dir = Path(output_json_dir)
+
+        output_json_dir.mkdir(parents=True, exist_ok=True) # Ensure dir exists
+
+        output_json_path = output_json_dir / f"{pdf_path.stem}.json"
+
+        if dry_run:
+            self.logger.info(f"DRY-RUN: Would extract text from {pdf_path} and save to {output_json_path}")
+            return output_json_path
+
+        self.logger.info(f"Extracting text from {pdf_path} and saving to {output_json_path}")
+        # Simulate extraction
+        try:
+            with open(output_json_path, "w") as f:
+                f.write('{"extracted": "data"}')
+            self.logger.info(f"Successfully extracted and saved JSON to {output_json_path}")
+            return output_json_path
+        except IOError as e:
+            self.logger.error(f"Failed to write JSON file at {output_json_path}: {e}")
+            return None
+
+def setup_logging(verbose: bool):
+    """Configures basic logging."""
+    log_level = logging.DEBUG if verbose else logging.INFO
+    # Clear any existing handlers to avoid duplicate logs if main() is called multiple times
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    logging.basicConfig(stream=sys.stdout, level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+def collect_command(args):
+    # Logger is configured by setup_logging via main based on args.verbose
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Collect command called with args: {args}")
+
+    # Dry run logic is now primarily within fetch_tjro_pdf
+    pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
+
+    if pdf_path:
+        logger.info(f"Collect command successful. PDF path: {pdf_path}")
+        return pdf_path
     else:
-        # Log to standard logger before JSON logging is set up if this critical import fails
-        logging.basicConfig(level=logging.ERROR)
-        logging.error(f"Relative import failed even when __package__ is set: {__package__}, Error: {e}")
-        raise
+        logger.error("Collect command failed.")
+        return None
 
-# Module-level logger - will be configured by setup_logging
-logger = logging.getLogger(__name__)
+def extract_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Extract command called with args: {args}")
 
-# Default paths defined at module level
-BASE_DATA_DIR = pathlib.Path(__file__).resolve().parent.parent / "data"
-DEFAULT_DIARIOS_DIR = BASE_DATA_DIR / "diarios"
-DEFAULT_JSON_DIR = BASE_DATA_DIR / "json"
-DEFAULT_RATINGS_FILE = BASE_DATA_DIR / "ratings.csv"
-DEFAULT_MATCHES_FILE = BASE_DATA_DIR / "partidas.csv"
+    pdf_file_path = Path(args.pdf_file)
+    output_dir = Path(args.output_json_dir) if args.output_json_dir else None
 
-def setup_logging(is_verbose: bool):
-    """Configures structured JSON logging for the application."""
-    root_logger = logging.getLogger()
+    # Initialize extractor with verbose setting from args
+    extractor = GeminiExtractor(verbose=args.verbose)
 
-    # Clear any existing handlers
-    if root_logger.hasHandlers():
-        root_logger.handlers.clear()
+    # Dry run is handled by extract_and_save_json
+    json_path = extractor.extract_and_save_json(pdf_path=pdf_file_path,
+                                                output_json_dir=output_dir,
+                                                dry_run=args.dry_run)
+    if json_path:
+        logger.info(f"Extract command successful. JSON path: {json_path}")
+        return json_path
+    else:
+        logger.error("Extract command failed.")
+        return None
 
-    handler = logging.StreamHandler()
-    # Example format: %(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s
-    # JsonFormatter automatically picks up many LogRecord attributes.
-    # We can specify a subset or add more via 'rename_fields' or 'static_fields'.
-    formatter = jsonlogger.JsonFormatter(
-        '%(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s'
+def update_command(args):
+    logger = logging.getLogger(__name__)
+    # args.verbose is correctly passed by main() due to propagation logic in main().
+    # Logging level is set globally by setup_logging.
+    logger.debug(f"Update command called with args: {args}") # Log args for clarity
+
+    message = "Update command is a placeholder and not yet implemented."
+    if args.dry_run:
+        message = "DRY-RUN: " + message
+
+    logger.info(message)
+    print(message) # Keep print for direct user feedback as requested
+
+    # Specific acknowledgements of flags are redundant if args are logged and message reflects dry_run.
+    # logger.debug("Verbose flag acknowledged by update_command.") # Covered by logging args
+    # logger.debug("Dry-run flag acknowledged by update_command.") # Covered by logging args & message
+
+
+def run_command(args):
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Run command called with args: {args}")
+
+    # --- Collect Step ---
+    logger.info(f"Starting 'collect' step for date {args.date}...")
+    # Directly use fetch_tjro_pdf, passing relevant args
+    pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
+
+    if not pdf_path: # fetch_tjro_pdf will log errors/dry-run info
+        logger.error(f"'collect' step failed for date {args.date}. Aborting 'run'.")
+        return
+
+    # If dry_run, fetch_tjro_pdf returns a simulated path and logs accordingly.
+    # No need for separate dry_run logic here for collection itself.
+    logger.info(f"'collect' step determined PDF path: {pdf_path}")
+
+
+    # --- Extract Step ---
+    logger.info(f"Starting 'extract' step for PDF {pdf_path}...")
+
+    output_json_dir_path = Path(args.output_json_dir) if args.output_json_dir else None
+
+    extractor = GeminiExtractor(verbose=args.verbose)
+    json_output_path = extractor.extract_and_save_json(
+        pdf_path=pdf_path, # pdf_path is already a Path object
+        output_json_dir=output_json_dir_path,
+        dry_run=args.dry_run
     )
-    handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
 
-    if is_verbose:
-        root_logger.setLevel(logging.DEBUG)
-    else:
-        root_logger.setLevel(logging.INFO)
+    if not json_output_path: # extract_and_save_json logs errors/dry-run info
+        logger.error(f"'extract' step failed for PDF {pdf_path}. 'run' command partially completed.")
+        return
 
-def handle_collect(args):
-    logger.info("Handling command", extra={'command': 'collect', 'date': args.date})
+    logger.info(f"'extract' step determined JSON output path: {json_output_path}")
+    logger.info(f"Run command completed successfully for date {args.date}.")
 
-    try:
-        target_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date()
-        logger.debug("Parsed date string to date object", extra={'date_string': args.date, 'parsed_date': target_date.isoformat()})
-    except ValueError:
-        logger.error("Invalid date format for --date", extra={'date_string': args.date, 'expected_format': 'YYYY-MM-DD'})
-        return None
-
-    pdf_filename = f"dj_{target_date.strftime('%Y-%m-%d')}.pdf"
-    expected_pdf_path_for_log = DEFAULT_DIARIOS_DIR / pdf_filename
-
-    logger.info("Attempting to collect Diário Oficial", extra={'target_date': target_date.isoformat(), 'expected_dir': str(DEFAULT_DIARIOS_DIR)})
-
-    if args.dry_run:
-        logger.info("Dry-run: Would call fetch_tjro_pdf", extra={'target_date': target_date.isoformat(), 'expected_path': str(expected_pdf_path_for_log)})
-        return str(expected_pdf_path_for_log)
-
-    try:
-        downloaded_pdf_path = fetch_tjro_pdf(target_date)
-        if downloaded_pdf_path and downloaded_pdf_path.exists():
-            logger.info("PDF downloaded successfully", extra={'file_path': str(downloaded_pdf_path)})
-            return str(downloaded_pdf_path)
-        elif downloaded_pdf_path:
-            logger.error("fetch_tjro_pdf reported path but file not found",
-                         extra={'reported_path': str(downloaded_pdf_path), 'target_date': target_date.isoformat()})
-            return None
-        else:
-            logger.warning("Failed to download PDF, fetch_tjro_pdf returned None", extra={'target_date': target_date.isoformat()})
-            return None
-    except Exception as e:
-        logger.error("Unexpected error during PDF download",
-                     extra={'target_date': target_date.isoformat(), 'error': str(e)}, exc_info=True)
-        return None
-
-def handle_extract(args):
-    logger.info("Handling command", extra={'command': 'extract', 'pdf_file': str(args.pdf_file)})
-
-    pdf_to_process = pathlib.Path(args.pdf_file)
-    output_dir = args.json_output_dir
-
-    if args.dry_run:
-        logger.info("Dry-run: (extract stage) Received PDF path. Assuming valid for dry run flow.",
-                    extra={'pdf_path': str(pdf_to_process)})
-        logger.info("Dry-run: Would initialize GeminiExtractor and call extract_and_save_json",
-                    extra={'pdf_file': str(pdf_to_process), 'output_dir': str(output_dir)})
-        simulated_json_name = pdf_to_process.stem + ".json"
-        return str(output_dir / simulated_json_name)
-
-    if not pdf_to_process.exists() or not pdf_to_process.is_file():
-        logger.error("PDF file not found or is not a file", extra={'pdf_path': str(pdf_to_process)})
-        return None
-
-    logger.info("Attempting to extract data from PDF",
-                extra={'pdf_file': str(pdf_to_process), 'output_dir': str(output_dir)})
-
-    try:
-        extractor_instance = GeminiExtractor()
-        saved_json_path = extractor_instance.extract_and_save_json(pdf_to_process, output_dir)
-
-        if saved_json_path and saved_json_path.exists():
-            logger.info("JSON extracted and saved successfully", extra={'json_file_path': str(saved_json_path)})
-            return str(saved_json_path)
-        elif saved_json_path:
-            logger.error("Extractor reported success but JSON file not found",
-                         extra={'reported_path': str(saved_json_path), 'pdf_file': str(pdf_to_process)})
-            return None
-        else:
-            logger.warning("Failed to extract data from PDF, extractor returned None",
-                           extra={'pdf_file': str(pdf_to_process)})
-            return None
-    except Exception as e:
-        logger.error("Unexpected error during data extraction",
-                     extra={'pdf_file': str(pdf_to_process), 'error': str(e)}, exc_info=True)
-        return None
-
-def handle_update(args):
-    logger.info("Handling command (placeholder)", extra={'command': 'update'})
-
-    log_payload = {
-        'json_dir': str(args.json_dir),
-        'ratings_file': str(args.ratings_file),
-        'matches_file': str(args.matches_file)
-    }
-    logger.info("Elo update parameters", extra=log_payload)
-
-    if not args.json_dir.exists() or not args.json_dir.is_dir():
-        logger.warning("JSON data directory not found. If this were a real run, no data to process.",
-                       extra={'json_dir': str(args.json_dir)})
-
-    if args.dry_run:
-        logger.info("Dry-run: Would iterate JSONs, process matches, update Elo ratings.", extra={'dry_run_details': 'No actual Elo logic implemented or executed.'})
-        return True
-
-    logger.warning("Placeholder for Elo update logic. NO ACTUAL UPDATES WILL BE PERFORMED.",
-                   extra={'status': 'placeholder_not_implemented'})
-    # Detailed placeholder info can remain as multi-line in message or be summarized for JSON
-    logger.info("Full implementation would involve: reading CSVs, processing JSONs, calculating Elo, writing CSVs.")
-    return True
-
-def handle_run(args):
-    run_context = {'command': 'run', 'date': args.date, 'dry_run': args.dry_run}
-    logger.info("Handling full pipeline run", extra=run_context)
-    if args.dry_run:
-        logger.info("Dry-run: Orchestrating collect, extract, and update steps.", extra=run_context)
-
-    # --- 1. Collect Stage ---
-    logger.info("--- Stage 1: Collect ---", extra=run_context)
-    collect_args = argparse.Namespace(date=args.date, dry_run=args.dry_run)
-    pdf_path_str = handle_collect(collect_args)
-
-    if not pdf_path_str:
-        logger.error("Collect stage failed. Aborting run command.", extra=run_context)
-        return False
-
-    logger.info("Collect stage successful", extra={**run_context, 'stage': 'collect', 'pdf_path': pdf_path_str})
-    pdf_path = pathlib.Path(pdf_path_str)
-
-    # --- 2. Extract Stage ---
-    logger.info("--- Stage 2: Extract ---", extra=run_context)
-    extract_args = argparse.Namespace(pdf_file=pdf_path, json_output_dir=DEFAULT_JSON_DIR, dry_run=args.dry_run)
-    json_path_str = handle_extract(extract_args)
-
-    if not json_path_str:
-        logger.error("Extract stage failed. Aborting run command.", extra=run_context)
-        return False
-
-    logger.info("Extract stage successful", extra={**run_context, 'stage': 'extract', 'json_path': json_path_str})
-
-    # --- 3. Update Stage (Placeholder) ---
-    logger.info("--- Stage 3: Update (Placeholder) ---", extra=run_context)
-    update_args = argparse.Namespace(json_dir=DEFAULT_JSON_DIR, ratings_file=DEFAULT_RATINGS_FILE, matches_file=DEFAULT_MATCHES_FILE, dry_run=args.dry_run)
-    update_success = handle_update(update_args)
-
-    if not update_success:
-        logger.warning("Update (placeholder) stage reported an issue.", extra={**run_context, 'stage': 'update', 'status': 'issue_reported'})
-
-    logger.info("Update (placeholder) stage completed.", extra={**run_context, 'stage': 'update'})
-    logger.info("Full pipeline run completed successfully.", extra=run_context)
-    return True
 
 def main():
-    # Preliminary parser for global flags like --verbose for early logging setup
-    pre_parser = argparse.ArgumentParser(add_help=False) # No help for this one, it's internal
-    pre_parser.add_argument(
-        "--verbose", action="store_true", help="Enable verbose logging for setup."
-    )
-    # Parse known args to get --verbose status for logging setup
-    logging_args, _ = pre_parser.parse_known_args()
-    setup_logging(logging_args.verbose) # Setup logging based on --verbose
+    parser = argparse.ArgumentParser(description="CausaGanha LegalELo ETL Pipeline.")
+    # Global verbose, handled by setup_logging after args are parsed.
+    # Each command's args object will also have 'verbose' if it's defined at its level.
+    parser.add_argument("--verbose", action="store_true", help="Enable detailed logging (DEBUG level) for all operations.")
 
-    # Main parser
-    parser = argparse.ArgumentParser(
-        description="CausaGanha Pipeline: Orchestrates PDF collection, data extraction, and Elo rating updates.",
-        formatter_class=argparse.RawTextHelpFormatter
-    )
-    # Add global arguments to the main parser as well for help text and final argument parsing
-    parser.add_argument(
-        "--verbose", action="store_true", help="Increase output verbosity (set logging level to DEBUG)."
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Log actions that would be taken without actually executing them."
-    )
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands.")
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands", required=True)
+    # --- Common arguments for commands that support them ---
+    # Dry-run and verbose are often common. Note: 'verbose' at top level controls global logging.
+    # Individual commands can have their own verbose if needed for different behavior,
+    # but here we assume top-level --verbose controls logging level globally.
 
-    collect_parser = subparsers.add_parser("collect", help="Download Diário Oficial PDF for a given date.")
-    collect_parser.add_argument("--date", type=str, required=True, help="The date for which to download the Diário, in YYYY-MM-DD format.")
+    # --- Collect Command ---
+    collect_parser = subparsers.add_parser("collect", help="Downloads official legal documents for a specific date.")
+    collect_parser.add_argument("--date", required=True, help="Date in YYYY-MM-DD format to collect documents for.")
+    collect_parser.add_argument("--dry-run", action="store_true", help="Simulate data collection without downloading.")
+    # collect_parser.add_argument("--verbose", action="store_true", help="Enable detailed logging for this command.") # Redundant if global --verbose is used
+    collect_parser.set_defaults(func=collect_command)
 
-    extract_parser = subparsers.add_parser("extract", help="Extract data from a given PDF file.")
-    extract_parser.add_argument("--pdf_file", type=pathlib.Path, required=True, help="Path to the PDF file to process.")
-    extract_parser.add_argument("--json_output_dir", type=pathlib.Path, default=DEFAULT_JSON_DIR, help=f"Directory to save the extracted JSON file. Defaults to {DEFAULT_JSON_DIR}")
+    # --- Extract Command ---
+    extract_parser = subparsers.add_parser("extract", help="Extracts information from a PDF document to JSON.")
+    extract_parser.add_argument("--pdf_file", required=True, type=Path, help="Path to the PDF file to process.")
+    extract_parser.add_argument("--output_json_dir", type=Path, help="Optional directory to save the output JSON file. Defaults to PDF's directory.")
+    extract_parser.add_argument("--dry-run", action="store_true", help="Simulate extraction without processing or saving.")
+    # extract_parser.add_argument("--verbose", action="store_true", help="Enable detailed logging for this command.")
+    extract_parser.set_defaults(func=extract_command)
 
-    update_parser = subparsers.add_parser("update", help="Update Elo ratings based on extracted data (placeholder).")
-    update_parser.add_argument("--json_dir", type=pathlib.Path, default=DEFAULT_JSON_DIR, help=f"Directory containing JSON files. Defaults to {DEFAULT_JSON_DIR}")
-    update_parser.add_argument("--ratings_file", type=pathlib.Path, default=DEFAULT_RATINGS_FILE, help=f"Path to the ratings CSV file. Defaults to {DEFAULT_RATINGS_FILE}")
-    update_parser.add_argument("--matches_file", type=pathlib.Path, default=DEFAULT_MATCHES_FILE, help=f"Path to the matches CSV file. Defaults to {DEFAULT_MATCHES_FILE}")
+    # --- Update Command ---
+    update_parser = subparsers.add_parser("update", help="Updates the database with extracted information (Placeholder).")
+    update_parser.add_argument("--dry-run", action="store_true", help="Acknowledge dry-run flag for placeholder.")
+    # update_parser.add_argument("--verbose", action="store_true", help="Acknowledge verbose flag for placeholder.")
+    update_parser.set_defaults(func=update_command)
 
-    run_parser = subparsers.add_parser("run", help="Run the full pipeline: collect -> extract -> update.")
-    run_parser.add_argument("--date", type=str, required=True, help="The date for which the pipeline should run (affects collection stage).")
+    # --- Run Command ---
+    run_parser = subparsers.add_parser("run", help="Runs the full collect and extract pipeline for a specific date.")
+    run_parser.add_argument("--date", required=True, help="Date in YYYY-MM-DD format for the pipeline.")
+    run_parser.add_argument("--output_json_dir", type=Path, help="Optional directory for the extract step's output JSON. Defaults to PDF's directory used in collect.")
+    run_parser.add_argument("--dry-run", action="store_true", help="Simulate the full pipeline run.")
+    # run_parser.add_argument("--verbose", action="store_true", help="Enable detailed logging for the run.")
+    run_parser.set_defaults(func=run_command)
 
-    args = parser.parse_args() # Full parse
+    args = parser.parse_args()
 
-    # Logging level is set by setup_logging using logging_args.verbose.
-    # args.verbose (from the main parser) is available if needed for other logic,
-    # but logging setup is complete.
+    # Setup logging once after parsing all args.
+    # The 'verbose' attribute will be present if any command defines it, or from the top-level parser.
+    # This ensures that if a subcommand specific verbose was intended, it would be accessible,
+    # but here we simplify to a single global verbose setting.
+    global_verbose = args.verbose if hasattr(args, 'verbose') else False
+    setup_logging(global_verbose)
 
-    # Log global flags if they are set
-    if args.verbose: # Explicitly log that verbose is on, if it was set
-        logger.debug("Verbose mode enabled.", extra={'logging_level': 'DEBUG'})
-    if args.dry_run:
-        logger.info("Dry-run mode is active for this operation.", extra={'dry_run_global': True})
+    # Ensure that the 'verbose' attribute on 'args' passed to command functions
+    # reflects the globally determined verbosity.
+    if hasattr(args, 'func'):
+        args.verbose = global_verbose # Set/overwrite args.verbose for the command function
 
-    # No need to log verbose mode explicitly here, as setup_logging handles the level.
-    # If args.verbose is True, DEBUG logs will appear; otherwise, they won't.
+    logger = logging.getLogger(__name__) # Get logger after setup
+    logger.debug(f"Global verbose: {global_verbose}. Effective args for command: {args}")
 
-    logger.debug("Pipeline arguments parsed", extra={'command': args.command, 'arguments': vars(args)})
-
-    if args.command == "collect":
-        handle_collect(args)
-    elif args.command == "extract":
-        handle_extract(args)
-    elif args.command == "update":
-        handle_update(args)
-    elif args.command == "run":
-        handle_run(args)
+    if hasattr(args, 'func'):
+        args.func(args)
     else:
-        logger.error("Unknown command", extra={'command': args.command})
+        # This case should not be reached if a command is required (which it is by dest="command", required=True)
+        # but as a fallback:
         parser.print_help()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

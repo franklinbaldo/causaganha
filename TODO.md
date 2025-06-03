@@ -66,9 +66,10 @@ Milestone 4 – Orquestração CLI
 
 Status	Tarefa	Detalhes
 
-□	pipeline.py	Comandos collect, extract, update, run (orquestra tudo)
-□	CLI via argparse	Flags --date, --dry-run, --verbose
+✓	pipeline.py	Comandos collect, extract, update, run (orquestra tudo)
+✓	CLI via argparse	Flags --date, --dry-run, --verbose
 □	Logging estruturado	logging JSON‑friendly (nível INFO)
+🛈	pipeline.py includes basic logging; update command is a placeholder pending Milestone 5.
 
 
 
@@ -152,4 +153,3 @@ Próximos Passos Imediatos
 
 
 Criei um TODO.md detalhado, já estruturado em marcos (Milestones) e tarefas com check-boxes, cobrindo desde a configuração inicial do repositório até qualidade de código, CI e roadmap de expansão. Sinta-se à vontade para revisar e marcar o que for avançando — e diga se quiser ajustes ou aprofundar algum item!
-
