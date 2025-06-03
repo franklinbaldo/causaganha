@@ -14,11 +14,11 @@ Milestone 0 – Preparação do Repositório
 
 Status	Tarefa	Detalhes
 
-□	Criar estrutura de pastas	causaganha/, legalelo/, data/diarios, data/json
-□	Configurar ambiente Python	pyproject.toml ou requirements.txt (Python 3.11)
-□	Habilitar GitHub Actions	Pasta .github/workflows/ vazia inicialmente
-□	Definir código de conduta & licença	Arquivo LICENSE (MIT) e CODE_OF_CONDUCT.md
-□	Adicionar templates de issue/PR	Boa governança do OSS
+✓	Criar estrutura de pastas	causaganha/, legalelo/, data/diarios, data/json
+✓	Configurar ambiente Python	pyproject.toml ou requirements.txt (Python 3.11)
+✓	Habilitar GitHub Actions	Pasta .github/workflows/ vazia inicialmente
+✓	Definir código de conduta & licença	Arquivo LICENSE (MIT) e CODE_OF_CONDUCT.md
+✓	Adicionar templates de issue/PR	Boa governança do OSS
 
 
 
@@ -28,10 +28,10 @@ Milestone 1 – Coleta Diária de PDFs
 
 Status	Tarefa	Detalhes
 
-□	downloader.py	Função fetch_tjro_pdf(date) → Path
-□	Log & versionamento	Nomear arquivos dj_{YYYY‑MM‑DD}.pdf em data/diarios/
-□	Workflow 01_collect.yml	Agendamento cron diário (05:00 UTC) + upload como artefato
-□	Teste local	Executar python -m legalelo.downloader --date 2025‑06‑01
+✓	downloader.py	Função fetch_tjro_pdf(date) → Path
+✓	Log & versionamento	Nomear arquivos dj_{YYYY‑MM‑DD}.pdf em data/diarios/
+✓	Workflow 01_collect.yml	Agendamento cron diário (05:00 UTC) + upload como artefato
+✓	Teste local	Executar python -m legalelo.downloader --date 2025‑06‑01
 
 
 
@@ -41,10 +41,10 @@ Milestone 2 – Extração com Gemini
 
 Status	Tarefa	Detalhes
 
-□	extractor.py	Classe GeminiExtractor com prompt parametrizado
-□	Formato de saída	JSON por decisão em data/json/{processo}.json
-□	Workflow 02_extract.yml	Gatilho: sucesso de 01_collect.yml; matriz paralela por página
-□	Cache de tokenização	Memória local para não reprocessar PDFs idênticos
+✓	extractor.py	Classe GeminiExtractor com prompt parametrizado
+✓	Formato de saída	JSON por decisão em data/json/{processo}.json
+✓	Workflow 02_extract.yml	Gatilho: sucesso de 01_collect.yml; matriz paralela por página
+✓	Cache de tokenização	Memória local para não reprocessar PDFs idênticos
 
 
 
@@ -54,9 +54,9 @@ Milestone 3 – Modelo Elo
 
 Status	Tarefa	Detalhes
 
-□	elo.py	Funções expected(r_a,r_b) e update(r_a,r_b,score,k) (K = 16)
-□	ratings.csv & partidas.csv	Schema definido no README
-□	Validação	Testes unitários com cenários simples (vitória, derrota, empate)
+✓	elo.py	Funções expected(r_a,r_b) e update(r_a,r_b,score,k) (K = 16)
+✓	ratings.csv & partidas.csv	Schema definido no README
+✓	Validação	Testes unitários com cenários simples (vitória, derrota, empate)
 
 
 

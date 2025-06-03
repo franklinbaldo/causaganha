@@ -1,0 +1,20 @@
+{
+    "file_name_source": "dj_2023-10-26.pdf",
+    "extraction_timestamp": "2025-06-01T01:38:08.751751Z",
+    "status": "simulated_success_cli",
+    "numero_processo_cnj": "0000751739-00.2025.8.22.3808",
+    "partes": {
+        "autor": "Autor CLI 8",
+        "reu": "Réu CLI 8"
+    },
+    "advogados": {
+        "advogados_autor": [
+            "Advogado Autor CLI 60"
+        ],
+        "advogados_reu": [
+            "Advogado Réu CLI 112"
+        ]
+    },
+    "resultado_decisao": "Improcedente (simulado CLI)",
+    "resumo_decisao": "Este é um resumo simulado da decisão extraída via CLI."
+}

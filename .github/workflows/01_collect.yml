@@ -1,0 +1,43 @@
+name: 01 - Daily PDF Collection
+
+on:
+  schedule:
+    - cron: '0 5 * * *' # Runs at 05:00 UTC daily
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  collect_pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # As specified in README
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "/root/.cargo/bin" >> $GITHUB_PATH # Add uv to PATH for subsequent steps
+        shell: bash
+
+      - name: Install dependencies using uv
+        run: |
+          uv pip install -r requirements.txt # Changed to use requirements.txt
+
+      - name: Get current date
+        id: date
+        run: echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Run downloader script
+        run: |
+          python causaganha/legalelo/downloader.py --date ${{ steps.date.outputs.TODAY }}
+
+      - name: Upload downloaded PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: diario-pdf-${{ steps.date.outputs.TODAY }}
+          path: causaganha/data/diarios/dj_${{ steps.date.outputs.TODAY }}.pdf
+          if-no-files-found: error # Fail the workflow if the PDF is not found
