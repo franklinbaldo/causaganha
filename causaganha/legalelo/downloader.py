@@ -7,8 +7,8 @@ import logging # Added
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Placeholder URL for TJRO Diário da Justiça PDF
-TJRO_DIARIO_BASE_URL = "https://www.tjro.jus.br/diario/arquivos/"
+# Updated TJRO Diário da Justiça PDF base URL
+TJRO_DIARIO_BASE_URL = "https://www.tjro.jus.br/diariodajustica/diario/"
 
 def fetch_tjro_pdf(date_obj: datetime.date) -> pathlib.Path | None: # Adjusted return type hint
     """
@@ -21,21 +21,22 @@ def fetch_tjro_pdf(date_obj: datetime.date) -> pathlib.Path | None: # Adjusted r
         A pathlib.Path object pointing to the downloaded PDF file.
         Returns None if download fails.
     """
-    file_name = f"dj_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    # Updated file_name format
+    file_name = f"dj_{date_obj.strftime('%Y%m%d')}.pdf"
 
-    # Using a publicly available PDF for testing purposes.
-    # Replace with actual TJRO diario URL logic once known.
-    placeholder_test_pdf_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+    # Construct the full download URL
+    download_url = f"{TJRO_DIARIO_BASE_URL}{file_name}"
 
     output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / file_name
 
-    logging.info(f"Attempting to download PDF for {date_obj.strftime('%Y-%m-%d')} from {placeholder_test_pdf_url}")
+    logging.info(f"Attempting to download PDF for {date_obj.strftime('%Y-%m-%d')} from {download_url}") # Log the actual URL
     logging.info(f"Saving to: {output_path}")
 
     try:
-        response = requests.get(placeholder_test_pdf_url, timeout=30)
+        # Use the constructed download_url
+        response = requests.get(download_url, timeout=30)
         response.raise_for_status()
 
         with open(output_path, 'wb') as f:
