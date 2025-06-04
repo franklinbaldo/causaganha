@@ -69,7 +69,9 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertTrue(pathlib.Path(result_path).exists())
 
         mock_genai.configure.assert_called_once_with(api_key="fake_key_for_test")
-        mock_genai.upload_file.assert_called_once_with(path=str(self.dummy_pdf_path))
+        mock_genai.upload_file.assert_called_once_with(
+            path=str(self.dummy_pdf_path), mime_type="application/pdf"
+        )
         mock_genai.GenerativeModel.assert_called_once_with('gemini-1.5-flash')
         # Check that generate_content was called (args are complex, check it was called)
         self.assertTrue(mock_model_instance.generate_content.called)
