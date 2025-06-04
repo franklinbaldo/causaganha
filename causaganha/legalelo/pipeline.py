@@ -2,11 +2,14 @@ import argparse
 import logging
 from pathlib import Path
 import sys
-import os # Added for update_command
-import json # Added for update_command
-import shutil # Added for update_command
-import pandas as pd # Added for update_command
-import datetime # Added for update_command (specifically for datetime.date.today().isoformat())
+import os
+import json
+import shutil
+import pandas as pd
+import datetime
+
+from .downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
+from .extractor import GeminiExtractor as _RealGeminiExtractor
 
 # Attempt to import local modules
 try:
@@ -27,73 +30,53 @@ except ImportError as e:
 DEFAULT_RATING = 1500.0
 K_FACTOR = 16 # Standard K-factor
 
-# Simulate the downloader and extractor functions for now, as the actual files might not exist
-# or be fully implemented in this context.
+# Wrappers around the real downloader/extractor to keep the CLI tests stable
 def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
     logger = logging.getLogger(__name__)
     if dry_run:
         logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
         return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
-    logger.info(f"Fetching TJRO PDF for date: {date_str}")
-    fake_pdf_path = Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
-    fake_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-    fake_pdf_path.touch() # Create a dummy file
-    logger.info(f"Successfully downloaded (simulated) {fake_pdf_path}")
-    return fake_pdf_path
+
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        logger.warning(f"Invalid date '{date_str}' passed to fetch_tjro_pdf; attempting direct pass")
+        try:
+            date_obj = datetime.date.fromisoformat(date_str)
+        except ValueError:
+            logger.error(f"Could not parse date '{date_str}'")
+            return None
+
+    return _real_fetch_tjro_pdf(date_obj)
 
 class GeminiExtractor:
     def __init__(self, verbose: bool = False):
         self.logger = logging.getLogger(__name__)
-        self.logger.debug("GeminiExtractor initialized (simulated).")
+        self.verbose = verbose
+        self._real = _RealGeminiExtractor()
 
     def extract_and_save_json(self, pdf_path: Path, output_json_dir: Path = None, dry_run: bool = False):
-        self.logger.debug(f"Attempting to extract text from PDF: {pdf_path} (simulated)")
-        if not dry_run and not pdf_path.exists():
-            self.logger.error(f"PDF file {pdf_path} does not exist.")
-            return None
+        self.logger.debug(f"Attempting to extract text from PDF: {pdf_path}")
 
         if output_json_dir is None:
-            # Save to a default "json_extracted" subdir relative to pdf if no output_json_dir
-            # This makes more sense for the 'run' command's extract step.
             output_json_dir = pdf_path.parent / "json_extracted"
         else:
             output_json_dir = Path(output_json_dir)
 
         output_json_dir.mkdir(parents=True, exist_ok=True)
-        # Use a more descriptive name for extracted JSON, e.g., based on PDF name
         output_json_path = output_json_dir / f"{pdf_path.stem}_extracted.json"
-
 
         if dry_run:
             self.logger.info(f"DRY-RUN: Would extract text from {pdf_path} and save to {output_json_path}")
-            return output_json_path # Return simulated path
-
-        self.logger.info(f"Extracting text from {pdf_path} and saving to {output_json_path} (simulated)")
-        # Simulate extraction: create a dummy JSON file mirroring the input PDF name
-        dummy_content = {
-            "file_name_source": pdf_path.name,
-            "extracted_data_simulated": True,
-            # Add structure similar to what dummy_decision.json has for 'update' to process
-            "numero_processo": f"SIM-{pdf_path.stem.replace('_', '-')}",
-            "partes": {
-                "requerente": [f"Adv From {pdf_path.stem} A (OAB/UF 123)"],
-                "requerido": [f"Adv From {pdf_path.stem} B (OAB/UF 456)"]
-            },
-            "advogados": { # Ensure 'advogados' key exists as per update logic
-                "requerente": [f"Adv From {pdf_path.stem} A (OAB/UF 123)"],
-                "requerido": [f"Adv From {pdf_path.stem} B (OAB/UF 456)"]
-            },
-            "resultado": "procedente", # Default for simulation
-            "data_decisao": datetime.date.today().isoformat()
-        }
-        try:
+            dummy_content = {
+                "file_name_source": pdf_path.name,
+                "extracted_data_simulated": True,
+            }
             with open(output_json_path, "w") as f:
                 json.dump(dummy_content, f, indent=2)
-            self.logger.info(f"Successfully extracted (simulated) and saved JSON to {output_json_path}")
             return output_json_path
-        except IOError as e:
-            self.logger.error(f"Failed to write JSON file at {output_json_path}: {e}")
-            return None
+
+        return self._real.extract_and_save_json(pdf_path, output_json_dir)
 
 def setup_logging(verbose: bool):
     log_level = logging.DEBUG if verbose else logging.INFO

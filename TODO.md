@@ -147,14 +147,7 @@ Próximos Passos Imediatos
 
 1. Configurar o segredo GEMINI_API_KEY no repositório.
 
+2. ✓ Downloader agora busca a URL dinâmica do diário e salva em data/diarios.
 
-2. Implementar downloader.py com URL estática de teste.
-
-
-3. Validar extração em lote pequeno (<= 10 páginas) para calibrar prompt.
-
-
-
-
-
+3. ⌛ Validar extração em lote pequeno (<= 10 páginas) para calibrar prompt.
 Criei um TODO.md detalhado, já estruturado em marcos (Milestones) e tarefas com check-boxes, cobrindo desde a configuração inicial do repositório até qualidade de código, CI e roadmap de expansão. Sinta-se à vontade para revisar e marcar o que for avançando — e diga se quiser ajustes ou aprofundar algum item!

@@ -5,3 +5,5 @@ requests==2.32.3
 urllib3==2.4.0
 google-generativeai
 python-json-logger
+
+pandas==2.2.3
