@@ -76,8 +76,10 @@ class GeminiExtractor:
             uploaded_file_object = None
             try:
                 logging.info(f"Uploading {pdf_path.name} to Gemini...")
-                # TODO: Consider adding MIME type if API benefits from it, e.g., 'application/pdf'
-                uploaded_file_object = genai.upload_file(path=str(pdf_path))
+                uploaded_file_object = genai.upload_file(
+                    path=str(pdf_path),
+                    mime_type="application/pdf",
+                )
                 logging.info(f"Successfully uploaded {pdf_path.name} as {uploaded_file_object.name}")
 
                 prompt = """Analise este PDF do Diário da Justiça e extraia APENAS decisões judiciais.
