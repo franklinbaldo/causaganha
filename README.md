@@ -1,6 +1,6 @@
 # CausaGanha
 
-[![Update Elo Ratings](https://img.shields.io/github/actions/workflow/status/OWNER/REPO/03_update.yml?label=update-elo)](https://github.com/OWNER/REPO/actions/workflows/03_update.yml)
+[![Update Elo Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-elo)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
 
 **CausaGanha** é uma plataforma automatizada de extração e análise de decisões judiciais que aplica o sistema de pontuação **Elo** — originalmente desenvolvido para classificar jogadores de xadrez — à atuação de advogados em processos judiciais. A proposta consiste em construir um modelo dinâmico e transparente de avaliação de desempenho com base em decisões publicadas diariamente no Diário de Justiça do Tribunal de Justiça de Rondônia (TJRO).
 
