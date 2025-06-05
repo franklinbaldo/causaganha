@@ -1,6 +1,6 @@
 # CausaGanha
 
-[![Update Elo Ratings](https://github.com/OWNER/REPO/actions/workflows/03_update.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/03_update.yml)
+[![Update Elo Ratings](https://img.shields.io/github/actions/workflow/status/OWNER/REPO/03_update.yml?label=update-elo)](https://github.com/OWNER/REPO/actions/workflows/03_update.yml)
 
 **CausaGanha** é uma plataforma automatizada de extração e análise de decisões judiciais que aplica o sistema de pontuação **Elo** — originalmente desenvolvido para classificar jogadores de xadrez — à atuação de advogados em processos judiciais. A proposta consiste em construir um modelo dinâmico e transparente de avaliação de desempenho com base em decisões publicadas diariamente no Diário de Justiça do Tribunal de Justiça de Rondônia (TJRO).
 
@@ -94,9 +94,15 @@ cd causaganha
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pre-commit install
+pre-commit run --all-files
 
 # Definir chave da API Gemini
 export GEMINI_API_KEY="sua_chave"
+# (opcional) JSON da conta de serviço do Google Drive
+export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
+# (opcional) Pasta de destino no Drive
+export GDRIVE_FOLDER_ID="abc123"
 
 # Rodar pipeline completo
 python -m legalelo.pipeline run --date 2025-06-01
@@ -113,6 +119,9 @@ Baixar o Diário da Justiça
 Extrair as decisões via LLM
 
 Atualizar pontuações e salvar arquivos CSV
+
+Certifique-se de definir o secret `GEMINI_API_KEY` no repositório para que o passo de extração funcione corretamente.
+Para que os PDFs sejam enviados ao Google Drive, configure também os secrets `GDRIVE_SERVICE_ACCOUNT_JSON` e `GDRIVE_FOLDER_ID`.
 
 
 O fluxo é 100% autônomo e auditável via histórico de commits.

@@ -33,6 +33,7 @@ Status	Tarefa	Detalhes
 ✓	Log & versionamento	Nomear arquivos dj_{YYYY‑MM‑DD}.pdf em data/diarios/
 ✓	Workflow 01_collect.yml	Agendamento cron diário (05:00 UTC) + upload como artefato
 ✓	Teste local	Executar python -m legalelo.downloader --date 2025‑06‑01
+✓	Upload para Google Drive     PDFs enviados automaticamente via API
 
 
 
@@ -83,9 +84,9 @@ Milestone 5 – Integração Contínua Completa
 
 Status	Tarefa	Detalhes
 
-□	Workflow 03_update.yml	Roda pipeline run e commit CSVs atualizados
+✓	Workflow 03_update.yml	Roda pipeline run e commit CSVs atualizados
 □	Secrets	GEMINI_API_KEY adicionado no repositório ⇢ Settings → Secrets
-□	Badge de status	README mostra último workflow (shields.io)
+✓	Badge de status	README mostra último workflow (shields.io)
 
 
 
@@ -95,7 +96,7 @@ Milestone 6 – Qualidade & Testes
 
 Status	Tarefa	Detalhes
 
-□	Lint	ruff + pre‑commit
+✓	Lint	ruff + pre‑commit
 ✓	CI Test	pytest no GitHub Actions
 🛈	Comprehensive unit tests added for utils, downloader, extractor, and pipeline.
 □	Cobertura	coverage.xml + Codecov badge
