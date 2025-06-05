@@ -68,18 +68,18 @@ def normalize_lawyer_name(name: str) -> str:
         text = current_text_temp.strip()
 
 
-    # 3. Normalize common Portuguese accented characters.
-    accent_map = {
-        'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a',
-        'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-        'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-        'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o',
-        'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
-        'ç': 'c',
-        'ñ': 'n',
-    }
-    for accented, unaccented in accent_map.items():
-        text = text.replace(accented, unaccented)
+    # 3. Normalize accents using unicodedata. Remove combining marks only for
+    # Latin characters to avoid altering other scripts.
+    decomposed = unicodedata.normalize('NFD', text)
+    stripped_chars = []
+    last_base = ""
+    for ch in decomposed:
+        if unicodedata.category(ch) == 'Mn' and unicodedata.name(last_base, '').startswith('LATIN'):
+            continue
+        stripped_chars.append(ch)
+        if unicodedata.category(ch)[0] != 'M':
+            last_base = ch
+    text = ''.join(stripped_chars)
 
     # 4. Replace multiple spaces with a single space, and strip leading/trailing whitespace.
     text = re.sub(r'\s+', ' ', text).strip()

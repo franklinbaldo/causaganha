@@ -110,6 +110,19 @@ python -m legalelo.pipeline run --date 2025-06-01
 
 ---
 
+## Running Tests
+
+Após instalar as dependências, execute a suíte de testes com:
+
+```bash
+pytest -q
+```
+
+Conforme descrito em `AGENTS.md`, rodar os testes é obrigatório antes de
+realizar commits.
+
+---
+
 6. Agendamento Automatizado
 
 O repositório possui workflows GitHub Actions com agendamento diário (cron) para:
