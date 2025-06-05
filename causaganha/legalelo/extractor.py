@@ -6,9 +6,6 @@ import re
 import argparse
 import logging
 
-# Configure basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 try:
     import google.generativeai as genai
 except ImportError:

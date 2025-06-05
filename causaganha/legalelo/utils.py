@@ -4,7 +4,6 @@ import logging # Added for validate_decision
 
 # It's good practice for a library module to not configure logging directly.
 # Instead, it should get a logger and use it. Application configures logging.
-# However, for __main__ block demonstrations, basicConfig is acceptable.
 logger = logging.getLogger(__name__)
 
 def normalize_lawyer_name(name: str) -> str:
@@ -153,9 +152,6 @@ def validate_decision(decision: dict) -> bool:
 
 
 if __name__ == '__main__':
-    # Configure logging for demonstration purposes within this block
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(name)s: %(message)s')
-
     print("--- Testing normalize_lawyer_name function ---")
     examples_normalize = [
         "Dr. João Álves da Silva",
