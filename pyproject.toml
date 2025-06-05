@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 88
+select = ["E", "F"]
+ignore = []
+
+[tool.ruff.per-file-ignores]
+"causaganha/tests/*" = ["E501"]

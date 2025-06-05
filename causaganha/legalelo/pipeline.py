@@ -47,7 +47,14 @@ def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
             logger.error(f"Could not parse date '{date_str}'")
             return None
 
-    return _real_fetch_tjro_pdf(date_obj)
+    pdf_path = _real_fetch_tjro_pdf(date_obj)
+    if pdf_path:
+        try:
+            from .gdrive import upload_file_to_gdrive
+            upload_file_to_gdrive(pdf_path)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed to upload {pdf_path} to GDrive: {e}")
+    return pdf_path
 
 class GeminiExtractor:
     def __init__(self, verbose: bool = False):

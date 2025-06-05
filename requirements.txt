@@ -7,3 +7,7 @@ google-generativeai
 python-json-logger
 
 pandas==2.2.3
+pre-commit==3.7.1
+ruff==0.4.7
+google-api-python-client==2.132.0
+google-auth==2.29.0
