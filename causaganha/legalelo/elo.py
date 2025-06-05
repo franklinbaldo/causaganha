@@ -14,8 +14,6 @@ import logging
 # processing before Elo updates.
 # --- End Advogado ID Management Note ---
 
-# Configure basic logging for module-level feedback if run directly
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
 
 DEFAULT_K_FACTOR = 16
 
@@ -71,9 +69,6 @@ def update_elo(rating_a: float, rating_b: float, score_a: float, k_factor: int =
     return round(new_rating_a, 2), round(new_rating_b, 2) # Round to typical Elo precision
 
 if __name__ == '__main__':
-    # Configure basic logging for module-level feedback if run directly
-    # This is already at the top of the file, so it will apply.
-    # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
 
     logging.info("="*50)
     logging.info("ELO CALCULATION DEMONSTRATION")

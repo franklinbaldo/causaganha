@@ -5,9 +5,6 @@ import requests
 import argparse  # Added
 import logging  # Added
 
-# Configure basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # URL where the official diary page lists the PDF link
 TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"
 TJRO_LATEST_PAGE_URL = "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php"
