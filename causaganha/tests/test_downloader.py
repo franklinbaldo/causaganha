@@ -12,7 +12,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from causaganha.legalelo.downloader import fetch_tjro_pdf, fetch_latest_tjro_pdf
+from causaganha.core.downloader import fetch_tjro_pdf, fetch_latest_tjro_pdf
 
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)
@@ -90,7 +90,7 @@ class TestFetchTjroPdf(unittest.TestCase):
         # Let's assume `output_dir` inside `fetch_tjro_pdf` will be `self.download_dir`
         # by controlling what `Path( ... ) / "data" / "diarios"` returns.
         # A simpler way: the `output_dir` is `pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"`
-        # The `__file__` in `downloader.py` is `.../causaganha/legalelo/downloader.py`.
+        # The `__file__` in `downloader.py` is `.../causaganha/core/downloader.py`.
         # So `parent.parent` is `.../causaganha/`.
         # So `output_dir` becomes `.../causaganha/data/diarios/`.
         # We can patch `pathlib.Path.mkdir` and `pathlib.Path.open` if direct path patching is too complex.
@@ -226,7 +226,7 @@ class TestFetchLatestTjroPdf(unittest.TestCase):
         if real_path.exists():
             real_path.unlink()
 
-    @patch('causaganha.legalelo.downloader.fetch_tjro_pdf')
+    @patch('causaganha.core.downloader.fetch_tjro_pdf')
     @patch('requests.get')
     def test_fetch_latest_success(self, mock_get, mock_fetch):
         html_content = (

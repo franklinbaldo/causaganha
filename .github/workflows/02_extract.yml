@@ -61,7 +61,7 @@ jobs:
         run: |
           JSON_OUTPUT_DIR="causaganha/data/json_workflow_output"
           mkdir -p $JSON_OUTPUT_DIR
-          python causaganha/legalelo/extractor.py             --pdf_file ${{ steps.prepare_pdf.outputs.pdf_file_path }}             --output_dir $JSON_OUTPUT_DIR
+          python causaganha/core/extractor.py             --pdf_file ${{ steps.prepare_pdf.outputs.pdf_file_path }}             --output_dir $JSON_OUTPUT_DIR
           echo "JSON_DIR=${JSON_OUTPUT_DIR}" >> $GITHUB_ENV # Make dir available to other steps
 
       - name: List output JSON files

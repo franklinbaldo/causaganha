@@ -16,12 +16,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Attempt to import the module under test
 try:
-    from causaganha.legalelo import pipeline
+    from causaganha.core import pipeline
     # Also import specific items that might be patched or referred to
-    from causaganha.legalelo.utils import normalize_lawyer_name, validate_decision
-    from causaganha.legalelo.elo import update_elo
+    from causaganha.core.utils import normalize_lawyer_name, validate_decision
+    from causaganha.core.elo import update_elo
 except ModuleNotFoundError as e:
-    print(f"ERROR: Could not import causaganha.legalelo modules. Original error: {e}", file=sys.stderr)
+    print(f"ERROR: Could not import causaganha.core modules. Original error: {e}", file=sys.stderr)
     pipeline = None
 
 # Suppress most logging during tests, enable for specific test debugging if needed
@@ -31,7 +31,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
 
     def setUp(self):
         if pipeline is None:
-            self.fail("The 'pipeline' module from 'causaganha.legalelo' could not be imported.")
+            self.fail("The 'pipeline' module from 'causaganha.core' could not be imported.")
 
         self.stdout_patch = patch('sys.stdout', new_callable=StringIO)
         self.stderr_patch = patch('sys.stderr', new_callable=StringIO)
@@ -42,7 +42,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         root_logger = logging.getLogger()
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-        pipeline_module_logger = logging.getLogger('causaganha.legalelo.pipeline')
+        pipeline_module_logger = logging.getLogger('causaganha.core.pipeline')
         for handler in pipeline_module_logger.handlers[:]:
             pipeline_module_logger.removeHandler(handler)
         pipeline_module_logger.setLevel(logging.NOTSET)
@@ -70,19 +70,19 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     # ... [previous tests from TestPipelineArgParsingAndExecution remain here] ...
     # (ensure they are not duplicated if this block is appended)
 
-    @patch('causaganha.legalelo.pipeline.fetch_tjro_pdf')
+    @patch('causaganha.core.pipeline.fetch_tjro_pdf')
     def test_collect_args_parsed_and_called(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake.pdf")
         self.assertEqual(self.run_main_for_test(['collect', '--date', '2024-03-10']), 0)
         mock_fetch.assert_called_once_with(date_str='2024-03-10', dry_run=False, verbose=False)
 
-    @patch('causaganha.legalelo.pipeline.fetch_tjro_pdf')
+    @patch('causaganha.core.pipeline.fetch_tjro_pdf')
     def test_collect_dry_run(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_dry.pdf")
         self.assertEqual(self.run_main_for_test(['collect', '--date', '2024-03-11', '--dry-run']), 0)
         mock_fetch.assert_called_once_with(date_str='2024-03-11', dry_run=True, verbose=False)
 
-    @patch('causaganha.legalelo.pipeline.GeminiExtractor')
+    @patch('causaganha.core.pipeline.GeminiExtractor')
     def test_extract_args_parsed_and_called(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake.json")
@@ -100,7 +100,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         if dummy_pdf_path.exists(): dummy_pdf_path.unlink()
 
 
-    @patch('causaganha.legalelo.pipeline.GeminiExtractor')
+    @patch('causaganha.core.pipeline.GeminiExtractor')
     def test_extract_dry_run(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake_dry.json")
@@ -118,9 +118,9 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     # def test_update_command(self): ...
     # def test_update_dry_run(self): ...
 
-    @patch('causaganha.legalelo.pipeline.update_command') # Mock update_command itself for this orchestration test
-    @patch('causaganha.legalelo.pipeline.GeminiExtractor')
-    @patch('causaganha.legalelo.pipeline.fetch_tjro_pdf')
+    @patch('causaganha.core.pipeline.update_command') # Mock update_command itself for this orchestration test
+    @patch('causaganha.core.pipeline.GeminiExtractor')
+    @patch('causaganha.core.pipeline.fetch_tjro_pdf')
     def test_run_command_orchestration(self, mock_fetch, MockGeminiExtractor, mock_update_cmd):
         mock_fetch.return_value = Path("/tmp/collected_via_run.pdf")
         mock_extractor_instance = MockGeminiExtractor.return_value
@@ -139,9 +139,9 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         mock_update_cmd.assert_called_once()
 
 
-    @patch('causaganha.legalelo.pipeline.update_command')
-    @patch('causaganha.legalelo.pipeline.GeminiExtractor')
-    @patch('causaganha.legalelo.pipeline.fetch_tjro_pdf')
+    @patch('causaganha.core.pipeline.update_command')
+    @patch('causaganha.core.pipeline.GeminiExtractor')
+    @patch('causaganha.core.pipeline.fetch_tjro_pdf')
     def test_run_command_dry_run(self, mock_fetch, MockGeminiExtractor, mock_update_cmd):
         mock_fetch.return_value = Path("/tmp/collected_dry_run.pdf")
         mock_extractor_instance = MockGeminiExtractor.return_value
@@ -177,7 +177,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         self.assertEqual(self.run_main_for_test(['extract']), 2)
         self.assertIn("the following arguments are required: --pdf_file", self.mock_stderr.getvalue())
 
-    @patch('causaganha.legalelo.pipeline.fetch_tjro_pdf')
+    @patch('causaganha.core.pipeline.fetch_tjro_pdf')
     def test_collect_invalid_date_format_passed_through(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf")
         self.assertEqual(self.run_main_for_test(['collect', '--date', 'NOT-A-DATE']), 0)
@@ -228,7 +228,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
 class TestPipelineUpdateCommand(unittest.TestCase):
     def setUp(self):
         if pipeline is None:
-            self.fail("The 'pipeline' module from 'causaganha.legalelo' could not be imported.")
+            self.fail("The 'pipeline' module from 'causaganha.core' could not be imported.")
 
         # Define paths based on where the pipeline script actually looks for data
         self.base_data_path = PROJECT_ROOT / "causaganha" / "data"
@@ -308,9 +308,9 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         logging.getLogger().handlers.clear()
 
 
-    @patch('causaganha.legalelo.pipeline.shutil.move')
-    @patch('causaganha.legalelo.pipeline.pd.DataFrame.to_csv')
-    @patch('causaganha.legalelo.pipeline.pd.read_csv') # Patching pandas at the pipeline module level
+    @patch('causaganha.core.pipeline.shutil.move')
+    @patch('causaganha.core.pipeline.pd.DataFrame.to_csv')
+    @patch('causaganha.core.pipeline.pd.read_csv') # Patching pandas at the pipeline module level
     def test_update_command_valid_decisions(self, mock_read_csv, mock_to_csv, mock_shutil_move):
         # Mock initial ratings
         initial_ratings_df = pd.DataFrame(columns=['advogado_id', 'rating', 'total_partidas']).set_index('advogado_id')
@@ -360,9 +360,9 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         # self.assertEqual(len(partidas_df_saved), 2) # Two matches processed
 
 
-    @patch('causaganha.legalelo.pipeline.shutil.move')
-    @patch('causaganha.legalelo.pipeline.pd.DataFrame.to_csv')
-    @patch('causaganha.legalelo.pipeline.pd.read_csv')
+    @patch('causaganha.core.pipeline.shutil.move')
+    @patch('causaganha.core.pipeline.pd.DataFrame.to_csv')
+    @patch('causaganha.core.pipeline.pd.read_csv')
     def test_update_command_dry_run(self, mock_read_csv, mock_to_csv, mock_shutil_move):
         initial_ratings_df = pd.DataFrame(columns=['advogado_id', 'rating', 'total_partidas']).set_index('advogado_id')
         mock_read_csv.return_value = initial_ratings_df
@@ -375,10 +375,10 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         mock_to_csv.assert_not_called() # Does not write files
         mock_shutil_move.assert_not_called() # Does not move files
 
-    @patch('causaganha.legalelo.pipeline.validate_decision', return_value=False) # All decisions invalid
-    @patch('causaganha.legalelo.pipeline.shutil.move')
-    @patch('causaganha.legalelo.pipeline.pd.DataFrame.to_csv')
-    @patch('causaganha.legalelo.pipeline.pd.read_csv')
+    @patch('causaganha.core.pipeline.validate_decision', return_value=False) # All decisions invalid
+    @patch('causaganha.core.pipeline.shutil.move')
+    @patch('causaganha.core.pipeline.pd.DataFrame.to_csv')
+    @patch('causaganha.core.pipeline.pd.read_csv')
     def test_update_command_all_decisions_invalid(self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate):
         initial_ratings_df = pd.DataFrame({'advogado_id': ['adv x (oab/xx 000)'], 'rating': [1500.0], 'total_partidas': [0]}).set_index('advogado_id')
         mock_read_csv.return_value = initial_ratings_df

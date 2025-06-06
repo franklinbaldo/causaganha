@@ -231,6 +231,6 @@ if __name__ == '__main__':
             logging.info(f"Created super-basic dummy PDF (text file) for CLI testing: {cli_test_pdf}")
 
 
-    # To run main: python causaganha/legalelo/extractor.py --pdf_file causaganha/data/diarios/cli_test_doc_for_extractor.pdf
+    # To run main: python causaganha/core/extractor.py --pdf_file causaganha/data/diarios/cli_test_doc_for_extractor.pdf
     # Ensure GEMINI_API_KEY is set in your environment if you want to test real API calls.
     main()

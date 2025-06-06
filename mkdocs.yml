@@ -1,0 +1,7 @@
+site_name: CausaGanha
+nav:
+  - Home: index.md
+  - Tutorial: quickstart.md
+  - FAQ: faq.md
+docs_dir: docs
+site_dir: site
