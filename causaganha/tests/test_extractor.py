@@ -12,7 +12,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from causaganha.legalelo.extractor import GeminiExtractor
+from causaganha.core.extractor import GeminiExtractor
 
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)
@@ -35,7 +35,7 @@ class TestGeminiExtractor(unittest.TestCase):
             shutil.rmtree(self.test_data_root)
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch('causaganha.legalelo.extractor.genai')
+    @patch('causaganha.core.extractor.genai')
     def test_extract_with_api_key_and_genai_success(self, mock_genai):
         # Configure mock_genai
         mock_genai.configure = MagicMock()
@@ -83,7 +83,7 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertIn("file_name_source", data)
         self.assertEqual(data["file_name_source"], self.dummy_pdf_path.name)
 
-    @patch('causaganha.legalelo.extractor.genai', None) # Simulate genai not being importable
+    @patch('causaganha.core.extractor.genai', None) # Simulate genai not being importable
     def test_extract_when_genai_not_available(self):
         # Ensure GEMINI_API_KEY is not a factor if genai is None
         if "GEMINI_API_KEY" in os.environ:
@@ -99,7 +99,7 @@ class TestGeminiExtractor(unittest.TestCase):
             data = json.load(f)
         self.assertEqual(data["status"], "dummy_data_gemini_not_configured")
 
-    @patch('causaganha.legalelo.extractor.genai') # genai is importable (mocked)
+    @patch('causaganha.core.extractor.genai') # genai is importable (mocked)
     @patch.dict(os.environ, {}, clear=True) # Clear API key from environ
     def test_extract_when_api_key_not_available(self, mock_genai_module):
         # Mock genai.configure to avoid real configuration attempt if it was missed
@@ -117,7 +117,7 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_genai_module.configure.assert_not_called() # Should not be called if API key is missing
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch('causaganha.legalelo.extractor.genai')
+    @patch('causaganha.core.extractor.genai')
     def test_api_call_failure_generate_content(self, mock_genai):
         mock_genai.configure = MagicMock()
         mock_uploaded_file = MagicMock(name="uploaded_files/test_id")
@@ -136,7 +136,7 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_genai.delete_file.assert_called_once_with(mock_uploaded_file.name) # File should still be deleted
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch('causaganha.legalelo.extractor.genai')
+    @patch('causaganha.core.extractor.genai')
     def test_json_parsing_failure(self, mock_genai):
         mock_genai.configure = MagicMock()
         mock_uploaded_file = MagicMock(name="uploaded_files/test_id")

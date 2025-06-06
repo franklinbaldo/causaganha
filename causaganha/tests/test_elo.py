@@ -1,13 +1,13 @@
 import unittest
 import math # For math.isclose
 
-# Add causaganha to sys.path to allow direct import of legalelo
+# Add causaganha to sys.path to allow direct import of the core modules
 # This is often needed when running tests from the tests directory or via discovery
 import sys
 import pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent)) # Adds repo root to path
 
-from causaganha.legalelo import elo # elo.py is in legalelo folder
+from causaganha.core import elo  # elo.py resides in the core package
 
 class TestEloCalculations(unittest.TestCase):
 

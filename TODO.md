@@ -14,7 +14,7 @@ Milestone 0 – Preparação do Repositório
 
 Status	Tarefa	Detalhes
 
-✓	Criar estrutura de pastas	causaganha/, legalelo/, data/diarios, data/json
+✓	Criar estrutura de pastas	causaganha/, core/, data/diarios, data/json
 ✓	Configurar ambiente Python	pyproject.toml ou requirements.txt (Python 3.11)
 ✓	Habilitar GitHub Actions	Pasta .github/workflows/ vazia inicialmente
 ✓	Definir código de conduta & licença	Arquivo LICENSE (MIT) e CODE_OF_CONDUCT.md
@@ -32,7 +32,7 @@ Status	Tarefa	Detalhes
 🛈	Now uses real TJRO URL and dj_YYYYMMDD.pdf format.
 ✓	Log & versionamento	Nomear arquivos dj_{YYYY‑MM‑DD}.pdf em data/diarios/
 ✓	Workflow 01_collect.yml	Agendamento cron diário (05:00 UTC) + upload como artefato
-✓	Teste local	Executar python -m legalelo.downloader --date 2025‑06‑01
+✓	Teste local	Executar python -m causaganha.core.downloader --date 2025‑06‑01
 ✓	Upload para Google Drive     PDFs enviados automaticamente via API
 
 
@@ -109,9 +109,9 @@ Milestone 7 – Distribuição e Documentação
 
 Status	Tarefa	Detalhes
 
-□	Docs via MkDocs	Publicar em GitHub Pages (/docs)
-□	Tutorial rápido	Como rodar o projeto em 5 min
-□	FAQ & Limitações	Seção dedicada
+✓	Docs via MkDocs	Publicar em GitHub Pages (/docs)
+✓	Tutorial rápido	Como rodar o projeto em 5 min
+✓	FAQ & Limitações	Seção dedicada
 
 
 
@@ -136,10 +136,10 @@ Milestone 8 – Roadmap de Expansão (opcional)
 Referência Rápida de Scripts
 
 # Executar apenas coleta
-python -m legalelo.pipeline collect --date 2025-06-01
+python -m causaganha.core.pipeline collect --date 2025-06-01
 
 # Executar pipeline completo (coleta → extração → Elo)
-python -m legalelo.pipeline run --date 2025-06-01
+python -m causaganha.core.pipeline run --date 2025-06-01
 
 
 ---

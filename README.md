@@ -71,7 +71,7 @@ As atualizações são realizadas automaticamente via **GitHub Actions**, de for
 
 ## 4. Estrutura do Projeto
 
-causaganha/ ├── legalelo/              # Módulos principais │   ├── downloader.py      # Baixa PDF do diário │   ├── extractor.py       # Envia PDF ao Gemini │   ├── elo.py             # Modelo de pontuação │   └── pipeline.py        # Orquestrador CLI │ ├── data/                  # Dados coletados e processados │   ├── diarios/           # PDFs originais │   ├── json/              # Decisões extraídas │   ├── ratings.csv        # Ranking Elo │   └── partidas.csv       # Confrontos processados │ ├── .github/workflows/     # Integração contínua │   ├── 01_collect.yml │   ├── 02_extract.yml │   └── 03_update.yml │ ├── requirements.txt └── README.md
+causaganha/ ├── core/                  # Módulos principais │   ├── downloader.py      # Baixa PDF do diário │   ├── extractor.py       # Envia PDF ao Gemini │   ├── elo.py             # Modelo de pontuação │   └── pipeline.py        # Orquestrador CLI │ ├── data/                  # Dados coletados e processados │   ├── diarios/           # PDFs originais │   ├── json/              # Decisões extraídas │   ├── ratings.csv        # Ranking Elo │   └── partidas.csv       # Confrontos processados │ ├── .github/workflows/     # Integração contínua │   ├── 01_collect.yml │   ├── 02_extract.yml │   └── 03_update.yml │ ├── requirements.txt └── README.md
 
 ---
 
@@ -105,7 +105,7 @@ export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
 export GDRIVE_FOLDER_ID="abc123"
 
 # Rodar pipeline completo
-python -m legalelo.pipeline run --date 2025-06-01
+python -m causaganha.core.pipeline run --date 2025-06-01
 
 
 ---
@@ -138,6 +138,10 @@ Para que os PDFs sejam enviados ao Google Drive, configure também os secrets `G
 
 
 O fluxo é 100% autônomo e auditável via histórico de commits.
+
+## Documentação
+
+A documentação do projeto é construída com **MkDocs** e publicada via GitHub Pages em `franklinbaldo.github.io/causa_ganha`. Os arquivos fonte encontram-se na pasta [`docs/`](docs/).
 
 
 ---

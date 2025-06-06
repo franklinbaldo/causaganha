@@ -36,7 +36,7 @@ jobs:
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: |
           DATE=$(date +'%Y-%m-%d')
-          python causaganha/legalelo/pipeline.py run --date $DATE
+          python causaganha/core/pipeline.py run --date $DATE
 
       - name: Commit updated ratings
         run: |

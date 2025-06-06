@@ -33,7 +33,7 @@ jobs:
 
       - name: Run downloader script
         run: |
-          python causaganha/legalelo/downloader.py --date ${{ steps.date.outputs.TODAY }}
+          python causaganha/core/downloader.py --date ${{ steps.date.outputs.TODAY }}
 
       - name: Upload downloaded PDF
         uses: actions/upload-artifact@v4
