@@ -19,6 +19,6 @@ jobs:
           echo "/root/.cargo/bin" >> $GITHUB_PATH
         shell: bash
       - name: Install dependencies
-        run: uv pip install -r requirements.txt
+        run: uv pip install --system -r requirements.txt
       - name: Run tests
         run: pytest -q

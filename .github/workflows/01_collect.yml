@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies using uv
         run: |
-          uv pip install -r requirements.txt # Changed to use requirements.txt
+          uv pip install --system -r requirements.txt # Changed to use requirements.txt
 
       - name: Get current date
         id: date
