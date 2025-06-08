@@ -30,7 +30,7 @@ jobs:
 
       - name: Install dependencies using uv
         run: |
-          uv pip install -r requirements.txt
+          uv pip install --system -r requirements.txt
 
       # Placeholder for downloading artifact from 01_collect.yml
       # For now, we'll assume a PDF is available or create a dummy one to process.
