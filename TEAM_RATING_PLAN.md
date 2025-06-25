@@ -1,4 +1,6 @@
-# Plano: Sistema de Rating para Times de Advogados (100% Automatizável)
+# Plano: Sistema de Rating para Times de Advogados (100% Automatizável) - Histórico / Proposta
+
+**Nota:** Este documento descreve o plano e a justificativa para a transição de um sistema Elo para um sistema baseado em TrueSkill. O sistema TrueSkill foi implementado e seus parâmetros são agora configurados através do arquivo `config.toml` na raiz do projeto. Este arquivo é mantido para referência histórica da decisão de design.
 
 ## Problema Identificado
 O sistema ELO atual é inadequado para competições em equipes por várias razões:
@@ -157,13 +159,15 @@ class TeamMatch:
 # team_rating/trueskill_adapter.py
 class TrueSkillTeamRating:
     def __init__(self):
-        self.env = trueskill.TrueSkill(
-            mu=25.0,         # Rating inicial
-            sigma=8.33,      # Desvio padrão inicial
-            beta=4.17,       # Distância de um nível de habilidade
-            tau=0.083,       # Dinâmica de habilidade
-            draw_probability=0.20  # 20% empates no direito
-        )
+        # self.env = trueskill.TrueSkill( # Exemplo de configuração original do plano
+        #     mu=25.0,
+        #     sigma=8.33,
+        #     beta=4.17,
+        #     tau=0.083,
+        #     draw_probability=0.20
+        # )
+        # Nota: A configuração real do ambiente TrueSkill é carregada de config.toml
+        self.env = trueskill.TrueSkill() # Usaria config.toml na implementação real
     
     def rate_match(self, team_a: List[Lawyer], team_b: List[Lawyer], result: MatchResult):
         ratings_a = [lawyer.trueskill_rating for lawyer in team_a]

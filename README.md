@@ -57,15 +57,16 @@ Para cada decisão extraída:
 
 1. As equipes de advogados do polo ativo e passivo são identificadas.
 2. Um “confronto” entre as equipes é estabelecido com base no resultado da decisão.
-3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido.
+3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido. Os parâmetros base do ambiente TrueSkill (`mu` e `sigma` iniciais, `beta`, `tau` e `draw_probability`) são configuráveis através do arquivo `config.toml` na raiz do projeto.
 4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais nos arquivos CSV de rating.
 
 ### 3.4 Persistência e Versionamento
 
 Os dados são armazenados em arquivos `.csv` rastreáveis no próprio repositório:
 
-- `data/ratings.csv`: ranking atual dos advogados.
+- `data/ratings.csv`: ranking atual dos advogados (contendo `mu`, `sigma` e `total_partidas`).
 - `data/partidas.csv`: histórico completo das decisões processadas.
+- `config.toml`: arquivo de configuração para os parâmetros do ambiente TrueSkill.
 
 As atualizações são realizadas automaticamente via **GitHub Actions**, de forma programada e auditável.
 
@@ -89,15 +90,23 @@ causaganha/ ├── core/                  # Módulos principais │   ├─�
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/seu-usuario/causaganha.git
-cd causaganha
+git clone https://github.com/franklinbaldo/causa_ganha.git # Corrigido para o repositório correto
+cd causa_ganha
 
 # Criar ambiente virtual e instalar dependências
-python -m venv .venv
+# Recomenda-se Python 3.12+ conforme pyproject.toml
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+# O projeto usa 'uv' para gerenciamento de dependências e ambiente, instalado via pipx ou pip.
+# Veja https://github.com/astral-sh/uv
+# pip install uv # Se ainda não tiver o uv
+uv pip install -e .[dev] # Instala o projeto em modo editável e dependências de desenvolvimento
+# Ou, se preferir usar pip diretamente com pyproject.toml:
+# pip install -e .[dev]
+
+# Configurar pre-commit (opcional, mas recomendado)
 pre-commit install
-pre-commit run --all-files
+# pre-commit run --all-files # Para rodar em todos os arquivos
 
 # Definir chave da API Gemini
 export GEMINI_API_KEY="sua_chave"
