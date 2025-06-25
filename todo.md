@@ -1,0 +1,4 @@
+- [ ] Parameterizar ambiente TrueSkill via arquivo de configuração (ex: YAML ou toml) para permitir ajuste de mu, sigma, beta e probabilidade de empate sem alterar código. Modificar `causaganha/core/trueskill_rating.py` e inicialização no pipeline para ler as configurações.
+- [ ] Permitir atualização incremental ou em lote de grandes volumes de decisões para evitar gargalos de processamento. Avaliar uso de paralelismo (`asyncio` ou `concurrent.futures`).
+- [ ] Revisar e ajustar os testes unitários de TrueSkill e do extractor. Atualmente cinco testes falham (ver `pytest`), possivelmente por expectativas divergentes dos parâmetros atuais ou por falta de chamadas de limpeza.
+- [ ] Corrigir packaging para instalação via `pip install -e .` (setuptools identifica `data` como pacote). Definir `packages` explicitamente ou adotar estrutura `src/`.

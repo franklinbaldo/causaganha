@@ -15,7 +15,7 @@ O projeto busca investigar a viabilidade técnica e metodológica de aplicar mé
 - Extração automatizada de decisões judiciais publicadas em fontes públicas oficiais.
 - Análise textual assistida por inteligência artificial para identificar autores, réus, representantes e desfechos.
 - Aplicação do algoritmo de pontuação TrueSkill, que lida nativamente com equipes e incerteza, ao contexto jurídico-contencioso.
-- Atualização contínua de um banco de dados contendo histórico de decisões e rankings.
+- Atualização contínua de arquivos CSV contendo histórico de decisões e rankings.
 
 ---
 
@@ -58,7 +58,7 @@ Para cada decisão extraída:
 1. As equipes de advogados do polo ativo e passivo são identificadas.
 2. Um “confronto” entre as equipes é estabelecido com base no resultado da decisão.
 3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido.
-4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais envolvidos no banco de dados.
+4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais nos arquivos CSV de rating.
 
 ### 3.4 Persistência e Versionamento
 
@@ -164,7 +164,6 @@ A extração de nomes de advogados pode ser afetada por grafias inconsistentes o
 
 Suporte a múltiplos tribunais e fontes (ex: TJSP, TRFs).
 
-Integração com banco de dados relacional (PostgreSQL via Supabase).
 
 Visualização interativa dos rankings (via Streamlit ou Next.js).
 
