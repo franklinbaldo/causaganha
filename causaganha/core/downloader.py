@@ -2,8 +2,11 @@ import datetime
 import pathlib
 import re
 import requests
-import argparse  # Added
-import logging  # Added
+import argparse
+import logging
+import hashlib
+import subprocess
+import duckdb
 
 # URL where the official diary page lists the PDF link
 TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"
@@ -118,6 +121,62 @@ def fetch_latest_tjro_pdf() -> pathlib.Path | None:
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching latest diary: {e}")
         return None
+
+
+def archive_pdf(
+    pdf_path: pathlib.Path,
+    db_path: pathlib.Path = pathlib.Path("data/causaganha.duckdb"),
+) -> str | None:
+    """Upload a PDF to the Internet Archive and record the link in DuckDB."""
+
+    sha = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    item_id = f"cg-{sha[:12]}"
+    filename = pdf_path.name
+
+    exists = (
+        subprocess.run(
+            ["ia", "metadata", item_id, "--raw"], capture_output=True, text=True
+        ).returncode
+        == 0
+    )
+
+    if not exists:
+        subprocess.check_call(
+            [
+                "ia",
+                "upload",
+                item_id,
+                str(pdf_path),
+                "--metadata",
+                "mediatype:texts",
+                "--metadata",
+                "subject:causa_ganha, trj:ro",
+                "--metadata",
+                f"sha256:{sha}",
+                "--retries",
+                "5",
+            ]
+        )
+
+    archive_url = f"https://archive.org/download/{item_id}/{filename}"
+
+    con = duckdb.connect(str(db_path))
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pdfs (
+            sha256 TEXT PRIMARY KEY,
+            item_id TEXT,
+            ia_url TEXT
+        );
+        """
+    )
+    con.execute(
+        "INSERT OR IGNORE INTO pdfs VALUES (?, ?, ?)",
+        (sha, item_id, archive_url),
+    )
+    con.close()
+
+    return archive_url
 
 
 def main():  # Added main function for CLI
