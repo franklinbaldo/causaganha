@@ -10,7 +10,7 @@ sys.path.insert(
 
 # Importar o módulo e as constantes/funções a serem testadas
 from causaganha.core import trueskill_rating as ts_rating
-from causaganha.core.trueskill_rating import trueskill # Para criar Rating objects diretamente para comparação
+from causaganha.core.trueskill_rating import trueskill, MatchResult
 
 class TestTrueSkillRatingCalculations(unittest.TestCase):
 
@@ -43,7 +43,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         team_a_before = [self.r_alpha]
         team_b_before = [self.r_beta] # r_beta tem o mesmo rating que r_alpha
 
-        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, "win_a")
+        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, MatchResult.WIN_A)
 
         r_alpha_after = new_team_a[0]
         r_beta_after = new_team_b[0]
@@ -70,7 +70,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         team_a_before = [r_alpha_custom]
         team_b_before = [r_beta_custom]
 
-        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, "draw")
+        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, MatchResult.DRAW)
 
         r_alpha_after = new_team_a[0]
         r_beta_after = new_team_b[0]
@@ -86,7 +86,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         team_a_before = [self.r_alpha, self.r_beta] # Ambos com rating padrão
         team_b_before = [self.r_gamma]             # Rating padrão
 
-        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, "win_a")
+        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, MatchResult.WIN_A)
 
         r_alpha_after = new_team_a[0]
         r_beta_after = new_team_a[1]
@@ -110,7 +110,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         team_a_before = [self.r_delta_expert] # Experiente
         team_b_before = [self.r_alpha]        # Novato (rating padrão)
 
-        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, "win_b")
+        new_team_a, new_team_b = ts_rating.update_ratings(self.env, team_a_before, team_b_before, MatchResult.WIN_B)
 
         r_delta_after = new_team_a[0]
         r_alpha_after = new_team_b[0]
@@ -132,7 +132,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         r_std2_before = self.env.create_rating() # Jogador B padrão
 
         # Jogo padrão: Jogador B (std2) vence Jogador A (std1)
-        r_std1_after_list, r_std2_after_list = ts_rating.update_ratings(self.env, [r_std1_before], [r_std2_before], "win_b")
+        r_std1_after_list, r_std2_after_list = ts_rating.update_ratings(self.env, [r_std1_before], [r_std2_before], MatchResult.WIN_B)
         r_std1_after = r_std1_after_list[0]
         r_std2_after = r_std2_after_list[0]
 
@@ -157,13 +157,13 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         initial_sigma = r_player1.sigma
 
         # Partida 1: P1 vs P2
-        p1_after_match1_list, _ = ts_rating.update_ratings(self.env, [r_player1], [r_player2], "win_a")
+        p1_after_match1_list, _ = ts_rating.update_ratings(self.env, [r_player1], [r_player2], MatchResult.WIN_A)
         r_player1 = p1_after_match1_list[0]
         self.assertLess(r_player1.sigma, initial_sigma)
         sigma_after_1_match = r_player1.sigma
 
         # Partida 2: P1 vs P3
-        p1_after_match2_list, _ = ts_rating.update_ratings(self.env, [r_player1], [r_player3], "win_a")
+        p1_after_match2_list, _ = ts_rating.update_ratings(self.env, [r_player1], [r_player3], MatchResult.WIN_A)
         r_player1 = p1_after_match2_list[0]
         self.assertLess(r_player1.sigma, sigma_after_1_match)
         sigma_after_2_matches = r_player1.sigma
@@ -183,7 +183,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         team_p1_p2 = [r_player1, p2_rating_from_match1] # r_player1 (após partida 2) em equipe com r_player1 (após partida 1)
         team_p3_p4 = [r_player3, r_player4] # r_player3 e r_player4 ainda com ratings iniciais
 
-        p1_p2_after_match3_list, _ = ts_rating.update_ratings(self.env, team_p1_p2, team_p3_p4, "draw")
+        p1_p2_after_match3_list, _ = ts_rating.update_ratings(self.env, team_p1_p2, team_p3_p4, MatchResult.DRAW)
         r_player1 = p1_p2_after_match3_list[0]
         self.assertLess(r_player1.sigma, sigma_after_2_matches)
 

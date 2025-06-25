@@ -3,6 +3,15 @@
 import trueskill
 import toml
 from pathlib import Path
+from enum import Enum
+
+
+class MatchResult(Enum):
+    """Possible outcomes of a TrueSkill match."""
+
+    WIN_A = "win_a"
+    WIN_B = "win_b"
+    DRAW = "draw"
 
 # Carrega configurações do arquivo config.toml
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.toml"
@@ -51,10 +60,10 @@ def create_new_rating() -> trueskill.Rating:
     return ENV.create_rating()
 
 def update_ratings(
-    env: trueskill.TrueSkill, # Adicionado parâmetro env
+    env: trueskill.TrueSkill,
     team_ratings_a: list[trueskill.Rating],
     team_ratings_b: list[trueskill.Rating],
-    result: str, # "win_a", "win_b", "draw"
+    result: MatchResult,
 ) -> tuple[list[trueskill.Rating], list[trueskill.Rating]]:
     """
     Atualiza os ratings TrueSkill para duas equipes com base no resultado da partida.
@@ -62,7 +71,7 @@ def update_ratings(
     Args:
         team_ratings_a: Lista de objetos Rating para a equipe A.
         team_ratings_b: Lista de objetos Rating para a equipe B.
-        result: String indicando o resultado ("win_a", "win_b", "draw").
+        result: Um :class:`MatchResult` indicando o resultado da partida.
 
     Returns:
         Uma tupla contendo duas listas:
@@ -72,14 +81,17 @@ def update_ratings(
     Raises:
         ValueError: Se o resultado fornecido for inválido.
     """
-    if result == "win_a":
-        ranks = [0, 1]  # Posição 0 para o vencedor, 1 para o perdedor
-    elif result == "win_b":
-        ranks = [1, 0]
-    elif result == "draw":
-        ranks = [0, 0]  # Mesma posição para empate
-    else:
-        raise ValueError(f"Resultado desconhecido: {result}. Use 'win_a', 'win_b', ou 'draw'.")
+    ranks_map = {
+        MatchResult.WIN_A: [0, 1],
+        MatchResult.WIN_B: [1, 0],
+        MatchResult.DRAW: [0, 0],
+    }
+    try:
+        ranks = ranks_map[result]
+    except Exception as exc:  # KeyError or wrong type
+        raise ValueError(
+            f"Resultado desconhecido: {result}. Use MatchResult."
+        ) from exc
 
     new_team_a_ratings, new_team_b_ratings = env.rate([team_ratings_a, team_ratings_b], ranks=ranks)
     return new_team_a_ratings, new_team_b_ratings
@@ -110,7 +122,7 @@ if __name__ == '__main__':
     team_b = [adv3_rating]
 
     print("--- Cenário 1: Equipe A (Adv1, Adv2) vence Equipe B (Adv3) ---")
-    new_a1, new_b1 = update_ratings(ENV, team_a, team_b, "win_a")
+    new_a1, new_b1 = update_ratings(ENV, team_a, team_b, MatchResult.WIN_A)
 
     print(f"Novo Rating Adv1: mu={new_a1[0].mu:.2f}, sigma={new_a1[0].sigma:.2f} (Mudança mu: {new_a1[0].mu - adv1_rating.mu:+.2f})")
     print(f"Novo Rating Adv2: mu={new_a1[1].mu:.2f}, sigma={new_a1[1].sigma:.2f} (Mudança mu: {new_a1[1].mu - adv2_rating.mu:+.2f})")
@@ -124,7 +136,7 @@ if __name__ == '__main__':
     team_a_s2 = [adv1_rating] # Adv1 joga sozinho
     team_b_s2 = [adv4_rating] # Contra o experiente Adv4
     print("--- Cenário 2: Equipe A (Adv1) empata com Equipe B (Adv4 - experiente) ---")
-    new_a2, new_b2 = update_ratings(ENV, team_a_s2, team_b_s2, "draw")
+    new_a2, new_b2 = update_ratings(ENV, team_a_s2, team_b_s2, MatchResult.DRAW)
 
     print(f"Novo Rating Adv1: mu={new_a2[0].mu:.2f}, sigma={new_a2[0].sigma:.2f} (Mudança mu: {new_a2[0].mu - adv1_rating.mu:+.2f})")
     print(f"Novo Rating Adv4: mu={new_b2[0].mu:.2f}, sigma={new_b2[0].sigma:.2f} (Mudança mu: {new_b2[0].mu - adv4_rating.mu:+.2f})\n")
@@ -138,7 +150,7 @@ if __name__ == '__main__':
     team_b_s3 = [adv4_rating] # Adv4 com rating do cenário anterior
 
     print("--- Cenário 3: Equipe A (Adv1, Adv2, Adv3) perde para Equipe B (Adv4) ---")
-    new_a3, new_b3 = update_ratings(ENV, team_a_s3, team_b_s3, "win_b")
+    new_a3, new_b3 = update_ratings(ENV, team_a_s3, team_b_s3, MatchResult.WIN_B)
 
     print(f"Novo Rating Adv1: mu={new_a3[0].mu:.2f}, sigma={new_a3[0].sigma:.2f} (Mudança mu: {new_a3[0].mu - adv1_rating.mu:+.2f})")
     print(f"Novo Rating Adv2: mu={new_a3[1].mu:.2f}, sigma={new_a3[1].sigma:.2f} (Mudança mu: {new_a3[1].mu - adv2_rating.mu:+.2f})")
