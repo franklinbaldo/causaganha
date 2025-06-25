@@ -1,5 +1,8 @@
 import unittest
 import math
+from unittest.mock import patch
+import logging
+import toml
 
 import sys
 import pathlib
@@ -186,6 +189,24 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         p1_p2_after_match3_list, _ = ts_rating.update_ratings(self.env, team_p1_p2, team_p3_p4, MatchResult.DRAW)
         r_player1 = p1_p2_after_match3_list[0]
         self.assertLess(r_player1.sigma, sigma_after_2_matches)
+
+
+class TestTrueSkillConfigLoading(unittest.TestCase):
+    def test_missing_config_uses_default_and_logs(self):
+        with patch.object(ts_rating.toml, "load", side_effect=FileNotFoundError("missing")):
+            with patch.object(logging.getLogger("causaganha.core.trueskill_rating"), "error") as mock_log:
+                config = ts_rating.load_trueskill_config()
+                self.assertEqual(config, ts_rating._DEFAULT_CONFIG)
+                mock_log.assert_called()
+                self.assertIn("missing", str(mock_log.call_args.args[2]))
+
+    def test_invalid_config_uses_default_and_logs(self):
+        err = toml.TomlDecodeError("boom", "", 0)
+        with patch.object(ts_rating.toml, "load", side_effect=err):
+            with patch.object(logging.getLogger("causaganha.core.trueskill_rating"), "error") as mock_log:
+                config = ts_rating.load_trueskill_config()
+                self.assertEqual(config, ts_rating._DEFAULT_CONFIG)
+                mock_log.assert_called_with("Failed to load TrueSkill config: %s", err)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

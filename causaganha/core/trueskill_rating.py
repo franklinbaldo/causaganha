@@ -4,6 +4,19 @@ import trueskill
 import toml
 from pathlib import Path
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Valores padrao para o ambiente TrueSkill
+_DEFAULT_CONFIG = {
+    "mu": 25.0,
+    "sigma": 25.0 / 3,
+    "beta": (25.0 / 3) / 2,
+    "tau": (25.0 / 3) / 100,
+    "draw_probability": 0.10,
+    "backend": None,
+}
 
 
 class MatchResult(Enum):
@@ -20,28 +33,13 @@ def load_trueskill_config():
     """Carrega as configurações do TrueSkill do arquivo config.toml."""
     try:
         config = toml.load(CONFIG_PATH)
-        return config.get("trueskill", {})
-    except FileNotFoundError:
-        # Fallback para valores padrão se config.toml não for encontrado
-        return {
-            "mu": 25.0,
-            "sigma": 25.0 / 3,
-            "beta": (25.0 / 3) / 2,
-            "tau": (25.0 / 3) / 100,
-            "draw_probability": 0.10,
-            "backend": None,
-        }
-    except Exception: # pylint: disable=broad-except
-        # Em caso de erro ao ler o toml, usa os padrões.
-        # Idealmente, logar o erro aqui.
-        return {
-            "mu": 25.0,
-            "sigma": 25.0 / 3,
-            "beta": (25.0 / 3) / 2,
-            "tau": (25.0 / 3) / 100,
-            "draw_probability": 0.10,
-            "backend": None,
-        }
+        return config.get("trueskill", _DEFAULT_CONFIG)
+    except FileNotFoundError as exc:
+        logger.error("config.toml not found at %s: %s", CONFIG_PATH, exc)
+        return _DEFAULT_CONFIG
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("Failed to load TrueSkill config: %s", exc)
+        return _DEFAULT_CONFIG
 
 TS_CONFIG = load_trueskill_config()
 
