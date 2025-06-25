@@ -74,29 +74,46 @@ def fetch_latest_tjro_pdf() -> pathlib.Path | None:
         return None
 
 def main(): # Added main function for CLI
-    parser = argparse.ArgumentParser(description="Download Diário da Justiça PDF from TJRO for a specific date.")
-    parser.add_argument(
+    parser = argparse.ArgumentParser(
+        description="Download Diário da Justiça PDF from TJRO."
+    )
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--date",
         type=str,
-        required=True,
-        help="The date for which to download the Diário, in YYYY-MM-DD format."
+        help="The date for which to download the Diário, in YYYY-MM-DD format.",
+    )
+    group.add_argument(
+        "--latest",
+        action="store_true",
+        help="Download the most recent Diário available.",
     )
 
     args = parser.parse_args()
 
-    try:
-        selected_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date()
-    except ValueError:
-        logging.error("Invalid date format. Please use YYYY-MM-DD.")
-        return
+    if args.latest:
+        logging.info("Running downloader for latest diary")
+        file_path = fetch_latest_tjro_pdf()
+    else:
+        try:
+            selected_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date()
+        except ValueError:
+            logging.error("Invalid date format. Please use YYYY-MM-DD.")
+            return
 
-    logging.info(f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}")
-    file_path = fetch_tjro_pdf(selected_date)
+        logging.info(f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}")
+        file_path = fetch_tjro_pdf(selected_date)
 
     if file_path:
         logging.info(f"PDF downloaded to: {file_path}")
     else:
-        logging.warning(f"Failed to download PDF for {selected_date.strftime('%Y-%m-%d')}")
+        if args.latest:
+            logging.warning("Failed to download latest Diário")
+        else:
+            logging.warning(
+                f"Failed to download PDF for {selected_date.strftime('%Y-%m-%d')}"
+            )
 
 if __name__ == '__main__':
     main()

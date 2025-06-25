@@ -31,9 +31,9 @@ jobs:
         id: date
         run: echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-      - name: Run downloader script
+      - name: Run downloader script (latest)
         run: |
-          python causaganha/core/downloader.py --date ${{ steps.date.outputs.TODAY }}
+          python causaganha/core/downloader.py --latest
 
       - name: Upload downloaded PDF
         uses: actions/upload-artifact@v4
