@@ -14,6 +14,14 @@ except ImportError:
         "Module google.generativeai could not be imported. Ensure it is installed correctly. GeminiExtractor will use dummy responses if API key is also missing."
     )
 
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
+    logging.warning(
+        "Module fitz (PyMuPDF) could not be imported. PDF text extraction will not be available."
+    )
+
 
 class GeminiExtractor:
     """
@@ -53,6 +61,35 @@ class GeminiExtractor:
         sanitized = re.sub(r"[^\w\.\-_]", "", filename)
         return sanitized if sanitized else "default_filename"
 
+    def _extract_text_from_pdf(self, pdf_path: pathlib.Path) -> str | None:
+        """Extract text from PDF using PyMuPDF (fitz)"""
+        if not fitz:
+            logging.error("PyMuPDF (fitz) not available for text extraction")
+            return None
+        
+        try:
+            doc = fitz.open(str(pdf_path))
+            full_text = ""
+            page_count = len(doc)
+            
+            for page_num in range(page_count):
+                page = doc.load_page(page_num)
+                text = page.get_text()
+                full_text += f"\n--- PÁGINA {page_num + 1} ---\n{text}\n"
+            
+            doc.close()
+            logging.info(f"Successfully extracted text from {pdf_path.name} ({page_count} pages)")
+            return full_text
+            
+        except Exception as e:
+            logging.error(f"Error extracting text from PDF {pdf_path.name}: {e}")
+            if 'doc' in locals():
+                try:
+                    doc.close()
+                except:
+                    pass
+            return None
+
     def extract_and_save_json(
         self, pdf_path: str | pathlib.Path, output_json_dir: str | pathlib.Path
     ) -> pathlib.Path | None:
@@ -75,7 +112,7 @@ class GeminiExtractor:
             # Dummy data structure as a fallback
             final_extracted_data = {
                 "file_name_source": pdf_path.name,
-                "extraction_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "status": "dummy_data_gemini_not_configured",
                 "numero_processo": "0000000-00.0000.0.00.0000",
                 "tipo_decisao": "sentença",
@@ -89,99 +126,116 @@ class GeminiExtractor:
             }
         else:
             logging.info(f"Attempting real Gemini API call for {pdf_path.name}")
-            uploaded_file_object = None
-            try:
-                logging.info(f"Uploading {pdf_path.name} to Gemini...")
-                uploaded_file_object = genai.upload_file(
-                    path=str(pdf_path),
-                    mime_type="application/pdf",
-                )
-                logging.info(
-                    f"Successfully uploaded {pdf_path.name} as {uploaded_file_object.name}"
-                )
-
-                prompt = """Analise este PDF do Diário da Justiça e extraia APENAS decisões judiciais.
-Para cada decisão encontrada, retorne JSON com:
-{
-    "numero_processo": "formato CNJ",
-    "tipo_decisao": "sentença|acórdão|despacho",
-    "partes": {
-        "requerente": ["nome1", "nome2"],
-        "requerido": ["nome1", "nome2"]
-    },
-    "advogados": {
-        "requerente": ["Nome (OAB/UF)", ...],
-        "requerido": ["Nome (OAB/UF)", ...]
-    },
-    "resultado": "procedente|improcedente|parcialmente_procedente|extinto",
-    "data_decisao": "YYYY-MM-DD"
-}
-Se múltiplas decisões forem encontradas, retorne uma lista de JSONs.
-Se nenhuma decisão for encontrada, retorne um JSON vazio: {}.
-Não inclua markdown (```json ... ```) na sua resposta."""
-
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                logging.info(
-                    f"Generating content for {pdf_path.name} using 'gemini-1.5-flash'..."
-                )
-                response = model.generate_content([prompt, uploaded_file_object])
-
-                logging.info(f"Response received from Gemini for {pdf_path.name}.")
-
+            
+            # Extract text from PDF locally first
+            pdf_text = self._extract_text_from_pdf(pdf_path)
+            if not pdf_text:
+                logging.error(f"Failed to extract text from {pdf_path.name}")
+                final_extracted_data = None
+            else:
+                # Save extracted text for debugging
+                text_debug_dir = output_json_dir.parent / "extracted_text"
+                text_debug_dir.mkdir(exist_ok=True)
+                text_file_path = text_debug_dir / f"{pdf_path.stem}_extracted_text.txt"
+                
                 try:
-                    extracted_data_from_api = json.loads(response.text)
+                    with open(text_file_path, "w", encoding="utf-8") as f:
+                        f.write(pdf_text)
+                    logging.info(f"Saved extracted text to: {text_file_path}")
+                except Exception as e:
+                    logging.warning(f"Failed to save extracted text: {e}")
+                
+                try:
+                    logging.info(f"Extracted text from {pdf_path.name}, sending to Gemini...")
 
-                    # Add common metadata
-                    if isinstance(extracted_data_from_api, list):
-                        # If it's a list of decisions, wrap it or decide how to store metadata
-                        # For now, creating a wrapper object
+                    prompt = """Este é o texto extraído do Diário da Justiça. Analise o conteúdo e extraia APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido (procedente, improcedente, etc). IGNORE despachos administrativos.
+
+SEMPRE retorne um array JSON válido. Exemplos:
+
+Array vazio se não encontrar decisões:
+[]
+
+Array com decisões encontradas:
+[
+    {
+        "numero_processo": "1234567-89.2023.8.23.0001",
+        "tipo_decisao": "acórdão",
+        "polo_ativo": ["Nome Agravante", "Nome Autor"],
+        "advogados_polo_ativo": ["Nome Advogado (OAB/UF)"],
+        "polo_passivo": ["Nome Agravado", "Nome Réu"], 
+        "advogados_polo_passivo": ["Nome Advogado (OAB/UF)"],
+        "resultado": "procedente|improcedente|parcialmente_procedente|extinto|provido|negado_provimento|confirmada|reformada",
+        "data": "YYYY-MM-DD"
+    }
+]
+
+REGRAS OBRIGATÓRIAS:
+- Retorne SEMPRE um array JSON válido, nunca texto explicativo
+- Se não encontrar decisões com resultado, retorne: []
+- Processe decisões como "RECURSO PROVIDO", "SENTENÇA CONFIRMADA", "SENTENÇA PROCEDENTE", etc.
+- Ignore despachos que apenas movimentam processos
+- Número CNJ quando disponível, senão use o número encontrado
+- Procure por textos como: "Decisão:", "Decisão Monocrática:", "À UNANIMIDADE", etc."""
+
+                    model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17")
+                    logging.info(
+                        f"Generating content for {pdf_path.name} using 'gemini-2.5-flash-lite-preview-06-17'..."
+                    )
+                    
+                    # Combine prompt with extracted text
+                    full_prompt = f"{prompt}\n\nTexto extraído do PDF:\n{pdf_text}"
+                    response = model.generate_content(full_prompt)
+
+                    logging.info(f"Response received from Gemini for {pdf_path.name}.")
+
+                    try:
+                        # Clean up response text by removing markdown if present
+                        clean_response = response.text.strip()
+                        if clean_response.startswith("```json"):
+                            clean_response = clean_response.replace("```json", "").replace("```", "").strip()
+                        elif clean_response.startswith("```"):
+                            clean_response = clean_response.replace("```", "").strip()
+                        
+                        extracted_data_from_api = json.loads(clean_response)
+
+                        # Add common metadata
+                        if isinstance(extracted_data_from_api, list):
+                            # If it's a list of decisions, wrap it with metadata
+                            final_extracted_data = {
+                                "file_name_source": pdf_path.name,
+                                "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                                "decisions": extracted_data_from_api,
+                            }
+                        elif isinstance(extracted_data_from_api, dict):
+                            # If it's a single decision object, treat as single item array
+                            extracted_data_from_api["file_name_source"] = pdf_path.name
+                            extracted_data_from_api["extraction_timestamp"] = (
+                                datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            )
+                            final_extracted_data = extracted_data_from_api
+                        else:
+                            logging.error(
+                                f"Gemini response for {pdf_path.name} was not a JSON dict or list: {type(extracted_data_from_api)}"
+                            )
+                            final_extracted_data = None
+
+                    except json.JSONDecodeError as je:
+                        logging.warning(
+                            f"Gemini returned non-JSON response for {pdf_path.name}. Response: {response.text[:200]}..."
+                        )
+                        # If Gemini responded but not in JSON, assume no decisions found
                         final_extracted_data = {
                             "file_name_source": pdf_path.name,
-                            "extraction_timestamp": datetime.datetime.utcnow().isoformat()
-                            + "Z",
-                            "decisions": extracted_data_from_api,
+                            "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                            "decisions": [],
+                            "gemini_response": response.text[:500]  # Keep first 500 chars for debugging
                         }
-                    elif isinstance(extracted_data_from_api, dict):
-                        # If it's a single decision object
-                        extracted_data_from_api["file_name_source"] = pdf_path.name
-                        extracted_data_from_api["extraction_timestamp"] = (
-                            datetime.datetime.utcnow().isoformat() + "Z"
-                        )
-                        final_extracted_data = extracted_data_from_api
-                    else:
-                        logging.error(
-                            f"Gemini response for {pdf_path.name} was not a JSON dict or list: {type(extracted_data_from_api)}"
-                        )
-                        final_extracted_data = None  # Or some error structure
 
-                except json.JSONDecodeError as je:
+                except Exception as e:
                     logging.error(
-                        f"Failed to parse JSON response from Gemini for {pdf_path.name}: {je}"
+                        f"Error during Gemini API call or processing for {pdf_path.name}: {e}"
                     )
-                    logging.debug(
-                        f"Gemini raw response text for {pdf_path.name}: {response.text[:500]}..."
-                    )  # Log snippet
-                    final_extracted_data = None
-
-            except Exception as e:
-                logging.error(
-                    f"Error during Gemini API call or processing for {pdf_path.name}: {e}"
-                )
-                final_extracted_data = None  # Ensure it's None if any step failed
-            finally:
-                if uploaded_file_object:
-                    try:
-                        logging.info(
-                            f"Deleting uploaded file {uploaded_file_object.name} from Gemini."
-                        )
-                        genai.delete_file(uploaded_file_object.name)
-                        logging.info(
-                            f"Successfully deleted file {uploaded_file_object.name}."
-                        )
-                    except Exception as e_del:
-                        logging.error(
-                            f"Error deleting file {uploaded_file_object.name} from Gemini: {e_del}"
-                        )
+                    final_extracted_data = None  # Ensure it's None if any step failed
 
         if final_extracted_data is None:
             logging.warning(
@@ -190,25 +244,21 @@ Não inclua markdown (```json ... ```) na sua resposta."""
             return None
 
         # Determine filename based on extracted data if possible
-        # This part might need adjustment based on how multiple decisions are handled.
-        # If it's a list, we might use the first decision's number or a generic name.
         process_number_to_use = "unknown_process"
         if (
-            isinstance(final_extracted_data, dict)
-            and "numero_processo" in final_extracted_data
-        ):
-            process_number_to_use = final_extracted_data["numero_processo"]
-        elif (
             isinstance(final_extracted_data, dict)
             and "decisions" in final_extracted_data
             and isinstance(final_extracted_data["decisions"], list)
             and len(final_extracted_data["decisions"]) > 0
             and "numero_processo" in final_extracted_data["decisions"][0]
         ):
-            process_number_to_use = final_extracted_data["decisions"][0][
-                "numero_processo"
-            ]
-        else:  # Fallback if numero_processo is not easily found or if it's an empty dict {}
+            process_number_to_use = final_extracted_data["decisions"][0]["numero_processo"]
+        elif (
+            isinstance(final_extracted_data, dict)
+            and "numero_processo" in final_extracted_data
+        ):
+            process_number_to_use = final_extracted_data["numero_processo"]
+        else:  # Fallback if numero_processo is not found or if it's an empty array
             process_number_to_use = f"{pdf_path.stem}_extraction"
 
         sanitized_filename_base = self._sanitize_filename(process_number_to_use)

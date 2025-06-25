@@ -10,6 +10,7 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "mkdocs>=1.6.1",
     "pandas>=2.3.0",
+    "pymupdf>=1.26.1",
     "python-json-logger>=3.3.0",
     "requests>=2.32.4",
 ]

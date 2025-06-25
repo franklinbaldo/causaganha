@@ -1,12 +1,4 @@
 __pycache__/
 **/__pycache__/
 *.pyc
-causaganha/data/diarios/
-causaganha/data/json/
-causaganha/data/json_processed/
-causaganha/data/json_test_output/
-causaganha/data/json_cli_test/
-causaganha/data/json_extract_test/
-causaganha/data/json_test_extractor/
-site/
 .env
