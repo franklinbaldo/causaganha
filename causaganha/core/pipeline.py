@@ -210,9 +210,13 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
             logger.error(f"Error reading {json_path.name}: {e}. Skipping file.")
             continue
 
-        decisions_in_file = (
-            loaded_content if isinstance(loaded_content, list) else [loaded_content]
-        )
+        # Handle the new format where decisions are nested under "decisions" key
+        if isinstance(loaded_content, dict) and "decisions" in loaded_content:
+            decisions_in_file = loaded_content["decisions"]
+        elif isinstance(loaded_content, list):
+            decisions_in_file = loaded_content
+        else:
+            decisions_in_file = [loaded_content]
 
         file_had_valid_decisions_for_elo = False
         for decision_data in decisions_in_file:
@@ -222,9 +226,16 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
                 )
                 continue
 
-            advogados_data = decision_data.get("advogados", {})
-            advogados_requerente = advogados_data.get("requerente", [])
-            advogados_requerido = advogados_data.get("requerido", [])
+            # Handle both old format (advogados.requerente) and new format (advogados_polo_ativo)
+            if "advogados" in decision_data:
+                # Old format
+                advogados_data = decision_data.get("advogados", {})
+                advogados_requerente = advogados_data.get("requerente", [])
+                advogados_requerido = advogados_data.get("requerido", [])
+            else:
+                # New format from extractor
+                advogados_requerente = decision_data.get("advogados_polo_ativo", [])
+                advogados_requerido = decision_data.get("advogados_polo_passivo", [])
 
             if not advogados_requerente or not advogados_requerido:
                 logger.warning(
@@ -255,15 +266,16 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
 
             resultado_str = decision_data.get("resultado", "").lower()
             score_a = 0.5  # Default to draw for unknown outcomes
-            if resultado_str == "procedente":
+            if resultado_str in ["procedente", "provido", "confirmada"]:
                 score_a = 1.0
-            elif resultado_str == "improcedente":
+            elif resultado_str in ["improcedente", "negado_provimento", "reformada"]:
                 score_a = 0.0
             elif resultado_str in [
                 "parcialmente procedente",
                 "parcialmente_procedente",
                 "extinto sem resolução de mérito",
                 "extinto",
+                "não_definido",
             ]:
                 score_a = 0.5
             else:
@@ -318,7 +330,7 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
             partidas_history.append(
                 {
                     "data_partida": decision_data.get(
-                        "data_decisao", datetime.date.today().isoformat()
+                        "data_decisao", decision_data.get("data", datetime.date.today().isoformat())
                     ),
                     "advogado_a_id": adv_a_id,
                     "advogado_b_id": adv_b_id,

@@ -126,43 +126,44 @@ def validate_decision(decision: dict) -> bool:
         )
         return False
 
-    # 2. Check partes
+    # 2. Check partes - handle both old format (partes dict) and new format (polo_ativo/polo_passivo)
     partes = decision.get("partes")
-    if not isinstance(partes, dict):
-        logger.warning(
-            f"Validation failed: 'partes' is missing or not a dictionary (got {type(partes)})."
-        )
-        return False
+    if partes and isinstance(partes, dict):
+        # Old format
+        requerente = partes.get("requerente")
+        requerido = partes.get("requerido")
+    else:
+        # New format
+        requerente = decision.get("polo_ativo")
+        requerido = decision.get("polo_passivo")
 
-    requerente = partes.get("requerente")
     if not requerente:  # Checks for None or empty list/string
-        logger.warning("Validation failed: 'partes.requerente' is missing or empty.")
+        logger.warning("Validation failed: 'requerente/polo_ativo' is missing or empty.")
         return False
     if not (isinstance(requerente, list) or isinstance(requerente, str)):
         logger.warning(
-            f"Validation failed: 'partes.requerente' is not a list or string (got {type(requerente)})."
+            f"Validation failed: 'requerente/polo_ativo' is not a list or string (got {type(requerente)})."
         )
         return False
     if isinstance(requerente, list) and not any(
         requerente
     ):  # handles list of empty strings if that's an issue
         logger.warning(
-            "Validation failed: 'partes.requerente' list contains no actual content."
+            "Validation failed: 'requerente/polo_ativo' list contains no actual content."
         )
         return False
 
-    requerido = partes.get("requerido")
     if not requerido:  # Checks for None or empty list/string
-        logger.warning("Validation failed: 'partes.requerido' is missing or empty.")
+        logger.warning("Validation failed: 'requerido/polo_passivo' is missing or empty.")
         return False
     if not (isinstance(requerido, list) or isinstance(requerido, str)):
         logger.warning(
-            f"Validation failed: 'partes.requerido' is not a list or string (got {type(requerido)})."
+            f"Validation failed: 'requerido/polo_passivo' is not a list or string (got {type(requerido)})."
         )
         return False
     if isinstance(requerido, list) and not any(requerido):
         logger.warning(
-            "Validation failed: 'partes.requerido' list contains no actual content."
+            "Validation failed: 'requerido/polo_passivo' list contains no actual content."
         )
         return False
 

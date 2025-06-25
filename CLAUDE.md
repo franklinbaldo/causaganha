@@ -46,8 +46,8 @@ uv run python causaganha/core/downloader.py --latest
 # Download specific date
 uv run python causaganha/core/downloader.py --date 2025-06-24
 
-# Extract content from PDF using Gemini
-uv run python causaganha/core/extractor.py --pdf_file path/to/file.pdf
+# Extract content from PDF using Gemini (with automatic rate limiting)
+uv run --env-file .env python causaganha/core/extractor.py --pdf_file data/dj_20250624.pdf
 
 # Run complete pipeline (download → extract → update Elo ratings)
 uv run python causaganha/core/pipeline.py run --date 2025-06-24
@@ -65,10 +65,13 @@ uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
    - Uses proper headers to bypass bot protection
    - Saves files as `dj_YYYYMMDD.pdf` in `causaganha/data/diarios/`
 
-2. **Extraction** (`extractor.py`): Processes PDFs with Gemini LLM
-   - Uses Google Generative AI to parse PDF content
-   - Extracts: process number, parties, lawyers, decision outcome
-   - Outputs structured JSON to `causaganha/data/json/`
+2. **Extraction** (`extractor.py`): Processes PDFs with Gemini LLM using advanced chunking
+   - **Text-based extraction**: Uses PyMuPDF for local PDF text extraction
+   - **Smart chunking**: 25-page segments with 1-page overlap for context continuity
+   - **Rate limiting**: Automatic exponential backoff respecting 15 RPM API limits
+   - **Enhanced data**: Extracts process number, parties (polo ativo/passivo), lawyers with OAB, decision outcome, and 250-char summaries
+   - **Robust output**: Structured JSON with automatic cleanup of intermediate files
+   - **File organization**: Outputs to `data/` directory with consistent naming
 
 3. **Rating Update** (`elo.py` + `pipeline.py`): Applies Elo calculations
    - Matches lawyers from opposing sides
@@ -91,8 +94,10 @@ TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → Elo Up
 ### File Organization
 
 - `causaganha/core/`: Main business logic modules
-- `causaganha/data/diarios/`: PDF files from TJRO
-- `causaganha/data/json*/`: Extracted decision data in JSON format
+- `data/`: **Flattened data directory** (moved from causaganha/data)
+  - `data/dj_YYYYMMDD.pdf`: PDF files from TJRO  
+  - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data
+  - `data/*_decisions_for_elo_testing.json`: Test data for ELO workflow
 - `causaganha/tests/`: Comprehensive unit test suite
 - `.github/workflows/`: Automated CI/CD with 4 workflows (test, collect, extract, update)
 
@@ -121,7 +126,11 @@ Requires these repository secrets:
 ## External Dependencies
 
 - **Google Gemini API**: Core LLM for PDF content extraction
+  - **Model**: `gemini-2.5-flash-lite-preview-06-17`
+  - **Rate limits**: 15 RPM, 500 requests/day (Free tier)
+  - **Features**: Text-based analysis with chunking and rate limiting
+- **PyMuPDF (fitz)**: Local PDF text extraction library
 - **TJRO Website**: Source of judicial PDFs via redirect-based URLs
 - **Google Drive API**: Optional backup storage for PDF files
 
-The system is designed to be resilient to external service failures with proper error handling and dry-run capabilities for safe testing.
+The system is designed to be resilient to external service failures with proper error handling, exponential backoff, and dry-run capabilities for safe testing.

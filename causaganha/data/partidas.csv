@@ -1,0 +1,50 @@
+data_partida,advogado_a_id,advogado_b_id,rating_advogado_a_antes,rating_advogado_b_antes,score_a,rating_advogado_a_depois,rating_advogado_b_depois,numero_processo
+2025-06-24,jeanne margaretha machado (oab/ro 10083),procurador-geral do estado de rondonia,1500.0,1500.0,0.0,1492.0,1508.0,7050077-96.2023.8.22.0001
+2025-06-24,edson bernardo andrade reis neto (oab/ro 1207),procurador-geral do estado de rondonia,1500.0,1508.0,0.5,1500.18,1507.82,7033882-07.2021.8.22.0001
+2025-06-24,fernanda fumero garcia (oab/ro 4601),procurador federal do inss,1500.0,1500.0,0.5,1500.0,1500.0,7003076-97.2023.8.22.0007
+2025-06-24,renata fabris pinto (oab/ro 3126),procurador-geral do estado de rondonia,1500.0,1507.82,0.5,1500.18,1507.64,7047219-58.2024.8.22.0001
+2025-06-24,gustavo gerola marsola (oab/ro 4164),procurador-geral do estado de rondonia,1500.0,1507.64,0.5,1500.18,1507.46,7049088-95.2020.8.22.0001
+2025-06-24,procurador-geral do estado de rondonia,amir francisco lando (oab/ro 34-a),1507.46,1500.0,1.0,1515.29,1492.17,0041686-26.2009.8.22.0015
+2025-06-24,andre ricardo lemes da silva (oab/es 33288),sergio fernandes de abreu junior (oab/ro 6629),1500.0,1500.0,0.5,1500.0,1500.0,7081048-98.2022.8.22.0001
+2025-06-24,vander carlos araujo machado (oab/ro 2521),antonio isac nunes cavalcante de astre (oab/ro 5095),1500.0,1500.0,0.5,1500.0,1500.0,7033177-04.2024.8.22.0001
+2025-06-24,carlos eduardo rocha almeida (oab/ro 3593),procurador-geral do estado de rondonia,1500.0,1515.29,0.5,1500.35,1514.94,0811400-86.2023.8.22.0000
+2025-06-24,iulsf anderson michelon (oab/ro 8084),luciana costa das chagas (oab/ro 6205),1500.0,1500.0,0.5,1500.0,1500.0,7015422-64.2024.8.22.0001
+,procurador-geral do estado de rondonia,defensor publico do estado de rondonia,1514.94,1500.0,1.0,1522.6,1492.34,0010381-61.2012.8.22.0001
+,procurador-geral do estado de rondonia,defensor publico do estado de rondonia,1522.6,1492.34,0.0,1513.9,1501.04,0820526-29.2024.8.22.0000
+,defensor publico do estado de rondonia,procurador-geral do estado de rondonia,1501.04,1513.9,1.0,1509.34,1505.6,0801105-19.2024.8.22.9000
+,procurador-geral do municipio de candeias do jamari,edirlei barboza pereira de souza (oab/ro 13635),1500.0,1500.0,1.0,1508.0,1492.0,0800718-04.2025.8.22.0000
+,procurador-geral do municipio de porto velho,carlos henrique gazzoni (oab/ro 6722),1500.0,1500.0,0.0,1492.0,1508.0,7034895-80.2017.8.22.0001
+,procurador-geral do municipio de vilhena,defensor publico do estado de rondonia,1500.0,1509.34,0.0,1492.22,1517.12,7012112-11.2024.8.22.0014
+,roseval rodrigues da cunha filho (oab/go 17394),procurador-geral do municipio de rolim de moura,1500.0,1500.0,0.0,1492.0,1508.0,7009787-08.2024.8.22.0000
+,procurador-geral do municipio de cacoal,defensor publico do estado de rondonia,1500.0,1517.12,0.0,1492.39,1524.73,7001674-02.2023.8.22.0000
+,procurador-geral do municipio de ji-parana,defensor publico do estado de rondonia,1500.0,1524.73,0.0,1492.57,1532.16,7006440-54.2021.8.22.0005
+,jordan luiz miranda holanda (oab/ro 10573),procurador-geral do municipio de ji-parana,1500.0,1492.57,0.0,1491.83,1500.74,7014301-86.2024.8.22.0005
+,gabriel alencar de abreu (oab/ro 12826),procurador-geral do municipio de ji-parana,1500.0,1500.74,0.0,1492.02,1508.72,7016235-79.2024.8.22.0005
+,edilson stutz (oab/ro 309),procurador-geral do estado de rondonia,1500.0,1505.6,1.0,1508.13,1497.47,0801016-93.2025.8.22.0000
+,josimar oliveira muniz (oab/ro 912),procurador federal do inss,1500.0,1500.0,0.0,1492.0,1508.0,0813017-47.2024.8.22.0000
+,procurador-geral do estado de rondonia,defensor publico do estado de rondonia,1497.47,1532.16,0.5,1498.27,1531.36,7013923-61.2023.8.22.0007
+,procurador-geral do estado de rondonia,defensor publico do estado de rondonia,1498.27,1531.36,0.5,1499.03,1530.6,7075027-09.2022.8.22.0001
+,israel augusto alves freitas da cunha (oab/ro 2913),procurador-geral do municipio de porto velho,1500.0,1492.0,0.0,1491.82,1500.18,0811174-47.2024.8.22.0000
+,procurador-geral do estado de rondonia,rubia gomes cacique (oab/ro 5810),1499.03,1500.0,0.0,1491.05,1507.98,7000914-98.2024.8.22.0006
+,procurador-geral do estado de rondonia,defensor publico do estado de rondonia,1491.05,1530.6,0.5,1491.96,1529.69,7003286-23.2024.8.22.0005
+,diego de paiva vasconcelos (oab/ro 2013),procurador-geral do estado de rondonia,1500.0,1491.96,0.5,1499.81,1492.15,0801087-32.2024.8.22.0000
+,jose nonato de araujo neto (oab/ro 6471),procurador-geral do saae - cacoal,1500.0,1500.0,0.5,1500.0,1500.0,0000180-84.2015.8.22.0007
+,procurador-geral do estado de rondonia,francisca jusara de macedo coelho silva (oab/ro 10215),1492.15,1500.0,0.0,1484.33,1507.82,7011877-65.2024.8.22.0007
+,procurador-geral do estado de rondonia,rafael duck silva (oab/ro 5152),1484.33,1500.0,0.0,1476.69,1507.64,7001651-22.2024.8.22.0000
+,procurador-geral do municipio de porto velho,procurador-geral do estado de rondonia,1500.18,1476.69,0.0,1491.64,1485.23,7069864-48.2022.8.22.0001
+,lurival antonio ercolin (oab/ro 64),procurador-geral do estado de rondonia,1500.0,1485.23,0.0,1491.66,1493.57,7014765-81.2022.8.22.0005
+,procurador-geral do municipio de porto velho,leonardo falcao ribeiro (oab/ro 5408),1491.64,1500.0,1.0,1499.83,1491.81,0813152-93.2023.8.22.0000
+,tiago dos santos de lima (oab/ro 7199),procurador federal do inss,1500.0,1508.0,1.0,1508.18,1499.82,0819070-44.2024.8.22.0000
+,roseval rodrigues da cunha filho (oab/go 17394),procurador-geral do municipio de rolim de moura,1492.0,1508.0,0.0,1484.37,1515.63,7007745-20.2023.8.22.0000
+,roseval rodrigues da cunha filho (oab/go 17394),procurador-geral do municipio de rolim de moura,1484.37,1515.63,0.0,1477.09,1522.91,7003213-66.2024.8.22.0000
+,roseval rodrigues da cunha filho (oab/go 17394),procurador-geral do municipio de rolim de moura,1477.09,1522.91,0.0,1470.14,1529.86,7007025-19.2024.8.22.0000
+,procurador-geral do estado de rondonia,rodrigo de barcelos taveira (oab/ro 10421),1493.57,1500.0,0.5,1493.72,1499.85,7045549-19.2023.8.22.0001
+,paulo cezar rodrigues de araujo (oab/ro 3182),procurador-geral do municipio de porto velho,1500.0,1499.83,0.5,1500.0,1499.83,7029844-78.2023.8.22.0001
+2025-06-24,maisa bernachi baptista (oab/ro 8247),procurador-geral do estado de rondonia,1500.0,1493.72,0.5,1499.86,1493.86,7026480-64.2024.8.22.0001
+2025-06-24,flaviana leticia ramos moreira (oab/ro 4867),procurador federal do inss,1500.0,1499.82,0.0,1492.0,1507.82,0801072-29.2025.8.22.0000
+2025-06-24,daniel barbosa santos (oab/df 13147),maracelia lima de oliveira (oab/ro 2549),1500.0,1500.0,1.0,1508.0,1492.0,7030339-25.2023.8.22.0001
+2025-06-24,karoline cavalcanti de paula (oab/ro 10268),procuradoria geral do estado de rondonia,1500.0,1500.0,0.5,1500.0,1500.0,7009982-58.2022.8.22.0001
+2025-06-24,karoline cavalcanti de paula (oab/ro 10268),procuradoria geral do estado de rondonia,1500.0,1500.0,0.5,1500.0,1500.0,7010424-24.2022.8.22.0001
+2025-06-24,paulo barroso serpa (oab/ro 4923),procurador-geral do estado de rondonia,1500.0,1493.86,0.5,1499.86,1494.0,0022869-14.2013.8.22.0001
+2025-06-24,fabrizio thomazio guimaraes silva (oab/ro 14.865),williames pimentel de oliveira (oab/ro 2694),1500.0,1500.0,0.0,1492.0,1508.0,7012750-20.2023.8.22.0001
+2025-06-24,joana kalsing (oab/ro 5004),procurador-geral do estado de rondonia,1500.0,1494.0,0.5,1499.86,1494.14,0810430-52.2024.8.22.0000
