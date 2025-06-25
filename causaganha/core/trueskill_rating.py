@@ -1,11 +1,24 @@
 # Este arquivo conterá a lógica para cálculos de rating usando TrueSkill.
 # Serão implementadas funções para inicializar e atualizar ratings.
-import trueskill
-import toml
+from __future__ import annotations
+
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, Tuple
 import logging
 
+import toml
+import trueskill
+
 logger = logging.getLogger(__name__)
+
+# Possíveis resultados de uma partida de TrueSkill
+class MatchResult(Enum):
+    """Representa o desfecho de uma partida para atualização de ratings."""
+
+    WIN_A = "win_a"
+    WIN_B = "win_b"
+    DRAW = "draw"
 
 # Valores padrao para o ambiente TrueSkill
 _DEFAULT_CONFIG = {
@@ -20,7 +33,7 @@ _DEFAULT_CONFIG = {
 # Carrega configurações do arquivo config.toml
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.toml"
 
-def load_trueskill_config():
+def load_trueskill_config() -> Dict[str, Any]:
     """Carrega as configurações do TrueSkill do arquivo config.toml."""
     try:
         config = toml.load(CONFIG_PATH)
@@ -51,18 +64,18 @@ def create_new_rating() -> trueskill.Rating:
     return ENV.create_rating()
 
 def update_ratings(
-    env: trueskill.TrueSkill, # Adicionado parâmetro env
+    env: trueskill.TrueSkill,
     team_ratings_a: list[trueskill.Rating],
     team_ratings_b: list[trueskill.Rating],
-    result: str, # "win_a", "win_b", "draw"
-) -> tuple[list[trueskill.Rating], list[trueskill.Rating]]:
+    result: MatchResult,
+) -> Tuple[list[trueskill.Rating], list[trueskill.Rating]]:
     """
     Atualiza os ratings TrueSkill para duas equipes com base no resultado da partida.
 
     Args:
         team_ratings_a: Lista de objetos Rating para a equipe A.
         team_ratings_b: Lista de objetos Rating para a equipe B.
-        result: String indicando o resultado ("win_a", "win_b", "draw").
+        result: Resultado da partida (:class:`MatchResult`).
 
     Returns:
         Uma tupla contendo duas listas:
@@ -72,14 +85,16 @@ def update_ratings(
     Raises:
         ValueError: Se o resultado fornecido for inválido.
     """
-    if result == "win_a":
+    if result == MatchResult.WIN_A:
         ranks = [0, 1]  # Posição 0 para o vencedor, 1 para o perdedor
-    elif result == "win_b":
+    elif result == MatchResult.WIN_B:
         ranks = [1, 0]
-    elif result == "draw":
+    elif result == MatchResult.DRAW:
         ranks = [0, 0]  # Mesma posição para empate
     else:
-        raise ValueError(f"Resultado desconhecido: {result}. Use 'win_a', 'win_b', ou 'draw'.")
+        raise ValueError(
+            f"Resultado desconhecido: {result}. Use 'win_a', 'win_b', ou 'draw'."
+        )
 
     new_team_a_ratings, new_team_b_ratings = env.rate([team_ratings_a, team_ratings_b], ranks=ranks)
     return new_team_a_ratings, new_team_b_ratings
