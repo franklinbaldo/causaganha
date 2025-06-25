@@ -14,11 +14,12 @@ from .extractor import GeminiExtractor as _RealGeminiExtractor
 try:
     from .utils import normalize_lawyer_name, validate_decision
     from .trueskill_rating import (
-        ENV as TRUESKILL_ENV, # Renomeado para evitar conflito com ENV de configuração do pipeline
+        ENV as TRUESKILL_ENV,  # Renomeado para evitar conflito com ENV de configuração do pipeline
+        MatchResult,
         create_new_rating,
         update_ratings as update_trueskill_ratings,
-        trueskill, # To create Rating objects from stored mu/sigma
-        TS_CONFIG # Acessar a configuração carregada do toml
+        trueskill,  # To create Rating objects from stored mu/sigma
+        TS_CONFIG,  # Acessar a configuração carregada do toml
     )
 except ImportError as e:
     # This might happen if script is run directly and not as part of the package.
@@ -42,7 +43,7 @@ except ImportError as e:
     def create_new_rating():
         return DummyRating()
 
-    def update_trueskill_ratings(env, team_a, team_b, result): # Added env for dummy
+    def update_trueskill_ratings(env, team_a, team_b, result):  # Added env for dummy
         # Return the same ratings passed in, to avoid breaking logic further down
         return team_a, team_b
 
@@ -282,16 +283,16 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                 continue
 
             resultado_str_raw = decision_data.get("resultado", "").lower()
-            trueskill_match_result = "draw" # Default
+            trueskill_match_result = MatchResult.DRAW
             if resultado_str_raw in ["procedente", "provido", "confirmada"]:
-                trueskill_match_result = "win_a"
+                trueskill_match_result = MatchResult.WIN_A
             elif resultado_str_raw in ["improcedente", "negado_provimento", "reformada"]:
-                trueskill_match_result = "win_b"
+                trueskill_match_result = MatchResult.WIN_B
             elif resultado_str_raw in [
                 "parcialmente procedente", "parcialmente_procedente",
                 "extinto sem resolução de mérito", "extinto", "não_definido",
             ]:
-                trueskill_match_result = "draw"
+                trueskill_match_result = MatchResult.DRAW
             else:
                 logger.warning(
                     f"Unknown 'resultado' ('{resultado_str_raw}') for {decision_data.get('numero_processo')}. Treating as a draw."
@@ -326,7 +327,10 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             }
 
             new_team_a_ratings, new_team_b_ratings = update_trueskill_ratings(
-                TRUESKILL_ENV, team_a_ratings_before, team_b_ratings_before, trueskill_match_result
+                TRUESKILL_ENV,
+                team_a_ratings_before,
+                team_b_ratings_before,
+                trueskill_match_result,
             )
 
             # Update ratings_df for Team A
@@ -365,7 +369,7 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                 "equipe_b_ids": ",".join(team_b_ids),
                 "ratings_equipe_a_antes": json.dumps(partida_team_a_ratings_before_dict),
                 "ratings_equipe_b_antes": json.dumps(partida_team_b_ratings_before_dict),
-                "resultado_partida": trueskill_match_result,
+                "resultado_partida": trueskill_match_result.value,
                 "ratings_equipe_a_depois": json.dumps(partida_team_a_ratings_after_dict),
                 "ratings_equipe_b_depois": json.dumps(partida_team_b_ratings_after_dict),
                 "numero_processo": decision_data.get("numero_processo"),
