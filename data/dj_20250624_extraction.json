@@ -1,6 +1,5 @@
 {
     "file_name_source": "dj_20250624.pdf",
-    "extraction_timestamp": "2025-06-25T11:50:00.142251+00:00",
-    "decisions": [],
-    "gemini_response": "```json\n[\n    {\n        \"numero_processo\": \"0816462-73.2024.8.22.0000\",\n        \"tipo_decisao\": \"acórdão\",\n        \"polo_ativo\": [\n            \"Corregedoria Geral da Justiça do Estado de Rondônia\"\n        ],\n        \"advogados_polo_ativo\": [\n            \"Adip Chaim Elias Homsi Neto (OAB/RO 13.757)\"\n        ],\n        \"polo_passivo\": [\n            \"A.C.E.H.N.\"\n        ],\n        \"advogados_polo_passivo\": [],\n        \"resultado\": \"procedente\",\n        \"data\": \"2025-06-19\"\n    },\n    {\n        \"num"
+    "extraction_timestamp": "2025-06-25T12:04:28.802107+00:00",
+    "decisions": []
 }

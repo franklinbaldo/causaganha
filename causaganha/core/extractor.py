@@ -61,25 +61,33 @@ class GeminiExtractor:
         sanitized = re.sub(r"[^\w\.\-_]", "", filename)
         return sanitized if sanitized else "default_filename"
 
-    def _extract_text_from_pdf(self, pdf_path: pathlib.Path) -> str | None:
-        """Extract text from PDF using PyMuPDF (fitz)"""
+    def _extract_text_from_pdf(self, pdf_path: pathlib.Path) -> list[str]:
+        """Extract text from PDF using PyMuPDF (fitz) and return chunks of 10 pages each"""
         if not fitz:
             logging.error("PyMuPDF (fitz) not available for text extraction")
-            return None
+            return []
         
         try:
             doc = fitz.open(str(pdf_path))
-            full_text = ""
             page_count = len(doc)
+            chunks = []
+            chunk_size = 10
             
-            for page_num in range(page_count):
-                page = doc.load_page(page_num)
-                text = page.get_text()
-                full_text += f"\n--- PÁGINA {page_num + 1} ---\n{text}\n"
+            for chunk_start in range(0, page_count, chunk_size):
+                chunk_end = min(chunk_start + chunk_size, page_count)
+                chunk_text = ""
+                
+                for page_num in range(chunk_start, chunk_end):
+                    page = doc.load_page(page_num)
+                    text = page.get_text()
+                    chunk_text += f"\n--- PÁGINA {page_num + 1} ---\n{text}\n"
+                
+                chunks.append(chunk_text)
+                logging.info(f"Created chunk {len(chunks)}: pages {chunk_start + 1}-{chunk_end}")
             
             doc.close()
-            logging.info(f"Successfully extracted text from {pdf_path.name} ({page_count} pages)")
-            return full_text
+            logging.info(f"Successfully extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks")
+            return chunks
             
         except Exception as e:
             logging.error(f"Error extracting text from PDF {pdf_path.name}: {e}")
@@ -88,7 +96,7 @@ class GeminiExtractor:
                     doc.close()
                 except:
                     pass
-            return None
+            return []
 
     def extract_and_save_json(
         self, pdf_path: str | pathlib.Path, output_json_dir: str | pathlib.Path
@@ -127,28 +135,28 @@ class GeminiExtractor:
         else:
             logging.info(f"Attempting real Gemini API call for {pdf_path.name}")
             
-            # Extract text from PDF locally first
-            pdf_text = self._extract_text_from_pdf(pdf_path)
-            if not pdf_text:
+            # Extract text from PDF in chunks
+            pdf_text_chunks = self._extract_text_from_pdf(pdf_path)
+            if not pdf_text_chunks:
                 logging.error(f"Failed to extract text from {pdf_path.name}")
                 final_extracted_data = None
             else:
-                # Save extracted text for debugging
-                text_debug_dir = output_json_dir.parent / "extracted_text"
-                text_debug_dir.mkdir(exist_ok=True)
-                text_file_path = text_debug_dir / f"{pdf_path.stem}_extracted_text.txt"
+                # Save full extracted text for debugging
+                full_text = "\n".join(pdf_text_chunks)
+                text_file_path = output_json_dir / f"{pdf_path.stem}_extracted_text.txt"
                 
                 try:
                     with open(text_file_path, "w", encoding="utf-8") as f:
-                        f.write(pdf_text)
+                        f.write(full_text)
                     logging.info(f"Saved extracted text to: {text_file_path}")
                 except Exception as e:
                     logging.warning(f"Failed to save extracted text: {e}")
                 
-                try:
-                    logging.info(f"Extracted text from {pdf_path.name}, sending to Gemini...")
-
-                    prompt = """Este é o texto extraído do Diário da Justiça. Analise o conteúdo e extraia APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido (procedente, improcedente, etc). IGNORE despachos administrativos.
+                # Process each chunk separately
+                all_decisions = []
+                all_raw_responses = []
+                
+                prompt = """Este é o texto extraído do Diário da Justiça. Analise o conteúdo e extraia APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido (procedente, improcedente, etc). IGNORE despachos administrativos.
 
 SEMPRE retorne um array JSON válido. Exemplos:
 
@@ -177,65 +185,62 @@ REGRAS OBRIGATÓRIAS:
 - Número CNJ quando disponível, senão use o número encontrado
 - Procure por textos como: "Decisão:", "Decisão Monocrática:", "À UNANIMIDADE", etc."""
 
-                    model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17")
-                    logging.info(
-                        f"Generating content for {pdf_path.name} using 'gemini-2.5-flash-lite-preview-06-17'..."
-                    )
-                    
-                    # Combine prompt with extracted text
-                    full_prompt = f"{prompt}\n\nTexto extraído do PDF:\n{pdf_text}"
-                    response = model.generate_content(full_prompt)
-
-                    logging.info(f"Response received from Gemini for {pdf_path.name}.")
-
+                model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17")
+                
+                for chunk_index, chunk_text in enumerate(pdf_text_chunks):
                     try:
-                        # Clean up response text by removing markdown if present
-                        clean_response = response.text.strip()
-                        if clean_response.startswith("```json"):
-                            clean_response = clean_response.replace("```json", "").replace("```", "").strip()
-                        elif clean_response.startswith("```"):
-                            clean_response = clean_response.replace("```", "").strip()
+                        logging.info(f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} for {pdf_path.name}")
                         
-                        extracted_data_from_api = json.loads(clean_response)
+                        # Combine prompt with chunk text
+                        full_prompt = f"{prompt}\n\nTexto extraído do PDF (Chunk {chunk_index + 1}):\n{chunk_text}"
+                        response = model.generate_content(full_prompt)
 
-                        # Add common metadata
-                        if isinstance(extracted_data_from_api, list):
-                            # If it's a list of decisions, wrap it with metadata
-                            final_extracted_data = {
-                                "file_name_source": pdf_path.name,
-                                "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                                "decisions": extracted_data_from_api,
-                            }
-                        elif isinstance(extracted_data_from_api, dict):
-                            # If it's a single decision object, treat as single item array
-                            extracted_data_from_api["file_name_source"] = pdf_path.name
-                            extracted_data_from_api["extraction_timestamp"] = (
-                                datetime.datetime.now(datetime.timezone.utc).isoformat()
-                            )
-                            final_extracted_data = extracted_data_from_api
-                        else:
-                            logging.error(
-                                f"Gemini response for {pdf_path.name} was not a JSON dict or list: {type(extracted_data_from_api)}"
-                            )
-                            final_extracted_data = None
+                        logging.info(f"Response received from Gemini for {pdf_path.name} chunk {chunk_index + 1}")
 
-                    except json.JSONDecodeError as je:
-                        logging.warning(
-                            f"Gemini returned non-JSON response for {pdf_path.name}. Response: {response.text[:200]}..."
-                        )
-                        # If Gemini responded but not in JSON, assume no decisions found
-                        final_extracted_data = {
-                            "file_name_source": pdf_path.name,
-                            "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                            "decisions": [],
-                            "gemini_response": response.text[:500]  # Keep first 500 chars for debugging
-                        }
+                        # Save raw response for this chunk
+                        raw_response_file = output_json_dir / f"{pdf_path.stem}_gemini_raw_response_chunk_{chunk_index + 1}.txt"
+                        try:
+                            with open(raw_response_file, "w", encoding="utf-8") as f:
+                                f.write(response.text)
+                            logging.info(f"Saved raw Gemini response chunk {chunk_index + 1} to: {raw_response_file}")
+                            all_raw_responses.append(f"Chunk {chunk_index + 1}: {response.text[:200]}...")
+                        except Exception as e:
+                            logging.warning(f"Failed to save raw Gemini response for chunk {chunk_index + 1}: {e}")
 
-                except Exception as e:
-                    logging.error(
-                        f"Error during Gemini API call or processing for {pdf_path.name}: {e}"
-                    )
-                    final_extracted_data = None  # Ensure it's None if any step failed
+                        # Parse JSON response for this chunk
+                        try:
+                            # Clean up response text by removing markdown if present
+                            clean_response = response.text.strip()
+                            if clean_response.startswith("```json"):
+                                clean_response = clean_response.replace("```json", "").replace("```", "").strip()
+                            elif clean_response.startswith("```"):
+                                clean_response = clean_response.replace("```", "").strip()
+                            
+                            chunk_decisions = json.loads(clean_response)
+                            
+                            if isinstance(chunk_decisions, list):
+                                all_decisions.extend(chunk_decisions)
+                                logging.info(f"Chunk {chunk_index + 1}: Found {len(chunk_decisions)} decisions")
+                            else:
+                                logging.warning(f"Chunk {chunk_index + 1}: Unexpected response format: {type(chunk_decisions)}")
+
+                        except json.JSONDecodeError as je:
+                            logging.warning(f"Chunk {chunk_index + 1}: Failed to parse JSON response: {je}")
+                            logging.debug(f"Chunk {chunk_index + 1} raw response: {response.text[:300]}...")
+
+                    except Exception as e:
+                        logging.error(f"Error processing chunk {chunk_index + 1} for {pdf_path.name}: {e}")
+                
+                # Combine all results
+                final_extracted_data = {
+                    "file_name_source": pdf_path.name,
+                    "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "decisions": all_decisions,
+                    "chunks_processed": len(pdf_text_chunks),
+                    "total_decisions_found": len(all_decisions)
+                }
+                
+                logging.info(f"Completed processing {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions found: {len(all_decisions)}")
 
         if final_extracted_data is None:
             logging.warning(
@@ -288,8 +293,8 @@ def main():
     parser.add_argument(
         "--output_dir",
         type=pathlib.Path,
-        default=pathlib.Path(__file__).resolve().parent.parent / "data" / "json",
-        help="Directory to save the extracted JSON file. Defaults to causaganha/data/json/",
+        default=pathlib.Path(__file__).resolve().parent.parent.parent / "data",
+        help="Directory to save the extracted JSON file. Defaults to data/",
     )
 
     args = parser.parse_args()
@@ -312,7 +317,7 @@ def main():
 
 if __name__ == "__main__":
     # Create a dummy PDF for CLI testing if it doesn't exist
-    dummy_pdf_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
+    dummy_pdf_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "data"
     dummy_pdf_dir.mkdir(parents=True, exist_ok=True)
     cli_test_pdf = (
         dummy_pdf_dir / "cli_test_doc_for_extractor.pdf"
@@ -349,6 +354,6 @@ if __name__ == "__main__":
                 f"Created super-basic dummy PDF (text file) for CLI testing: {cli_test_pdf}"
             )
 
-    # To run main: python causaganha/core/extractor.py --pdf_file causaganha/data/diarios/cli_test_doc_for_extractor.pdf
+    # To run main: python causaganha/core/extractor.py --pdf_file data/cli_test_doc_for_extractor.pdf
     # Ensure GEMINI_API_KEY is set in your environment if you want to test real API calls.
     main()
