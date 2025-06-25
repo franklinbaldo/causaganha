@@ -14,7 +14,10 @@
       "Bash(uv lock:*)",
       "Bash(uv run pytest:*)",
       "Bash(uv run:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }
