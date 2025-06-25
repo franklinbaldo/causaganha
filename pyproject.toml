@@ -13,6 +13,7 @@ dependencies = [
     "pymupdf>=1.26.1",
     "python-json-logger>=3.3.0",
     "requests>=2.32.4",
+    "trueskill>=0.4.5",
 ]
 
 [dependency-groups]

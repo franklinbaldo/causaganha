@@ -1,0 +1,179 @@
+import unittest
+import math
+
+import sys
+import pathlib
+
+sys.path.insert(
+    0, str(pathlib.Path(__file__).resolve().parent.parent.parent)
+)
+
+# Importar o módulo e as constantes/funções a serem testadas
+from causaganha.core import trueskill_rating as ts_rating
+from causaganha.core.trueskill_rating import trueskill # Para criar Rating objects diretamente para comparação
+
+class TestTrueSkillRatingCalculations(unittest.TestCase):
+
+    def setUp(self):
+        # Usar uma cópia do ambiente padrão para evitar modificar o global entre testes se necessário
+        # No nosso caso, ts_rating.ENV é configurado uma vez, então podemos usá-lo diretamente.
+        self.env = ts_rating.ENV
+        # Definir alguns ratings iniciais para os testes
+        self.r_alpha = self.env.create_rating() # Rating padrão mu=25, sigma=8.33...
+        self.r_beta = self.env.create_rating()
+        self.r_gamma = self.env.create_rating()
+        self.r_delta_expert = trueskill.Rating(mu=35.0, sigma=self.env.sigma / 2) # Um jogador mais experiente
+
+    def test_create_new_rating(self):
+        """Testa se create_new_rating retorna um objeto Rating com os padrões do ambiente."""
+        new_r = ts_rating.create_new_rating()
+        self.assertIsInstance(new_r, trueskill.Rating)
+        self.assertAlmostEqual(new_r.mu, self.env.mu)
+        self.assertAlmostEqual(new_r.sigma, self.env.sigma)
+
+    def test_update_ratings_invalid_result(self):
+        """Testa se update_ratings levanta ValueError para um resultado inválido."""
+        team_a = [self.r_alpha]
+        team_b = [self.r_beta]
+        with self.assertRaisesRegex(ValueError, "Resultado desconhecido: non_existent_result"):
+            ts_rating.update_ratings(team_a, team_b, "non_existent_result")
+
+    def test_update_ratings_1v1_win_a(self):
+        """Testa uma partida 1x1 onde a equipe A (jogador alpha) vence."""
+        team_a_before = [self.r_alpha]
+        team_b_before = [self.r_beta] # r_beta tem o mesmo rating que r_alpha
+
+        new_team_a, new_team_b = ts_rating.update_ratings(team_a_before, team_b_before, "win_a")
+
+        r_alpha_after = new_team_a[0]
+        r_beta_after = new_team_b[0]
+
+        # Com ratings iguais, o vencedor (alpha) deve aumentar mu, perdedor (beta) diminuir mu.
+        # Sigma (incerteza) deve diminuir para ambos.
+        self.assertGreater(r_alpha_after.mu, self.r_alpha.mu)
+        self.assertLess(r_alpha_after.sigma, self.r_alpha.sigma)
+        self.assertLess(r_beta_after.mu, self.r_beta.mu)
+        self.assertLess(r_beta_after.sigma, self.r_beta.sigma)
+
+        # O TrueSkill conserva a "qualidade" da partida, não a soma de mu diretamente.
+        # Mas a mudança de mu para um deve ser simétrica à do outro em um jogo 1v1 simples com ratings iniciais iguais.
+        mu_change_alpha = r_alpha_after.mu - self.r_alpha.mu
+        mu_change_beta = r_beta_after.mu - self.r_beta.mu
+        self.assertAlmostEqual(mu_change_alpha, -mu_change_beta)
+
+    def test_update_ratings_1v1_draw(self):
+        """Testa uma partida 1x1 que termina em empate."""
+        # Usar ratings ligeiramente diferentes para um teste mais geral de empate
+        r_alpha_custom = trueskill.Rating(mu=28.0, sigma=self.env.sigma)
+        r_beta_custom = trueskill.Rating(mu=22.0, sigma=self.env.sigma)
+
+        team_a_before = [r_alpha_custom]
+        team_b_before = [r_beta_custom]
+
+        new_team_a, new_team_b = ts_rating.update_ratings(team_a_before, team_b_before, "draw")
+
+        r_alpha_after = new_team_a[0]
+        r_beta_after = new_team_b[0]
+
+        # No empate, o jogador com rating maior (alpha) deve perder mu, e o com rating menor (beta) deve ganhar mu.
+        self.assertLess(r_alpha_after.mu, r_alpha_custom.mu)
+        self.assertGreater(r_beta_after.mu, r_beta_custom.mu)
+        self.assertLess(r_alpha_after.sigma, r_alpha_custom.sigma)
+        self.assertLess(r_beta_after.sigma, r_beta_custom.sigma)
+
+    def test_update_ratings_2v1_team_a_wins(self):
+        """Testa uma partida 2x1 onde a equipe A (alpha, beta) vence a equipe B (gamma)."""
+        team_a_before = [self.r_alpha, self.r_beta] # Ambos com rating padrão
+        team_b_before = [self.r_gamma]             # Rating padrão
+
+        new_team_a, new_team_b = ts_rating.update_ratings(team_a_before, team_b_before, "win_a")
+
+        r_alpha_after = new_team_a[0]
+        r_beta_after = new_team_a[1]
+        r_gamma_after = new_team_b[0]
+
+        # Jogadores da equipe vencedora (A) devem aumentar mu e diminuir sigma.
+        self.assertGreater(r_alpha_after.mu, self.r_alpha.mu)
+        self.assertLess(r_alpha_after.sigma, self.r_alpha.sigma)
+        self.assertGreater(r_beta_after.mu, self.r_beta.mu)
+        self.assertLess(r_beta_after.sigma, self.r_beta.sigma)
+
+        # Jogador da equipe perdedora (B) deve diminuir mu e diminuir sigma.
+        self.assertLess(r_gamma_after.mu, self.r_gamma.mu)
+        self.assertLess(r_gamma_after.sigma, self.r_gamma.sigma)
+
+        # A mudança de mu pode não ser idêntica para alpha e beta,
+        # dependendo da implementação do TrueSkill e dos parâmetros.
+
+    def test_update_ratings_1v1_upset_win_b(self):
+        """Testa uma partida 1x1 onde a equipe B (alpha, rating padrão) vence a equipe A (delta_expert, rating alto)."""
+        team_a_before = [self.r_delta_expert] # Experiente
+        team_b_before = [self.r_alpha]        # Novato (rating padrão)
+
+        new_team_a, new_team_b = ts_rating.update_ratings(team_a_before, team_b_before, "win_b")
+
+        r_delta_after = new_team_a[0]
+        r_alpha_after = new_team_b[0]
+
+        # Delta (experiente, equipe A) perdeu, então seu mu deve diminuir significativamente.
+        self.assertLess(r_delta_after.mu, self.r_delta_expert.mu)
+        self.assertLess(r_delta_after.sigma, self.r_delta_expert.sigma) # Sigma sempre diminui
+        mu_change_delta = self.r_delta_expert.mu - r_delta_after.mu
+
+        # Alpha (novato, equipe B) ganhou, então seu mu deve aumentar significativamente.
+        self.assertGreater(r_alpha_after.mu, self.r_alpha.mu)
+        self.assertLess(r_alpha_after.sigma, self.r_alpha.sigma)
+        mu_change_alpha = r_alpha_after.mu - self.r_alpha.mu
+
+        # A magnitude da mudança deve ser maior para o upset.
+        # Em um jogo equilibrado 1v1 onde o favorito perde, a mudança é maior que em um não-upset.
+        # Comparando com uma vitória esperada:
+        r_std1_before = self.env.create_rating() # Jogador A padrão
+        r_std2_before = self.env.create_rating() # Jogador B padrão
+
+        # Jogo padrão: Jogador B (std2) vence Jogador A (std1)
+        r_std1_after_list, r_std2_after_list = ts_rating.update_ratings([r_std1_before], [r_std2_before], "win_b")
+        r_std1_after = r_std1_after_list[0]
+        r_std2_after = r_std2_after_list[0]
+
+        mu_change_std_winner = r_std2_after.mu - r_std2_before.mu # Ganho do vencedor padrão
+        mu_change_std_loser = r_std1_before.mu - r_std1_after.mu   # Perda do perdedor padrão (magnitude)
+
+        self.assertGreater(mu_change_alpha, mu_change_std_winner, "Upset win should yield larger mu increase for winner vs standard win")
+        self.assertGreater(mu_change_delta, mu_change_std_loser, "Upset loss should yield larger mu decrease for loser vs standard loss")
+
+
+    def test_rating_exposure_increases_mu_certainty(self):
+        """Testa se jogar múltiplas partidas (exposição) aumenta a certeza (diminui sigma)."""
+        r_player1 = self.env.create_rating()
+        r_player2 = self.env.create_rating()
+        r_player3 = self.env.create_rating()
+        r_player4 = self.env.create_rating()
+
+        initial_sigma = r_player1.sigma
+
+        # Partida 1: P1 vs P2
+        p1_after_match1, _ = ts_rating.update_ratings([r_player1], [r_player2], "win_a")
+        r_player1 = p1_after_match1[0]
+        self.assertLess(r_player1.sigma, initial_sigma)
+        sigma_after_1_match = r_player1.sigma
+
+        # Partida 2: P1 vs P3
+        p1_after_match2, _ = ts_rating.update_ratings([r_player1], [r_player3], "win_a")
+        r_player1 = p1_after_match2[0]
+        self.assertLess(r_player1.sigma, sigma_after_1_match)
+        sigma_after_2_matches = r_player1.sigma
+
+        # Partida 3: P1 vs P4 (em equipe)
+        team_p1_p2 = [r_player1, p1_after_match1[0]] # P1 e P2 (já atualizado)
+        team_p3_p4 = [r_player3, r_player4]
+
+        p1_p2_after_match3, _ = ts_rating.update_ratings(team_p1_p2, team_p3_p4, "draw")
+        r_player1 = p1_p2_after_match3[0]
+        self.assertLess(r_player1.sigma, sigma_after_2_matches)
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+
+# Para executar: python -m unittest causaganha/tests/test_trueskill_rating.py
+# ou pytest

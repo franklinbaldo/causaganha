@@ -13,31 +13,44 @@ from .extractor import GeminiExtractor as _RealGeminiExtractor
 # Attempt to import local modules
 try:
     from .utils import normalize_lawyer_name, validate_decision
-    from .elo import (
-        update_elo,
-    )  # Assuming expected_score is not directly needed by pipeline logic
+    from .trueskill_rating import (
+        ENV, # Access to the TrueSkill environment (mu, sigma defaults)
+        create_new_rating,
+        update_ratings as update_trueskill_ratings,
+        trueskill, # To create Rating objects from stored mu/sigma
+    )
 except ImportError as e:
     # This might happen if script is run directly and not as part of the package.
-    # For robustness in such scenarios, or if structure changes, direct import might be an alternative.
-    # from utils import normalize_lawyer_name, validate_decision # etc.
     logging.error(
-        f"Failed to import local modules (.utils, .elo): {e}. Ensure they are in the correct path."
+        f"Failed to import local modules (.utils, .trueskill_rating): {e}. Ensure they are in the correct path."
     )
 
-    # Define dummy functions if imports fail, to allow basic CLI to load, but update will fail.
+    # Define dummy functions if imports fail
     def normalize_lawyer_name(name):
         return name
 
     def validate_decision(decision):
         return False
 
-    def update_elo(r1, r2, s1, k):
-        return r1, r2
+    # Dummy TrueSkill related functions if import fails
+    class DummyRating:
+        def __init__(self, mu=25.0, sigma=8.33):
+            self.mu = mu
+            self.sigma = sigma
 
+    def create_new_rating():
+        return DummyRating()
 
-# Constants for Elo update
-DEFAULT_RATING = 1500.0
-K_FACTOR = 16  # Standard K-factor
+    def update_trueskill_ratings(team_a, team_b, result):
+        # Return the same ratings passed in, to avoid breaking logic further down
+        return team_a, team_b
+
+    class DummyEnv:
+        mu = 25.0
+        sigma = 25.0 / 3.0
+
+    ENV = DummyEnv()
+    trueskill = None # So isinstance(rating, trueskill.Rating) would fail or be handled
 
 
 # Wrappers around the real downloader/extractor to keep the CLI tests stable
@@ -152,10 +165,11 @@ def extract_command(args):
 
 
 # Renamed from _handle_update_logic to fit into the command structure
-def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
-    logger.info("Starting Elo update process.")
+# Now updates TrueSkill ratings instead of Elo
+def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
+    logger.info("Starting TrueSkill ratings update process.")
     if dry_run:
-        logger.info("DRY-RUN: Elo update process would run, no files will be changed.")
+        logger.info("DRY-RUN: TrueSkill update process would run, no files will be changed.")
 
     json_input_dir = Path("causaganha/data/json/")
     processed_json_dir = Path("causaganha/data/json_processed/")
@@ -165,24 +179,37 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
     # Load Ratings
     try:
         ratings_df = pd.read_csv(ratings_file, index_col="advogado_id")
+        # Ensure correct dtypes for mu and sigma if they exist
+        if "mu" in ratings_df.columns:
+            ratings_df["mu"] = ratings_df["mu"].astype(float)
+        if "sigma" in ratings_df.columns:
+            ratings_df["sigma"] = ratings_df["sigma"].astype(float)
         logger.info(f"Loaded ratings from {ratings_file}")
     except FileNotFoundError:
         logger.info(f"{ratings_file} not found. Initializing new ratings DataFrame.")
-        ratings_df = pd.DataFrame(columns=["rating", "total_partidas"]).set_index(
-            pd.Index([], name="advogado_id")
-        )
+        ratings_df = pd.DataFrame(
+            columns=["mu", "sigma", "total_partidas"]
+        ).set_index(pd.Index([], name="advogado_id"))
     except Exception as e:
         logger.error(
             f"Error loading {ratings_file}: {e}. Initializing new ratings DataFrame."
         )
-        ratings_df = pd.DataFrame(columns=["rating", "total_partidas"]).set_index(
-            pd.Index([], name="advogado_id")
-        )
+        ratings_df = pd.DataFrame(
+            columns=["mu", "sigma", "total_partidas"]
+        ).set_index(pd.Index([], name="advogado_id"))
 
-    if dry_run:
-        # For dry run, we operate on a copy so changes aren't persisted if we were to save.
-        # However, the save operations are skipped anyway in dry_run.
-        pass
+    # Ensure required columns exist for new DataFrames or after loading old format
+    for col in ["mu", "sigma", "total_partidas"]:
+        if col not in ratings_df.columns:
+            if col in ["mu", "sigma"]:
+                ratings_df[col] = ENV.mu if col == "mu" else ENV.sigma
+            else: # total_partidas
+                ratings_df[col] = 0
+
+    ratings_df["mu"] = ratings_df["mu"].astype(float)
+    ratings_df["sigma"] = ratings_df["sigma"].astype(float)
+    ratings_df["total_partidas"] = ratings_df["total_partidas"].astype(int)
+
 
     partidas_history = []
     processed_files_paths = []  # Keep track of files processed in this run
@@ -210,7 +237,6 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
             logger.error(f"Error reading {json_path.name}: {e}. Skipping file.")
             continue
 
-        # Handle the new format where decisions are nested under "decisions" key
         if isinstance(loaded_content, dict) and "decisions" in loaded_content:
             decisions_in_file = loaded_content["decisions"]
         elif isinstance(loaded_content, list):
@@ -218,142 +244,140 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
         else:
             decisions_in_file = [loaded_content]
 
-        file_had_valid_decisions_for_elo = False
+        file_had_valid_decisions = False
         for decision_data in decisions_in_file:
-            if not validate_decision(decision_data):  # validate_decision logs reasons
+            if not validate_decision(decision_data):
                 logger.warning(
                     f"Skipping invalid decision in {json_path.name} (processo: {decision_data.get('numero_processo', 'N/A')})."
                 )
                 continue
 
-            # Handle both old format (advogados.requerente) and new format (advogados_polo_ativo)
-            if "advogados" in decision_data:
-                # Old format
-                advogados_data = decision_data.get("advogados", {})
-                advogados_requerente = advogados_data.get("requerente", [])
-                advogados_requerido = advogados_data.get("requerido", [])
-            else:
-                # New format from extractor
-                advogados_requerente = decision_data.get("advogados_polo_ativo", [])
-                advogados_requerido = decision_data.get("advogados_polo_passivo", [])
+            raw_advs_polo_ativo = decision_data.get("advogados_polo_ativo", [])
+            raw_advs_polo_passivo = decision_data.get("advogados_polo_passivo", [])
 
-            if not advogados_requerente or not advogados_requerido:
+            # Normalize and filter lawyer names for Team A
+            team_a_ids = sorted(list(set(
+                normalize_lawyer_name(name) for name in raw_advs_polo_ativo if normalize_lawyer_name(name)
+            )))
+            # Normalize and filter lawyer names for Team B
+            team_b_ids = sorted(list(set(
+                normalize_lawyer_name(name) for name in raw_advs_polo_passivo if normalize_lawyer_name(name)
+            )))
+
+            if not team_a_ids or not team_b_ids:
                 logger.warning(
-                    f"Missing lawyers for one or both parties in {json_path.name} (processo: {decision_data.get('numero_processo')}). Skipping decision."
+                    f"Missing or empty normalized lawyer lists for one or both parties in {json_path.name} (processo: {decision_data.get('numero_processo')}). Skipping decision."
                 )
                 continue
 
-            # Taking the first lawyer from each list for the Elo match
-            adv_a_raw_id = advogados_requerente[0]
-            adv_b_raw_id = advogados_requerido[0]
-
-            adv_a_id = normalize_lawyer_name(adv_a_raw_id)
-            adv_b_id = normalize_lawyer_name(adv_b_raw_id)
-
-            if (
-                not adv_a_id or not adv_b_id
-            ):  # Handle cases where normalization might return empty
-                logger.warning(
-                    f"Could not normalize one or both lawyer IDs ('{adv_a_raw_id}', '{adv_b_raw_id}') for {decision_data.get('numero_processo')}. Skipping."
-                )
-                continue
-
-            if adv_a_id == adv_b_id:
+            # Check if teams are identical after normalization
+            if set(team_a_ids) == set(team_b_ids):
                 logger.info(
-                    f"Same lawyer ('{adv_a_id}') for both parties in {decision_data.get('numero_processo')}. Skipping Elo update for this pair."
+                    f"Identical teams after normalization for {decision_data.get('numero_processo')} (Team A: {team_a_ids}, Team B: {team_b_ids}). Skipping."
                 )
                 continue
 
-            resultado_str = decision_data.get("resultado", "").lower()
-            score_a = 0.5  # Default to draw for unknown outcomes
-            if resultado_str in ["procedente", "provido", "confirmada"]:
-                score_a = 1.0
-            elif resultado_str in ["improcedente", "negado_provimento", "reformada"]:
-                score_a = 0.0
-            elif resultado_str in [
-                "parcialmente procedente",
-                "parcialmente_procedente",
-                "extinto sem resolução de mérito",
-                "extinto",
-                "não_definido",
+            resultado_str_raw = decision_data.get("resultado", "").lower()
+            trueskill_match_result = "draw" # Default
+            if resultado_str_raw in ["procedente", "provido", "confirmada"]:
+                trueskill_match_result = "win_a"
+            elif resultado_str_raw in ["improcedente", "negado_provimento", "reformada"]:
+                trueskill_match_result = "win_b"
+            elif resultado_str_raw in [
+                "parcialmente procedente", "parcialmente_procedente",
+                "extinto sem resolução de mérito", "extinto", "não_definido",
             ]:
-                score_a = 0.5
+                trueskill_match_result = "draw"
             else:
                 logger.warning(
-                    f"Unknown 'resultado' ('{resultado_str}') for {decision_data.get('numero_processo')}. Treating as a draw (0.5)."
+                    f"Unknown 'resultado' ('{resultado_str_raw}') for {decision_data.get('numero_processo')}. Treating as a draw."
                 )
 
-            rating_a = (
-                ratings_df.loc[adv_a_id, "rating"]
-                if adv_a_id in ratings_df.index
-                else DEFAULT_RATING
-            )
-            rating_b = (
-                ratings_df.loc[adv_b_id, "rating"]
-                if adv_b_id in ratings_df.index
-                else DEFAULT_RATING
+            # Get ratings for Team A
+            team_a_ratings_before = []
+            for adv_id in team_a_ids:
+                if adv_id in ratings_df.index:
+                    mu = ratings_df.loc[adv_id, "mu"]
+                    sigma = ratings_df.loc[adv_id, "sigma"]
+                    team_a_ratings_before.append(trueskill.Rating(mu=mu, sigma=sigma))
+                else:
+                    team_a_ratings_before.append(create_new_rating())
+
+            # Get ratings for Team B
+            team_b_ratings_before = []
+            for adv_id in team_b_ids:
+                if adv_id in ratings_df.index:
+                    mu = ratings_df.loc[adv_id, "mu"]
+                    sigma = ratings_df.loc[adv_id, "sigma"]
+                    team_b_ratings_before.append(trueskill.Rating(mu=mu, sigma=sigma))
+                else:
+                    team_b_ratings_before.append(create_new_rating())
+
+            # Store ratings before update for history
+            partida_team_a_ratings_before_dict = {
+                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_a_ids, team_a_ratings_before)
+            }
+            partida_team_b_ratings_before_dict = {
+                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_b_ids, team_b_ratings_before)
+            }
+
+            new_team_a_ratings, new_team_b_ratings = update_trueskill_ratings(
+                team_a_ratings_before, team_b_ratings_before, trueskill_match_result
             )
 
-            rating_a_antes = rating_a
-            rating_b_antes = rating_b
+            # Update ratings_df for Team A
+            for i, adv_id in enumerate(team_a_ids):
+                current_partidas = ratings_df.loc[adv_id, "total_partidas"] if adv_id in ratings_df.index else 0
+                ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
+                    new_team_a_ratings[i].mu,
+                    new_team_a_ratings[i].sigma,
+                    current_partidas + 1,
+                ]
 
-            new_rating_a, new_rating_b = update_elo(
-                rating_a, rating_b, score_a, k_factor=K_FACTOR
-            )
-
-            # Update ratings_df for adv_a_id
-            current_partidas_a = (
-                ratings_df.loc[adv_a_id, "total_partidas"]
-                if adv_a_id in ratings_df.index
-                else 0
-            )
-            ratings_df.loc[adv_a_id, ["rating", "total_partidas"]] = [
-                new_rating_a,
-                current_partidas_a + 1,
-            ]
-
-            # Update ratings_df for adv_b_id
-            current_partidas_b = (
-                ratings_df.loc[adv_b_id, "total_partidas"]
-                if adv_b_id in ratings_df.index
-                else 0
-            )
-            ratings_df.loc[adv_b_id, ["rating", "total_partidas"]] = [
-                new_rating_b,
-                current_partidas_b + 1,
-            ]
+            # Update ratings_df for Team B
+            for i, adv_id in enumerate(team_b_ids):
+                current_partidas = ratings_df.loc[adv_id, "total_partidas"] if adv_id in ratings_df.index else 0
+                ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
+                    new_team_b_ratings[i].mu,
+                    new_team_b_ratings[i].sigma,
+                    current_partidas + 1,
+                ]
 
             logger.debug(
-                f"Elo updated for {adv_a_id} ({rating_a_antes:.1f} -> {new_rating_a:.1f}) vs {adv_b_id} ({rating_b_antes:.1f} -> {new_rating_b:.1f})"
+                f"TrueSkill updated for Team A ({[f'{r.mu:.1f}±{r.sigma:.1f}' for r in new_team_a_ratings]}) vs Team B ({[f'{r.mu:.1f}±{r.sigma:.1f}' for r in new_team_b_ratings]})"
             )
 
-            partidas_history.append(
-                {
-                    "data_partida": decision_data.get(
-                        "data_decisao", decision_data.get("data", datetime.date.today().isoformat())
-                    ),
-                    "advogado_a_id": adv_a_id,
-                    "advogado_b_id": adv_b_id,
-                    "rating_advogado_a_antes": rating_a_antes,
-                    "rating_advogado_b_antes": rating_b_antes,
-                    "score_a": score_a,
-                    "rating_advogado_a_depois": new_rating_a,
-                    "rating_advogado_b_depois": new_rating_b,
-                    "numero_processo": decision_data.get("numero_processo"),
-                }
-            )
-            file_had_valid_decisions_for_elo = True
+            # Store ratings after update for history
+            partida_team_a_ratings_after_dict = {
+                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_a_ids, new_team_a_ratings)
+            }
+            partida_team_b_ratings_after_dict = {
+                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_b_ids, new_team_b_ratings)
+            }
 
-        if file_had_valid_decisions_for_elo:
+            partidas_history.append({
+                "data_partida": decision_data.get("data_decisao", decision_data.get("data", datetime.date.today().isoformat())),
+                "equipe_a_ids": ",".join(team_a_ids),
+                "equipe_b_ids": ",".join(team_b_ids),
+                "ratings_equipe_a_antes": json.dumps(partida_team_a_ratings_before_dict),
+                "ratings_equipe_b_antes": json.dumps(partida_team_b_ratings_before_dict),
+                "resultado_partida": trueskill_match_result,
+                "ratings_equipe_a_depois": json.dumps(partida_team_a_ratings_after_dict),
+                "ratings_equipe_b_depois": json.dumps(partida_team_b_ratings_after_dict),
+                "numero_processo": decision_data.get("numero_processo"),
+            })
+            file_had_valid_decisions = True
+
+        if file_had_valid_decisions:
             processed_files_paths.append(json_path)
 
     if not dry_run:
         if not ratings_df.empty:
             try:
-                # Ensure index has a name for pd.to_csv
                 if ratings_df.index.name is None:
                     ratings_df.index.name = "advogado_id"
-                ratings_df_sorted = ratings_df.sort_values(by="rating", ascending=False)
+                # Sort by mu (primary rating) then sigma (uncertainty, lower is better for same mu)
+                ratings_df_sorted = ratings_df.sort_values(by=["mu", "sigma"], ascending=[False, True])
                 ratings_df_sorted.to_csv(ratings_file)
                 logger.info(f"Ratings saved to {ratings_file}")
             except Exception as e:
@@ -386,7 +410,6 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
                     )
         else:
             logger.info("No JSON files were successfully processed to be moved.")
-
     else:  # Dry run
         logger.info(
             "DRY-RUN: Skipping save of ratings, partidas, and move of JSON files."
@@ -402,15 +425,15 @@ def _update_elo_ratings_logic(logger: logging.Logger, dry_run: bool):
                 f"DRY-RUN: Would attempt to move {len(processed_files_paths)} JSON files."
             )
 
-    logger.info("Elo update process finished.")
+    logger.info("TrueSkill ratings update process finished.")
 
 
 def update_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Update command called with args: {args}")
 
-    # The main logic is now encapsulated in _update_elo_ratings_logic
-    _update_elo_ratings_logic(logger, args.dry_run)
+    # The main logic is now encapsulated in _update_trueskill_ratings_logic
+    _update_trueskill_ratings_logic(logger, args.dry_run)
 
 
 def run_command(args):

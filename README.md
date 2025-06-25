@@ -1,8 +1,8 @@
 # CausaGanha
 
-[![Update Elo Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-elo)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
+[![Update TrueSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-trueskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
 
-**CausaGanha** é uma plataforma automatizada de extração e análise de decisões judiciais que aplica o sistema de pontuação **Elo** — originalmente desenvolvido para classificar jogadores de xadrez — à atuação de advogados em processos judiciais. A proposta consiste em construir um modelo dinâmico e transparente de avaliação de desempenho com base em decisões publicadas diariamente no Diário de Justiça do Tribunal de Justiça de Rondônia (TJRO).
+**CausaGanha** é uma plataforma automatizada de extração e análise de decisões judiciais que aplica o sistema de pontuação **TrueSkill** — desenvolvido pela Microsoft Research para jogos com múltiplos jogadores e equipes — à atuação de advogados em processos judiciais. A proposta consiste em construir um modelo dinâmico e transparente de avaliação de desempenho com base em decisões publicadas diariamente no Diário de Justiça do Tribunal de Justiça de Rondônia (TJRO).
 
 Utilizando modelos de linguagem de grande escala (LLMs), especificamente o **Gemini** da Google, o sistema interpreta diretamente os arquivos em formato PDF, identifica os elementos relevantes de cada decisão (partes, representantes e resultado), e atualiza o histórico e o escore de cada advogado envolvido.
 
@@ -14,7 +14,7 @@ O projeto busca investigar a viabilidade técnica e metodológica de aplicar mé
 
 - Extração automatizada de decisões judiciais publicadas em fontes públicas oficiais.
 - Análise textual assistida por inteligência artificial para identificar autores, réus, representantes e desfechos.
-- Aplicação de algoritmo de pontuação Elo adaptado ao contexto jurídico-contencioso.
+- Aplicação do algoritmo de pontuação TrueSkill, que lida nativamente com equipes e incerteza, ao contexto jurídico-contencioso.
 - Atualização contínua de um banco de dados contendo histórico de decisões e rankings.
 
 ---
@@ -23,10 +23,12 @@ O projeto busca investigar a viabilidade técnica e metodológica de aplicar mé
 
 A performance de advogados perante o judiciário é usualmente avaliada de maneira qualitativa ou pontual, sem padronização objetiva. Com o crescimento da disponibilidade de dados jurídicos abertos, torna-se possível construir mecanismos mais analíticos e automatizados de acompanhamento de desempenho.
 
-A adoção de um modelo Elo para o ambiente forense permite incorporar:
+A adoção do modelo TrueSkill para o ambiente forense oferece vantagens significativas:
 - Oponentes com diferentes níveis de experiência.
-- Resultados binários ou neutros (ganhou, perdeu, extinto).
+- Resultados de partidas (vitória, derrota ou empate) entre equipes.
 - Evolução temporal da atuação.
+- Suporte nativo para equipes de advogados de tamanhos variáveis.
+- Quantificação da incerteza da pontuação de cada advogado (representada pelos parâmetros μ e σ).
   
 Essa abordagem oferece potencial para estudos empíricos no campo do direito, além de servir como base para aplicações institucionais (ex: defensoria, advocacia pública) ou educativas.
 
@@ -53,10 +55,10 @@ A resposta é armazenada em formato JSON estruturado.
 
 Para cada decisão extraída:
 
-1. O advogado do autor e o advogado do réu são identificados.
-2. Um “confronto” é estabelecido com base no resultado.
-3. Aplicam-se regras do sistema Elo com fator K fixo (K = 16).
-4. Atualiza-se a pontuação de ambos os profissionais no banco de dados.
+1. As equipes de advogados do polo ativo e passivo são identificadas.
+2. Um “confronto” entre as equipes é estabelecido com base no resultado da decisão.
+3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido.
+4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais envolvidos no banco de dados.
 
 ### 3.4 Persistência e Versionamento
 
@@ -71,7 +73,7 @@ As atualizações são realizadas automaticamente via **GitHub Actions**, de for
 
 ## 4. Estrutura do Projeto
 
-causaganha/ ├── core/                  # Módulos principais │   ├── downloader.py      # Baixa PDF do diário │   ├── extractor.py       # Envia PDF ao Gemini │   ├── elo.py             # Modelo de pontuação │   └── pipeline.py        # Orquestrador CLI │ ├── data/                  # Dados coletados e processados │   ├── diarios/           # PDFs originais │   ├── json/              # Decisões extraídas │   ├── ratings.csv        # Ranking Elo │   └── partidas.csv       # Confrontos processados │ ├── .github/workflows/     # Integração contínua │   ├── 01_collect.yml │   ├── 02_extract.yml │   └── 03_update.yml │ ├── requirements.txt └── README.md
+causaganha/ ├── core/                  # Módulos principais │   ├── downloader.py      # Baixa PDF do diário │   ├── extractor.py       # Envia PDF ao Gemini │   ├── trueskill_rating.py # Modelo de pontuação TrueSkill │   └── pipeline.py        # Orquestrador CLI │ ├── data/                  # Dados coletados e processados │   ├── diarios/           # PDFs originais │   ├── json/              # Decisões extraídas │   ├── ratings.csv        # Ranking TrueSkill (mu, sigma) │   └── partidas.csv       # Confrontos processados │ ├── .github/workflows/     # Integração contínua │   ├── 01_collect.yml │   ├── 02_extract.yml │   └── 03_update.yml │ ├── requirements.txt └── README.md
 
 ---
 
@@ -183,7 +185,9 @@ Este projeto é licenciado sob os termos da MIT License.
 
 10. Referências
 
-ELO, A. E. (1978). The Rating of Chessplayers, Past and Present.
+Herbrich, R., Minka, T., & Graepel, T. (2007). TrueSkill(TM): A Bayesian Skill Rating System. *Advances in Neural Information Processing Systems 19 (NIPS 2006)*. (Disponível em: [https://papers.nips.cc/paper/2006/hash/511FBC93A5B8F9A00336C46A844A6562-Abstract.html](https://papers.nips.cc/paper/2006/hash/511FBC93A5B8F9A00336C46A844A6562-Abstract.html))
+
+Microsoft Research. TrueSkill Rating System. (Disponível em: [https://www.microsoft.com/en-us/research/project/trueskill-rating-system/](https://www.microsoft.com/en-us/research/project/trueskill-rating-system/))
 
 Tribunal de Justiça do Estado de Rondônia – tjro.jus.br
 
