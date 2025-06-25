@@ -108,6 +108,36 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         # A mudança de mu pode não ser idêntica para alpha e beta,
         # dependendo da implementação do TrueSkill e dos parâmetros.
 
+    def test_update_ratings_2v2_team_a_wins(self):
+        """Testa uma partida 2x2 onde a equipe A vence a equipe B."""
+        # Criar quatro jogadores usando o ambiente padrão
+        a1 = self.env.create_rating()
+        a2 = self.env.create_rating()
+        b1 = self.env.create_rating()
+        b2 = self.env.create_rating()
+
+        team_a_before = [a1, a2]
+        team_b_before = [b1, b2]
+
+        new_team_a, new_team_b = ts_rating.update_ratings(
+            self.env, team_a_before, team_b_before, "win_a"
+        )
+
+        a1_after, a2_after = new_team_a
+        b1_after, b2_after = new_team_b
+
+        # Jogadores vencedores devem ganhar mu e reduzir sigma
+        self.assertGreater(a1_after.mu, a1.mu)
+        self.assertLess(a1_after.sigma, a1.sigma)
+        self.assertGreater(a2_after.mu, a2.mu)
+        self.assertLess(a2_after.sigma, a2.sigma)
+
+        # Jogadores perdedores devem perder mu e reduzir sigma
+        self.assertLess(b1_after.mu, b1.mu)
+        self.assertLess(b1_after.sigma, b1.sigma)
+        self.assertLess(b2_after.mu, b2.mu)
+        self.assertLess(b2_after.sigma, b2.sigma)
+
     def test_update_ratings_1v1_upset_win_b(self):
         """Testa uma partida 1x1 onde a equipe B (alpha, rating padrão) vence a equipe A (delta_expert, rating alto)."""
         team_a_before = [self.r_delta_expert] # Experiente
