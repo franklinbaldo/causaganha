@@ -2,10 +2,10 @@ import unittest
 from unittest.mock import patch, MagicMock, call
 import pathlib
 import datetime
-import requests # Required for requests.exceptions.RequestException
+import requests  # Required for requests.exceptions.RequestException
 import sys
-import shutil # For tearDown
-import logging # Added import (one instance)
+import shutil  # For tearDown
+import logging  # Added import (one instance)
 
 # Ensure the project root is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -17,11 +17,14 @@ from causaganha.core.downloader import fetch_tjro_pdf, fetch_latest_tjro_pdf
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)
 
+
 class TestFetchTjroPdf(unittest.TestCase):
     def setUp(self):
         self.test_date = datetime.date(2024, 7, 25)
         # Define a specific dummy directory for downloader tests
-        self.dummy_data_root = PROJECT_ROOT / "causaganha_test_data" # temp root for test data
+        self.dummy_data_root = (
+            PROJECT_ROOT / "causaganha_test_data"
+        )  # temp root for test data
         self.download_dir = self.dummy_data_root / "data" / "diarios"
 
         # Create the dummy directory if it doesn't exist
@@ -57,17 +60,16 @@ class TestFetchTjroPdf(unittest.TestCase):
         # Also clean up any file that might have been created in the actual data path
         # due to the non-patched output_dir logic in the current fetch_tjro_pdf
         actual_data_dir_in_project = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        leftover_file_in_actual_dir = actual_data_dir_in_project / self.expected_file_name
+        leftover_file_in_actual_dir = (
+            actual_data_dir_in_project / self.expected_file_name
+        )
         if leftover_file_in_actual_dir.exists():
             leftover_file_in_actual_dir.unlink()
 
-
-    @patch('requests.get')
+    @patch("requests.get")
     def test_successful_download(self, mock_requests_get):
         # Mock the HTML page that contains the PDF link
-        html_content = (
-            "<a href='https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf'>PDF</a>"
-        )
+        html_content = "<a href='https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf'>PDF</a>"
         mock_page_response = MagicMock()
         mock_page_response.status_code = 200
         mock_page_response.text = html_content
@@ -76,7 +78,7 @@ class TestFetchTjroPdf(unittest.TestCase):
         # Mock the actual PDF download response
         mock_pdf_response = MagicMock()
         mock_pdf_response.status_code = 200
-        mock_pdf_response.content = b'pdf dummy content'
+        mock_pdf_response.content = b"pdf dummy content"
         mock_pdf_response.raise_for_status = MagicMock()
 
         mock_requests_get.side_effect = [mock_page_response, mock_pdf_response]
@@ -111,8 +113,8 @@ class TestFetchTjroPdf(unittest.TestCase):
 
         real_output_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
         real_expected_file_path = real_output_dir / self.expected_file_name
-        if real_expected_file_path.exists(): # Clean before test
-             real_expected_file_path.unlink()
+        if real_expected_file_path.exists():  # Clean before test
+            real_expected_file_path.unlink()
 
         # Make the mock_path_constructor return our controlled path for the final output file
         # This means when `output_dir / file_name` is called, it resolves to our test path.
@@ -124,29 +126,35 @@ class TestFetchTjroPdf(unittest.TestCase):
         # The test will check the *actual default path* used by `fetch_tjro_pdf`.
         # `setUp` and `tearDown` will manage files in that *actual default path*.
         self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        self.download_dir.mkdir(parents=True, exist_ok=True) # Ensure actual dir exists
+        self.download_dir.mkdir(parents=True, exist_ok=True)  # Ensure actual dir exists
         self.expected_file_path = self.download_dir / self.expected_file_name
         if self.expected_file_path.exists():
             self.expected_file_path.unlink()
-
 
         result_path = fetch_tjro_pdf(self.test_date)
 
         # Assertions
         self.assertEqual(result_path, self.expected_file_path)
         self.assertTrue(self.expected_file_path.exists())
-        with open(self.expected_file_path, 'rb') as f:
+        with open(self.expected_file_path, "rb") as f:
             content = f.read()
-            self.assertEqual(content, b'pdf dummy content')
+            self.assertEqual(content, b"pdf dummy content")
 
         expected_pdf_url = (
             "https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf"
         )
+        expected_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         self.assertEqual(
             mock_requests_get.call_args_list,
             [
-                call("https://www.tjro.jus.br/diario_oficial/", timeout=30),
-                call(expected_pdf_url, timeout=30),
+                call(
+                    "https://www.tjro.jus.br/diario_oficial/",
+                    headers=expected_headers,
+                    timeout=30,
+                ),
+                call(expected_pdf_url, headers=expected_headers, timeout=30),
             ],
         )
         mock_page_response.raise_for_status.assert_called_once()
@@ -156,11 +164,9 @@ class TestFetchTjroPdf(unittest.TestCase):
         if self.expected_file_path.exists():
             self.expected_file_path.unlink()
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_download_failure_404(self, mock_requests_get):
-        html_content = (
-            "<a href='https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf'>PDF</a>"
-        )
+        html_content = "<a href='https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf'>PDF</a>"
         mock_page_response = MagicMock()
         mock_page_response.status_code = 200
         mock_page_response.text = html_content
@@ -175,27 +181,40 @@ class TestFetchTjroPdf(unittest.TestCase):
         mock_requests_get.side_effect = [mock_page_response, mock_pdf_response]
 
         self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        self.expected_file_path = self.download_dir / self.expected_file_name # Used for cleanup check
+        self.expected_file_path = (
+            self.download_dir / self.expected_file_name
+        )  # Used for cleanup check
 
         result_path = fetch_tjro_pdf(self.test_date)
 
         self.assertIsNone(result_path)
         self.assertFalse(self.expected_file_path.exists())
 
-        expected_pdf_url = "https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf"
+        expected_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        expected_pdf_url = (
+            "https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf"
+        )
         self.assertEqual(
             mock_requests_get.call_args_list,
             [
-                call("https://www.tjro.jus.br/diario_oficial/", timeout=30),
-                call(expected_pdf_url, timeout=30),
+                call(
+                    "https://www.tjro.jus.br/diario_oficial/",
+                    headers=expected_headers,
+                    timeout=30,
+                ),
+                call(expected_pdf_url, headers=expected_headers, timeout=30),
             ],
         )
         mock_page_response.raise_for_status.assert_called_once()
         mock_pdf_response.raise_for_status.assert_called_once()  # raise_for_status is called, then exception handled
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_download_request_exception(self, mock_requests_get):
-        mock_requests_get.side_effect = requests.exceptions.RequestException("Connection error")
+        mock_requests_get.side_effect = requests.exceptions.RequestException(
+            "Connection error"
+        )
 
         self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
         self.expected_file_path = self.download_dir / self.expected_file_name
@@ -205,9 +224,18 @@ class TestFetchTjroPdf(unittest.TestCase):
         self.assertIsNone(result_path)
         self.assertFalse(self.expected_file_path.exists())
 
+        expected_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         self.assertEqual(
             mock_requests_get.call_args_list,
-            [call("https://www.tjro.jus.br/diario_oficial/", timeout=30)],
+            [
+                call(
+                    "https://www.tjro.jus.br/diario_oficial/",
+                    headers=expected_headers,
+                    timeout=30,
+                )
+            ],
         )
 
 
@@ -222,39 +250,59 @@ class TestFetchLatestTjroPdf(unittest.TestCase):
     def tearDown(self):
         if self.dummy_data_root.exists():
             shutil.rmtree(self.dummy_data_root)
-        real_path = PROJECT_ROOT / "causaganha" / "data" / "diarios" / self.expected_file_name
+        real_path = (
+            PROJECT_ROOT / "causaganha" / "data" / "diarios" / self.expected_file_name
+        )
         if real_path.exists():
             real_path.unlink()
 
-    @patch('causaganha.core.downloader.fetch_tjro_pdf')
-    @patch('requests.get')
-    def test_fetch_latest_success(self, mock_get, mock_fetch):
-        html_content = (
-            "<a href='https://www.tjro.jus.br/novodiario/2024/20240725001-NR100.pdf'>PDF</a>"
-        )
-        mock_page = MagicMock()
-        mock_page.status_code = 200
-        mock_page.text = html_content
-        mock_page.raise_for_status = MagicMock()
+    @patch("requests.get")
+    def test_fetch_latest_success(self, mock_get):
+        # Mock the redirect response
+        mock_redirect = MagicMock()
+        mock_redirect.status_code = 302
+        mock_redirect.headers = {"Location": "/novodiario/2024/202407251014-NR100.pdf"}
+
+        # Mock the PDF content response
+        mock_pdf = MagicMock()
+        mock_pdf.status_code = 200
+        mock_pdf.content = b"pdf dummy content"
+        mock_pdf.raise_for_status = MagicMock()
+
+        mock_get.side_effect = [mock_redirect, mock_pdf]
 
         self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
         self.download_dir.mkdir(parents=True, exist_ok=True)
         self.expected_file_path = self.download_dir / self.expected_file_name
-        mock_get.return_value = mock_page
-        mock_fetch.return_value = self.expected_file_path
         if self.expected_file_path.exists():
             self.expected_file_path.unlink()
 
         result = fetch_latest_tjro_pdf()
 
         self.assertEqual(result, self.expected_file_path)
+        self.assertTrue(self.expected_file_path.exists())
+
+        expected_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         self.assertEqual(
             mock_get.call_args_list,
-            [call("https://www.tjro.jus.br/diario_oficial/ultimo-diario.php", timeout=30)],
+            [
+                call(
+                    "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php",
+                    headers=expected_headers,
+                    timeout=30,
+                    allow_redirects=False,
+                ),
+                call(
+                    "https://www.tjro.jus.br/novodiario/2024/202407251014-NR100.pdf",
+                    headers=expected_headers,
+                    timeout=30,
+                ),
+            ],
         )
-        mock_fetch.assert_called_once_with(datetime.date(2024, 7, 25))
-        mock_page.raise_for_status.assert_called_once()
+        mock_pdf.raise_for_status.assert_called_once()
 
 
-if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
+if __name__ == "__main__":
+    unittest.main(argv=["first-arg-is-ignored"], exit=False)

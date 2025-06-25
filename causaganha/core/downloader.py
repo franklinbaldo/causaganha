@@ -9,7 +9,10 @@ import logging  # Added
 TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"
 TJRO_LATEST_PAGE_URL = "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php"
 
-def fetch_tjro_pdf(date_obj: datetime.date) -> pathlib.Path | None: # Adjusted return type hint
+
+def fetch_tjro_pdf(
+    date_obj: datetime.date,
+) -> pathlib.Path | None:  # Adjusted return type hint
     """
     Downloads the Diário da Justiça PDF for the given date from TJRO.
 
@@ -32,8 +35,12 @@ def fetch_tjro_pdf(date_obj: datetime.date) -> pathlib.Path | None: # Adjusted r
 
     date_str = date_obj.strftime("%Y%m%d")
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
     try:
-        page_resp = requests.get(TJRO_DIARIO_OFICIAL_URL, timeout=30)
+        page_resp = requests.get(TJRO_DIARIO_OFICIAL_URL, headers=headers, timeout=30)
         page_resp.raise_for_status()
         pdf_match = re.search(
             rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^\"']*{date_str}[^\"']*\.pdf",
@@ -44,36 +51,76 @@ def fetch_tjro_pdf(date_obj: datetime.date) -> pathlib.Path | None: # Adjusted r
             return None
         download_url = pdf_match.group(0)
         logging.info(f"Found diary link: {download_url}")
-        pdf_resp = requests.get(download_url, timeout=30)
+        pdf_resp = requests.get(download_url, headers=headers, timeout=30)
         pdf_resp.raise_for_status()
         with open(output_path, "wb") as f:
             f.write(pdf_resp.content)
         logging.info(f"Successfully downloaded {output_path}")
         return output_path
     except requests.exceptions.RequestException as e:
-        logging.error(
-            f"Error downloading PDF for {date_obj.strftime('%Y-%m-%d')}: {e}")
+        logging.error(f"Error downloading PDF for {date_obj.strftime('%Y-%m-%d')}: {e}")
         return None
+
 
 def fetch_latest_tjro_pdf() -> pathlib.Path | None:
     """Downloads the most recent Diário da Justiça PDF available."""
-    logging.info(f"Fetching latest diary page from {TJRO_LATEST_PAGE_URL}")
+    logging.info(f"Fetching latest diary from {TJRO_LATEST_PAGE_URL}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
+    # The ultimo-diario.php URL directly redirects to the PDF file
+    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     try:
-        page_resp = requests.get(TJRO_LATEST_PAGE_URL, timeout=30)
-        page_resp.raise_for_status()
-        match = re.search(r"https://www\.tjro\.jus\.br/novodiario/\d{4}/[^'\"]+\.pdf", page_resp.text)
-        if not match:
-            logging.error("Could not locate PDF link on latest diary page")
+        # First request to get the redirect URL
+        response = requests.get(
+            TJRO_LATEST_PAGE_URL, headers=headers, timeout=30, allow_redirects=False
+        )
+
+        if response.status_code == 302 and "Location" in response.headers:
+            pdf_url = response.headers["Location"]
+            if not pdf_url.startswith("http"):
+                pdf_url = f"https://www.tjro.jus.br{pdf_url}"
+
+            logging.info(f"Found PDF URL: {pdf_url}")
+
+            # Extract date from filename for output file
+            filename_match = re.search(r"/([^/]+\.pdf)$", pdf_url)
+            if filename_match:
+                filename = filename_match.group(1)
+                # Try to extract date from filename (format: YYYYMMDDXXXX-NRXXX.pdf)
+                date_match = re.search(r"(\d{8})", filename)
+                if date_match:
+                    date_str = date_match.group(1)
+                    file_name = f"dj_{date_str}.pdf"
+                else:
+                    file_name = filename
+            else:
+                file_name = f"dj_{datetime.date.today().strftime('%Y%m%d')}.pdf"
+
+            output_path = output_dir / file_name
+
+            # Download the PDF
+            pdf_response = requests.get(pdf_url, headers=headers, timeout=30)
+            pdf_response.raise_for_status()
+
+            with open(output_path, "wb") as f:
+                f.write(pdf_response.content)
+
+            logging.info(f"Successfully downloaded {output_path}")
+            return output_path
+        else:
+            logging.error(f"Expected redirect but got status {response.status_code}")
             return None
-        download_url = match.group(0)
-        date_match = re.search(r"(\d{8})", download_url)
-        file_date = date_match.group(1) if date_match else datetime.date.today().strftime("%Y%m%d")
-        return fetch_tjro_pdf(datetime.datetime.strptime(file_date, "%Y%m%d").date())
+
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error fetching latest diary page: {e}")
+        logging.error(f"Error fetching latest diary: {e}")
         return None
 
-def main(): # Added main function for CLI
+
+def main():  # Added main function for CLI
     parser = argparse.ArgumentParser(
         description="Download Diário da Justiça PDF from TJRO."
     )
@@ -102,7 +149,9 @@ def main(): # Added main function for CLI
             logging.error("Invalid date format. Please use YYYY-MM-DD.")
             return
 
-        logging.info(f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}")
+        logging.info(
+            f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}"
+        )
         file_path = fetch_tjro_pdf(selected_date)
 
     if file_path:
@@ -115,5 +164,6 @@ def main(): # Added main function for CLI
                 f"Failed to download PDF for {selected_date.strftime('%Y-%m-%d')}"
             )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

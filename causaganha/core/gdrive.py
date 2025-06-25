@@ -17,7 +17,9 @@ def upload_file_to_gdrive(file_path: Path) -> None:
     """
     creds_json = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON")
     if not creds_json:
-        logging.info("GDRIVE_SERVICE_ACCOUNT_JSON not set; skipping Google Drive upload")
+        logging.info(
+            "GDRIVE_SERVICE_ACCOUNT_JSON not set; skipping Google Drive upload"
+        )
         return
 
     folder_id = os.getenv("GDRIVE_FOLDER_ID")
@@ -33,7 +35,9 @@ def upload_file_to_gdrive(file_path: Path) -> None:
         if folder_id:
             file_metadata["parents"] = [folder_id]
         media = MediaFileUpload(str(file_path), mimetype="application/pdf")
-        service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+        service.files().create(
+            body=file_metadata, media_body=media, fields="id"
+        ).execute()
         logging.info("Uploaded %s to Google Drive", file_path.name)
     except Exception as e:
         logging.error("Error uploading %s to Google Drive: %s", file_path.name, e)

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(uv pip install:*)",
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(uv venv:*)",
+      "Bash(pytest:*)",
+      "Bash(wget:*)",
+      "Bash(uv add:*)",
+      "Bash(rm:*)",
+      "Bash(uv lock:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": []
+  }
+}

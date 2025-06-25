@@ -20,17 +20,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "/root/.cargo/bin" >> $GITHUB_PATH
-        shell: bash
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
 
-      - name: Install dependencies using uv
-        run: |
-          uv pip install --system -r requirements.txt
+      - name: Install dependencies
+        run: uv sync
 
       # Placeholder for downloading artifact from 01_collect.yml
       # For now, we'll assume a PDF is available or create a dummy one to process.
@@ -61,7 +59,7 @@ jobs:
         run: |
           JSON_OUTPUT_DIR="causaganha/data/json_workflow_output"
           mkdir -p $JSON_OUTPUT_DIR
-          python causaganha/core/extractor.py             --pdf_file ${{ steps.prepare_pdf.outputs.pdf_file_path }}             --output_dir $JSON_OUTPUT_DIR
+          uv run python causaganha/core/extractor.py             --pdf_file ${{ steps.prepare_pdf.outputs.pdf_file_path }}             --output_dir $JSON_OUTPUT_DIR
           echo "JSON_DIR=${JSON_OUTPUT_DIR}" >> $GITHUB_ENV # Make dir available to other steps
 
       - name: List output JSON files
