@@ -33,6 +33,7 @@ dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "google-generativeai" },
+    { name = "internetarchive" },
     { name = "mkdocs" },
     { name = "pandas" },
     { name = "pymupdf" },
@@ -56,6 +57,7 @@ requires-dist = [
     { name = "google-api-python-client", specifier = ">=2.173.0" },
     { name = "google-auth", specifier = ">=2.40.3" },
     { name = "google-generativeai", specifier = ">=0.8.5" },
+    { name = "internetarchive", specifier = ">=5.4.0" },
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "pymupdf", specifier = ">=1.26.1" },
@@ -391,6 +393,21 @@ wheels = [
 ]
 
 [[package]]
+name = "internetarchive"
+version = "5.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonpatch" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/69/b7e8aebae4be5f633491b90e620af92335723070313ea12ceaedfc0c3759/internetarchive-5.4.0.tar.gz", hash = "sha256:869d6606210d333c7faca709196fad9bdcb925b614c134920ce8eb24b82ecffd", size = 111457, upload-time = "2025-04-29T17:41:05.72Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/38/a410e3c97a12adc221c43641a9129323945603ceaa7b94f9f71c76ad8296/internetarchive-5.4.0-py3-none-any.whl", hash = "sha256:4d5c9b059a68172439b2b1e00e84133ab6bc3b2f758fa2bc91f72fac552b215d", size = 105888, upload-time = "2025-04-29T17:41:02.483Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -400,6 +417,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
+]
+
+[[package]]
+name = "jsonpatch"
+version = "1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonpointer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/78/18813351fe5d63acad16aec57f94ec2b70a09e53ca98145589e185423873/jsonpatch-1.33.tar.gz", hash = "sha256:9fcd4009c41e6d12348b4a0ff2563ba56a2923a7dfee731d004e212e1ee5030c", size = 21699, upload-time = "2023-06-26T12:07:29.144Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/07/02e16ed01e04a374e644b575638ec7987ae846d25ad97bcc9945a3ee4b0e/jsonpatch-1.33-py2.py3-none-any.whl", hash = "sha256:0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade", size = 12898, upload-time = "2023-06-16T21:01:28.466Z" },
+]
+
+[[package]]
+name = "jsonpointer"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/0a/eebeb1fa92507ea94016a2a790b93c2ae41a7e18778f85471dc54475ed25/jsonpointer-3.0.0.tar.gz", hash = "sha256:2b2d729f2091522d61c3b31f82e11870f60b68f43fbc705cb76bf4b832af59ef", size = 9114, upload-time = "2024-06-10T19:24:42.462Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/92/5e77f98553e9e75130c78900d000368476aed74276eb8ae8796f65f00918/jsonpointer-3.0.0-py2.py3-none-any.whl", hash = "sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942", size = 7595, upload-time = "2024-06-10T19:24:40.698Z" },
 ]
 
 [[package]]
