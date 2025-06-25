@@ -1,0 +1,8 @@
+# TrueSkill environment configuration
+[trueskill]
+mu = 25.0
+sigma = 8.333333333333334  # mu / 3
+beta = 4.166666666666667   # sigma / 2
+tau = 0.08333333333333334  # sigma / 100
+draw_probability = 0.10
+# backend = "scipy"  # Example: "mpmath" or "scipy" for higher precision, None for default Python floats

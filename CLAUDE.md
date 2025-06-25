@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CausaGanha is an automated judicial decision analysis platform that applies the Elo rating system (originally from chess) to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from the Tribunal de Justiça de Rondônia (TJRO) using Google's Gemini LLM.
+CausaGanha is an automated judicial decision analysis platform that applies the TrueSkill rating system (developed by Microsoft Research) to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from the Tribunal de Justiça de Rondônia (TJRO) using Google's Gemini LLM.
 
 ## Development Setup
 
@@ -49,7 +49,7 @@ uv run python causaganha/core/downloader.py --date 2025-06-24
 # Extract content from PDF using Gemini (with automatic rate limiting)
 uv run --env-file .env python causaganha/core/extractor.py --pdf_file data/dj_20250624.pdf
 
-# Run complete pipeline (download → extract → update Elo ratings)
+# Run complete pipeline (download → extract → update TrueSkill ratings)
 uv run python causaganha/core/pipeline.py run --date 2025-06-24
 
 # Dry run (no actual changes)
@@ -73,32 +73,34 @@ uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
    - **Robust output**: Structured JSON with automatic cleanup of intermediate files
    - **File organization**: Outputs to `data/` directory with consistent naming
 
-3. **Rating Update** (`elo.py` + `pipeline.py`): Applies Elo calculations
-   - Matches lawyers from opposing sides
-   - Updates ratings based on case outcomes (win/loss/draw)
+3. **Rating Update** (`trueskill_rating.py` + `pipeline.py`): Applies TrueSkill calculations
+   - Forms teams of lawyers from opposing sides
+   - Updates ratings (`mu` and `sigma`) based on case outcomes (win/loss/draw for teams)
    - Persists data in CSV files: `ratings.csv` and `partidas.csv`
+   - TrueSkill environment parameters are configured via `config.toml`.
 
 ### Key Modules
 
 - **`pipeline.py`**: Main orchestrator with CLI commands (`collect`, `extract`, `update`, `run`)
-- **`utils.py`**: Lawyer name normalization and decision validation utilities
-- **`gdrive.py`**: Optional Google Drive integration for PDF backup
-- **`elo.py`**: Pure Elo rating calculations (K-factor = 16, default rating = 1500)
+- **`trueskill_rating.py`**: TrueSkill rating calculations and environment setup.
+- **`config.toml`**: Configuration file for TrueSkill parameters.
+- **`utils.py`**: Lawyer name normalization and decision validation utilities.
+- **`gdrive.py`**: Optional Google Drive integration for PDF backup.
 
 ### Data Flow
 
 ```
-TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → Elo Updates → CSV Storage
+TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → TrueSkill Updates → CSV Storage
 ```
 
 ### File Organization
 
-- `causaganha/core/`: Main business logic modules
-- `data/`: **Flattened data directory** (moved from causaganha/data)
+- `causaganha/core/`: Main business logic modules (Note: will move to `src/causaganha/core/` as per user's plan)
+- `data/`: **Flattened data directory**
   - `data/dj_YYYYMMDD.pdf`: PDF files from TJRO  
   - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data
-  - `data/*_decisions_for_elo_testing.json`: Test data for ELO workflow
-- `causaganha/tests/`: Comprehensive unit test suite
+  - `data/*_decisions_for_elo_testing.json`: Test data for rating workflow (now TrueSkill)
+- `tests/`: Comprehensive unit test suite (Note: will be at root level as per user's plan)
 - `.github/workflows/`: Automated CI/CD with 4 workflows (test, collect, extract, update)
 
 ## Testing Requirements
@@ -106,7 +108,7 @@ TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → Elo Up
 Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes, even for documentation-only changes. The test suite includes:
 
 - Mock-based tests for external API calls (Gemini, TJRO website)
-- Elo calculation validation with known scenarios
+- TrueSkill calculation validation with known scenarios
 - PDF download functionality with proper error handling
 - JSON parsing and validation logic
 
@@ -116,7 +118,7 @@ Four automated workflows handle the complete pipeline:
 1. `test.yml`: Runs tests, linting, and formatting checks
 2. `01_collect.yml`: Daily PDF collection (cron: 5:00 UTC)
 3. `02_extract.yml`: PDF content extraction using Gemini
-4. `03_update.yml`: Elo rating updates and CSV commits
+4. `03_update.yml`: TrueSkill rating updates and CSV commits
 
 Requires these repository secrets:
 - `GEMINI_API_KEY`
@@ -126,8 +128,8 @@ Requires these repository secrets:
 ## External Dependencies
 
 - **Google Gemini API**: Core LLM for PDF content extraction
-  - **Model**: `gemini-2.5-flash-lite-preview-06-17`
-  - **Rate limits**: 15 RPM, 500 requests/day (Free tier)
+  - **Model**: `gemini-2.5-flash-lite-preview-06-17` (as per `extractor.py`)
+  - **Rate limits**: 15 RPM, 500 requests/day (Free tier) - Note: actual limits might vary.
   - **Features**: Text-based analysis with chunking and rate limiting
 - **PyMuPDF (fitz)**: Local PDF text extraction library
 - **TJRO Website**: Source of judicial PDFs via redirect-based URLs

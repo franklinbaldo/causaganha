@@ -4,7 +4,7 @@
 
 The CausaGanha project aims to automate the extraction, analysis, and evaluation of legal decisions from official PDF documents (Diários da Justiça) published by the Tribunal de Justiça de Rondônia (TJRO). It utilizes Google's Gemini Large Language Model (LLM) to parse these PDFs, identify key information such as case numbers, parties involved, their respective lawyers, and the outcomes of the decisions.
 
-A core feature of the project is the application of an Elo rating system, traditionally used in chess, to assess and rank the performance of lawyers based on the outcomes of these legal decisions. The system is designed as a batch processing pipeline, orchestrated via a command-line interface (`pipeline.py`), which handles downloading the PDFs, extracting data using the LLM, and updating lawyer ratings. These processes are automated using GitHub Actions. The data, including lawyer ratings and historical decision data, is currently stored in CSV files.
+A core feature of the project is the application of a TrueSkill rating system, developed by Microsoft Research, to assess and rank the performance of lawyers based on the outcomes of these legal decisions. The system is designed as a batch processing pipeline, orchestrated via a command-line interface (`pipeline.py`), which handles downloading the PDFs, extracting data using the LLM, and updating lawyer ratings. These processes are automated using GitHub Actions. The data, including lawyer ratings and historical decision data, is currently stored in CSV files.
 
 This review assesses the current architecture of the CausaGanha system, identifies its strengths and weaknesses, and provides actionable recommendations for its evolution.
 
@@ -30,22 +30,23 @@ The CausaGanha system is a Python-based batch processing pipeline. Its architect
 3.  **`utils.py`**:
     *   **Functionality**: Contains helper functions for data processing.
     *   **`normalize_lawyer_name()`**: Standardizes lawyer names (lowercase, removes titles, normalizes accents, cleans whitespace).
-    *   **`validate_decision()`**: Validates extracted JSON data for essential fields (`numero_processo`, `partes`, `resultado`) and basic format criteria.
+    *   **`validate_decision()`**: Validates extracted JSON data for essential fields (`numero_processo`, `polo_ativo`, `polo_passivo`, `resultado`) and basic format criteria, accommodating the data structure from `extractor.py`.
 
-4.  **`elo.py`**:
-    *   **Functionality**: Implements the Elo rating algorithm.
-    *   **Details**: Calculates new Elo ratings for two lawyers based on current ratings, decision outcome (win/loss/draw for "requerente"), and a K-factor (fixed at 16). Default initial rating is 1500.
+4.  **`trueskill_rating.py`**:
+    *   **Functionality**: Implements the TrueSkill rating algorithm.
+    *   **Details**: Calculates new TrueSkill ratings (`mu` and `sigma`) for teams of lawyers based on current ratings and decision outcome. Supports teams of varying sizes. Environment parameters (initial `mu`, `sigma`, `beta`, `tau`, `draw_probability`) are configurable via `config.toml`.
 
 5.  **`pipeline.py` (CLI Orchestrator)**:
     *   **Functionality**: Central script defining the operational workflow via a CLI, integrating other components.
     *   **Commands**:
         *   `collect --date <YYYY-MM-DD>`: Downloads PDF for the date (uses `downloader.py`).
         *   `extract --pdf_file <path>`: Processes a PDF to JSON (uses `extractor.py`).
-        *   `update`: Core data processing. Reads extracted JSONs, normalizes lawyer names, validates decisions, pairs lawyers, determines match outcomes, updates Elo ratings (uses `elo.py`), and records matches.
+        *   `update`: Core data processing. Reads extracted JSONs, normalizes lawyer names, validates decisions, forms lawyer teams, determines match outcomes, updates TrueSkill ratings (uses `trueskill_rating.py`), and records matches.
         *   `run --date <YYYY-MM-DD>`: Executes `collect`, `extract`, and `update` sequentially.
-    *   **Output**: The `update` process manages two main CSV files:
-        *   `causaganha/data/ratings.csv`: Current Elo rating and total matches per lawyer.
-        *   `causaganha/data/partidas.csv`: Historical log of processed decisions/matches.
+    *   **Output**: The `update` process manages two main CSV files and uses one configuration file:
+        *   `data/ratings.csv`: Current TrueSkill ratings (`mu`, `sigma`) and total matches per lawyer.
+        *   `data/partidas.csv`: Historical log of processed decisions/matches, including team compositions and ratings before/after.
+        *   `config.toml`: Configuration for TrueSkill environment parameters.
     *   **File Management**: Moves processed JSONs from `causaganha/data/json/` to `causaganha/data/json_processed/`.
 
 ### 2.2. Data Storage
@@ -85,15 +86,15 @@ The CausaGanha system is a Python-based batch processing pipeline. Its architect
     *   **Prompt Engineering & Output Variability**: LLM output quality is highly dependent on prompts, which may need ongoing refinement. Handling of LLM output variations could be improved. No prompt versioning.
     *   **API Changes**: External API changes can break extraction logic.
 3.  **Data Validation and Integrity**:
-    *   `validate_decision` is a good start but more comprehensive validation (data types, formats, consistency) is needed. Strategy for handling semantically incorrect data is unclear.
+    *   `validate_decision` is a good start but more comprehensive validation (data types, formats, consistency) is needed. Strategy for handling semantically incorrect data is unclear. (Note: `validate_decision` was updated to handle new `polo_ativo`/`polo_passivo` fields).
 4.  **Advogado (Lawyer) ID Management**:
-    *   **Critical Risk**: Current reliance on normalized names for `advogado_id` is prone to errors (e.g., lawyers with the same name), directly impacting Elo rating integrity.
+    *   **Critical Risk**: Current reliance on normalized names for `advogado_id` is prone to errors (e.g., lawyers with the same name), directly impacting TrueSkill rating integrity.
 5.  **Configuration Management**:
-    *   Many configurations (K-factor, default ratings, paths) are hardcoded, affecting maintainability. API keys are via environment variables (standard).
+    *   TrueSkill environment parameters (initial ratings, beta, tau, draw probability) are now configurable via `config.toml`. Other configurations like file paths might still be hardcoded or use defaults. API keys are via environment variables (standard).
 6.  **Automated Testing Coverage**:
-    *   While `pytest` is present, the extent of unit and integration test coverage appears limited, which is a risk for data-sensitive calculations.
+    *   The existing test suite (`pytest`) was reviewed, and all tests were made to pass. This involved correcting test logic, mocks, and minor code adjustments in the application. While all existing tests pass, further expansion of test coverage for edge cases and deeper integration scenarios is always beneficial.
 7.  **Lack of Granular Asynchronous Operations**:
-    *   Long-running I/O-bound tasks within pipeline steps (e.g., multiple LLM calls, processing many JSONs) are generally synchronous, impacting step performance.
+    *   Long-running I/O-bound tasks within pipeline steps (e.g., multiple LLM calls, processing many JSONs) are generally synchronous, impacting step performance. (Note: A previous `todo` item for parallelism was de-prioritized).
 
 ## 5. Actionable Suggestions (Prioritized)
 
@@ -112,7 +113,7 @@ The CausaGanha system is a Python-based batch processing pipeline. Its architect
 ### Medium Priority
 
 3.  **Introduce Asynchronous Processing or Parallelism**:
-    *   **Suggestion**: Explore asynchronous operations for I/O-bound tasks.
+    *   **Suggestion**: Explore asynchronous operations for I/O-bound tasks. (Note: This was de-prioritized based on recent feedback).
     *   **Rationale**: Improves performance for large batch processing.
     *   **Action**: For `extractor.py` (multiple LLM calls) consider `asyncio`. For `pipeline.py` (`update_command` processing many JSONs), explore `multiprocessing` or `concurrent.futures`.
 
@@ -121,15 +122,15 @@ The CausaGanha system is a Python-based batch processing pipeline. Its architect
     *   **Rationale**: Controls operational costs and improves extraction reliability.
     *   **Action**: Implement caching for Gemini responses (e.g., based on PDF hash). Externalize and version control LLM prompts. Use Pydantic for validating LLM JSON output structure.
 
-5.  **Expand Automated Test Coverage**:
-    *   **Suggestion**: Significantly increase unit and integration tests.
-    *   **Rationale**: Ensures code quality and correctness, especially for Elo logic.
-    *   **Action**: Write comprehensive unit tests for all core modules. Develop integration tests for `pipeline.py` commands with mocked external services.
+5.  **Maintain and Expand Automated Test Coverage**:
+    *   **Suggestion**: Continue to maintain high test coverage and expand with new features.
+    *   **Rationale**: Ensures code quality and correctness, especially for TrueSkill logic and data processing.
+    *   **Action**: All existing unit tests were reviewed and fixed. Write new unit and integration tests for new functionalities.
 
 6.  **Centralized Configuration Management**:
-    *   **Suggestion**: Move non-secret configurations to a dedicated file (YAML, TOML).
+    *   **Suggestion**: Continue externalizing configurations as appropriate.
     *   **Rationale**: Improves maintainability and flexibility.
-    *   **Action**: Load settings from a config file at application startup in `pipeline.py`.
+    *   **Action**: TrueSkill parameters are now in `config.toml`. Evaluate other hardcoded values (e.g., paths, LLM model names if they change frequently) for externalization.
 
 ### Low Priority (Future Considerations)
 
@@ -144,4 +145,4 @@ The CausaGanha system is a Python-based batch processing pipeline. Its architect
 
 ## 6. Conclusion
 
-The CausaGanha project has established a functional pipeline for extracting legal data and applying an innovative Elo-based rating system. Its current architecture demonstrates good modularity and effective automation. However, to ensure long-term viability, scalability, and reliability, addressing weaknesses in data management (especially lawyer identification and CSV storage), error handling, and LLM interaction is crucial. The prioritized recommendations, particularly implementing a robust lawyer ID system, will provide a stronger foundation for the project's continued development and success.
+The CausaGanha project has established a functional pipeline for extracting legal data and applying an innovative TrueSkill-based rating system. Its current architecture demonstrates good modularity and effective automation. Configuration of the rating system has been externalized to `config.toml`, and existing automated tests have been reviewed and fixed. However, to ensure long-term viability, scalability, and reliability, continued attention to data management (especially lawyer identification and CSV storage limitations), error handling, and LLM interaction is crucial. The prioritized recommendations, particularly implementing a robust lawyer ID system, will provide a stronger foundation for the project's continued development and success.

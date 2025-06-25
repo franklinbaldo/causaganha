@@ -3,7 +3,8 @@
 The scope of this file is the entire repository.
 
 ## Testing
-- Run `pytest -q` before committing any changes. Install dependencies with `pip install -r requirements.txt` if needed.
+- Run `pytest -q` before committing any changes.
+- Dependencies are managed by `uv` via `pyproject.toml`. If needed, install them using `uv pip install -e .[dev]` in an active virtual environment.
 - Even for documentation-only changes, tests must be executed.
 
 ## Commit messages
