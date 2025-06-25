@@ -60,6 +60,8 @@ Para cada decisão extraída:
 3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido. Os parâmetros base do ambiente TrueSkill (`mu` e `sigma` iniciais, `beta`, `tau` e `draw_probability`) são configuráveis através do arquivo `config.toml` na raiz do projeto.
 4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais nos arquivos CSV de rating.
 
+Um exemplo completo de uso pode ser encontrado em [`docs/examples/trueskill_demo.py`](docs/examples/trueskill_demo.py).
+
 ### 3.4 Persistência e Versionamento
 
 Os dados são armazenados em arquivos `.csv` rastreáveis no próprio repositório:
