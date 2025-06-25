@@ -1,0 +1,2521 @@
+{
+    "file_name_source": "dj_20250624.pdf",
+    "extraction_timestamp": "2025-06-25T12:14:18.229360+00:00",
+    "decisions": [
+        {
+            "numero_processo": "7050077-96.2023.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "A. S. F."
+            ],
+            "advogados_polo_ativo": [
+                "Jeanne Margaretha Machado (OAB/RO 10083)"
+            ],
+            "polo_passivo": [
+                "E. D. R."
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7055550-10.2016.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Daniel Nascimento Gomes (OAB/SP 356650)",
+                "Alex Jesus Augusto Filho (OAB/SP 314946)"
+            ],
+            "polo_passivo": [
+                "Jirau Energia S.A."
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7033882-07.2021.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Fernando Marques dos Santos"
+            ],
+            "advogados_polo_ativo": [
+                "Edson Bernardo Andrade Reis Neto (OAB/RO 1207)",
+                "Raquel Grécia Nogueira (OAB/RO 10072)",
+                "Adevaldo Andrade Reis (OAB/RO 628)",
+                "Rodrigo Otávio Veiga de Vargas (OAB/RO 2829)",
+                "Eurico Soares Montenegro Neto (OAB/RO 1742)",
+                "Thiago Maia de Carvalho (OAB/RO 7472)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7003076-97.2023.8.22.0007",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Nilza Neves de Souza"
+            ],
+            "advogados_polo_ativo": [
+                "Fernanda Fumero Garcia (OAB/RO 4601)",
+                "Robson Reinoso de Paula (OAB/RO 1341)"
+            ],
+            "polo_passivo": [
+                "Instituto Nacional do Seguro Social - INSS"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador Federal do INSS"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7047219-58.2024.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Summus Consultoria, Assessoria, Licitações e Terceirizações Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Renata Fabris Pinto (OAB/RO 3126)",
+                "Felipe Gurjão Silveira (OAB/RO 5320)",
+                "Rodrigo Otávio Veiga de Vargas (OAB/RO 2829)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo_2": [
+                "Kapital Serviços Terceirizados Ltda"
+            ],
+            "advogados_polo_passivo_2": [
+                "Rafael Oliveira Claros (OAB/RO 3672)",
+                "Vladmyr Araújo Peixoto (OAB/RO 13512)"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7049088-95.2020.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "E J Construtora Ltda - Me"
+            ],
+            "advogados_polo_ativo": [
+                "Gustavo Gerola Marsola (OAB/RO 4164)"
+            ],
+            "polo_passivo": [
+                "Departamento Estadual de Estradas de Rodagem e Transportes - DER"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7051812-77.2017.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Porto Junior Construções Ltda – Me"
+            ],
+            "advogados_polo_passivo": [
+                "Samuel dos Santos Junior (OAB/RO 1238)"
+            ],
+            "polo_passivo_2": [
+                "Rosemeire de Souza Nunes"
+            ],
+            "advogados_polo_passivo_2": [
+                "Samuel dos Santos Junior (OAB/RO 1238)"
+            ],
+            "polo_passivo_3": [
+                "Francisco Edwilson Bessa Holanda de Negreiros"
+            ],
+            "advogados_polo_passivo_3": [
+                "Nelson Canedo Motta (OAB/RO 2721)",
+                "Zoil Batista de Magalhães Neto (OAB/RO 1619)",
+                "Andrey Oliveira Lima (OAB/RO 11009)",
+                "Alexandre Camargo (OAB/RO 704)"
+            ],
+            "polo_passivo_4": [
+                "David de Alecrim Matos"
+            ],
+            "polo_passivo_5": [
+                "Jair Ramires"
+            ],
+            "polo_passivo_6": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_passivo_6": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0041686-26.2009.8.22.0015",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Amir Francisco Lando"
+            ],
+            "advogados_polo_passivo": [
+                "Amir Francisco Lando (OAB/RO 34-A)",
+                "Lucilia Villanova (OAB/MG 62263B)"
+            ],
+            "polo_passivo_2": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7003345-69.2019.8.22.0010",
+            "tipo_decisao": "embargos de declaração em apelação",
+            "polo_ativo": [
+                "Luiz Ademir Schock"
+            ],
+            "advogados_polo_ativo": [
+                "Igor Habib Ramos Fernandes (OAB/RO 5193)",
+                "Cassio Esteves Jaques Vidal (OAB/RO 5649)",
+                "Gustavo Santana do Nascimento (OAB/RO 11002)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7081048-98.2022.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Energisa Rondônia - Distribuidora de Energia S.A.",
+                "Energisa Soluções S.A."
+            ],
+            "advogados_polo_ativo": [
+                "André Ricardo Lemes da Silva (OAB/ES 33288)",
+                "Antonio Carlos Guidoni Filho (OAB/SP 146997)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Sérgio Fernandes de Abreu Júnior (OAB/RO 6629)",
+                "Fábio de Sousa Santos (OAB/RO 5221)"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7033177-04.2024.8.22.0001",
+            "tipo_decisao": "apelação e agravo",
+            "polo_ativo": [
+                "Teresinha de Jesus Spindola de Araujo Viana"
+            ],
+            "advogados_polo_ativo": [
+                "Vander Carlos Araújo Machado (OAB/RO 2521)"
+            ],
+            "polo_passivo": [
+                "Instituto de Previdência dos Servidores Públicos do Estado de Rondônia - IPERON"
+            ],
+            "advogados_polo_passivo": [
+                "Antônio Isac Nunes Cavalcante de Astrê (OAB/RO 5095)"
+            ],
+            "polo_passivo_2": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo_2": [
+                "Antônio Isac Nunes Cavalcante de Astrê (OAB/RO 5095)"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7012339-71.2023.8.22.0002",
+            "tipo_decisao": "apelação criminal",
+            "polo_ativo": [
+                "Francisco de Oliveira Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Hiago Bastos Trindade (OAB/RO 9858)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0811400-86.2023.8.22.0000",
+            "tipo_decisao": "incidente de resolução de demandas repetitivas",
+            "polo_ativo": [
+                "Gerson Acursi",
+                "José Luiz Lenzi",
+                "Cleomildo de Melo Freire"
+            ],
+            "advogados_polo_ativo": [
+                "Carlos Eduardo Rocha Almeida (OAB/RO 3593)",
+                "José de Almeida Júnior (OAB/RO 1370)",
+                "Jânio Sérgio da Silva Maciel (OAB/RO 1950)",
+                "Nelson Sérgio da Silva Maciel (OAB/RO 624)",
+                "Tiago Ramos Pessoa (OAB/RO 10566)",
+                "Saiera Silva de Oliveira (OAB/RO 2458)",
+                "Augusto de Almeida Maia (OAB/RO 7390)",
+                "Evaldo da Rocha Maia (OAB/RO 5957)",
+                "Cássio Esteves Jaques Vidal (OAB/RO 5649)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0804393-72.2025.8.22.0000",
+            "tipo_decisao": "habeas corpus",
+            "polo_ativo": [
+                "Valdir Paes Modesto"
+            ],
+            "advogados_polo_ativo": [
+                "Rubens Darolt Júnior (OAB/RO 10915)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0805291-85.2025.8.22.0000",
+            "tipo_decisao": "habeas corpus",
+            "polo_ativo": [
+                "José Aécio Leite da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Irinaldo Pena Ferreira (OAB/RO 9065)",
+                "José Maria de Souza Rodrigues (OAB/RO 1909)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0805364-57.2025.8.22.0000",
+            "tipo_decisao": "habeas corpus",
+            "polo_ativo": [
+                "Igor dos Santos Ferreira"
+            ],
+            "advogados_polo_ativo": [
+                "Jeferson Gomes de Melo (OAB/RO 8972)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da Vara Única da Comarca de Alvorada do Oeste/RO"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7009203-56.2020.8.22.0007",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Johnnie Alam Moreno da Silva"
+            ],
+            "advogados_polo_passivo": [
+                "Roberto Podval (OAB/SP 101458)",
+                "Daniel Romeiro (OAB/SP 234983)",
+                "Alex Souza de Morais Sarkis (OAB/RO 1423)",
+                "Rebeca Moreno da Silva (OAB/RO 3997)",
+                "Paulo Barroso Serpa (OAB/RO 4923)",
+                "Andrey Cavalcante de Carvalho (OAB/RO 303-B)"
+            ],
+            "polo_passivo_2": [
+                "Silvanei Anerthe"
+            ],
+            "advogados_polo_passivo_2": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_3": [
+                "Leonardo Santos Pinheiro"
+            ],
+            "advogados_polo_passivo_3": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_4": [
+                "Maikon dos Santos Ajala"
+            ],
+            "advogados_polo_passivo_4": [
+                "Thiago Luis Alves (OAB/RO 8261)"
+            ],
+            "polo_passivo_5": [
+                "Nelson Soriano Guedes"
+            ],
+            "advogados_polo_passivo_5": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_6": [
+                "Estefany dos Santos Araújo"
+            ],
+            "advogados_polo_passivo_6": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_7": [
+                "Diego Morais Pinheiro"
+            ],
+            "advogados_polo_passivo_7": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_8": [
+                "Matheus Vinicius de Miranda Abreu"
+            ],
+            "advogados_polo_passivo_8": [
+                "Raissa Karine de Souza (OAB/RO 9103)",
+                "Allan Almeida Costa (OAB/RO 10011)",
+                "José Silva da Costa (OAB/RO 6945)"
+            ],
+            "polo_passivo_9": [
+                "Teotônio Vieira da Costa"
+            ],
+            "advogados_polo_passivo_9": [
+                "Raissa Karine de Souza (OAB/RO 9103)",
+                "Allan Almeida Costa (OAB/RO 10011)",
+                "José Silva da Costa (OAB/RO 6945)"
+            ],
+            "polo_passivo_10": [
+                "Willian Oliveira Cardoso"
+            ],
+            "advogados_polo_passivo_10": [
+                "Raissa Karine de Souza (OAB/RO 9103)",
+                "Allan Almeida Costa (OAB/RO 10011)",
+                "José Silva da Costa (OAB/RO 6945)"
+            ],
+            "polo_passivo_11": [
+                "Walisson Brito Lira Cavalcante"
+            ],
+            "advogados_polo_passivo_11": [
+                "Raissa Karine de Souza (OAB/RO 9103)",
+                "Allan Almeida Costa (OAB/RO 10011)",
+                "José Silva da Costa (OAB/RO 6945)"
+            ],
+            "polo_passivo_12": [
+                "Júnior Teixeira Fonseca"
+            ],
+            "advogados_polo_passivo_12": [
+                "Raissa Karine de Souza (OAB/RO 9103)",
+                "Allan Almeida Costa (OAB/RO 10011)",
+                "José Silva da Costa (OAB/RO 6945)"
+            ],
+            "polo_passivo_13": [
+                "Lucas da Silva Melo"
+            ],
+            "advogados_polo_passivo_13": [
+                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
+                "Karla Raquel Barcelos Tokashiki Santos (OAB/RO 9573)"
+            ],
+            "polo_passivo_14": [
+                "Juscileia Nunes de Almeida"
+            ],
+            "advogados_polo_passivo_14": [
+                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
+                "Ivan Douglas Baptista Cardoso (OAB/RO 7320)"
+            ],
+            "polo_passivo_15": [
+                "Romildo Ferreira de Oliveira Nunes"
+            ],
+            "advogados_polo_passivo_15": [
+                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
+                "Ivan Douglas Baptista Cardoso (OAB/RO 7320)"
+            ],
+            "polo_passivo_16": [
+                "Cleiton da Silva Santos"
+            ],
+            "advogados_polo_passivo_16": [
+                "Paulo Luiz de Laia Filho (OAB/RO 3857)",
+                "Carla Priscila Cunha da Silva (OAB/RO 7634)"
+            ],
+            "polo_passivo_17": [
+                "George Willian Lucino Batista"
+            ],
+            "advogados_polo_passivo_17": [
+                "Francis Hency Oliveira Almeida de Lucena (OAB/RO 11026)"
+            ],
+            "polo_passivo_18": [
+                "Eliton de Souza Silva"
+            ],
+            "advogados_polo_passivo_18": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_19": [
+                "Alexandro Felisberto Gonçalves"
+            ],
+            "advogados_polo_passivo_19": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_20": [
+                "Breno Pull Anca Castro dos Santos"
+            ],
+            "advogados_polo_passivo_20": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_21": [
+                "Elizangela Rocha de Souza"
+            ],
+            "advogados_polo_passivo_21": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_22": [
+                "Leonardo Bonifácio Barbosa"
+            ],
+            "advogados_polo_passivo_22": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_23": [
+                "Sheldon Mikael da Silva Câmara"
+            ],
+            "advogados_polo_passivo_23": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo_24": [
+                "Thalia de Souza Valério"
+            ],
+            "advogados_polo_passivo_24": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_25": [
+                "Vaneuso Batista da Silva Guedes"
+            ],
+            "advogados_polo_passivo_25": [
+                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
+            ],
+            "polo_passivo_26": [
+                "William de Souza Lourenço"
+            ],
+            "advogados_polo_passivo_26": [
+                "Thiago Luis Alves (OAB/RO 8261)"
+            ],
+            "polo_passivo_27": [
+                "Leandro Gonçalves"
+            ],
+            "advogados_polo_passivo_27": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7002474-27.2024.8.22.0022",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Valdemar Ferreira da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "João Francisco Matara Júnior (OAB/RO 6226)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7001053-13.2025.8.22.0007",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Juliano Soares Sartoro"
+            ],
+            "advogados_polo_ativo": [
+                "Rafael Vieira Benedito (OAB/RO 8182)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7002282-73.2023.8.22.0008",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Evandro Marchiolli da Fonseca"
+            ],
+            "advogados_polo_ativo": [
+                "Marcelo Macedo Bácaro (OAB/RO 9327)",
+                "Átila Rodrigues Silva (OAB/RO 9996)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7021282-17.2022.8.22.0001",
+            "tipo_decisao": "recurso em sentido estrito",
+            "polo_ativo": [
+                "Ronei Barrozo de Matos"
+            ],
+            "advogados_polo_ativo": [
+                "Orleilson Tavares Mendes (OAB/RO 10005)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7004695-37.2024.8.22.0004",
+            "tipo_decisao": "recurso em sentido estrito",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Andriely Flauzina de Araújo"
+            ],
+            "advogados_polo_passivo": [
+                "Claudinei Costa de Faria (OAB/RO 13251)",
+                "Maurício Maurício Filho (OAB/RO 8826)"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7015422-64.2024.8.22.0001",
+            "tipo_decisao": "recurso em sentido estrito",
+            "polo_ativo": [
+                "Heline Abreu Braga",
+                "Helena Abreu Braga"
+            ],
+            "advogados_polo_ativo": [
+                "Iulsf Anderson Michelon (OAB/RO 8084)"
+            ],
+            "polo_passivo": [
+                "Mara Denny Ribeiro"
+            ],
+            "advogados_polo_passivo": [
+                "Luciana Costa das Chagas (OAB/RO 6205)",
+                "Adélio Ribeiro Lara (OAB/RO 6292)"
+            ],
+            "polo_passivo_2": [
+                "Vanusa Oliveira da Silva"
+            ],
+            "polo_passivo_3": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0801863-95.2025.8.22.0000",
+            "tipo_decisao": "revisão criminal",
+            "polo_ativo": [
+                "Ivanilson Francisco da Silva ou Tiago Francisco da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7004357-51.2024.8.22.0008",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Valmir Schulz de Oliveira"
+            ],
+            "advogados_polo_passivo": [
+                "Ana Rita Côgo (OAB/RO 660)",
+                "Inês da Consolação Côgo (OAB/RO 3412)"
+            ],
+            "resultado": "não_definido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0816462-73.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Corregedoria Geral da Justiça do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Adip Chaim Elias Homsi Neto (OAB/RO 13.757)"
+            ],
+            "polo_passivo": [
+                "A.C.E.H.N."
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "procedente",
+            "data": null
+        },
+        {
+            "numero_processo": "0010381-61.2012.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Daniel Alves de Souza"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia",
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0820526-29.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Israel Fraga de Souza"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "0801105-19.2024.8.22.9000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Vladimir Neres Pereira represented by Cleide Alves Correa"
+            ],
+            "advogados_polo_ativo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0800718-04.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "M. D. C. D. J."
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Candeias do Jamari"
+            ],
+            "polo_passivo": [
+                "J. E. D. S."
+            ],
+            "advogados_polo_passivo": [
+                "Edirlei Barboza Pereira de Souza (OAB/RO 13635)"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0002365-17.2009.8.22.0101",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "polo_passivo": [
+                "Julio Cesar Siqueira",
+                "Castro & Siqueira Ltda"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7034895-80.2017.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "polo_passivo": [
+                "Ruth Martins Cantanhede Salles",
+                "João Fernandes Salles"
+            ],
+            "advogados_polo_passivo": [
+                "Carlos Henrique Gazzoni (OAB/RO 6722)",
+                "Anita de Cacia Notargiacomo Saldanha (OAB/RO 3644)",
+                "Thaylon Angelo Rodrigues da Silva (OAB/RO 13.720)"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7012112-11.2024.8.22.0014",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Vilhena"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Vilhena"
+            ],
+            "polo_passivo": [
+                "H. M. F. D. R. represented by the mother Nátalie Nicole França de Almeida",
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia",
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7009787-08.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "São Tomás Empreendimentos Imobiliários e Participações Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+            ],
+            "polo_passivo": [
+                "Município de Rolim de Moura"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Rolim de Moura"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7001674-02.2023.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Cacoal"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Cacoal"
+            ],
+            "polo_passivo": [
+                "Antonio Joacir Juvenal da Costa"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7006440-54.2021.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Ji-Paraná"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Ji-Paraná"
+            ],
+            "polo_passivo": [
+                "Agro Pecuária Industrial e Colonizadora Rio Candeias SA"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7014301-86.2024.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Sirene Gusmão Alves da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Jordan Luiz Miranda Holanda (OAB/RO 10573)",
+                "Marcio Calado da Silva (OAB/RO 10945)"
+            ],
+            "polo_passivo": [
+                "Município de Ji-Paraná"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Ji-Paraná"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7016235-79.2024.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Paulo Edson Sena Jatobá"
+            ],
+            "advogados_polo_ativo": [
+                "Gabriel Alencar de Abreu (OAB/RO 12826)"
+            ],
+            "polo_passivo": [
+                "Município de Ji-Paraná"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Ji-Paraná"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7042375-70.2021.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "polo_passivo": [
+                "Suzana Cavalcante"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0801016-93.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Edmundo Antônio Bondezan"
+            ],
+            "advogados_polo_ativo": [
+                "Edilson Stutz (OAB/RO 309)",
+                "Renata Alice Pessôa Ribeiro de Castro Stutz (OAB/RO 1112)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0801997-25.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "M. B. D. S. represented by the mother Cristina Barbosa Robaina",
+                "Estado de Rondônia",
+                "Município de Alto Alegre dos Parecis"
+            ],
+            "advogados_polo_ativo": [
+                "Defensor Público do Estado de Rondônia",
+                "Procurador-Geral do Estado de Rondônia",
+                "Procurador-Geral do Município de Alto Alegre dos Parecis"
+            ],
+            "polo_passivo": [],
+            "advogados_polo_passivo": [],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0813017-47.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Antônio Rodrigues Fraga"
+            ],
+            "advogados_polo_ativo": [
+                "Josimar Oliveira Muniz (OAB/RO 912)",
+                "Vantuilo Geovanio Pereira da Rocha (OAB/RO 6229)"
+            ],
+            "polo_passivo": [
+                "Instituto Nacional do Seguro Social - INSS"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador Federal do INSS"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7013923-61.2023.8.22.0007",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "I. B. B. represented by the mother Joelmira Romão Batista Bessert",
+                "Município de Cacoal"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia",
+                "Procurador-Geral do Município de Cacoal"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "7075027-09.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ana Carolina Garcia de Oliveira"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0811174-47.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Thiago José da Silva Gonzaga"
+            ],
+            "advogados_polo_ativo": [
+                "Israel Augusto Alves Freitas da Cunha (OAB/RO 2913)"
+            ],
+            "polo_passivo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7000914-98.2024.8.22.0006",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "I. C. D. S. C. represented by the mother Beatriz Chanfrin da Silva"
+            ],
+            "advogados_polo_passivo": [
+                "Rubia Gomes Cacique (OAB/RO 5810)",
+                "Pamela Evangelista de Almeida (OAB/RO 7354)"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7003286-23.2024.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia",
+                "Município de Ji-Paraná"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia",
+                "Procurador-Geral do Município de Ji-Paraná"
+            ],
+            "polo_passivo": [
+                "Helena Maria Mareze Gobbo represented by her husband Daniel Gobbo"
+            ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
+            "resultado": "parcialmente_procedente",
+            "data": null
+        },
+        {
+            "numero_processo": "0820012-76.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "José Hélio Cysneiros Pachá"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0801087-32.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Robson Souza de Oliveira"
+            ],
+            "advogados_polo_ativo": [
+                "Diego de Paiva Vasconcelos (OAB/RO 2013)",
+                "Márcio Melo Nogueira (OAB/RO 2827)",
+                "Gabriela Sabry Azar Marques (OAB/RO 10770)",
+                "Dalgobert Martinez Maciel (OAB/RO 1358)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0000180-84.2015.8.22.0007",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Britamar Extração de Pedras e Areia Importação e Exportação Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "José Nonato de Araújo Neto (OAB/RO 6471)"
+            ],
+            "polo_passivo": [
+                "Serviço Autônomo de Água e Esgoto de Cacoal",
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do SAAE - Cacoal"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "7011877-65.2024.8.22.0007",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Jansen Ribeiro Martins"
+            ],
+            "advogados_polo_passivo": [
+                "Francisca Jusara de Macedo Coelho Silva (OAB/RO 10215)"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7001651-22.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "JS Distribuição e Representação Ltda"
+            ],
+            "advogados_polo_passivo": [
+                "Rafael Duck Silva (OAB/RO 5152)"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7069864-48.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7014765-81.2022.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Edyr de Moura"
+            ],
+            "advogados_polo_ativo": [
+                "Lurival Antonio Ercolin (OAB/RO 64)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "0813152-93.2023.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "polo_passivo": [
+                "Aline Luciana Rodrigues"
+            ],
+            "advogados_polo_passivo": [
+                "Leonardo Falcão Ribeiro (OAB/RO 5408)",
+                "Maria Luiza Piccoli (OAB/RO 8916)"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "0819070-44.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Creuzenir da Fonseca Puttim"
+            ],
+            "advogados_polo_ativo": [
+                "Tiago dos Santos de Lima (OAB/RO 7199)"
+            ],
+            "polo_passivo": [
+                "Instituto Nacional do Seguro Social - INSS"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador Federal do INSS"
+            ],
+            "resultado": "provido",
+            "data": null
+        },
+        {
+            "numero_processo": "7001946-24.2023.8.22.0023",
+            "tipo_decisao": "sentença",
+            "polo_ativo": [
+                "Juiz de Direito da Vara Única da Comarca de São Francisco do Guaporé"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Instituto Municipal de Previdência dos Servidores de São Francisco do Guaporé - IMPES",
+                "Eliani de Fátima Biava dos Santos Plantes"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Instituto Municipal de Previdência de São Francisco do Guaporé - IMPES",
+                "Welinton de Lima Freitas (OAB/RO 11716)"
+            ],
+            "resultado": "confirmada",
+            "data": null
+        },
+        {
+            "numero_processo": "7007745-20.2023.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "São Tomás Empreendimentos Imobiliários e Participações Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+            ],
+            "polo_passivo": [
+                "Município de Rolim de Moura"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Rolim de Moura"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7003213-66.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "São Tomás Empreendimentos Imobiliários e Participações Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+            ],
+            "polo_passivo": [
+                "Município de Rolim de Moura"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Rolim de Moura"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7007025-19.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "São Tomás Empreendimentos Imobiliários e Participações Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+            ],
+            "polo_passivo": [
+                "Município de Rolim de Moura"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Rolim de Moura"
+            ],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7024496-16.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "William Lima Barbosa"
+            ],
+            "advogados_polo_ativo": [
+                "Nilson Aparecido de Souza (OAB/RO 3883)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": null
+        },
+        {
+            "numero_processo": "7045549-19.2023.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Instituto de Previdência dos Servidores Públicos do Estado de Rondônia - IPERON"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ana Angélica dos Santos Melquisedec"
+            ],
+            "advogados_polo_passivo": [
+                "Rodrigo de Barcelos Taveira (OAB/RO 10421)",
+                "Roxane Fernandes Ribeiro de Barcelos (OAB/RO 8666)"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "7029844-78.2023.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Amazon Fort Soluções Ambientais Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Paulo Cezar Rodrigues de Araújo (OAB/RO 3182)",
+                "Bruno Romero Pedrosa Monteiro (OAB/PE 11338)",
+                "Danielle Pedrosa de Carvalho (OAB/PE 18628)"
+            ],
+            "polo_passivo": [
+                "Município de Porto Velho"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Município de Porto Velho"
+            ],
+            "resultado": "nao_provido",
+            "data": null
+        },
+        {
+            "numero_processo": "7026480-64.2024.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "C.T. da Luz Com. & Distribuidora de Alimentos Ltda"
+            ],
+            "advogados_polo_ativo": [
+                "Maisa Bernachi Baptista (OAB/RO 8247)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "não_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0801072-29.2025.8.22.0000",
+            "tipo_decisao": "agravo de instrumento",
+            "polo_ativo": [
+                "Tatiana Alves Barbosa Pontes"
+            ],
+            "advogados_polo_ativo": [
+                "Flaviana Leticia Ramos Moreira (OAB/RO 4867)"
+            ],
+            "polo_passivo": [
+                "Instituto Nacional do Seguro Social - INSS"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador Federal do INSS"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7030339-25.2023.8.22.0001",
+            "tipo_decisao": "apelação",
+            "polo_ativo": [
+                "Centro Brasileiro de Pesquisa em Avaliação e Seleção e de Promoção de Eventos - Cebraspe"
+            ],
+            "advogados_polo_ativo": [
+                "Daniel Barbosa Santos (OAB/DF 13147)"
+            ],
+            "polo_passivo": [
+                "Vitor Pontes Correia"
+            ],
+            "advogados_polo_passivo": [
+                "Maracelia Lima de Oliveira (OAB/RO 2549)",
+                "Lucia de Fatima Ferreira Dutra (OAB/RO 13.956)",
+                "Nayara Simeas Pereira Rodrigues (OAB/RO 1692)",
+                "Gabriel de Moraes Correia Tomasete (OAB/RO 2641)"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7009982-58.2022.8.22.0001",
+            "tipo_decisao": "embargos de declaração em apelação",
+            "polo_ativo": [
+                "Cleiton Lopes Barbosa",
+                "José Rubens Lima Moreira"
+            ],
+            "advogados_polo_ativo": [
+                "Karoline Cavalcanti de Paula (OAB/RO 10268)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia",
+                "Adriana Souza Marques",
+                "Aleone Brito",
+                "Alessandro Prates de Oliveira",
+                "Alexandre Jose de Goes",
+                "Allan Rodrigues Da Silva",
+                "Ana Claudia Dore Goncalves",
+                "Ana Paula Leles Da Silva",
+                "Ananias Silva Carvalho",
+                "André Da Silva Amancio",
+                "Antônio Francisco Dos Santos",
+                "Ary Dantas Da Silva",
+                "Bruno Pedro de Faria",
+                "Carliane Da Penha Lima",
+                "Claudionor Vieira Gaudino",
+                "Clebson Leandro Madeira",
+                "Cleve Alves Da Silva",
+                "Cristiano Dias Barros Vieira",
+                "Darlete Aguetoni Mariano",
+                "Demartone Gatti Extekoetter",
+                "Edileia Figueiredo Dias",
+                "Edmilson Rodrigues Medrade",
+                "Edson Justiniano de Souza",
+                "Elaine Melo Fernandes",
+                "Elias Julio Da Silva Filho",
+                "Elismar Rodrigo de Almeida",
+                "Everson Marcio Delfino",
+                "Ezequias Aguiar de Assis",
+                "Fabiano Soares Francisco",
+                "Fabio Franca Dos Santos",
+                "Fabrício Carneiro Lima",
+                "Frederico Carneiro Dos Santos",
+                "Gildevan Dias Nobrega",
+                "Gisseli Ferreira Xavier",
+                "Guilherme Carlos Negres",
+                "Ivan Carlos Fiori",
+                "Jefferson Emanoel Cassiano Silva",
+                "João Bernardes Da Silva",
+                "Joaquim Flavio Meister",
+                "Jose Roberto Rios",
+                "Juliane Lorenzon",
+                "Junior Da Silva Pedroso",
+                "Kingmans Luiz Morais de Azambuja",
+                "Leanderson Couto de Jesus",
+                "Leandro Gomes Barrozo",
+                "Luciana Maria Penha Arcos",
+                "Marcelia Machado de Amorim Macedo",
+                "Miquéias Batista de Jesus",
+                "Mizael Correa Maria",
+                "Oziel Pereira Borges",
+                "Paulo Vilmar Mello",
+                "Rafael de Oliveira Batista",
+                "Roni Evangelista Da Silva",
+                "Rosiana Maria Da Rosa",
+                "Rosilene Cristina Módulo",
+                "Rozária Rodrigues de Morais",
+                "Rubresson Inocencio de Souza",
+                "Sergio Ferreira Pereira",
+                "Sidney Da Silva Ferreira",
+                "Tais Medeiros Farias",
+                "Thiago Gregorio de Oliveira",
+                "Tiago Nunes Negrisoli",
+                "Vaguisclei Amâncio de Carvalho",
+                "Vanuza Oliveira Araújo",
+                "Victor Henrique Paio Santos",
+                "Wachington Fagner Alfredo",
+                "Wagner Pedro de Oliveira",
+                "Jonas Junior Sampaio Daczkovski",
+                "Ronielli Nascimento Chagas"
+            ],
+            "advogados_polo_passivo": [
+                "Procuradoria Geral Do Estado de Rondônia",
+                "José Roberto Wandembruck Filho (OAB/RO 5063)",
+                "Orestes Muniz Filho (OAB/RO 40)",
+                "Fátima Nágila de Almeida Machado (OAB/RO 3891)",
+                "Cristiane Da Silva Lima Reis (OAB/RO 1569)"
+            ],
+            "resultado": "não_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7010424-24.2022.8.22.0001",
+            "tipo_decisao": "embargos de declaração em apelação",
+            "polo_ativo": [
+                "Paulo Henrique Diogo Da Cruz"
+            ],
+            "advogados_polo_ativo": [
+                "Karoline Cavalcanti de Paula (OAB/RO 10268)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia",
+                "Carliane Da Penha Lima",
+                "Adriana Souza Marques",
+                "Aleone Brito",
+                "Alessandro Prates de Oliveira",
+                "Alexandre José de Goés",
+                "Allan Rodrigues Da Silva",
+                "Ana Claudia Dore Gonçalves",
+                "Ana Paula Leles Da Silva",
+                "Ananias Silva Carvalho",
+                "Andre Da Silva Amancio",
+                "Antonio Francisco Dos Santos",
+                "Ary Dantas Da Silva",
+                "Bruno Pedro de Faria",
+                "Claudionor Vieira Gaudino",
+                "Clebson Leandro Madeira",
+                "Cleve Alves Da Silva",
+                "Cristiano Dias Barros Vieira",
+                "Darlete Aguitone Mariano",
+                "Demartone Gatti Extekoetter",
+                "Edileia Figueiredo Dias",
+                "Edmilson Rodrigues Medrade",
+                "Edson Justiniano de Souza",
+                "Elaine Melo Fernandes",
+                "Elias Júlio Da Silva Filho",
+                "Elismar Rodrigo de Almeida"
+            ],
+            "advogados_polo_passivo": [
+                "Procuradoria Geral Do Estado de Rondônia",
+                "José Roberto Wandembruck Filho (OAB/RO 5063)",
+                "Fátima Nágila de Almeida Machado (OAB/RO 3891)",
+                "Orestes Muniz Filho (OAB/RO 40)"
+            ],
+            "resultado": "não_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0022869-14.2013.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Consórcio Cowan – Triunfo"
+            ],
+            "advogados_polo_ativo": [
+                "Paulo Barroso Serpa (OAB/RO 4923)",
+                "Andrey Cavalcante de Carvalho (OAB/RO 303)",
+                "Fernanda Maia Marques (OAB/RO 3034)",
+                "Maria Aldicleia Ferreira (OAB/RO 6169)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7012750-20.2023.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Departamento Estadual de Trânsito de Rondônia - DETRAN/RO"
+            ],
+            "advogados_polo_ativo": [
+                "Fabrizio Thomazio Guimarães Silva (OAB/RO 14.865)"
+            ],
+            "polo_passivo": [
+                "Azevedo Construções Ltda"
+            ],
+            "advogados_polo_passivo": [
+                "Williames Pimentel de Oliveira (OAB/RO 2694)",
+                "Tiago Ramos Pessoa (OAB/RO 10566)"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0810430-52.2024.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Normade Indústria e Comércio de Madeiras Ltda - EPP"
+            ],
+            "advogados_polo_ativo": [
+                "Joana Kalsing (OAB/RO 5004)"
+            ],
+            "polo_passivo": [
+                "Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "resultado": "extinto",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0804897-78.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Cícero Queteguary de Noronha"
+            ],
+            "advogados_polo_ativo": [
+                "Dimas Queiroz de Oliveira Júnior (OAB/RO 2622)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da 1ª Vara Criminal da Comarca de Guajará-Mirim/RO"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-06"
+        },
+        {
+            "numero_processo": "0804412-78.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Kalysson Gomes de Paiva"
+            ],
+            "advogados_polo_ativo": [
+                "João Carlos Gomes da Silva (OAB/RO 7588)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da 1ª Vara Criminal da Comarca de Guajará-Mirim/RO"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-06"
+        },
+        {
+            "numero_processo": "0804762-66.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Greison do Nascimento Neves"
+            ],
+            "advogados_polo_ativo": [
+                "Almane Lima Monte da Silva (OAB/RO 12230)"
+            ],
+            "polo_passivo": [
+                "Juiz de Direito da 1ª Vara Criminal da Comarca de Vilhena//RO"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-06"
+        },
+        {
+            "numero_processo": "0800795-13.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "José Ueliton Ramos dos Santos"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "provido",
+            "data": "2025-06-06"
+        },
+        {
+            "numero_processo": "0003767-81.2019.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Henrique Santos Souza"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7001100-79.2024.8.22.0020",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Isnaldo Paulo Anisio"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7011797-04.2024.8.22.0007",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Schaerik Henrique de Oliveira"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7004076-77.2024.8.22.0014",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ivanildo Pereira da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7003276-22.2023.8.22.0002",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Anderson dos Santos Pessoa"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "não_conhecida",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7001253-94.2023.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Tharles Ferraz Pedroso"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7062416-53.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Fabiano da Silva Batista"
+            ],
+            "advogados_polo_ativo": [
+                "Arlen Matos Meireles (OAB/RO 7903)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7031277-83.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Rafael Silva Nascimento"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7012899-67.2024.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Taina Silva de Sousa"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7009336-74.2024.8.22.0002",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Henrique dos Santos Santiago"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7032418-11.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "André Lucas Mendes Moreira"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7004510-21.2023.8.22.0008",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Adry Pimenta da Costa"
+            ],
+            "advogados_polo_ativo": [
+                "João Alves de Aguiar (OAB/RO 13530)",
+                "Thaoni Lima dos Santos (OAB/RO 11394)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "não_conhecida",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7057099-74.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Gabriel Peres da Costa"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7002199-10.2025.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Marcos Vieira Lopis"
+            ],
+            "advogados_polo_ativo": [
+                "Dimas Queiroz de Oliveira Júnior (OAB/RO 2622)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7006132-07.2024.8.22.0007",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "André Luiz Liik Pereira"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7021516-25.2024.8.22.0002",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Nicolau Nunes de Mayo Junior"
+            ],
+            "advogados_polo_ativo": [
+                "Nicolau Nunes de Mayo Junior (OAB/RO 2629)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "não_conhecida",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7001110-85.2022.8.22.0023",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Antônio José Tomé dos Santos"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7001451-32.2022.8.22.0017",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Valdriano Martins de França"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7002639-87.2022.8.22.0008",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Adriel Zibel"
+            ],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7008201-25.2023.8.22.0014",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Wesley Ferreira Santos"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7013092-65.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Maro Lúcio de Freitas Souto"
+            ],
+            "advogados_polo_ativo": [
+                "Luciana Chagas Biet (OAB/RO 6205)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7005257-63.2022.8.22.0021",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Damião Santana Nascimento"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "não_conhecida",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "7002230-61.2024.8.22.0002",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Elco Aleixo de Barros"
+            ],
+            "advogados_polo_ativo": [
+                "Dennis Lima Batista Gurgel do Amaral (OAB/RO 7633)",
+                "Marcos Pedro Barbas Mendonça (OAB/RO 4476)",
+                "Niltom Edgard Mattos Marena (OAB/RO 361)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0802690-09.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Jhonata Barbosa da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Telma Santos da Cruz (OAB/RO 3156)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0803283-38.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Mayco Roberto Oliveira Gomes"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0802984-61.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Lucas Eduardo da Silva Chaves"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0803352-70.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Antônio Clemilson Portela do Nascimento"
+            ],
+            "advogados_polo_passivo": [
+                "Lucas Árabe Gomes da Silva (OAB/RO 8170)"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0803036-57.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "David Belo Nunes"
+            ],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24"
+        },
+        {
+            "numero_processo": "0803169-02.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Renan Oziel da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-26"
+        },
+        {
+            "numero_processo": "0803301-59.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Donizete Silva de Jesus"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-28"
+        },
+        {
+            "numero_processo": "0803305-96.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Daniel Goiabe Medina"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-03-28"
+        },
+        {
+            "numero_processo": "0803354-40.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Jair da Cruz Ferracini"
+            ],
+            "advogados_polo_ativo": [
+                "Roberto Harlei Nobre de Souza (OAB/RO 1642)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "provido",
+            "data": "2025-03-31"
+        },
+        {
+            "numero_processo": "0803369-09.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Bruno Cavalcante da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-31"
+        },
+        {
+            "numero_processo": "0803472-16.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Francisco Carlos de Souza Moura"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-04-02"
+        },
+        {
+            "numero_processo": "0803482-60.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Jonas Alves de Oliveira Filho"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "provido",
+            "data": "2025-04-02"
+        },
+        {
+            "numero_processo": "0803531-04.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Anderson Hacpbart Durães"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-04-03"
+        },
+        {
+            "numero_processo": "0803053-93.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Bruno Batista Jorge"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-24"
+        },
+        {
+            "numero_processo": "7004802-63.2024.8.22.0010",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Marcos Wesley de Souza"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "rejeitados",
+            "data": "2025-03-31"
+        },
+        {
+            "numero_processo": "7001335-63.2025.8.22.0003",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Juizo de Direito da 1ª Vara Criminal da Comarca de Jaru/RO"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [
+                "Moacir Gonçalves de Azevedo (OAB/RO 10674)"
+            ],
+            "resultado": "negado_provimento",
+            "data": "2025-03-10"
+        },
+        {
+            "numero_processo": "7000287-51.2025.8.22.0009",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "John Lenon Kunast"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-04-15"
+        },
+        {
+            "numero_processo": "7013828-73.2024.8.22.0014",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Cleverton Antônio Alves da Silva"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-04-11"
+        },
+        {
+            "numero_processo": "7013135-19.2024.8.22.0005",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Josimar Rodrigues Apolinario"
+            ],
+            "advogados_polo_ativo": [
+                "Frank Leonardo Mesquita de Freitas (OAB/RO 12014)",
+                "Nilton Cezar Rios (OAB/RO 1795)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-02-26"
+        },
+        {
+            "numero_processo": "7043111-83.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Rafael Eduardo Reina"
+            ],
+            "advogados_polo_ativo": [
+                "Alexandre do Carmo Batista (OAB/RO 4860)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2024-12-26"
+        },
+        {
+            "numero_processo": "0000242-06.2020.8.22.0701",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Felipe Ferreira Rodrigues"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-02-28"
+        },
+        {
+            "numero_processo": "7004730-34.2023.8.22.0003",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Andrew Lucas Vieira Borgue"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-27"
+        },
+        {
+            "numero_processo": "7064439-69.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Francinilson Freire de Oliveira"
+            ],
+            "advogados_polo_ativo": [
+                "Helio Silva de Melo Junior (OAB/RO 958)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-03-11"
+        },
+        {
+            "numero_processo": "7030704-79.2023.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Leandro Peverari"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2024-03-26"
+        },
+        {
+            "numero_processo": "0006644-58.2019.8.22.0501",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "M. L. S. A."
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-04-22"
+        },
+        {
+            "numero_processo": "7059209-46.2024.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "A. S. REP. C. e. A. do. C. E. em. P. de. A. E."
+            ],
+            "advogados_polo_ativo": [
+                "Alex Anufriev (OAB/AM 11766)",
+                "Juliane Muniz Miranda de Lucena Lima (OAB/RO 1297)",
+                "Thiago Davi de Paiva Caetano (OAB/RO 13357)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-02-21"
+        },
+        {
+            "numero_processo": "7012422-53.2024.8.22.0002",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "T. S. de. O."
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-01-23"
+        },
+        {
+            "numero_processo": "7000571-60.2024.8.22.0020",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "L. D. S.",
+                "A. M. de A."
+            ],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia",
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "resultado": "provido",
+            "data": "2025-03-20"
+        },
+        {
+            "numero_processo": "7030795-72.2023.8.22.0001",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "E. M. P."
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "advogados_polo_passivo": [],
+            "resultado": "parcialmente_provido",
+            "data": "2025-03-18"
+        }
+    ],
+    "chunks_processed": 23,
+    "total_decisions_found": 127
+}

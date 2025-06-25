@@ -20,7 +20,8 @@
       "Bash(git config:*)",
       "Bash(rg:*)",
       "Bash(mv:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }
