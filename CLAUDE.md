@@ -54,6 +54,9 @@ uv run python causaganha/core/pipeline.py run --date 2025-06-24
 
 # Dry run (no actual changes)
 uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
+
+# Migrate existing CSV/JSON data to DuckDB (one-time setup)
+uv run python causaganha/core/migration.py
 ```
 
 ## Architecture Overview
@@ -73,33 +76,50 @@ uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
    - **Robust output**: Structured JSON with automatic cleanup of intermediate files
    - **File organization**: Outputs to `data/` directory with consistent naming
 
-3. **Rating Update** (`trueskill_rating.py` + `pipeline.py`): Applies TrueSkill calculations
+3. **Rating Update** (`trueskill_rating.py` + `database.py`): Applies TrueSkill calculations
    - Forms teams of lawyers from opposing sides
    - Updates ratings (`mu` and `sigma`) based on case outcomes (win/loss/draw for teams)
-   - Persists data in CSV files: `ratings.csv` and `partidas.csv`
+   - Persists data in **DuckDB database**: unified storage for all system data
    - TrueSkill environment parameters are configured via `config.toml`.
 
 ### Key Modules
 
 - **`pipeline.py`**: Main orchestrator with CLI commands (`collect`, `extract`, `update`, `run`)
-- **`trueskill_rating.py`**: TrueSkill rating calculations and environment setup.
-- **`config.toml`**: Configuration file for TrueSkill parameters.
-- **`utils.py`**: Lawyer name normalization and decision validation utilities.
-- **`gdrive.py`**: Optional Google Drive integration for PDF backup.
+- **`database.py`**: **NEW** - Unified DuckDB data layer for all system storage
+- **`migration.py`**: **NEW** - Migration tools for CSV/JSON to DuckDB conversion
+- **`trueskill_rating.py`**: TrueSkill rating calculations and environment setup
+- **`config.toml`**: Configuration file for TrueSkill parameters
+- **`utils.py`**: Lawyer name normalization and decision validation utilities
+- **`gdrive.py`**: Optional Google Drive integration for PDF backup
 
 ### Data Flow
 
 ```
-TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → TrueSkill Updates → CSV Storage
+TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → TrueSkill Updates → DuckDB Storage
 ```
+
+### Database Architecture
+
+The system now uses **DuckDB** as the unified data storage layer, replacing scattered CSV files:
+
+- **`data/causaganha.duckdb`**: Main database file with 5 core tables:
+  - `ratings`: TrueSkill ratings (μ, σ) for each lawyer
+  - `partidas`: Match history with team compositions and rating changes
+  - `pdf_metadata`: PDF file tracking with SHA-256 hashes and Archive.org integration
+  - `decisoes`: Extracted judicial decisions with validation status
+  - `json_files`: Processing metadata for all JSON extraction files
+
+- **Views and Analytics**: Built-in ranking views and statistics for system monitoring
+- **Migration Support**: Automatic CSV/JSON to DuckDB conversion with backup creation
 
 ### File Organization
 
 - `causaganha/core/`: Main business logic modules (Note: will move to `src/causaganha/core/` as per user's plan)
-- `data/`: **Flattened data directory**
+- `data/`: **Unified data directory** 
+  - `data/causaganha.duckdb`: **Main database** - unified storage for all system data
   - `data/dj_YYYYMMDD.pdf`: PDF files from TJRO  
-  - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data
-  - `data/*_decisions_for_elo_testing.json`: Test data for rating workflow (now TrueSkill)
+  - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data (migrated to database)
+  - `data/backup_pre_migration/`: Backup of original CSV files before DuckDB migration
 - `tests/`: Comprehensive unit test suite (Note: will be at root level as per user's plan)
 - `.github/workflows/`: Automated CI/CD with 4 workflows (test, collect, extract, update)
 
