@@ -217,37 +217,37 @@ REGRAS OBRIGATÓRIAS:
                     
                     retry_count = 0
                     max_retries = 5
-                    base_delay = 30  # Start with 30 seconds for quota errors
-                    
+                    base_delay = 30
+                    response_successful = False
+                    response = None # Ensure response is defined before the loop
+
                     while retry_count < max_retries:
                         try:
                             logging.info(f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} for {pdf_path.name} (attempt {retry_count + 1})")
-                            
-                            # Combine prompt with chunk text
                             full_prompt = f"{prompt}\n\nTexto extraído do PDF (Chunk {chunk_index + 1}):\n{chunk_text}"
                             response = model.generate_content(full_prompt)
-                            
-                            # If successful, break out of retry loop
+                            response_successful = True
                             break
-                            
                         except Exception as e:
                             if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
                                 retry_count += 1
                                 if retry_count < max_retries:
-                                    # Exponential backoff with jitter
                                     backoff_delay = base_delay * (2 ** (retry_count - 1)) + random.uniform(0, 10)
                                     logging.warning(f"Rate limit hit for chunk {chunk_index + 1}, attempt {retry_count}. Waiting {backoff_delay:.1f} seconds...")
                                     time.sleep(backoff_delay)
                                 else:
-                                    logging.error(f"Max retries exceeded for chunk {chunk_index + 1}: {e}")
-                                    continue  # Skip this chunk and move to next
+                                    logging.error(f"Max retries for rate limit hit exceeded for chunk {chunk_index + 1}: {e}")
+                                    # response_successful remains False, loop will terminate
                             else:
                                 logging.error(f"Non-rate-limit error for chunk {chunk_index + 1}: {e}")
-                                break  # Break for non-rate-limit errors
+                                response_successful = False
+                                break
                     
-                    if retry_count >= max_retries:
-                        logging.error(f"Skipping chunk {chunk_index + 1} after {max_retries} failed attempts")
-                        continue  # Skip to next chunk
+                    if not response_successful:
+                        logging.error(f"Skipping chunk {chunk_index + 1} due to unrecoverable API error or max retries.")
+                        # If one chunk fails unrecoverably, consider the whole PDF extraction a failure
+                        logging.error(f"Aborting extraction for PDF {pdf_path.name} due to error in chunk {chunk_index + 1}.")
+                        return None # Abort for the entire PDF
                     
                     # Process the successful response
                     logging.info(f"Response received from Gemini for {pdf_path.name} chunk {chunk_index + 1}")
@@ -280,8 +280,9 @@ REGRAS OBRIGATÓRIAS:
                             logging.warning(f"Chunk {chunk_index + 1}: Unexpected response format: {type(chunk_decisions)}")
 
                     except json.JSONDecodeError as je:
-                        logging.warning(f"Chunk {chunk_index + 1}: Failed to parse JSON response: {je}")
+                        logging.error(f"Chunk {chunk_index + 1}: Failed to parse JSON response: {je}. Aborting extraction for this PDF.")
                         logging.debug(f"Chunk {chunk_index + 1} raw response: {response.text[:300]}...")
+                        return None # Abort for the entire PDF
                 
                 # Combine all results
                 final_extracted_data = {

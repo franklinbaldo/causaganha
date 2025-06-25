@@ -14,10 +14,11 @@ from .extractor import GeminiExtractor as _RealGeminiExtractor
 try:
     from .utils import normalize_lawyer_name, validate_decision
     from .trueskill_rating import (
-        ENV, # Access to the TrueSkill environment (mu, sigma defaults)
+        ENV as TRUESKILL_ENV, # Renomeado para evitar conflito com ENV de configuração do pipeline
         create_new_rating,
         update_ratings as update_trueskill_ratings,
         trueskill, # To create Rating objects from stored mu/sigma
+        TS_CONFIG # Acessar a configuração carregada do toml
     )
 except ImportError as e:
     # This might happen if script is run directly and not as part of the package.
@@ -41,7 +42,7 @@ except ImportError as e:
     def create_new_rating():
         return DummyRating()
 
-    def update_trueskill_ratings(team_a, team_b, result):
+    def update_trueskill_ratings(env, team_a, team_b, result): # Added env for dummy
         # Return the same ratings passed in, to avoid breaking logic further down
         return team_a, team_b
 
@@ -49,7 +50,8 @@ except ImportError as e:
         mu = 25.0
         sigma = 25.0 / 3.0
 
-    ENV = DummyEnv()
+    TRUESKILL_ENV = DummyEnv()
+    TS_CONFIG = {"mu": 25.0, "sigma": 25.0/3.0} # Dummy TS_CONFIG
     trueskill = None # So isinstance(rating, trueskill.Rating) would fail or be handled
 
 
@@ -201,8 +203,10 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
     # Ensure required columns exist for new DataFrames or after loading old format
     for col in ["mu", "sigma", "total_partidas"]:
         if col not in ratings_df.columns:
-            if col in ["mu", "sigma"]:
-                ratings_df[col] = ENV.mu if col == "mu" else ENV.sigma
+            if col == "mu":
+                ratings_df[col] = TS_CONFIG.get("mu", 25.0)
+            elif col == "sigma":
+                ratings_df[col] = TS_CONFIG.get("sigma", 25.0/3.0)
             else: # total_partidas
                 ratings_df[col] = 0
 
@@ -322,7 +326,7 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             }
 
             new_team_a_ratings, new_team_b_ratings = update_trueskill_ratings(
-                team_a_ratings_before, team_b_ratings_before, trueskill_match_result
+                TRUESKILL_ENV, team_a_ratings_before, team_b_ratings_before, trueskill_match_result
             )
 
             # Update ratings_df for Team A
