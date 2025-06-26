@@ -1,3 +1,4 @@
+
 import argparse
 import logging
 from pathlib import Path
@@ -6,6 +7,11 @@ import json
 import shutil
 import pandas as pd
 import datetime
+
+# Allow running this file directly by adjusting sys.path so relative imports work
+if __package__ is None or __package__ == "":
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    __package__ = "causaganha.core"
 
 from .downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
 from .extractor import GeminiExtractor as _RealGeminiExtractor
@@ -67,7 +73,7 @@ except ImportError as e:
 def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
     logger = logging.getLogger(__name__)
     if dry_run:
-        logger.info("DRY-RUN: Would fetch TJRO PDF for date: %s", date_str)
+        logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
         return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
 
     try:

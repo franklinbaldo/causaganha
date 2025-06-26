@@ -28,7 +28,7 @@ def fetch_tjro_pdf(
     """
     file_name = f"dj_{date_obj.strftime('%Y%m%d')}.pdf"
 
-    output_dir = pathlib.Path("data")
+    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / file_name
 
@@ -73,7 +73,7 @@ def fetch_latest_tjro_pdf() -> pathlib.Path | None:
     }
 
     # The ultimo-diario.php URL directly redirects to the PDF file
-    output_dir = pathlib.Path("data")
+    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
