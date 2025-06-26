@@ -4,60 +4,39 @@ import sys
 from io import StringIO
 import logging
 from pathlib import Path
-import pandas as pd  # For pipeline update tests
-import json  # For creating dummy json files
+import pandas as pd
+import json
 
-# Add src directory to sys.path to allow importing causaganha
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-# Attempt to import the module under test
 try:
     import pipeline
-
-    # Import TrueSkill environment for test setup
-    from trueskill_rating import ENV
 except ModuleNotFoundError as e:
-    print(
-        f"ERROR: Could not import modules. Original error: {e}",
-        file=sys.stderr,
-    )
+    print(f"ERROR: Could not import modules. Original error: {e}", file=sys.stderr)
     pipeline = None
-
-# Suppress most logging during tests, enable for specific test debugging if needed
-# logging.disable(logging.CRITICAL) # Can be too broad, let specific tests manage if needed.
-
 
 class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def setUp(self):
         if pipeline is None:
-            self.fail(
-                "The 'pipeline' module from 'causaganha' could not be imported."
-            )
-
+            self.fail("The 'pipeline' module could not be imported.")
         self.stdout_patch = patch("sys.stdout", new_callable=StringIO)
         self.stderr_patch = patch("sys.stderr", new_callable=StringIO)
         self.mock_stdout = self.stdout_patch.start()
         self.mock_stderr = self.stderr_patch.start()
-
-        # Reset logging handlers to ensure a clean state
         root_logger = logging.getLogger()
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
+        for handler in root_logger.handlers[:]: root_logger.removeHandler(handler)
         pipeline_module_logger = logging.getLogger("pipeline")
-        for handler in pipeline_module_logger.handlers[:]:
-            pipeline_module_logger.removeHandler(handler)
+        for handler in pipeline_module_logger.handlers[:]: pipeline_module_logger.removeHandler(handler)
         pipeline_module_logger.setLevel(logging.NOTSET)
-        # Apply a null handler to the root logger to prevent "No handler found" warnings
-        # if code logs before basicConfig is called by pipeline.main
         logging.getLogger().addHandler(logging.NullHandler())
 
     def tearDown(self):
         self.stdout_patch.stop()
         self.stderr_patch.stop()
-        logging.getLogger().handlers.clear()  # Clear any handlers added during test
+        logging.getLogger().handlers.clear()
 
     def run_main_for_test(self, args_list):
         original_argv = sys.argv
@@ -70,454 +49,168 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         finally:
             sys.argv = original_argv
 
-    # ... [previous tests from TestPipelineArgParsingAndExecution remain here] ...
-    # (ensure they are not duplicated if this block is appended)
-
     @patch("pipeline.fetch_tjro_pdf")
     def test_collect_args_parsed_and_called(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake.pdf")
         self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10"]), 0)
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-10", dry_run=False, verbose=False
-        )
+        mock_fetch.assert_called_once_with(date_str="2024-03-10", dry_run=False, verbose=False)
 
     @patch("pipeline.fetch_tjro_pdf")
     def test_collect_dry_run(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_dry.pdf")
-        self.assertEqual(
-            self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run"]), 0
-        )
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-11", dry_run=True, verbose=False
-        )
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run"]), 0)
+        mock_fetch.assert_called_once_with(date_str="2024-03-11", dry_run=True, verbose=False)
 
     @patch("pipeline.GeminiExtractor")
     def test_extract_args_parsed_and_called(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake.json")
-
-        dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract.pdf"
-        dummy_pdf_path.touch()
-
-        self.assertEqual(
-            self.run_main_for_test(
-                [
-                    "extract",
-                    "--pdf_file",
-                    str(dummy_pdf_path),
-                    "--output_json_dir",
-                    "/tmp/output",
-                ]
-            ),
-            0,
-        )
+        dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract.pdf"; dummy_pdf_path.touch()
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--output_json_dir", "/tmp/output"]),0,)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=dummy_pdf_path, output_json_dir=Path("/tmp/output"), dry_run=False
-        )
-        if dummy_pdf_path.exists():
-            dummy_pdf_path.unlink()
+        mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=Path("/tmp/output"), dry_run=False)
+        if dummy_pdf_path.exists(): dummy_pdf_path.unlink()
 
     @patch("pipeline.GeminiExtractor")
     def test_extract_dry_run(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake_dry.json")
         dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract_dry.pdf"
-
-        self.assertEqual(
-            self.run_main_for_test(
-                ["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run"]
-            ),
-            0,
-        )
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run"]),0,)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=dummy_pdf_path,
-            output_json_dir=dummy_pdf_path.parent,  # Default output_dir for extract command
-            dry_run=True,
-        )
+        mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=dummy_pdf_path.parent, dry_run=True)
 
-    # test_update_command and test_update_dry_run are now superseded by TestPipelineUpdateCommand
-    # def test_update_command(self): ...
-    # def test_update_dry_run(self): ...
-
-    @patch(
-        "pipeline.update_command"
-    )  # Mock update_command itself for this orchestration test
+    @patch("pipeline.update_command")
     @patch("pipeline.GeminiExtractor")
     @patch("pipeline.fetch_tjro_pdf")
-    def test_run_command_orchestration(
-        self, mock_fetch, MockGeminiExtractor, mock_update_cmd
-    ):
+    def test_run_command_orchestration(self, mock_fetch, MockGeminiExtractor, mock_update_cmd):
         mock_fetch.return_value = Path("/tmp/collected_via_run.pdf")
         mock_extractor_instance = MockGeminiExtractor.return_value
-        # Ensure extract_and_save_json returns a Path for the next step if needed
-        mock_extractor_instance.extract_and_save_json.return_value = Path(
-            "causaganha/data/json/run_extracted.json"
-        )
-
+        mock_extractor_instance.extract_and_save_json.return_value = Path("causaganha/data/json/run_extracted.json")
         self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12"]), 0)
-
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-12", dry_run=False, verbose=False
-        )
+        mock_fetch.assert_called_once_with(date_str="2024-03-12", dry_run=False, verbose=False)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_extractor_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=Path("/tmp/collected_via_run.pdf"),
-            output_json_dir=Path(
-                "causaganha/data/json/"
-            ),  # Default for run command's extract step
-            dry_run=False,
-        )
+        mock_extractor_instance.extract_and_save_json.assert_called_once_with(pdf_path=Path("/tmp/collected_via_run.pdf"), output_json_dir=Path("causaganha/data/json/"), dry_run=False)
         mock_update_cmd.assert_called_once()
 
     @patch("pipeline.update_command")
     @patch("pipeline.GeminiExtractor")
     @patch("pipeline.fetch_tjro_pdf")
-    def test_run_command_dry_run(
-        self, mock_fetch, MockGeminiExtractor, mock_update_cmd
-    ):
+    def test_run_command_dry_run(self, mock_fetch, MockGeminiExtractor, mock_update_cmd):
         mock_fetch.return_value = Path("/tmp/collected_dry_run.pdf")
         mock_extractor_instance = MockGeminiExtractor.return_value
-        mock_extractor_instance.extract_and_save_json.return_value = Path(
-            "causaganha/data/json/run_extracted_dry.json"
-        )
-
-        self.assertEqual(
-            self.run_main_for_test(
-                ["--verbose", "run", "--date", "2024-03-13", "--dry-run"]
-            ),
-            0,
-        )
-
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-13", dry_run=True, verbose=True
-        )
+        mock_extractor_instance.extract_and_save_json.return_value = Path("causaganha/data/json/run_extracted_dry.json")
+        self.assertEqual(self.run_main_for_test(["--verbose", "run", "--date", "2024-03-13", "--dry-run"]),0,)
+        mock_fetch.assert_called_once_with(date_str="2024-03-13", dry_run=True, verbose=True)
         MockGeminiExtractor.assert_called_once_with(verbose=True)
-        mock_extractor_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=Path("/tmp/collected_dry_run.pdf"),
-            output_json_dir=Path("causaganha/data/json/"),
-            dry_run=True,
-        )
+        mock_extractor_instance.extract_and_save_json.assert_called_once_with(pdf_path=Path("/tmp/collected_dry_run.pdf"), output_json_dir=Path("causaganha/data/json/"), dry_run=True)
         mock_update_cmd.assert_called_once()
-        # Check that args passed to mock_update_cmd's call had dry_run=True
         self.assertTrue(mock_update_cmd.call_args[0][0].dry_run)
 
     def test_unknown_argument(self):
         self.assertEqual(self.run_main_for_test(["--nonexistent-arg"]), 2)
-        self.assertIn(
-            "the following arguments are required: command", self.mock_stderr.getvalue()
-        )
+        self.assertIn("the following arguments are required: command", self.mock_stderr.getvalue())
 
     def test_unknown_subcommand_argument(self):
         self.assertEqual(self.run_main_for_test(["update", "--nonexistent-arg"]), 2)
-        self.assertIn(
-            "unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue()
-        )
+        self.assertIn("unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue())
 
     def test_collect_missing_date(self):
         self.assertEqual(self.run_main_for_test(["collect"]), 2)
-        self.assertIn(
-            "the following arguments are required: --date", self.mock_stderr.getvalue()
-        )
+        self.assertIn("the following arguments are required: --date", self.mock_stderr.getvalue())
 
     def test_extract_missing_pdf_file(self):
         self.assertEqual(self.run_main_for_test(["extract"]), 2)
-        self.assertIn(
-            "the following arguments are required: --pdf_file",
-            self.mock_stderr.getvalue(),
-        )
+        self.assertIn("the following arguments are required: --pdf_file", self.mock_stderr.getvalue())
 
     @patch("pipeline.fetch_tjro_pdf")
     def test_collect_invalid_date_format_passed_through(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf")
         self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE"]), 0)
-        mock_fetch.assert_called_once_with(
-            date_str="NOT-A-DATE", dry_run=False, verbose=False
-        )
+        mock_fetch.assert_called_once_with(date_str="NOT-A-DATE", dry_run=False, verbose=False)
 
     @patch("logging.basicConfig")
     def test_verbose_flag_sets_debug_level_basicConfig(self, mock_basic_config):
-        # We just check that basicConfig is called with DEBUG level by setup_logging
-        with patch.object(
-            pipeline,
-            "_update_trueskill_ratings_logic",
-            MagicMock(),  # Patched to new function name
-        ):  # Mock out the actual logic
+        with patch.object(pipeline, "_update_ratings_logic", MagicMock()): # Corrected
             self.run_main_for_test(["--verbose", "update"])
-
-        called_with_debug = any(
-            call_args.kwargs.get("level") == logging.DEBUG
-            for call_args in mock_basic_config.call_args_list
-        )
-        self.assertTrue(
-            called_with_debug,
-            "logging.basicConfig was not called with logging.DEBUG when --verbose was used.",
-        )
+        called_with_debug = any(call_args.kwargs.get("level") == logging.DEBUG for call_args in mock_basic_config.call_args_list)
+        self.assertTrue(called_with_debug, "logging.basicConfig was not called with logging.DEBUG when --verbose was used.")
 
     @patch("logging.getLogger")
     def test_verbose_logging_capture_for_update(self, mock_get_logger):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
-
-        with patch.object(
-            pipeline, "_update_trueskill_ratings_logic", MagicMock()
-        ):  # Mock out the actual logic, ensuring correct function name
+        with patch.object(pipeline, "_update_ratings_logic", MagicMock()): # Corrected
             self.run_main_for_test(["--verbose", "update"])
-
         self.assertTrue(mock_logger_instance.debug.called)
-        self.assertTrue(
-            any(
-                "Update command called with args" in str(arg_call)
-                for arg_call in mock_logger_instance.debug.call_args_list
-            )
-        )
+        self.assertTrue(any("Update command called with args" in str(arg_call) for arg_call in mock_logger_instance.debug.call_args_list))
 
     @patch("logging.getLogger")
     def test_dry_run_logging_capture_for_collect(self, mock_get_logger):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
         self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run"])
+        dry_run_fetch_logged = any("DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg) for call_arg in mock_logger_instance.info.call_args_list)
+        self.assertTrue(dry_run_fetch_logged, f"Expected DRY-RUN info log not found. Actual: {mock_logger_instance.info.call_args_list}")
 
-        dry_run_fetch_logged = any(
-            "DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg)
-            for call_arg in mock_logger_instance.info.call_args_list
-        )
-        self.assertTrue(
-            dry_run_fetch_logged,
-            f"Expected DRY-RUN info log from fetch_tjro_pdf not found. Actual .info() calls: {mock_logger_instance.info.call_args_list}",
-        )
-
-
-# New Test Class for Update Command Logic
 class TestPipelineUpdateCommand(unittest.TestCase):
     def setUp(self):
-        if pipeline is None:
-            self.fail(
-                "The 'pipeline' module from 'causaganha' could not be imported."
-            )
-
-        # Define paths based on where the pipeline script actually looks for data
+        if pipeline is None: self.fail("The 'pipeline' module could not be imported.")
         self.base_data_path = PROJECT_ROOT / "causaganha" / "data"
-        self.json_input_dir = self.base_data_path / "json"
-        self.processed_json_dir = self.base_data_path / "json_processed"
+        self.json_input_dir = self.base_data_path / "json"; self.json_input_dir.mkdir(parents=True, exist_ok=True)
+        self.processed_json_dir = self.base_data_path / "json_processed"; self.processed_json_dir.mkdir(parents=True, exist_ok=True)
         self.ratings_csv_path = self.base_data_path / "ratings.csv"
         self.partidas_csv_path = self.base_data_path / "partidas.csv"
-
-        # Create these directories for the test
-        self.json_input_dir.mkdir(parents=True, exist_ok=True)
-        self.processed_json_dir.mkdir(parents=True, exist_ok=True)
-        # self.base_data_path.mkdir(parents=True, exist_ok=True) # Covered by json_input_dir
-
-        # No longer patching module-level path variables as they are local in the function.
-        # Tests will rely on the default paths used in _update_elo_ratings_logic.
-
-        # Dummy JSON file content
-        self.sample_decision_1 = {
-            "numero_processo": "0000001-01.2023.8.22.0001",
-            "tipo_decisao": "sentença",
-            "polo_ativo": ["Parte Requerente A"],  # Ensure validate_decision passes
-            "polo_passivo": ["Parte Requerida B"],  # Ensure validate_decision passes
-            "advogados_polo_ativo": ["Adv A Teste (OAB/UF 111)"],
-            "advogados_polo_passivo": ["Adv B Teste (OAB/UF 222)"],
-            "resultado": "procedente",  # win_a
-            "data_decisao": "2023-01-01",
-        }
-        self.sample_decision_2 = {
-            "numero_processo": "0000002-02.2023.8.22.0001",
-            "tipo_decisao": "sentença",
-            "polo_ativo": ["Parte Requerente C"],  # Ensure validate_decision passes
-            "polo_passivo": [
-                "Parte Requerida D"
-            ],  # Ensure validate_decision passes (was Parte A, making it different)
-            "advogados_polo_ativo": ["Adv C Teste (OAB/UF 333)"],
-            "advogados_polo_passivo": [
-                "Adv A Teste (OAB/UF 111)"
-            ],  # Adv A is in both teams, different roles
-            "resultado": "improcedente",  # win_b (polo passivo/requerido ganha)
-            "data_decisao": "2023-01-02",
-        }
-        # Create actual files that will be globbed and opened by the pipeline logic
-        with open(self.json_input_dir / "decision1.json", "w") as f:
-            # The pipeline expects a list of decisions or a dict with a "decisions" key.
-            # Let's use the dict format for this one.
-            json.dump({"decisions": [self.sample_decision_1]}, f)
-        with open(self.json_input_dir / "decision2.json", "w") as f:
-            # And list format for this one to test both.
-            json.dump([self.sample_decision_2], f)
-
-        # Initial ratings CSV for TrueSkill
-        self.ratings_csv_path = self.base_data_path / "ratings.csv"
-        self.partidas_csv_path = self.base_data_path / "partidas.csv"
-
-        # Create ratings file with TrueSkill columns
-        initial_ratings_data = {
-            "advogado_id": [],
-            "mu": [],
-            "sigma": [],
-            "total_partidas": [],
-        }
-        pd.DataFrame(initial_ratings_data).set_index("advogado_id").to_csv(
-            self.ratings_csv_path
-        )
-
-        # Ensure partidas.csv does not exist initially or is empty
-        if self.partidas_csv_path.exists():
-            self.partidas_csv_path.unlink()
-
-        # Add a sample decision with multiple lawyers
-        self.sample_decision_3 = {
-            "numero_processo": "0000003-03.2023.8.22.0001",
-            "tipo_decisao": "acordao",
-            "polo_ativo": ["Parte Polo Ativo C"],  # Added for validation
-            "polo_passivo": ["Parte Polo Passivo D"],  # Added for validation
-            "advogados_polo_ativo": [
-                "Adv A Teste (OAB/UF 111)",
-                "Adv D Teste (OAB/UF 444)",
-            ],
-            "advogados_polo_passivo": ["Adv B Teste (OAB/UF 222)"],
-            "resultado": "provido",  # win_a for TrueSkill
-            "data_decisao": "2023-01-03",
-        }
-        with open(self.json_input_dir / "decision3.json", "w") as f:
-            # The pipeline expects a list of decisions or a dict with a "decisions" key
-            json.dump({"decisions": [self.sample_decision_3]}, f)
-
-        # Suppress stdout/stderr for cleaner test logs
-        self.stdout_patch = patch("sys.stdout", new_callable=StringIO)
-        self.stderr_patch = patch("sys.stderr", new_callable=StringIO)
-        self.mock_stdout = self.stdout_patch.start()
-        self.mock_stderr = self.stderr_patch.start()
-
-        # Apply a null handler to the root logger to prevent "No handler found" warnings
-        # if code logs before basicConfig is called by pipeline.main
+        self.sample_decision_1 = {"numero_processo": "001", "tipo_decisao": "sentença", "polo_ativo": ["PA"], "polo_passivo": ["PB"], "advogados_polo_ativo": ["AdvA"], "advogados_polo_passivo": ["AdvB"], "resultado": "procedente", "data_decisao": "2023-01-01"}
+        self.sample_decision_2 = {"numero_processo": "002", "tipo_decisao": "sentença", "polo_ativo": ["PC"], "polo_passivo": ["PD"], "advogados_polo_ativo": ["AdvC"], "advogados_polo_passivo": ["AdvA"], "resultado": "improcedente", "data_decisao": "2023-01-02"}
+        self.sample_decision_3 = {"numero_processo": "003", "tipo_decisao": "acordao", "polo_ativo": ["PE"], "polo_passivo": ["PF"], "advogados_polo_ativo": ["AdvA", "AdvD"], "advogados_polo_passivo": ["AdvB"], "resultado": "provido", "data_decisao": "2023-01-03"}
+        with open(self.json_input_dir / "decision1.json", "w") as f: json.dump({"decisions": [self.sample_decision_1]}, f)
+        with open(self.json_input_dir / "decision2.json", "w") as f: json.dump([self.sample_decision_2], f)
+        with open(self.json_input_dir / "decision3.json", "w") as f: json.dump({"decisions": [self.sample_decision_3]}, f)
+        initial_ratings_df = pd.DataFrame({"advogado_id": pd.Series([], dtype='object'), "mu": pd.Series([], dtype='float'), "sigma": pd.Series([], dtype='float'), "total_partidas": pd.Series([], dtype='int')}).set_index("advogado_id")
+        initial_ratings_df.to_csv(self.ratings_csv_path)
+        if self.partidas_csv_path.exists(): self.partidas_csv_path.unlink()
+        self.stdout_patch = patch("sys.stdout", new_callable=StringIO); self.mock_stdout = self.stdout_patch.start()
+        self.stderr_patch = patch("sys.stderr", new_callable=StringIO); self.mock_stderr = self.stderr_patch.start()
         logging.getLogger().addHandler(logging.NullHandler())
 
     def tearDown(self):
-        # No patches to stop for paths anymore.
-        # Clean up files and directories created in the actual data paths.
-        if self.json_input_dir.exists():
-            for f in self.json_input_dir.glob("*.json"):  # remove only test jsons
-                if f.name.startswith("decision"):  # or specific names used in tests
-                    f.unlink()
-            # Potentially rmdir if empty and owned by test, but be careful
-        if self.processed_json_dir.exists():
-            for f in self.processed_json_dir.glob("*.json"):
-                if f.name.startswith("decision"):
-                    f.unlink()
-        if self.ratings_csv_path.exists():
-            self.ratings_csv_path.unlink()
-        if self.partidas_csv_path.exists():
-            self.partidas_csv_path.unlink()
-        # Careful with shutil.rmtree on actual data paths unless they were fully created by test
-        # For now, specific file cleanup is safer.
-        if (self.json_input_dir / "decision3.json").exists():
-            (self.json_input_dir / "decision3.json").unlink()
-        if (self.processed_json_dir / "decision3.json").exists():
-            (self.processed_json_dir / "decision3.json").unlink()
-
-        self.stdout_patch.stop()
-        self.stderr_patch.stop()
+        for f_name in ["decision1.json", "decision2.json", "decision3.json"]:
+            if (self.json_input_dir / f_name).exists(): (self.json_input_dir / f_name).unlink()
+            if (self.processed_json_dir / f_name).exists(): (self.processed_json_dir / f_name).unlink()
+        if self.ratings_csv_path.exists(): self.ratings_csv_path.unlink()
+        if self.partidas_csv_path.exists(): self.partidas_csv_path.unlink()
+        self.stdout_patch.stop(); self.stderr_patch.stop()
         logging.getLogger().handlers.clear()
 
     @patch("pipeline.shutil.move")
     @patch("pipeline.pd.DataFrame.to_csv")
     @patch("pipeline.pd.read_csv")
-    def test_update_command_valid_decisions_trueskill(
-        self, mock_read_csv, mock_to_csv, mock_shutil_move
-    ):
-        # Mock initial ratings for TrueSkill (mu, sigma)
-        initial_ratings_df = pd.DataFrame(
-            {
-                "advogado_id": [
-                    "adv a teste (oab/uf 111)",
-                    "adv b teste (oab/uf 222)",
-                    "adv c teste (oab/uf 333)",
-                    "adv d teste (oab/uf 444)",
-                ],
-                "mu": [ENV.mu] * 4,
-                "sigma": [ENV.sigma] * 4,
-                "total_partidas": [0] * 4,
-            }
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df
-
-        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+    def test_update_command_valid_decisions(self, mock_read_csv, mock_to_csv, mock_shutil_move):
+        initial_ratings_df = pd.DataFrame({"advogado_id": pd.Series([], dtype='object'),"mu": pd.Series([], dtype='float'),"sigma": pd.Series([], dtype='float'),"total_partidas": pd.Series([], dtype='int')}).set_index("advogado_id")
+        mock_read_csv.return_value = initial_ratings_df.copy()
         args = pipeline.argparse.Namespace(dry_run=False, verbose=True)
-
-        pipeline.update_command(args)  # This calls _update_trueskill_ratings_logic
-
-        mock_read_csv.assert_called_once_with(
-            Path("causaganha/data/ratings.csv"), index_col="advogado_id"
-        )
-
-        # Two to_csv calls: one for ratings, one for partidas
-        self.assertEqual(mock_to_csv.call_count, 2, "Should save ratings and partidas")
-
-        # Check shutil.move calls - three files should be moved (decision1, decision2, decision3)
-        self.assertEqual(mock_shutil_move.call_count, 3, "Should move three JSON files")
-
-        # Construct paths relative to the project root for assertion, similar to how pipeline might generate them
-        # if its CWD is the project root. The key is that the string form matches what shutil.move receives.
-        # The pipeline uses Path("causaganha/data/json/") which is relative.
-        relative_input_path = Path("causaganha/data/json")
-        relative_processed_path = Path("causaganha/data/json_processed")
-
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision1.json"),
-            str(relative_processed_path / "decision1.json"),
-        )
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision2.json"),
-            str(relative_processed_path / "decision2.json"),
-        )
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision3.json"),
-            str(relative_processed_path / "decision3.json"),
-        )
-
-        # Verify the paths and kwargs for the to_csv calls
-        # First call should be for ratings_file
-        ratings_call_args = mock_to_csv.call_args_list[0]
-        self.assertEqual(
-            ratings_call_args.args[0], Path("causaganha/data/ratings.csv")
-        )  # Use relative path
-
-        # Second call should be for partidas_file
-        partidas_call_args = mock_to_csv.call_args_list[1]
-        self.assertEqual(
-            partidas_call_args.args[0], Path("causaganha/data/partidas.csv")
-        )  # Use relative path
-        self.assertEqual(
-            partidas_call_args.kwargs.get("index"), False
-        )  # Check index=False for partidas
-
-        # Note: Verifying the content of the DataFrames passed to to_csv is complex with this mocking strategy.
-        # A more direct way would be to not mock to_csv and inspect the actual files,
-        # or refactor _update_trueskill_ratings_logic to return the DataFrames for easier inspection.
-        # For now, we trust that if the correct number of calls with correct paths are made,
-        # and the logic for processing decisions is sound (tested elsewhere or implicitly here),
-        # the content is likely correct.
-        # More detailed content assertions would require access to the DataFrames just before they are saved.
+        pipeline.update_command(args)
+        mock_read_csv.assert_called_once_with(Path("causaganha/data/ratings.csv"), index_col="advogado_id")
+        self.assertEqual(mock_to_csv.call_count, 2)
+        self.assertEqual(mock_shutil_move.call_count, 3)
+        relative_input_path = Path("causaganha/data/json"); relative_processed_path = Path("causaganha/data/json_processed")
+        mock_shutil_move.assert_any_call(str(relative_input_path / "decision1.json"), str(relative_processed_path / "decision1.json"))
+        mock_shutil_move.assert_any_call(str(relative_input_path / "decision2.json"), str(relative_processed_path / "decision2.json"))
+        mock_shutil_move.assert_any_call(str(relative_input_path / "decision3.json"), str(relative_processed_path / "decision3.json"))
+        self.assertEqual(mock_to_csv.call_args_list[0].args[0], Path("causaganha/data/ratings.csv"))
+        self.assertEqual(mock_to_csv.call_args_list[1].args[0], Path("causaganha/data/partidas.csv"))
+        self.assertEqual(mock_to_csv.call_args_list[1].kwargs.get("index"), False)
 
     @patch("pipeline.shutil.move")
     @patch("pipeline.pd.DataFrame.to_csv")
     @patch("pipeline.pd.read_csv")
-    def test_update_command_dry_run_trueskill(
-        self, mock_read_csv, mock_to_csv, mock_shutil_move
-    ):
-        initial_ratings_df = pd.DataFrame(
-            {"advogado_id": [], "mu": [], "sigma": [], "total_partidas": []}
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df
-
-        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+    def test_update_command_dry_run(self, mock_read_csv, mock_to_csv, mock_shutil_move):
+        initial_ratings_df = pd.DataFrame({"advogado_id": [], "mu": [], "sigma": [], "total_partidas": []}).set_index("advogado_id")
+        mock_read_csv.return_value = initial_ratings_df.copy()
         args = pipeline.argparse.Namespace(dry_run=True, verbose=True)
         pipeline.update_command(args)
-
-        mock_read_csv.assert_called_once_with(
-            Path("causaganha/data/ratings.csv"), index_col="advogado_id"
-        )
+        mock_read_csv.assert_called_once_with(Path("causaganha/data/ratings.csv"), index_col="advogado_id")
         mock_to_csv.assert_not_called()
         mock_shutil_move.assert_not_called()
 
@@ -525,59 +218,18 @@ class TestPipelineUpdateCommand(unittest.TestCase):
     @patch("pipeline.shutil.move")
     @patch("pipeline.pd.DataFrame.to_csv")
     @patch("pipeline.pd.read_csv")
-    def test_update_command_all_decisions_invalid_trueskill(
-        self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate
-    ):
-        initial_ratings_df = pd.DataFrame(
-            {
-                "advogado_id": ["adv x (oab/xx 000)"],
-                "mu": [ENV.mu],
-                "sigma": [ENV.sigma],
-                "total_partidas": [0],
-            }
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df
-
-        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+    def test_update_command_all_decisions_invalid(self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate):
+        initial_ratings_df = pd.DataFrame({"advogado_id": pd.Series([], dtype='object'), "mu": pd.Series([], dtype='float'), "sigma": pd.Series([], dtype='float'), "total_partidas": pd.Series([], dtype='int')}).set_index("advogado_id")
+        mock_read_csv.return_value = initial_ratings_df.copy()
         args = pipeline.argparse.Namespace(dry_run=False, verbose=True)
         pipeline.update_command(args)
-
-        # Ratings read. If it was not empty, it's saved.
-        # If ratings_df is not empty (e.g. from load), it will be saved.
-        self.assertEqual(
-            mock_to_csv.call_count, 1
-        )  # ratings.csv (potentially empty or initial)
-
-        # No partidas should be generated or saved
-        # The logic saves partidas_df only if partidas_history is non-empty.
-        # Check that the second call (partidas) did not happen, or if it did, it was with an empty df.
-        # This depends on how we check calls for pandas specifically.
-        # For now, assuming only ratings.csv save if no partidas.
-
-        mock_shutil_move.assert_not_called()  # No files processed successfully to be moved.
-        self.assertTrue(
-            mock_validate.call_count
-            >= 3  # Now expecting calls for decision1, decision2, and decision3
-        )  # Called for decisions in all three files
-
+        self.assertEqual(mock_to_csv.call_count, 1)
+        self.assertEqual(mock_to_csv.call_args_list[0].args[0], Path("causaganha/data/ratings.csv"))
+        mock_shutil_move.assert_not_called()
+        self.assertTrue(mock_validate.call_count >= 3)
 
 if __name__ == "__main__":
-    # This structure allows running all tests in this file using:
-    # python -m unittest causaganha.tests.test_pipeline
-    # Or, if you add specific test loader logic here.
-    # For now, ensure logging is not disabled when running directly for debugging.
     logging.disable(logging.NOTSET)
-    logging.basicConfig(
-        level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s"
-    )
-
-    # Create a TestSuite
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(TestPipelineArgParsingAndExecution))
-    suite.addTest(unittest.makeSuite(TestPipelineUpdateCommand))
-
-    # Run the TestSuite
-    # runner = unittest.TextTestRunner(verbosity=2)
-    # runner.run(suite)
-    # Simpler: just run main, it will discover both classes if TestLoader's default behavior is used.
-    unittest.main(argv=["first-arg-is-ignored"], verbosity=2, exit=False)
+    logging.basicConfig(level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
+    unittest.main(argv=sys.argv[:1], verbosity=2, exit=False)
+```

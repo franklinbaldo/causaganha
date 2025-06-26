@@ -65,6 +65,7 @@ dependencies = [
     { name = "google-auth" },
     { name = "google-generativeai" },
     { name = "internetarchive" },
+    { name = "openskill" },
     { name = "pandas" },
     { name = "playwright" },
     { name = "pymupdf" },
@@ -72,7 +73,6 @@ dependencies = [
     { name = "python-json-logger" },
     { name = "requests" },
     { name = "toml" },
-    { name = "trueskill" },
     { name = "zstandard" },
 ]
 
@@ -97,6 +97,7 @@ requires-dist = [
     { name = "google-auth", specifier = ">=2.40.3" },
     { name = "google-generativeai", specifier = ">=0.8.5" },
     { name = "internetarchive", specifier = ">=5.4.0" },
+    { name = "openskill", specifier = "==5.0.1" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "playwright", specifier = ">=1.53.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.2.0" },
@@ -108,7 +109,6 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.4" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "trueskill", specifier = ">=0.4.5" },
     { name = "zstandard", specifier = ">=0.23.0" },
 ]
 provides-extras = ["dev"]
@@ -854,6 +854,15 @@ wheels = [
 ]
 
 [[package]]
+name = "openskill"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/ff/23eaaad6a545d080f2217a4160375e695597c52bef34d887b84fada16932/openskill-5.0.1.tar.gz", hash = "sha256:9299bec5c2dff7057f1777f2fe25f110144558fd9f90292c62dd2367e09298c3", size = 47879, upload-time = "2023-08-12T13:41:11.835Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/16/118dab5d2897bd44618201548b003706bcec303c43782b0cb607c7aeb40d/openskill-5.0.1-py3-none-any.whl", hash = "sha256:8b9ebdc1b2b330c9eed6ce51a79acfa40855298ee6399e0ec722732a193c7fa2", size = 45244, upload-time = "2023-08-12T13:41:10.227Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1414,15 +1423,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
 ]
-
-[[package]]
-name = "trueskill"
-version = "0.4.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/b1/572f309178eacdccd9f9f5f3e3e14fb3543a89c6259d62b36660350af2b9/trueskill-0.4.5.tar.gz", hash = "sha256:9d62b48d2428369d712bd9becff9f9a2caa325e1a2ab5f9392d34bff757867bb", size = 21315, upload-time = "2018-09-07T12:27:32.078Z" }
 
 [[package]]
 name = "typing-extensions"

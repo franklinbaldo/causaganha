@@ -1,3 +1,6 @@
+# General settings
+rating_engine = "trueskill" # Can be "trueskill" or "openskill"
+
 # TrueSkill environment configuration
 [trueskill]
 mu = 25.0
