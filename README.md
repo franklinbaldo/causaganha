@@ -1,8 +1,8 @@
 # CausaGanha
 
-[![Update TrueSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-trueskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
+[![Update OpenSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-openskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
 
-**CausaGanha** é uma **plataforma de análise judicial de nível empresarial** que combina inteligência artificial, armazenamento multi-camadas e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **TrueSkill** da Microsoft Research, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
+**CausaGanha** é uma **plataforma de análise judicial de nível empresarial** que combina inteligência artificial, armazenamento multi-camadas e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
 
 O sistema implementa uma **arquitetura de três camadas** com:
 - **Processamento local**: DuckDB para operações de alta performance
@@ -20,7 +20,7 @@ O projeto busca investigar a viabilidade técnica e metodológica de aplicar mé
 - **Coleta automatizada**: Download diário de decisões judiciais com verificação de integridade
 - **Arquivo permanente**: Armazenamento público no Internet Archive (99.95% redução de storage local)
 - **Extração por IA**: Processamento via Google Gemini com rate limiting e chunking inteligente
-- **Análise de performance**: Sistema TrueSkill para avaliação dinâmica de habilidades jurídicas
+- **Análise de performance**: Sistema OpenSkill para avaliação dinâmica de habilidades jurídicas
 - **Armazenamento unificado**: Banco DuckDB substituindo 50+ arquivos CSV/JSON dispersos
 - **Backup resiliente**: Snapshots comprimidos em Cloudflare R2 com queries remotas
 - **Operação autônoma**: Pipeline completo executado via GitHub Actions (3:15-7:00 UTC)
@@ -31,13 +31,13 @@ O projeto busca investigar a viabilidade técnica e metodológica de aplicar mé
 
 A performance de advogados perante o judiciário é usualmente avaliada de maneira qualitativa ou pontual, sem padronização objetiva. Com o crescimento da disponibilidade de dados jurídicos abertos, torna-se possível construir mecanismos mais analíticos e automatizados de acompanhamento de desempenho.
 
-A adoção do modelo TrueSkill para o ambiente forense oferece vantagens significativas:
+A adoção de um modelo como o OpenSkill para o ambiente forense oferece vantagens significativas:
 - Oponentes com diferentes níveis de experiência.
 - Resultados de partidas (vitória, derrota ou empate) entre equipes.
 - Evolução temporal da atuação.
 - Suporte nativo para equipes de advogados de tamanhos variáveis.
 - Quantificação da incerteza da pontuação de cada advogado (representada pelos parâmetros μ e σ).
-  
+
 Essa abordagem oferece potencial para estudos empíricos no campo do direito, além de servir como base para aplicações institucionais (ex: defensoria, advocacia pública) ou educativas.
 
 ---
@@ -65,10 +65,8 @@ Para cada decisão extraída:
 
 1. As equipes de advogados do polo ativo e passivo são identificadas.
 2. Um “confronto” entre as equipes é estabelecido com base no resultado da decisão.
-3. Aplicam-se as regras do sistema TrueSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido. Os parâmetros base do ambiente TrueSkill (`mu` e `sigma` iniciais, `beta`, `tau` e `draw_probability`) são configuráveis através do arquivo `config.toml` na raiz do projeto.
+3. Aplicam-se as regras do sistema OpenSkill, atualizando os parâmetros `mu` (habilidade média) e `sigma` (incerteza da habilidade) de cada advogado envolvido. Os parâmetros base do ambiente OpenSkill (`mu` e `sigma` iniciais, `beta`, `tau`) são configuráveis através do arquivo `config.toml` na raiz do projeto, na seção `[openskill]`.
 4. Atualizam-se os scores `mu` e `sigma` de todos os profissionais nos arquivos CSV de rating.
-
-Um exemplo completo de uso pode ser encontrado em [`docs/examples/trueskill_demo.py`](docs/examples/trueskill_demo.py).
 
 ### 3.4 Arquitetura de Dados Multi-Camadas
 
@@ -76,8 +74,8 @@ O sistema implementa uma **estratégia de três camadas** para otimizar custo, p
 
 #### Camada 1: DuckDB Local (Operações Primárias)
 - `data/causaganha.duckdb`: Banco unificado com 6 tabelas principais
-- **ratings**: Rankings TrueSkill (μ, σ) de advogados
-- **partidas**: Histórico completo de confrontos processados  
+- **ratings**: Rankings OpenSkill (μ, σ) de advogados
+- **partidas**: Histórico completo de confrontos processados
 - **decisoes**: Decisões extraídas com status de validação
 - **pdfs**: Metadados do Internet Archive com hashes SHA-256
 
@@ -99,30 +97,30 @@ As atualizações são realizadas automaticamente via **6 workflows GitHub Actio
 
 ```
 causaganha/
-├── core/                  # Módulos principais
+├── openskill_rating.py    # Sistema OpenSkill
+├── src/                   # Módulos principais
 │   ├── downloader.py      # Coleta PDF + Internet Archive
 │   ├── extractor.py       # Processamento via Gemini
-│   ├── trueskill_rating.py # Sistema TrueSkill
-│   ├── database.py        # [NOVO] Camada DuckDB unificada
-│   ├── migration.py       # [NOVO] Migração CSV/JSON → DuckDB
-│   ├── r2_storage.py      # [NOVO] Backup Cloudflare R2
-│   ├── r2_queries.py      # [NOVO] Queries remotas R2
+│   ├── database.py        # Camada DuckDB unificada
+│   ├── migration.py       # Migração CSV/JSON → DuckDB
+│   ├── r2_storage.py      # Backup Cloudflare R2
+│   ├── r2_queries.py      # Queries remotas R2
 │   └── pipeline.py        # Orquestrador CLI
 ├── data/                  # Dados unificados
-│   ├── causaganha.duckdb  # [NOVO] Banco principal
+│   ├── causaganha.duckdb  # Banco principal
 │   ├── dj_YYYYMMDD.pdf    # PDFs (+ Internet Archive)
 │   └── backup_pre_migration/ # Backup CSVs originais
-├── pipeline/              # [NOVO] Scripts especializados
+├── pipeline/              # Scripts especializados
 │   └── collect_and_archive.py # Automação Internet Archive
 ├── .github/workflows/     # Pipeline completo (6 workflows)
 │   ├── 01_collect.yml     # Coleta PDFs (5:00 UTC)
-│   ├── 02_archive_to_ia.yml # [NOVO] Archive.org (3:15 UTC)
+│   ├── 02_archive_to_ia.yml # Archive.org (3:15 UTC)
 │   ├── 02_extract.yml     # Gemini (6:00 UTC)
-│   ├── 03_update.yml      # TrueSkill + DuckDB (6:30 UTC)
-│   ├── 04_backup_r2.yml   # [NOVO] Backup R2 (7:00 UTC)
+│   ├── 03_update.yml      # OpenSkill + DuckDB (6:30 UTC)
+│   ├── 04_backup_r2.yml   # Backup R2 (7:00 UTC)
 │   └── test.yml           # Testes e qualidade
 ├── tests/                 # Suíte de testes expandida
-│   └── test_r2_storage.py # [NOVO] Testes R2
+│   └── test_r2_storage.py # Testes R2
 └── pyproject.toml         # uv dependency management
 ```
 
@@ -204,7 +202,7 @@ O sistema opera com **6 workflows GitHub Actions** executando um pipeline comple
 1. **03:15 UTC** - `02_archive_to_ia.yml`: Upload para Internet Archive
 2. **05:00 UTC** - `01_collect.yml`: Coleta de PDFs do TJRO
 3. **06:00 UTC** - `02_extract.yml`: Extração via Gemini
-4. **06:30 UTC** - `03_update.yml`: Atualização TrueSkill + DuckDB
+4. **06:30 UTC** - `03_update.yml`: Atualização OpenSkill + DuckDB
 5. **07:00 UTC** - `04_backup_r2.yml`: Backup para Cloudflare R2
 6. **On PR/Push** - `test.yml`: Testes e validação de qualidade
 
@@ -245,7 +243,7 @@ A documentação do projeto é construída com **MkDocs** e publicada via GitHub
 ### ⚠️ **Limitações Conhecidas**
 - **Precisão do LLM**: Dependência da qualidade de interpretação do Gemini
 - **Nomes inconsistentes**: Grafias variadas podem afetar identificação de advogados
-- **Decisões complexas**: Empates e resultados parciais com ponderação básica
+- **Decisões complexas**: Empates e resultados parciais com ponderação básica (OpenSkill pode lidar com parciais se identificados)
 
 ### 🎯 **Métricas de Performance**
 - **Disponibilidade**: 99.95% (baseado em Internet Archive)
@@ -286,9 +284,7 @@ Este projeto é licenciado sob os termos da MIT License.
 
 10. Referências
 
-Herbrich, R., Minka, T., & Graepel, T. (2007). TrueSkill(TM): A Bayesian Skill Rating System. *Advances in Neural Information Processing Systems 19 (NIPS 2006)*. (Disponível em: [https://papers.nips.cc/paper/2006/hash/511FBC93A5B8F9A00336C46A844A6562-Abstract.html](https://papers.nips.cc/paper/2006/hash/511FBC93A5B8F9A00336C46A844A6562-Abstract.html))
-
-Microsoft Research. TrueSkill Rating System. (Disponível em: [https://www.microsoft.com/en-us/research/project/trueskill-rating-system/](https://www.microsoft.com/en-us/research/project/trueskill-rating-system/))
+OpenSkill: [https://github.com/open-skill/openskill.py](https://github.com/open-skill/openskill.py)
 
 Tribunal de Justiça do Estado de Rondônia – tjro.jus.br
 
@@ -309,4 +305,3 @@ Com **arquitetura de três camadas**, **pipeline totalmente automatizado** e **c
 **Status: ✅ PRODUÇÃO** - Sistema completo operando com automação de nível empresarial.
 
 O projeto está aberto à colaboração e feedback da comunidade jurídica, técnica e acadêmica.
-
