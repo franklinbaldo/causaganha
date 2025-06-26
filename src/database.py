@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 import json
 import logging
-from .migration_runner import MigrationRunner
+from migration_runner import MigrationRunner
 
 logger = logging.getLogger(__name__)
 

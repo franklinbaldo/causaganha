@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Dict, Optional, Any
 from dataclasses import dataclass
 
-from .database import CausaGanhaDB
+from database import CausaGanhaDB
 
 logger = logging.getLogger(__name__)
 

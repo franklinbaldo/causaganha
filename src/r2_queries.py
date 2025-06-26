@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any
 import pandas as pd
 from dataclasses import dataclass
 
-from .r2_storage import CloudflareR2Storage, R2Config
+from r2_storage import CloudflareR2Storage, R2Config
 
 logger = logging.getLogger(__name__)
 

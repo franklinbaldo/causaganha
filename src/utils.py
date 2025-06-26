@@ -122,7 +122,7 @@ def validate_decision(decision: dict) -> bool:
     # For stricter CNJ: r"^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$"
     if not re.fullmatch(r"[\d.-]{15,25}", numero_processo):
         logger.warning(
-            f"Validation failed: 'numero_processo' ({numero_processo}) does not match pattern [\d.-]{{15,25}}."
+            f"Validation failed: 'numero_processo' ({numero_processo}) does not match pattern [\\d.-]{{15,25}}."
         )
         return False
 

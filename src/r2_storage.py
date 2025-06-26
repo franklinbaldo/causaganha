@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from botocore.exceptions import ClientError, NoCredentialsError
 import os
 
-from .database import CausaGanhaDB
+from database import CausaGanhaDB
 
 logger = logging.getLogger(__name__)
 

@@ -166,19 +166,19 @@ export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
 export GDRIVE_FOLDER_ID="abc123"
 
 # Rodar pipeline completo
-uv run python causaganha/core/pipeline.py run --date 2025-06-01
+uv run python src/pipeline.py run --date 2025-06-01
 
 # Migrar dados existentes para DuckDB (setup inicial)
-uv run python causaganha/core/migration.py
+uv run python src/migration.py
 
 # Backup para Cloudflare R2
-uv run python causaganha/core/r2_storage.py backup
+uv run python src/r2_storage.py backup
 
 # Consultas remotas sem download
-uv run python causaganha/core/r2_queries.py rankings --limit 10
+uv run python src/r2_queries.py rankings --limit 10
 
 # Arquivar PDF no Internet Archive
-uv run python pipeline/collect_and_archive.py --latest
+uv run python scripts/collect_and_archive.py --latest
 
 
 ---

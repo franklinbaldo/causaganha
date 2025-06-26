@@ -7,20 +7,21 @@ from pathlib import Path
 import pandas as pd  # For pipeline update tests
 import json  # For creating dummy json files
 
-# Add project root to sys.path to allow importing causaganha
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Add src directory to sys.path to allow importing causaganha
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 # Attempt to import the module under test
 try:
-    from causaganha.core import pipeline
+    import pipeline
 
     # Import TrueSkill environment for test setup
-    from causaganha.core.trueskill_rating import ENV
+    from trueskill_rating import ENV
 except ModuleNotFoundError as e:
     print(
-        f"ERROR: Could not import causaganha.core modules. Original error: {e}",
+        f"ERROR: Could not import modules. Original error: {e}",
         file=sys.stderr,
     )
     pipeline = None
@@ -33,7 +34,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def setUp(self):
         if pipeline is None:
             self.fail(
-                "The 'pipeline' module from 'causaganha.core' could not be imported."
+                "The 'pipeline' module from 'causaganha' could not be imported."
             )
 
         self.stdout_patch = patch("sys.stdout", new_callable=StringIO)
@@ -45,7 +46,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         root_logger = logging.getLogger()
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-        pipeline_module_logger = logging.getLogger("causaganha.core.pipeline")
+        pipeline_module_logger = logging.getLogger("pipeline")
         for handler in pipeline_module_logger.handlers[:]:
             pipeline_module_logger.removeHandler(handler)
         pipeline_module_logger.setLevel(logging.NOTSET)
@@ -72,7 +73,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     # ... [previous tests from TestPipelineArgParsingAndExecution remain here] ...
     # (ensure they are not duplicated if this block is appended)
 
-    @patch("causaganha.core.pipeline.fetch_tjro_pdf")
+    @patch("pipeline.fetch_tjro_pdf")
     def test_collect_args_parsed_and_called(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake.pdf")
         self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10"]), 0)
@@ -80,7 +81,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
             date_str="2024-03-10", dry_run=False, verbose=False
         )
 
-    @patch("causaganha.core.pipeline.fetch_tjro_pdf")
+    @patch("pipeline.fetch_tjro_pdf")
     def test_collect_dry_run(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_dry.pdf")
         self.assertEqual(
@@ -90,7 +91,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
             date_str="2024-03-11", dry_run=True, verbose=False
         )
 
-    @patch("causaganha.core.pipeline.GeminiExtractor")
+    @patch("pipeline.GeminiExtractor")
     def test_extract_args_parsed_and_called(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake.json")
@@ -117,7 +118,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         if dummy_pdf_path.exists():
             dummy_pdf_path.unlink()
 
-    @patch("causaganha.core.pipeline.GeminiExtractor")
+    @patch("pipeline.GeminiExtractor")
     def test_extract_dry_run(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake_dry.json")
@@ -141,10 +142,10 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     # def test_update_dry_run(self): ...
 
     @patch(
-        "causaganha.core.pipeline.update_command"
+        "pipeline.update_command"
     )  # Mock update_command itself for this orchestration test
-    @patch("causaganha.core.pipeline.GeminiExtractor")
-    @patch("causaganha.core.pipeline.fetch_tjro_pdf")
+    @patch("pipeline.GeminiExtractor")
+    @patch("pipeline.fetch_tjro_pdf")
     def test_run_command_orchestration(
         self, mock_fetch, MockGeminiExtractor, mock_update_cmd
     ):
@@ -170,9 +171,9 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         )
         mock_update_cmd.assert_called_once()
 
-    @patch("causaganha.core.pipeline.update_command")
-    @patch("causaganha.core.pipeline.GeminiExtractor")
-    @patch("causaganha.core.pipeline.fetch_tjro_pdf")
+    @patch("pipeline.update_command")
+    @patch("pipeline.GeminiExtractor")
+    @patch("pipeline.fetch_tjro_pdf")
     def test_run_command_dry_run(
         self, mock_fetch, MockGeminiExtractor, mock_update_cmd
     ):
@@ -227,7 +228,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
             self.mock_stderr.getvalue(),
         )
 
-    @patch("causaganha.core.pipeline.fetch_tjro_pdf")
+    @patch("pipeline.fetch_tjro_pdf")
     def test_collect_invalid_date_format_passed_through(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf")
         self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE"]), 0)
@@ -293,7 +294,7 @@ class TestPipelineUpdateCommand(unittest.TestCase):
     def setUp(self):
         if pipeline is None:
             self.fail(
-                "The 'pipeline' module from 'causaganha.core' could not be imported."
+                "The 'pipeline' module from 'causaganha' could not be imported."
             )
 
         # Define paths based on where the pipeline script actually looks for data
@@ -419,9 +420,9 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self.stderr_patch.stop()
         logging.getLogger().handlers.clear()
 
-    @patch("causaganha.core.pipeline.shutil.move")
-    @patch("causaganha.core.pipeline.pd.DataFrame.to_csv")
-    @patch("causaganha.core.pipeline.pd.read_csv")
+    @patch("pipeline.shutil.move")
+    @patch("pipeline.pd.DataFrame.to_csv")
+    @patch("pipeline.pd.read_csv")
     def test_update_command_valid_decisions_trueskill(
         self, mock_read_csv, mock_to_csv, mock_shutil_move
     ):
@@ -499,9 +500,9 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         # the content is likely correct.
         # More detailed content assertions would require access to the DataFrames just before they are saved.
 
-    @patch("causaganha.core.pipeline.shutil.move")
-    @patch("causaganha.core.pipeline.pd.DataFrame.to_csv")
-    @patch("causaganha.core.pipeline.pd.read_csv")
+    @patch("pipeline.shutil.move")
+    @patch("pipeline.pd.DataFrame.to_csv")
+    @patch("pipeline.pd.read_csv")
     def test_update_command_dry_run_trueskill(
         self, mock_read_csv, mock_to_csv, mock_shutil_move
     ):
@@ -520,10 +521,10 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         mock_to_csv.assert_not_called()
         mock_shutil_move.assert_not_called()
 
-    @patch("causaganha.core.pipeline.validate_decision", return_value=False)
-    @patch("causaganha.core.pipeline.shutil.move")
-    @patch("causaganha.core.pipeline.pd.DataFrame.to_csv")
-    @patch("causaganha.core.pipeline.pd.read_csv")
+    @patch("pipeline.validate_decision", return_value=False)
+    @patch("pipeline.shutil.move")
+    @patch("pipeline.pd.DataFrame.to_csv")
+    @patch("pipeline.pd.read_csv")
     def test_update_command_all_decisions_invalid_trueskill(
         self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate
     ):

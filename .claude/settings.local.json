@@ -34,7 +34,8 @@
       "Bash(uv remove:*)",
       "Bash(git merge:*)",
       "Bash(sed:*)",
-      "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)"
+      "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

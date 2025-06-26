@@ -8,13 +8,14 @@ CausaGanha is an automated judicial decision analysis platform that applies the 
 
 ## Development Setup
 
-This project uses **uv** for dependency management (modern Python package manager):
+This project uses **uv** for dependency management and follows modern Python packaging standards:
 
 ```bash
 # Install uv first: curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv
 source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 uv sync --dev
+uv pip install -e .  # Install package in development mode
 ```
 
 Environment variables (copy `.env.example` to `.env`):
@@ -24,13 +25,43 @@ Environment variables (copy `.env.example` to `.env`):
 
 ## Core Commands
 
+### Unified CLI Interface
+
+CausaGanha now provides a unified command-line interface for all operations:
+
+```bash
+# Main CLI commands
+causaganha --help                    # Show all available commands
+causaganha pipeline --help           # Pipeline operations help
+causaganha db --help                 # Database operations help
+
+# Pipeline commands
+causaganha pipeline run --date 2025-06-24           # Full pipeline
+causaganha pipeline collect --date 2025-06-24       # Download only
+causaganha pipeline extract --pdf-file data/file.pdf # Extract only
+causaganha pipeline update                           # Update ratings only
+causaganha pipeline archive --archive-type weekly   # Archive database
+
+# Database commands  
+causaganha db migrate                # Run database migrations
+causaganha db status                 # Check database status
+causaganha db backup                 # Backup to Cloudflare R2
+
+# Download commands
+causaganha download --latest         # Download latest PDF
+causaganha download --date 2025-06-24 # Download specific date
+
+# Extract commands
+causaganha extract --pdf-file data/file.pdf # Extract PDF content
+```
+
 ### Testing & Quality
 ```bash
 # Run all tests (required before commits)
 uv run pytest -q
 
 # Run specific test file
-uv run pytest causaganha/tests/test_downloader.py -v
+uv run pytest tests/test_downloader.py -v
 
 # Code formatting and linting
 uv run ruff format
@@ -41,40 +72,56 @@ uv run ruff check --fix  # Auto-fix issues
 ### Pipeline Operations
 ```bash
 # Download latest PDF from TJRO
-uv run python causaganha/core/downloader.py --latest
+uv run python src/downloader.py --latest
+# OR use the unified CLI:
+causaganha download --latest
 
 # Download specific date
-uv run python causaganha/core/downloader.py --date 2025-06-24
+uv run python src/downloader.py --date 2025-06-24
+# OR:
+causaganha download --date 2025-06-24
 
 # Extract content from PDF using Gemini (with automatic rate limiting)
-uv run --env-file .env python causaganha/core/extractor.py --pdf_file data/dj_20250624.pdf
+uv run --env-file .env python src/extractor.py --pdf_file data/dj_20250624.pdf
+# OR:
+causaganha extract --pdf-file data/dj_20250624.pdf
 
 # Run complete pipeline (download → extract → update TrueSkill ratings)
-uv run python causaganha/core/pipeline.py run --date 2025-06-24
+uv run python src/pipeline.py run --date 2025-06-24
+# OR:
+causaganha pipeline run --date 2025-06-24
 
 # Dry run (no actual changes)
-uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
+uv run python src/pipeline.py run --date 2025-06-24 --dry-run
+# OR:
+causaganha pipeline run --date 2025-06-24 --dry-run
 
 # Migrate existing CSV/JSON data to DuckDB (one-time setup)
-uv run python causaganha/core/migration.py
+uv run python src/migration.py
+# OR:
+causaganha db migrate
 
 # Backup database to Cloudflare R2
-uv run python causaganha/core/r2_storage.py backup
+uv run python src/r2_storage.py backup
+# OR:
+causaganha db backup
 
 # Archive PDF to Internet Archive
-uv run python pipeline/collect_and_archive.py --latest
+uv run python scripts/collect_and_archive.py --latest
 
 # Archive database to Internet Archive (NEW)
-uv run python causaganha/core/pipeline.py archive --archive-type weekly
+uv run python src/pipeline.py archive --archive-type weekly
+# OR:
+causaganha pipeline archive --archive-type weekly
 
 # Archive database for specific date
-uv run python causaganha/core/pipeline.py archive --date 2025-06-24 --archive-type monthly
+uv run python src/pipeline.py archive --date 2025-06-24 --archive-type monthly
 
 # Dry run database archive
-uv run python causaganha/core/pipeline.py archive --dry-run
+uv run python src/pipeline.py archive --dry-run
 
 # Query remote snapshots without download
-uv run python causaganha/core/r2_queries.py rankings --limit 10
+uv run python src/r2_queries.py rankings --limit 10
 ```
 
 ## Architecture Overview
@@ -84,7 +131,7 @@ uv run python causaganha/core/r2_queries.py rankings --limit 10
 1. **Collection** (`downloader.py`): Downloads PDFs from TJRO
    - Handles redirect-based URL resolution
    - Uses proper headers to bypass bot protection
-   - Saves files as `dj_YYYYMMDD.pdf` in `causaganha/data/diarios/`
+   - Saves files as `dj_YYYYMMDD.pdf` in `data/` directory
    - SHA-256 hash calculation for integrity verification
 
 2. **Archival** (`archive_pdf()` in `downloader.py`): Permanent storage to Internet Archive
@@ -130,7 +177,7 @@ uv run python causaganha/core/r2_queries.py rankings --limit 10
 
 #### External Integration
 - **`gdrive.py`**: Optional Google Drive integration for PDF backup
-- **`pipeline/collect_and_archive.py`**: **NEW** - Internet Archive workflow automation
+- **`scripts/collect_and_archive.py`**: **NEW** - Internet Archive workflow automation
 
 #### Configuration
 - **`config.toml`**: Configuration file for TrueSkill parameters
@@ -183,16 +230,28 @@ The system implements a **three-tier storage strategy** for optimal cost, perfor
 
 ### File Organization
 
-- `causaganha/core/`: Main business logic modules (Note: will move to `src/causaganha/core/` as per user's plan)
+- `src/`: **Main modules** - Flatter Python src-layout structure
+  - `cli.py`: Unified CLI entry point
+  - `pipeline.py`: Main orchestrator and pipeline logic
+  - `database.py`: DuckDB data layer operations
+  - `downloader.py`: PDF collection from TJRO
+  - `extractor.py`: Gemini-powered content extraction
+  - `r2_storage.py`: Cloudflare R2 storage operations
+  - `config.py`: Configuration management
+  - All other core modules directly in src/
+- `tests/`: **Unified test suite** - All tests in one location
+  - Comprehensive unit tests with pytest configuration
+  - Mock-based tests for external API calls
+  - Coverage reporting for src/ modules
+- `scripts/`: **Workflow automation**
+  - `collect_and_archive.py`: Internet Archive automation
 - `data/`: **Unified data directory** 
   - `data/causaganha.duckdb`: **Main database** - unified storage for all system data
   - `data/dj_YYYYMMDD.pdf`: PDF files from TJRO (also archived to Internet Archive)  
   - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data (migrated to database)
   - `data/backup_pre_migration/`: Backup of original CSV files before DuckDB migration
-- `pipeline/`: **NEW** - Specialized workflow scripts
-  - `collect_and_archive.py`: Internet Archive automation
-- `tests/`: Comprehensive unit test suite with R2 storage tests
-- `.github/workflows/`: Automated CI/CD with **5 workflows** (test, archive, collect, extract, update, backup)
+- `.github/workflows/`: Automated CI/CD with **4 workflows** (test, pipeline, database-archive, legacy-archive)
+- `pyproject.toml`: **Modern Python configuration** - Package metadata, dependencies, and tool configs
 
 ## Testing Requirements
 

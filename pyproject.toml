@@ -1,9 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "causa-ganha"
-version = "0.1.0"
-description = "Add your description here"
+name = "causaganha"
+version = "1.0.0"
+description = "Automated judicial decision analysis using TrueSkill rating system"
+authors = [{name = "CausaGanha Team"}]
+license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "boto3>=1.35.0",
     "duckdb>=0.10.0",
@@ -11,7 +17,6 @@ dependencies = [
     "google-auth>=2.40.3",
     "google-generativeai>=0.8.5",
     "internetarchive>=5.4.0",
-    "mkdocs>=1.6.1",
     "pandas>=2.3.0",
     "pymupdf>=1.26.1",
     "python-dotenv>=1.0.0",
@@ -22,12 +27,32 @@ dependencies = [
     "zstandard>=0.23.0",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
+    "pytest-cov>=4.0.0",
     "ruff>=0.12.0",
 ]
 
-[tool.setuptools]
-packages = ["causaganha"]
+[project.scripts]
+causaganha = "cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=6.2.1",
+]

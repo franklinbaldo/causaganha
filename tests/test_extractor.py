@@ -7,12 +7,13 @@ import sys
 import shutil
 import logging  # Added import
 
-# Ensure the project root is in sys.path for imports
-PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Ensure the src directory is in sys.path for imports
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
-from causaganha.core.extractor import GeminiExtractor  # noqa: E402
+from extractor import GeminiExtractor  # noqa: E402
 
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)
@@ -52,7 +53,7 @@ class TestGeminiExtractor(unittest.TestCase):
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
-    @patch("causaganha.core.extractor.genai")
+    @patch("extractor.genai")
     def test_extract_with_api_key_and_genai_success(
         self, mock_genai, mock_extract_text_from_pdf
     ):
@@ -123,9 +124,9 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(decision_one["resultado"], "procedente")
         self.assertEqual(decision_one["data"], "2023-10-26")
 
-    @patch("causaganha.core.extractor.genai", None)
+    @patch("extractor.genai", None)
     @patch(
-        "causaganha.core.extractor.fitz"
+        "extractor.fitz"
     )  # Still mock fitz as it's tried before genai check
     def test_extract_when_genai_not_available(self, mock_fitz):
         if "GEMINI_API_KEY" in os.environ:
@@ -145,8 +146,8 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_fitz.open.assert_not_called()  # fitz shouldn't be called if genai is not configured for real calls
 
     @patch.dict(os.environ, {}, clear=True)
-    @patch("causaganha.core.extractor.fitz")  # Mock fitz
-    @patch("causaganha.core.extractor.genai")  # Mock genai
+    @patch("extractor.fitz")  # Mock fitz
+    @patch("extractor.genai")  # Mock genai
     def test_extract_when_api_key_not_available(self, mock_genai, mock_fitz):
         mock_genai.configure = MagicMock()  # genai is importable but will fail config
 
@@ -166,7 +167,7 @@ class TestGeminiExtractor(unittest.TestCase):
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
-    @patch("causaganha.core.extractor.genai")
+    @patch("extractor.genai")
     def test_api_call_failure_generate_content(
         self, mock_genai, mock_extract_text_from_pdf
     ):
@@ -192,7 +193,7 @@ class TestGeminiExtractor(unittest.TestCase):
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
-    @patch("causaganha.core.extractor.genai")
+    @patch("extractor.genai")
     def test_json_parsing_failure(self, mock_genai, mock_extract_text_from_pdf):
         mock_genai.configure = MagicMock()
         mock_extract_text_from_pdf.return_value = ["dummy text chunk for json failure"]

@@ -11,12 +11,13 @@ from pathlib import Path
 from datetime import date
 import sys
 
-# Add causaganha to Python path for testing
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Add src directory to Python path for testing
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
-from causaganha.core.archive_db import DatabaseArchiver, IAConfig  # noqa: E402
+from archive_db import DatabaseArchiver, IAConfig  # noqa: E402
 
 
 class TestDatabaseArchiver(unittest.TestCase):
@@ -87,7 +88,7 @@ class TestDatabaseArchiver(unittest.TestCase):
         self.assertIn("300", metadata["description"])
         self.assertIn("500", metadata["description"])
 
-    @patch("causaganha.core.archive_db.CausaGanhaDB")
+    @patch("archive_db.CausaGanhaDB")
     def test_export_database_snapshot(self, mock_db_class):
         """Test database snapshot export functionality."""
         # Mock database

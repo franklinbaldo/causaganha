@@ -17,7 +17,7 @@ import pandas as pd
 import logging
 import duckdb
 
-from .database import CausaGanhaDB
+from database import CausaGanhaDB
 
 logger = logging.getLogger(__name__)
 

@@ -40,20 +40,20 @@ jobs:
         id: collect
         run: |
           DATE=${{ steps.date.outputs.date }}
-          uv run python causaganha/core/downloader.py --date "$DATE"
+          uv run python src/downloader.py --date "$DATE"
           echo "pdf_path=data/dj_${DATE//-/}.pdf" >> "$GITHUB_OUTPUT"
 
       - name: Archive
-        run: uv run python causaganha/core/pipeline.py archive --date ${{ steps.date.outputs.date }}
+        run: uv run python src/pipeline.py archive --date ${{ steps.date.outputs.date }}
 
       - name: Extract
-        run: uv run python causaganha/core/extractor.py --pdf_file ${{ steps.collect.outputs.pdf_path }}
+        run: uv run python src/extractor.py --pdf_file ${{ steps.collect.outputs.pdf_path }}
 
       - name: Update ratings
-        run: uv run python causaganha/core/pipeline.py update
+        run: uv run python src/pipeline.py update
 
       - name: Backup
-        run: uv run python causaganha/core/r2_storage.py backup
+        run: uv run python src/r2_storage.py backup
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

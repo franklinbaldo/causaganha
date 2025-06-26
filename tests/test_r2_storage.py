@@ -11,9 +11,16 @@ import shutil
 from unittest.mock import Mock, patch
 from pathlib import Path
 from datetime import datetime, timedelta
+import sys
 
-from causaganha.core.r2_storage import CloudflareR2Storage, R2Config
-from causaganha.core.r2_queries import R2DuckDBClient, R2QueryConfig
+# Add src directory to sys.path to allow importing causaganha
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
+from r2_storage import CloudflareR2Storage, R2Config
+from r2_queries import R2DuckDBClient, R2QueryConfig
 
 
 class TestR2Config:
@@ -66,7 +73,7 @@ class TestCloudflareR2Storage:
         db_file.write_bytes(b"fake database content for testing")
         return db_file
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_r2_storage_initialization(self, mock_boto3, mock_config):
         """Test R2 storage client initialization."""
         mock_s3_client = Mock()
@@ -95,7 +102,7 @@ class TestCloudflareR2Storage:
             "CLOUDFLARE_R2_BUCKET": "env-bucket",
         },
     )
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_from_env_creation(self, mock_boto3):
         """Test creating R2 storage from environment variables."""
         mock_boto3.return_value = Mock()
@@ -107,7 +114,7 @@ class TestCloudflareR2Storage:
         assert storage.config.secret_access_key == "env-secret"
         assert storage.config.bucket_name == "env-bucket"
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_ensure_bucket_exists(self, mock_boto3, mock_config):
         """Test bucket existence check."""
         mock_s3_client = Mock()
@@ -124,7 +131,7 @@ class TestCloudflareR2Storage:
             Bucket=mock_config.bucket_name
         )
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_ensure_bucket_creates_if_missing(self, mock_boto3, mock_config):
         """Test bucket creation when it doesn't exist."""
         mock_s3_client = Mock()
@@ -151,7 +158,7 @@ class TestCloudflareR2Storage:
         # We can test this without mocking since it's pure file I/O
         config = R2Config("test", "test", "test")
 
-        with patch("causaganha.core.r2_storage.boto3.client"):
+        with patch("r2_storage.boto3.client"):
             storage = CloudflareR2Storage(config)
             file_hash = storage.calculate_file_hash(sample_db_file)
 
@@ -163,7 +170,7 @@ class TestCloudflareR2Storage:
         config = R2Config("test", "test", "test")
         output_path = temp_dir / "compressed.zst"
 
-        with patch("causaganha.core.r2_storage.boto3.client"):
+        with patch("r2_storage.boto3.client"):
             storage = CloudflareR2Storage(config)
             compressed_path = storage.compress_file(sample_db_file, output_path)
 
@@ -180,7 +187,7 @@ class TestCloudflareR2Storage:
         original_file = temp_dir / "original.txt"
         original_file.write_bytes(original_content)
 
-        with patch("causaganha.core.r2_storage.boto3.client"):
+        with patch("r2_storage.boto3.client"):
             storage = CloudflareR2Storage(config)
 
             # Compress
@@ -192,8 +199,8 @@ class TestCloudflareR2Storage:
             # Verify content matches
             assert decompressed_path.read_bytes() == original_content
 
-    @patch("causaganha.core.r2_storage.boto3.client")
-    @patch("causaganha.core.r2_storage.CausaGanhaDB")
+    @patch("r2_storage.boto3.client")
+    @patch("r2_storage.CausaGanhaDB")
     def test_create_duckdb_snapshot(
         self, mock_db_class, mock_boto3, mock_config, temp_dir
     ):
@@ -224,7 +231,7 @@ class TestCloudflareR2Storage:
             assert result == temp_dir / "snapshot.duckdb.zst"
             mock_compress.assert_called_once()
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_upload_snapshot(self, mock_boto3, mock_config, sample_db_file):
         """Test snapshot upload to R2."""
         mock_s3_client = Mock()
@@ -248,7 +255,7 @@ class TestCloudflareR2Storage:
         # Verify upload was called
         mock_s3_client.upload_file.assert_called_once()
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_list_snapshots(self, mock_boto3, mock_config):
         """Test listing snapshots from R2."""
         mock_s3_client = Mock()
@@ -276,7 +283,7 @@ class TestCloudflareR2Storage:
         assert snapshots[0]["key"] == "snapshots/test1.duckdb.zst"
         assert "metadata" in snapshots[0]
 
-    @patch("causaganha.core.r2_storage.boto3.client")
+    @patch("r2_storage.boto3.client")
     def test_cleanup_old_snapshots(self, mock_boto3, mock_config):
         """Test cleanup of old snapshots."""
         mock_s3_client = Mock()
@@ -316,8 +323,8 @@ class TestR2DuckDBClient:
             secret_access_key="test-secret",
         )
 
-    @patch("causaganha.core.r2_queries.duckdb.connect")
-    @patch("causaganha.core.r2_queries.CloudflareR2Storage")
+    @patch("r2_queries.duckdb.connect")
+    @patch("r2_queries.CloudflareR2Storage")
     def test_r2_client_initialization(
         self, mock_r2_storage, mock_duckdb_connect, mock_query_config
     ):
@@ -334,8 +341,8 @@ class TestR2DuckDBClient:
         # Verify S3 configuration was set
         mock_conn.execute.assert_called()
 
-    @patch("causaganha.core.r2_queries.duckdb.connect")
-    @patch("causaganha.core.r2_queries.CloudflareR2Storage")
+    @patch("r2_queries.duckdb.connect")
+    @patch("r2_queries.CloudflareR2Storage")
     def test_get_snapshot_s3_url(
         self, mock_r2_storage, mock_duckdb_connect, mock_query_config
     ):
@@ -356,8 +363,8 @@ class TestR2DuckDBClient:
             "CLOUDFLARE_R2_SECRET_ACCESS_KEY": "env-secret",
         },
     )
-    @patch("causaganha.core.r2_queries.duckdb.connect")
-    @patch("causaganha.core.r2_queries.CloudflareR2Storage")
+    @patch("r2_queries.duckdb.connect")
+    @patch("r2_queries.CloudflareR2Storage")
     def test_from_env_creation(self, mock_r2_storage, mock_duckdb_connect):
         """Test creating R2 client from environment."""
         mock_duckdb_connect.return_value = Mock()

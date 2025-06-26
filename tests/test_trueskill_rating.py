@@ -6,11 +6,13 @@ import toml
 import sys
 import pathlib
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent))
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+sys.path.insert(0, str(SRC_PATH))
 
 # Importar o módulo e as constantes/funções a serem testadas
-from causaganha.core import trueskill_rating as ts_rating
-from causaganha.core.trueskill_rating import (
+import trueskill_rating as ts_rating
+from trueskill_rating import (
     trueskill,  # Para criar Rating objects diretamente para comparação
     MatchResult,
 )
@@ -262,7 +264,7 @@ class TestTrueSkillConfigLoading(unittest.TestCase):
             ts_rating.toml, "load", side_effect=FileNotFoundError("missing")
         ):
             with patch.object(
-                logging.getLogger("causaganha.core.trueskill_rating"), "error"
+                logging.getLogger("trueskill_rating"), "error"
             ) as mock_log:
                 config = ts_rating.load_trueskill_config()
                 self.assertEqual(config, ts_rating._DEFAULT_CONFIG)
@@ -273,7 +275,7 @@ class TestTrueSkillConfigLoading(unittest.TestCase):
         err = toml.TomlDecodeError("boom", "", 0)
         with patch.object(ts_rating.toml, "load", side_effect=err):
             with patch.object(
-                logging.getLogger("causaganha.core.trueskill_rating"), "error"
+                logging.getLogger("trueskill_rating"), "error"
             ) as mock_log:
                 config = ts_rating.load_trueskill_config()
                 self.assertEqual(config, ts_rating._DEFAULT_CONFIG)

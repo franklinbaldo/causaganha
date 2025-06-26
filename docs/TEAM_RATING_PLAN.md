@@ -107,7 +107,7 @@ def team_glicko_rating(team_members, opponent_team, result):
 ### Fase 1: Análise e Preparação (1-2 semanas)
 ```bash
 # Estrutura de dados
-causaganha/core/
+src/
 ├── team_rating/
 │   ├── __init__.py
 │   ├── trueskill_adapter.py
@@ -328,7 +328,7 @@ def detect_firm_affiliation_automatically(decisions: List[dict]) -> Dict[str, st
 
 #### 4.1 Pipeline Completamente Automatizada
 ```python
-# causaganha/core/automatic_team_pipeline.py
+# src/automatic_team_pipeline.py
 class AutomaticTeamPipeline:
     def __init__(self):
         self.trueskill_env = trueskill.TrueSkill(draw_probability=0.15)
@@ -627,7 +627,7 @@ uv add trueskill
 
 ### Quick Win: TrueSkill Direto (2-3 horas)
 ```python
-# causaganha/core/trueskill_pipeline.py
+# src/trueskill_pipeline.py
 import trueskill
 
 class TrueSkillPipeline:
@@ -692,7 +692,7 @@ class TrueSkillPipeline:
 uv add trueskill
 
 # Passo 2: Criar novo módulo
-# causaganha/core/trueskill_rating.py
+# src/trueskill_rating.py
 
 # Passo 3: Modificar pipeline.py para usar TrueSkill
 # Substituir função update_elo por update_trueskill

@@ -44,7 +44,7 @@ jobs:
           echo "Attempting to archive yesterday's TJRO PDF to Internet Archive..."
           # The script pipeline/collect_and_archive.py defaults to fetching yesterday's PDF
           # if no --date or --latest is specified, which is suitable for this cron job.
-          uv run python pipeline/collect_and_archive.py
+          uv run python scripts/collect_and_archive.py
         # To specify a date for testing or specific runs via manual dispatch,
         # you could potentially pass inputs, but for cron, the default behavior is good.
         # Example for manual dispatch with date:

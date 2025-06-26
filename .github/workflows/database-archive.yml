@@ -133,7 +133,7 @@ jobs:
           echo "Snapshot date: ${{ steps.archive_params.outputs.snapshot_date }}"
           
           # Run the archive command
-          uv run python causaganha/core/archive_db.py \
+          uv run python src/archive_db.py \
             --db-path data/causaganha.duckdb \
             --date "${{ steps.archive_params.outputs.snapshot_date }}" \
             --archive-type "${{ steps.archive_params.outputs.archive_type }}" \
