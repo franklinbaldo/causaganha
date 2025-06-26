@@ -7,6 +7,7 @@ import argparse
 import logging
 import time
 import random
+import tempfile
 
 try:
     import google.generativeai as genai
@@ -137,6 +138,10 @@ class GeminiExtractor:
         output_json_dir = pathlib.Path(output_json_dir)
         output_json_dir.mkdir(parents=True, exist_ok=True)
 
+        # Create temporary directory for processing artifacts
+        temp_dir = pathlib.Path(tempfile.mkdtemp(prefix="pdf_extraction_"))
+        logging.info(f"Using temporary directory for processing: {temp_dir}")
+
         final_extracted_data = None
 
         if not self.gemini_configured:
@@ -169,14 +174,14 @@ class GeminiExtractor:
                 logging.error(f"Failed to extract text from {pdf_path.name}")
                 final_extracted_data = None
             else:
-                # Save full extracted text for debugging
+                # Save full extracted text for debugging in temp directory
                 full_text = "\n".join(pdf_text_chunks)
-                text_file_path = output_json_dir / f"{pdf_path.stem}_extracted_text.txt"
+                text_file_path = temp_dir / f"{pdf_path.stem}_extracted_text.txt"
 
                 try:
                     with open(text_file_path, "w", encoding="utf-8") as f:
                         f.write(full_text)
-                    logging.info(f"Saved extracted text to: {text_file_path}")
+                    logging.info(f"Saved extracted text to temp: {text_file_path}")
                 except (OSError, IOError) as e:
                     logging.warning("Failed to save extracted text: %s", e)
 
@@ -284,16 +289,16 @@ REGRAS OBRIGATÓRIAS:
                         f"Response received from Gemini for {pdf_path.name} chunk {chunk_index + 1}"
                     )
 
-                    # Save raw response for this chunk
+                    # Save raw response for this chunk in temp directory
                     raw_response_file = (
-                        output_json_dir
+                        temp_dir
                         / f"{pdf_path.stem}_gemini_raw_response_chunk_{chunk_index + 1}.txt"
                     )
                     try:
                         with open(raw_response_file, "w", encoding="utf-8") as f:
                             f.write(response.text)
                         logging.info(
-                            f"Saved raw Gemini response chunk {chunk_index + 1} to: {raw_response_file}"
+                            f"Saved raw Gemini response chunk {chunk_index + 1} to temp: {raw_response_file}"
                         )
                         all_raw_responses.append(
                             f"Chunk {chunk_index + 1}: {response.text[:200]}..."
@@ -372,33 +377,25 @@ REGRAS OBRIGATÓRIAS:
                 json.dump(final_extracted_data, f, ensure_ascii=False, indent=4)
             logging.info(f"Successfully saved extracted data to: {output_json_path}")
 
-            # Clean up intermediate files on success
+            # Clean up temporary directory
             try:
-                # Remove extracted text file
-                text_file_path = output_json_dir / f"{pdf_path.stem}_extracted_text.txt"
-                if text_file_path.exists():
-                    text_file_path.unlink()
-                    logging.info(f"Cleaned up extracted text file: {text_file_path}")
-
-                # Remove raw response files
-                import glob
-
-                raw_response_pattern = str(
-                    output_json_dir / f"{pdf_path.stem}_gemini_raw_response*.txt"
-                )
-                for raw_file in glob.glob(raw_response_pattern):
-                    pathlib.Path(raw_file).unlink()
-                    logging.info(f"Cleaned up raw response file: {raw_file}")
-
-                logging.info("Successfully cleaned up intermediate files")
+                import shutil
+                shutil.rmtree(temp_dir)
+                logging.info(f"Cleaned up temporary directory: {temp_dir}")
             except (OSError, FileNotFoundError) as cleanup_error:
                 logging.warning(
-                    "Failed to clean up some intermediate files: %s", cleanup_error
+                    "Failed to clean up temporary directory: %s", cleanup_error
                 )
 
             return output_json_path
         except IOError as e:
             logging.error(f"Error saving JSON file {output_json_path}: {e}")
+            # Clean up temp directory even on failure
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except:
+                pass
             return None
 
 

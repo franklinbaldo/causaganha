@@ -6,6 +6,8 @@ uv.lock
 # Data files
 data/*.pdf
 data/*.json
+!data/diarios*.json
+!data/todos_diarios_tjro.json
 data/*.duckdb
 causaganha/data/
 ratings_export*.csv

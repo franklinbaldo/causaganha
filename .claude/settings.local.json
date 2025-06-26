@@ -35,7 +35,8 @@
       "Bash(git merge:*)",
       "Bash(sed:*)",
       "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "WebFetch(domain:www.tjro.jus.br)"
     ],
     "deny": []
   }
