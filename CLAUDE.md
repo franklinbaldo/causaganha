@@ -57,6 +57,12 @@ uv run python causaganha/core/pipeline.py run --date 2025-06-24 --dry-run
 
 # Migrate existing CSV/JSON data to DuckDB (one-time setup)
 uv run python causaganha/core/migration.py
+
+# Backup database to Cloudflare R2
+uv run python causaganha/core/r2_storage.py backup
+
+# Query remote snapshots without download
+uv run python causaganha/core/r2_queries.py rankings --limit 10
 ```
 
 ## Architecture Overview
@@ -91,11 +97,15 @@ uv run python causaganha/core/migration.py
 - **`config.toml`**: Configuration file for TrueSkill parameters
 - **`utils.py`**: Lawyer name normalization and decision validation utilities
 - **`gdrive.py`**: Optional Google Drive integration for PDF backup
+- **`r2_storage.py`**: **NEW** - Cloudflare R2 storage for DuckDB snapshots and archival
+- **`r2_queries.py`**: **NEW** - Direct DuckDB queries against R2-stored snapshots
 
 ### Data Flow
 
 ```
 TJRO Website → PDF Download → Gemini Analysis → JSON Extraction → TrueSkill Updates → DuckDB Storage
+                                                                                      ↓
+                                                                        Cloudflare R2 Backup (Daily)
 ```
 
 ### Database Architecture
@@ -111,6 +121,7 @@ The system now uses **DuckDB** as the unified data storage layer, replacing scat
 
 - **Views and Analytics**: Built-in ranking views and statistics for system monitoring
 - **Migration Support**: Automatic CSV/JSON to DuckDB conversion with backup creation
+- **Cloud Backup**: Automated snapshots to Cloudflare R2 with compression and rotation
 
 ### File Organization
 
@@ -134,16 +145,21 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes, even f
 
 ## GitHub Actions Integration
 
-Four automated workflows handle the complete pipeline:
+Five automated workflows handle the complete pipeline:
 1. `test.yml`: Runs tests, linting, and formatting checks
-2. `01_collect.yml`: Daily PDF collection (cron: 5:00 UTC)
+2. `01_collect.yml`: Daily PDF collection (cron: 5:00 UTC) 
 3. `02_extract.yml`: PDF content extraction using Gemini
-4. `03_update.yml`: TrueSkill rating updates and CSV commits
+4. `03_update.yml`: TrueSkill rating updates and DuckDB storage
+5. `04_backup_r2.yml`: **NEW** - Daily backup to Cloudflare R2 (cron: 7:00 UTC)
 
 Requires these repository secrets:
 - `GEMINI_API_KEY`
 - `GDRIVE_SERVICE_ACCOUNT_JSON` (optional)
 - `GDRIVE_FOLDER_ID` (optional)
+- `CLOUDFLARE_ACCOUNT_ID` (for R2 backup)
+- `CLOUDFLARE_R2_ACCESS_KEY_ID` (for R2 backup)
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY` (for R2 backup)
+- `CLOUDFLARE_R2_BUCKET` (optional, defaults to 'causa-ganha')
 
 ## External Dependencies
 
@@ -154,5 +170,10 @@ Requires these repository secrets:
 - **PyMuPDF (fitz)**: Local PDF text extraction library
 - **TJRO Website**: Source of judicial PDFs via redirect-based URLs
 - **Google Drive API**: Optional backup storage for PDF files
+- **Cloudflare R2**: Primary cloud storage for DuckDB snapshots
+  - **S3-compatible API**: Uses boto3 for seamless integration
+  - **Compression**: zstandard compression for optimal storage efficiency
+  - **Cost-effective**: ~$0.05/month for typical usage
+  - **Remote queries**: DuckDB can query R2 snapshots directly
 
 The system is designed to be resilient to external service failures with proper error handling, exponential backoff, and dry-run capabilities for safe testing.

@@ -24,7 +24,10 @@
       "Bash(cp:*)",
       "Bash(mkdir:*)",
       "Bash(uv sync:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(git restore:*)",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }

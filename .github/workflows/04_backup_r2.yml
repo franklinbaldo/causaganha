@@ -1,0 +1,156 @@
+# .github/workflows/04_backup_r2.yml
+name: 04 - Backup Database to Cloudflare R2
+
+on:
+  schedule:
+    # Daily backup at 7:00 UTC (after collect/extract/update workflows)
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      cleanup_old:
+        description: 'Cleanup old snapshots (>30 days)'
+        required: false
+        default: 'true'
+        type: boolean
+      retention_days:
+        description: 'Retention period in days'
+        required: false
+        default: '30'
+        type: string
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          
+      - name: Install dependencies
+        run: uv sync --dev
+        
+      - name: Check if database exists
+        id: check_db
+        run: |
+          if [ -f "data/causaganha.duckdb" ]; then
+            echo "Database found: $(ls -lh data/causaganha.duckdb)"
+            echo "exists=true" >> $GITHUB_OUTPUT
+            
+            # Get database stats
+            uv run python -c "
+            from causaganha.core.database import CausaGanhaDB
+            from pathlib import Path
+            
+            with CausaGanhaDB(Path('data/causaganha.duckdb')) as db:
+                stats = db.get_statistics()
+                print(f'Database stats: {stats}')
+            "
+          else
+            echo "Database not found, skipping backup"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Backup database to Cloudflare R2
+        if: steps.check_db.outputs.exists == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET || 'causa-ganha' }}
+        run: |
+          echo "🚀 Starting database backup to Cloudflare R2..."
+          
+          # Run backup with optional cleanup
+          cleanup_flag=""
+          if [ "${{ github.event.inputs.cleanup_old || 'true' }}" = "true" ]; then
+            cleanup_flag="--retention-days ${{ github.event.inputs.retention_days || '30' }}"
+          fi
+          
+          uv run python causaganha/core/r2_storage.py backup $cleanup_flag
+          
+      - name: List current snapshots
+        if: steps.check_db.outputs.exists == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET || 'causa-ganha' }}
+        run: |
+          echo "📦 Current snapshots in R2:"
+          uv run python causaganha/core/r2_storage.py list
+          
+      - name: Test restore (validation)
+        if: steps.check_db.outputs.exists == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET || 'causa-ganha' }}
+        run: |
+          echo "🧪 Testing restore functionality..."
+          
+          # Restore latest snapshot to validation path
+          uv run python causaganha/core/r2_storage.py restore
+          
+          # Validate restored database
+          if [ -f "data/causaganha_restored.duckdb" ]; then
+            echo "✅ Restore test successful"
+            
+            # Compare record counts
+            uv run python -c "
+            from causaganha.core.database import CausaGanhaDB
+            from pathlib import Path
+            
+            # Original database stats
+            with CausaGanhaDB(Path('data/causaganha.duckdb')) as db:
+                original_stats = db.get_statistics()
+                
+            # Restored database stats  
+            with CausaGanhaDB(Path('data/causaganha_restored.duckdb')) as db:
+                restored_stats = db.get_statistics()
+                
+            print(f'Original: {original_stats}')
+            print(f'Restored: {restored_stats}')
+            
+            # Validate critical counts match
+            assert original_stats['total_advogados'] == restored_stats['total_advogados']
+            assert original_stats['total_partidas'] == restored_stats['total_partidas'] 
+            assert original_stats['total_decisoes'] == restored_stats['total_decisoes']
+            
+            print('✅ Database integrity validated')
+            "
+            
+            # Cleanup validation database
+            rm -f data/causaganha_restored.duckdb
+          else
+            echo "❌ Restore test failed"
+            exit 1
+          fi
+          
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.check_db.outputs.exists }}" = "true" ]; then
+            echo "📊 Backup workflow completed"
+            echo "   - Database backed up to Cloudflare R2"
+            echo "   - Old snapshots cleaned up (if enabled)"
+            echo "   - Restore functionality validated"
+            echo "   - Ready for next pipeline run"
+          else
+            echo "ℹ️  No database found, backup skipped"
+            echo "   - Run collect/extract/update workflows first"
+          fi

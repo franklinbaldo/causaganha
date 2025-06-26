@@ -1,297 +1,7 @@
 {
     "file_name_source": "dj_20250624.pdf",
-    "extraction_timestamp": "2025-06-25T12:14:18.229360+00:00",
+    "extraction_timestamp": "2025-06-25T20:12:17.222282+00:00",
     "decisions": [
-        {
-            "numero_processo": "7050077-96.2023.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "A. S. F."
-            ],
-            "advogados_polo_ativo": [
-                "Jeanne Margaretha Machado (OAB/RO 10083)"
-            ],
-            "polo_passivo": [
-                "E. D. R."
-            ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "resultado": "negado_provimento",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7055550-10.2016.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_ativo": [
-                "Daniel Nascimento Gomes (OAB/SP 356650)",
-                "Alex Jesus Augusto Filho (OAB/SP 314946)"
-            ],
-            "polo_passivo": [
-                "Jirau Energia S.A."
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7033882-07.2021.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Fernando Marques dos Santos"
-            ],
-            "advogados_polo_ativo": [
-                "Edson Bernardo Andrade Reis Neto (OAB/RO 1207)",
-                "Raquel Grécia Nogueira (OAB/RO 10072)",
-                "Adevaldo Andrade Reis (OAB/RO 628)",
-                "Rodrigo Otávio Veiga de Vargas (OAB/RO 2829)",
-                "Eurico Soares Montenegro Neto (OAB/RO 1742)",
-                "Thiago Maia de Carvalho (OAB/RO 7472)"
-            ],
-            "polo_passivo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7003076-97.2023.8.22.0007",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Nilza Neves de Souza"
-            ],
-            "advogados_polo_ativo": [
-                "Fernanda Fumero Garcia (OAB/RO 4601)",
-                "Robson Reinoso de Paula (OAB/RO 1341)"
-            ],
-            "polo_passivo": [
-                "Instituto Nacional do Seguro Social - INSS"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador Federal do INSS"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7047219-58.2024.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Summus Consultoria, Assessoria, Licitações e Terceirizações Ltda"
-            ],
-            "advogados_polo_ativo": [
-                "Renata Fabris Pinto (OAB/RO 3126)",
-                "Felipe Gurjão Silveira (OAB/RO 5320)",
-                "Rodrigo Otávio Veiga de Vargas (OAB/RO 2829)"
-            ],
-            "polo_passivo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "polo_passivo_2": [
-                "Kapital Serviços Terceirizados Ltda"
-            ],
-            "advogados_polo_passivo_2": [
-                "Rafael Oliveira Claros (OAB/RO 3672)",
-                "Vladmyr Araújo Peixoto (OAB/RO 13512)"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7049088-95.2020.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "E J Construtora Ltda - Me"
-            ],
-            "advogados_polo_ativo": [
-                "Gustavo Gerola Marsola (OAB/RO 4164)"
-            ],
-            "polo_passivo": [
-                "Departamento Estadual de Estradas de Rodagem e Transportes - DER"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7051812-77.2017.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "polo_passivo": [
-                "Porto Junior Construções Ltda – Me"
-            ],
-            "advogados_polo_passivo": [
-                "Samuel dos Santos Junior (OAB/RO 1238)"
-            ],
-            "polo_passivo_2": [
-                "Rosemeire de Souza Nunes"
-            ],
-            "advogados_polo_passivo_2": [
-                "Samuel dos Santos Junior (OAB/RO 1238)"
-            ],
-            "polo_passivo_3": [
-                "Francisco Edwilson Bessa Holanda de Negreiros"
-            ],
-            "advogados_polo_passivo_3": [
-                "Nelson Canedo Motta (OAB/RO 2721)",
-                "Zoil Batista de Magalhães Neto (OAB/RO 1619)",
-                "Andrey Oliveira Lima (OAB/RO 11009)",
-                "Alexandre Camargo (OAB/RO 704)"
-            ],
-            "polo_passivo_4": [
-                "David de Alecrim Matos"
-            ],
-            "polo_passivo_5": [
-                "Jair Ramires"
-            ],
-            "polo_passivo_6": [
-                "Município de Porto Velho"
-            ],
-            "advogados_polo_passivo_6": [
-                "Procurador-Geral do Município de Porto Velho"
-            ],
-            "resultado": "negado_provimento",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "0041686-26.2009.8.22.0015",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "polo_passivo": [
-                "Amir Francisco Lando"
-            ],
-            "advogados_polo_passivo": [
-                "Amir Francisco Lando (OAB/RO 34-A)",
-                "Lucilia Villanova (OAB/MG 62263B)"
-            ],
-            "polo_passivo_2": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "provido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7003345-69.2019.8.22.0010",
-            "tipo_decisao": "embargos de declaração em apelação",
-            "polo_ativo": [
-                "Luiz Ademir Schock"
-            ],
-            "advogados_polo_ativo": [
-                "Igor Habib Ramos Fernandes (OAB/RO 5193)",
-                "Cassio Esteves Jaques Vidal (OAB/RO 5649)",
-                "Gustavo Santana do Nascimento (OAB/RO 11002)"
-            ],
-            "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "provido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7081048-98.2022.8.22.0001",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Energisa Rondônia - Distribuidora de Energia S.A.",
-                "Energisa Soluções S.A."
-            ],
-            "advogados_polo_ativo": [
-                "André Ricardo Lemes da Silva (OAB/ES 33288)",
-                "Antonio Carlos Guidoni Filho (OAB/SP 146997)"
-            ],
-            "polo_passivo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo": [
-                "Sérgio Fernandes de Abreu Júnior (OAB/RO 6629)",
-                "Fábio de Sousa Santos (OAB/RO 5221)"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7033177-04.2024.8.22.0001",
-            "tipo_decisao": "apelação e agravo",
-            "polo_ativo": [
-                "Teresinha de Jesus Spindola de Araujo Viana"
-            ],
-            "advogados_polo_ativo": [
-                "Vander Carlos Araújo Machado (OAB/RO 2521)"
-            ],
-            "polo_passivo": [
-                "Instituto de Previdência dos Servidores Públicos do Estado de Rondônia - IPERON"
-            ],
-            "advogados_polo_passivo": [
-                "Antônio Isac Nunes Cavalcante de Astrê (OAB/RO 5095)"
-            ],
-            "polo_passivo_2": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo_2": [
-                "Antônio Isac Nunes Cavalcante de Astrê (OAB/RO 5095)"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7012339-71.2023.8.22.0002",
-            "tipo_decisao": "apelação criminal",
-            "polo_ativo": [
-                "Francisco de Oliveira Silva"
-            ],
-            "advogados_polo_ativo": [
-                "Hiago Bastos Trindade (OAB/RO 9858)"
-            ],
-            "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "0811400-86.2023.8.22.0000",
-            "tipo_decisao": "incidente de resolução de demandas repetitivas",
-            "polo_ativo": [
-                "Gerson Acursi",
-                "José Luiz Lenzi",
-                "Cleomildo de Melo Freire"
-            ],
-            "advogados_polo_ativo": [
-                "Carlos Eduardo Rocha Almeida (OAB/RO 3593)",
-                "José de Almeida Júnior (OAB/RO 1370)",
-                "Jânio Sérgio da Silva Maciel (OAB/RO 1950)",
-                "Nelson Sérgio da Silva Maciel (OAB/RO 624)",
-                "Tiago Ramos Pessoa (OAB/RO 10566)",
-                "Saiera Silva de Oliveira (OAB/RO 2458)",
-                "Augusto de Almeida Maia (OAB/RO 7390)",
-                "Evaldo da Rocha Maia (OAB/RO 5957)",
-                "Cássio Esteves Jaques Vidal (OAB/RO 5649)"
-            ],
-            "polo_passivo": [
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
         {
             "numero_processo": "0804393-72.2025.8.22.0000",
             "tipo_decisao": "habeas corpus",
@@ -304,8 +14,10 @@
             "polo_passivo": [
                 "Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Habeas Corpus impetrado por Rubens Darolt Júnior em favor de Valdir Paes Modesto contra Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO. Decisão: NEGADO PROVIMENTO."
         },
         {
             "numero_processo": "0805291-85.2025.8.22.0000",
@@ -320,8 +32,10 @@
             "polo_passivo": [
                 "Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Habeas Corpus impetrado por Irinaldo Pena Ferreira e José Maria de Souza Rodrigues em favor de José Aécio Leite da Silva contra Juiz de Direito da 1ª Vara Criminal da Comarca de Ariquemes/RO. Decisão: NEGADO PROVIMENTO."
         },
         {
             "numero_processo": "0805364-57.2025.8.22.0000",
@@ -335,244 +49,10 @@
             "polo_passivo": [
                 "Juiz de Direito da Vara Única da Comarca de Alvorada do Oeste/RO"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7009203-56.2020.8.22.0007",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "polo_passivo": [
-                "Johnnie Alam Moreno da Silva"
-            ],
-            "advogados_polo_passivo": [
-                "Roberto Podval (OAB/SP 101458)",
-                "Daniel Romeiro (OAB/SP 234983)",
-                "Alex Souza de Morais Sarkis (OAB/RO 1423)",
-                "Rebeca Moreno da Silva (OAB/RO 3997)",
-                "Paulo Barroso Serpa (OAB/RO 4923)",
-                "Andrey Cavalcante de Carvalho (OAB/RO 303-B)"
-            ],
-            "polo_passivo_2": [
-                "Silvanei Anerthe"
-            ],
-            "advogados_polo_passivo_2": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_3": [
-                "Leonardo Santos Pinheiro"
-            ],
-            "advogados_polo_passivo_3": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_4": [
-                "Maikon dos Santos Ajala"
-            ],
-            "advogados_polo_passivo_4": [
-                "Thiago Luis Alves (OAB/RO 8261)"
-            ],
-            "polo_passivo_5": [
-                "Nelson Soriano Guedes"
-            ],
-            "advogados_polo_passivo_5": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_6": [
-                "Estefany dos Santos Araújo"
-            ],
-            "advogados_polo_passivo_6": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_7": [
-                "Diego Morais Pinheiro"
-            ],
-            "advogados_polo_passivo_7": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_8": [
-                "Matheus Vinicius de Miranda Abreu"
-            ],
-            "advogados_polo_passivo_8": [
-                "Raissa Karine de Souza (OAB/RO 9103)",
-                "Allan Almeida Costa (OAB/RO 10011)",
-                "José Silva da Costa (OAB/RO 6945)"
-            ],
-            "polo_passivo_9": [
-                "Teotônio Vieira da Costa"
-            ],
-            "advogados_polo_passivo_9": [
-                "Raissa Karine de Souza (OAB/RO 9103)",
-                "Allan Almeida Costa (OAB/RO 10011)",
-                "José Silva da Costa (OAB/RO 6945)"
-            ],
-            "polo_passivo_10": [
-                "Willian Oliveira Cardoso"
-            ],
-            "advogados_polo_passivo_10": [
-                "Raissa Karine de Souza (OAB/RO 9103)",
-                "Allan Almeida Costa (OAB/RO 10011)",
-                "José Silva da Costa (OAB/RO 6945)"
-            ],
-            "polo_passivo_11": [
-                "Walisson Brito Lira Cavalcante"
-            ],
-            "advogados_polo_passivo_11": [
-                "Raissa Karine de Souza (OAB/RO 9103)",
-                "Allan Almeida Costa (OAB/RO 10011)",
-                "José Silva da Costa (OAB/RO 6945)"
-            ],
-            "polo_passivo_12": [
-                "Júnior Teixeira Fonseca"
-            ],
-            "advogados_polo_passivo_12": [
-                "Raissa Karine de Souza (OAB/RO 9103)",
-                "Allan Almeida Costa (OAB/RO 10011)",
-                "José Silva da Costa (OAB/RO 6945)"
-            ],
-            "polo_passivo_13": [
-                "Lucas da Silva Melo"
-            ],
-            "advogados_polo_passivo_13": [
-                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
-                "Karla Raquel Barcelos Tokashiki Santos (OAB/RO 9573)"
-            ],
-            "polo_passivo_14": [
-                "Juscileia Nunes de Almeida"
-            ],
-            "advogados_polo_passivo_14": [
-                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
-                "Ivan Douglas Baptista Cardoso (OAB/RO 7320)"
-            ],
-            "polo_passivo_15": [
-                "Romildo Ferreira de Oliveira Nunes"
-            ],
-            "advogados_polo_passivo_15": [
-                "Keila Keli Diniz Gomes de Lima (OAB/RO 7969)",
-                "Ivan Douglas Baptista Cardoso (OAB/RO 7320)"
-            ],
-            "polo_passivo_16": [
-                "Cleiton da Silva Santos"
-            ],
-            "advogados_polo_passivo_16": [
-                "Paulo Luiz de Laia Filho (OAB/RO 3857)",
-                "Carla Priscila Cunha da Silva (OAB/RO 7634)"
-            ],
-            "polo_passivo_17": [
-                "George Willian Lucino Batista"
-            ],
-            "advogados_polo_passivo_17": [
-                "Francis Hency Oliveira Almeida de Lucena (OAB/RO 11026)"
-            ],
-            "polo_passivo_18": [
-                "Eliton de Souza Silva"
-            ],
-            "advogados_polo_passivo_18": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_19": [
-                "Alexandro Felisberto Gonçalves"
-            ],
-            "advogados_polo_passivo_19": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_20": [
-                "Breno Pull Anca Castro dos Santos"
-            ],
-            "advogados_polo_passivo_20": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_21": [
-                "Elizangela Rocha de Souza"
-            ],
-            "advogados_polo_passivo_21": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_22": [
-                "Leonardo Bonifácio Barbosa"
-            ],
-            "advogados_polo_passivo_22": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_23": [
-                "Sheldon Mikael da Silva Câmara"
-            ],
-            "advogados_polo_passivo_23": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "polo_passivo_24": [
-                "Thalia de Souza Valério"
-            ],
-            "advogados_polo_passivo_24": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_25": [
-                "Vaneuso Batista da Silva Guedes"
-            ],
-            "advogados_polo_passivo_25": [
-                "Luiz Carlos Ribeiro da Fonseca (OAB/RO 920)"
-            ],
-            "polo_passivo_26": [
-                "William de Souza Lourenço"
-            ],
-            "advogados_polo_passivo_26": [
-                "Thiago Luis Alves (OAB/RO 8261)"
-            ],
-            "polo_passivo_27": [
-                "Leandro Gonçalves"
-            ],
-            "advogados_polo_passivo_27": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7002474-27.2024.8.22.0022",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Valdemar Ferreira da Silva"
-            ],
-            "advogados_polo_ativo": [
-                "João Francisco Matara Júnior (OAB/RO 6226)"
-            ],
-            "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7001053-13.2025.8.22.0007",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Juliano Soares Sartoro"
-            ],
-            "advogados_polo_ativo": [
-                "Rafael Vieira Benedito (OAB/RO 8182)"
-            ],
-            "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "7002282-73.2023.8.22.0008",
-            "tipo_decisao": "apelação",
-            "polo_ativo": [
-                "Evandro Marchiolli da Fonseca"
-            ],
-            "advogados_polo_ativo": [
-                "Marcelo Macedo Bácaro (OAB/RO 9327)",
-                "Átila Rodrigues Silva (OAB/RO 9996)"
-            ],
-            "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Habeas Corpus impetrado por Jeferson Gomes de Melo em favor de Igor dos Santos Ferreira contra Juiz de Direito da Vara Única da Comarca de Alvorada do Oeste/RO. Decisão: NEGADO PROVIMENTO."
         },
         {
             "numero_processo": "7021282-17.2022.8.22.0001",
@@ -586,8 +66,10 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Recurso em Sentido Estrito interposto por Ronei Barrozo de Matos em face do Ministério Público do Estado de Rondônia. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7004695-37.2024.8.22.0004",
@@ -595,6 +77,7 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Andriely Flauzina de Araújo"
             ],
@@ -602,8 +85,9 @@
                 "Claudinei Costa de Faria (OAB/RO 13251)",
                 "Maurício Maurício Filho (OAB/RO 8826)"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Recurso em Sentido Estrito interposto pelo Ministério Público do Estado de Rondônia em face de Andriely Flauzina de Araújo. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7015422-64.2024.8.22.0001",
@@ -616,20 +100,17 @@
                 "Iulsf Anderson Michelon (OAB/RO 8084)"
             ],
             "polo_passivo": [
-                "Mara Denny Ribeiro"
+                "Mara Denny Ribeiro",
+                "Vanusa Oliveira da Silva",
+                "Ministério Público do Estado de Rondônia"
             ],
             "advogados_polo_passivo": [
                 "Luciana Costa das Chagas (OAB/RO 6205)",
                 "Adélio Ribeiro Lara (OAB/RO 6292)"
             ],
-            "polo_passivo_2": [
-                "Vanusa Oliveira da Silva"
-            ],
-            "polo_passivo_3": [
-                "Ministério Público do Estado de Rondônia"
-            ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Recurso em Sentido Estrito interposto por Heline Abreu Braga e Helena Abreu Braga em face de Mara Denny Ribeiro, Vanusa Oliveira da Silva e Ministério Público do Estado de Rondônia. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "0801863-95.2025.8.22.0000",
@@ -637,14 +118,14 @@
             "polo_ativo": [
                 "Ivanilson Francisco da Silva ou Tiago Francisco da Silva"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "advogados_polo_passivo": [],
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Revisão Criminal de Ivanilson Francisco da Silva ou Tiago Francisco da Silva contra Ministério Público do Estado de Rondônia. Decisão: NEGADO PROVIMENTO."
         },
         {
             "numero_processo": "7004357-51.2024.8.22.0008",
@@ -652,19 +133,20 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "polo_passivo": [
-                "Valmir Schulz de Oliveira"
-            ],
-            "advogados_polo_passivo": [
+            "advogados_polo_ativo": [
                 "Ana Rita Côgo (OAB/RO 660)",
                 "Inês da Consolação Côgo (OAB/RO 3412)"
             ],
-            "resultado": "não_definido",
-            "data": "2025-06-24"
+            "polo_passivo": [
+                "Valmir Schulz de Oliveira"
+            ],
+            "resultado": "provido",
+            "data": "2025-06-24",
+            "resumo": "Apelação interposta pelo Ministério Público do Estado de Rondônia em face de Valmir Schulz de Oliveira. Decisão: RECURSO PROVIDO."
         },
         {
-            "numero_processo": "0816462-73.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "numero_processo": "0800098-36.2021.2.00.0822",
+            "tipo_decisao": "procedimento administrativo disciplinar",
             "polo_ativo": [
                 "Corregedoria Geral da Justiça do Estado de Rondônia"
             ],
@@ -674,13 +156,141 @@
             "polo_passivo": [
                 "A.C.E.H.N."
             ],
-            "advogados_polo_passivo": [],
             "resultado": "procedente",
-            "data": null
+            "data": "2025-06-24",
+            "resumo": "Procedimento Administrativo Disciplinar em face de A.C.E.H.N. Relatado pelo Desembargador Osny Claro de Oliveira. Decisão: JULGOU-SE PROCEDENTE O PROCEDIMENTO ADMINISTRATIVO DISCIPLINAR COM A APLICAÇÃO DA PENA DE APOSENTADORIA COMPULSÓRIA."
+        },
+        {
+            "numero_processo": "0002903-85.2017.8.22.8000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [],
+            "advogados_polo_passivo": [],
+            "resultado": "aprovado",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para convocação de Juiz de Direito de 3ª Entrância. Decisão: APROVADAS AS RECONVOCAÇÕES DOS MAGISTRADOS WANDERLEY JOSÉ CARDOSO E FLÁVIO HENRIQUE DE MELO, NOS TERMOS APRESENTADOS, POR MAIORIA."
+        },
+        {
+            "numero_processo": "0820700-38.2024.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [
+                "Cristovam Dionísio de Barros Cavalcanti Júnior (OAB/MG 130.440)"
+            ],
+            "polo_passivo": [
+                "R. J. dos S."
+            ],
+            "resultado": "deferido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo com pedido de dilação de prazo. Decisão: DEFERIDO O PEDIDO DE PRORROGAÇÃO DO PRAZO DE 90 DIAS PARA O TÉRMINO DA INSTRUÇÃO PROCESSUAL."
+        },
+        {
+            "numero_processo": "0806121-51.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Pedro Sillas Carvalho"
+            ],
+            "resultado": "promovido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para promoção de magistrado. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO PROMOVEU O MAGISTRADO PEDRO SILLAS CARVALHO PARA PROVIMENTO AO CARGO DE JUIZ DE DIREITO DE 3ª ENTRÂNCIA DA COMARCA DE PORTO VELHO, PELO CRITÉRIO DE ANTIGUIDADE."
+        },
+        {
+            "numero_processo": "0806123-21.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Miria do Nascimento de Souza"
+            ],
+            "resultado": "promovido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para promoção de magistrada. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO PROMOVEU A MAGISTRADA MIRIA DO NASCIMENTO DE SOUZA PARA PROVIMENTO AO CARGO DE JUÍZA DE DIREITO DE 3ª ENTRÂNCIA DA COMARCA DE PORTO VELHO, PELO CRITÉRIO DE MERECIMENTO."
+        },
+        {
+            "numero_processo": "0806124-06.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Luis Delfino Cesar Junior"
+            ],
+            "resultado": "promovido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para promoção de magistrado. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO PROMOVEU O MAGISTRADO LUIS DELFINO CESAR JUNIOR PARA A 2ª VARA GENÉRICA DA COMARCA DE ESPIGÃO DO OESTE, 2ª ENTRÂNCIA, PELO CRITÉRIO DE ANTIGUIDADE."
+        },
+        {
+            "numero_processo": "0806126-73.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Sophia Veiga de Assunção",
+                "Matheus Brito Nunes Diniz"
+            ],
+            "resultado": "promovido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para promoção de magistrada. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO PROMOVEU A MAGISTRADA SOPHIA VEIGA DE ASSUNÇÃO PARA A 2ª VARA GENÉRICA DA COMARCA DE CEREJEIRAS 2ª ENTRÂNCIA, PELO CRITÉRIO DE MERECIMENTO, E PERMANECERÁ NA COMARCA DE SÃO MIGUEL DO GUAPORE."
+        },
+        {
+            "numero_processo": "0806127-58.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Fábio Batista da Silva"
+            ],
+            "resultado": "removido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para remoção de magistrado. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO REMOVEU O MAGISTRADO FÁBIO BATISTA DA SILVA PARA A 1ª VARA CÍVEL DA COMARCA DE ARIQUEMES, 2ª ENTRÂNCIA, PELO CRITÉRIO DE ANTIGUIDADE."
+        },
+        {
+            "numero_processo": "0806129-28.2025.8.22.0000",
+            "tipo_decisao": "processo administrativo",
+            "polo_ativo": [
+                "Conselho da Magistratura e de Gestão de Desenvolvimento Institucional"
+            ],
+            "advogados_polo_ativo": [],
+            "polo_passivo": [
+                "Thiago Gomes de Aniceto"
+            ],
+            "resultado": "promovido",
+            "data": "2025-06-24",
+            "resumo": "Processo Administrativo para promoção de magistrado. Decisão: O TRIBUNAL PLENO ADMINISTRATIVO PROMOVEU O MAGISTRADO THIAGO GOMES DE ANICETO PARA A VARA ÚNICA DA COMARCA DE ALVORADA DO OESTE, 1ª ENTRÂNCIA, PELO CRITÉRIO DE ANTIGUIDADE."
+        },
+        {
+            "numero_processo": "7069183-44.2023.8.22.0001",
+            "tipo_decisao": "apelação e agravo",
+            "polo_ativo": [
+                "Sindicato das Empresas de Transporte Rodoviários de Passageiros do Estado de Rondônia Exceto Porto-Velho - SINETRER"
+            ],
+            "advogados_polo_ativo": [
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Agência de Regulação de Serviços Públicos Delegados do Estado de Rondônia - AGERO"
+            ],
+            "resultado": "prejudicado",
+            "data": "2025-06-13",
+            "resumo": "Decisão que acolheu a preliminar de não conhecimento do recurso e julgou prejudicado o agravo interno."
         },
         {
             "numero_processo": "0010381-61.2012.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
@@ -688,712 +298,616 @@
                 "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
-                "Daniel Alves de Souza"
-            ],
-            "advogados_polo_passivo": [
-                "Defensor Público do Estado de Rondônia",
+                "Daniel Alves de Souza",
                 "Ministério Público do Estado de Rondônia"
             ],
+            "advogados_polo_passivo": [
+                "Defensor Público do Estado de Rondônia"
+            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0820526-29.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
+                "Defensor Público do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Israel Fraga de Souza"
             ],
-            "advogados_polo_passivo": [
-                "Defensor Público do Estado de Rondônia"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto pelo Estado de Rondônia em face de Israel Fraga de Souza. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "0801105-19.2024.8.22.9000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
-                "Vladimir Neres Pereira represented by Cleide Alves Correa"
+                "Vladimir Neres Pereira representado por Cleide Alves Correa"
             ],
             "advogados_polo_ativo": [
-                "Defensor Público do Estado de Rondônia"
+                "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto por Vladimir Neres Pereira em face do Estado de Rondônia. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0800718-04.2025.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "M. D. C. D. J."
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Candeias do Jamari"
+                "Edirlei Barboza Pereira de Souza (OAB/RO 13635)",
+                "Willian Sevalho da Silva Madeiros (OAB/RO 7101)"
             ],
             "polo_passivo": [
                 "J. E. D. S."
             ],
-            "advogados_polo_passivo": [
-                "Edirlei Barboza Pereira de Souza (OAB/RO 13635)"
-            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto por M. D. C. D. J. em face de J. E. D. S. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0002365-17.2009.8.22.0101",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Porto Velho"
             ],
-            "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Porto Velho"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Julio Cesar Siqueira",
                 "Castro & Siqueira Ltda"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Porto Velho. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7034895-80.2017.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Porto Velho"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Porto Velho"
+                "Carlos Henrique Gazzoni (OAB/RO 6722)",
+                "Anita de Cacia Notargiacomo Saldanha (OAB/RO 3644)",
+                "Thaylon Angelo Rodrigues da Silva (OAB/RO 13.720)"
             ],
             "polo_passivo": [
                 "Ruth Martins Cantanhede Salles",
                 "João Fernandes Salles"
             ],
-            "advogados_polo_passivo": [
-                "Carlos Henrique Gazzoni (OAB/RO 6722)",
-                "Anita de Cacia Notargiacomo Saldanha (OAB/RO 3644)",
-                "Thaylon Angelo Rodrigues da Silva (OAB/RO 13.720)"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Porto Velho. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7012112-11.2024.8.22.0014",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Vilhena"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Vilhena"
-            ],
-            "polo_passivo": [
-                "H. M. F. D. R. represented by the mother Nátalie Nicole França de Almeida",
-                "Estado de Rondônia"
-            ],
-            "advogados_polo_passivo": [
                 "Defensor Público do Estado de Rondônia",
                 "Procurador-Geral do Estado de Rondônia"
             ],
+            "polo_passivo": [
+                "H. M. F. D. R. representado pela genitora Nátalie Nicole França de Almeida",
+                "Estado de Rondônia"
+            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Vilhena em face de H. M. F. D. R. e Estado de Rondônia. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7009787-08.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "São Tomás Empreendimentos Imobiliários e Participações Ltda"
             ],
             "advogados_polo_ativo": [
-                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+                "Procurador-Geral do Município de Rolim de Moura"
             ],
             "polo_passivo": [
                 "Município de Rolim de Moura"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Rolim de Moura"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta por São Tomás Empreendimentos Imobiliários e Participações Ltda em face do Município de Rolim de Moura. Decisão: REJEITADA A PRELIMINAR. NO MÉRITO, RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7001674-02.2023.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Cacoal"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Cacoal"
+                "Defensor Público do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Antonio Joacir Juvenal da Costa"
             ],
-            "advogados_polo_passivo": [
-                "Defensor Público do Estado de Rondônia"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Cacoal em face de Antonio Joacir Juvenal da Costa. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7006440-54.2021.8.22.0005",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Ji-Paraná"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Ji-Paraná"
+                "Defensor Público do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Agro Pecuária Industrial e Colonizadora Rio Candeias SA"
             ],
-            "advogados_polo_passivo": [
-                "Defensor Público do Estado de Rondônia"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Ji-Paraná em face de Agro Pecuária Industrial e Colonizadora Rio Candeias SA. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7014301-86.2024.8.22.0005",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Sirene Gusmão Alves da Silva"
             ],
             "advogados_polo_ativo": [
-                "Jordan Luiz Miranda Holanda (OAB/RO 10573)",
-                "Marcio Calado da Silva (OAB/RO 10945)"
+                "Procurador-Geral do Município de Ji-Paraná"
             ],
             "polo_passivo": [
                 "Município de Ji-Paraná"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Ji-Paraná"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta por Sirene Gusmão Alves da Silva em face do Município de Ji-Paraná. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7016235-79.2024.8.22.0005",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Paulo Edson Sena Jatobá"
             ],
             "advogados_polo_ativo": [
-                "Gabriel Alencar de Abreu (OAB/RO 12826)"
+                "Procurador-Geral do Município de Ji-Paraná"
             ],
             "polo_passivo": [
                 "Município de Ji-Paraná"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Ji-Paraná"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta por Paulo Edson Sena Jatobá em face do Município de Ji-Paraná. Decisão: REJEITADA A PRELIMINAR. NO MÉRITO, RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7042375-70.2021.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Porto Velho"
             ],
-            "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Porto Velho"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Suzana Cavalcante"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Porto Velho. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0801016-93.2025.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "Edmundo Antônio Bondezan"
             ],
             "advogados_polo_ativo": [
-                "Edilson Stutz (OAB/RO 309)",
-                "Renata Alice Pessôa Ribeiro de Castro Stutz (OAB/RO 1112)"
+                "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto por Edmundo Antônio Bondezan em face do Estado de Rondônia. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0801997-25.2025.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento e agravo",
             "polo_ativo": [
-                "M. B. D. S. represented by the mother Cristina Barbosa Robaina",
-                "Estado de Rondônia",
-                "Município de Alto Alegre dos Parecis"
+                "M. B. D. S. representado pela genitora Cristina Barbosa Robaina"
             ],
             "advogados_polo_ativo": [
-                "Defensor Público do Estado de Rondônia",
                 "Procurador-Geral do Estado de Rondônia",
                 "Procurador-Geral do Município de Alto Alegre dos Parecis"
             ],
-            "polo_passivo": [],
-            "advogados_polo_passivo": [],
+            "polo_passivo": [
+                "Estado de Rondônia",
+                "Município de Alto Alegre dos Parecis"
+            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Decisão que deu provimento ao recurso e julgou prejudicado o agravo interno."
         },
         {
             "numero_processo": "0813017-47.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "Antônio Rodrigues Fraga"
             ],
             "advogados_polo_ativo": [
-                "Josimar Oliveira Muniz (OAB/RO 912)",
-                "Vantuilo Geovanio Pereira da Rocha (OAB/RO 6229)"
+                "Procurador Federal do INSS"
             ],
             "polo_passivo": [
                 "Instituto Nacional do Seguro Social - INSS"
             ],
-            "advogados_polo_passivo": [
-                "Procurador Federal do INSS"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto por Antônio Rodrigues Fraga em face do Instituto Nacional do Seguro Social - INSS. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7013923-61.2023.8.22.0007",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "polo_passivo": [
-                "I. B. B. represented by the mother Joelmira Romão Batista Bessert",
-                "Município de Cacoal"
-            ],
-            "advogados_polo_passivo": [
                 "Defensor Público do Estado de Rondônia",
                 "Procurador-Geral do Município de Cacoal"
             ],
+            "polo_passivo": [
+                "I. B. B. representada pela genitora Joelmira Romão Batista Bessert",
+                "Município de Cacoal"
+            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos pelo Estado de Rondônia. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "7075027-09.2022.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
+                "Defensor Público do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Ana Carolina Garcia de Oliveira"
             ],
-            "advogados_polo_passivo": [
-                "Defensor Público do Estado de Rondônia"
-            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos pelo Estado de Rondônia em face de Ana Carolina Garcia de Oliveira. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "0811174-47.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo em agravo de instrumento",
             "polo_ativo": [
                 "Thiago José da Silva Gonzaga"
             ],
             "advogados_polo_ativo": [
-                "Israel Augusto Alves Freitas da Cunha (OAB/RO 2913)"
+                "Procurador-Geral do Município de Porto Velho"
             ],
             "polo_passivo": [
                 "Município de Porto Velho"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Porto Velho"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo em Agravo de Instrumento interposto por Thiago José da Silva Gonzaga em face do Município de Porto Velho. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7000914-98.2024.8.22.0006",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "polo_passivo": [
-                "I. C. D. S. C. represented by the mother Beatriz Chanfrin da Silva"
-            ],
-            "advogados_polo_passivo": [
                 "Rubia Gomes Cacique (OAB/RO 5810)",
                 "Pamela Evangelista de Almeida (OAB/RO 7354)"
             ],
+            "polo_passivo": [
+                "I. C. D. S. C. representado pela genitora Beatriz Chanfrin da Silva"
+            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia em face de I. C. D. S. C. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7003286-23.2024.8.22.0005",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Estado de Rondônia",
                 "Município de Ji-Paraná"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia",
-                "Procurador-Geral do Município de Ji-Paraná"
-            ],
-            "polo_passivo": [
-                "Helena Maria Mareze Gobbo represented by her husband Daniel Gobbo"
-            ],
-            "advogados_polo_passivo": [
                 "Defensor Público do Estado de Rondônia"
             ],
-            "resultado": "parcialmente_procedente",
-            "data": null
+            "polo_passivo": [
+                "Helena Maria Mareze Gobbo representada por seu esposo Daniel Gobbo"
+            ],
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia e Município de Ji-Paraná. Decisão: REJEITADAS AS PRELIMINARES. NO MÉRITO, RECURSOS PARCIALMENTE PROVIDOS."
         },
         {
             "numero_processo": "0820012-76.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em habeas corpus",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "José Hélio Cysneiros Pachá"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos pelo Estado de Rondônia em face de José Hélio Cysneiros Pachá. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "0801087-32.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Robson Souza de Oliveira"
             ],
             "advogados_polo_ativo": [
-                "Diego de Paiva Vasconcelos (OAB/RO 2013)",
-                "Márcio Melo Nogueira (OAB/RO 2827)",
-                "Gabriela Sabry Azar Marques (OAB/RO 10770)",
-                "Dalgobert Martinez Maciel (OAB/RO 1358)"
+                "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos por Robson Souza de Oliveira em face do Estado de Rondônia. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "0000180-84.2015.8.22.0007",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Britamar Extração de Pedras e Areia Importação e Exportação Ltda"
             ],
             "advogados_polo_ativo": [
-                "José Nonato de Araújo Neto (OAB/RO 6471)"
+                "Procurador-Geral do SAAE - Cacoal"
             ],
             "polo_passivo": [
                 "Serviço Autônomo de Água e Esgoto de Cacoal",
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do SAAE - Cacoal"
-            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos por Britamar Extração de Pedras e Areia Importação e Exportação Ltda. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "7011877-65.2024.8.22.0007",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
+                "Francisca Jusara de Macedo Coelho Silva (OAB/RO 10215)"
             ],
             "polo_passivo": [
                 "Jansen Ribeiro Martins"
             ],
-            "advogados_polo_passivo": [
-                "Francisca Jusara de Macedo Coelho Silva (OAB/RO 10215)"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia em face de Jansen Ribeiro Martins. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7001651-22.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Estado de Rondônia"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
+                "Rafael Duck Silva (OAB/RO 5152)"
             ],
             "polo_passivo": [
                 "JS Distribuição e Representação Ltda"
             ],
-            "advogados_polo_passivo": [
-                "Rafael Duck Silva (OAB/RO 5152)"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia em face de JS Distribuição e Representação Ltda. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7069864-48.2022.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Município de Porto Velho"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Porto Velho"
+                "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Município de Porto Velho em face do Estado de Rondônia. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7014765-81.2022.8.22.0005",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "Edyr de Moura"
             ],
             "advogados_polo_ativo": [
-                "Lurival Antonio Ercolin (OAB/RO 64)"
+                "Procurador-Geral do Estado de Rondônia"
             ],
             "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta por Edyr de Moura em face do Estado de Rondônia. Decisão: REJEITADA A PRELIMINAR. NO MÉRITO, RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "0813152-93.2023.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "Município de Porto Velho"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Município de Porto Velho"
+                "Leonardo Falcão Ribeiro (OAB/RO 5408)",
+                "Maria Luiza Piccoli (OAB/RO 8916)"
             ],
             "polo_passivo": [
                 "Aline Luciana Rodrigues"
             ],
-            "advogados_polo_passivo": [
-                "Leonardo Falcão Ribeiro (OAB/RO 5408)",
-                "Maria Luiza Piccoli (OAB/RO 8916)"
-            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto pelo Município de Porto Velho em face de Aline Luciana Rodrigues. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "0819070-44.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo de instrumento",
             "polo_ativo": [
                 "Creuzenir da Fonseca Puttim"
             ],
             "advogados_polo_ativo": [
-                "Tiago dos Santos de Lima (OAB/RO 7199)"
+                "Procurador Federal do INSS"
             ],
             "polo_passivo": [
                 "Instituto Nacional do Seguro Social - INSS"
             ],
-            "advogados_polo_passivo": [
-                "Procurador Federal do INSS"
-            ],
             "resultado": "provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo de Instrumento interposto por Creuzenir da Fonseca Puttim em face do Instituto Nacional do Seguro Social - INSS. Decisão: RECURSO PROVIDO."
         },
         {
             "numero_processo": "7001946-24.2023.8.22.0023",
-            "tipo_decisao": "sentença",
+            "tipo_decisao": "remessa necessária",
             "polo_ativo": [
                 "Juiz de Direito da Vara Única da Comarca de São Francisco do Guaporé"
             ],
-            "advogados_polo_ativo": [],
+            "advogados_polo_ativo": [
+                "Welinton de Lima Freitas (OAB/RO 11716)"
+            ],
             "polo_passivo": [
                 "Instituto Municipal de Previdência dos Servidores de São Francisco do Guaporé - IMPES",
                 "Eliani de Fátima Biava dos Santos Plantes"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Instituto Municipal de Previdência de São Francisco do Guaporé - IMPES",
-                "Welinton de Lima Freitas (OAB/RO 11716)"
-            ],
             "resultado": "confirmada",
-            "data": null
+            "data": "2025-06-18",
+            "resumo": "Remessa Necessária. Decisão: SENTENÇA CONFIRMADA."
         },
         {
             "numero_processo": "7007745-20.2023.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo em apelação",
             "polo_ativo": [
                 "São Tomás Empreendimentos Imobiliários e Participações Ltda"
             ],
             "advogados_polo_ativo": [
-                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+                "Procurador-Geral do Município de Rolim de Moura"
             ],
             "polo_passivo": [
                 "Município de Rolim de Moura"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Rolim de Moura"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo em Apelação interposto por São Tomás Empreendimentos Imobiliários e Participações Ltda. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7003213-66.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo em apelação",
             "polo_ativo": [
                 "São Tomás Empreendimentos Imobiliários e Participações Ltda"
             ],
             "advogados_polo_ativo": [
-                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+                "Procurador-Geral do Município de Rolim de Moura"
             ],
             "polo_passivo": [
                 "Município de Rolim de Moura"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Rolim de Moura"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo em Apelação interposto por São Tomás Empreendimentos Imobiliários e Participações Ltda. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7007025-19.2024.8.22.0000",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "agravo em apelação",
             "polo_ativo": [
                 "São Tomás Empreendimentos Imobiliários e Participações Ltda"
             ],
             "advogados_polo_ativo": [
-                "Roseval Rodrigues da Cunha Filho (OAB/GO 17394)"
+                "Procurador-Geral do Município de Rolim de Moura"
             ],
             "polo_passivo": [
                 "Município de Rolim de Moura"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Rolim de Moura"
-            ],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Agravo em Apelação interposto por São Tomás Empreendimentos Imobiliários e Participações Ltda. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7024496-16.2022.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "apelação",
             "polo_ativo": [
                 "William Lima Barbosa"
             ],
-            "advogados_polo_ativo": [
-                "Nilson Aparecido de Souza (OAB/RO 3883)"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta por William Lima Barbosa em face do Ministério Público do Estado de Rondônia. Decisão: RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7045549-19.2023.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Instituto de Previdência dos Servidores Públicos do Estado de Rondônia - IPERON"
             ],
             "advogados_polo_ativo": [
-                "Procurador-Geral do Estado de Rondônia"
+                "Rodrigo de Barcelos Taveira (OAB/RO 10421)",
+                "Roxane Fernandes Ribeiro de Barcelos (OAB/RO 8666)"
             ],
             "polo_passivo": [
                 "Ana Angélica dos Santos Melquisedec"
             ],
-            "advogados_polo_passivo": [
-                "Rodrigo de Barcelos Taveira (OAB/RO 10421)",
-                "Roxane Fernandes Ribeiro de Barcelos (OAB/RO 8666)"
-            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos pelo Instituto de Previdência dos Servidores Públicos do Estado de Rondônia - IPERON. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
             "numero_processo": "7029844-78.2023.8.22.0001",
-            "tipo_decisao": "acórdão",
+            "tipo_decisao": "embargos de declaração em apelação",
             "polo_ativo": [
                 "Amazon Fort Soluções Ambientais Ltda"
             ],
             "advogados_polo_ativo": [
-                "Paulo Cezar Rodrigues de Araújo (OAB/RO 3182)",
-                "Bruno Romero Pedrosa Monteiro (OAB/PE 11338)",
-                "Danielle Pedrosa de Carvalho (OAB/PE 18628)"
+                "Procurador-Geral do Município de Porto Velho"
             ],
             "polo_passivo": [
                 "Município de Porto Velho"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Município de Porto Velho"
-            ],
             "resultado": "nao_provido",
-            "data": null
+            "data": "2025-06-13",
+            "resumo": "Embargos de Declaração interpostos por Amazon Fort Soluções Ambientais Ltda em face do Município de Porto Velho. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
-            "numero_processo": "7026480-64.2024.8.22.0001",
+            "numero_processo": "7026830-91.2020.8.22.0001",
             "tipo_decisao": "apelação",
             "polo_ativo": [
-                "C.T. da Luz Com. & Distribuidora de Alimentos Ltda"
-            ],
-            "advogados_polo_ativo": [
-                "Maisa Bernachi Baptista (OAB/RO 8247)"
-            ],
-            "polo_passivo": [
                 "Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [
-                "Procurador-Geral do Estado de Rondônia"
-            ],
-            "resultado": "não_provido",
-            "data": "2025-06-24"
-        },
-        {
-            "numero_processo": "0801072-29.2025.8.22.0000",
-            "tipo_decisao": "agravo de instrumento",
-            "polo_ativo": [
-                "Tatiana Alves Barbosa Pontes"
-            ],
             "advogados_polo_ativo": [
-                "Flaviana Leticia Ramos Moreira (OAB/RO 4867)"
+                "Erivelton Kloos (OAB/RO 6710)"
             ],
             "polo_passivo": [
-                "Instituto Nacional do Seguro Social - INSS"
-            ],
-            "advogados_polo_passivo": [
-                "Procurador Federal do INSS"
+                "Cleiton Almeida Oliveira"
             ],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-13",
+            "resumo": "Apelação interposta pelo Estado de Rondônia em face de Cleiton Almeida Oliveira. Decisão: REJEITADAS AS PRELIMINARES. NO MÉRITO, RECURSO NÃO PROVIDO."
         },
         {
             "numero_processo": "7030339-25.2023.8.22.0001",
@@ -1402,19 +916,19 @@
                 "Centro Brasileiro de Pesquisa em Avaliação e Seleção e de Promoção de Eventos - Cebraspe"
             ],
             "advogados_polo_ativo": [
-                "Daniel Barbosa Santos (OAB/DF 13147)"
-            ],
-            "polo_passivo": [
-                "Vitor Pontes Correia"
-            ],
-            "advogados_polo_passivo": [
                 "Maracelia Lima de Oliveira (OAB/RO 2549)",
                 "Lucia de Fatima Ferreira Dutra (OAB/RO 13.956)",
                 "Nayara Simeas Pereira Rodrigues (OAB/RO 1692)",
-                "Gabriel de Moraes Correia Tomasete (OAB/RO 2641)"
+                "Gabriel de Moraes Correia Tomasete (OAB/RO 2641)",
+                "Procurador-Geral do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Vitor Pontes Correia",
+                "Estado de Rondônia"
             ],
             "resultado": "provido",
-            "data": "2025-06-24"
+            "data": "2025-06-18",
+            "resumo": "Apelação interposta por Cebraspe em face de Vitor Pontes Correia e Estado de Rondônia. Decisão: REJEITADA A PRELIMINAR DA DIALETICIDADE E ACOLHIDA EM PARTE A PRELIMINAR DE INOVAÇÃO RECURSAL, DANDO-SE PROVIMENTO AO RECURSO, POR MAIORIA."
         },
         {
             "numero_processo": "7009982-58.2022.8.22.0001",
@@ -1424,7 +938,11 @@
                 "José Rubens Lima Moreira"
             ],
             "advogados_polo_ativo": [
-                "Karoline Cavalcanti de Paula (OAB/RO 10268)"
+                "Procuradoria Geral Do Estado de Rondônia",
+                "José Roberto Wandembruck Filho (OAB/RO 5063)",
+                "Orestes Muniz Filho (OAB/RO 40)",
+                "Fátima Nágila de Almeida Machado (OAB/RO 3891)",
+                "Cristiane Da Silva Lima Reis (OAB/RO 1569)"
             ],
             "polo_passivo": [
                 "Estado de Rondônia",
@@ -1465,51 +983,15 @@
                 "Ivan Carlos Fiori",
                 "Jefferson Emanoel Cassiano Silva",
                 "João Bernardes Da Silva",
-                "Joaquim Flavio Meister",
-                "Jose Roberto Rios",
-                "Juliane Lorenzon",
-                "Junior Da Silva Pedroso",
-                "Kingmans Luiz Morais de Azambuja",
-                "Leanderson Couto de Jesus",
-                "Leandro Gomes Barrozo",
-                "Luciana Maria Penha Arcos",
-                "Marcelia Machado de Amorim Macedo",
-                "Miquéias Batista de Jesus",
-                "Mizael Correa Maria",
-                "Oziel Pereira Borges",
-                "Paulo Vilmar Mello",
-                "Rafael de Oliveira Batista",
-                "Roni Evangelista Da Silva",
-                "Rosiana Maria Da Rosa",
-                "Rosilene Cristina Módulo",
-                "Rozária Rodrigues de Morais",
-                "Rubresson Inocencio de Souza",
-                "Sergio Ferreira Pereira",
-                "Sidney Da Silva Ferreira",
-                "Tais Medeiros Farias",
-                "Thiago Gregorio de Oliveira",
-                "Tiago Nunes Negrisoli",
-                "Vaguisclei Amâncio de Carvalho",
-                "Vanuza Oliveira Araújo",
-                "Victor Henrique Paio Santos",
-                "Wachington Fagner Alfredo",
-                "Wagner Pedro de Oliveira",
-                "Jonas Junior Sampaio Daczkovski",
-                "Ronielli Nascimento Chagas"
+                "Joaquim Flavio Meister"
             ],
-            "advogados_polo_passivo": [
-                "Procuradoria Geral Do Estado de Rondônia",
-                "José Roberto Wandembruck Filho (OAB/RO 5063)",
-                "Orestes Muniz Filho (OAB/RO 40)",
-                "Fátima Nágila de Almeida Machado (OAB/RO 3891)",
-                "Cristiane Da Silva Lima Reis (OAB/RO 1569)"
-            ],
-            "resultado": "não_provido",
-            "data": "2025-06-24"
+            "resultado": "negado_provimento",
+            "data": "2025-06-18",
+            "resumo": "Embargos de Declaração opostos por Cleiton Lopes Barbosa e José Rubens Lima Moreira. Decisão: EMBARGOS NÃO PROVIDOS."
         },
         {
-            "numero_processo": "7010424-24.2022.8.22.0001",
-            "tipo_decisao": "embargos de declaração em apelação",
+            "numero_processo": "03 7010424-24.2022.8.22.0001",
+            "tipo_decisao": "acórdão",
             "polo_ativo": [
                 "Paulo Henrique Diogo Da Cruz"
             ],
@@ -1517,44 +999,17 @@
                 "Karoline Cavalcanti de Paula (OAB/RO 10268)"
             ],
             "polo_passivo": [
-                "Estado de Rondônia",
-                "Carliane Da Penha Lima",
-                "Adriana Souza Marques",
-                "Aleone Brito",
-                "Alessandro Prates de Oliveira",
-                "Alexandre José de Goés",
-                "Allan Rodrigues Da Silva",
-                "Ana Claudia Dore Gonçalves",
-                "Ana Paula Leles Da Silva",
-                "Ananias Silva Carvalho",
-                "Andre Da Silva Amancio",
-                "Antonio Francisco Dos Santos",
-                "Ary Dantas Da Silva",
-                "Bruno Pedro de Faria",
-                "Claudionor Vieira Gaudino",
-                "Clebson Leandro Madeira",
-                "Cleve Alves Da Silva",
-                "Cristiano Dias Barros Vieira",
-                "Darlete Aguitone Mariano",
-                "Demartone Gatti Extekoetter",
-                "Edileia Figueiredo Dias",
-                "Edmilson Rodrigues Medrade",
-                "Edson Justiniano de Souza",
-                "Elaine Melo Fernandes",
-                "Elias Júlio Da Silva Filho",
-                "Elismar Rodrigo de Almeida"
+                "Estado de Rondônia"
             ],
             "advogados_polo_passivo": [
-                "Procuradoria Geral Do Estado de Rondônia",
-                "José Roberto Wandembruck Filho (OAB/RO 5063)",
-                "Fátima Nágila de Almeida Machado (OAB/RO 3891)",
-                "Orestes Muniz Filho (OAB/RO 40)"
+                "Procuradoria Geral Do Estado de Rondônia"
             ],
-            "resultado": "não_provido",
-            "data": "2025-06-24"
+            "resultado": "negado_provimento",
+            "data": "2025-06-24",
+            "resumo": "Embargos de Declaração em Apelação. Decisão: EMBARGOS NÃO PROVIDOS, À UNANIMIDADE. Relator: DES. GILBERTO BARBOSA."
         },
         {
-            "numero_processo": "0022869-14.2013.8.22.0001",
+            "numero_processo": "04 0022869-14.2013.8.22.0001",
             "tipo_decisao": "acórdão",
             "polo_ativo": [
                 "Consórcio Cowan – Triunfo"
@@ -1572,7 +1027,8 @@
                 "Procurador-Geral do Estado de Rondônia"
             ],
             "resultado": "parcialmente_provido",
-            "data": "2025-06-24"
+            "data": "2025-06-24",
+            "resumo": "Embargos de Declaração em Embargos de Declaração em Apelação. Decisão: DEU-SE PARCIAL PROVIMENTO AOS EMBARGOS DO CONSÓRCIO COWAN-TRIUNFO E PROVIDO OS EMBARGOS DO ESTADO, À UNANIMIDADE. Relator: DES. GILBERTO BARBOSA."
         },
         {
             "numero_processo": "7012750-20.2023.8.22.0001",
@@ -1591,7 +1047,8 @@
                 "Tiago Ramos Pessoa (OAB/RO 10566)"
             ],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-24",
+            "resumo": "Apelação. Decisão: RECURSO NÃO PROVIDO, À UNANIMIDADE. Relator: DES. GLODNER LUIZ PAULETTO."
         },
         {
             "numero_processo": "0810430-52.2024.8.22.0000",
@@ -1609,7 +1066,8 @@
                 "Procurador-Geral do Estado de Rondônia"
             ],
             "resultado": "extinto",
-            "data": "2025-06-24"
+            "data": "2025-06-24",
+            "resumo": "Agravo de Instrumento. Decisão: JULGOU-SE O AGRAVO PELA PERDA DO OBJETO, À UNANIMIDADE. Relator: DES. DANIEL RIBEIRO LAGOS."
         },
         {
             "numero_processo": "0804897-78.2025.8.22.0000",
@@ -1623,9 +1081,9 @@
             "polo_passivo": [
                 "Juiz de Direito da 1ª Vara Criminal da Comarca de Guajará-Mirim/RO"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-06"
+            "data": "2025-06-06",
+            "resumo": "Habeas Corpus. Decisão: ORDEM DENEGADA À UNANIMIDADE, NOS TERMOS DO VOTO DO RELATOR. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0804412-78.2025.8.22.0000",
@@ -1639,9 +1097,9 @@
             "polo_passivo": [
                 "Juiz de Direito da 1ª Vara Criminal da Comarca de Guajará-Mirim/RO"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-06"
+            "data": "2025-06-06",
+            "resumo": "Habeas Corpus. Decisão: ORDEM DENEGADA À UNANIMIDADE, NOS TERMOS DO VOTO DO RELATOR. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0804762-66.2025.8.22.0000",
@@ -1655,9 +1113,9 @@
             "polo_passivo": [
                 "Juiz de Direito da 1ª Vara Criminal da Comarca de Vilhena//RO"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-06"
+            "data": "2025-06-06",
+            "resumo": "Habeas Corpus. Decisão: ORDEM DENEGADA À UNANIMIDADE, NOS TERMOS DO VOTO DO RELATOR. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0800795-13.2025.8.22.0000",
@@ -1671,9 +1129,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "provido",
-            "data": "2025-06-06"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PROVIDO POR MAIORIA, VENCIDO O DESEMBARGADOR ALDEMIR DE OLIVEIRA. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0003767-81.2019.8.22.0005",
@@ -1687,9 +1145,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO CONHECIDA EM PARTE E, NA PARTE CONHECIDA, PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7001100-79.2024.8.22.0020",
@@ -1703,9 +1161,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7011797-04.2024.8.22.0007",
@@ -1719,9 +1177,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7004076-77.2024.8.22.0014",
@@ -1735,9 +1193,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7003276-22.2023.8.22.0002",
@@ -1751,9 +1209,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "não_conhecida",
-            "data": "2025-06-24"
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO CONHECIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7001253-94.2023.8.22.0005",
@@ -1767,9 +1225,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7062416-53.2024.8.22.0001",
@@ -1783,9 +1241,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7031277-83.2024.8.22.0001",
@@ -1799,9 +1257,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7012899-67.2024.8.22.0005",
@@ -1815,9 +1273,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7009336-74.2024.8.22.0002",
@@ -1831,9 +1289,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7032418-11.2022.8.22.0001",
@@ -1847,9 +1305,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7004510-21.2023.8.22.0008",
@@ -1864,9 +1322,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "não_conhecida",
-            "data": "2025-06-24"
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO CONHECIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7057099-74.2024.8.22.0001",
@@ -1880,9 +1338,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7002199-10.2025.8.22.0001",
@@ -1896,9 +1354,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7006132-07.2024.8.22.0007",
@@ -1912,9 +1370,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "resultado": "parcialmente_provido",
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA E, DE OFÍCIO, REDIMENSIONADA A PENA DE MULTA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7021516-25.2024.8.22.0002",
@@ -1928,9 +1386,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "não_conhecida",
-            "data": "2025-06-24"
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO CONHECIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7001110-85.2022.8.22.0023",
@@ -1944,9 +1402,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7001451-32.2022.8.22.0017",
@@ -1960,9 +1418,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: PRELIMINAR REJEITADA. NO MÉRITO, APELAÇÃO NÃO PROVIDA. TUDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7002639-87.2022.8.22.0008",
@@ -1978,7 +1436,8 @@
                 "Defensoria Pública do Estado de Rondônia"
             ],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7008201-25.2023.8.22.0014",
@@ -1992,9 +1451,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7013092-65.2022.8.22.0001",
@@ -2008,9 +1467,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7005257-63.2022.8.22.0021",
@@ -2024,9 +1483,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "não_conhecida",
-            "data": "2025-06-24"
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Recurso em Sentido Estrito. Decisão: RECURSO NÃO CONHECIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7002230-61.2024.8.22.0002",
@@ -2042,9 +1501,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Recurso em Sentido Estrito. Decisão: HOMOLOGADA A DESISTÊNCIA DO RECURSO INTERPOSTO POR THALISSON DOS SANTOS SOARES. PRELIMINAR AFASTADA. NO MÉRITO, RECURSO NÃO PROVIDO. TUDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0802690-09.2025.8.22.0000",
@@ -2058,9 +1517,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0803283-38.2025.8.22.0000",
@@ -2074,9 +1533,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0802984-61.2025.8.22.0000",
@@ -2090,9 +1549,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0803352-70.2025.8.22.0000",
@@ -2108,7 +1567,8 @@
                 "Lucas Árabe Gomes da Silva (OAB/RO 8170)"
             ],
             "resultado": "provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PROVIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0803036-57.2025.8.22.0000",
@@ -2124,7 +1584,24 @@
                 "Defensoria Pública do Estado de Rondônia"
             ],
             "resultado": "provido",
-            "data": "2025-06-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PROVIDO À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
+        },
+        {
+            "numero_processo": "0803099-82.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Esequiel Rodrigues Mendez"
+            ],
+            "advogados_polo_ativo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO CONHECIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803169-02.2025.8.22.0000",
@@ -2138,9 +1615,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-03-26"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803301-59.2025.8.22.0000",
@@ -2148,15 +1625,16 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Donizete Silva de Jesus"
             ],
-            "advogados_polo_passivo": [],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
             "resultado": "negado_provimento",
-            "data": "2025-03-28"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803305-96.2025.8.22.0000",
@@ -2170,9 +1648,25 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-03-28"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PARCIALMENTE PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
+        },
+        {
+            "numero_processo": "0803335-34.2025.8.22.0000",
+            "tipo_decisao": "acórdão",
+            "polo_ativo": [
+                "Caroline Fonseca Ferreira"
+            ],
+            "advogados_polo_ativo": [
+                "Gabriela Nakad dos Santos (OAB/RO 7924)"
+            ],
+            "polo_passivo": [
+                "Ministério Público do Estado de Rondônia"
+            ],
+            "resultado": "nao_conhecido",
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO CONHECIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803354-40.2025.8.22.0000",
@@ -2186,9 +1680,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "provido",
-            "data": "2025-03-31"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803369-09.2025.8.22.0000",
@@ -2202,9 +1696,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-03-31"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803472-16.2025.8.22.0000",
@@ -2212,15 +1706,16 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Francisco Carlos de Souza Moura"
             ],
-            "advogados_polo_passivo": [],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
             "resultado": "negado_provimento",
-            "data": "2025-04-02"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803482-60.2025.8.22.0000",
@@ -2228,15 +1723,16 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Jonas Alves de Oliveira Filho"
             ],
-            "advogados_polo_passivo": [],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
             "resultado": "provido",
-            "data": "2025-04-02"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803531-04.2025.8.22.0000",
@@ -2244,15 +1740,16 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Anderson Hacpbart Durães"
             ],
-            "advogados_polo_passivo": [],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
             "resultado": "negado_provimento",
-            "data": "2025-04-03"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0803053-93.2025.8.22.0000",
@@ -2260,15 +1757,16 @@
             "polo_ativo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_ativo": [
-                "Defensoria Pública do Estado de Rondônia"
-            ],
+            "advogados_polo_ativo": [],
             "polo_passivo": [
                 "Bruno Batista Jorge"
             ],
-            "advogados_polo_passivo": [],
+            "advogados_polo_passivo": [
+                "Defensoria Pública do Estado de Rondônia"
+            ],
             "resultado": "negado_provimento",
-            "data": "2025-03-24"
+            "data": "2025-06-06",
+            "resumo": "Agravo de Execução Penal. Decisão: AGRAVO NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7004802-63.2024.8.22.0010",
@@ -2282,9 +1780,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
-            "resultado": "rejeitados",
-            "data": "2025-03-31"
+            "resultado": "rejeitado",
+            "data": "2025-06-06",
+            "resumo": "Embargos de Declaração em Apelação. Decisão: EMBARGOS REJEITADOS À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7001335-63.2025.8.22.0003",
@@ -2294,13 +1792,14 @@
             ],
             "advogados_polo_ativo": [],
             "polo_passivo": [
-                "Ministério Público do Estado de Rondônia"
+                "Moacir Gonçalves de Azevedo"
             ],
             "advogados_polo_passivo": [
                 "Moacir Gonçalves de Azevedo (OAB/RO 10674)"
             ],
             "resultado": "negado_provimento",
-            "data": "2025-03-10"
+            "data": "2025-06-06",
+            "resumo": "Remessa Necessária Criminal. Decisão: REEXAME NÃO PROVIDO À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7000287-51.2025.8.22.0009",
@@ -2314,9 +1813,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-04-15"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7013828-73.2024.8.22.0014",
@@ -2330,9 +1829,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-04-11"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7013135-19.2024.8.22.0005",
@@ -2347,9 +1846,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-02-26"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7043111-83.2024.8.22.0001",
@@ -2363,9 +1862,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2024-12-26"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "0000242-06.2020.8.22.0701",
@@ -2379,9 +1878,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-02-28"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7004730-34.2023.8.22.0003",
@@ -2395,9 +1894,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-03-27"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7064439-69.2024.8.22.0001",
@@ -2411,9 +1910,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-03-11"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7030704-79.2023.8.22.0001",
@@ -2427,9 +1926,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2024-03-26"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "0006644-58.2019.8.22.0501",
@@ -2443,9 +1942,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-04-22"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7059209-46.2024.8.22.0001",
@@ -2461,9 +1960,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-02-21"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7012422-53.2024.8.22.0002",
@@ -2477,9 +1976,9 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "negado_provimento",
-            "data": "2025-01-23"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO NÃO PROVIDA À UNANIMIDADE. Relator: DES. ÁLVARO KALIX FERRO."
         },
         {
             "numero_processo": "7000571-60.2024.8.22.0020",
@@ -2497,7 +1996,8 @@
                 "Defensoria Pública do Estado de Rondônia"
             ],
             "resultado": "provido",
-            "data": "2025-03-20"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         },
         {
             "numero_processo": "7030795-72.2023.8.22.0001",
@@ -2511,11 +2011,11 @@
             "polo_passivo": [
                 "Ministério Público do Estado de Rondônia"
             ],
-            "advogados_polo_passivo": [],
             "resultado": "parcialmente_provido",
-            "data": "2025-03-18"
+            "data": "2025-06-06",
+            "resumo": "Apelação. Decisão: APELAÇÃO PARCIALMENTE PROVIDA À UNANIMIDADE. Relator: DES. FRANCISCO BORGES FERREIRA NETO."
         }
     ],
-    "chunks_processed": 23,
-    "total_decisions_found": 127
+    "chunks_processed": 9,
+    "total_decisions_found": 120
 }
