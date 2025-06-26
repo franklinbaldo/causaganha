@@ -130,7 +130,7 @@ jobs:
           echo "🚀 Starting bulk processing..."
           
           # Build command
-          CMD="uv run python src/async_diario_pipeline.py --verbose"
+          CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
           
           if [ -n "${{ steps.params.outputs.start_date }}" ]; then
             CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"

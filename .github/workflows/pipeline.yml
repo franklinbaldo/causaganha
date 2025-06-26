@@ -71,7 +71,7 @@ jobs:
           echo "🚀 Starting CausaGanha Async Pipeline..."
           
           # Build command arguments
-          CMD="uv run python src/async_diario_pipeline.py --verbose"
+          CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
           
           # Add parameters based on input
           if [ -n "${{ steps.params.outputs.max_items }}" ]; then
