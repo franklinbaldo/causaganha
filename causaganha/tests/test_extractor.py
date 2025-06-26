@@ -30,24 +30,32 @@ class TestGeminiExtractor(unittest.TestCase):
         self.dummy_pdf_path = self.dummy_pdf_dir / "test_extract.pdf"
         # Create a real (but tiny) PDF for fitz to open without error
         try:
-            from PyPDF2 import PdfWriter # PyPDF2 is usually a dev dependency or part of a larger PDF handling suite
+            from PyPDF2 import (
+                PdfWriter,
+            )  # PyPDF2 is usually a dev dependency or part of a larger PDF handling suite
+
             writer = PdfWriter()
             writer.add_blank_page(width=612, height=792)
             with open(self.dummy_pdf_path, "wb") as f:
                 writer.write(f)
-        except ImportError: # Fallback if PyPDF2 is not available in the test env for some reason
+        except (
+            ImportError
+        ):  # Fallback if PyPDF2 is not available in the test env for some reason
             with open(self.dummy_pdf_path, "wb") as f:
-                f.write(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n149\n%%EOF")
-
+                f.write(
+                    b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n149\n%%EOF"
+                )
 
     def tearDown(self):
         if self.test_data_root.exists():
             shutil.rmtree(self.test_data_root)
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch.object(GeminiExtractor, '_extract_text_from_pdf') # Mock a nível de método
+    @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
     @patch("causaganha.core.extractor.genai")
-    def test_extract_with_api_key_and_genai_success(self, mock_genai, mock_extract_text_from_pdf):
+    def test_extract_with_api_key_and_genai_success(
+        self, mock_genai, mock_extract_text_from_pdf
+    ):
         # Configure mock_genai
         mock_genai.configure = MagicMock()
 
@@ -58,17 +66,19 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_gemini_response = MagicMock()
         # Gemini returns a LIST of decisions
         mock_gemini_response.text = json.dumps(
-            [{
-                "numero_processo": "0011223-45.2023.7.89.0000",
-                "tipo_decisao": "sentença",
-                "polo_ativo": ["Teste Requerente"],
-                "advogados_polo_ativo": ["Adv Teste (OAB/UF 987)"],
-                "polo_passivo": ["Teste Requerido"],
-                "advogados_polo_passivo": ["Adv Teste2 (OAB/UF 654)"],
-                "resultado": "procedente",
-                "data": "2023-10-26",
-                "resumo": "Resumo da decisão."
-            }]
+            [
+                {
+                    "numero_processo": "0011223-45.2023.7.89.0000",
+                    "tipo_decisao": "sentença",
+                    "polo_ativo": ["Teste Requerente"],
+                    "advogados_polo_ativo": ["Adv Teste (OAB/UF 987)"],
+                    "polo_passivo": ["Teste Requerido"],
+                    "advogados_polo_passivo": ["Adv Teste2 (OAB/UF 654)"],
+                    "resultado": "procedente",
+                    "data": "2023-10-26",
+                    "resumo": "Resumo da decisão.",
+                }
+            ]
         )
         mock_model_instance.generate_content.return_value = mock_gemini_response
         # Model name from extractor.py
@@ -87,7 +97,9 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_genai.configure.assert_called_once_with(api_key="fake_key_for_test")
         mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
 
-        mock_genai.GenerativeModel.assert_called_once_with("gemini-2.5-flash-lite-preview-06-17")
+        mock_genai.GenerativeModel.assert_called_once_with(
+            "gemini-2.5-flash-lite-preview-06-17"
+        )
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
 
         with open(result_path, "r") as f:
@@ -105,12 +117,16 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(decision_one["numero_processo"], "0011223-45.2023.7.89.0000")
         self.assertEqual(decision_one["tipo_decisao"], "sentença")
         self.assertEqual(decision_one["polo_ativo"], ["Teste Requerente"])
-        self.assertEqual(decision_one["advogados_polo_ativo"], ["Adv Teste (OAB/UF 987)"])
+        self.assertEqual(
+            decision_one["advogados_polo_ativo"], ["Adv Teste (OAB/UF 987)"]
+        )
         self.assertEqual(decision_one["resultado"], "procedente")
         self.assertEqual(decision_one["data"], "2023-10-26")
 
     @patch("causaganha.core.extractor.genai", None)
-    @patch("causaganha.core.extractor.fitz") # Still mock fitz as it's tried before genai check
+    @patch(
+        "causaganha.core.extractor.fitz"
+    )  # Still mock fitz as it's tried before genai check
     def test_extract_when_genai_not_available(self, mock_fitz):
         if "GEMINI_API_KEY" in os.environ:
             del os.environ["GEMINI_API_KEY"]
@@ -126,13 +142,13 @@ class TestGeminiExtractor(unittest.TestCase):
         with open(result_path, "r") as f:
             data = json.load(f)
         self.assertEqual(data["status"], "dummy_data_gemini_not_configured")
-        mock_fitz.open.assert_not_called() # fitz shouldn't be called if genai is not configured for real calls
+        mock_fitz.open.assert_not_called()  # fitz shouldn't be called if genai is not configured for real calls
 
     @patch.dict(os.environ, {}, clear=True)
-    @patch("causaganha.core.extractor.fitz") # Mock fitz
-    @patch("causaganha.core.extractor.genai") # Mock genai
+    @patch("causaganha.core.extractor.fitz")  # Mock fitz
+    @patch("causaganha.core.extractor.genai")  # Mock genai
     def test_extract_when_api_key_not_available(self, mock_genai, mock_fitz):
-        mock_genai.configure = MagicMock() # genai is importable but will fail config
+        mock_genai.configure = MagicMock()  # genai is importable but will fail config
 
         extractor = GeminiExtractor(api_key=None)
         self.assertFalse(extractor.gemini_configured)
@@ -148,11 +164,12 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_genai.configure.assert_not_called()
         mock_fitz.open.assert_not_called()
 
-
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch.object(GeminiExtractor, '_extract_text_from_pdf') # Mock a nível de método
+    @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
     @patch("causaganha.core.extractor.genai")
-    def test_api_call_failure_generate_content(self, mock_genai, mock_extract_text_from_pdf):
+    def test_api_call_failure_generate_content(
+        self, mock_genai, mock_extract_text_from_pdf
+    ):
         mock_genai.configure = MagicMock()
         mock_extract_text_from_pdf.return_value = ["dummy text chunk for api failure"]
 
@@ -168,12 +185,13 @@ class TestGeminiExtractor(unittest.TestCase):
         )
         self.assertIsNone(result_path)
         mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
-        mock_genai.GenerativeModel.assert_called_once_with("gemini-2.5-flash-lite-preview-06-17")
+        mock_genai.GenerativeModel.assert_called_once_with(
+            "gemini-2.5-flash-lite-preview-06-17"
+        )
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
 
-
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch.object(GeminiExtractor, '_extract_text_from_pdf') # Mock a nível de método
+    @patch.object(GeminiExtractor, "_extract_text_from_pdf")  # Mock a nível de método
     @patch("causaganha.core.extractor.genai")
     def test_json_parsing_failure(self, mock_genai, mock_extract_text_from_pdf):
         mock_genai.configure = MagicMock()
@@ -193,14 +211,12 @@ class TestGeminiExtractor(unittest.TestCase):
         )
         self.assertIsNone(result_path)
         mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
-        mock_genai.GenerativeModel.assert_called_once_with("gemini-2.5-flash-lite-preview-06-17")
+        mock_genai.GenerativeModel.assert_called_once_with(
+            "gemini-2.5-flash-lite-preview-06-17"
+        )
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
 
 
 if __name__ == "__main__":
-    # Ensure PyPDF2 is available or tests needing it might be skipped/fail if fallback is bad
-    try:
-        import PyPDF2
-    except ImportError:
-        print("Warning: PyPDF2 not installed, dummy PDF for tests will be very basic.", file=sys.stderr)
+    # PyPDF2 availability check removed - not used in tests
     unittest.main(argv=["first-arg-is-ignored"], exit=False)

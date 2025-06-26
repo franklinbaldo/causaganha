@@ -12,6 +12,7 @@ import trueskill
 
 logger = logging.getLogger(__name__)
 
+
 # Possíveis resultados de uma partida de TrueSkill
 class MatchResult(Enum):
     """Representa o desfecho de uma partida para atualização de ratings."""
@@ -19,6 +20,7 @@ class MatchResult(Enum):
     WIN_A = "win_a"
     WIN_B = "win_b"
     DRAW = "draw"
+
 
 # Valores padrao para o ambiente TrueSkill
 _DEFAULT_CONFIG = {
@@ -32,6 +34,7 @@ _DEFAULT_CONFIG = {
 
 # Carrega configurações do arquivo config.toml
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.toml"
+
 
 def load_trueskill_config() -> Dict[str, Any]:
     """Carrega as configurações do TrueSkill do arquivo config.toml."""
@@ -47,21 +50,24 @@ def load_trueskill_config() -> Dict[str, Any]:
         logger.error("Failed to load TrueSkill config: %s", exc)
         return _DEFAULT_CONFIG
 
+
 TS_CONFIG = load_trueskill_config()
 
 # Inicializa o ambiente TrueSkill com base nas configurações carregadas
 ENV = trueskill.TrueSkill(
     mu=TS_CONFIG.get("mu", 25.0),
-    sigma=TS_CONFIG.get("sigma", 25.0/3),
-    beta=TS_CONFIG.get("beta", (25.0/3)/2),
-    tau=TS_CONFIG.get("tau", (25.0/3)/100),
+    sigma=TS_CONFIG.get("sigma", 25.0 / 3),
+    beta=TS_CONFIG.get("beta", (25.0 / 3) / 2),
+    tau=TS_CONFIG.get("tau", (25.0 / 3) / 100),
     draw_probability=TS_CONFIG.get("draw_probability", 0.10),
-    backend=TS_CONFIG.get("backend", None) # Permite especificar 'mpmath' ou 'scipy'
+    backend=TS_CONFIG.get("backend", None),  # Permite especificar 'mpmath' ou 'scipy'
 )
+
 
 def create_new_rating() -> trueskill.Rating:
     """Cria um novo objeto de rating TrueSkill com os valores padrão do ambiente."""
     return ENV.create_rating()
+
 
 def update_ratings(
     env: trueskill.TrueSkill,
@@ -96,6 +102,7 @@ def update_ratings(
             f"Resultado desconhecido: {result}. Use 'win_a', 'win_b', ou 'draw'."
         )
 
-    new_team_a_ratings, new_team_b_ratings = env.rate([team_ratings_a, team_ratings_b], ranks=ranks)
+    new_team_a_ratings, new_team_b_ratings = env.rate(
+        [team_ratings_a, team_ratings_b], ranks=ranks
+    )
     return new_team_a_ratings, new_team_b_ratings
-

@@ -126,7 +126,7 @@ class TestValidateDecision(unittest.TestCase):
         ) as mock_log:
             self.assertFalse(validate_decision(invalid))
             # Actual message from test run for this case was about 'requerente/polo_ativo'
-            mock_log.assert_any_call( # Using assert_any_call as order might vary if multiple logs occur
+            mock_log.assert_any_call(  # Using assert_any_call as order might vary if multiple logs occur
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
             )
 
@@ -149,7 +149,7 @@ class TestValidateDecision(unittest.TestCase):
             logging.getLogger("causaganha.core.utils"), "warning"
         ) as mock_log:
             self.assertFalse(validate_decision(invalid))
-            mock_log.assert_called_with( # Actual from test log
+            mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
             )
 
@@ -160,7 +160,7 @@ class TestValidateDecision(unittest.TestCase):
             logging.getLogger("causaganha.core.utils"), "warning"
         ) as mock_log:
             self.assertFalse(validate_decision(invalid))
-            mock_log.assert_called_with( # Actual from test log
+            mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
             )
 
@@ -181,7 +181,6 @@ class TestValidateDecision(unittest.TestCase):
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
             )
 
-
     def test_requerente_wrong_type(self):
         invalid = self.valid_decision.copy()
         invalid["partes"]["requerente"] = 123
@@ -189,7 +188,7 @@ class TestValidateDecision(unittest.TestCase):
             logging.getLogger("causaganha.core.utils"), "warning"
         ) as mock_log:
             self.assertFalse(validate_decision(invalid))
-            mock_log.assert_called_with( # Actual from test log
+            mock_log.assert_called_with(  # Actual from test log
                 f"Validation failed: 'requerente/polo_ativo' is not a list or string (got {type(invalid['partes']['requerente'])})."
             )
 
@@ -200,7 +199,7 @@ class TestValidateDecision(unittest.TestCase):
             logging.getLogger("causaganha.core.utils"), "warning"
         ) as mock_log:
             self.assertFalse(validate_decision(invalid))
-            mock_log.assert_called_with( # Actual from test log
+            mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerido/polo_passivo' is missing or empty."
             )
 

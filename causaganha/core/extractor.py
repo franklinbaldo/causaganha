@@ -68,19 +68,19 @@ class GeminiExtractor:
         if not fitz:
             logging.error("PyMuPDF (fitz) not available for text extraction")
             return []
-        
+
         try:
             doc = fitz.open(str(pdf_path))
             page_count = len(doc)
             chunks = []
             chunk_size = 25
-            
+
             overlap_size = 1  # 1 page overlap
-            
+
             for chunk_start in range(0, page_count, chunk_size):
                 chunk_end = min(chunk_start + chunk_size, page_count)
                 chunk_text = ""
-                
+
                 # Add overlap from previous chunk (if not the first chunk)
                 if chunk_start > 0:
                     overlap_start = max(0, chunk_start - overlap_size)
@@ -88,31 +88,39 @@ class GeminiExtractor:
                     for page_num in range(overlap_start, chunk_start):
                         page = doc.load_page(page_num)
                         text = page.get_text()
-                        chunk_text += f"\n--- PÁGINA {page_num + 1} (OVERLAP) ---\n{text}\n"
+                        chunk_text += (
+                            f"\n--- PÁGINA {page_num + 1} (OVERLAP) ---\n{text}\n"
+                        )
                     chunk_text += "\n=== NOVO TRECHO ===\n"
-                
+
                 # Add main chunk pages
                 for page_num in range(chunk_start, chunk_end):
                     page = doc.load_page(page_num)
                     text = page.get_text()
                     chunk_text += f"\n--- PÁGINA {page_num + 1} ---\n{text}\n"
-                
+
                 chunks.append(chunk_text)
                 if chunk_start > 0:
-                    logging.info(f"Created chunk {len(chunks)}: pages {chunk_start - overlap_size + 1}-{chunk_end} (with overlap)")
+                    logging.info(
+                        f"Created chunk {len(chunks)}: pages {chunk_start - overlap_size + 1}-{chunk_end} (with overlap)"
+                    )
                 else:
-                    logging.info(f"Created chunk {len(chunks)}: pages {chunk_start + 1}-{chunk_end}")
-            
+                    logging.info(
+                        f"Created chunk {len(chunks)}: pages {chunk_start + 1}-{chunk_end}"
+                    )
+
             doc.close()
-            logging.info(f"Successfully extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks")
+            logging.info(
+                f"Successfully extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks"
+            )
             return chunks
-            
+
         except (RuntimeError, OSError) as e:
             logging.error("Error extracting text from PDF %s: %s", pdf_path.name, e)
-            if 'doc' in locals():
+            if "doc" in locals():
                 try:
                     doc.close()
-                except:
+                except (RuntimeError, AttributeError):
                     pass
             return []
 
@@ -138,7 +146,9 @@ class GeminiExtractor:
             # Dummy data structure as a fallback
             final_extracted_data = {
                 "file_name_source": pdf_path.name,
-                "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "extraction_timestamp": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
                 "status": "dummy_data_gemini_not_configured",
                 "numero_processo": "0000000-00.0000.0.00.0000",
                 "tipo_decisao": "sentença",
@@ -152,7 +162,7 @@ class GeminiExtractor:
             }
         else:
             logging.info(f"Attempting real Gemini API call for {pdf_path.name}")
-            
+
             # Extract text from PDF in chunks
             pdf_text_chunks = self._extract_text_from_pdf(pdf_path)
             if not pdf_text_chunks:
@@ -162,18 +172,18 @@ class GeminiExtractor:
                 # Save full extracted text for debugging
                 full_text = "\n".join(pdf_text_chunks)
                 text_file_path = output_json_dir / f"{pdf_path.stem}_extracted_text.txt"
-                
+
                 try:
                     with open(text_file_path, "w", encoding="utf-8") as f:
                         f.write(full_text)
                     logging.info(f"Saved extracted text to: {text_file_path}")
                 except (OSError, IOError) as e:
                     logging.warning("Failed to save extracted text: %s", e)
-                
+
                 # Process each chunk separately
                 all_decisions = []
                 all_raw_responses = []
-                
+
                 prompt = """Este é o texto extraído do Diário da Justiça. Analise o conteúdo e extraia APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido (procedente, improcedente, etc). IGNORE despachos administrativos.
 
 SEMPRE retorne um array JSON válido. Exemplos:
@@ -207,93 +217,142 @@ REGRAS OBRIGATÓRIAS:
 - Se há texto de CONTINUAÇÃO DO TRECHO ANTERIOR, considere-o para contexto mas evite duplicar decisões"""
 
                 model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17")
-                
+
                 for chunk_index, chunk_text in enumerate(pdf_text_chunks):
                     # Rate limiting: Free tier is 15 RPM, so wait 4+ seconds between requests
                     if chunk_index > 0:
                         delay = 4 + random.uniform(0.5, 1.5)  # 4-5.5 seconds
-                        logging.info(f"Rate limiting: waiting {delay:.1f} seconds before chunk {chunk_index + 1}")
+                        logging.info(
+                            f"Rate limiting: waiting {delay:.1f} seconds before chunk {chunk_index + 1}"
+                        )
                         time.sleep(delay)
-                    
+
                     retry_count = 0
                     max_retries = 5
                     base_delay = 30
                     response_successful = False
-                    response = None # Ensure response is defined before the loop
+                    response = None  # Ensure response is defined before the loop
 
                     while retry_count < max_retries:
                         try:
-                            logging.info(f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} for {pdf_path.name} (attempt {retry_count + 1})")
+                            logging.info(
+                                f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} for {pdf_path.name} (attempt {retry_count + 1})"
+                            )
                             full_prompt = f"{prompt}\n\nTexto extraído do PDF (Chunk {chunk_index + 1}):\n{chunk_text}"
                             response = model.generate_content(full_prompt)
                             response_successful = True
                             break
                         except (OSError, ValueError, Exception) as e:
-                            if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+                            if (
+                                "429" in str(e)
+                                or "quota" in str(e).lower()
+                                or "rate" in str(e).lower()
+                            ):
                                 retry_count += 1
                                 if retry_count < max_retries:
-                                    backoff_delay = base_delay * (2 ** (retry_count - 1)) + random.uniform(0, 10)
-                                    logging.warning(f"Rate limit hit for chunk {chunk_index + 1}, attempt {retry_count}. Waiting {backoff_delay:.1f} seconds...")
+                                    backoff_delay = base_delay * (
+                                        2 ** (retry_count - 1)
+                                    ) + random.uniform(0, 10)
+                                    logging.warning(
+                                        f"Rate limit hit for chunk {chunk_index + 1}, attempt {retry_count}. Waiting {backoff_delay:.1f} seconds..."
+                                    )
                                     time.sleep(backoff_delay)
                                 else:
-                                    logging.error(f"Max retries for rate limit hit exceeded for chunk {chunk_index + 1}: {e}")
+                                    logging.error(
+                                        f"Max retries for rate limit hit exceeded for chunk {chunk_index + 1}: {e}"
+                                    )
                                     # response_successful remains False, loop will terminate
                             else:
-                                logging.error(f"Non-rate-limit error for chunk {chunk_index + 1}: {e}")
+                                logging.error(
+                                    f"Non-rate-limit error for chunk {chunk_index + 1}: {e}"
+                                )
                                 response_successful = False
                                 break
-                    
+
                     if not response_successful:
-                        logging.error(f"Skipping chunk {chunk_index + 1} due to unrecoverable API error or max retries.")
+                        logging.error(
+                            f"Skipping chunk {chunk_index + 1} due to unrecoverable API error or max retries."
+                        )
                         # If one chunk fails unrecoverably, consider the whole PDF extraction a failure
-                        logging.error(f"Aborting extraction for PDF {pdf_path.name} due to error in chunk {chunk_index + 1}.")
-                        return None # Abort for the entire PDF
-                    
+                        logging.error(
+                            f"Aborting extraction for PDF {pdf_path.name} due to error in chunk {chunk_index + 1}."
+                        )
+                        return None  # Abort for the entire PDF
+
                     # Process the successful response
-                    logging.info(f"Response received from Gemini for {pdf_path.name} chunk {chunk_index + 1}")
+                    logging.info(
+                        f"Response received from Gemini for {pdf_path.name} chunk {chunk_index + 1}"
+                    )
 
                     # Save raw response for this chunk
-                    raw_response_file = output_json_dir / f"{pdf_path.stem}_gemini_raw_response_chunk_{chunk_index + 1}.txt"
+                    raw_response_file = (
+                        output_json_dir
+                        / f"{pdf_path.stem}_gemini_raw_response_chunk_{chunk_index + 1}.txt"
+                    )
                     try:
                         with open(raw_response_file, "w", encoding="utf-8") as f:
                             f.write(response.text)
-                        logging.info(f"Saved raw Gemini response chunk {chunk_index + 1} to: {raw_response_file}")
-                        all_raw_responses.append(f"Chunk {chunk_index + 1}: {response.text[:200]}...")
+                        logging.info(
+                            f"Saved raw Gemini response chunk {chunk_index + 1} to: {raw_response_file}"
+                        )
+                        all_raw_responses.append(
+                            f"Chunk {chunk_index + 1}: {response.text[:200]}..."
+                        )
                     except (OSError, IOError) as e:
-                        logging.warning("Failed to save raw Gemini response for chunk %d: %s", chunk_index + 1, e)
+                        logging.warning(
+                            "Failed to save raw Gemini response for chunk %d: %s",
+                            chunk_index + 1,
+                            e,
+                        )
 
                     # Parse JSON response for this chunk
                     try:
                         # Clean up response text by removing markdown if present
                         clean_response = response.text.strip()
                         if clean_response.startswith("```json"):
-                            clean_response = clean_response.replace("```json", "").replace("```", "").strip()
+                            clean_response = (
+                                clean_response.replace("```json", "")
+                                .replace("```", "")
+                                .strip()
+                            )
                         elif clean_response.startswith("```"):
                             clean_response = clean_response.replace("```", "").strip()
-                        
+
                         chunk_decisions = json.loads(clean_response)
-                        
+
                         if isinstance(chunk_decisions, list):
                             all_decisions.extend(chunk_decisions)
-                            logging.info(f"Chunk {chunk_index + 1}: Found {len(chunk_decisions)} decisions")
+                            logging.info(
+                                f"Chunk {chunk_index + 1}: Found {len(chunk_decisions)} decisions"
+                            )
                         else:
-                            logging.warning(f"Chunk {chunk_index + 1}: Unexpected response format: {type(chunk_decisions)}")
+                            logging.warning(
+                                f"Chunk {chunk_index + 1}: Unexpected response format: {type(chunk_decisions)}"
+                            )
 
                     except json.JSONDecodeError as je:
-                        logging.error(f"Chunk {chunk_index + 1}: Failed to parse JSON response: {je}. Aborting extraction for this PDF.")
-                        logging.debug(f"Chunk {chunk_index + 1} raw response: {response.text[:300]}...")
-                        return None # Abort for the entire PDF
-                
+                        logging.error(
+                            f"Chunk {chunk_index + 1}: Failed to parse JSON response: {je}. Aborting extraction for this PDF."
+                        )
+                        logging.debug(
+                            f"Chunk {chunk_index + 1} raw response: {response.text[:300]}..."
+                        )
+                        return None  # Abort for the entire PDF
+
                 # Combine all results
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,
-                    "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "extraction_timestamp": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
                     "decisions": all_decisions,
                     "chunks_processed": len(pdf_text_chunks),
-                    "total_decisions_found": len(all_decisions)
+                    "total_decisions_found": len(all_decisions),
                 }
-                
-                logging.info(f"Completed processing {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions found: {len(all_decisions)}")
+
+                logging.info(
+                    f"Completed processing {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions found: {len(all_decisions)}"
+                )
 
         if final_extracted_data is None:
             logging.warning(
@@ -312,7 +371,7 @@ REGRAS OBRIGATÓRIAS:
             with open(output_json_path, "w", encoding="utf-8") as f:
                 json.dump(final_extracted_data, f, ensure_ascii=False, indent=4)
             logging.info(f"Successfully saved extracted data to: {output_json_path}")
-            
+
             # Clean up intermediate files on success
             try:
                 # Remove extracted text file
@@ -320,18 +379,23 @@ REGRAS OBRIGATÓRIAS:
                 if text_file_path.exists():
                     text_file_path.unlink()
                     logging.info(f"Cleaned up extracted text file: {text_file_path}")
-                
+
                 # Remove raw response files
                 import glob
-                raw_response_pattern = str(output_json_dir / f"{pdf_path.stem}_gemini_raw_response*.txt")
+
+                raw_response_pattern = str(
+                    output_json_dir / f"{pdf_path.stem}_gemini_raw_response*.txt"
+                )
                 for raw_file in glob.glob(raw_response_pattern):
                     pathlib.Path(raw_file).unlink()
                     logging.info(f"Cleaned up raw response file: {raw_file}")
-                    
+
                 logging.info("Successfully cleaned up intermediate files")
             except (OSError, FileNotFoundError) as cleanup_error:
-                logging.warning("Failed to clean up some intermediate files: %s", cleanup_error)
-            
+                logging.warning(
+                    "Failed to clean up some intermediate files: %s", cleanup_error
+                )
+
             return output_json_path
         except IOError as e:
             logging.error(f"Error saving JSON file {output_json_path}: {e}")

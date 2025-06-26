@@ -50,7 +50,7 @@ except ImportError as e:
     def create_new_rating():
         return DummyRating()
 
-    def update_trueskill_ratings(env, team_a, team_b, result): # Added env for dummy
+    def update_trueskill_ratings(env, team_a, team_b, result):  # Added env for dummy
         # Return the same ratings passed in, to avoid breaking logic further down
         return team_a, team_b
 
@@ -59,8 +59,8 @@ except ImportError as e:
         sigma = 25.0 / 3.0
 
     TRUESKILL_ENV = DummyEnv()
-    TS_CONFIG = {"mu": 25.0, "sigma": 25.0/3.0} # Dummy TS_CONFIG
-    trueskill = None # So isinstance(rating, trueskill.Rating) would fail or be handled
+    TS_CONFIG = {"mu": 25.0, "sigma": 25.0 / 3.0}  # Dummy TS_CONFIG
+    trueskill = None  # So isinstance(rating, trueskill.Rating) would fail or be handled
 
 
 # Wrappers around the real downloader/extractor to keep the CLI tests stable
@@ -179,7 +179,9 @@ def extract_command(args):
 def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
     logger.info("Starting TrueSkill ratings update process.")
     if dry_run:
-        logger.info("DRY-RUN: TrueSkill update process would run, no files will be changed.")
+        logger.info(
+            "DRY-RUN: TrueSkill update process would run, no files will be changed."
+        )
 
     json_input_dir = Path("causaganha/data/json/")
     processed_json_dir = Path("causaganha/data/json_processed/")
@@ -197,16 +199,16 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
         logger.info("Loaded ratings from %s", ratings_file)
     except FileNotFoundError:
         logger.info("%s not found. Initializing new ratings DataFrame.", ratings_file)
-        ratings_df = pd.DataFrame(
-            columns=["mu", "sigma", "total_partidas"]
-        ).set_index(pd.Index([], name="advogado_id"))
+        ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
+            pd.Index([], name="advogado_id")
+        )
     except (FileNotFoundError, pd.errors.EmptyDataError, ValueError) as e:
         logger.error(
             "Error loading %s: %s. Initializing new ratings DataFrame.", ratings_file, e
         )
-        ratings_df = pd.DataFrame(
-            columns=["mu", "sigma", "total_partidas"]
-        ).set_index(pd.Index([], name="advogado_id"))
+        ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
+            pd.Index([], name="advogado_id")
+        )
 
     # Ensure required columns exist for new DataFrames or after loading old format
     for col in ["mu", "sigma", "total_partidas"]:
@@ -214,14 +216,13 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             if col == "mu":
                 ratings_df[col] = TS_CONFIG.get("mu", 25.0)
             elif col == "sigma":
-                ratings_df[col] = TS_CONFIG.get("sigma", 25.0/3.0)
-            else: # total_partidas
+                ratings_df[col] = TS_CONFIG.get("sigma", 25.0 / 3.0)
+            else:  # total_partidas
                 ratings_df[col] = 0
 
     ratings_df["mu"] = ratings_df["mu"].astype(float)
     ratings_df["sigma"] = ratings_df["sigma"].astype(float)
     ratings_df["total_partidas"] = ratings_df["total_partidas"].astype(int)
-
 
     partidas_history = []
     processed_files_paths = []  # Keep track of files processed in this run
@@ -268,13 +269,25 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             raw_advs_polo_passivo = decision_data.get("advogados_polo_passivo", [])
 
             # Normalize and filter lawyer names for Team A
-            team_a_ids = sorted(list(set(
-                normalize_lawyer_name(name) for name in raw_advs_polo_ativo if normalize_lawyer_name(name)
-            )))
+            team_a_ids = sorted(
+                list(
+                    set(
+                        normalize_lawyer_name(name)
+                        for name in raw_advs_polo_ativo
+                        if normalize_lawyer_name(name)
+                    )
+                )
+            )
             # Normalize and filter lawyer names for Team B
-            team_b_ids = sorted(list(set(
-                normalize_lawyer_name(name) for name in raw_advs_polo_passivo if normalize_lawyer_name(name)
-            )))
+            team_b_ids = sorted(
+                list(
+                    set(
+                        normalize_lawyer_name(name)
+                        for name in raw_advs_polo_passivo
+                        if normalize_lawyer_name(name)
+                    )
+                )
+            )
 
             if not team_a_ids or not team_b_ids:
                 logger.warning(
@@ -293,11 +306,18 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             trueskill_match_result = MatchResult.DRAW
             if resultado_str_raw in ["procedente", "provido", "confirmada"]:
                 trueskill_match_result = MatchResult.WIN_A
-            elif resultado_str_raw in ["improcedente", "negado_provimento", "reformada"]:
+            elif resultado_str_raw in [
+                "improcedente",
+                "negado_provimento",
+                "reformada",
+            ]:
                 trueskill_match_result = MatchResult.WIN_B
             elif resultado_str_raw in [
-                "parcialmente procedente", "parcialmente_procedente",
-                "extinto sem resolução de mérito", "extinto", "não_definido",
+                "parcialmente procedente",
+                "parcialmente_procedente",
+                "extinto sem resolução de mérito",
+                "extinto",
+                "não_definido",
             ]:
                 trueskill_match_result = MatchResult.DRAW
             else:
@@ -327,10 +347,12 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
 
             # Store ratings before update for history
             partida_team_a_ratings_before_dict = {
-                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_a_ids, team_a_ratings_before)
+                adv_id: (r.mu, r.sigma)
+                for adv_id, r in zip(team_a_ids, team_a_ratings_before)
             }
             partida_team_b_ratings_before_dict = {
-                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_b_ids, team_b_ratings_before)
+                adv_id: (r.mu, r.sigma)
+                for adv_id, r in zip(team_b_ids, team_b_ratings_before)
             }
 
             new_team_a_ratings, new_team_b_ratings = update_trueskill_ratings(
@@ -342,7 +364,11 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
 
             # Update ratings_df for Team A
             for i, adv_id in enumerate(team_a_ids):
-                current_partidas = ratings_df.loc[adv_id, "total_partidas"] if adv_id in ratings_df.index else 0
+                current_partidas = (
+                    ratings_df.loc[adv_id, "total_partidas"]
+                    if adv_id in ratings_df.index
+                    else 0
+                )
                 ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
                     new_team_a_ratings[i].mu,
                     new_team_a_ratings[i].sigma,
@@ -351,7 +377,11 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
 
             # Update ratings_df for Team B
             for i, adv_id in enumerate(team_b_ids):
-                current_partidas = ratings_df.loc[adv_id, "total_partidas"] if adv_id in ratings_df.index else 0
+                current_partidas = (
+                    ratings_df.loc[adv_id, "total_partidas"]
+                    if adv_id in ratings_df.index
+                    else 0
+                )
                 ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
                     new_team_b_ratings[i].mu,
                     new_team_b_ratings[i].sigma,
@@ -364,23 +394,38 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
 
             # Store ratings after update for history
             partida_team_a_ratings_after_dict = {
-                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_a_ids, new_team_a_ratings)
+                adv_id: (r.mu, r.sigma)
+                for adv_id, r in zip(team_a_ids, new_team_a_ratings)
             }
             partida_team_b_ratings_after_dict = {
-                adv_id: (r.mu, r.sigma) for adv_id, r in zip(team_b_ids, new_team_b_ratings)
+                adv_id: (r.mu, r.sigma)
+                for adv_id, r in zip(team_b_ids, new_team_b_ratings)
             }
 
-            partidas_history.append({
-                "data_partida": decision_data.get("data_decisao", decision_data.get("data", datetime.date.today().isoformat())),
-                "equipe_a_ids": ",".join(team_a_ids),
-                "equipe_b_ids": ",".join(team_b_ids),
-                "ratings_equipe_a_antes": json.dumps(partida_team_a_ratings_before_dict),
-                "ratings_equipe_b_antes": json.dumps(partida_team_b_ratings_before_dict),
-                "resultado_partida": trueskill_match_result.value,
-                "ratings_equipe_a_depois": json.dumps(partida_team_a_ratings_after_dict),
-                "ratings_equipe_b_depois": json.dumps(partida_team_b_ratings_after_dict),
-                "numero_processo": decision_data.get("numero_processo"),
-            })
+            partidas_history.append(
+                {
+                    "data_partida": decision_data.get(
+                        "data_decisao",
+                        decision_data.get("data", datetime.date.today().isoformat()),
+                    ),
+                    "equipe_a_ids": ",".join(team_a_ids),
+                    "equipe_b_ids": ",".join(team_b_ids),
+                    "ratings_equipe_a_antes": json.dumps(
+                        partida_team_a_ratings_before_dict
+                    ),
+                    "ratings_equipe_b_antes": json.dumps(
+                        partida_team_b_ratings_before_dict
+                    ),
+                    "resultado_partida": trueskill_match_result.value,
+                    "ratings_equipe_a_depois": json.dumps(
+                        partida_team_a_ratings_after_dict
+                    ),
+                    "ratings_equipe_b_depois": json.dumps(
+                        partida_team_b_ratings_after_dict
+                    ),
+                    "numero_processo": decision_data.get("numero_processo"),
+                }
+            )
             file_had_valid_decisions = True
 
         if file_had_valid_decisions:
@@ -392,7 +437,9 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                 if ratings_df.index.name is None:
                     ratings_df.index.name = "advogado_id"
                 # Sort by mu (primary rating) then sigma (uncertainty, lower is better for same mu)
-                ratings_df_sorted = ratings_df.sort_values(by=["mu", "sigma"], ascending=[False, True])
+                ratings_df_sorted = ratings_df.sort_values(
+                    by=["mu", "sigma"], ascending=[False, True]
+                )
                 ratings_df_sorted.to_csv(ratings_file)
                 logger.info("Ratings saved to %s", ratings_file)
             except (OSError, IOError) as e:
@@ -421,7 +468,10 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                     )
                 except (OSError, FileNotFoundError, shutil.Error) as e:
                     logger.error(
-                        "Error moving file %s to %s: %s", processed_file_path.name, processed_json_dir, e
+                        "Error moving file %s to %s: %s",
+                        processed_file_path.name,
+                        processed_json_dir,
+                        e,
                     )
         else:
             logger.info("No JSON files were successfully processed to be moved.")

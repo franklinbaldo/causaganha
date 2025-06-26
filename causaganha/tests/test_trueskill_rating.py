@@ -1,5 +1,4 @@
 import unittest
-import math
 from unittest.mock import patch
 import logging
 import toml
@@ -7,9 +6,7 @@ import toml
 import sys
 import pathlib
 
-sys.path.insert(
-    0, str(pathlib.Path(__file__).resolve().parent.parent.parent)
-)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent.parent))
 
 # Importar o módulo e as constantes/funções a serem testadas
 from causaganha.core import trueskill_rating as ts_rating
@@ -18,17 +15,19 @@ from causaganha.core.trueskill_rating import (
     MatchResult,
 )
 
-class TestTrueSkillRatingCalculations(unittest.TestCase):
 
+class TestTrueSkillRatingCalculations(unittest.TestCase):
     def setUp(self):
         # Usar uma cópia do ambiente padrão para evitar modificar o global entre testes se necessário
         # No nosso caso, ts_rating.ENV é configurado uma vez, então podemos usá-lo diretamente.
         self.env = ts_rating.ENV
         # Definir alguns ratings iniciais para os testes
-        self.r_alpha = self.env.create_rating() # Rating padrão mu=25, sigma=8.33...
+        self.r_alpha = self.env.create_rating()  # Rating padrão mu=25, sigma=8.33...
         self.r_beta = self.env.create_rating()
         self.r_gamma = self.env.create_rating()
-        self.r_delta_expert = trueskill.Rating(mu=35.0, sigma=self.env.sigma / 2) # Um jogador mais experiente
+        self.r_delta_expert = trueskill.Rating(
+            mu=35.0, sigma=self.env.sigma / 2
+        )  # Um jogador mais experiente
 
     def test_create_new_rating(self):
         """Testa se create_new_rating retorna um objeto Rating com os padrões do ambiente."""
@@ -49,7 +48,7 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
     def test_update_ratings_1v1_win_a(self):
         """Testa uma partida 1x1 onde a equipe A (jogador alpha) vence."""
         team_a_before = [self.r_alpha]
-        team_b_before = [self.r_beta] # r_beta tem o mesmo rating que r_alpha
+        team_b_before = [self.r_beta]  # r_beta tem o mesmo rating que r_alpha
 
         new_team_a, new_team_b = ts_rating.update_ratings(
             self.env, team_a_before, team_b_before, MatchResult.WIN_A
@@ -95,8 +94,8 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
 
     def test_update_ratings_2v1_team_a_wins(self):
         """Testa uma partida 2x1 onde a equipe A (alpha, beta) vence a equipe B (gamma)."""
-        team_a_before = [self.r_alpha, self.r_beta] # Ambos com rating padrão
-        team_b_before = [self.r_gamma]             # Rating padrão
+        team_a_before = [self.r_alpha, self.r_beta]  # Ambos com rating padrão
+        team_b_before = [self.r_gamma]  # Rating padrão
 
         new_team_a, new_team_b = ts_rating.update_ratings(
             self.env, team_a_before, team_b_before, MatchResult.WIN_A
@@ -151,8 +150,8 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
 
     def test_update_ratings_1v1_upset_win_b(self):
         """Testa uma partida 1x1 onde a equipe B (alpha, rating padrão) vence a equipe A (delta_expert, rating alto)."""
-        team_a_before = [self.r_delta_expert] # Experiente
-        team_b_before = [self.r_alpha]        # Novato (rating padrão)
+        team_a_before = [self.r_delta_expert]  # Experiente
+        team_b_before = [self.r_alpha]  # Novato (rating padrão)
 
         new_team_a, new_team_b = ts_rating.update_ratings(
             self.env, team_a_before, team_b_before, MatchResult.WIN_B
@@ -163,8 +162,10 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
 
         # Delta (experiente, equipe A) perdeu, então seu mu deve diminuir significativamente.
         self.assertLess(r_delta_after.mu, self.r_delta_expert.mu)
-        self.assertLess(r_delta_after.sigma, self.r_delta_expert.sigma) # Sigma sempre diminui
-        mu_change_delta = self.r_delta_expert.mu - r_delta_after.mu
+        self.assertLess(
+            r_delta_after.sigma, self.r_delta_expert.sigma
+        )  # Sigma sempre diminui
+        # Delta's mu should decrease (expert loses to novice)
 
         # Alpha (novato, equipe B) ganhou, então seu mu deve aumentar significativamente.
         self.assertGreater(r_alpha_after.mu, self.r_alpha.mu)
@@ -174,26 +175,31 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         # A magnitude da mudança deve ser maior para o upset.
         # Em um jogo equilibrado 1v1 onde o favorito perde, a mudança é maior que em um não-upset.
         # Comparando com uma vitória esperada:
-        r_std1_before = self.env.create_rating() # Jogador A padrão
-        r_std2_before = self.env.create_rating() # Jogador B padrão
+        r_std1_before = self.env.create_rating()  # Jogador A padrão
+        r_std2_before = self.env.create_rating()  # Jogador B padrão
 
         # Jogo padrão: Jogador B (std2) vence Jogador A (std1)
         r_std1_after_list, r_std2_after_list = ts_rating.update_ratings(
             self.env, [r_std1_before], [r_std2_before], MatchResult.WIN_B
         )
-        r_std1_after = r_std1_after_list[0]
+        # r_std1_after = r_std1_after_list[0]  # Not used in this test
         r_std2_after = r_std2_after_list[0]
 
-        mu_change_std_winner = r_std2_after.mu - r_std2_before.mu # Ganho do vencedor padrão
-        mu_change_std_loser = r_std1_before.mu - r_std1_after.mu   # Perda do perdedor padrão (magnitude)
+        mu_change_std_winner = (
+            r_std2_after.mu - r_std2_before.mu
+        )  # Ganho do vencedor padrão
+        # Standard match loser mu decrease (not used in this test)
 
-        self.assertGreater(mu_change_alpha, mu_change_std_winner, "Upset win should yield larger mu increase for winner vs standard win")
+        self.assertGreater(
+            mu_change_alpha,
+            mu_change_std_winner,
+            "Upset win should yield larger mu increase for winner vs standard win",
+        )
         # self.assertGreater(mu_change_delta, mu_change_std_loser, "Upset loss should yield larger mu decrease for loser vs standard loss")
         # Esta asserção está falhando. A perda de mu para um jogador experiente (sigma baixo) em um upset
         # pode ser menor do que a perda de mu para um jogador com sigma padrão em um jogo normal,
         # pois o sistema pode estar mais confiante no rating do jogador experiente.
         # Comentando por enquanto para investigação futura ou ajuste dos parâmetros do teste/ambiente.
-
 
     def test_rating_exposure_increases_mu_certainty(self):
         """Testa se jogar múltiplas partidas (exposição) aumenta a certeza (diminui sigma)."""
@@ -230,10 +236,18 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
         # No código original, p1_after_match1[0] era usado, o que significa que r_player1 (já atualizado)
         # estava em equipe com ele mesmo (o resultado da primeira partida para p1).
         # Vou manter a lógica original de usar o r_player1 atualizado como seu próprio companheiro para replicar o teste.
-        p2_rating_from_match1 = p1_after_match1_list[0] # Este é r_player1 após a partida 1.
+        p2_rating_from_match1 = p1_after_match1_list[
+            0
+        ]  # Este é r_player1 após a partida 1.
 
-        team_p1_p2 = [r_player1, p2_rating_from_match1] # r_player1 (após partida 2) em equipe com r_player1 (após partida 1)
-        team_p3_p4 = [r_player3, r_player4] # r_player3 e r_player4 ainda com ratings iniciais
+        team_p1_p2 = [
+            r_player1,
+            p2_rating_from_match1,
+        ]  # r_player1 (após partida 2) em equipe com r_player1 (após partida 1)
+        team_p3_p4 = [
+            r_player3,
+            r_player4,
+        ]  # r_player3 e r_player4 ainda com ratings iniciais
 
         p1_p2_after_match3_list, _ = ts_rating.update_ratings(
             self.env, team_p1_p2, team_p3_p4, MatchResult.DRAW
@@ -244,8 +258,12 @@ class TestTrueSkillRatingCalculations(unittest.TestCase):
 
 class TestTrueSkillConfigLoading(unittest.TestCase):
     def test_missing_config_uses_default_and_logs(self):
-        with patch.object(ts_rating.toml, "load", side_effect=FileNotFoundError("missing")):
-            with patch.object(logging.getLogger("causaganha.core.trueskill_rating"), "error") as mock_log:
+        with patch.object(
+            ts_rating.toml, "load", side_effect=FileNotFoundError("missing")
+        ):
+            with patch.object(
+                logging.getLogger("causaganha.core.trueskill_rating"), "error"
+            ) as mock_log:
                 config = ts_rating.load_trueskill_config()
                 self.assertEqual(config, ts_rating._DEFAULT_CONFIG)
                 mock_log.assert_called()
@@ -254,10 +272,13 @@ class TestTrueSkillConfigLoading(unittest.TestCase):
     def test_invalid_config_uses_default_and_logs(self):
         err = toml.TomlDecodeError("boom", "", 0)
         with patch.object(ts_rating.toml, "load", side_effect=err):
-            with patch.object(logging.getLogger("causaganha.core.trueskill_rating"), "error") as mock_log:
+            with patch.object(
+                logging.getLogger("causaganha.core.trueskill_rating"), "error"
+            ) as mock_log:
                 config = ts_rating.load_trueskill_config()
                 self.assertEqual(config, ts_rating._DEFAULT_CONFIG)
                 mock_log.assert_called_with("Failed to load TrueSkill config: %s", err)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

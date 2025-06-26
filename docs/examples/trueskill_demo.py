@@ -71,6 +71,8 @@ print(
 
 print("--- Cenário 4: Resultado inválido ---")
 try:
-    ts_rating.update_ratings(ENV, [ENV.create_rating()], [ENV.create_rating()], "resultado_invalido")
+    ts_rating.update_ratings(
+        ENV, [ENV.create_rating()], [ENV.create_rating()], "resultado_invalido"
+    )
 except ValueError as exc:
     print(f"Erro capturado como esperado: {exc}")

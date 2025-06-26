@@ -138,7 +138,9 @@ def validate_decision(decision: dict) -> bool:
         requerido = decision.get("polo_passivo")
 
     if not requerente:  # Checks for None or empty list/string
-        logger.warning("Validation failed: 'requerente/polo_ativo' is missing or empty.")
+        logger.warning(
+            "Validation failed: 'requerente/polo_ativo' is missing or empty."
+        )
         return False
     if not (isinstance(requerente, list) or isinstance(requerente, str)):
         logger.warning(
@@ -154,7 +156,9 @@ def validate_decision(decision: dict) -> bool:
         return False
 
     if not requerido:  # Checks for None or empty list/string
-        logger.warning("Validation failed: 'requerido/polo_passivo' is missing or empty.")
+        logger.warning(
+            "Validation failed: 'requerido/polo_passivo' is missing or empty."
+        )
         return False
     if not (isinstance(requerido, list) or isinstance(requerido, str)):
         logger.warning(

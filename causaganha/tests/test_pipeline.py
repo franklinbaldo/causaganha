@@ -16,10 +16,8 @@ if str(PROJECT_ROOT) not in sys.path:
 try:
     from causaganha.core import pipeline
 
-    # Also import specific items that might be patched or referred to
-    from causaganha.core.utils import normalize_lawyer_name, validate_decision
-    # from causaganha.core.elo import update_elo # No longer used
-    from causaganha.core.trueskill_rating import ENV, trueskill # May be needed for test setup
+    # Import TrueSkill environment for test setup
+    from causaganha.core.trueskill_rating import ENV
 except ModuleNotFoundError as e:
     print(
         f"ERROR: Could not import causaganha.core modules. Original error: {e}",
@@ -241,7 +239,9 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def test_verbose_flag_sets_debug_level_basicConfig(self, mock_basic_config):
         # We just check that basicConfig is called with DEBUG level by setup_logging
         with patch.object(
-            pipeline, "_update_trueskill_ratings_logic", MagicMock() # Patched to new function name
+            pipeline,
+            "_update_trueskill_ratings_logic",
+            MagicMock(),  # Patched to new function name
         ):  # Mock out the actual logic
             self.run_main_for_test(["--verbose", "update"])
 
@@ -315,21 +315,25 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self.sample_decision_1 = {
             "numero_processo": "0000001-01.2023.8.22.0001",
             "tipo_decisao": "sentença",
-            "polo_ativo": ["Parte Requerente A"], # Ensure validate_decision passes
-            "polo_passivo": ["Parte Requerida B"], # Ensure validate_decision passes
+            "polo_ativo": ["Parte Requerente A"],  # Ensure validate_decision passes
+            "polo_passivo": ["Parte Requerida B"],  # Ensure validate_decision passes
             "advogados_polo_ativo": ["Adv A Teste (OAB/UF 111)"],
             "advogados_polo_passivo": ["Adv B Teste (OAB/UF 222)"],
-            "resultado": "procedente", # win_a
+            "resultado": "procedente",  # win_a
             "data_decisao": "2023-01-01",
         }
         self.sample_decision_2 = {
             "numero_processo": "0000002-02.2023.8.22.0001",
             "tipo_decisao": "sentença",
-            "polo_ativo": ["Parte Requerente C"], # Ensure validate_decision passes
-            "polo_passivo": ["Parte Requerida D"], # Ensure validate_decision passes (was Parte A, making it different)
+            "polo_ativo": ["Parte Requerente C"],  # Ensure validate_decision passes
+            "polo_passivo": [
+                "Parte Requerida D"
+            ],  # Ensure validate_decision passes (was Parte A, making it different)
             "advogados_polo_ativo": ["Adv C Teste (OAB/UF 333)"],
-            "advogados_polo_passivo": ["Adv A Teste (OAB/UF 111)"], # Adv A is in both teams, different roles
-            "resultado": "improcedente", # win_b (polo passivo/requerido ganha)
+            "advogados_polo_passivo": [
+                "Adv A Teste (OAB/UF 111)"
+            ],  # Adv A is in both teams, different roles
+            "resultado": "improcedente",  # win_b (polo passivo/requerido ganha)
             "data_decisao": "2023-01-02",
         }
         # Create actual files that will be globbed and opened by the pipeline logic
@@ -364,11 +368,14 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self.sample_decision_3 = {
             "numero_processo": "0000003-03.2023.8.22.0001",
             "tipo_decisao": "acordao",
-            "polo_ativo": ["Parte Polo Ativo C"], # Added for validation
-            "polo_passivo": ["Parte Polo Passivo D"], # Added for validation
-            "advogados_polo_ativo": ["Adv A Teste (OAB/UF 111)", "Adv D Teste (OAB/UF 444)"],
+            "polo_ativo": ["Parte Polo Ativo C"],  # Added for validation
+            "polo_passivo": ["Parte Polo Passivo D"],  # Added for validation
+            "advogados_polo_ativo": [
+                "Adv A Teste (OAB/UF 111)",
+                "Adv D Teste (OAB/UF 444)",
+            ],
             "advogados_polo_passivo": ["Adv B Teste (OAB/UF 222)"],
-            "resultado": "provido", # win_a for TrueSkill
+            "resultado": "provido",  # win_a for TrueSkill
             "data_decisao": "2023-01-03",
         }
         with open(self.json_input_dir / "decision3.json", "w") as f:
@@ -408,7 +415,6 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         if (self.processed_json_dir / "decision3.json").exists():
             (self.processed_json_dir / "decision3.json").unlink()
 
-
         self.stdout_patch.stop()
         self.stderr_patch.stop()
         logging.getLogger().handlers.clear()
@@ -420,18 +426,25 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self, mock_read_csv, mock_to_csv, mock_shutil_move
     ):
         # Mock initial ratings for TrueSkill (mu, sigma)
-        initial_ratings_df = pd.DataFrame({
-            "advogado_id": ["adv a teste (oab/uf 111)", "adv b teste (oab/uf 222)", "adv c teste (oab/uf 333)", "adv d teste (oab/uf 444)"],
-            "mu": [ENV.mu] * 4,
-            "sigma": [ENV.sigma] * 4,
-            "total_partidas": [0] * 4
-        }).set_index("advogado_id")
+        initial_ratings_df = pd.DataFrame(
+            {
+                "advogado_id": [
+                    "adv a teste (oab/uf 111)",
+                    "adv b teste (oab/uf 222)",
+                    "adv c teste (oab/uf 333)",
+                    "adv d teste (oab/uf 444)",
+                ],
+                "mu": [ENV.mu] * 4,
+                "sigma": [ENV.sigma] * 4,
+                "total_partidas": [0] * 4,
+            }
+        ).set_index("advogado_id")
         mock_read_csv.return_value = initial_ratings_df
 
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
         args = pipeline.argparse.Namespace(dry_run=False, verbose=True)
 
-        pipeline.update_command(args) # This calls _update_trueskill_ratings_logic
+        pipeline.update_command(args)  # This calls _update_trueskill_ratings_logic
 
         mock_read_csv.assert_called_once_with(
             Path("causaganha/data/ratings.csv"), index_col="advogado_id"
@@ -465,12 +478,18 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         # Verify the paths and kwargs for the to_csv calls
         # First call should be for ratings_file
         ratings_call_args = mock_to_csv.call_args_list[0]
-        self.assertEqual(ratings_call_args.args[0], Path("causaganha/data/ratings.csv")) # Use relative path
+        self.assertEqual(
+            ratings_call_args.args[0], Path("causaganha/data/ratings.csv")
+        )  # Use relative path
 
         # Second call should be for partidas_file
         partidas_call_args = mock_to_csv.call_args_list[1]
-        self.assertEqual(partidas_call_args.args[0], Path("causaganha/data/partidas.csv")) # Use relative path
-        self.assertEqual(partidas_call_args.kwargs.get('index'), False) # Check index=False for partidas
+        self.assertEqual(
+            partidas_call_args.args[0], Path("causaganha/data/partidas.csv")
+        )  # Use relative path
+        self.assertEqual(
+            partidas_call_args.kwargs.get("index"), False
+        )  # Check index=False for partidas
 
         # Note: Verifying the content of the DataFrames passed to to_csv is complex with this mocking strategy.
         # A more direct way would be to not mock to_csv and inspect the actual files,
@@ -480,14 +499,15 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         # the content is likely correct.
         # More detailed content assertions would require access to the DataFrames just before they are saved.
 
-
     @patch("causaganha.core.pipeline.shutil.move")
     @patch("causaganha.core.pipeline.pd.DataFrame.to_csv")
     @patch("causaganha.core.pipeline.pd.read_csv")
-    def test_update_command_dry_run_trueskill(self, mock_read_csv, mock_to_csv, mock_shutil_move):
-        initial_ratings_df = pd.DataFrame({
-            "advogado_id": [], "mu": [], "sigma": [], "total_partidas": []
-        }).set_index("advogado_id")
+    def test_update_command_dry_run_trueskill(
+        self, mock_read_csv, mock_to_csv, mock_shutil_move
+    ):
+        initial_ratings_df = pd.DataFrame(
+            {"advogado_id": [], "mu": [], "sigma": [], "total_partidas": []}
+        ).set_index("advogado_id")
         mock_read_csv.return_value = initial_ratings_df
 
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
@@ -507,10 +527,14 @@ class TestPipelineUpdateCommand(unittest.TestCase):
     def test_update_command_all_decisions_invalid_trueskill(
         self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate
     ):
-        initial_ratings_df = pd.DataFrame({
-            "advogado_id": ["adv x (oab/xx 000)"],
-            "mu": [ENV.mu], "sigma": [ENV.sigma], "total_partidas": [0]
-        }).set_index("advogado_id")
+        initial_ratings_df = pd.DataFrame(
+            {
+                "advogado_id": ["adv x (oab/xx 000)"],
+                "mu": [ENV.mu],
+                "sigma": [ENV.sigma],
+                "total_partidas": [0],
+            }
+        ).set_index("advogado_id")
         mock_read_csv.return_value = initial_ratings_df
 
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
@@ -531,7 +555,8 @@ class TestPipelineUpdateCommand(unittest.TestCase):
 
         mock_shutil_move.assert_not_called()  # No files processed successfully to be moved.
         self.assertTrue(
-            mock_validate.call_count >= 3 # Now expecting calls for decision1, decision2, and decision3
+            mock_validate.call_count
+            >= 3  # Now expecting calls for decision1, decision2, and decision3
         )  # Called for decisions in all three files
 
 
