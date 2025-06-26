@@ -14,6 +14,7 @@ Requires-Dist: google-auth>=2.40.3
 Requires-Dist: google-generativeai>=0.8.5
 Requires-Dist: internetarchive>=5.4.0
 Requires-Dist: pandas>=2.3.0
+Requires-Dist: playwright>=1.53.0
 Requires-Dist: pymupdf>=1.26.1
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: python-json-logger>=3.3.0
@@ -196,19 +197,19 @@ export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
 export GDRIVE_FOLDER_ID="abc123"
 
 # Rodar pipeline completo
-uv run python causaganha/core/pipeline.py run --date 2025-06-01
+uv run python src/pipeline.py run --date 2025-06-01
 
 # Migrar dados existentes para DuckDB (setup inicial)
-uv run python causaganha/core/migration.py
+uv run python src/migration.py
 
 # Backup para Cloudflare R2
-uv run python causaganha/core/r2_storage.py backup
+uv run python src/r2_storage.py backup
 
 # Consultas remotas sem download
-uv run python causaganha/core/r2_queries.py rankings --limit 10
+uv run python src/r2_queries.py rankings --limit 10
 
 # Arquivar PDF no Internet Archive
-uv run python pipeline/collect_and_archive.py --latest
+uv run python scripts/collect_and_archive.py --latest
 
 
 ---
