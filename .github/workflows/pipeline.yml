@@ -43,8 +43,8 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     outputs:
-      pdf-path: ${{ steps.collect.outputs.pdf_path }}
-      processing_date: ${{ steps.collect.outputs.processing_date }}
+      pdf_path: ${{ steps.collect.outputs.pdf_path }}
+      processing_date: ${{ steps.date.outputs.processing_date }}
     
     steps:
       - name: Checkout repository
@@ -160,7 +160,7 @@ jobs:
       - name: Extract content with Gemini
         id: extract
         run: |
-          PDF_PATH="${{ needs.collect.outputs.pdf-path }}"
+          PDF_PATH="${{ needs.collect.outputs.pdf_path }}"
           echo "Extracting content from: $PDF_PATH"
           
           uv run python causaganha/core/extractor.py --pdf_file "$PDF_PATH"
@@ -262,7 +262,7 @@ jobs:
         run: |
           echo "## CausaGanha Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "**Date**: ${{ needs.collect.outputs.processing_date }}" >> $GITHUB_STEP_SUMMARY
-          echo "**PDF**: ${{ needs.collect.outputs.pdf-path }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PDF**: ${{ needs.collect.outputs.pdf_path }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Job Status" >> $GITHUB_STEP_SUMMARY
           echo "- **Collect**: ${{ needs.collect.result }}" >> $GITHUB_STEP_SUMMARY
