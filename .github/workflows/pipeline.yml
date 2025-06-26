@@ -307,113 +307,6 @@ jobs:
           echo "Creating backup snapshot to Cloudflare R2..."
           uv run python causaganha/core/r2_storage.py backup
 
-  # Error handling job that creates debug branch on failure
-  error_handler:
-    runs-on: ubuntu-latest
-    needs: [collect, archive, extract, update, backup]
-    if: always() && (needs.collect.result == 'failure' || needs.extract.result == 'failure' || needs.update.result == 'failure' || needs.archive.result == 'failure' || needs.backup.result == 'failure')
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure git identity
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          
-      - name: Create error debug branch
-        run: |
-          # Create unique branch name
-          BRANCH_NAME="debug/pipeline-error-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BRANCH_NAME"
-          
-          # Create comprehensive error report
-          cat > WORKFLOW_ERROR.md << 'EOF'
-          # Pipeline Error Debug Report
-          
-          **Generated**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-          **Run ID**: ${{ github.run_id }}
-          **Commit**: ${{ github.sha }}
-          **Event**: ${{ github.event_name }}
-          **Processing Date**: ${{ needs.collect.outputs.processing_date || 'NOT_SET' }}
-          
-          ## Job Results
-          
-          | Job | Status | Duration |
-          |-----|--------|----------|
-          | collect | ${{ needs.collect.result }} | - |
-          | archive | ${{ needs.archive.result }} | - |
-          | extract | ${{ needs.extract.result }} | - |
-          | update | ${{ needs.update.result }} | - |
-          | backup | ${{ needs.backup.result }} | - |
-          
-          ## Outputs Investigation
-          
-          ### Collect Job Outputs
-          - **pdf_path**: `${{ needs.collect.outputs.pdf_path || 'NOT_SET' }}`
-          - **processing_date**: `${{ needs.collect.outputs.processing_date || 'NOT_SET' }}`
-          
-          ### Extract Job Outputs  
-          - **json_path**: `${{ needs.extract.outputs.json-path || 'NOT_SET' }}`
-          
-          ## Error Analysis
-          
-          ### Critical Issues to Check:
-          1. **Variable Chain**: Are outputs properly passed between jobs?
-          2. **File Existence**: Do downloaded/created files actually exist?
-          3. **API Keys**: Are all required secrets properly configured?
-          4. **Artifact Naming**: Do upload/download artifact names match?
-          
-          ### Common Failure Points:
-          - PDF download fails (TJRO website issues)
-          - Gemini API quota exceeded or key missing
-          - Artifact upload/download mismatch
-          - Database connection issues
-          
-          ## Next Steps
-          1. Check the GitHub Actions run logs for detailed error messages
-          2. Verify all secrets are properly configured in the 'dev' environment
-          3. Test individual components locally
-          4. Run manual workflow_dispatch with a recent date
-          
-          ## Logs to Review
-          
-          **View logs at**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          
-          ### Key Log Sections:
-          - Collect job: PDF download and file verification
-          - Extract job: Gemini API calls and JSON generation  
-          - Update job: TrueSkill processing and database updates
-          
-          ## Environment Details
-          - **Repository**: ${{ github.repository }}
-          - **Branch**: ${{ github.ref_name }}
-          - **Actor**: ${{ github.actor }}
-          - **Workflow**: ${{ github.workflow }}
-          
-          EOF
-          
-          # Add and commit the error report
-          git add WORKFLOW_ERROR.md
-          git commit -m "Add pipeline error debug report for run ${{ github.run_id }}
-
-          Failed jobs: ${{ needs.collect.result }} | ${{ needs.archive.result }} | ${{ needs.extract.result }} | ${{ needs.update.result }} | ${{ needs.backup.result }}
-          
-          Processing date: ${{ needs.collect.outputs.processing_date || 'NOT_SET' }}
-          PDF path: ${{ needs.collect.outputs.pdf_path || 'NOT_SET' }}
-          
-          Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          
-          # Push the debug branch
-          git push origin "$BRANCH_NAME"
-          
-          echo "🚨 **Error debug branch created**: \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
-          echo "Review WORKFLOW_ERROR.md in the new branch for detailed analysis." >> $GITHUB_STEP_SUMMARY
 
   # Summary job that runs after all others complete
   summary:
@@ -438,7 +331,6 @@ jobs:
           # Check for failures
           if [[ "${{ needs.collect.result }}" == "failure" || "${{ needs.extract.result }}" == "failure" || "${{ needs.update.result }}" == "failure" ]]; then
             echo "❌ **Pipeline had critical failures**" >> $GITHUB_STEP_SUMMARY
-            echo "🔧 **Debug branch created** - check for debug/pipeline-error-* branch" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
             echo "✅ **Pipeline completed successfully**" >> $GITHUB_STEP_SUMMARY
