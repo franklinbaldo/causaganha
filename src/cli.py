@@ -25,7 +25,7 @@ def main():
 
     # Database commands
     db_parser = subparsers.add_parser("db", help="Database operations")
-    db_parser.add_argument("action", choices=["migrate", "status", "backup"])
+    db_parser.add_argument("action", choices=["migrate", "status"])
 
     # Downloader commands
     download_parser = subparsers.add_parser("download", help="Download PDFs")
@@ -81,10 +81,6 @@ def handle_db_command(args):
         db = CausaGanhaDB()
         print("Database status: Connected")
         print(f"Database path: {db.db_path}")
-    elif args.action == "backup":
-        from r2_storage import backup_database
-
-        backup_database()
 
 
 def handle_download_command(args):

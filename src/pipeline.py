@@ -88,13 +88,6 @@ def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
             logger.error("Could not parse date '%s'", date_str)
             return None
     pdf_path = _real_fetch_tjro_pdf(date_obj)
-    if pdf_path:
-        try:
-            from gdrive import upload_file_to_gdrive
-
-            upload_file_to_gdrive(pdf_path)
-        except Exception as e:
-            logger.error(f"Failed to upload {pdf_path} to GDrive: {e}")
     return pdf_path
 
 
