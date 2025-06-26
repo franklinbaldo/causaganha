@@ -36,86 +36,42 @@ causa_ganha/
 
 ## Proposed Structure
 
-### ✅ **Modern Python Project Layout**
+### ✅ **Simplified Modern Layout**
 ```
 causa_ganha/
-├── src/                          # Source code directory
+├── src/
 │   └── causaganha/              # Main package
-│       ├── __init__.py          # Package initialization
-│       ├── core/                # Core business logic
-│       │   ├── __init__.py
-│       │   ├── database.py
-│       │   ├── extractor.py
-│       │   ├── pipeline.py
-│       │   ├── downloader.py
-│       │   ├── trueskill_rating.py
-│       │   ├── utils.py
-│       │   ├── gdrive.py
-│       │   ├── r2_storage.py
-│       │   ├── r2_queries.py
-│       │   ├── migration.py
-│       │   └── migration_runner.py
-│       ├── cli/                 # Command-line interfaces
-│       │   ├── __init__.py
-│       │   ├── main.py          # Main CLI entry point
-│       │   ├── pipeline_cli.py  # Pipeline commands
-│       │   └── admin_cli.py     # Admin/maintenance commands
-│       ├── config/              # Configuration management
-│       │   ├── __init__.py
-│       │   ├── settings.py      # Settings loader
-│       │   └── defaults.py      # Default configurations
-│       ├── models/              # Data models and schemas
-│       │   ├── __init__.py
-│       │   ├── decision.py      # Decision data models
-│       │   ├── lawyer.py        # Lawyer data models
-│       │   └── rating.py        # Rating data models
-│       └── utils/               # Utility functions
-│           ├── __init__.py
-│           ├── validation.py    # Data validation
-│           ├── logging.py       # Logging configuration
-│           └── exceptions.py    # Custom exceptions
-├── tests/                       # All tests in one place
-│   ├── __init__.py
+│       ├── __init__.py
+│       ├── cli.py               # Command-line interface (single file)
+│       ├── database.py          # Database operations
+│       ├── extractor.py         # PDF extraction with Gemini
+│       ├── pipeline.py          # Pipeline orchestration
+│       ├── downloader.py        # PDF downloading
+│       ├── trueskill_rating.py  # TrueSkill calculations
+│       ├── r2_storage.py        # Cloudflare R2 operations
+│       ├── r2_queries.py        # R2 analytics queries
+│       ├── migration_runner.py  # Database migrations
+│       ├── utils.py             # Utility functions
+│       └── config.py            # Configuration management
+├── tests/
 │   ├── conftest.py             # Pytest configuration
-│   ├── unit/                   # Unit tests
-│   │   ├── test_database.py
-│   │   ├── test_extractor.py
-│   │   ├── test_pipeline.py
-│   │   └── ...
-│   ├── integration/            # Integration tests
-│   │   ├── test_full_pipeline.py
-│   │   └── test_database_migration.py
+│   ├── test_database.py
+│   ├── test_extractor.py
+│   ├── test_pipeline.py
 │   └── fixtures/               # Test data
-│       ├── sample_pdfs/
-│       └── sample_json/
-├── scripts/                    # Deployment and utility scripts
-│   ├── setup_dev.py           # Development setup
-│   ├── deploy.py              # Deployment helpers
-│   └── maintenance.py         # Maintenance tasks
-├── pipeline/                   # Workflow orchestration
-│   ├── __init__.py
-│   ├── collect_and_archive.py # Internet Archive workflows
-│   └── monitoring.py          # Pipeline monitoring
-├── data/                       # Data storage (git-ignored except samples)
-│   ├── .gitkeep               # Keep directory structure
-│   ├── samples/               # Sample data for testing
-│   └── README.md              # Data directory documentation
+│       └── sample_data/
+├── scripts/
+│   ├── collect_and_archive.py  # Internet Archive workflows
+│   └── setup_dev.py           # Development setup
+├── data/                       # Data storage (mostly git-ignored)
+│   └── samples/               # Sample data for testing
 ├── migrations/                 # Database migrations
-│   ├── 001_init.sql
-│   └── README.md
+│   └── 001_init.sql
 ├── docs/                       # Documentation
-│   ├── api/                   # API documentation
-│   ├── user-guide/            # User guides
-│   └── development/           # Development docs
-├── config/                     # Configuration files
-│   ├── production.toml
-│   ├── development.toml
-│   └── config.example.toml
 ├── .github/                    # GitHub Actions
 ├── pyproject.toml             # Modern Python project config
+├── config.toml.example        # Configuration template
 ├── README.md
-├── CHANGELOG.md
-├── LICENSE
 └── .env.example
 ```
 
@@ -125,10 +81,12 @@ causa_ganha/
 
 #### 1.1 Create New Directory Structure
 ```bash
-# Create new src-based layout
-mkdir -p src/causaganha/{core,cli,config,models,utils}
-mkdir -p tests/{unit,integration,fixtures}
-mkdir -p scripts config docs/{api,user-guide,development}
+# Create simplified src-based layout
+mkdir -p src/causaganha
+mkdir -p tests/fixtures/sample_data
+mkdir -p scripts
+mkdir -p data/samples
+touch src/causaganha/__init__.py
 ```
 
 #### 1.2 Update Project Configuration
@@ -172,44 +130,47 @@ where = ["src"]
 
 #### 2.1 Migrate Core Modules
 ```bash
-# Move core business logic
-mv causaganha/core/* src/causaganha/core/
-# Add proper __init__.py files
-touch src/causaganha/__init__.py
-touch src/causaganha/core/__init__.py
+# Move core business logic (flat structure)
+mv causaganha/core/* src/causaganha/
+# Move pipeline script
+mv pipeline/collect_and_archive.py scripts/
+# Move tests
+mv causaganha/tests/* tests/
 ```
 
-#### 2.2 Create CLI Structure
+#### 2.2 Simplify CLI Structure
 ```python
-# src/causaganha/cli/main.py
-"""Main CLI entry point for CausaGanha."""
+# src/causaganha/cli.py
+"""Command-line interface for CausaGanha."""
 import argparse
-from causaganha.cli.pipeline_cli import PipelineCLI
-from causaganha.cli.admin_cli import AdminCLI
+from causaganha.pipeline import main as pipeline_main
+from causaganha.database import CausaGanhaDB
+from causaganha.migration_runner import run_migrations
 
 def main():
+    """Main CLI entry point."""
     parser = argparse.ArgumentParser(description="CausaGanha - Judicial Decision Analysis")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
-    # Pipeline commands
-    pipeline_cli = PipelineCLI()
-    pipeline_cli.add_parser(subparsers)
+    # Pipeline commands (keep existing interface)
+    pipeline_parser = subparsers.add_parser('pipeline', help='Run pipeline operations')
+    pipeline_parser.add_argument('action', choices=['collect', 'extract', 'update', 'run'])
+    pipeline_parser.add_argument('--date', help='Date to process')
+    pipeline_parser.add_argument('--dry-run', action='store_true', help='Dry run mode')
     
-    # Admin commands  
-    admin_cli = AdminCLI()
-    admin_cli.add_parser(subparsers)
+    # Database commands
+    db_parser = subparsers.add_parser('db', help='Database operations')
+    db_parser.add_argument('action', choices=['migrate', 'status', 'backup'])
     
     args = parser.parse_args()
     
     if args.command == 'pipeline':
-        pipeline_cli.execute(args)
-    elif args.command == 'admin':
-        admin_cli.execute(args)
+        # Delegate to existing pipeline main
+        pipeline_main()
+    elif args.command == 'db':
+        handle_db_command(args)
     else:
         parser.print_help()
-
-if __name__ == "__main__":
-    main()
 ```
 
 #### 2.3 Modernize Imports
@@ -225,10 +186,8 @@ from causaganha.core.database import CausaGanhaDB
 
 #### 3.1 Consolidate Test Structure
 ```bash
-# Move all tests to unified location
-mv causaganha/tests/* tests/unit/
-# Create proper test structure
-mkdir -p tests/{unit,integration,fixtures}
+# Move all tests to unified location (already done in Phase 2)
+# Simple flat test structure - no unit/integration separation needed yet
 ```
 
 #### 3.2 Update Test Configuration
@@ -258,56 +217,43 @@ def sample_pdf():
 
 ### **Phase 4: Update Configuration**
 
-#### 4.1 Centralize Configuration Management
+#### 4.1 Simplify Configuration Management
 ```python
-# src/causaganha/config/settings.py
-"""Configuration management for CausaGanha."""
+# src/causaganha/config.py
+"""Simple configuration management for CausaGanha."""
 import toml
 from pathlib import Path
 from typing import Dict, Any
-from causaganha.config.defaults import DEFAULT_CONFIG
 
-class Settings:
-    def __init__(self, config_path: Path = None):
-        self.config_path = config_path or self._find_config()
-        self.config = self._load_config()
+DEFAULT_CONFIG = {
+    "database": {"path": "data/causaganha.duckdb"},
+    "trueskill": {"mu": 25.0, "sigma": 8.333},
+    "logging": {"level": "INFO"}
+}
+
+def load_config(config_path: Path = None) -> Dict[str, Any]:
+    """Load configuration from file or return defaults."""
+    if config_path is None:
+        config_path = Path("config.toml")
     
-    def _find_config(self) -> Path:
-        """Find configuration file in standard locations."""
-        search_paths = [
-            Path.cwd() / "config.toml",
-            Path.cwd() / "config" / "config.toml",
-            Path.home() / ".causaganha" / "config.toml"
-        ]
-        
-        for path in search_paths:
-            if path.exists():
-                return path
-                
-        return search_paths[0]  # Default to current directory
-    
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
-        if self.config_path.exists():
-            return toml.load(self.config_path)
-        return DEFAULT_CONFIG.copy()
+    if config_path.exists():
+        return toml.load(config_path)
+    return DEFAULT_CONFIG.copy()
 ```
 
-#### 4.2 Environment-Specific Configs
+#### 4.2 Simple Configuration Template
 ```toml
-# config/development.toml
+# config.toml.example
 [database]
-path = "data/causaganha_dev.duckdb"
-backup_enabled = false
-
-[logging]
-level = "DEBUG"
-file = "logs/causaganha_dev.log"
+path = "data/causaganha.duckdb"
 
 [trueskill]
 mu = 25.0
 sigma = 8.333
 beta = 4.167
+
+[logging]
+level = "INFO"
 ```
 
 ### **Phase 5: Update Workflows**
