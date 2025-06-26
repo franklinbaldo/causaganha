@@ -37,7 +37,7 @@ class CausaGanhaDB:
         """Conecta ao banco DuckDB e inicializa schema."""
         self.conn = duckdb.connect(str(self.db_path))
         self._initialize_schema()
-        logger.info(f"Conectado ao DuckDB: {self.db_path}")
+        logger.info("Conectado ao DuckDB: %s", self.db_path)
     
     def close(self):
         """Fecha conexão com banco."""
@@ -324,9 +324,9 @@ class CausaGanhaDB:
         for table in tables:
             df = self.conn.execute(f"SELECT * FROM {table}").df()
             df.to_csv(output_dir / f"{table}.csv", index=False)
-            logger.info(f"Tabela {table} exportada: {len(df)} registros")
+            logger.info("Tabela %s exportada: %d registros", table, len(df))
         
-        logger.info(f"Backup CSV completo salvo em: {output_dir}")
+        logger.info("Backup CSV completo salvo em: %s", output_dir)
     
     def vacuum(self):
         """Otimiza banco de dados."""
@@ -354,7 +354,7 @@ class CausaGanhaDB:
             try:
                 count = self.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                 tables[table] = count
-            except Exception as e:
+            except (duckdb.Error, duckdb.CatalogException) as e:
                 tables[table] = f"Error: {e}"
         
         return tables
