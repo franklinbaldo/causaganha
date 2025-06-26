@@ -43,9 +43,9 @@ class GeminiExtractor:
                     "GeminiExtractor initialized: google.generativeai configured with API key."
                 )
                 self.gemini_configured = True
-            except Exception as e:
+            except (ValueError, TypeError, ImportError) as e:
                 logging.error(
-                    f"GeminiExtractor: Failed to configure google.generativeai: {e}"
+                    "GeminiExtractor: Failed to configure google.generativeai: %s", e
                 )
                 self.gemini_configured = False
         elif genai and not self.api_key:
@@ -107,8 +107,8 @@ class GeminiExtractor:
             logging.info(f"Successfully extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks")
             return chunks
             
-        except Exception as e:
-            logging.error(f"Error extracting text from PDF {pdf_path.name}: {e}")
+        except (RuntimeError, OSError) as e:
+            logging.error("Error extracting text from PDF %s: %s", pdf_path.name, e)
             if 'doc' in locals():
                 try:
                     doc.close()
@@ -167,8 +167,8 @@ class GeminiExtractor:
                     with open(text_file_path, "w", encoding="utf-8") as f:
                         f.write(full_text)
                     logging.info(f"Saved extracted text to: {text_file_path}")
-                except Exception as e:
-                    logging.warning(f"Failed to save extracted text: {e}")
+                except (OSError, IOError) as e:
+                    logging.warning("Failed to save extracted text: %s", e)
                 
                 # Process each chunk separately
                 all_decisions = []
@@ -228,7 +228,7 @@ REGRAS OBRIGATÓRIAS:
                             response = model.generate_content(full_prompt)
                             response_successful = True
                             break
-                        except Exception as e:
+                        except (OSError, ValueError, Exception) as e:
                             if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
                                 retry_count += 1
                                 if retry_count < max_retries:
@@ -259,8 +259,8 @@ REGRAS OBRIGATÓRIAS:
                             f.write(response.text)
                         logging.info(f"Saved raw Gemini response chunk {chunk_index + 1} to: {raw_response_file}")
                         all_raw_responses.append(f"Chunk {chunk_index + 1}: {response.text[:200]}...")
-                    except Exception as e:
-                        logging.warning(f"Failed to save raw Gemini response for chunk {chunk_index + 1}: {e}")
+                    except (OSError, IOError) as e:
+                        logging.warning("Failed to save raw Gemini response for chunk %d: %s", chunk_index + 1, e)
 
                     # Parse JSON response for this chunk
                     try:
@@ -329,8 +329,8 @@ REGRAS OBRIGATÓRIAS:
                     logging.info(f"Cleaned up raw response file: {raw_file}")
                     
                 logging.info("Successfully cleaned up intermediate files")
-            except Exception as cleanup_error:
-                logging.warning(f"Failed to clean up some intermediate files: {cleanup_error}")
+            except (OSError, FileNotFoundError) as cleanup_error:
+                logging.warning("Failed to clean up some intermediate files: %s", cleanup_error)
             
             return output_json_path
         except IOError as e:
@@ -402,9 +402,9 @@ if __name__ == "__main__":
             logging.info(
                 f"Created basic dummy PDF (text file) for CLI testing: {cli_test_pdf}"
             )
-        except Exception as e:
+        except (OSError, IOError) as e:
             logging.error(
-                f"Could not create dummy PDF: {e}. Falling back to simple text file."
+                "Could not create dummy PDF: %s. Falling back to simple text file.", e
             )
             with open(cli_test_pdf, "w") as f:
                 f.write("Fallback dummy PDF content.")

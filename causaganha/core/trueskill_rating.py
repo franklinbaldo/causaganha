@@ -42,7 +42,7 @@ def load_trueskill_config() -> Dict[str, Any]:
         # Fallback para valores padrão se config.toml não for encontrado
         logger.error("config.toml not found at %s: %s", CONFIG_PATH, exc)
         return _DEFAULT_CONFIG
-    except Exception as exc:  # pylint: disable=broad-except
+    except (KeyError, ValueError, TypeError) as exc:
         # Em caso de erro ao ler o toml, usa os padrões e loga o erro
         logger.error("Failed to load TrueSkill config: %s", exc)
         return _DEFAULT_CONFIG

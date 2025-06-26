@@ -1,0 +1,2370 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.github/workflows/ia-upload.yml
+.github/workflows/process_leis.yml
+.gitignore
+app.py
+astro-site/.gitignore
+astro-site/.vscode/extensions.json
+astro-site/.vscode/launch.json
+astro-site/astro.config.mjs
+astro-site/package.json
+astro-site/public/favicon.svg
+astro-site/README.md
+astro-site/src/content/config.ts
+astro-site/src/layouts/BaseLayout.astro
+astro-site/src/pages/index.astro
+astro-site/src/pages/leis/[slug].astro
+astro-site/src/pages/original_index.astro
+astro-site/tsconfig.json
+convert_to_markdown.py
+main.py
+markdown_laws/2.md
+markdown_laws/3.md
+markdown_laws/4.md
+markdown_laws/5.md
+pipeline/collect_and_archive.py
+PLANO_IMPLEMENTACAO_PROCESSADOR_LEIS.md
+pyproject.toml
+query_duckdb.py
+README.md
+scripts/processador_leis.py
+templates/home.html
+templates/law.html
+templates/sitemap.xml
+TODO.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".github/workflows/ia-upload.yml">
+name: IA-upload
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 3 * * *"
+
+env:
+  IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+  IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: pip install internetarchive duckdb zstandard
+      - name: Run collector + uploader
+        run: python pipeline/collect_and_archive.py
+</file>
+
+<file path=".github/workflows/process_leis.yml">
+name: Processar Leis do Internet Archive
+
+on:
+  workflow_dispatch: # Permite acionamento manual
+  schedule:
+    - cron: '0 2 * * 0' # Executa todo domingo às 02:00 UTC (ajustar conforme necessário)
+  push:
+    branches:
+      - main # Ou o branch principal do seu projeto
+
+jobs:
+  process_laws:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Instalar poppler-utils (dependência para pdf2image)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Instalar Dependências Python
+        run: |
+          pip install duckdb google-generativeai internetarchive pdf2image Pillow
+
+      - name: Cache do Banco de Dados DuckDB
+        id: cache-duckdb
+        uses: actions/cache@v4
+        with:
+          path: data/leis.duckdb
+          key: ${{ runner.os }}-duckdb-leis-v1-${{ github.ref_name }}
+          restore-keys: |
+            ${{ runner.os }}-duckdb-leis-v1-
+
+      - name: Executar Script de Processamento de Leis
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DUCKDB_PATH: data/leis.duckdb
+          LOG_FILE_PATH: processamento.log
+        run: python scripts/processador_leis.py
+
+      - name: Upload do Log de Processamento
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-processamento-leis-${{ github.run_id }}
+          path: processamento.log
+          retention-days: 7
+</file>
+
+<file path=".gitignore">
+downloads/
+
+# DuckDB files
+data/*.duckdb
+data/*.duckdb.wal
+
+# Log files
+*.log
+processamento_teste_local.log
+</file>
+
+<file path="app.py">
+from flask import Flask, render_template, abort, url_for, make_response
+from pathlib import Path
+import markdown
+import os  # For listing files
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(message)s")
+
+app = Flask(__name__)
+MARKDOWN_DIR = Path("markdown_laws")
+# Required for url_for with _external=True to work without a request context
+app.config['SERVER_NAME'] = 'localhost:8080' 
+app.config['PREFERRED_URL_SCHEME'] = 'http'
+
+
+@app.route('/')
+def home():
+    laws = []
+    if MARKDOWN_DIR.exists() and MARKDOWN_DIR.is_dir():
+        for md_filename in sorted(os.listdir(MARKDOWN_DIR)):
+            if md_filename.endswith(".md"):
+                coddoc = md_filename[:-3] # Remove .md extension
+                md_path = MARKDOWN_DIR / md_filename
+                title = coddoc # Default title
+                try:
+                    with open(md_path, 'r', encoding='utf-8') as f:
+                        first_line = f.readline().strip()
+                        if first_line.startswith('# '):
+                            title = first_line[2:]
+                        elif first_line: # If the first line is not H1 but not empty, use it as title
+                            title = first_line
+                except Exception as e:
+                    logging.error("Error reading first line of %s: %s", md_path, e)
+                    # Keep default title (coddoc) if error
+                
+                laws.append({'coddoc': coddoc, 'title': title})
+    return render_template('home.html', laws=laws)
+
+@app.route('/sitemap.xml')
+def sitemap():
+    sitemap_urls = []
+    if MARKDOWN_DIR.exists() and MARKDOWN_DIR.is_dir():
+        for md_filename in sorted(os.listdir(MARKDOWN_DIR)):
+            if md_filename.endswith(".md"):
+                coddoc = md_filename[:-3]
+                # For url_for to work here without an active request, we need a context
+                with app.app_context():
+                    # For now, we don't have lastmod, but it could be added
+                    # using os.path.getmtime(MARKDOWN_DIR / md_filename)
+                    # and then formatting it.
+                    loc_url = url_for('view_law', coddoc=coddoc, _external=True)
+                    sitemap_urls.append({'loc': loc_url}) 
+    
+    # Render the sitemap template
+    sitemap_xml = render_template('sitemap.xml', urls=sitemap_urls)
+    response = make_response(sitemap_xml)
+    response.headers["Content-Type"] = "application/xml"
+    return response
+
+@app.route('/lei/<coddoc>')
+def view_law(coddoc):
+    # Sanitize coddoc to prevent directory traversal, although Path helps
+    # For now, assume coddoc is just the number string.
+    # More robust sanitization might be needed if coddoc format changes.
+    if not coddoc.isalnum(): # Basic check
+        abort(400, description="Invalid coddoc format.")
+
+    md_filename = f"{coddoc}.md"
+    md_path = MARKDOWN_DIR / md_filename
+
+    if not md_path.is_file():
+        abort(404, description=f"Law with coddoc '{coddoc}' not found.")
+
+    try:
+        with open(md_path, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+    except Exception as e:
+        # Log the exception e
+        logging.error("Error reading markdown file %s: %s", md_path, e)
+        abort(500, description="Error reading law file.")
+
+    # Extract title from the first H1 line if possible
+    # This is a simple approach and might need refinement
+    title_from_content = coddoc # Default title
+    first_line = md_content.split('\n', 1)[0]
+    if first_line.startswith('# '):
+        title_from_content = first_line[2:].strip()
+    
+    # Extract summary for meta description (first few lines after "## Ementa")
+    summary_text = "Detalhes da lei." # Default summary
+    try:
+        lines = md_content.splitlines()
+        ementa_started = False
+        extracted_summary_lines = []
+        for line in lines:
+            if line.strip().lower() == "## ementa":
+                ementa_started = True
+                continue
+            if ementa_started:
+                if line.startswith("## "): # Next section started
+                    break
+                if line.strip(): # Add non-empty lines
+                    extracted_summary_lines.append(line.strip())
+                if len(extracted_summary_lines) >= 2: # Get up to 2 lines for summary
+                    break
+        if extracted_summary_lines:
+            summary_text = " ".join(extracted_summary_lines)
+
+    except Exception as e:
+        logging.error("Error extracting summary for %s: %s", coddoc, e)
+
+
+    html_content = markdown.markdown(md_content)
+    
+    return render_template('law.html', title=title_from_content, summary=summary_text, content=html_content)
+
+if __name__ == '__main__':
+    # Ensure templates directory exists for render_template
+    if not Path("templates").exists():
+        Path("templates").mkdir()
+        logging.info("Created templates directory.")
+        # A more robust app would ship with templates, but for dev this is ok.
+        # Or check if law.html exists specifically.
+
+    app.run(debug=True, host='0.0.0.0', port=8080)
+</file>
+
+<file path="astro-site/.gitignore">
+# build output
+dist/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+</file>
+
+<file path="astro-site/.vscode/extensions.json">
+{
+  "recommendations": ["astro-build.astro-vscode"],
+  "unwantedRecommendations": []
+}
+</file>
+
+<file path="astro-site/.vscode/launch.json">
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "command": "./node_modules/.bin/astro dev",
+      "name": "Development server",
+      "request": "launch",
+      "type": "node-terminal"
+    }
+  ]
+}
+</file>
+
+<file path="astro-site/astro.config.mjs">
+// @ts-check
+import { defineConfig } from 'astro/config';
+
+// https://astro.build/config
+export default defineConfig({});
+</file>
+
+<file path="astro-site/package.json">
+{
+  "name": "astro-site",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^5.7.13"
+  }
+}
+</file>
+
+<file path="astro-site/public/favicon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128">
+    <path d="M50.4 78.5a75.1 75.1 0 0 0-28.5 6.9l24.2-65.7c.7-2 1.9-3.2 3.4-3.2h29c1.5 0 2.7 1.2 3.4 3.2l24.2 65.7s-11.6-7-28.5-7L67 45.5c-.4-1.7-1.6-2.8-2.9-2.8-1.3 0-2.5 1.1-2.9 2.7L50.4 78.5Zm-1.1 28.2Zm-4.2-20.2c-2 6.6-.6 15.8 4.2 20.2a17.5 17.5 0 0 1 .2-.7 5.5 5.5 0 0 1 5.7-4.5c2.8.1 4.3 1.5 4.7 4.7.2 1.1.2 2.3.2 3.5v.4c0 2.7.7 5.2 2.2 7.4a13 13 0 0 0 5.7 4.9v-.3l-.2-.3c-1.8-5.6-.5-9.5 4.4-12.8l1.5-1a73 73 0 0 0 3.2-2.2 16 16 0 0 0 6.8-11.4c.3-2 .1-4-.6-6l-.8.6-1.6 1a37 37 0 0 1-22.4 2.7c-5-.7-9.7-2-13.2-6.2Z" />
+    <style>
+        path { fill: #000; }
+        @media (prefers-color-scheme: dark) {
+            path { fill: #FFF; }
+        }
+    </style>
+</svg>
+</file>
+
+<file path="astro-site/README.md">
+# Astro Starter Kit: Minimal
+
+```sh
+npm create astro@latest -- --template minimal
+```
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/minimal)
+[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/minimal)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/minimal/devcontainer.json)
+
+> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+
+## 🚀 Project Structure
+
+Inside of your Astro project, you'll see the following folders and files:
+
+```text
+/
+├── public/
+├── src/
+│   └── pages/
+│       └── index.astro
+└── package.json
+```
+
+Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+
+There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+
+Any static assets, like images, can be placed in the `public/` directory.
+
+## 🧞 Commands
+
+All commands are run from the root of the project, from a terminal:
+
+| Command                   | Action                                           |
+| :------------------------ | :----------------------------------------------- |
+| `npm install`             | Installs dependencies                            |
+| `npm run dev`             | Starts local dev server at `localhost:4321`      |
+| `npm run build`           | Build your production site to `./dist/`          |
+| `npm run preview`         | Preview your build locally, before deploying     |
+| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
+| `npm run astro -- --help` | Get help using the Astro CLI                     |
+
+## 👀 Want to learn more?
+
+Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+</file>
+
+<file path="astro-site/src/content/config.ts">
+import { defineCollection, z } from 'astro:content';
+import { glob } from 'astro/loaders'; // Import glob
+
+const lawsCollection = defineCollection({
+  loader: glob({ pattern: '*.md', base: '../../../markdown_laws/' }), // Add loader
+  // Type-check frontmatter using a schema
+  schema: z.object({
+    title: z.string(),
+    coddoc: z.string(),
+    summary: z.string(),
+    // Add other frontmatter fields here if they are added later
+    // For example, if you add publication date:
+    // pubDate: z.date().optional(),
+  }),
+});
+
+export const collections = {
+  'laws': lawsCollection,
+};
+</file>
+
+<file path="astro-site/src/layouts/BaseLayout.astro">
+---
+// Props for the layout, title is expected.
+interface Props {
+	title: string;
+}
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="pt-br">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Acervo de Leis do Estado de Rondônia" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title} - Leis de Rondônia</title>
+    <style>
+      body { font-family: system-ui, sans-serif; line-height: 1.6; margin: 0; background-color: #f4f4f4; color: #333; }
+      nav { background-color: #333; padding: 1rem; text-align: center; }
+      nav a { color: white; margin: 0 1rem; text-decoration: none; }
+      nav a:hover { text-decoration: underline; }
+      main { max-width: 800px; margin: 2rem auto; padding: 1rem; background-color: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+      footer { text-align: center; padding: 1rem; margin-top: 2rem; font-size: 0.9em; color: #555; }
+      h1, h2, h3, h4, h5, h6 { color: #222; }
+      pre { background-color: #eee; padding: 10px; border-radius: 4px; overflow-x: auto; }
+      code { font-family: 'Courier New', Courier, monospace; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+      th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+      th { background-color: #e2e2e2; }
+    </style>
+	</head>
+	<body>
+    <nav>
+      <a href="/">Página Inicial</a>
+      <!-- Add other navigation links here if needed -->
+    </nav>
+		<main>
+			<slot /> {/* Page content will be injected here */}
+		</main>
+    <footer>
+      <p>&copy; {new Date().getFullYear()} Leis de Rondônia. Todos os direitos reservados (para o conteúdo original do site, não para os textos das leis).</p>
+    </footer>
+	</body>
+</html>
+</file>
+
+<file path="astro-site/src/pages/index.astro">
+---
+
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Astro</title>
+	</head>
+	<body>
+		<h1>Astro</h1>
+	</body>
+</html>
+</file>
+
+<file path="astro-site/src/pages/leis/[slug].astro">
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+// This function tells Astro how to generate static paths for each law
+export async function getStaticPaths() {
+  const lawEntries = await getCollection('laws');
+  return lawEntries.map(entry => ({
+    params: { slug: entry.slug }, // The slug is derived from the filename, e.g., "2" for "2.md"
+    props: { entry }, // Pass the full entry to the page
+  }));
+}
+
+// Retrieve the current law's entry from Astro.props
+const { entry } = Astro.props;
+// The render() function gives us access to the Content component and metadata (like headings)
+const { Content, headings } = await entry.render();
+---
+<BaseLayout title={entry.data.title} metaDescription={entry.data.summary}>
+  <article>
+    <h1>{entry.data.title}</h1>
+    <p><strong>Resumo (Ementa):</strong> {entry.data.summary}</p>
+    <p><small>Identificador (coddoc): {entry.data.coddoc}</small></p>
+    
+    <hr />
+    
+    <!-- Render the main law content -->
+    <Content />
+    
+    <!-- Optional: Table of Contents (if headings exist) -->
+    {headings && headings.length > 0 && (
+      <aside>
+        <h2>Nesta página</h2>
+        <ul>
+          {headings.map(heading => (
+            <li><a href={`#${heading.slug}`}>{heading.text}</a> (Nível {heading.depth})</li>
+          ))}
+        </ul>
+      </aside>
+    )}
+  </article>
+</BaseLayout>
+</file>
+
+<file path="astro-site/src/pages/original_index.astro">
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro'; // Using a layout
+
+const laws = await getCollection('laws', ({data}) => {
+  // Optional: Filter out drafts or future posts if you add such fields later
+  // return data.draft !== true && data.pubDate < new Date();
+  return true; // For now, include all
+});
+// Sort laws by coddoc, assuming coddoc is numeric or can be compared as strings.
+// If coddoc needs numeric sorting and might be string, convert: parseInt(a.data.coddoc)
+const sortedLaws = laws.sort((a, b) => {
+    // Assuming slug is the coddoc, which should be a string.
+    // If coddoc is a number in frontmatter, use a.data.coddoc.
+    // For string comparison that should work for numbers:
+    return a.slug.localeCompare(b.slug, undefined, { numeric: true, sensitivity: 'base' });
+});
+---
+<BaseLayout title="Leis de Rondônia - Acervo Completo">
+  <h1>Leis de Rondônia</h1>
+  <p>Consulte o acervo completo de leis do estado de Rondônia.</p>
+  
+  <h2>Índice de Leis</h2>
+  <ul>
+    {sortedLaws.map(law => (
+      <li>
+        <a href={`/leis/${law.slug}/`}>{law.data.title}</a>
+        <p><small>Resumo: {law.data.summary}</small></p>
+      </li>
+    ))}
+  </ul>
+</BaseLayout>
+</file>
+
+<file path="astro-site/tsconfig.json">
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"]
+}
+</file>
+
+<file path="convert_to_markdown.py">
+import os
+import re
+from pathlib import Path
+import shutil  # For later use, e.g. creating output directory
+import pdfplumber
+import docx
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Constants
+DOWNLOADS_DIR = Path("downloads")
+# Directory where the generated Markdown files will be stored
+MARKDOWN_DIR = Path("markdown_laws")
+# For HTML parsing
+TITLE_SELECTOR = "span#ContentPlaceHolder1_lblTitulodetalhes"
+SUMMARY_SELECTOR = "span#ContentPlaceHolder1_lblEmentadesc"
+
+
+def extract_text_from_pdf(pdf_path: Path) -> str:
+    """Extracts all text from a PDF file."""
+    text = ""
+    raw_text = ""
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for i, page in enumerate(pdf.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    raw_text += page_text + "\n"
+                # else:
+                #    print(f"Info: No text extracted from page {i+1} of PDF {pdf_path.name}")
+        
+        stripped_text = raw_text.strip()
+        if not stripped_text and raw_text:  # Text was only whitespace
+            logging.info(
+                "Extracted text from PDF %s was only whitespace.", pdf_path.name
+            )
+        elif not stripped_text:  # No text at all
+            logging.info(
+                "No text content extracted from PDF %s (might be image-based or empty).",
+                pdf_path.name,
+            )
+        return stripped_text
+    except Exception as e:
+        logging.error("Error extracting text from PDF %s: %s", pdf_path, e)
+        return ""
+
+
+def extract_text_from_docx(docx_path: Path) -> str:
+    """Extracts all text from a DOCX file."""
+    text = ""
+    try:
+        doc = docx.Document(docx_path)
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+        return text.strip()
+    except Exception as e:
+        # python-docx cannot read .doc files. Check and skip.
+        if docx_path.suffix.lower() == ".doc":
+            logging.info(
+                "Skipping .doc file (not .docx): %s. python-docx cannot read legacy .doc files.",
+                docx_path,
+            )
+        else:
+            logging.error("Error extracting text from DOCX %s: %s", docx_path, e)
+        return ""
+
+
+def extract_summary_from_html(html_path: Path) -> dict:
+    """Extracts title and summary from an HTML container file."""
+    title = ""
+    summary_md = ""
+    try:
+        with open(html_path, 'r', encoding='utf-8') as f:
+            soup = BeautifulSoup(f, 'html.parser')
+
+        title_element = soup.select_one(TITLE_SELECTOR)
+        if title_element:
+            title = title_element.get_text(strip=True)
+        else:
+            logging.warning(
+                "Title element not found in %s using selector '%s'",
+                html_path,
+                TITLE_SELECTOR,
+            )
+
+        summary_element = soup.select_one(SUMMARY_SELECTOR)
+        if summary_element:
+            # Get the HTML content of the summary element to preserve any simple formatting
+            summary_html = summary_element.prettify()
+            # Convert HTML to Markdown
+            summary_md = md(summary_html, heading_style="ATX", bullets="*")
+            summary_md = summary_md.strip()  # Remove leading/trailing whitespace
+        else:
+            logging.warning(
+                "Summary element not found in %s using selector '%s'",
+                html_path,
+                SUMMARY_SELECTOR,
+            )
+
+        return {'title': title, 'summary_md': summary_md}
+    except Exception as e:
+        logging.error("Error extracting summary from HTML %s: %s", html_path, e)
+        return {'title': '', 'summary_md': ''}
+
+
+def convert_files_to_markdown():
+    if not DOWNLOADS_DIR.exists():
+        logging.error(
+            "Downloads directory %s not found. Run main.py first.", DOWNLOADS_DIR
+        )
+        return
+
+    MARKDOWN_DIR.mkdir(parents=True, exist_ok=True) # Added parents=True
+    
+    # 1. Discover all coddocs and their associated files
+    coddoc_files = {} 
+    # Regex to extract coddoc from filenames like '2_container.html' or '2_somefile_hash.pdf'
+    coddoc_pattern = re.compile(r"^(\d+)_")
+
+    for item in DOWNLOADS_DIR.iterdir():
+        if not item.is_file():
+            continue
+        
+        match = coddoc_pattern.match(item.name)
+        if not match:
+            logging.info(
+                "Skipping file with unexpected name format: %s", item.name
+            )
+            continue
+        
+        coddoc = match.group(1)
+        if coddoc not in coddoc_files:
+            coddoc_files[coddoc] = {'html': None, 'pdfs': [], 'docxs': [], 'others': []}
+        
+        if '_container.html' in item.name and item.suffix == '.html':
+            if coddoc_files[coddoc]['html'] is not None:
+                logging.warning(
+                    "Multiple HTML container files found for coddoc %s. Using last one: %s",
+                    coddoc,
+                    item.name,
+                )
+            coddoc_files[coddoc]['html'] = item
+        elif item.suffix == '.pdf':
+            coddoc_files[coddoc]['pdfs'].append(item)
+        elif item.suffix == '.docx':
+            coddoc_files[coddoc]['docxs'].append(item)
+        elif item.suffix == '.doc': # Legacy .doc files
+             coddoc_files[coddoc]['others'].append(item) # Store them, extract_text_from_docx will skip them
+        else:
+            logging.info(
+                "Storing other file type for coddoc %s: %s", coddoc, item.name
+            )
+            coddoc_files[coddoc]['others'].append(item)
+
+    # 2. Process each coddoc
+    for coddoc, files in coddoc_files.items():
+        logging.info("Processing coddoc: %s", coddoc)
+        
+        # Initialize variables for frontmatter and body content
+        fm_title = f"Lei (coddoc: {coddoc})" # Default title
+        fm_summary_md = "Nenhuma ementa disponível."
+        
+        body_h1_title = fm_title
+        body_ementa_md = fm_summary_md
+
+        # Extract Title and Summary from HTML for Frontmatter and Body
+        if files['html']:
+            summary_data = extract_summary_from_html(files['html'])
+            if summary_data: # Ensure summary_data is not None
+                extracted_title = summary_data.get('title')
+                extracted_summary = summary_data.get('summary_md')
+
+                if extracted_title:
+                    fm_title = extracted_title
+                    body_h1_title = extracted_title
+                
+                if extracted_summary:
+                    fm_summary_md = extracted_summary.strip()
+                    body_ementa_md = extracted_summary # Keep original for body
+                else: # Ementa was empty in HTML
+                    body_ementa_md = "(Ementa não encontrada ou vazia no arquivo HTML)"
+            else: # Error processing HTML
+                 body_ementa_md = "(Erro ao processar arquivo HTML da ementa)"
+        else:  # No HTML file
+            logging.warning(
+                "No HTML summary file found for coddoc %s. Using fallback title and ementa.",
+                coddoc,
+            )
+
+        # Prepare Frontmatter
+        # title_line = f"title: \"{fm_title.replace('\"', '\\\"')}\"" # This caused f-string backslash error
+        # Safer way to construct the title line for YAML, escaping double quotes
+        title_value_escaped = fm_title.replace('"', '\\"') # Create " -> \"
+        title_line = f'title: "{title_value_escaped}"'
+
+        frontmatter_parts = [
+            title_line,
+            f"coddoc: \"{coddoc}\""
+        ]
+        if fm_summary_md:
+            # Ensure multi-line YAML string for summary
+            summary_yaml_formatted = "\n".join([f"  {line}" for line in fm_summary_md.split('\n')])
+            frontmatter_parts.append(f"summary: |\n{summary_yaml_formatted}")
+        else: # Should not happen with default fm_summary_md, but as a safeguard
+            frontmatter_parts.append("summary: \"Nenhuma ementa disponível.\"")
+            
+        yaml_frontmatter = "---\n" + "\n".join(frontmatter_parts) + "\n---\n\n"
+
+        # Prepare Body Content (H1, Ementa, and then document texts)
+        body_content_parts = [
+            f"# {body_h1_title}\n",
+            f"## Ementa\n\n{body_ementa_md}\n"
+        ]
+
+        # Extract Text from Documents (PDFs and DOCXs)
+        all_doc_texts = []
+        for pdf_path in files['pdfs']:
+            logging.info("  Extracting text from PDF: %s", pdf_path.name)
+            text = extract_text_from_pdf(pdf_path)
+            if text:
+                # Adding original filename as a sub-sub-heading for clarity
+                all_doc_texts.append(f"### Documento: {pdf_path.name}\n\n{text}")
+        
+        for docx_path in files['docxs']:
+            logging.info("  Extracting text from DOCX: %s", docx_path.name)
+            text = extract_text_from_docx(docx_path)  # This will skip .doc files internally
+            if text:
+                all_doc_texts.append(f"### Documento: {docx_path.name}\n\n{text}")
+
+        # Handle .doc files explicitly for logging, though extract_text_from_docx already skips them
+        for other_path in files['others']:
+            if other_path.suffix == '.doc':
+                logging.info(
+                    "  Skipping legacy .doc file (extraction not supported): %s",
+                    other_path.name,
+                )
+                # Call the function to get the skip message logged by it as well
+                extract_text_from_docx(other_path)
+
+
+        if all_doc_texts:
+            joined_texts = '\n\n---\n\n'.join(all_doc_texts)
+            body_content_parts.append(f"## Texto Integral dos Documentos Anexos\n\n{joined_texts}\n")
+        else:
+            body_content_parts.append("## Texto Integral dos Documentos Anexos\n\n(Nenhum texto extraído de arquivos PDF ou DOCX)\n")
+
+        # 3. Combine Frontmatter and Body, then Save
+        final_markdown_output = yaml_frontmatter + "".join(body_content_parts)
+            
+        output_md_path = MARKDOWN_DIR / f"{coddoc}.md"
+        try:
+            with open(output_md_path, 'w', encoding='utf-8') as f:
+                f.write(final_markdown_output)
+            logging.info("Saved Markdown: %s", output_md_path)
+        except IOError as e:
+            logging.error("Error writing Markdown file %s: %s", output_md_path, e)
+
+if __name__ == "__main__":
+    convert_files_to_markdown()
+</file>
+
+<file path="main.py">
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse
+from pathlib import Path
+import concurrent.futures
+from tqdm import tqdm
+import hashlib
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(message)s")
+
+HEADERS = {'User-Agent': 'Mozilla/5.0'}
+
+def download_file(session, file_url, new_file_path):
+    try:
+        file_response = session.get(file_url, timeout=10) # Added a timeout
+        file_response.raise_for_status() # Raise HTTPError for bad responses (4XX or 5XX)
+        with open(new_file_path, 'wb') as file:
+            file.write(file_response.content)
+        #print(f"Downloaded: {new_file_path}")
+    except requests.exceptions.RequestException as e:
+        logging.error("Error downloading file %s. Type: %s. Error: %s", file_url, e.__class__.__name__, str(e))
+    except Exception as e:  # Catch any other unexpected errors
+        logging.error("Unexpected error downloading %s. Type: %s. Error: %s", file_url, e.__class__.__name__, str(e))
+
+def hash_url(url):
+    return hashlib.sha256(url.encode()).hexdigest()
+
+def download_page_files(session, executor, coddoc, url, downloads_folder):
+    html_file_path = downloads_folder / f"{coddoc}_container.html"
+    if html_file_path.exists():
+        #print(f"Skipped: {coddoc} (HTML already downloaded)")
+        return
+    
+    try:
+        response = session.get(url, headers=HEADERS, timeout=10) # Added a timeout
+        response.raise_for_status() # Raise HTTPError for bad responses (4XX or 5XX)
+    except requests.exceptions.RequestException as e:
+        logging.warning(
+            "Error accessing URL %s for coddoc %s. Type: %s. Error: %s. Skipping.",
+            url,
+            coddoc,
+            e.__class__.__name__,
+            e,
+        )
+        return  # Skip processing this coddoc
+    except Exception as e:  # Catch any other unexpected errors
+        logging.error(
+            "Unexpected error accessing %s for coddoc %s. Type: %s. Error: %s. Skipping.",
+            url,
+            coddoc,
+            e.__class__.__name__,
+            e,
+        )
+        return  # Skip processing this coddoc
+
+    # Proceed only if the page request was successful
+    # Removed the explicit status_code == 200 check as raise_for_status() handles it.
+    soup = BeautifulSoup(response.content, 'html.parser')
+    file_links = soup.find_all(
+        'a',
+        href=lambda href: href and (
+            href.endswith('.pdf') or href.endswith('.doc') or href.endswith('.docx')
+        )
+    )
+
+    futures = []
+    for link in file_links:
+        file_url = link['href']
+        if not file_url.startswith('http'):
+            base_url = 'http://ditel.casacivil.ro.gov.br/COTEL/Livros/'
+            file_url = base_url + file_url
+        file_name = Path(urlparse(file_url).path).name
+        file_extension = file_name.split('.')[-1]
+        hashed_url = hash_url(file_url)
+        new_file_path = downloads_folder / f"{coddoc}_{file_name}_{hashed_url}.{file_extension}"
+        future = executor.submit(download_file, session, file_url, new_file_path)
+        futures.append(future)
+
+    concurrent.futures.wait(futures)
+
+    container_div = soup.find('div', {'id': 'container-main-offer'})
+    if container_div:
+        html_content = container_div.prettify()
+        with open(html_file_path, 'w', encoding='utf-8') as file:
+            file.write(html_content)
+        #print(f"Saved HTML: {html_file_path}")
+    # else: # No specific handling needed if container_div is not found, it just won't save.
+        # print(f"Warning: container-main-offer not found for coddoc: {coddoc} at URL: {url}")
+
+def download_files():
+    downloads_folder = Path('downloads')
+    downloads_folder.mkdir(exist_ok=True)
+    with requests.Session() as session, concurrent.futures.ThreadPoolExecutor() as executor:
+        for coddoc in tqdm(range(1, 36001), desc="Downloading files"):
+            url = f"http://ditel.casacivil.ro.gov.br/COTEL/Livros/detalhes.aspx?coddoc={coddoc}"
+            download_page_files(session, executor, coddoc, url, downloads_folder)
+
+if __name__ == "__main__":
+    download_files()
+</file>
+
+<file path="markdown_laws/2.md">
+---
+title: "DECRETO LEI n. 2"
+coddoc: "2"
+summary: |
+  Orça a Receita e fixa a Despesa do Orçamento-Programa do Estado para o exercício de 1982.
+---
+
+# DECRETO LEI n. 2
+## Ementa
+
+Orça a Receita e fixa a Despesa do Orçamento-Programa do Estado para o exercício de 1982.
+## Texto Integral dos Documentos Anexos
+
+### Documento: 2_DL2.pdf_1aed0da85a98bb67bd7dd1d060db69813b00942f5135460cf7e973010daaec36.pdf
+
+/
+s
+GOVERNO DO ESTADO DE RONDÔNIA
+Gabinete do Governador
+DECRETO-LEI N9 2, DE 31 DE DEZEMBRO DE 1981
+ORÇA A RECEITA E FIXA A DESPESA DO
+•-'- i
+ORÇAMENTO-PROGRAMA DO ESTADO PARA
+,^- O EXERCÍCIO DE 1982
+'
+Publicado no Diário Oficial
+fl,CP^ do dia 3^ /yz. /Q\
+&*
+1
+GOVERNO DO ESTADO DE RONDÔNIA
+Gabinete do Governador
+DECRETO-LEI N9 2, DE 31 DE DEZEMBRO DE 1981
+Orça a Receita e fixa a Despesa
+do Orçamento-Programa do Estado
+para o exercício de 1982.
+0 GOVERNADOR DO ESTADO DE RONDÔNIA, no uso de suas
+atribuições legais,
+DECRETA:
+Artigo 19-0 Orçamento-Programa do Estado para o
+exercício de 1982, discriminado nos quadros de numero I a XI
+que integram este Decreto-Lei, orça a Receita e fixa a Despesa
+em valores iguais a Crs. 19.071.229.000,00 (dezenove bilhões, se
+tenta e um milhões, duzentos e vinte e nove mil cruzeiros).
+Artigo 29 - Arrecadar-se-ã a Receita na conformidade
+da legislação em vigor e das especificações dos quadros integran
+tes desta lei, observada a seguinte classificação:
+1. RECEITA CrS CrS
+1.1 Receita do Tesouro do Estado
+1.1.1. Receitas Correntes
+Receita Tributaria 3.773.224.000,00
+Receita Patriiranial 5.000.000,00
+Receita Industrial 4.200.000,00
+Transferências Corren
+tes 7.967.357.000,00
+Receitas Diversas 31.576.000,00 11.781.357.000,00
+A
+3
+GOVERNO DO ESTADO DE RONDÔNIA
+Gabinete do Governador
+1.1.2. Receitas de Capital Cr$ Cr$
+Operações de Crêdi
+to 500.000,00
+Alienação de Bens
+Moveis e Imóveis.. 1.000.000,00
+Transferências de
+Capital 7.288.372.000,00 7.289.872.000,00
+Total Geral 19.071.229.000,00
+Artigo 3? - A Despesa será realizada de acordo com
+o seguinte desdobramento por Categoria Econômica, Õrgãos e
+Categorias de Programação:
+Cr$
+2. DESPESA
+2.1. Por Categoria Econômica
+a) Recursos do Tesouro do Estado
+Despesas Correntes. 8.984.857.000,00
+Despesas de Capital 10.086.372.000,00
+19.071.229.000,00
+Total Geral
+2.2. Por CJrgaos
+2.2.1. Poder Executivo
+216.338.000,00
+Governadoria
+Procuradoria Geral do Es_
+94.128.000,00
+tado
+Secretaria de Estado do
+Planejamento e Coordena
+ção Geral 7.475.940.000,00
+Secretaria de Estado da
+436.459.000,00
+Fazenda
+Secretaria de Estado da
+Administração 1.374.827.000,00
+Secretaria de Estado da
+Educação 1.884.086.000,00
+J\
+H
+GOVERNO DO ESTADO DE RONDÔNIA
+Gabinete do Governador
+Cr$
+Secretaria de Estado da
+Saúde 2.379.034.000,00
+Secretaria de Estado do
+Trabalho e Promoção So
+ciai 291.926.000,00
+Secretaria de Estado da
+Agricultura 1.645.749.000,00
+Secretaria de Estado de
+Obras e Serviços Publi
+419.611.000,00
+COS
+Secretaria de Estado de
+Cultura, Esportes e Turis
+575.308.000,00
+mo
+Secretaria de Estado de
+Indústria, Comercio, Ciên
+cia e Tecnologia 74.663.000,00
+Secretaria de Estado da
+Segurança Pública 1.450.502.000,00
+Secretaria de Estado do
+Interior e Justiça 60.000.000,00
+Ministério Público do Es
+tado 40.000.000,00
+Departamento de Estradas
+e Rodagem 652.658.000,00
+19.071.229.000,00
+Total Geral
+Artigo 4? - 0 Poder Executivo tomará as medidas ne
+cessãrias para ajustar o fluxo dos dispêndios ao dos ingres
+sos, a fim de manter o equilíbrio orçamentário.
+Artigo 5* - No curso da execução orçamentária o Po
+der Executivo poderá realizar operações de credito, respeita
+dos os limites da legislação em vigor.
+Artigo 6? - 0 Poder Executivo poderá abrir, duran
+te o exercício, créditos suplementares até o limite de 20?ó
+(vinte por cento) do total da Despesa fixada nesta lei, de
+conformidade com os artigos 79 , inciso I, e 43 da Lei Federal
+n9 4.320, de 17 de março de 1964.
+5"
+GOVERNO DO ESTADO DE RONDÔNIA
+Gabinete do Governador
+Artigo 7? - No curso da execução orçamentaria, fica
+ainda o Poder Executivo autorizado a suplementar automaticamen
+te categorias de programação e promover alocações, para aten -
+der às Despesas Correntes e de Capital, utilizando recursos '
+provenientes do excesso de arrecadação efetivamente apurado e
+oriundo de convênios ou destinados a transferências.
+Artigo 89 - Este Decreto-Lei entrara em vigor na da
+ta de sua publicação.
+1/
+Porto Ve. de dezembro de 1981.
+m£L
+JORGE
+GOVERNADOR DO ESTADD
+r
+;: -Uc- /-c 1 â
+^
+SUMÁRIO GERAL DA RECEITA POR FONTES QUADRO I
+C Õ D I G O ESPECIFICAÇÃO VALORES
+1000.00.00 Receitas Correntes 11.781.357
+1100.00.00 Receita Tributaria 3.773.224
+1200.00.00 Receita Patrimonial 5.000
+4.200
+1300.00.00 Receita Industrial
+1400.00.00 Transferências Correntes 7.967.357
+31.576
+1500.00.00 Receitas Diversas
+2000.00.00 Receitas de Capital 7.289.872
+2200.00.00 Operações de Credito 500
+Alienação de Bens Móveis e Imóveis 1.000
+2300.00.00
+Amortização de Empréstimos Concedidos
+2400.00.00
+2500.00.00 Transferências de Capital 7.288.372
+2900.00.00 Outras Receitas de Capital
+19.071.229
+TOTAL
+>
+3 >
+DEMONSTRAÇÃO DA RECEITA E DESPESA SEGUNDO AS CATEGORIAS ECONÔMICAS QUADRO II
+RECEITA Cr$ Cr$ DESPESA Cr$ Cr$
+Receitas Correntes 11.781.357 Despesas Correntes 8.984.857
+Receita Tributaria 3.773.224 Despesas de Custeio 7.455.974
+Receita Patrimonial 5.000 Transferências Correntes 1.528.883
+Receita Industrial 4.200
+Transferências Correntes 7.967.357 Superávit 2.796.500
+Receitas Diversas 31.576
+Total 11.781.357 Total 11.781.357
+Superávit do Orçamento Corrente 2.796.500
+Receitas de Capital 7.289.872 Despesas de Capital 10.086.372
+Operações de Credito 500
+Alienação de Bens Moveis e Imóveis 1.000 Investimento 10.086.167
+Transferências de Capital 7.288.372 Transferências de Capital 205
+Total 10.086.372 Total 10.086.372
+RESUMO
+Receitas Correntes 11.781.357 Despesas Correntes 8.984.857
+Receitas de Capital 7.289.872 Despesas de Capital 10.086.372
+Total 19.071.229 Total 19.071.229
+SJ
+>
+QUADRO III
+Cr$ 1.000
+1
+DESPESA DO ESTADO DISCRIMINADA POR ELEMENTO ECONÔMICO
+BOMDOM» ÓRGÃO
+T
+_ _^_
+CÓOIGO ESPECIFICAÇÃO ELEMENTO SUBCATEGORIA CATEGORIA
+3.0.0.0.0 DESPESAS CORRENTES 8.984.857
+3.1.0.0.0 Despesas de Custeio 7.455.974
+3.1.1.0.0 Pessoal 5.393.250
+3.1.1.1.0 Pessoal Civil 4.309.900
+3.1.1.2.0 Pessoal Militar 289.700
+3.1.1.3.0 Obrigações Patronais 793.650
+3.1.2.0.0 Material de Consumo 1.036.548
+3.1.3.0.0 Serviços de Terceiros e Encargos 986.176
+3.1.3.1.0 Remuneração de Serviços Pessoais 103.120
+3.1.3.2.0 Outros Serviços e Encargos 883.056
+3.1.9.0.0 Diversas Despesas de Custeio 40.000
+3.1.9.1.0 Sentenças Judiciarias 15.000
+Despesas de Exercícios Anteriores
+3.1.9.2.0 25.000
+3.2.0.0.0 Transferências Correntes 1.528.883
+3.2.2.0.0 Transferências Intragovernamentais 1.117.000
+3.2.2.3.0 Transferências a Municípios 1.117.000
+3.2.3.0.0 Transferências a Instituições Privadas 1.000
+3.2.3.1.0 Subvenções Sociais 1.000 ,rv
+1
+f TOTAL
+/
+•
+QUADRO III
+Cr$ 1.000
+1
+JRm|
+DESPESA DO ESTADO DISCRIMINADA POR ELEMENTO ECONÔMICO
+WOWONW" ÓRGÃO
+CÓDIGO ESPECIFICAÇÃO
+ELEMENTO SUBCATEGORIA CATEGORIA
+3.2.5.0.0 Transferências a Pessoas 169.470
+3.2.5.1.0 Inativos 145.500
+3.2.5.2.0 Pensionistas 1.300
+3.2.5.3.0 Salário-Família 22.670
+3.2.6.0.0 Encargos da Dívida Interna 45
+3.2.6.1.0 Juros da Dívida Contratada
+45
+3.2.8.0.0 Contribuição para Formação do Patrimônio do Servidor
+Publico - PASEP 241.368
+4.0.0.0.0 DESPESAS DE CAPITAL 10.086.372
+4.1.0.0.0 Investimentos 10.086.167
+4.1.1.0.0 Obras e Instalações 2.702.400
+4.1.2.0.0 Equipamentos e Material Permanente 860.227
+4.1.3.0.0 Investimentos em Regime de Execução Especial 6.518.540
+4.1.9.0.0 Diversos Investimentos 5.000
+4.1.9.2.0 Despesas de Exercícios Anteriores 5.000
+4.3.0.0.0 Transferências de Capital ^
+205
+4.3.5.0.0 Amortização da Dívida Interna 205
+1fll~l1
+4.3.5.1.0 Amortização da Dívida Contratada
+205
+f ^
+* TOTAL V 19.0711229
+*
+I
+DEMONSTRATIVO DA DESPESA DO ESTADO POR ÒRGAO E FUNÇÕES
+QUADRO IV
+Cr$ 1.000
+—-———_^__^^ FUNÇÕES Judiciaria Administração e Agricultura Defesa Nacional Desenvo1vimento Educação e
+ORGAOS "^~~ —_____^^ Planejamento e Segur.Publica Regional Cultura
+02 03 04 06 07 08
+01. Governadoria 216.338
+02. Procuradoria Geral do Estado 22.000 72.128
+03. Secretaria de Estado do Planejamento e Coor
+denaçio Geral 613.264 6.437.676
+04. Secretaria de Estado da Fazenda 436.459
+05. Secretaria de Estado da Administração 1.133.459
+06. Secretaria de Estado da Educação 1.884.086
+07. Secretaria de Estado da Saüde
+08. Secretaria de Estado do Trabalho e Promo
+ção Social
+09. Secretaria de Estado da Agricultura 845.749
+10. Secretaria de Estado de Obras e Serviços Pu
+blicos 419.611
+11. Secretaria de Estado de Cultura, Esportes e
+575.308
+Turismo
+12. Secretaria de Estado de Industria, Comercio,
+Ciência e Tecnologia
+13. Secretaria de Estado da Segurança Publica 1.450.502
+14. Secretaria de Estado do Interior e Justiça 60.000
+15. Ministério Publico do Estado 40.000
+16. Departamento de Estradas de Rodagem
+62.000 2.951.259 845.749 1.450.502 6.437.676 2.459.394
+O
+DEMONSTRATIVO DA DESPESA DO ESTADO POR ORGAO E FUNÇÕES
+CrS 1.000
+____________^ FUNÇÕES Habitação e Industria, Co Saüde e Assistência e Transporte
+TOTAL
+Urbanismo mercio e Serv. Saneamento Previdência
+ÕRGAOS ~ — _____
+10 11 13 14 15
+01. Governadoria 216.338
+02. Procuradoria Geral do Estado 94.128
+03. Secretaria de Estado do Planejamento e Coorde
+nação Geral 425.000 7.475.940
+04. Secretaria de Estado da Fazenda 436.459
+05. Secretaria de Estado da Administração 241.368 1.374.827
+06. Secretaria de Estado da Educação 1.884.086
+07. Secretaria de Estado da. Saüde 2.379.034 2.379.034
+08. Secretaria de Estado do Trabalho e Promoção
+Social 291.926 291.926
+09. Secretaria de Estado da Agricultura 800.000 1.645.749
+10. Secretaria de Estado de Obras e Serviços Pu
+blicos 419.611
+11. Secretaria de Estado de Cultura, Esportes e
+Turismo 575.308
+12. Secretaria de Estado de Industria, Comercio ,
+Ciência e Tecnologia 74.663 74.663
+13. Secretaria de Estado da Segurança Publica 1.450.502
+14. Secretaria de Estado do Interior e Justiça 60.000
+15. Ministério Publico do Estado 40.000
+16. Departamento de Estradas de Rodagem 652.658 652.658
+425.000 74.663 2.379.034 533.294 1.452.658 19.071.229
+QUADRO V >
+PROGRAMA DE TRABALHO - DEMONSTRATIVO DE FUNÇÕES, PROGRAMAS E SUBPROGRAMAS POR PROJETO E ATIVIDADES
+<i__fc**í2v.i*JT.S\ff^j>
+ÓRGÃO
+CÓOIGO ESPECIFICAÇÃO PROJETOS ATIVIDADES TOTAL
+02 Judiciaria 62.000
+02.04 Processo Judiciário 62.000
+02.04.014 Defesa do Interesse Público no Processo Judiciário 32.840
+02.04.021 Administração Geral 29.160
+03 Administração e Planejamento 2.951.259
+03.07 Administração 2.337.259
+03.07.020 Supervisão e Coordenação Superior 113.440
+03.07.021 Administração Geral 1.929.819
+03.07.023 Divulgação Oficial 24.000
+03.07.025 Edificações Públicas 270.000
+03.08 Administração Financeira 142.000
+03.08.025 Edificações Públicas 142.000
+03.09 Planejamento Governamental 472.000
+03.09.020 Supervisão e Coordenação Superior 422.000
+03.09.217 Treinamento de Recursos Humanos 50.000
+m
+/
+k TOTAL
+Kl
+, ,———. __—_ , ,
+t )
+PROGRAMA DE TRABALHO - DEMONSTRATIVO DE FUNÇÕES, PROGRAMAS E SUBPROGRAMAS POR PROJETO E ATIVIDADES
+ÓRQÍO
+'-- CÓDIGO ESPECIFICAÇÃO PROJETOS ATIVIDADES TOTAL —^
+04 Agricultura 845.749
+04.07 Administração 649.149
+04.07.021 Administração Geral 649.149
+04.09 Planejamento Governamental 21.400
+04.09.045 Estudos e Pesquisas Econômico-Sociais 21.400
+04.14 Produção Vegetal 16.400
+04.14.080 Sementes e Mudas 16.400
+04.15 Produção Animal 40.320
+,
+04.15.088 Desenvolvimento Animal 40.320
+04.16 Abastecimento 32.800
+04.16.112 Promoção Agraria 32.800
+04.18 Promoção e Extensão Rural 85.680
+04.18.111 Extensão Rural 35.200
+04.18.112 Promoção Agraria 50.480
+Defesa Nacional e Segurança Pública
+06 1.450.502
+06.30 Segurança Pública 1.450.502
+(. à
+\ t i 1
+(cid:127)^
+1 /
+Oo
+' —(cid:127) —
+PROGRAMA DE TRABALHO - DEMONSTRATIVO DE FUNÇÕES, PROGRAMAS E SUBPROGRAMAS POR PROJETOS E ATIVIDADES
+órgão
+T
+, ,—
+CÓDIGO ESPECIFICAÇÃO PROJETOS ATIVIDADES TOTAL
+06.30.021 Administração Geral 996.073
+06.30.174 Policiamento Civil 204.000
+06.30.177 Policiamento Militar 250.429
+07 Desenvolvimento Regional 5.550.752
+07.08 Administração Financeira 3.019.038
+07.08.033 Dívida Interna 3.019.038
+07.39 Desenvolvimento de Micro Regiões 2.284.714
+07.39.183 Programação Especial 2.284.714
+07.40 Programas Integrados 247.000
+07.40.181 Transferencias Financeiras a Estados e Municípios 247.000
+08 Educação e Cultura 2.459.394
+08.07 Desenvolvimento Regional 1.809.794
+08.07.021 Administração Geral 1.809.794
+08.42 Ensino de Primeiro Grau 510.000
+08.42.188 Ensino Regular 371.000 139.000
+TOTAL
+L .. .1 \
+J(cid:127) 0 ~j
+</file>
+
+<file path="markdown_laws/3.md">
+---
+title: "DECRETO LEI n. 3"
+coddoc: "3"
+summary: |
+  Aprova o Orçamento Plurianual de Investimentos para o triênio de 1982 a 1984.
+---
+
+# DECRETO LEI n. 3
+## Ementa
+
+Aprova o Orçamento Plurianual de Investimentos para o triênio de 1982 a 1984.
+## Texto Integral dos Documentos Anexos
+
+(Nenhum texto extraído de arquivos PDF ou DOCX)
+</file>
+
+<file path="markdown_laws/4.md">
+---
+title: "DECRETO LEI n. 4"
+coddoc: "4"
+summary: |
+  Institui o Código Tributário do Estado de Rondônia, e dá outras providências
+---
+
+# DECRETO LEI n. 4
+## Ementa
+
+Institui o Código Tributário do Estado de Rondônia, e dá outras providências
+## Texto Integral dos Documentos Anexos
+
+(Nenhum texto extraído de arquivos PDF ou DOCX)
+</file>
+
+<file path="markdown_laws/5.md">
+---
+title: "DECRETO LEI n. 5"
+coddoc: "5"
+summary: |
+  Cria cargos em comissão e funções de confiança na administração direta do Estado e dá outras providências.
+---
+
+# DECRETO LEI n. 5
+## Ementa
+
+Cria cargos em comissão e funções de confiança na administração direta do Estado e dá outras providências.
+## Texto Integral dos Documentos Anexos
+
+(Nenhum texto extraído de arquivos PDF ou DOCX)
+</file>
+
+<file path="pipeline/collect_and_archive.py">
+import hashlib
+import subprocess
+from pathlib import Path
+import duckdb
+
+DOWNLOADS_DIR = Path("downloads")
+# TODO: Ensure DOWNLOADS_DIR contains PDFs collected from TJ/Diarios Oficiais
+#       Each PDF should ideally have metadata (origem_url, processo, data_publicacao)
+#       associated with it, perhaps from its filename or a separate metadata file,
+#       to populate the new columns in the 'pdfs' table.
+DB_PATH = "causa_ganha.duckdb"
+
+
+def archive_pdf(pdf_path: Path) -> str:
+    # TODO: Consider how to get origem_url, processo, data_publicacao for this PDF
+    #       to pass to the main function for DB insertion if not handled there.
+
+    # Filter out confidential PDFs before any processing
+    # This is a placeholder. Actual implementation will depend on how these are identified.
+    if "segredodejustica" in pdf_path.name.lower(): # Example: check filename
+        print(f"Skipping confidential PDF: {pdf_path.name}")
+        return "" # Or raise an exception, or return a specific status
+
+    sha = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+    item_id = f"cg-{sha[:12]}" # Changed prefix
+    fn = pdf_path.name
+
+    exists = (
+        subprocess.run([
+            "ia",
+            "metadata",
+            item_id,
+            "--raw",
+        ], capture_output=True, text=True).returncode
+        == 0
+    )
+
+    if not exists:
+        print(f"Uploading {pdf_path.name} to Internet Archive with item_id {item_id}...")
+        subprocess.check_call([
+            "ia",
+            "upload",
+            item_id,
+            str(pdf_path),
+            "--metadata",
+            "mediatype:texts",
+            "--metadata",
+            "subject:cotel_scrap, ro",
+            "--metadata",
+            f"sha256:{sha}",
+            "--retries",
+            "5",
+        ])
+    return f"https://archive.org/download/{item_id}/{pdf_path.name}"
+
+
+def main():
+    con = duckdb.connect(DB_PATH)
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pdfs (
+            sha256 TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            ia_url TEXT NOT NULL
+        );
+        """
+    )
+    for pdf in DOWNLOADS_DIR.glob("*.pdf"):
+        sha = hashlib.sha256(pdf.read_bytes()).hexdigest()
+        item_id = f"cotel-{sha[:12]}"
+        rows = con.execute(
+            "SELECT 1 FROM pdfs WHERE sha256 = ?", [sha]
+        ).fetchall()
+        if rows:
+            continue
+        ia_url = archive_pdf(pdf)
+        con.execute(
+            "INSERT OR IGNORE INTO pdfs VALUES (?, ?, ?)",
+            (sha, item_id, ia_url),
+        )
+    con.close()
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="PLANO_IMPLEMENTACAO_PROCESSADOR_LEIS.md">
+# Plano de Implantação e Próximos Passos: Processador de Leis com IA
+
+Este documento detalha os passos para implantar e evoluir o sistema de processamento de leis utilizando o Internet Archive, Gemini API e DuckDB, gerenciado por um workflow do GitHub Actions.
+
+## Fase 1: Configuração Inicial e Workflow Base (Concluído Parcialmente)
+
+1.  **Estrutura do Repositório:**
+    *   [X] Criação da estrutura de diretórios:
+        *   `.github/workflows/` para o workflow do GitHub Actions.
+        *   `scripts/` para os scripts Python.
+        *   `data/` para armazenar localmente o arquivo DuckDB (antes do cache).
+    *   [X] Adição de `.gitignore` (se necessário, para `__pycache__`, `*.duckdb.wal`, etc. - *Nota: O arquivo .duckdb em si será cacheado, não ignorado*).
+
+2.  **Workflow do GitHub Actions (`.github/workflows/process_leis.yml`):**
+    *   [X] Definição dos gatilhos: `workflow_dispatch`, `schedule`, `push` para `main`.
+    *   [X] Job `process_laws` rodando em `ubuntu-latest`.
+    *   [X] Step: Checkout do código (`actions/checkout@v4`).
+    *   [X] Step: Configuração do Python (`actions/setup-python@v5`) com cache de `pip`.
+    *   [X] Step: Instalação de dependências do sistema (Poppler):
+        *   Comando: `sudo apt-get update && sudo apt-get install -y poppler-utils` (Necessário para `pdf2image`).
+    *   [X] Step: Instalação de dependências Python (inicialmente `duckdb`, `google-generativeai`, `internetarchive`, `pdf2image`, `Pillow`).
+    *   [X] Step: Cache do arquivo DuckDB (`actions/cache@v4`):
+        *   Path: `data/leis.duckdb`.
+        *   Key: Combinando SO do runner, um nome descritivo, versionador manual (ex: `v1`) e nome do branch (`${{ github.ref_name }}`).
+        *   Restore-keys: Uma chave de fallback mais genérica.
+    *   [X] Step: Execução do script Python (`scripts/processador_leis.py`):
+        *   Passagem da `GEMINI_API_KEY` via `secrets`.
+        *   Passagem do `DUCKDB_PATH` e `LOG_FILE_PATH` via variáveis de ambiente.
+    *   [X] Step: Upload do arquivo de log como artefato (`actions/upload-artifact@v4`).
+
+3.  **Script Python Inicial (`scripts/processador_leis.py`):**
+    *   [X] Configuração de logging (para arquivo e console).
+    *   [X] Conexão com DuckDB usando o path da variável de ambiente.
+    *   [X] Função `criar_tabela_leis` para definir o esquema da tabela `leis` (id_lei, nome_arquivo_origem, url_internet_archive, texto_completo, data_extracao, data_ultima_modificacao_ia, hash_pdf, metadados_adicionais JSON).
+    *   [X] Função `buscar_leis_internet_archive` para buscar itens (com limite para testes).
+    *   [X] Função `obter_detalhes_pdf_item` para extrair metadados de arquivos PDF de um item do IA.
+    *   [X] Função `calcular_hash_pdf` para gerar hash do conteúdo do PDF.
+    *   [X] Lógica no `main` para:
+        *   Buscar itens.
+        *   Para cada item, obter detalhes do PDF.
+        *   Verificar se o item já existe no DB e se precisa ser atualizado (comparando `data_ultima_modificacao_ia` e, futuramente, de forma mais robusta, o `hash_pdf`).
+        *   Simular download do PDF (usando `internetarchive.download()`).
+        *   Calcular hash do PDF baixado.
+        *   Placeholder para `extrair_texto_com_gemini`.
+        *   Inserir/Atualizar dados no DuckDB.
+    *   [X] **A Fazer nesta fase (após o primeiro teste do workflow):**
+        *   [X] Script Python (`scripts/processador_leis.py`) testado localmente:
+            *   Download de arquivos do Internet Archive corrigido e funcional.
+            *   Cálculo de hash funcional.
+            *   Conexão e inserção/atualização no DuckDB funcionais.
+            *   Extração de texto com Gemini permanece simulada (placeholder).
+        *   [ ] Confirmar que o workflow do GitHub Actions executa, o cache do DuckDB é criado/restaurado, e o script Python roda sem erros no ambiente do Actions (com a extração Gemini ainda simulada).
+        *   [ ] Analisar os logs e artefatos gerados pela execução do workflow.
+        *   *Nota: O teste local bem-sucedido do script é um bom indicativo, mas o teste completo do workflow ainda é necessário para validar a integração e o ambiente do GitHub Actions.*
+
+## Fase 2: Implementação da Extração de Texto com Gemini
+
+1.  **Configuração da API Gemini no Script Python:**
+    *   [ ] Importar `google.generativeai`.
+    *   [ ] Configurar a API key (`genai.configure(api_key=GEMINI_API_KEY)`).
+    *   [ ] Instanciar o modelo Generativo (ex: `gemini-1.5-flash` ou `gemini-1.5-pro`).
+
+2.  **Função `extrair_texto_com_gemini` (Implementação Real):**
+    *   [ ] Receber os bytes do conteúdo do PDF.
+    *   [ ] Usar `pdf2image.convert_from_bytes()` (ou `convert_from_path` se salvar temporariamente o PDF) para converter cada página do PDF em um objeto de imagem PIL.
+        *   Otimizações na conversão PDF->Imagem:
+            *   Ajustar DPI (ex: 150-200 DPI) para reduzir o tamanho da imagem.
+            *   Converter para escala de cinza (grayscale) se a cor não for essencial para o OCR.
+        *   Gerenciar `poppler_path` (verificar se a instalação na Fase 1 é suficiente ou se `pdf2image` precisa de configuração explícita do path em alguns ambientes).
+    *   [ ] Para cada imagem de página (ou lote de imagens, se aplicável):
+        *   Converter a imagem PIL para o formato de bytes esperado pela API Gemini (ex: PNG).
+        *   Construir o prompt para o Gemini (ex: "Extraia todo o texto desta imagem, mantendo a formatação o máximo possível.").
+        *   Enviar a imagem e o prompt para o método `model.generate_content()`.
+        *   Processar a resposta para obter o texto extraído da página.
+        *   Lidar com possíveis erros ou respostas vazias da API.
+    *   [ ] Concatenar o texto de todas as páginas.
+    *   [ ] Implementar tratamento de erros robusto para a interação com a API Gemini.
+    *   [ ] Considerar limites da API Gemini (tamanho da imagem, número de requisições por minuto, tokens).
+        *   Implementar esperas (backoff) e retentativas para erros transitórios.
+        *   Avaliar o processamento em lote de páginas/imagens para otimizar chamadas à API, se suportado e benéfico.
+
+3.  **Integração no `main`:**
+    *   [ ] Chamar a função `extrair_texto_com_gemini` implementada, passando os bytes do PDF e a API key.
+    *   [ ] Salvar o texto real extraído no DuckDB.
+
+4.  **Testes e Refinamentos:**
+    *   [ ] Testar com alguns PDFs reais do Internet Archive.
+    *   [ ] Ajustar os prompts do Gemini para otimizar a qualidade da extração.
+    *   [ ] Monitorar o uso da API e os custos (se aplicável).
+    *   [ ] Validar a precisão da extração de texto.
+
+## Fase 3: Melhorias e Robustez
+
+1.  **Tratamento de Erros Avançado:**
+    *   [ ] Implementar novas tentativas (retries) com backoff exponencial para chamadas de rede (Internet Archive, API Gemini).
+    *   [ ] Lidar com diferentes tipos de arquivos dentro dos itens do Internet Archive (além de PDFs simples).
+    *   [ ] Melhorar a lógica de identificação do "principal" PDF em um item, se necessário.
+    *   [ ] **Gerenciamento de Estado e Retomada:**
+        *   [ ] Adicionar coluna `status_processamento` na tabela `leis` (valores como `pendente`, `em_processamento`, `concluido_com_sucesso`, `falhou_download`, `falhou_extracao`, `concluido_com_aviso`).
+        *   [ ] Implementar lógica no script para identificar e priorizar o processamento/reprocessamento de itens `pendente` ou com status de `falhou` (com limite de tentativas).
+        *   [ ] Garantir que operações de atualização no banco de dados para um item sejam atômicas ou sigam um padrão que evite estados inconsistentes em caso de falha parcial.
+
+2.  **Otimização de Desempenho e Custos:**
+    *   [ ] Otimizar a conversão de PDF para imagem (resolução, formato - já mencionado na Fase 2, mas reforçar aqui o impacto no custo/performance).
+    *   [ ] Avaliar se o processamento de todas as páginas é sempre necessário ou se há heurísticas para identificar páginas relevantes (ex: ignorar páginas em branco, capas genéricas).
+    *   [ ] Estratégias para PDFs muito longos: considerar processamento seletivo de páginas (ex: primeiras N páginas, páginas com maior densidade de texto aparente) ou amostragem, configurável por variáveis.
+    *   [ ] Refinar a lógica de `precisa_processar` para usar o `hash_pdf` de forma mais eficaz para evitar re-extração de conteúdo inalterado.
+
+3.  **Consultas e Uso dos Dados:**
+    *   [ ] Desenvolver scripts ou exemplos de como consultar os dados armazenados no DuckDB (por exemplo, buscas por palavras-chave no `texto_completo`).
+    *   [ ] Considerar a criação de índices no DuckDB para acelerar consultas comuns (ex: em `id_lei` ou Full-Text Search (FTS) no `texto_completo`).
+
+4.  **Monitoramento e Alertas:**
+    *   [ ] Configurar alertas básicos no GitHub Actions para falhas no workflow.
+    *   [ ] Logar métricas importantes (ex: número de leis processadas, tempo de execução, número de chamadas à API Gemini, erros por tipo).
+
+5.  **Documentação:**
+    *   [ ] Documentar o funcionamento do script Python, incluindo a lógica de estados e recuperação.
+    *   [ ] Documentar a configuração do workflow e dos secrets.
+    *   [ ] Adicionar um `README.md` ao projeto explicando como executar, configurar e interpretar os logs e status.
+
+6.  **Versionamento do Esquema do Banco de Dados (DuckDB):**
+    *   [ ] Adotar uma abordagem pragmática:
+        *   O script `criar_tabela_leis` deve ser idempotente e capaz de adicionar novas colunas se não existirem (evitando erros se o esquema evoluir).
+        *   Manter um `SCHEMA_CHANGELOG.md` ou seção no `README.md` documentando as alterações no esquema da tabela `leis`.
+        *   Priorizar alterações aditivas (novas colunas) para simplificar a evolução.
+
+7.  **Validação da Qualidade da Extração de Texto:**
+    *   [ ] Implementar um processo de amostragem manual inicial: comparar o texto extraído com o conteúdo original de alguns PDFs.
+    *   [ ] Logar métricas que possam indicar problemas de extração (ex: texto extraído muito curto ou vazio para PDFs não vazios, contagem de palavras suspeitas).
+    *   [ ] (Opcional, futuro) Considerar um sistema simples de feedback se usuários finais consumirem os dados.
+
+8.  **Estratégia de Testes:**
+    *   [ ] **Testes Unitários (`pytest`):**
+        *   Cobrir funções de lógica de negócios (ex: cálculo de hash, formatação de prompts, lógica de decisão de reprocessamento).
+        *   Utilizar `unittest.mock` para simular chamadas a APIs externas (`internetarchive`, `google.generativeai`, `pdf2image`) e interações com o banco de dados.
+    *   [ ] **Testes de Integração (Leves):**
+        *   Testar o fluxo principal do script com um arquivo DuckDB temporário e, se possível, PDFs de amostra pequenos (mockando apenas a chamada à API Gemini se necessário para evitar custos/dependência externa em testes automatizados).
+    *   [ ] **Workflow de CI:** Adicionar um step no workflow do GitHub Actions para executar `pytest` automaticamente em cada push/pull_request.
+
+## Variáveis de Ambiente e Secrets Necessários
+
+*   **Secrets do GitHub (Settings > Secrets and variables > Actions):**
+    *   `GEMINI_API_KEY`: Chave da API para o Google Gemini.
+    *   `IA_USER_EMAIL` (Opcional): Se o login for necessário para `internetarchive`.
+    *   `IA_USER_PASSWORD` (Opcional): Se o login for necessário para `internetarchive`.
+
+*   **Variáveis de Ambiente no Workflow (podem ter defaults ou ser configuradas):**
+    *   `DUCKDB_PATH`: Caminho para o arquivo DuckDB (ex: `data/leis.duckdb`).
+    *   `LOG_FILE_PATH`: Caminho para o arquivo de log (ex: `processamento.log`).
+    *   `IA_SEARCH_QUERY`: Query para buscar itens no Internet Archive.
+    *   `IA_MAX_ITEMS`: Número máximo de itens a processar por execução (para controle e teste).
+
+Este plano deve fornecer um roteiro claro para as próximas sessões de trabalho.
+</file>
+
+<file path="pyproject.toml">
+[tool.poetry]
+name = "cotel-scrap"
+version = "0.1.0"
+description = ""
+authors = ["Franklin Silveira Baldo <franklinbaldo@gmail.com>"]
+readme = "README.md"
+packages = [{include = "cotel_scrap"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.2"
+tqdm = "^4.65.0"
+python-docx = "^1.1.2"
+pdfplumber = "^0.11.6"
+markdownify = "^1.1.0"
+flask = "^3.1.1"
+markdown = "^3.8"
+internetarchive = "^3.3.0"
+duckdb = "^0.9.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+</file>
+
+<file path="query_duckdb.py">
+import duckdb
+db_path = "data/leis_teste_local.duckdb"
+try:
+    con = duckdb.connect(database=db_path, read_only=True)
+    count = con.execute("SELECT COUNT(*) FROM leis;").fetchone()[0]
+    print(f"Número de registros na tabela 'leis': {count}")
+    if count > 0:
+        print("Primeiro registro:")
+        print(con.execute("SELECT * FROM leis LIMIT 1;").fetchall())
+    con.close()
+except Exception as e:
+    print(f"Erro ao consultar o DuckDB: {e}")
+</file>
+
+<file path="README.md">
+# Cotel Laws Scraper, Converter & Astro Site
+
+This project aims to scrape laws from the COGEL/RO website (Casa Civil de Rondônia), convert them to Markdown, and serve them through an SEO-friendly static website generated by **Astro and hosted on GitHub Pages**. Additionally, it will provide the law data through a **separate Python-based MCP (Model Context Protocol) compliant API**.
+
+## Objectives
+
+*   **Scrape Laws:** Fetch law data from the official source: `http://ditel.casacivil.ro.gov.br/COTEL/Livros/`.
+*   **Convert to Markdown:** Transform the scraped HTML content and associated documents (PDF/DOCX) for each law into a consolidated Markdown format.
+*   **SEO-Friendly Static Web Version:** Present the laws on a static website built with **Astro**, optimized for search engines and hosted on **GitHub Pages**.
+*   **Monetization:** Integrate advertising into the static web version.
+*   **MCP Service:** Expose law data via a **separate Python-based MCP-compliant API** (e.g., using Flask or FastAPI, hosting platform TBD), allowing AI models and other applications to easily consume context from the laws.
+
+## Current Status & Project Structure (High-Level)
+
+The project is currently divided into a Python-based scraping/conversion pipeline and a planned Astro-based static site. A separate MCP API will be developed later.
+
+*   **Python Scripts (Project Root):**
+    *   **`main.py`:** Contains the scraping script. It iterates through `coddoc` (document code) values, downloads the main HTML container of each law page from `http://ditel.casacivil.ro.gov.br/COTEL/Livros/detalhes.aspx?coddoc={coddoc}`, and saves it locally in the `downloads/` directory. It also attempts to download linked `.pdf`, `.doc`, and `.docx` files.
+    *   **`convert_to_markdown.py`:** Processes the downloaded files, extracts text from HTML (summary/Ementa), PDFs, and DOCX files, and combines them into individual Markdown files stored in `markdown_laws/`.
+    *   **`pyproject.toml`:** Manages Python dependencies using Poetry. Key libraries include `requests`, `beautifulsoup4`, `pdfplumber`, `python-docx`, and `markdownify`.
+*   **Data Directories (Generated by Python scripts):**
+    *   **`downloads/`:** Stores the raw HTML content of scraped law pages (e.g., `{coddoc}_container.html`) and any associated original files (PDFs, DOCs).
+    *   **`markdown_laws/`:** Stores the consolidated Markdown version of each law (e.g., `{coddoc}.md`), ready to be used by the static site generator.
+*   **Astro Static Site (Planned - e.g., `/astro-site`):**
+    *   This directory will contain the Astro project for the public-facing website. It will use the Markdown files from `markdown_laws/` as its content source.
+*   **MCP API (Future - e.g., `/mcp_api`):**
+    *   This directory will eventually house the separate Python API for serving law data in an MCP-compliant format.
+
+## Setup and Usage
+
+### 1. Python Scraper & Converter
+
+These steps are for downloading the laws and converting them to Markdown.
+
+*   **Prerequisites:**
+    *   Python 3.10+
+    *   Poetry (for dependency management). See [Poetry installation guide](https://python-poetry.org/docs/#installation).
+*   **Clone the repository (if you haven't already):**
+    ```bash
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
+*   **Install Python dependencies:**
+    ```bash
+    poetry install
+    ```
+*   **Run the scraper (`main.py`):**
+    ```bash
+    poetry run python main.py
+    ```
+    This will start downloading the law pages into the `downloads/` directory. It can take a significant amount of time to fetch all laws.
+*   **Run the Markdown converter (`convert_to_markdown.py`):**
+    ```bash
+    poetry run python convert_to_markdown.py
+    ```
+    This will process files in `downloads/` and create Markdown files in `markdown_laws/`.
+
+### 2. Astro Static Website (Planned)
+
+These steps will be for setting up and running the Astro static website once it's created (e.g., in an `astro-site/` directory).
+
+*   **Prerequisites:**
+    *   Node.js and npm (or your preferred package manager like pnpm, yarn).
+*   **Navigate to the Astro project directory:**
+    ```bash
+    cd astro-site  # Or the actual name of the Astro project directory
+    ```
+*   **Install Node.js dependencies:**
+    ```bash
+    npm install
+    ```
+*   **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+*   **Build the static site:**
+    ```bash
+    npm run build
+    ```
+    The output will typically be in a `dist/` subdirectory within the Astro project.
+
+### 3. MCP API (Future)
+
+Setup instructions for the MCP API will be added once that component is developed.
+
+## Next Steps / Current Focus
+
+*   **Set up the Astro project (`astro-site/`)**:
+    *   Initialize a new Astro project.
+    *   Configure Astro to use the Markdown files from the `markdown_laws/` directory as content.
+    *   Develop layouts and pages for displaying the laws and a homepage listing.
+*   Implement SEO best practices and ad integration within the Astro site.
+*   Develop the separate MCP API.
+*   Refine the scraper and converter for robustness and complete content extraction.
+*   Add comprehensive testing.
+
+## Internet Archive Integration for PDFs
+
+To minimize storage costs and ensure long-term availability of the original documents, PDFs downloaded by `main.py` can be archived on the Internet Archive. The script in `pipeline/collect_and_archive.py` computes a SHA-256 hash for each file and uploads it using the [`internetarchive` CLI](https://archive.org/services/docs/api/internetarchive/cli.html). Each upload receives an item ID like `cotel-<hashprefix>` and the resulting URL is stored in a local DuckDB database (`cotel_scrap.duckdb`).
+
+Before running the archiver you must configure IA credentials (`IA_ACCESS_KEY` and `IA_SECRET_KEY`). Uploads can then be automated via GitHub Actions or executed manually:
+
+```bash
+poetry run python pipeline/collect_and_archive.py
+```
+
+---
+
+## Processador de Leis Genéricas do Internet Archive com IA (Em Desenvolvimento)
+
+Este é um segundo componente do projeto que visa processar arquivos PDF de leis encontrados diretamente no Internet Archive através de uma busca genérica. Ele utiliza a API Gemini do Google para extração de texto (atualmente simulada) e armazena os resultados em um banco de dados DuckDB.
+
+**Plano de Implementação Detalhado:** Consulte o arquivo `PLANO_IMPLEMENTACAO_PROCESSADOR_LEIS.md`.
+
+**Status Atual:**
+*   Fase 1 do plano de implementação em andamento.
+*   Script base (`scripts/processador_leis.py`) funcional para:
+    *   Busca de itens no Internet Archive.
+    *   Download de arquivos PDF.
+    *   Cálculo de hash SHA256 dos PDFs.
+    *   Inserção/atualização de metadados no DuckDB (`data/leis.duckdb`).
+    *   Extração de texto com Gemini atualmente simulada (retorna um placeholder).
+*   Testes locais do script foram bem-sucedidos após correções.
+*   Teste completo do workflow do GitHub Actions (`.github/workflows/process_leis.yml`), que automatiza esse processo e gerencia o cache do DuckDB, ainda está pendente.
+
+**Como Executar um Teste Local do `scripts/processador_leis.py`:**
+
+1.  **Pré-requisitos do Sistema:**
+    *   Python 3.10 ou superior.
+    *   Poetry (para gerenciamento de dependências do projeto principal).
+    *   `poppler-utils`: Necessário para a biblioteca `pdf2image`.
+        ```bash
+        sudo apt-get update && sudo apt-get install -y poppler-utils
+        ```
+
+2.  **Dependências Python:**
+    *   Se você já executou `poetry install` para o projeto principal, algumas dependências podem estar presentes.
+    *   Este script requer especificamente: `duckdb`, `google-generativeai`, `internetarchive`, `pdf2image`, `Pillow`.
+    *   Você pode precisar instalá-las no seu ambiente virtual gerenciado pelo Poetry ou globalmente se não estiver usando Poetry para este script específico:
+        ```bash
+        pip install duckdb google-generativeai internetarchive pdf2image Pillow
+        ```
+    *   (Recomendado) Para adicionar ao projeto Poetry (se ainda não estiverem):
+        ```bash
+        poetry add duckdb google-generativeai internetarchive pdf2image Pillow
+        ```
+
+3.  **Configurar Variáveis de Ambiente (opcional para teste básico):**
+    *   `DUCKDB_PATH`: Caminho para o arquivo DuckDB (default do script: `data/leis.duckdb`, para teste local usamos `data/leis_teste_local.duckdb`).
+    *   `LOG_FILE_PATH`: Caminho para o arquivo de log (default do script: `processamento.log`, para teste local usamos `processamento_teste_local.log`).
+    *   `IA_MAX_ITEMS`: Número máximo de itens a processar do Internet Archive (default do script: `2`).
+    *   `GEMINI_API_KEY`: Chave da API do Google Gemini. Se não fornecida, a extração de texto será simulada.
+
+4.  **Executar o script:**
+    *   Navegue até a raiz do repositório.
+    *   Exemplo de execução para teste local:
+        ```bash
+        export DUCKDB_PATH="data/leis_teste_local.duckdb"
+        export LOG_FILE_PATH="processamento_teste_local.log"
+        export IA_MAX_ITEMS="1"
+        # A GEMINI_API_KEY não é necessária para o teste com extração simulada
+        python scripts/processador_leis.py
+        ```
+    *   Se estiver usando Poetry e as dependências estiverem no `pyproject.toml`:
+        ```bash
+        # (Configure as variáveis de ambiente como acima)
+        poetry run python scripts/processador_leis.py
+        ```
+</file>
+
+<file path="scripts/processador_leis.py">
+import duckdb
+import os
+import datetime
+import logging
+import internetarchive # Adicionado
+from pdf2image import convert_from_path # Adicionado
+# import google.generativeai as genai # Será usado depois
+from PIL import Image # Adicionado
+import io # Adicionado
+import json # Adicionado
+import hashlib # Adicionado
+
+# Configuração do Logging
+LOG_FILE = os.getenv('LOG_FILE_PATH', 'processamento.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode='w'), # mode='w' para sobrescrever o log a cada execução
+        logging.StreamHandler()
+    ]
+)
+
+def criar_tabela_leis(conn):
+    """Cria a tabela 'leis' no DuckDB se ela não existir."""
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS leis (
+                id_lei VARCHAR PRIMARY KEY,
+                nome_arquivo_origem VARCHAR,
+                url_internet_archive VARCHAR,
+                texto_completo TEXT,
+                data_extracao TIMESTAMP,
+                data_ultima_modificacao_ia TIMESTAMP, -- Novo campo
+                hash_pdf VARCHAR, -- Novo campo
+                metadados_adicionais JSON
+            );
+        """)
+        logging.info("Tabela 'leis' verificada/criada com sucesso.")
+    except Exception as e:
+        logging.error(f"Erro ao criar/verificar tabela 'leis': {e}")
+        raise
+
+def buscar_leis_internet_archive(query="collection:legislacao OR collection:govdocs OR subject:lei", max_items=5):
+    """Busca por leis no Internet Archive."""
+    logging.info(f"Buscando no Internet Archive com a query: '{query}' (max_items: {max_items})")
+    try:
+        # Adicionando filtro para buscar apenas itens que tenham arquivos PDF
+        search_query = f"({query}) AND mediatype:texts AND format:\"PDF\""
+        search_results = internetarchive.search_items(search_query)
+
+        items_processados = 0
+        resultados_finais = []
+        for result in search_results: # search_results é um gerador
+            if items_processados >= max_items:
+                break
+            item_id = result['identifier']
+            logging.info(f"Item encontrado: {item_id}")
+            resultados_finais.append(item_id)
+            items_processados += 1
+
+        if not resultados_finais:
+            logging.warning("Nenhum item encontrado no Internet Archive para a query especificada com arquivos PDF.")
+        return resultados_finais
+    except Exception as e:
+        logging.error(f"Erro ao buscar no Internet Archive: {e}")
+        return []
+
+def obter_detalhes_pdf_item(item_id):
+    """Obtém os detalhes do primeiro arquivo PDF encontrado em um item do Internet Archive."""
+    try:
+        item = internetarchive.get_item(item_id)
+        # Encontrar o arquivo PDF principal
+        pdf_files = [f for f in item.files if f['name'].lower().endswith('.pdf')]
+
+        if not pdf_files:
+            logging.warning(f"Nenhum arquivo PDF encontrado para o item {item_id}.")
+            return None
+
+        # Priorizar arquivos com 'source' original se disponível, ou apenas o primeiro PDF
+        # Esta lógica pode precisar de ajuste dependendo de como os arquivos são nomeados/organizados
+        pdf_file_details = sorted(pdf_files, key=lambda f: f.get('source', 'zzzz'))[0] # Tenta pegar o "original"
+
+        file_name = pdf_file_details['name']
+        download_url = f"https://archive.org/download/{item_id}/{file_name}"
+        last_modified_ia_str = pdf_file_details.get('mtime') # 'mtime' é um timestamp Unix em string
+
+        last_modified_ia = None
+        if last_modified_ia_str:
+            try:
+                last_modified_ia = datetime.datetime.fromtimestamp(int(last_modified_ia_str), tz=datetime.timezone.utc)
+            except ValueError:
+                logging.warning(f"Formato de data 'mtime' inválido para {file_name} no item {item_id}: {last_modified_ia_str}")
+
+        logging.info(f"Detalhes do PDF para {item_id}: Nome='{file_name}', URL='{download_url}', ModificadoIA='{last_modified_ia}'")
+        return {
+            "name": file_name,
+            "url": download_url,
+            "item_id": item_id,
+            "last_modified_ia": last_modified_ia,
+            "details_completes": pdf_file_details # Para referência futura, se necessário
+        }
+    except Exception as e:
+        logging.error(f"Erro ao obter detalhes do PDF para o item {item_id}: {e}")
+        return None
+
+# --- Funções de processamento de PDF e Gemini (a serem implementadas/refinadas) ---
+def extrair_texto_com_gemini(pdf_content_bytes, gemini_api_key):
+    """
+    Converte páginas do PDF em imagens e usa Gemini para extrair texto.
+    Esta é uma função placeholder e precisará de implementação completa.
+    """
+    logging.info("Iniciando extração de texto com Gemini (placeholder)...")
+    if not gemini_api_key:
+        logging.warning("Chave da API Gemini não fornecida. Simuando extração.")
+        return "Texto extraído pelo Gemini (simulado pois a API Key não foi fornecida)."
+
+    # Configurar genai (idealmente no início do script se a chave estiver sempre disponível)
+    # import google.generativeai as genai
+    # genai.configure(api_key=gemini_api_key)
+    # model = genai.GenerativeModel('gemini-1.5-flash') # ou gemini-1.5-pro
+
+    texto_completo_lei = ""
+    try:
+        images = convert_from_path(pdf_path=None, dpi=200, grayscale=True, poppler_path=None, pdf_file_obj=io.BytesIO(pdf_content_bytes))
+
+        for i, image in enumerate(images):
+            logging.info(f"Processando página {i+1}/{len(images)} com Gemini...")
+            # Converter imagem PIL para bytes (ex: PNG)
+            # img_byte_arr = io.BytesIO()
+            # image.save(img_byte_arr, format='PNG')
+            # img_byte_arr = img_byte_arr.getvalue()
+
+            # TODO: Enviar para Gemini. Exemplo de chamada (precisa adaptar para imagem):
+            # response = model.generate_content(["Extraia o texto desta imagem.", {"mime_type": "image/png", "data": img_byte_arr}])
+            # texto_pagina = response.text
+
+            # Simulação por enquanto:
+            texto_pagina = f"[Texto da Página {i+1} extraído pelo Gemini]\n"
+            texto_completo_lei += texto_pagina
+            if i < 2: # Limitar a 2 páginas para teste inicial
+                logging.info(f"Página {i+1} (simulada): {texto_pagina[:100]}...") # Logar apenas o início
+            else:
+                logging.info(f"Limitando simulação de Gemini a 2 páginas por agora.")
+                break
+
+
+    except Exception as e:
+        logging.error(f"Erro durante a conversão PDF->Imagem ou interação com Gemini: {e}")
+        return f"Erro na extração: {e}" # Retornar erro no texto para debug
+
+    logging.info("Extração de texto com Gemini (placeholder) concluída.")
+    return texto_completo_lei if texto_completo_lei else "Nenhum texto extraído."
+
+def calcular_hash_pdf(pdf_bytes):
+    """Calcula o hash SHA256 do conteúdo do PDF."""
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(pdf_bytes)
+    return sha256_hash.hexdigest()
+
+def main():
+    logging.info("Iniciando script de processamento de leis (v2).")
+
+    duckdb_path = os.getenv('DUCKDB_PATH')
+    gemini_api_key = os.getenv('GEMINI_API_KEY')
+
+    if not duckdb_path:
+        logging.error("Variável de ambiente DUCKDB_PATH não definida. Saindo.")
+        return
+
+    # A chave Gemini é opcional para testes iniciais de fluxo, mas necessária para extração real
+    if not gemini_api_key:
+        logging.warning("Variável de ambiente GEMINI_API_KEY não definida. A extração de texto real com Gemini será pulada.")
+
+    logging.info(f"Caminho do DuckDB: {duckdb_path}")
+
+    try:
+        db_directory = os.path.dirname(duckdb_path)
+        if db_directory and not os.path.exists(db_directory):
+            os.makedirs(db_directory)
+            logging.info(f"Diretório {db_directory} criado.")
+
+        conn = duckdb.connect(database=duckdb_path, read_only=False)
+        logging.info("Conexão com DuckDB estabelecida.")
+        criar_tabela_leis(conn)
+
+        # 1. Buscar itens no Internet Archive
+        # Para teste, vamos limitar a um número pequeno de itens.
+        # Uma query mais específica seria como "creator:\"Nome do Órgão Oficial\" AND subject:lei"
+        # ou usando coleções específicas se conhecidas.
+        query_busca_ia = os.getenv('IA_SEARCH_QUERY', "collection:governmentpublications subject:law mediatype:texts format:PDF")
+        max_items_ia = int(os.getenv('IA_MAX_ITEMS', '2')) # Processar poucos itens para teste
+
+        ids_leis_ia = buscar_leis_internet_archive(query=query_busca_ia, max_items=max_items_ia)
+
+        for item_id in ids_leis_ia:
+            logging.info(f"Processando item do IA: {item_id}")
+            pdf_info = obter_detalhes_pdf_item(item_id)
+
+            if not pdf_info:
+                logging.warning(f"Não foi possível obter informações do PDF para o item {item_id}. Pulando.")
+                continue
+
+            # Verificar se a lei já existe e se precisa ser atualizada
+            registro_existente = conn.execute("SELECT data_ultima_modificacao_ia, hash_pdf FROM leis WHERE id_lei = ?", (item_id,)).fetchone()
+
+            precisa_processar = True
+            if registro_existente:
+                db_last_modified_ia_unix = registro_existente[0].timestamp() if registro_existente[0] else None
+                pdf_info_last_modified_ia_unix = pdf_info["last_modified_ia"].timestamp() if pdf_info["last_modified_ia"] else None
+                db_hash_pdf = registro_existente[1]
+
+                logging.info(f"Registro existente para {item_id}: ModIA_DB_Unix='{db_last_modified_ia_unix}', ModIA_Atual_Unix='{pdf_info_last_modified_ia_unix}', Hash_DB='{db_hash_pdf}'")
+
+                if pdf_info_last_modified_ia_unix and db_last_modified_ia_unix and pdf_info_last_modified_ia_unix <= db_last_modified_ia_unix:
+                    logging.info(f"Item {item_id} já possui data de modificação do IA ({pdf_info['last_modified_ia']}) igual ou anterior à do banco. Pulando download e extração por ora, a menos que o hash seja diferente ou não exista.")
+                    precisa_processar = False
+                    # Mesmo se a data for mais antiga/igual, se o hash for diferente (ou não existir no DB), ainda poderíamos querer processar.
+                    # Esta lógica será refinada quando a comparação de hash for o fator principal.
+                    # Por agora: se a data de modificação do IA não for mais nova, não processa.
+
+            if precisa_processar:
+                logging.info(f"Baixando PDF: {pdf_info['url']}")
+                try:
+                    # Baixar o conteúdo do PDF
+                    ia_item_obj = internetarchive.get_item(item_id)
+
+                    # Correção: Usar get_file() para obter o objeto File correto
+                    target_file_obj = ia_item_obj.get_file(pdf_info['name'])
+
+                    if not target_file_obj:
+                        logging.error(f"Não foi possível obter o objeto File '{pdf_info['name']}' no item {item_id} para download.")
+                        continue
+
+                    logging.info(f"Iniciando download do arquivo '{pdf_info['name']}' (formato: {target_file_obj.format}) do item '{item_id}'...")
+                    # O método download() em um objeto File já retorna o conteúdo diretamente (bytes)
+                    # se return_responses não for True ou se for um download direto.
+                    # Para obter o objeto Response e depois .content como antes:
+                    response = target_file_obj.download(return_responses=True)
+                    pdf_bytes = response.content
+
+                    logging.info(f"PDF '{pdf_info['name']}' baixado ({len(pdf_bytes)} bytes).")
+
+                    novo_hash_pdf = calcular_hash_pdf(pdf_bytes)
+                    logging.info(f"Hash do PDF '{pdf_info['name']}': {novo_hash_pdf}")
+
+                    if registro_existente and db_hash_pdf == novo_hash_pdf:
+                        logging.info(f"Conteúdo do PDF para {item_id} não mudou (mesmo hash: {novo_hash_pdf}). Atualizando data de extração e data_mod_ia se a nova for mais recente.")
+                        conn.execute("UPDATE leis SET data_extracao = ?, data_ultima_modificacao_ia = ? WHERE id_lei = ?",
+                                     (datetime.datetime.now(datetime.timezone.utc), pdf_info['last_modified_ia'], item_id))
+                        continue
+
+                    # Extrair texto com Gemini (se a chave estiver disponível)
+                    if gemini_api_key:
+                        texto_extraido = extrair_texto_com_gemini(pdf_bytes, gemini_api_key)
+                    else:
+                        texto_extraido = "CHAVE GEMINI NÃO FORNECIDA - TEXTO NÃO EXTRAÍDO"
+                        logging.warning(f"Texto para {item_id} não extraído pois a chave da API Gemini não foi fornecida.")
+
+                    data_atual = datetime.datetime.now(datetime.timezone.utc)
+
+                    meta = {
+                        "source_tool": "Jules Processador Leis v2",
+                        "ia_file_details": pdf_info["details_completes"]
+                    }
+
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO leis (id_lei, nome_arquivo_origem, url_internet_archive,
+                                                    texto_completo, data_extracao, data_ultima_modificacao_ia,
+                                                    hash_pdf, metadados_adicionais)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (item_id, pdf_info['name'], pdf_info['url'],
+                         texto_extraido, data_atual, pdf_info['last_modified_ia'],
+                         novo_hash_pdf, json.dumps(meta) if meta else None)
+                    )
+                    logging.info(f"Dados de '{item_id}' inseridos/atualizados no DuckDB.")
+
+                except Exception as e:
+                    logging.error(f"Erro ao processar o PDF do item {item_id} ('{pdf_info.get('name', 'N/A')}'): {e}", exc_info=True)
+            else: # Se não precisa_processar porque a data de modificação do IA não é mais nova
+                # Ainda assim, vamos verificar se o hash existe e, se não, calcular e atualizar
+                if registro_existente and not db_hash_pdf:
+                    logging.info(f"Registro existente para {item_id} não possui hash. Tentando calcular e atualizar.")
+                    try:
+                        ia_item_obj = internetarchive.get_item(item_id)
+                        # Correção aplicada aqui também
+                        target_file_obj_for_hash = ia_item_obj.get_file(pdf_info['name'])
+                        if target_file_obj_for_hash:
+                            logging.info(f"Baixando arquivo '{pdf_info['name']}' para cálculo de hash tardio.")
+                            response_for_hash = target_file_obj_for_hash.download(return_responses=True)
+                            pdf_bytes_for_hash = response_for_hash.content
+                            current_hash = calcular_hash_pdf(pdf_bytes_for_hash)
+                            conn.execute("UPDATE leis SET hash_pdf = ?, data_extracao = ? WHERE id_lei = ?",
+                                         (current_hash, datetime.datetime.now(datetime.timezone.utc), item_id))
+                            logging.info(f"Hash {current_hash} atualizado para {item_id} (sem re-extração de texto).")
+                        else:
+                            logging.warning(f"Não foi possível baixar PDF para {item_id} para cálculo de hash tardio.")
+                    except Exception as e_hash:
+                        logging.error(f"Erro ao tentar calcular hash para {item_id} tardiamente: {e_hash}", exc_info=True)
+
+
+        logging.info("Script de processamento de leis (v2) concluído.")
+        conn.close()
+        logging.info("Conexão com DuckDB fechada.")
+
+    except Exception as e:
+        logging.error(f"Erro fatal no script principal: {e}", exc_info=True)
+    finally:
+        logging.info(f"Log completo disponível em: {LOG_FILE}")
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="templates/home.html">
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leis de Rondônia</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin-bottom: 10px; }
+        a { text-decoration: none; color: #0066cc; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Leis de Rondônia</h1>
+    {% if laws %}
+        <ul>
+            {% for law in laws %}
+                <li><a href="{{ url_for('view_law', coddoc=law.coddoc) }}">{{ law.title }} (coddoc: {{ law.coddoc }})</a></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Nenhuma lei encontrada.</p>
+    {% endif %}
+</body>
+</html>
+</file>
+
+<file path="templates/law.html">
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Leis de Rondônia</title>
+    <meta name="description" content="{{ summary | e }}">
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; margin: 20px; }
+        .ad-placeholder { margin: 20px 0; padding: 20px; border: 2px dashed #ccc; text-align: center; background-color: #f9f9f9; }
+        h1, h2, h3 { color: #333; }
+        pre { background-color: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        code { font-family: monospace; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <!-- AD_PLACEHOLDER_TOP -->
+    <div class="ad-placeholder">
+        Espaço para Anúncio (Topo)
+    </div>
+
+    {{ content | safe }}
+
+    <!-- AD_PLACEHOLDER_BOTTOM -->
+    <div class="ad-placeholder">
+        Espaço para Anúncio (Rodapé)
+    </div>
+</body>
+</html>
+</file>
+
+<file path="templates/sitemap.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    {% for url_info in urls %}
+    <url>
+        <loc>{{ url_info.loc }}</loc>
+        {# <lastmod>YYYY-MM-DD</lastmod> #}
+        {# To add lastmod, you would pass it in the url_info dictionary #}
+        {# For example, if url_info had a 'lastmod' key: #}
+        {# {% if url_info.lastmod %}<lastmod>{{ url_info.lastmod }}</lastmod>{% endif %} #}
+    </url>
+    {% endfor %}
+</urlset>
+</file>
+
+<file path="TODO.md">
+# TODO
+
+## Urgent: Astro Static Site (GitHub Pages)
+
+- [ ] **Initialize Astro Project:** (If not already done - `astro-site/` exists but might need full setup)
+    - [ ] Ensure `astro-site/` is a fully functional Astro project.
+    - [ ] Configure Astro to source content from `../markdown_laws/`.
+- [ ] **Develop Core Site Structure:**
+    - [ ] Create basic layouts (e.g., for individual laws, homepage).
+    - [ ] Implement a homepage that lists or links to laws.
+    - [ ] Create pages to display individual laws from Markdown.
+- [ ] **SEO & Monetization:**
+    - [ ] Implement SEO best practices (meta tags, sitemap, robots.txt).
+    - [ ] Plan and integrate ad placements.
+- [ ] **Deployment:**
+    - [ ] Set up GitHub Actions for automatic deployment to GitHub Pages.
+
+## Important: MCP API Development
+
+- [ ] **Design API:**
+    - [ ] Define API endpoints and data structures (MCP compliant).
+    - [ ] Choose a Python framework (e.g., Flask, FastAPI).
+- [ ] **Implement API:**
+    - [ ] Develop logic to serve law data from `markdown_laws/` or another structured format.
+- [ ] **Deployment Strategy for API:** (TBD - needs research/decision)
+
+## Build & Project Setup
+- [ ] **Build System:** Replace Poetry with UV for dependency management and packaging.
+
+## Ongoing: Scraper & Converter Enhancements
+
+- [ ] **Refine for Robustness & Completeness:** (Corresponds to "Refine the scraper and converter..." from README)
+    - [ ] **Error Handling:** (Keep relevant items from old TODO)
+        - [ ] Implement more specific error handling (network, HTTP, file system).
+        - [ ] Add retry mechanism with exponential backoff for downloads.
+        - [ ] Implement timeouts for network requests.
+    - [ ] **Configuration:** (Keep relevant items from old TODO)
+        - [ ] Move hardcoded values to a config file or environment variables.
+    - [ ] **Logging:** (Keep relevant items from old TODO)
+        - [ ] Replace `print` with a dedicated logging library.
+        - [ ] Implement log levels and file logging.
+    - [ ] **Code Structure & Readability:** (Keep relevant items from old TODO)
+        - [ ] Refactor `download_page_files` and other complex functions.
+        - [ ] Improve file naming consistency.
+        - [ ] Ensure consistent `pathlib` usage.
+    - [ ] **Bug Fixes:** (Keep relevant items from old TODO)
+        - [ ] Address relative URL construction in scraper.
+- [ ] **Content Integrity:**
+    - [ ] Implement content-based hashing for deduplication (from old TODO).
+
+## General Project Tasks
+
+- [ ] **Comprehensive Testing:**
+    - [ ] Add unit tests for scraper functions.
+    - [ ] Add unit tests for converter functions.
+    - [ ] Add tests for the Astro site (e.g., link checking).
+    - [ ] Add tests for the MCP API.
+- [ ] **Documentation:**
+    - [ ] Add inline comments to Python scripts (from old TODO).
+    - [ ] Update `README.md` as project evolves (ensure setup/usage is current).
+    - [ ] Add documentation for Astro site components.
+    - [ ] Add documentation for MCP API usage.
+
+## Future/Lower Priority (from old TODO.md)
+
+- [ ] Allow users to specify or extend file types to download.
+- [ ] Make the script adaptable to other websites (parameterize selectors).
+- [ ] Implement resumable downloads for large files.
+- [ ] Implement progress persistence for the scraper.
+</file>
+
+</files>

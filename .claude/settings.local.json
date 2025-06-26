@@ -32,7 +32,9 @@
       "Bash(git remote:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(uv remove:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(sed:*)",
+      "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)"
     ],
     "deny": []
   }

@@ -193,36 +193,26 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes, even f
 
 ## GitHub Actions Integration
 
-Six automated workflows handle the complete data lifecycle:
+Three automated workflows handle the complete data lifecycle:
 
-#### Daily Production Pipeline
-1. **03:15 UTC** - `02_archive_to_ia.yml`: Internet Archive upload
-   - Archives yesterday's PDF to permanent public storage
-   - Records metadata in DuckDB `pdfs` table
-   - Prevents duplicate uploads via SHA-256 verification
+#### Main Production Pipeline
+1. **Daily at 03:15 UTC** - `pipeline.yml`: **Unified end-to-end pipeline**
+   - **Job 1 - Collect**: Downloads PDF from TJRO for specified date
+   - **Job 2 - Archive**: Archives PDF to Internet Archive (conditional)
+   - **Job 3 - Extract**: Processes PDF using Gemini LLM with rate limiting
+   - **Job 4 - Update**: Updates TrueSkill ratings and DuckDB storage
+   - **Job 5 - Backup**: Creates compressed snapshot to Cloudflare R2 (conditional)
+   - **Job 6 - Summary**: Provides comprehensive pipeline status report
+   - Uses artifact sharing between jobs for efficient resource usage
+   - Supports manual triggering with custom dates and skip options
 
-2. **05:00 UTC** - `01_collect.yml`: PDF collection from TJRO
-   - Downloads latest judicial decisions PDF
-   - Validates file integrity and naming conventions
-   - Prepares for downstream processing
-
-3. **06:00 UTC** - `02_extract.yml`: Content extraction via Gemini
-   - Processes PDF using Google's LLM with rate limiting
-   - Extracts structured decision data (parties, lawyers, outcomes)
-   - Outputs JSON for TrueSkill processing
-
-4. **06:30 UTC** - `03_update.yml`: TrueSkill rating updates
-   - Calculates new lawyer ratings based on case outcomes
-   - Migrates data to unified DuckDB storage
-   - Updates rankings and statistics
-
-5. **07:00 UTC** - `04_backup_r2.yml`: Cloud backup to R2
-   - Creates compressed DuckDB snapshot
-   - Uploads to Cloudflare R2 with metadata
-   - Validates backup integrity and manages retention
+#### Legacy Archive Workflow (Retained)
+2. **Daily at 03:15 UTC** - `02_archive_to_ia.yml`: Internet Archive standalone
+   - Independent archival workflow for redundancy
+   - Can be used when main pipeline archive job fails
 
 #### Quality Assurance
-6. **On PR/Push** - `test.yml`: Comprehensive testing
+3. **On PR/Push** - `test.yml`: Comprehensive testing
    - Unit tests for all core components
    - Integration tests with mocked external APIs
    - Code formatting and linting validation
@@ -277,7 +267,7 @@ CausaGanha has evolved into a **production-ready, end-to-end judicial analysis p
 - **Tier 3 (Cloud)**: Cloudflare R2 for analytics and disaster recovery
 
 #### ✅ **Automated Operations**
-- **6 GitHub Actions workflows** handling complete pipeline (3:15-7:00 UTC daily)
+- **3 GitHub Actions workflows** with unified pipeline (3:15 UTC daily)
 - **Real-time processing**: From PDF collection to updated rankings in ~4 hours
 - **Zero-maintenance**: Fully automated with comprehensive error handling
 - **Cost-optimized**: Minimal operational expenses across all services
@@ -312,4 +302,4 @@ The system is designed to be resilient to external service failures with proper 
 
 ---
 
-**Status: ✅ PRODUCTION READY** - Complete end-to-end platform with automated operations, multi-tier storage, and advanced analytics.
+**Status: ✅ PRODUCTION HARDENED** - P0 infrastructure improvements completed (2025-06-26): unified workflows, versioned migrations, specific error handling, and optimized logging. Enterprise-grade reliability with streamlined operations.

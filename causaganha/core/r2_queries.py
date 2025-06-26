@@ -193,7 +193,7 @@ class R2DuckDBClient:
             DataFrame with comparison results
         """
         # This requires downloading both snapshots for join operation
-        logger.info(f"Comparing {metric} between snapshots")
+        logger.info("Comparing %s between snapshots", metric)
         
         # Download both snapshots
         temp_path1 = Path("temp_snapshot1.duckdb")
@@ -257,10 +257,10 @@ class R2DuckDBClient:
         ]
         
         if len(relevant_snapshots) < 2:
-            logger.warning(f"Only {len(relevant_snapshots)} snapshots found in last {days_back} days")
+            logger.warning("Only %d snapshots found in last %d days", len(relevant_snapshots), days_back)
             return pd.DataFrame()
         
-        logger.info(f"Analyzing {len(relevant_snapshots)} snapshots over {days_back} days")
+        logger.info("Analyzing %d snapshots over %d days", len(relevant_snapshots), days_back)
         
         # For now, compare oldest vs newest in the period
         oldest_snapshot = relevant_snapshots[-1]  # List is sorted newest first
@@ -355,8 +355,8 @@ def main():
             print(f"📅 Temporal Analysis ({args.days} days):")
             print(trends.to_string(index=False))
             
-    except Exception as e:
-        logger.error(f"Query failed: {e}")
+    except (OSError, RuntimeError, ValueError, ConnectionError) as e:
+        logger.error("Query failed: %s", e)
         exit(1)
         
     finally:

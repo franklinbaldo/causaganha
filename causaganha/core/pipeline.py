@@ -67,7 +67,7 @@ except ImportError as e:
 def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
     logger = logging.getLogger(__name__)
     if dry_run:
-        logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
+        logger.info("DRY-RUN: Would fetch TJRO PDF for date: %s", date_str)
         return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
 
     try:
@@ -79,7 +79,7 @@ def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
         try:
             date_obj = datetime.date.fromisoformat(date_str)
         except ValueError:
-            logger.error(f"Could not parse date '{date_str}'")
+            logger.error("Could not parse date '%s'", date_str)
             return None
 
     pdf_path = _real_fetch_tjro_pdf(date_obj)
@@ -88,8 +88,8 @@ def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
             from .gdrive import upload_file_to_gdrive
 
             upload_file_to_gdrive(pdf_path)
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"Failed to upload {pdf_path} to GDrive: {e}")
+        except (OSError, IOError, RuntimeError) as e:
+            logger.error("Failed to upload %s to GDrive: %s", pdf_path, e)
     return pdf_path
 
 
@@ -102,7 +102,7 @@ class GeminiExtractor:
     def extract_and_save_json(
         self, pdf_path: Path, output_json_dir: Path = None, dry_run: bool = False
     ):
-        self.logger.debug(f"Attempting to extract text from PDF: {pdf_path}")
+        self.logger.debug("Attempting to extract text from PDF: %s", pdf_path)
 
         if output_json_dir is None:
             output_json_dir = pdf_path.parent / "json_extracted"
@@ -140,12 +140,12 @@ def setup_logging(verbose: bool):
 
 def collect_command(args):
     logger = logging.getLogger(__name__)
-    logger.debug(f"Collect command called with args: {args}")
+    logger.debug("Collect command called with args: %s", args)
     pdf_path = fetch_tjro_pdf(
         date_str=args.date, dry_run=args.dry_run, verbose=args.verbose
     )
     if pdf_path:
-        logger.info(f"Collect command successful. PDF path: {pdf_path}")
+        logger.info("Collect command successful. PDF path: %s", pdf_path)
         return pdf_path
     else:
         logger.error("Collect command failed.")
@@ -154,7 +154,7 @@ def collect_command(args):
 
 def extract_command(args):
     logger = logging.getLogger(__name__)
-    logger.debug(f"Extract command called with args: {args}")
+    logger.debug("Extract command called with args: %s", args)
     pdf_file_path = Path(args.pdf_file)
     # If output_json_dir is not specified for extract, it defaults to the PDF's directory.
     # This is different from the GeminiExtractor's internal default if output_json_dir is None.
@@ -167,7 +167,7 @@ def extract_command(args):
         pdf_path=pdf_file_path, output_json_dir=output_dir, dry_run=args.dry_run
     )
     if json_path:
-        logger.info(f"Extract command successful. JSON path: {json_path}")
+        logger.info("Extract command successful. JSON path: %s", json_path)
         return json_path
     else:
         logger.error("Extract command failed.")
@@ -194,15 +194,15 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             ratings_df["mu"] = ratings_df["mu"].astype(float)
         if "sigma" in ratings_df.columns:
             ratings_df["sigma"] = ratings_df["sigma"].astype(float)
-        logger.info(f"Loaded ratings from {ratings_file}")
+        logger.info("Loaded ratings from %s", ratings_file)
     except FileNotFoundError:
-        logger.info(f"{ratings_file} not found. Initializing new ratings DataFrame.")
+        logger.info("%s not found. Initializing new ratings DataFrame.", ratings_file)
         ratings_df = pd.DataFrame(
             columns=["mu", "sigma", "total_partidas"]
         ).set_index(pd.Index([], name="advogado_id"))
-    except Exception as e:
+    except (FileNotFoundError, pd.errors.EmptyDataError, ValueError) as e:
         logger.error(
-            f"Error loading {ratings_file}: {e}. Initializing new ratings DataFrame."
+            "Error loading %s: %s. Initializing new ratings DataFrame.", ratings_file, e
         )
         ratings_df = pd.DataFrame(
             columns=["mu", "sigma", "total_partidas"]
@@ -227,16 +227,16 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
     processed_files_paths = []  # Keep track of files processed in this run
 
     if not json_input_dir.exists():
-        logger.error(f"JSON input directory not found: {json_input_dir}")
+        logger.error("JSON input directory not found: %s", json_input_dir)
         return
 
     json_files_to_process = list(json_input_dir.glob("*.json"))
     if not json_files_to_process:
-        logger.info(f"No JSON files found in {json_input_dir} to process.")
+        logger.info("No JSON files found in %s to process.", json_input_dir)
         # Still save ratings/partidas if they exist from previous runs and need sorting/creation
 
     for json_path in json_files_to_process:
-        logger.info(f"Processing JSON file: {json_path.name}")
+        logger.info("Processing JSON file: %s", json_path.name)
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 loaded_content = json.load(f)
@@ -245,8 +245,8 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                 f"Error decoding JSON from {json_path.name}: {e}. Skipping file."
             )
             continue
-        except Exception as e:
-            logger.error(f"Error reading {json_path.name}: {e}. Skipping file.")
+        except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+            logger.error("Error reading %s: %s. Skipping file.", json_path.name, e)
             continue
 
         if isinstance(loaded_content, dict) and "decisions" in loaded_content:
@@ -394,9 +394,9 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                 # Sort by mu (primary rating) then sigma (uncertainty, lower is better for same mu)
                 ratings_df_sorted = ratings_df.sort_values(by=["mu", "sigma"], ascending=[False, True])
                 ratings_df_sorted.to_csv(ratings_file)
-                logger.info(f"Ratings saved to {ratings_file}")
-            except Exception as e:
-                logger.error(f"Error saving ratings to {ratings_file}: {e}")
+                logger.info("Ratings saved to %s", ratings_file)
+            except (OSError, IOError) as e:
+                logger.error("Error saving ratings to %s: %s", ratings_file, e)
         else:
             logger.info("Ratings DataFrame is empty. Not saving ratings file.")
 
@@ -404,9 +404,9 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             partidas_df = pd.DataFrame(partidas_history)
             try:
                 partidas_df.to_csv(partidas_file, index=False)
-                logger.info(f"Partidas history saved to {partidas_file}")
-            except Exception as e:
-                logger.error(f"Error saving partidas to {partidas_file}: {e}")
+                logger.info("Partidas history saved to %s", partidas_file)
+            except (OSError, IOError) as e:
+                logger.error("Error saving partidas to %s: %s", partidas_file, e)
         else:
             logger.info("No new partidas to save.")
 
@@ -419,9 +419,9 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
                     logger.info(
                         f"Moved processed JSON file {processed_file_path.name} to {destination}"
                     )
-                except Exception as e:
+                except (OSError, FileNotFoundError, shutil.Error) as e:
                     logger.error(
-                        f"Error moving file {processed_file_path.name} to {processed_json_dir}: {e}"
+                        "Error moving file %s to %s: %s", processed_file_path.name, processed_json_dir, e
                     )
         else:
             logger.info("No JSON files were successfully processed to be moved.")
@@ -430,7 +430,7 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
             "DRY-RUN: Skipping save of ratings, partidas, and move of JSON files."
         )
         if not ratings_df.empty:
-            logger.info(f"DRY-RUN: Would attempt to save {len(ratings_df)} ratings.")
+            logger.info("DRY-RUN: Would attempt to save %d ratings.", len(ratings_df))
         if partidas_history:
             logger.info(
                 f"DRY-RUN: Would attempt to save {len(partidas_history)} partidas."
@@ -445,7 +445,7 @@ def _update_trueskill_ratings_logic(logger: logging.Logger, dry_run: bool):
 
 def update_command(args):
     logger = logging.getLogger(__name__)
-    logger.debug(f"Update command called with args: {args}")
+    logger.debug("Update command called with args: %s", args)
 
     # The main logic is now encapsulated in _update_trueskill_ratings_logic
     _update_trueskill_ratings_logic(logger, args.dry_run)
@@ -453,18 +453,18 @@ def update_command(args):
 
 def run_command(args):
     logger = logging.getLogger(__name__)
-    logger.debug(f"Run command called with args: {args}")
+    logger.debug("Run command called with args: %s", args)
 
-    logger.info(f"Starting 'collect' step for date {args.date}...")
+    logger.info("Starting 'collect' step for date %s...", args.date)
     pdf_path = fetch_tjro_pdf(
         date_str=args.date, dry_run=args.dry_run, verbose=args.verbose
     )
     if not pdf_path:
-        logger.error(f"'collect' step failed for date {args.date}. Aborting 'run'.")
+        logger.error("'collect' step failed for date %s. Aborting 'run'.", args.date)
         return
-    logger.info(f"'collect' step successful. PDF available at: {pdf_path}")
+    logger.info("'collect' step successful. PDF available at: %s", pdf_path)
 
-    logger.info(f"Starting 'extract' step for PDF {pdf_path}...")
+    logger.info("Starting 'extract' step for PDF %s...", pdf_path)
     # For 'run', if --output_json_dir is given to 'run', it's for the final JSON output of the pipeline.
     # The extract step here should probably save to the default location for 'update' to find it.
     # So, `causaganha/data/json/` is the target for extract step in a `run` command.
@@ -487,7 +487,7 @@ def run_command(args):
             f"'extract' step failed for PDF {pdf_path}. 'run' command partially completed."
         )
         return
-    logger.info(f"'extract' step successful. JSON output at: {json_output_path}")
+    logger.info("'extract' step successful. JSON output at: %s", json_output_path)
 
     # --- Update Step (as part of run) ---
     logger.info("Starting 'update' step as part of 'run' command...")
@@ -496,7 +496,7 @@ def run_command(args):
     update_args = argparse.Namespace(dry_run=args.dry_run, verbose=args.verbose)
     update_command(update_args)  # Call the update_command function
 
-    logger.info(f"Run command completed successfully for date {args.date}.")
+    logger.info("Run command completed successfully for date %s.", args.date)
 
 
 def main():
