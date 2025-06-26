@@ -1,337 +1,66 @@
 name: Daily CausaGanha Pipeline
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
     inputs:
       date:
-        description: 'Date to process (YYYY-MM-DD, optional - defaults to yesterday)'
+        description: 'YYYY-MM-DD (default: yesterday)'
         required: false
         type: string
-      skip_archive:
-        description: 'Skip Internet Archive upload'
-        required: false
-        type: boolean
-        default: false
-      skip_backup:
-        description: 'Skip R2 backup'
-        required: false
-        type: boolean
-        default: false
   schedule:
-    - cron: '15 3 * * *' # Daily at 3:15 AM UTC
+    - cron: '15 3 * * *'
 
 env:
-  # Core API keys
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-  
-  # Internet Archive credentials
   IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
   IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-  
-  # Cloudflare R2 credentials
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
   CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
-  
-  # Optional Google Drive (legacy)
-  GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-  GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
 
 jobs:
-  # Job 1: Collect PDF from TJRO
-  collect:
+  pipeline:
     runs-on: ubuntu-latest
-    outputs:
-      pdf_path: ${{ steps.collect.outputs.pdf_path }}
-      processing_date: ${{ steps.date.outputs.processing_date }}
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - uses: ./.github/actions/setup
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Determine processing date
+      - name: Determine date
         id: date
         run: |
-          echo "=== DEBUGGING: Date determination ==="
-          echo "github.event.inputs.date: '${{ github.event.inputs.date }}'"
-          echo "github.event_name: '${{ github.event_name }}'"
-          
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            DATE="${{ github.event.inputs.date }}"
-            echo "Using input date: $DATE"
+          if [ -n "${{ inputs.date }}" ]; then
+            echo "date=${{ inputs.date }}" >> "$GITHUB_OUTPUT"
           else
-            # Use yesterday's date for cron runs
-            DATE=$(date -d "yesterday" +%Y-%m-%d)
-            echo "Using yesterday's date: $DATE"
+            echo "date=$(date -d 'yesterday' +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           fi
-          
-          echo "PROCESSING_DATE=$DATE" >> $GITHUB_ENV
-          echo "processing_date=$DATE" >> $GITHUB_OUTPUT
-          echo "Final processing_date output: $DATE"
 
-      - name: Download PDF from TJRO
+      - name: Collect
         id: collect
         run: |
-          echo "=== DEBUGGING: PDF Download ==="
-          echo "PROCESSING_DATE env var: '$PROCESSING_DATE'"
-          echo "Downloading PDF for date: $PROCESSING_DATE"
-          
-          # Download PDF
-          uv run python causaganha/core/downloader.py --date $PROCESSING_DATE
-          
-          # Set output for next jobs
-          PDF_FILE="data/dj_${PROCESSING_DATE//-/}.pdf"
-          echo "pdf_path=$PDF_FILE" >> $GITHUB_OUTPUT
-          echo "PDF file path set to: $PDF_FILE"
-          
-          # Verify file exists
-          if [ -f "$PDF_FILE" ]; then
-            echo "✅ PDF file exists: $(ls -lh $PDF_FILE)"
-          else
-            echo "❌ PDF file NOT found: $PDF_FILE"
-            echo "Contents of data/ directory:"
-            ls -la data/ || echo "data/ directory doesn't exist"
-            exit 1
-          fi
+          DATE=${{ steps.date.outputs.date }}
+          uv run python causaganha/core/downloader.py --date "$DATE"
+          echo "pdf_path=data/dj_${DATE//-/}.pdf" >> "$GITHUB_OUTPUT"
 
-      - name: Upload PDF artifact
+      - name: Archive
+        run: uv run python causaganha/core/pipeline.py archive --date ${{ steps.date.outputs.date }}
+
+      - name: Extract
+        run: uv run python causaganha/core/extractor.py --pdf_file ${{ steps.collect.outputs.pdf_path }}
+
+      - name: Update ratings
+        run: uv run python causaganha/core/pipeline.py update
+
+      - name: Backup
+        run: uv run python causaganha/core/r2_storage.py backup
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pdf-${{ steps.date.outputs.processing_date }}
-          path: data/dj_*.pdf
-          retention-days: 7
-
-  # Job 2: Archive PDF to Internet Archive
-  archive:
-    runs-on: ubuntu-latest
-    needs: collect
-    if: ${{ !github.event.inputs.skip_archive }}
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Download PDF artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pdf-${{ needs.collect.outputs.processing_date }}
-          path: data/
-
-      - name: Archive PDF to Internet Archive
-        run: |
-          echo "Archiving PDF to Internet Archive..."
-          uv run python pipeline/collect_and_archive.py --date ${{ needs.collect.outputs.processing_date }}
-
-  # Job 3: Extract content using Gemini
-  extract:
-    runs-on: ubuntu-latest
-    needs: collect
-    outputs:
-      json-path: ${{ steps.extract.outputs.json_path }}
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Download PDF artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pdf-${{ needs.collect.outputs.processing_date }}
-          path: data/
-
-      - name: Extract content with Gemini
-        id: extract
-        run: |
-          echo "=== DEBUGGING: Content Extraction ==="
-          echo "needs.collect.outputs.pdf_path: '${{ needs.collect.outputs.pdf_path }}'"
-          echo "needs.collect.outputs.processing_date: '${{ needs.collect.outputs.processing_date }}'"
-          
-          PDF_PATH="${{ needs.collect.outputs.pdf_path }}"
-          echo "PDF_PATH variable: '$PDF_PATH'"
-          
-          # Verify PDF file exists
-          if [ -z "$PDF_PATH" ]; then
-            echo "❌ PDF_PATH is empty!"
-            exit 1
-          fi
-          
-          if [ ! -f "$PDF_PATH" ]; then
-            echo "❌ PDF file not found: $PDF_PATH"
-            echo "Contents of data/ directory:"
-            ls -la data/ || echo "data/ directory doesn't exist"
-            exit 1
-          fi
-          
-          echo "✅ PDF file found: $(ls -lh $PDF_PATH)"
-          echo "Extracting content from: $PDF_PATH"
-          
-          # Run extraction
-          uv run python causaganha/core/extractor.py --pdf_file "$PDF_PATH"
-          
-          # Set output for next job
-          JSON_FILE="data/dj_${{ needs.collect.outputs.processing_date }}_extraction.json"
-          echo "json_path=$JSON_FILE" >> $GITHUB_OUTPUT
-          echo "Expected JSON file: $JSON_FILE"
-          
-          # Verify JSON was created
-          if [ -f "$JSON_FILE" ]; then
-            echo "✅ Extraction JSON created: $(ls -lh $JSON_FILE)"
-            echo "JSON file size: $(wc -c < $JSON_FILE) bytes"
-          else
-            echo "❌ Extraction JSON NOT found: $JSON_FILE"
-            echo "Contents of data/ directory after extraction:"
-            ls -la data/ || echo "data/ directory doesn't exist"
-            exit 1
-          fi
-
-      - name: Upload extraction artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: extraction-${{ needs.collect.outputs.processing_date }}
-          path: data/*_extraction.json
-          retention-days: 7
-
-  # Job 4: Update TrueSkill ratings
-  update:
-    runs-on: ubuntu-latest
-    needs: [collect, extract]
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Download extraction artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: extraction-${{ needs.collect.outputs.processing_date }}
-          path: data/
-
-      - name: Update TrueSkill ratings
-        run: |
-          echo "Updating TrueSkill ratings..."
-          uv run python causaganha/core/pipeline.py update --date ${{ needs.collect.outputs.processing_date }}
-
-      - name: Upload updated database
-        uses: actions/upload-artifact@v4
-        with:
-          name: database-${{ needs.collect.outputs.processing_date }}
-          path: data/causaganha.duckdb
-          retention-days: 30
-
-  # Job 5: Backup to Cloudflare R2
-  backup:
-    runs-on: ubuntu-latest
-    needs: [collect, update]
-    if: ${{ !github.event.inputs.skip_backup }}
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: uv sync --dev
-
-      - name: Download updated database
-        uses: actions/download-artifact@v4
-        with:
-          name: database-${{ needs.collect.outputs.processing_date }}
-          path: data/
-
-      - name: Backup to Cloudflare R2
-        run: |
-          echo "Creating backup snapshot to Cloudflare R2..."
-          uv run python causaganha/core/r2_storage.py backup
-
-
-  # Summary job that runs after all others complete
-  summary:
-    runs-on: ubuntu-latest
-    needs: [collect, archive, extract, update, backup]
-    if: always() # Run even if some jobs fail
-    
-    steps:
-      - name: Pipeline Summary
-        run: |
-          echo "## CausaGanha Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-          echo "**Date**: ${{ needs.collect.outputs.processing_date }}" >> $GITHUB_STEP_SUMMARY
-          echo "**PDF**: ${{ needs.collect.outputs.pdf_path }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Job Status" >> $GITHUB_STEP_SUMMARY
-          echo "- **Collect**: ${{ needs.collect.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Archive**: ${{ needs.archive.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Extract**: ${{ needs.extract.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Update**: ${{ needs.update.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backup**: ${{ needs.backup.result }}" >> $GITHUB_STEP_SUMMARY
-          
-          # Check for failures
-          if [[ "${{ needs.collect.result }}" == "failure" || "${{ needs.extract.result }}" == "failure" || "${{ needs.update.result }}" == "failure" ]]; then
-            echo "❌ **Pipeline had critical failures**" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          else
-            echo "✅ **Pipeline completed successfully**" >> $GITHUB_STEP_SUMMARY
-          fi
+          name: causaganha-${{ steps.date.outputs.date }}
+          path: |
+            data/dj_*.pdf
+            data/*_extraction.json
+            data/causaganha.duckdb
+          retention-days: 14
