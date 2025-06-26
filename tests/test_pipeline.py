@@ -193,11 +193,16 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self.ch.close()
 
         for f_name in ["decision1.json", "decision2.json", "decision3.json"]:
-            if (self.json_input_dir / f_name).exists(): (self.json_input_dir / f_name).unlink()
-            if (self.processed_json_dir / f_name).exists(): (self.processed_json_dir / f_name).unlink()
-        if self.ratings_csv_path.exists(): self.ratings_csv_path.unlink()
-        if self.partidas_csv_path.exists(): self.partidas_csv_path.unlink()
-        self.stdout_patch.stop(); self.stderr_patch.stop()
+            if (self.json_input_dir / f_name).exists():
+                (self.json_input_dir / f_name).unlink()
+            if (self.processed_json_dir / f_name).exists():
+                (self.processed_json_dir / f_name).unlink()
+        if self.ratings_csv_path.exists():
+            self.ratings_csv_path.unlink()
+        if self.partidas_csv_path.exists():
+            self.partidas_csv_path.unlink()
+        self.stdout_patch.stop()
+        self.stderr_patch.stop()
         logging.getLogger().handlers.clear()
 
     @patch("pipeline.shutil.move")
@@ -211,7 +216,8 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         mock_read_csv.assert_called_once_with(Path("causaganha/data/ratings.csv"), index_col="advogado_id")
         self.assertEqual(mock_to_csv.call_count, 2)
         self.assertEqual(mock_shutil_move.call_count, 3)
-        relative_input_path = Path("causaganha/data/json"); relative_processed_path = Path("causaganha/data/json_processed")
+        relative_input_path = Path("causaganha/data/json")
+        relative_processed_path = Path("causaganha/data/json_processed")
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision1.json"), str(relative_processed_path / "decision1.json"))
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision2.json"), str(relative_processed_path / "decision2.json"))
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision3.json"), str(relative_processed_path / "decision3.json"))
@@ -276,4 +282,3 @@ if __name__ == "__main__":
     logging.disable(logging.NOTSET)
     logging.basicConfig(level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
     unittest.main(argv=sys.argv[:1], verbosity=2, exit=False)
-```

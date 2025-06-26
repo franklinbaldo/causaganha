@@ -19,8 +19,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from r2_storage import CloudflareR2Storage, R2Config
-from r2_queries import R2DuckDBClient, R2QueryConfig
+from r2_storage import CloudflareR2Storage, R2Config  # noqa: E402
+from r2_queries import R2DuckDBClient, R2QueryConfig  # noqa: E402
 
 
 class TestR2Config:

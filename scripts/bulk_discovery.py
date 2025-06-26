@@ -16,8 +16,8 @@ import argparse
 import json
 import time
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import List, Dict, Set
+from datetime import datetime
+from typing import Dict, Set
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -368,7 +368,7 @@ Examples:
         print(f"\n🎉 Discovery completed in {duration}")
         if isinstance(results, dict) and '_totals' in results:
             totals = results['_totals']
-            print(f"📊 Total Results:")
+            print("📊 Total Results:")
             print(f"  Found: {totals['total']:,} PDFs")
             print(f"  New: {totals['new']:,}")
             print(f"  Existing: {totals['existing']:,}")
@@ -377,7 +377,7 @@ Examples:
         
         # Final statistics
         final_stats = discovery.get_statistics()
-        print(f"\n📈 Queue Status:")
+        print("\n📈 Queue Status:")
         print(f"  Total in queue: {final_stats['total_queued']:,}")
         print(f"  Pending processing: {final_stats['pending_count']:,}")
         

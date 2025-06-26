@@ -168,4 +168,3 @@ def test_example_from_module(default_model: PlackettLuce):
 # - Empty teams (should probably raise error in openskill.py or be caught before)
 # - Rating players with very high/low mu/sigma values if relevant
 # - Specific known outcomes if available from OpenSkill documentation/examples
-```
