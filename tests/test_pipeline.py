@@ -170,11 +170,28 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         initial_ratings_df = pd.DataFrame({"advogado_id": pd.Series([], dtype='object'), "mu": pd.Series([], dtype='float'), "sigma": pd.Series([], dtype='float'), "total_partidas": pd.Series([], dtype='int')}).set_index("advogado_id")
         initial_ratings_df.to_csv(self.ratings_csv_path)
         if self.partidas_csv_path.exists(): self.partidas_csv_path.unlink()
+
+        # Capture logs for pipeline module
+        self.log_capture_string = StringIO()
+        self.pipeline_logger = logging.getLogger("pipeline") # Get the logger used in pipeline.py
+        self.original_handlers = self.pipeline_logger.handlers[:]
+        self.pipeline_logger.handlers = [] # Remove existing handlers if any
+        self.ch = logging.StreamHandler(self.log_capture_string)
+        self.ch.setLevel(logging.INFO) # Capture INFO and above
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self.ch.setFormatter(formatter)
+        self.pipeline_logger.addHandler(self.ch)
+        self.pipeline_logger.setLevel(logging.INFO) # Ensure logger level is also set
+
         self.stdout_patch = patch("sys.stdout", new_callable=StringIO); self.mock_stdout = self.stdout_patch.start()
         self.stderr_patch = patch("sys.stderr", new_callable=StringIO); self.mock_stderr = self.stderr_patch.start()
-        logging.getLogger().addHandler(logging.NullHandler())
+        # logging.getLogger().addHandler(logging.NullHandler()) # Avoid this global handler
 
     def tearDown(self):
+        self.pipeline_logger.removeHandler(self.ch)
+        self.pipeline_logger.handlers = self.original_handlers # Restore original handlers
+        self.ch.close()
+
         for f_name in ["decision1.json", "decision2.json", "decision3.json"]:
             if (self.json_input_dir / f_name).exists(): (self.json_input_dir / f_name).unlink()
             if (self.processed_json_dir / f_name).exists(): (self.processed_json_dir / f_name).unlink()
@@ -198,9 +215,36 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision1.json"), str(relative_processed_path / "decision1.json"))
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision2.json"), str(relative_processed_path / "decision2.json"))
         mock_shutil_move.assert_any_call(str(relative_input_path / "decision3.json"), str(relative_processed_path / "decision3.json"))
-        self.assertEqual(mock_to_csv.call_args_list[0].args[0], Path("causaganha/data/ratings.csv"))
-        self.assertEqual(mock_to_csv.call_args_list[1].args[0], Path("causaganha/data/partidas.csv"))
+
+        # Check ratings_df output (first call to to_csv)
+        ratings_df_output_path = mock_to_csv.call_args_list[0].args[0]
+        self.assertEqual(ratings_df_output_path, Path("causaganha/data/ratings.csv"))
+        # The actual DataFrame written is the first argument to the instance method
+        written_ratings_df = mock_to_csv.call_args_list[0].instance
+        self.assertIsInstance(written_ratings_df, pd.DataFrame)
+        self.assertIn("mu", written_ratings_df.columns)
+        self.assertIn("sigma", written_ratings_df.columns)
+        self.assertIn("total_partidas", written_ratings_df.columns)
+        self.assertTrue(pd.api.types.is_float_dtype(written_ratings_df["mu"]))
+        self.assertTrue(pd.api.types.is_float_dtype(written_ratings_df["sigma"]))
+        self.assertTrue(pd.api.types.is_integer_dtype(written_ratings_df["total_partidas"]))
+        self.assertGreater(len(written_ratings_df), 0, "Ratings df should not be empty after processing.")
+
+        # Check partidas_df output (second call to to_csv)
+        partidas_df_output_path = mock_to_csv.call_args_list[1].args[0]
+        written_partidas_df = mock_to_csv.call_args_list[1].instance
+        self.assertEqual(partidas_df_output_path, Path("causaganha/data/partidas.csv"))
+        self.assertIsInstance(written_partidas_df, pd.DataFrame)
+        self.assertIn("resultado_partida", written_partidas_df.columns)
+        self.assertGreater(len(written_partidas_df), 0, "Partidas df should not be empty.")
         self.assertEqual(mock_to_csv.call_args_list[1].kwargs.get("index"), False)
+
+        # Check log message
+        log_contents = self.log_capture_string.getvalue()
+        self.assertIn("Starting OpenSkill ratings update process.", log_contents)
+        self.assertIn("Ratings saved to", log_contents)
+        self.assertIn("Partidas history saved to", log_contents)
+
 
     @patch("pipeline.shutil.move")
     @patch("pipeline.pd.DataFrame.to_csv")

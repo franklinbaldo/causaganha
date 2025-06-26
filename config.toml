@@ -1,11 +1,9 @@
-# General settings
-rating_engine = "trueskill" # Can be "trueskill" or "openskill"
-
-# TrueSkill environment configuration
-[trueskill]
+# OpenSkill environment configuration
+[openskill]
 mu = 25.0
-sigma = 8.333333333333334  # mu / 3
-beta = 4.166666666666667   # sigma / 2
-tau = 0.08333333333333334  # sigma / 100
-draw_probability = 0.10
-# backend = "scipy"  # Example: "mpmath" or "scipy" for higher precision, None for default Python floats
+sigma = 8.333333333333334  # Default: 25.0 / 3.0
+beta = 4.166666666666667   # Default: 25.0 / 6.0
+tau = 0.08333333333333333  # Default: (25.0 / 3.0) / 100.0
+# partial_play_tau = 0.7 # Optional: Custom tau for partial matches, if different from model's tau.
+                          # openskill_rating.py's rate_teams function has its own default for this (0.7)
+                          # This entry is not directly used by get_openskill_model but could be for rate_teams if customized.
