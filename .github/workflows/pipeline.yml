@@ -312,12 +312,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [collect, archive, extract, update, backup]
     if: always() && (needs.collect.result == 'failure' || needs.extract.result == 'failure' || needs.update.result == 'failure' || needs.archive.result == 'failure' || needs.backup.result == 'failure')
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
           
       - name: Create error debug branch
         run: |
