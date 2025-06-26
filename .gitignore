@@ -13,3 +13,8 @@ ratings_export*.csv
 # Processing artifacts  
 todo-p0-hardening.md
 *.egg-info/
+
+# Coverage reports
+coverage.xml
+.coverage
+htmlcov/
