@@ -1,143 +1,75 @@
-# Plano OpenSkill
+# OpenSkill Rating System Implementation
 
-**Status**: Proposta
-**Prioridade**: P2 (Experimento)
-**Objetivo**: Avaliar a biblioteca [OpenSkill](https://github.com/open-skill/openskill.py) como alternativa ao uso direto do `trueskill`. A ideia é habilitar ajustes mais flexíveis de ranking e lidar melhor com decisões parciais.
+**Status**: Implementado
+**Prioridade**: N/A (Concluído)
+**Objetivo**: Este documento descreve a implementação do sistema de rating [OpenSkill](https://github.com/open-skill/openskill.py) no projeto CausaGanha, utilizado para ranquear advogados com base nos resultados de processos judiciais.
 
-## Motivação
-- TrueSkill é poderoso, mas suas patentes e a implementação de fator‑grafo podem ser impeditivas.
-- As alternativas mais sólidas hoje são:
-  - **OpenSkill**: versão Weng‑Lin/Plackett‑Luce livre de patentes, cerca de 3× mais rápida e com a mesma API de μ±σ.
-  - **Glicko‑2**: apenas algumas dezenas de linhas, decay embutido, ótimo para partidas 1‑v‑1.
-  - **Bradley‑Terry / Plackett‑Luce** bayesiano: flexível para cenários n‑way, mas exige infraestrutura de inferência.
-- PageRank clones, Colley/Massey ou Elo cru costumam ser simples demais ou específicos de um jogo.
-- Começamos avaliando o OpenSkill por ser o substituto mais próximo ao TrueSkill sem o ônus das patentes.
+## Motivação para Escolha do OpenSkill
+A biblioteca OpenSkill foi escolhida como o sistema de rating principal devido às seguintes vantagens:
+- **Licença Permissiva**: OpenSkill (LGPL-3.0) é livre de patentes, ao contrário de algumas implementações do TrueSkill.
+- **Desempenho e API**: Oferece uma API similar ao TrueSkill (μ±σ) e bom desempenho.
+- **Flexibilidade**: Permite ajustes flexíveis de ranking e tem capacidade de lidar com decisões parciais (embora a lógica de identificação de decisões parciais ainda não esteja completamente implementada no pipeline).
+- **Alternativa Moderna**: Considerada uma alternativa robusta a outros sistemas como Glicko-2 ou implementações bayesianas complexas para o contexto do projeto.
 
-## Passos de Implementação
-1. **Adicionar dependência**
-   ```bash
-   uv pip install openskill
-   ```
-2. **Criar módulo `openskill_rating.py`**
-   - Funções para inicializar o ambiente OpenSkill.
-   - Wrapper para atualizar partidas (`rate`), aceitando resultados `{win_a, win_b, partial_a, partial_b, draw}`.
-3. **Ajustar pipeline**
-   - Carregar parametro `rating_engine` em `config.toml` (`trueskill` ou `openskill`).
-   - Em `pipeline.py`, usar o módulo correspondente ao atualizar ratings.
-4. **Migração de dados**
-   - Converter `ratings.csv` atual para o formato OpenSkill (mesmos campos `mu` e `sigma`).
-   - Manter histórico de partidas para validação.
-5. **Testes**
-   - Replicar casos de `tests/test_trueskill_rating.py` para `tests/test_openskill_rating.py`.
-   - Garantir que resultados idênticos (vitória/derrota simples) coincidam com TrueSkill.
+Originalmente, o OpenSkill foi avaliado como um substituto potencial ao TrueSkill. Após a avaliação, foi adotado como o único motor de rating do projeto.
 
-## Exemplo Rápido
-```python
-from openskill import Rating, rate
+## Componentes da Implementação
 
-team_a = [Rating(), Rating(mu=30)]
-team_b = [Rating()]
+1.  **Dependência Adicionada**:
+    A biblioteca `openskill` foi adicionada ao projeto via `pyproject.toml`.
+    ```toml
+    openskill==5.0.1
+    ```
 
-# Vitória parcial da equipe A
-new_a, new_b = rate([team_a, team_b], [0, 1], τ=0.7)
+2.  **Módulo de Rating (`src/openskill_rating.py`)**:
+    Um módulo dedicado foi criado para encapsular a lógica do OpenSkill. Ele inclui:
+    - Funções para inicializar o modelo OpenSkill (PlackettLuce) com parâmetros configuráveis (via `config.toml` na seção `[openskill]`) ou padrões.
+    - Funções para criar objetos de rating OpenSkill, tanto para novos participantes quanto a partir de valores `mu` e `sigma` existentes.
+    - Uma função `rate_teams` que atualiza os ratings das equipes com base no resultado da partida (vitória, derrota, empate, ou vitória/derrota parcial).
+
+3.  **Integração com o Pipeline (`src/pipeline.py`)**:
+    - O pipeline de processamento de dados utiliza exclusivamente o módulo `openskill_rating.py` para calcular e atualizar os ratings.
+    - A configuração dos parâmetros do modelo OpenSkill (`mu`, `sigma`, `beta`, `tau`) é carregada a partir da seção `[openskill]` do arquivo `config.toml`. Se a seção ou parâmetros específicos estiverem ausentes, o sistema recorre a valores padrão definidos em `openskill_rating.py`.
+
+4.  **Formato de Dados (`ratings.csv`, `partidas.csv`)**:
+    - `ratings.csv`: Armazena os ratings dos advogados, utilizando as colunas `mu` e `sigma`, que são diretamente compatíveis com o OpenSkill.
+    - `partidas.csv`: Registra o histórico de partidas, incluindo os IDs dos participantes, seus ratings antes e depois, e o resultado da partida (que pode incluir "partial_a" ou "partial_b" se essa lógica for ativada no pipeline).
+
+5.  **Testes**:
+    - Testes unitários para o módulo `src/openskill_rating.py` foram criados em `tests/test_openskill_rating.py` para garantir a corretude da lógica de rating.
+    - Testes de integração no pipeline (`tests/test_pipeline.py`) foram revisados e atualizados para refletir o uso exclusivo do OpenSkill.
+
+## Configuração (`config.toml`)
+A configuração dos parâmetros do OpenSkill é feita na seção `[openskill]` do arquivo `config.toml`:
+```toml
+[openskill]
+mu = 25.0
+sigma = 8.333333333333334  # Padrão: 25.0 / 3.0
+beta = 4.166666666666667   # Padrão: 25.0 / 6.0
+tau = 0.08333333333333333  # Padrão: (25.0 / 3.0) / 100.0
 ```
 
-## Critérios de Sucesso
-- Configuração do mecanismo via `config.toml`.
-- Pipeline executa tanto com TrueSkill quanto com OpenSkill.
-- Cobertura de testes para ambos cenários.
+## Exemplo Rápido de Uso (Biblioteca OpenSkill)
+```python
+from openskill import Rating, rate # Exemplo direto da biblioteca
 
-## Surgical Swap Recipe
+# Supondo um modelo OpenSkill já instanciado (como em openskill_rating.py)
+# model = PlackettLuce(mu=25, sigma=25/3, beta=25/6, tau=0.083)
 
-Below is a concise step-by-step recipe for swapping out TrueSkill in favor of
-the fully open-source **OpenSkill**. These instructions have worked for other
-teams and can be executed in less than an hour.
+# Criar ratings para jogadores/equipes
+team_a_ratings = [Rating(mu=25, sigma=8.3)] # Usando Rating direto da lib
+team_b_ratings = [Rating(mu=30, sigma=7.5)]
 
-1. **One-line dependency change**
+# Calcular novos ratings após uma partida onde a equipe A venceu
+# No nosso projeto, isso é encapsulado em openskill_rating.rate_teams
+# new_team_a, new_team_b = model.rate([team_a_ratings, team_b_ratings], ranks=[0, 1])
 
-   ```bash
-   pip uninstall trueskill       # optional
-   pip install openskill         # latest stable on PyPI
-   ```
-   OpenSkill is LGPL-3.0 and has no native extensions to compile.
+# Exemplo de vitória parcial da equipe A (usando tau específico para a partida)
+# new_a, new_b = model.rate([team_a_ratings, team_b_ratings], ranks=[0, 1], tau=0.7)
+```
+O módulo `src/openskill_rating.py` abstrai essas chamadas, facilitando o uso no pipeline.
 
-2. **Update imports and initialisation**
-
-   ```python
-   # TrueSkill idiom
-   import trueskill as ts
-   env = ts.TrueSkill(mu=25, sigma=25/3, beta=25/6, tau=0.083)
-
-   # OpenSkill drop-in
-   from openskill.models import PlackettLuce as Skill
-   model = Skill(mu=25, sigma=25/3, beta=25/6, tau=0.083)
-   ```
-
-   `PlackettLuce` is the default OpenSkill model, but you can swap to
-   `BradleyTerryFull`, `BradleyTerryPart`, etc. later.
-
-3. **Ratings object**
-
-   ```python
-   # TrueSkill
-   alice = env.Rating()                # mu=25, sigma≈8.33
-
-   # OpenSkill
-   alice = model.rating(name="alice")  # same defaults
-   ```
-
-   Both expose `.mu` and `.sigma`; OpenSkill also provides
-   `alice.ordinal()` (μ − 3σ).
-
-4. **Match updates**
-
-   ```python
-   # 1‑vs‑1
-   alice, bob = env.rate_1vs1(alice, bob)
-
-   [ [alice], [bob] ] = model.rate([[alice], [bob]])
-
-   # Arbitrary teams / ranks
-   teams = [[alice, carol], [bob, dave]]
-   ranks = [1, 2]  # 1 = winner, 2 = loser
-   [teamA, teamB] = model.rate(teams, ranks=ranks)
-   ```
-
-   The return shape matches TrueSkill: list-of-teams with updated Rating objects.
-
-5. **Match quality & predictions**
-
-   | Want | TrueSkill | OpenSkill |
-   |------|-----------|----------|
-   | Draw / fairness metric | `env.quality(teams)` | `model.predict_draw(teams)` |
-   | Win probabilities | n/a | `model.predict_win(teams)` |
-
-6. **Persisting ratings**
-
-   Serialising `(mu, sigma)` still works. Use
-   `model.create_rating([mu, sigma], name)` when reloading.
-
-7. **Optional shim for minimal diff**
-
-   If you want to postpone a full refactor, create a tiny adapter
-   `rating_shim.py`:
-
-   ```python
-   from openskill.models import PlackettLuce as _Skill
-   _model = _Skill()
-
-   Rating      = _model.rating
-   create      = _model.create_rating
-   quality     = _model.predict_draw
-   rate        = _model.rate
-   rate_1vs1   = lambda a, b, **kw: [l[0] for l in _model.rate([[a], [b]], **kw)]
-   ```
-
-   Then simply replace `import trueskill as ts` with `import rating_shim as ts`.
-
-8. **What won’t be identical**
-
-   - Parameter defaults differ slightly; run back-tests.
-   - `predict_draw` may produce lower probabilities for multi-team matches.
-   - Time decay is explicit via the `decay` argument on `rate`.
-
+## Considerações Futuras
+- **Detecção de Resultados Parciais**: Aprimorar a lógica no `pipeline.py` para identificar resultados parciais (e.g., "parcialmente procedente") a partir dos dados extraídos e mapeá-los para `MatchResult.PARTIAL_A` ou `MatchResult.PARTIAL_B`, para que o `openskill_rating.py` possa aplicar a lógica de `tau` diferenciado para essas partidas.
+- **Time Decay**: Avaliar a necessidade e implementar um mecanismo de decaimento de rating ao longo do tempo, se relevante para o projeto. OpenSkill suporta isso através do argumento `decay` na função `rate`.
+```

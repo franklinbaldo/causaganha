@@ -30,9 +30,8 @@ try:
         WIN_A = "win_a"
         WIN_B = "win_b"
         DRAW = "draw"
-        # Add partial results if pipeline logic will distinguish them for OpenSkill
-        # PARTIAL_A = "partial_a"
-        # PARTIAL_B = "partial_b"
+        PARTIAL_A = "partial_a"
+        PARTIAL_B = "partial_b"
 
     RATING_ENGINE_NAME = "openskill" # Hardcoded as it's the only engine now
     OS_CONFIG = CONFIG.get("openskill", {}) # Get OpenSkill specific config, or empty dict
