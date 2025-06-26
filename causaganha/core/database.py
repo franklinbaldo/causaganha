@@ -242,22 +242,22 @@ class CausaGanhaDB:
     def export_database_snapshot(self, output_path: Path) -> bool:
         """
         Export complete database snapshot using DuckDB EXPORT.
-        
+
         Args:
             output_path: Path where the database snapshot will be saved
-            
+
         Returns:
             True if export was successful
         """
         try:
             logger.info("Exporting database snapshot to: %s", output_path)
-            
+
             # Ensure parent directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Use DuckDB EXPORT command for consistent snapshot
             self.conn.execute(f"EXPORT DATABASE '{output_path}' (FORMAT DUCKDB)")
-            
+
             # Verify the exported file exists and has content
             if output_path.exists() and output_path.stat().st_size > 0:
                 size_mb = output_path.stat().st_size / (1024 * 1024)
@@ -266,7 +266,7 @@ class CausaGanhaDB:
             else:
                 logger.error("Export failed: output file is missing or empty")
                 return False
-                
+
         except (duckdb.Error, OSError) as e:
             logger.error("Database export failed: %s", e)
             return False
@@ -274,7 +274,7 @@ class CausaGanhaDB:
     def get_archive_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics for archive metadata."""
         stats = self.get_statistics()
-        
+
         # Add additional archive-specific statistics
         try:
             # Get date range of data
@@ -285,27 +285,27 @@ class CausaGanhaDB:
                     COUNT(DISTINCT data_partida) as unique_dates
                 FROM partidas
             """).fetchone()
-            
+
             if date_range and date_range[0]:
                 stats["data_range"] = {
                     "earliest_match": date_range[0],
-                    "latest_match": date_range[1], 
-                    "unique_dates": date_range[2]
+                    "latest_match": date_range[1],
+                    "unique_dates": date_range[2],
                 }
-            
+
             # Get top performers for metadata
             top_performers = self.conn.execute("""
                 SELECT COUNT(*) as active_lawyers_count
                 FROM ratings 
                 WHERE total_partidas >= 5 AND mu > 25.0
             """).fetchone()
-            
+
             if top_performers:
                 stats["active_lawyers_5plus"] = top_performers[0]
-                
+
         except (duckdb.Error, duckdb.CatalogException) as e:
             logger.warning("Could not get additional archive statistics: %s", e)
-        
+
         return stats
 
     def vacuum(self):

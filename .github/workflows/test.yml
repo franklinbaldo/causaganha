@@ -8,8 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -19,9 +23,17 @@ jobs:
           version: "latest"
       - name: Install dependencies
         run: uv sync --dev
-      - name: Check code formatting
-        run: uv run ruff format --check
-      - name: Run linting
-        run: uv run ruff check
+      - name: Format and lint code
+        run: |
+          uv run ruff format
+          uv run ruff check --fix
+      - name: Commit changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git commit -am "chore(ci): auto-fix linting"
+            git push
+          fi
       - name: Run tests
         run: uv run pytest -q

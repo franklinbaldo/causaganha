@@ -9,7 +9,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from causaganha.core.utils import normalize_lawyer_name, validate_decision
+from causaganha.core.utils import (  # noqa: E402
+    normalize_lawyer_name,
+    validate_decision,
+)
 
 # Suppress logging output during tests unless specifically testing for it
 logging.disable(logging.CRITICAL)

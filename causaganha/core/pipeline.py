@@ -556,7 +556,11 @@ def archive_command(args):
 
     if args.dry_run:
         logger.info("DRY-RUN: Archive command simulation")
-        logger.info("Would create %s archive for date: %s", args.archive_type, args.date or "today")
+        logger.info(
+            "Would create %s archive for date: %s",
+            args.archive_type,
+            args.date or "today",
+        )
         logger.info("Database path: %s", args.db_path)
         return
 
@@ -594,7 +598,7 @@ def archive_command(args):
         success = archiver.archive_database(
             db_path=args.db_path,
             snapshot_date=snapshot_date,
-            archive_type=args.archive_type
+            archive_type=args.archive_type,
         )
 
         if success:
@@ -604,10 +608,14 @@ def archive_command(args):
 
     except ImportError as e:
         logger.error("Failed to import archive dependencies: %s", e)
-        logger.error("Make sure Internet Archive CLI is installed: pip install internetarchive")
+        logger.error(
+            "Make sure Internet Archive CLI is installed: pip install internetarchive"
+        )
     except ValueError as e:
         logger.error("Configuration error: %s", e)
-        logger.error("Make sure IA_ACCESS_KEY and IA_SECRET_KEY environment variables are set")
+        logger.error(
+            "Make sure IA_ACCESS_KEY and IA_SECRET_KEY environment variables are set"
+        )
     except Exception as e:
         logger.error("Archive command failed: %s", e)
 
