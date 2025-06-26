@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       pdf-path: ${{ steps.collect.outputs.pdf_path }}
-      processing-date: ${{ steps.collect.outputs.processing_date }}
+      processing_date: ${{ steps.collect.outputs.processing_date }}
     
     steps:
       - name: Checkout repository
@@ -119,13 +119,13 @@ jobs:
       - name: Download PDF artifact
         uses: actions/download-artifact@v4
         with:
-          name: pdf-${{ needs.collect.outputs.processing-date }}
+          name: pdf-${{ needs.collect.outputs.processing_date }}
           path: data/
 
       - name: Archive PDF to Internet Archive
         run: |
           echo "Archiving PDF to Internet Archive..."
-          uv run python pipeline/collect_and_archive.py --date ${{ needs.collect.outputs.processing-date }}
+          uv run python pipeline/collect_and_archive.py --date ${{ needs.collect.outputs.processing_date }}
 
   # Job 3: Extract content using Gemini
   extract:
@@ -154,7 +154,7 @@ jobs:
       - name: Download PDF artifact
         uses: actions/download-artifact@v4
         with:
-          name: pdf-${{ needs.collect.outputs.processing-date }}
+          name: pdf-${{ needs.collect.outputs.processing_date }}
           path: data/
 
       - name: Extract content with Gemini
@@ -166,14 +166,14 @@ jobs:
           uv run python causaganha/core/extractor.py --pdf_file "$PDF_PATH"
           
           # Set output for next job
-          JSON_FILE="data/dj_${{ needs.collect.outputs.processing-date }}_extraction.json"
+          JSON_FILE="data/dj_${{ needs.collect.outputs.processing_date }}_extraction.json"
           echo "json_path=$JSON_FILE" >> $GITHUB_OUTPUT
           echo "Extraction completed: $JSON_FILE"
 
       - name: Upload extraction artifact
         uses: actions/upload-artifact@v4
         with:
-          name: extraction-${{ needs.collect.outputs.processing-date }}
+          name: extraction-${{ needs.collect.outputs.processing_date }}
           path: data/*_extraction.json
           retention-days: 7
 
@@ -202,18 +202,18 @@ jobs:
       - name: Download extraction artifact
         uses: actions/download-artifact@v4
         with:
-          name: extraction-${{ needs.collect.outputs.processing-date }}
+          name: extraction-${{ needs.collect.outputs.processing_date }}
           path: data/
 
       - name: Update TrueSkill ratings
         run: |
           echo "Updating TrueSkill ratings..."
-          uv run python causaganha/core/pipeline.py update --date ${{ needs.collect.outputs.processing-date }}
+          uv run python causaganha/core/pipeline.py update --date ${{ needs.collect.outputs.processing_date }}
 
       - name: Upload updated database
         uses: actions/upload-artifact@v4
         with:
-          name: database-${{ needs.collect.outputs.processing-date }}
+          name: database-${{ needs.collect.outputs.processing_date }}
           path: data/causaganha.duckdb
           retention-days: 30
 
@@ -243,7 +243,7 @@ jobs:
       - name: Download updated database
         uses: actions/download-artifact@v4
         with:
-          name: database-${{ needs.collect.outputs.processing-date }}
+          name: database-${{ needs.collect.outputs.processing_date }}
           path: data/
 
       - name: Backup to Cloudflare R2
@@ -261,7 +261,7 @@ jobs:
       - name: Pipeline Summary
         run: |
           echo "## CausaGanha Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-          echo "**Date**: ${{ needs.collect.outputs.processing-date }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: ${{ needs.collect.outputs.processing_date }}" >> $GITHUB_STEP_SUMMARY
           echo "**PDF**: ${{ needs.collect.outputs.pdf-path }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Job Status" >> $GITHUB_STEP_SUMMARY
