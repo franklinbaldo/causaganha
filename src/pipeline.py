@@ -41,10 +41,13 @@ try:
     DEFAULT_SIGMA = OS_CONFIG.get('sigma', 25.0/3.0) # Fallback
 
     # Lambda functions for consistent interface
-    CREATE_RATING_FROM_MU_SIGMA_FUNC = lambda mu, sigma: create_openskill_rating_object(RATING_MODEL_INSTANCE, mu=float(mu), sigma=float(sigma))
-    CREATE_NEW_RATING_FUNC = lambda: create_openskill_rating_object(RATING_MODEL_INSTANCE)
+    def CREATE_RATING_FROM_MU_SIGMA_FUNC(mu, sigma):
+        return create_openskill_rating_object(RATING_MODEL_INSTANCE, mu=float(mu), sigma=float(sigma))
+    def CREATE_NEW_RATING_FUNC():
+        return create_openskill_rating_object(RATING_MODEL_INSTANCE)
     # OpenSkill's rate_teams expects the string value of the enum (e.g., "win_a")
-    UPDATE_RATINGS_FUNC = lambda model, t_a, t_b, res_enum: update_openskill_ratings(model, t_a, t_b, res_enum.value)
+    def UPDATE_RATINGS_FUNC(model, t_a, t_b, res_enum):
+        return update_openskill_ratings(model, t_a, t_b, res_enum.value)
 
 except ImportError as e:
     logging.basicConfig(stream=sys.stdout, level=logging.CRITICAL, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -117,9 +120,9 @@ def extract_command(args):
     return json_path
 
 def _update_ratings_logic(logger: logging.Logger, dry_run: bool):
-    logger.info(f"Starting OpenSkill ratings update process.") # Now always OpenSkill
+    logger.info("Starting OpenSkill ratings update process.") # Now always OpenSkill
     if dry_run:
-        logger.info(f"DRY-RUN: OpenSkill update process simulation, no files changed.")
+        logger.info("DRY-RUN: OpenSkill update process simulation, no files changed.")
 
     json_input_dir = Path("causaganha/data/json/")
     processed_json_dir = Path("causaganha/data/json_processed/")
@@ -233,7 +236,7 @@ def _update_ratings_logic(logger: logging.Logger, dry_run: bool):
                 except Exception as e: logger.error(f"Error moving {p_file.name}: {e}")
         else: logger.info("No JSON files processed to move.")
     else:
-        logger.info(f"DRY-RUN: Skipping save/move for OpenSkill.")
+        logger.info("DRY-RUN: Skipping save/move for OpenSkill.")
         if not ratings_df.empty: logger.info(f"DRY-RUN: Would save {len(ratings_df)} ratings.")
         if partidas_history: logger.info(f"DRY-RUN: Would save {len(partidas_history)} partidas.")
         if processed_files_paths: logger.info(f"DRY-RUN: Would move {len(processed_files_paths)} JSONs.")

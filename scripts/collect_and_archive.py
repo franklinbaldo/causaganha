@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import argparse
 import datetime
 import logging
@@ -15,7 +16,7 @@ from downloader import (
     fetch_tjro_pdf,
     fetch_latest_tjro_pdf,
     archive_pdf,
-)
+)  # noqa: E402
 
 
 def main() -> None:

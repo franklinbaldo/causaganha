@@ -1,7 +1,6 @@
 """Command-line interface for CausaGanha."""
 import argparse
 import sys
-from pathlib import Path
 
 def main():
     """Main CLI entry point."""
