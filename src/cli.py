@@ -30,6 +30,11 @@ def main():
     # Extractor commands
     extract_parser = subparsers.add_parser('extract', help='Extract PDF content')
     extract_parser.add_argument('--pdf-file', required=True, help='PDF file to extract')
+    # Queue commands
+    queue_parser = subparsers.add_parser("queue", help="Process queue items")
+    queue_parser.add_argument("action", choices=["process"], help="Action")
+    queue_parser.add_argument("--batch-size", type=int, default=5)
+
     
     args = parser.parse_args()
     
@@ -39,6 +44,8 @@ def main():
         handle_db_command(args)
     elif args.command == 'download':
         handle_download_command(args)
+    elif args.command == "queue":
+        handle_queue_command(args)
     elif args.command == 'extract':
         handle_extract_command(args)
     else:
@@ -93,5 +100,21 @@ def handle_extract_command(args):
     sys.argv = ['extractor.py', '--pdf_file', args.pdf_file]
     extractor_main()
 
+
+
+
+def handle_queue_command(args):
+    """Handle queue processing."""
+    from database import CausaGanhaDB
+    from queues.discovery import PDFDiscoveryProcessor
+
+    db = CausaGanhaDB()
+    db.connect()
+    processor = PDFDiscoveryProcessor(db)
+    if args.action == "process":
+        processor.run_batch(batch_size=args.batch_size)
+    db.close()
+
 if __name__ == "__main__":
     main()
+

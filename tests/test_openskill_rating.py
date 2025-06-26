@@ -6,7 +6,7 @@ from openskill.models.weng_lin.plackett_luce import PlackettLuceRating as OpenSk
 # For local testing, you might need to adjust imports or run pytest from the project root.
 # from ..openskill_rating import get_openskill_model, create_rating, rate_teams
 # For now, let's assume it's findable via src path
-from src.openskill_rating import get_openskill_model, create_rating, rate_teams, DEFAULT_OS_MU, DEFAULT_OS_SIGMA
+from openskill_rating import get_openskill_model, create_rating, rate_teams, DEFAULT_OS_MU, DEFAULT_OS_SIGMA
 
 @pytest.fixture
 def default_model() -> PlackettLuce:
@@ -168,4 +168,3 @@ def test_example_from_module(default_model: PlackettLuce):
 # - Empty teams (should probably raise error in openskill.py or be caught before)
 # - Rating players with very high/low mu/sigma values if relevant
 # - Specific known outcomes if available from OpenSkill documentation/examples
-```

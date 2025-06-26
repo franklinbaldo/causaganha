@@ -276,4 +276,3 @@ if __name__ == "__main__":
     logging.disable(logging.NOTSET)
     logging.basicConfig(level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
     unittest.main(argv=sys.argv[:1], verbosity=2, exit=False)
-```

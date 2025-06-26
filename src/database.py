@@ -53,7 +53,7 @@ class CausaGanhaDB:
                 self.conn.close()
 
             # Run migrations using MigrationRunner
-            migrations_dir = Path(__file__).parent.parent.parent / "migrations"
+            migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
             with MigrationRunner(self.db_path, migrations_dir) as runner:
                 success = runner.migrate()
                 if not success:
@@ -338,3 +338,58 @@ class CausaGanhaDB:
                 tables[table] = f"Error: {e}"
 
         return tables
+
+    # =====================================
+    # MÉTODOS: Queue System
+    # =====================================
+    def add_to_discovery_queue(
+        self,
+        url: str,
+        date: str,
+        number: str | None = None,
+        year: int | None = None,
+        priority: int = 0,
+        metadata: dict | None = None,
+    ) -> None:
+        next_id = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pdf_discovery_queue").fetchone()[0]
+        self.conn.execute(
+            """
+            INSERT INTO pdf_discovery_queue (id, url, date, number, year, priority, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(url) DO NOTHING
+            """,
+            [next_id, url, date, number, year, priority, json.dumps(metadata or {})],
+        )
+
+    def get_pending_discovery_items(self, limit: int = 10) -> List[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT id, status, attempts, last_attempt, error_message, metadata
+            FROM pdf_discovery_queue
+            WHERE status = 'pending'
+            ORDER BY priority DESC, id
+            LIMIT ?
+            """,
+            [limit],
+        ).fetchall()
+        return [
+            {
+                "id": r[0],
+                "status": r[1],
+                "attempts": r[2],
+                "last_attempt": r[3],
+                "error_message": r[4],
+                "metadata": json.loads(r[5]) if r[5] else {},
+            }
+            for r in rows
+        ]
+
+    def update_discovery_item_status(self, item_id: int, status: str, error: str | None = None) -> None:
+        self.conn.execute(
+            """
+            UPDATE pdf_discovery_queue
+            SET status = ?, attempts = attempts + 1, last_attempt = CURRENT_TIMESTAMP, error_message = ?
+            WHERE id = ?
+            """,
+            [status, error, item_id],
+        )
