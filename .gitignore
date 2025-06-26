@@ -3,3 +3,12 @@ __pycache__/
 *.pyc
 .env
 uv.lock
+# Data files
+data/*.pdf
+data/*.json
+data/*.duckdb
+causaganha/data/
+ratings_export*.csv
+
+# Processing artifacts  
+todo-p0-hardening.md
