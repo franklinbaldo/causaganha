@@ -12,7 +12,10 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from causaganha.core.downloader import fetch_tjro_pdf, fetch_latest_tjro_pdf
+from causaganha.core.downloader import (  # noqa: E402
+    fetch_tjro_pdf,
+    fetch_latest_tjro_pdf,
+)
 
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)

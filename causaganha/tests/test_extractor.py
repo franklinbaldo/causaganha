@@ -12,7 +12,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from causaganha.core.extractor import GeminiExtractor
+from causaganha.core.extractor import GeminiExtractor  # noqa: E402
 
 # Suppress logging output during tests
 logging.disable(logging.CRITICAL)
