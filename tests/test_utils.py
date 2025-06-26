@@ -92,9 +92,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_missing_numero_processo(self):
         invalid = self.valid_decision.copy()
         del invalid["numero_processo"]
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(
                 "Validation failed: 'numero_processo' is missing or empty."
@@ -103,9 +101,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_bad_numero_processo_format(self):
         invalid = self.valid_decision.copy()
         invalid["numero_processo"] = "123.456"  # Too short / wrong format
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(
                 f"Validation failed: 'numero_processo' ({invalid['numero_processo']}) does not match pattern [\\d.-]{{15,25}}."
@@ -114,9 +110,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_numero_processo_not_string(self):
         invalid = self.valid_decision.copy()
         invalid["numero_processo"] = 12345
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(
                 f"Validation failed: 'numero_processo' is not a string (got {type(invalid['numero_processo'])}). Value: {invalid['numero_processo']}"
@@ -125,9 +119,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_missing_partes(self):
         invalid = self.valid_decision.copy()
         del invalid["partes"]
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             # Actual message from test run for this case was about 'requerente/polo_ativo'
             mock_log.assert_any_call(  # Using assert_any_call as order might vary if multiple logs occur
@@ -137,9 +129,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_partes_not_dict(self):
         invalid = self.valid_decision.copy()
         invalid["partes"] = "not a dict"
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             # Actual message from test run for this case was about 'requerente/polo_ativo'
             mock_log.assert_any_call(
@@ -149,9 +139,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_missing_requerente(self):
         invalid = self.valid_decision.copy()
         invalid["partes"] = {"requerido": ["Some Recipient"]}
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
@@ -160,9 +148,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_empty_requerente_list(self):
         invalid = self.valid_decision.copy()
         invalid["partes"]["requerente"] = []
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerente/polo_ativo' is missing or empty."
@@ -173,9 +159,7 @@ class TestValidateDecision(unittest.TestCase):
     ):
         invalid = self.valid_decision.copy()
         invalid["partes"]["requerente"] = ""
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             # Actual from test log was "Validation failed: 'requerente/polo_ativo' is missing or empty."
             # This implies it fell through to a general check. A more specific check would be:
@@ -188,9 +172,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_requerente_wrong_type(self):
         invalid = self.valid_decision.copy()
         invalid["partes"]["requerente"] = 123
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(  # Actual from test log
                 f"Validation failed: 'requerente/polo_ativo' is not a list or string (got {type(invalid['partes']['requerente'])})."
@@ -199,9 +181,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_missing_requerido(self):  # Similar tests for 'requerido'
         invalid = self.valid_decision.copy()
         invalid["partes"] = {"requerente": ["Some Applicant"]}
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(  # Actual from test log
                 "Validation failed: 'requerido/polo_passivo' is missing or empty."
@@ -210,9 +190,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_missing_resultado(self):
         invalid = self.valid_decision.copy()
         del invalid["resultado"]
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(
                 "Validation failed: 'resultado' is missing or empty."
@@ -221,9 +199,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_empty_resultado_string(self):
         invalid = self.valid_decision.copy()
         invalid["resultado"] = ""
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             mock_log.assert_called_with(
                 "Validation failed: 'resultado' is missing or empty."
@@ -232,9 +208,7 @@ class TestValidateDecision(unittest.TestCase):
     def test_resultado_wrong_type(self):
         invalid = self.valid_decision.copy()
         invalid["resultado"] = []  # Empty list makes 'not resultado' True
-        with patch.object(
-            logging.getLogger("utils"), "warning"
-        ) as mock_log:
+        with patch.object(logging.getLogger("utils"), "warning") as mock_log:
             self.assertFalse(validate_decision(invalid))
             # The first check to fail for an empty list is 'missing or empty'
             mock_log.assert_called_with(

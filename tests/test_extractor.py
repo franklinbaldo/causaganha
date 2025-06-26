@@ -125,9 +125,7 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(decision_one["data"], "2023-10-26")
 
     @patch("extractor.genai", None)
-    @patch(
-        "extractor.fitz"
-    )  # Still mock fitz as it's tried before genai check
+    @patch("extractor.fitz")  # Still mock fitz as it's tried before genai check
     def test_extract_when_genai_not_available(self, mock_fitz):
         if "GEMINI_API_KEY" in os.environ:
             del os.environ["GEMINI_API_KEY"]
