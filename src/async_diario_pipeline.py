@@ -14,6 +14,7 @@ import asyncio
 import aiohttp
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
@@ -26,13 +27,21 @@ from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 import tempfile
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not available, continue without it
 
-# Configuration
-MAX_CONCURRENT_DOWNLOADS = 3  # Be respectful to TJRO servers
-MAX_CONCURRENT_IA_UPLOADS = 2  # Internet Archive rate limiting
+
+# Configuration (with environment variable support)
+MAX_CONCURRENT_DOWNLOADS = int(os.getenv('MAX_CONCURRENT_DOWNLOADS', '3'))  # Be respectful to TJRO servers
+MAX_CONCURRENT_IA_UPLOADS = int(os.getenv('MAX_CONCURRENT_IA_UPLOADS', '2'))  # Internet Archive rate limiting
 DOWNLOAD_TIMEOUT = 300  # 5 minutes per PDF
 RETRY_ATTEMPTS = 3
 DELAY_BETWEEN_DOWNLOADS = 2.0  # Seconds between downloads
+TRY_DIRECT_UPLOAD_DEFAULT = os.getenv('TRY_DIRECT_UPLOAD', 'true').lower() == 'true'
 
 
 @dataclass
@@ -612,13 +621,21 @@ async def main():
                 print("No progress data found.")
             return 0
         
-        # Run the pipeline
+        # Run the pipeline  
+        try_direct_first = TRY_DIRECT_UPLOAD_DEFAULT and not args.no_direct_upload
+        if args.no_direct_upload:
+            logging.info("Direct upload disabled via --no-direct-upload flag")
+        elif not TRY_DIRECT_UPLOAD_DEFAULT:
+            logging.info("Direct upload disabled via TRY_DIRECT_UPLOAD environment variable")
+        else:
+            logging.info("Direct upload enabled - will try streaming to IA first")
+            
         await pipeline.run_pipeline(
             diarios_data,
             start_date=args.start_date,
             end_date=args.end_date,
             max_items=args.max_items,
-            try_direct_first=not args.no_direct_upload
+            try_direct_first=try_direct_first
         )
     
     return 0
