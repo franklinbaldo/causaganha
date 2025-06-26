@@ -31,7 +31,7 @@ jobs:
       - name: Install uv (Python package installer)
         uses: astral-sh/setup-uv@v1 # Using v1 as it's the latest stable version
         with:
-          uv-version: "latest" # Or pin to a specific version like "0.1.18"
+          version: "latest" # Or pin to a specific version like "0.1.18"
 
       - name: Install dependencies
         run: uv sync --dev
