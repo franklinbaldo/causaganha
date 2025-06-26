@@ -8,7 +8,7 @@ from openskill.models.weng_lin.plackett_luce import (
 # For local testing, you might need to adjust imports or run pytest from the project root.
 # from ..openskill_rating import get_openskill_model, create_rating, rate_teams
 # For now, let's assume it's findable via src path
-from src.openskill_rating import (
+from openskill_rating import (
     get_openskill_model,
     create_rating,
     rate_teams,
