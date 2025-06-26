@@ -32,6 +32,7 @@ jobs:
   archive_database:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    environment: production  # Change this to match your environment name
     
     steps:
       - name: Checkout repository
