@@ -9,14 +9,14 @@ logger = logging.getLogger(__name__)
 
 def normalize_lawyer_name(name: str) -> str:
     """
-    Normalizes a lawyer's name by lowercasing, removing titles,
+    Normalizes a lawyer's name by uppercasing, removing titles,
     normalizing accents, and cleaning up whitespace.
     """
     if not isinstance(name, str):
         return ""  # Or raise TypeError
 
-    # 1. Convert the name to lowercase.
-    text = name.lower()
+    # 1. Convert the name to uppercase.
+    text = name.upper()
 
     # 2. Remove common titles.
     # Using regex with word boundaries \b to avoid partial matches in names.
@@ -28,23 +28,23 @@ def normalize_lawyer_name(name: str) -> str:
     # And "dra. " before "dr. " to correctly parse "dra. dra." if such a case existed.
     # Titles with trailing space (to be removed with the space)
     titles_with_space = [
-        "doutora ",
-        "doutor ",
-        "dra. ",
-        "dr. ",  # With period and space
-        "dra ",
-        "dr ",  # Without period but with space
+        "DOUTORA ",
+        "DOUTOR ",
+        "DRA. ",
+        "DR. ",  # With period and space
+        "DRA ",
+        "DR ",  # Without period but with space
     ]
     # Titles without trailing space (to be removed if they are exactly at the end or followed by non-alpha)
     # For simplicity now, this list will be for titles that might be directly followed by name characters
     # e.g. "Dra.Ana". We remove these specific prefixes.
     titles_without_space = [
-        "doutora",
-        "doutor",  # e.g. "DoutoraAna"
-        "dra.",
-        "dr.",  # e.g. "Dra.Ana"
-        "dra",
-        "dr",  # e.g. "DraAna"
+        "DOUTORA",
+        "DOUTOR",  # e.g. "DoutoraAna"
+        "DRA.",
+        "DR.",  # e.g. "Dra.Ana"
+        "DRA",
+        "DR",  # e.g. "DraAna"
     ]
 
     # Iteratively remove titles
@@ -200,15 +200,15 @@ if __name__ == "__main__":
     # (e.g. iterative title removal, title regex not needing trailing space)
     # These reflect the new title removal logic.
     expected_normalize_outputs = [
-        "joao alves da silva",  # Dr. João Álves da Silva
-        "maria auxiliadora nunes",  # DRA.    MARIA  AUXILIADORA NUNES
-        "pedro de alcantara machado",  # Pedro de Alcântara Machado
-        "jose das couves (oab/rj 123.456)",  # José das Couves (OAB/RJ 123.456)
-        "carlos alberto",  # DOUTOR Carlos Alberto
-        "ana sem espaco",  # Dra.Ana Sem Espaço
-        "multititle",  # Dr.Dr. MultiTitle
-        "espacado antes e depois",  #   Espaçado Antes e Depois
-        "fabio ট্যাবulacao cunha",  # Fábio \t ট্যাবulação Cunha - Keeping non-mapped chars
+        "JOAO ALVES DA SILVA",  # Dr. João Álves da Silva
+        "MARIA AUXILIADORA NUNES",  # DRA.    MARIA  AUXILIADORA NUNES
+        "PEDRO DE ALCANTARA MACHADO",  # Pedro de Alcântara Machado
+        "JOSE DAS COUVES (OAB/RJ 123.456)",  # José das Couves (OAB/RJ 123.456)
+        "CARLOS ALBERTO",  # DOUTOR Carlos Alberto
+        "ANA SEM ESPACO",  # Dra.Ana Sem Espaço
+        "MULTITITLE",  # Dr.Dr. MultiTitle
+        "ESPACADO ANTES E DEPOIS",  #   Espaçado Antes e Depois
+        "FABIO ট্যাবULACAO CUNHA",  # Fábio \t ট্যাবulação Cunha - Keeping non-mapped chars
     ]
 
     all_normalize_passed = True
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     # ... (previous tests for normalize_lawyer_name could be here or refactored)
     # A more robust accent removal using unicodedata:
     name_with_complex_accents = "Jôãö da Silvâ Ñüñes"
-    text_normalized_robustly = name_with_complex_accents.lower()
+    text_normalized_robustly = name_with_complex_accents.upper()
     text_normalized_robustly = "".join(
         c
         for c in unicodedata.normalize("NFD", text_normalized_robustly)

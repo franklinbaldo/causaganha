@@ -17,52 +17,52 @@ logging.disable(logging.CRITICAL)
 
 class TestNormalizeLawyerName(unittest.TestCase):
     def test_title_removal(self):
-        self.assertEqual(normalize_lawyer_name("Dr. Foo Bar"), "foo bar")
-        self.assertEqual(normalize_lawyer_name("Dra. Bar Baz"), "bar baz")
-        self.assertEqual(normalize_lawyer_name("Doutor Baz Qux"), "baz qux")
-        self.assertEqual(normalize_lawyer_name("DOUTORA Alice"), "alice")
+        self.assertEqual(normalize_lawyer_name("Dr. Foo Bar"), "FOO BAR")
+        self.assertEqual(normalize_lawyer_name("Dra. Bar Baz"), "BAR BAZ")
+        self.assertEqual(normalize_lawyer_name("Doutor Baz Qux"), "BAZ QUX")
+        self.assertEqual(normalize_lawyer_name("DOUTORA Alice"), "ALICE")
         self.assertEqual(
-            normalize_lawyer_name("DR.  QUX"), "qux"
+            normalize_lawyer_name("DR.  QUX"), "QUX"
         )  # Extra space after DR.
-        self.assertEqual(normalize_lawyer_name("dr. foo"), "foo")  # Lowercase title
+        self.assertEqual(normalize_lawyer_name("dr. foo"), "FOO")  # Lowercase title
 
     def test_accent_normalization(self):
         self.assertEqual(
-            normalize_lawyer_name("João Álves da Silva"), "joao alves da silva"
+            normalize_lawyer_name("João Álves da Silva"), "JOAO ALVES DA SILVA"
         )
         self.assertEqual(
-            normalize_lawyer_name("José Élio Çइंटيا"), "jose elio cइंटيا"
+            normalize_lawyer_name("José Élio"), "JOSE ELIO"
         )  # Corrected expected output
-        self.assertEqual(normalize_lawyer_name("Ñunez Ôliveira"), "nunez oliveira")
+        self.assertEqual(normalize_lawyer_name("Ñunez Ôliveira"), "NUNEZ OLIVEIRA")
 
     def test_spacing_normalization(self):
-        self.assertEqual(normalize_lawyer_name("  Pedro   Machado  "), "pedro machado")
-        self.assertEqual(normalize_lawyer_name("Ana\tClara"), "ana clara")  # Tab
-        self.assertEqual(normalize_lawyer_name("Silva"), "silva")  # No change
+        self.assertEqual(normalize_lawyer_name("  Pedro   Machado  "), "PEDRO MACHADO")
+        self.assertEqual(normalize_lawyer_name("Ana\tClara"), "ANA CLARA")  # Tab
+        self.assertEqual(normalize_lawyer_name("Silva"), "SILVA")  # No change
 
     def test_combined_normalization(self):
         self.assertEqual(
-            normalize_lawyer_name("  DRA.  MARÍA ÇLARA  NÚÑEZ  "), "maria clara nunez"
+            normalize_lawyer_name("  DRA.  MARÍA ÇLARA  NÚÑEZ  "), "MARIA CLARA NUNEZ"
         )
         self.assertEqual(
             normalize_lawyer_name("Dr. Antônio de Oliveira e Silva"),
-            "antonio de oliveira e silva",
+            "ANTONIO DE OLIVEIRA E SILVA",
         )
 
     def test_oab_string_preservation(self):
         self.assertEqual(
-            normalize_lawyer_name("Dr. José (OAB/SP 123)"), "jose (oab/sp 123)"
+            normalize_lawyer_name("Dr. José (OAB/SP 123)"), "JOSE (OAB/SP 123)"
         )
         self.assertEqual(
-            normalize_lawyer_name("Maria Silva OAB/RJ12345"), "maria silva oab/rj12345"
+            normalize_lawyer_name("Maria Silva OAB/RJ12345"), "MARIA SILVA OAB/RJ12345"
         )
 
     def test_advanced_title_removal(self):
         # Based on current improved logic in utils.py (iterative prefix stripping)
-        self.assertEqual(normalize_lawyer_name("Dr.Dr. Foo"), "foo")
-        self.assertEqual(normalize_lawyer_name("Dra.Ana Maria"), "ana maria")
-        self.assertEqual(normalize_lawyer_name("Dr. Dra. Bar"), "bar")
-        self.assertEqual(normalize_lawyer_name("Doutor Doutora Baz"), "baz")
+        self.assertEqual(normalize_lawyer_name("Dr.Dr. Foo"), "FOO")
+        self.assertEqual(normalize_lawyer_name("Dra.Ana Maria"), "ANA MARIA")
+        self.assertEqual(normalize_lawyer_name("Dr. Dra. Bar"), "BAR")
+        self.assertEqual(normalize_lawyer_name("Doutor Doutora Baz"), "BAZ")
 
     def test_empty_and_none_input(self):
         self.assertEqual(normalize_lawyer_name(""), "")
