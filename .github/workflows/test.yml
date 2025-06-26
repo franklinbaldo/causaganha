@@ -38,4 +38,4 @@ jobs:
             git push
           fi
       - name: Run tests
-        run: uv run pytest tests/ --cov=src/causaganha --cov-report=xml
+        run: uv run pytest tests/ --cov=src --cov-report=xml

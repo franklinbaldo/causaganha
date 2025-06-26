@@ -201,7 +201,7 @@ class AsyncDiarioPipeline:
             start_time = time.time()
             
             try:
-                local_path = self.data_dir / "diarios" / diario_data['standard_filename']
+                local_path = self.data_dir / "diarios" / diario_data['original_filename']
                 
                 # Skip if already exists and has valid size
                 if local_path.exists() and local_path.stat().st_size > 1000:  # At least 1KB

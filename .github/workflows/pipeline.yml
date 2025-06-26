@@ -1,59 +1,144 @@
-name: Daily CausaGanha Pipeline
+name: Daily CausaGanha Async Pipeline
 
 on:
   workflow_dispatch:
     inputs:
       date:
-        description: 'YYYY-MM-DD (default: yesterday)'
+        description: 'Process specific date (YYYY-MM-DD)'
         required: false
         type: string
+      max_items:
+        description: 'Maximum items to process (for testing)'
+        required: false
+        type: string
+        default: ''
+      start_date:
+        description: 'Start date for range processing (YYYY-MM-DD)'
+        required: false
+        type: string
+      end_date:
+        description: 'End date for range processing (YYYY-MM-DD)'
+        required: false
+        type: string
+      force_reprocess:
+        description: 'Force reprocess items even if they exist in IA'
+        required: false
+        type: boolean
+        default: false
   schedule:
-    - cron: '15 3 * * *'
+    - cron: '15 3 * * *'  # Daily at 3:15 AM UTC
 
 env:
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
   IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+  MAX_CONCURRENT_DOWNLOADS: 3
+  MAX_CONCURRENT_IA_UPLOADS: 2
 
 jobs:
-  pipeline:
+  async-pipeline:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup
+      - name: Setup Python and dependencies
+        uses: ./.github/actions/setup
 
-      - name: Determine date
-        id: date
+      - name: Determine processing parameters
+        id: params
         run: |
-          if [ -n "${{ inputs.date }}" ]; then
-            echo "date=${{ inputs.date }}" >> "$GITHUB_OUTPUT"
+          # Set default processing for scheduled runs (process latest 5 items)
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "max_items=5" >> "$GITHUB_OUTPUT"
+            echo "mode=scheduled" >> "$GITHUB_OUTPUT"
           else
-            echo "date=$(date -d 'yesterday' +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+            # Manual dispatch - use provided parameters
+            echo "max_items=${{ inputs.max_items }}" >> "$GITHUB_OUTPUT"
+            echo "date=${{ inputs.date }}" >> "$GITHUB_OUTPUT"
+            echo "start_date=${{ inputs.start_date }}" >> "$GITHUB_OUTPUT"
+            echo "end_date=${{ inputs.end_date }}" >> "$GITHUB_OUTPUT"
+            echo "force_reprocess=${{ inputs.force_reprocess }}" >> "$GITHUB_OUTPUT"
+            echo "mode=manual" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Collect
-        id: collect
+      - name: Run Async Pipeline
+        id: pipeline
         run: |
-          DATE=${{ steps.date.outputs.date }}
-          uv run python src/downloader.py --date "$DATE"
-          echo "pdf_path=data/dj_${DATE//-/}.pdf" >> "$GITHUB_OUTPUT"
+          echo "🚀 Starting CausaGanha Async Pipeline..."
+          
+          # Build command arguments
+          CMD="uv run python src/async_diario_pipeline.py --verbose"
+          
+          # Add parameters based on input
+          if [ -n "${{ steps.params.outputs.max_items }}" ]; then
+            CMD="$CMD --max-items ${{ steps.params.outputs.max_items }}"
+          fi
+          
+          if [ -n "${{ steps.params.outputs.date }}" ]; then
+            CMD="$CMD --start-date ${{ steps.params.outputs.date }} --end-date ${{ steps.params.outputs.date }}"
+          fi
+          
+          if [ -n "${{ steps.params.outputs.start_date }}" ]; then
+            CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"
+          fi
+          
+          if [ -n "${{ steps.params.outputs.end_date }}" ]; then
+            CMD="$CMD --end-date ${{ steps.params.outputs.end_date }}"
+          fi
+          
+          if [ "${{ steps.params.outputs.force_reprocess }}" = "true" ]; then
+            CMD="$CMD --force-reprocess"
+          fi
+          
+          echo "Executing: $CMD"
+          eval $CMD
 
-      - name: Archive
-        run: uv run python src/pipeline.py archive --date ${{ steps.date.outputs.date }}
+      - name: Generate Pipeline Report
+        if: always()
+        run: |
+          echo "📊 Pipeline Statistics:"
+          uv run python src/async_diario_pipeline.py --stats-only || echo "No progress data found"
+          
+          echo ""
+          echo "🔍 Internet Archive Discovery:"
+          uv run python src/ia_discovery.py --year $(date +%Y) | head -10 || echo "Discovery failed"
 
-      - name: Extract
-        run: uv run python src/extractor.py --pdf_file ${{ steps.collect.outputs.pdf_path }}
-
-      - name: Update ratings
-        run: uv run python src/pipeline.py update
-
-      - name: Upload artifacts
+      - name: Upload Progress Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: causaganha-${{ steps.date.outputs.date }}
+          name: pipeline-progress-${{ github.run_id }}
           path: |
-            data/dj_*.pdf
-            data/*_extraction.json
+            data/diario_pipeline_progress.json
             data/causaganha.duckdb
-          retention-days: 14
+          retention-days: 7
+          if-no-files-found: ignore
+
+  summarize:
+    needs: async-pipeline
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "## 📊 CausaGanha Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mode**: ${{ steps.params.outputs.mode || 'scheduled' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ needs.async-pipeline.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.async-pipeline.result }}" = "success" ]; then
+            echo "✅ Pipeline completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **Useful Links:**" >> $GITHUB_STEP_SUMMARY
+            echo "- [Internet Archive Collection](https://archive.org/search.php?query=creator%3A%22Tribunal%20de%20Justi%C3%A7a%20de%20Rond%C3%B4nia%22)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Project Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Pipeline failed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+          fi

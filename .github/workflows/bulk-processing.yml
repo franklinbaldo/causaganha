@@ -1,0 +1,206 @@
+name: Bulk Diario Processing
+
+on:
+  workflow_dispatch:
+    inputs:
+      processing_mode:
+        description: 'Processing mode'
+        required: true
+        type: choice
+        options:
+          - 'year_2025'
+          - 'year_2024'
+          - 'year_2023'
+          - 'last_100'
+          - 'last_500'
+          - 'all_diarios'
+          - 'custom_range'
+        default: 'year_2025'
+      start_date:
+        description: 'Start date for custom range (YYYY-MM-DD)'
+        required: false
+        type: string
+      end_date:
+        description: 'End date for custom range (YYYY-MM-DD)'
+        required: false
+        type: string
+      max_items:
+        description: 'Maximum items to process (overrides mode)'
+        required: false
+        type: string
+      force_reprocess:
+        description: 'Force reprocess existing items'
+        required: false
+        type: boolean
+        default: false
+      concurrent_downloads:
+        description: 'Concurrent downloads (1-5)'
+        required: false
+        type: string
+        default: '3'
+      concurrent_uploads:
+        description: 'Concurrent IA uploads (1-3)'
+        required: false
+        type: string
+        default: '2'
+
+env:
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+  IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+jobs:
+  bulk-processing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and dependencies
+        uses: ./.github/actions/setup
+
+      - name: Determine processing parameters
+        id: params
+        run: |
+          # Set concurrent limits
+          echo "MAX_CONCURRENT_DOWNLOADS=${{ inputs.concurrent_downloads }}" >> "$GITHUB_ENV"
+          echo "MAX_CONCURRENT_IA_UPLOADS=${{ inputs.concurrent_uploads }}" >> "$GITHUB_ENV"
+          
+          # Determine date range and limits based on mode
+          case "${{ inputs.processing_mode }}" in
+            "year_2025")
+              echo "start_date=2025-01-01" >> "$GITHUB_OUTPUT"
+              echo "end_date=2025-12-31" >> "$GITHUB_OUTPUT"
+              echo "description=Process all 2025 diarios" >> "$GITHUB_OUTPUT"
+              ;;
+            "year_2024")
+              echo "start_date=2024-01-01" >> "$GITHUB_OUTPUT"
+              echo "end_date=2024-12-31" >> "$GITHUB_OUTPUT"
+              echo "description=Process all 2024 diarios" >> "$GITHUB_OUTPUT"
+              ;;
+            "year_2023")
+              echo "start_date=2023-01-01" >> "$GITHUB_OUTPUT"
+              echo "end_date=2023-12-31" >> "$GITHUB_OUTPUT"
+              echo "description=Process all 2023 diarios" >> "$GITHUB_OUTPUT"
+              ;;
+            "last_100")
+              echo "max_items=100" >> "$GITHUB_OUTPUT"
+              echo "description=Process latest 100 diarios" >> "$GITHUB_OUTPUT"
+              ;;
+            "last_500")
+              echo "max_items=500" >> "$GITHUB_OUTPUT"
+              echo "description=Process latest 500 diarios" >> "$GITHUB_OUTPUT"
+              ;;
+            "all_diarios")
+              echo "description=Process ALL 5,058 diarios (full archive)" >> "$GITHUB_OUTPUT"
+              ;;
+            "custom_range")
+              echo "start_date=${{ inputs.start_date }}" >> "$GITHUB_OUTPUT"
+              echo "end_date=${{ inputs.end_date }}" >> "$GITHUB_OUTPUT"
+              echo "description=Process custom date range" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+          
+          # Override with manual max_items if provided
+          if [ -n "${{ inputs.max_items }}" ]; then
+            echo "max_items=${{ inputs.max_items }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pre-processing Summary
+        run: |
+          echo "🚀 **Bulk Processing Configuration**"
+          echo "- **Mode**: ${{ inputs.processing_mode }}"
+          echo "- **Description**: ${{ steps.params.outputs.description }}"
+          echo "- **Start Date**: ${{ steps.params.outputs.start_date || 'Not set' }}"
+          echo "- **End Date**: ${{ steps.params.outputs.end_date || 'Not set' }}"
+          echo "- **Max Items**: ${{ steps.params.outputs.max_items || 'No limit' }}"
+          echo "- **Force Reprocess**: ${{ inputs.force_reprocess }}"
+          echo "- **Concurrent Downloads**: ${{ inputs.concurrent_downloads }}"
+          echo "- **Concurrent Uploads**: ${{ inputs.concurrent_uploads }}"
+          echo ""
+          echo "⚠️ **Large processing jobs may take several hours**"
+
+      - name: Run Bulk Processing
+        id: processing
+        run: |
+          echo "🚀 Starting bulk processing..."
+          
+          # Build command
+          CMD="uv run python src/async_diario_pipeline.py --verbose"
+          
+          if [ -n "${{ steps.params.outputs.start_date }}" ]; then
+            CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"
+          fi
+          
+          if [ -n "${{ steps.params.outputs.end_date }}" ]; then
+            CMD="$CMD --end-date ${{ steps.params.outputs.end_date }}"
+          fi
+          
+          if [ -n "${{ steps.params.outputs.max_items }}" ]; then
+            CMD="$CMD --max-items ${{ steps.params.outputs.max_items }}"
+          fi
+          
+          if [ "${{ inputs.force_reprocess }}" = "true" ]; then
+            CMD="$CMD --force-reprocess"
+          fi
+          
+          echo "🔧 Executing: $CMD"
+          echo ""
+          eval $CMD
+
+      - name: Processing Statistics
+        if: always()
+        run: |
+          echo "📊 **Final Processing Statistics:**"
+          uv run python src/async_diario_pipeline.py --stats-only || echo "No progress data available"
+          
+          echo ""
+          echo "🔍 **Internet Archive Status:**"
+          # Show recent uploads
+          uv run python src/ia_discovery.py --year $(date +%Y) | head -20 || echo "Discovery unavailable"
+
+      - name: Upload Progress and Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulk-processing-${{ inputs.processing_mode }}-${{ github.run_id }}
+          path: |
+            data/diario_pipeline_progress.json
+            data/causaganha.duckdb
+          retention-days: 30
+          if-no-files-found: ignore
+
+  summary:
+    needs: bulk-processing
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Processing Summary
+        run: |
+          echo "## 📊 Bulk Processing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mode**: ${{ inputs.processing_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ needs.bulk-processing.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Duration**: ~${{ github.run_duration || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.bulk-processing.result }}" = "success" ]; then
+            echo "✅ **Bulk processing completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **View Results:**" >> $GITHUB_STEP_SUMMARY
+            echo "- [Internet Archive TJRO Collection](https://archive.org/search.php?query=creator%3A%22Tribunal%20de%20Justi%C3%A7a%20de%20Rond%C3%B4nia%22)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Workflow Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Processing failed or was cancelled**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs for detailed error information." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Generated by CausaGanha Async Pipeline*" >> $GITHUB_STEP_SUMMARY
