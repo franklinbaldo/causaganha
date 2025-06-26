@@ -11,3 +11,4 @@ Bem-vindo à documentação oficial do CausaGanha.
 - [Database Archive Plan](database-archive-plan.md) - Internet Archive integration for public database snapshots
 - [Armazenamento Wayback](wayback-archive-plan.md) - PDF archival strategy
 - [Team Rating Plan](TEAM_RATING_PLAN.md) - Advanced TrueSkill team compositions
+- [OpenSkill Plan](openskill.md) - Avaliar motor alternativo de ranking
