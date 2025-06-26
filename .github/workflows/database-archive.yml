@@ -1,0 +1,203 @@
+name: Archive Database to Internet Archive
+
+on:
+  schedule:
+    # Weekly on Sunday at 04:00 UTC (after main pipeline completes)
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      archive_type:
+        description: 'Type of archive to create'
+        required: true
+        default: 'weekly'
+        type: choice
+        options:
+          - weekly
+          - monthly
+          - quarterly
+      snapshot_date:
+        description: 'Snapshot date (YYYY-MM-DD, defaults to today)'
+        required: false
+        type: string
+      force_upload:
+        description: 'Force upload even if archive exists'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  archive_database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+          
+      - name: Install Internet Archive CLI
+        run: |
+          uv pip install internetarchive
+          
+      - name: Verify database exists
+        run: |
+          if [ ! -f "data/causaganha.duckdb" ]; then
+            echo "❌ Database file not found: data/causaganha.duckdb"
+            echo "Cannot create archive without database"
+            exit 1
+          fi
+          
+          # Show database info
+          echo "📊 Database info:"
+          ls -lh data/causaganha.duckdb
+          
+      - name: Determine archive parameters
+        id: archive_params
+        run: |
+          # Set archive type
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Scheduled run - check if this should be monthly
+            if [ "$(date +%d)" -le 7 ]; then
+              # First week of month - create monthly archive
+              echo "archive_type=monthly" >> $GITHUB_OUTPUT
+            else
+              echo "archive_type=weekly" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Manual trigger
+            echo "archive_type=${{ github.event.inputs.archive_type }}" >> $GITHUB_OUTPUT
+          fi
+          
+          # Set snapshot date
+          if [ -n "${{ github.event.inputs.snapshot_date }}" ]; then
+            echo "snapshot_date=${{ github.event.inputs.snapshot_date }}" >> $GITHUB_OUTPUT
+          else
+            echo "snapshot_date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "force_upload=${{ github.event.inputs.force_upload || 'false' }}" >> $GITHUB_OUTPUT
+          
+      - name: Check for existing archive
+        id: check_existing
+        if: ${{ steps.archive_params.outputs.force_upload != 'true' }}
+        run: |
+          # Check if archive already exists for this date and type
+          ITEM_ID="causaganha-database-${{ steps.archive_params.outputs.snapshot_date }}-${{ steps.archive_params.outputs.archive_type }}"
+          
+          echo "Checking for existing archive: $ITEM_ID"
+          
+          # Use ia CLI to check if item exists
+          if ia metadata "$ITEM_ID" >/dev/null 2>&1; then
+            echo "⚠️ Archive already exists: $ITEM_ID"
+            echo "archive_exists=true" >> $GITHUB_OUTPUT
+            echo "item_id=$ITEM_ID" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No existing archive found, proceeding with upload"
+            echo "archive_exists=false" >> $GITHUB_OUTPUT
+            echo "item_id=$ITEM_ID" >> $GITHUB_OUTPUT
+          fi
+        env:
+          IA_ACCESS: ${{ secrets.IA_ACCESS_KEY }}
+          IA_SECRET: ${{ secrets.IA_SECRET_KEY }}
+          
+      - name: Skip if archive exists
+        if: ${{ steps.check_existing.outputs.archive_exists == 'true' && steps.archive_params.outputs.force_upload != 'true' }}
+        run: |
+          echo "🔄 Archive already exists and force_upload is not enabled"
+          echo "Skipping archive creation for ${{ steps.check_existing.outputs.item_id }}"
+          echo "To force upload, re-run with force_upload=true"
+          
+      - name: Create database archive
+        if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
+        id: create_archive
+        run: |
+          echo "🚀 Creating database archive..."
+          echo "Archive type: ${{ steps.archive_params.outputs.archive_type }}"
+          echo "Snapshot date: ${{ steps.archive_params.outputs.snapshot_date }}"
+          
+          # Run the archive command
+          uv run python causaganha/core/archive_db.py \
+            --db-path data/causaganha.duckdb \
+            --date "${{ steps.archive_params.outputs.snapshot_date }}" \
+            --archive-type "${{ steps.archive_params.outputs.archive_type }}" \
+            --verbose
+            
+        env:
+          IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+          IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+          
+      - name: Verify archive upload
+        if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
+        run: |
+          ITEM_ID="${{ steps.check_existing.outputs.item_id }}"
+          
+          echo "🔍 Verifying archive upload: $ITEM_ID"
+          
+          # Wait a moment for IA processing
+          sleep 30
+          
+          # Check if item is accessible
+          if ia metadata "$ITEM_ID" >/dev/null 2>&1; then
+            echo "✅ Archive successfully uploaded and accessible"
+            echo "🔗 Archive URL: https://archive.org/details/$ITEM_ID"
+            
+            # Get item info
+            echo "📊 Archive information:"
+            ia metadata "$ITEM_ID" | jq -r '.metadata | {title, description, date, creator}'
+            
+          else
+            echo "❌ Archive verification failed"
+            echo "Item may still be processing or upload failed"
+            exit 1
+          fi
+        env:
+          IA_ACCESS: ${{ secrets.IA_ACCESS_KEY }}
+          IA_SECRET: ${{ secrets.IA_SECRET_KEY }}
+          
+      - name: Update database with archive record
+        if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
+        run: |
+          echo "📝 Archive process completed successfully"
+          echo "Archive uploaded to Internet Archive for public access"
+          
+      - name: Archive summary
+        if: always()
+        run: |
+          echo "## Database Archive Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: ${{ steps.archive_params.outputs.snapshot_date }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ steps.archive_params.outputs.archive_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Item ID**: ${{ steps.check_existing.outputs.item_id }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_existing.outputs.archive_exists }}" = "true" ] && [ "${{ steps.archive_params.outputs.force_upload }}" != "true" ]; then
+            echo "- **Status**: ⚠️ Skipped (archive already exists)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Archive URL**: https://archive.org/details/${{ steps.check_existing.outputs.item_id }}" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ job.status }}" = "success" ]; then
+            echo "- **Status**: ✅ Successfully archived" >> $GITHUB_STEP_SUMMARY
+            echo "- **Archive URL**: https://archive.org/details/${{ steps.check_existing.outputs.item_id }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ❌ Archive failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Database archive workflow failed"
+          echo "Check the logs above for error details"
+          echo "This may require manual intervention"

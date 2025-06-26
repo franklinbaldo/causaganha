@@ -64,6 +64,15 @@ uv run python causaganha/core/r2_storage.py backup
 # Archive PDF to Internet Archive
 uv run python pipeline/collect_and_archive.py --latest
 
+# Archive database to Internet Archive (NEW)
+uv run python causaganha/core/pipeline.py archive --archive-type weekly
+
+# Archive database for specific date
+uv run python causaganha/core/pipeline.py archive --date 2025-06-24 --archive-type monthly
+
+# Dry run database archive
+uv run python causaganha/core/pipeline.py archive --dry-run
+
 # Query remote snapshots without download
 uv run python causaganha/core/r2_queries.py rankings --limit 10
 ```
@@ -117,6 +126,7 @@ uv run python causaganha/core/r2_queries.py rankings --limit 10
 - **`migration.py`**: **NEW** - Migration tools for CSV/JSON to DuckDB conversion
 - **`r2_storage.py`**: **NEW** - Cloudflare R2 storage for DuckDB snapshots and archival
 - **`r2_queries.py`**: **NEW** - Direct DuckDB queries against R2-stored snapshots
+- **`archive_db.py`**: **NEW** - Internet Archive database snapshot integration
 
 #### External Integration
 - **`gdrive.py`**: Optional Google Drive integration for PDF backup
@@ -150,11 +160,12 @@ The system implements a **three-tier storage strategy** for optimal cost, perfor
 
 #### Tier 2: Internet Archive (Permanent Public Storage)
 - **Public accessibility**: All PDFs available at `https://archive.org/download/{item_id}/`
+- **Database archives**: **NEW** - Weekly/monthly database snapshots for research
 - **Zero cost**: Free permanent storage with global CDN
 - **Integrity verification**: SHA-256 hashes prevent corruption
 - **Deduplication**: Automatic detection of existing uploads
 - **Legal compliance**: Public access supports transparency requirements
-- **Future enhancement**: Database snapshots for public research access (see [Database Archive Plan](docs/database-archive-plan.md))
+- **Research enablement**: Complete datasets available for academic analysis
 
 #### Tier 3: Cloudflare R2 (Cloud Analytics & Backup)
 - **Compressed snapshots**: Daily DuckDB exports with zstandard compression
@@ -194,7 +205,7 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes, even f
 
 ## GitHub Actions Integration
 
-Three automated workflows handle the complete data lifecycle:
+Four automated workflows handle the complete data lifecycle:
 
 #### Main Production Pipeline
 1. **Daily at 03:15 UTC** - `pipeline.yml`: **Unified end-to-end pipeline**
@@ -207,13 +218,21 @@ Three automated workflows handle the complete data lifecycle:
    - Uses artifact sharing between jobs for efficient resource usage
    - Supports manual triggering with custom dates and skip options
 
+#### Database Archive Workflow (NEW)
+2. **Weekly on Sunday at 04:00 UTC** - `database-archive.yml`: Database snapshots to Internet Archive
+   - **Weekly snapshots**: Every Sunday for regular archival
+   - **Monthly archives**: First Sunday of each month (permanent retention)
+   - **Public research**: Makes complete TrueSkill datasets publicly available
+   - **Deduplication**: Skips upload if archive already exists
+   - **Supports manual triggering** with custom dates and archive types
+
 #### Legacy Archive Workflow (Retained)
-2. **Daily at 03:15 UTC** - `02_archive_to_ia.yml`: Internet Archive standalone
+3. **Daily at 03:15 UTC** - `02_archive_to_ia.yml`: Internet Archive standalone
    - Independent archival workflow for redundancy
    - Can be used when main pipeline archive job fails
 
 #### Quality Assurance
-3. **On PR/Push** - `test.yml`: Comprehensive testing
+4. **On PR/Push** - `test.yml`: Comprehensive testing
    - Unit tests for all core components
    - Integration tests with mocked external APIs
    - Code formatting and linting validation

@@ -549,6 +549,69 @@ def run_command(args):
     logger.info("Run command completed successfully for date %s.", args.date)
 
 
+def archive_command(args):
+    """Archive database snapshot to Internet Archive."""
+    logger = logging.getLogger(__name__)
+    logger.debug("Archive command called with args: %s", args)
+
+    if args.dry_run:
+        logger.info("DRY-RUN: Archive command simulation")
+        logger.info("Would create %s archive for date: %s", args.archive_type, args.date or "today")
+        logger.info("Database path: %s", args.db_path)
+        return
+
+    try:
+        # Import archive functionality
+        from .archive_db import DatabaseArchiver, IAConfig
+        from datetime import datetime, date
+
+        # Parse date if provided
+        snapshot_date = None
+        if args.date:
+            try:
+                snapshot_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+            except ValueError:
+                logger.error("Invalid date format. Please use YYYY-MM-DD.")
+                return
+        else:
+            snapshot_date = date.today()
+
+        logger.info("Starting database archive process...")
+        logger.info("Archive type: %s", args.archive_type)
+        logger.info("Snapshot date: %s", snapshot_date)
+        logger.info("Database path: %s", args.db_path)
+
+        # Check if database exists
+        if not args.db_path.exists():
+            logger.error("Database file not found: %s", args.db_path)
+            return
+
+        # Initialize archiver
+        ia_config = IAConfig.from_env()
+        archiver = DatabaseArchiver(ia_config)
+
+        # Run archive
+        success = archiver.archive_database(
+            db_path=args.db_path,
+            snapshot_date=snapshot_date,
+            archive_type=args.archive_type
+        )
+
+        if success:
+            logger.info("✅ Database archive completed successfully")
+        else:
+            logger.error("❌ Database archive failed")
+
+    except ImportError as e:
+        logger.error("Failed to import archive dependencies: %s", e)
+        logger.error("Make sure Internet Archive CLI is installed: pip install internetarchive")
+    except ValueError as e:
+        logger.error("Configuration error: %s", e)
+        logger.error("Make sure IA_ACCESS_KEY and IA_SECRET_KEY environment variables are set")
+    except Exception as e:
+        logger.error("Archive command failed: %s", e)
+
+
 def main():
     parser = argparse.ArgumentParser(description="CausaGanha LegalELo ETL Pipeline.")
     parser.add_argument(
@@ -604,6 +667,32 @@ def main():
         help="Simulate update without changing ratings/partidas files or moving JSONs.",
     )
     update_parser.set_defaults(func=update_command)
+
+    archive_parser = subparsers.add_parser(
+        "archive", help="Archive database snapshot to Internet Archive."
+    )
+    archive_parser.add_argument(
+        "--date",
+        help="Snapshot date in YYYY-MM-DD format (defaults to today).",
+    )
+    archive_parser.add_argument(
+        "--archive-type",
+        choices=["weekly", "monthly", "quarterly"],
+        default="weekly",
+        help="Type of archive to create (default: weekly).",
+    )
+    archive_parser.add_argument(
+        "--db-path",
+        type=Path,
+        default=Path("data/causaganha.duckdb"),
+        help="Path to DuckDB database (default: data/causaganha.duckdb).",
+    )
+    archive_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate archive process without uploading.",
+    )
+    archive_parser.set_defaults(func=archive_command)
 
     run_parser = subparsers.add_parser(
         "run",
