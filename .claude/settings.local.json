@@ -27,7 +27,11 @@
       "Bash(git checkout:*)",
       "Bash(git push:*)",
       "Bash(git restore:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(uv remove:*)"
     ],
     "deny": []
   }
