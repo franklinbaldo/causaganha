@@ -154,6 +154,7 @@ The system implements a **three-tier storage strategy** for optimal cost, perfor
 - **Integrity verification**: SHA-256 hashes prevent corruption
 - **Deduplication**: Automatic detection of existing uploads
 - **Legal compliance**: Public access supports transparency requirements
+- **Future enhancement**: Database snapshots for public research access (see [Database Archive Plan](docs/database-archive-plan.md))
 
 #### Tier 3: Cloudflare R2 (Cloud Analytics & Backup)
 - **Compressed snapshots**: Daily DuckDB exports with zstandard compression
