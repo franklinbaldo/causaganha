@@ -61,7 +61,7 @@ jobs:
           uv-version: "latest"
 
       - name: Install dependencies
-        run: uv sync --system-site-packages
+        run: uv sync --dev
 
       - name: Determine processing date
         id: date
@@ -114,7 +114,7 @@ jobs:
           uv-version: "latest"
 
       - name: Install dependencies
-        run: uv sync --system-site-packages
+        run: uv sync --dev
 
       - name: Download PDF artifact
         uses: actions/download-artifact@v4
@@ -149,7 +149,7 @@ jobs:
           uv-version: "latest"
 
       - name: Install dependencies
-        run: uv sync --system-site-packages
+        run: uv sync --dev
 
       - name: Download PDF artifact
         uses: actions/download-artifact@v4
@@ -197,7 +197,7 @@ jobs:
           uv-version: "latest"
 
       - name: Install dependencies
-        run: uv sync --system-site-packages
+        run: uv sync --dev
 
       - name: Download extraction artifact
         uses: actions/download-artifact@v4
@@ -238,7 +238,7 @@ jobs:
           uv-version: "latest"
 
       - name: Install dependencies
-        run: uv sync --system-site-packages
+        run: uv sync --dev
 
       - name: Download updated database
         uses: actions/download-artifact@v4
