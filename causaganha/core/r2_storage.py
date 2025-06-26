@@ -70,8 +70,8 @@ class CloudflareR2Storage:
         except NoCredentialsError:
             logger.error("R2 credentials not found. Set CLOUDFLARE_* environment variables.")
             raise
-        except Exception as e:
-            logger.error(f"Failed to connect to R2: {e}")
+        except (ValueError, ConnectionError, RuntimeError) as e:
+            logger.error("Failed to connect to R2: %s", e)
             raise
     
     @classmethod
@@ -499,8 +499,8 @@ def main():
             deleted_count = r2_storage.cleanup_old_snapshots(args.retention_days)
             print(f"🧹 Cleaned up {deleted_count} old snapshots")
             
-    except Exception as e:
-        logger.error(f"Operation failed: {e}")
+    except (OSError, RuntimeError, ValueError, ConnectionError) as e:
+        logger.error("Operation failed: %s", e)
         exit(1)
 
 

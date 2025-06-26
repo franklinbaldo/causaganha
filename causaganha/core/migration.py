@@ -81,7 +81,7 @@ class CausaGanhaMigration:
             logger.info(f"✅ Ratings migrados: {self.stats['ratings_migrated']}")
             return True
             
-        except Exception as e:
+        except (FileNotFoundError, pd.errors.EmptyDataError, ValueError, duckdb.Error) as e:
             error_msg = f"Erro migrando ratings: {e}"
             logger.error(error_msg)
             self.stats['errors'].append(error_msg)
@@ -161,7 +161,7 @@ class CausaGanhaMigration:
             logger.info(f"✅ Partidas migradas: {self.stats['partidas_migrated']}")
             return True
             
-        except Exception as e:
+        except (FileNotFoundError, pd.errors.EmptyDataError, ValueError, duckdb.Error) as e:
             error_msg = f"Erro migrando partidas: {e}"
             logger.error(error_msg)
             self.stats['errors'].append(error_msg)
@@ -300,7 +300,7 @@ class CausaGanhaMigration:
             logger.info(f"✅ Decisões migradas: {self.stats['decisoes_migrated']}")
             return True
             
-        except Exception as e:
+        except (OSError, IOError, json.JSONDecodeError, duckdb.Error) as e:
             error_msg = f"Erro migrando arquivos JSON: {e}"
             logger.error(error_msg)
             self.stats['errors'].append(error_msg)
@@ -323,8 +323,8 @@ class CausaGanhaMigration:
             logger.info(f"Backup de CSVs salvo em: {backup_dir}")
             return True
             
-        except Exception as e:
-            logger.error(f"Erro criando backup: {e}")
+        except (OSError, IOError, shutil.Error) as e:
+            logger.error("Erro criando backup: %s", e)
             return False
     
     def run_migration(self, create_backup: bool = True) -> Dict[str, Any]:

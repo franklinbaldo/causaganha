@@ -88,7 +88,7 @@ class MigrationRunner:
     def discover_migrations(self) -> List[Migration]:
         """Discover all migration files in migrations directory."""
         if not self.migrations_dir.exists():
-            logger.warning(f"Migrations directory does not exist: {self.migrations_dir}")
+            logger.warning("Migrations directory does not exist: %s", self.migrations_dir)
             return []
             
         migrations = []
@@ -110,7 +110,7 @@ class MigrationRunner:
                     description=description
                 ))
             else:
-                logger.warning(f"Skipping migration file with invalid name: {sql_file.name}")
+                logger.warning("Skipping migration file with invalid name: %s", sql_file.name)
                 
         return sorted(migrations, key=lambda m: m.version)
         
@@ -146,7 +146,7 @@ class MigrationRunner:
         
     def apply_migration(self, migration: Migration) -> bool:
         """Apply a single migration."""
-        logger.info(f"Applying migration {migration.version:03d}: {migration.name}")
+        logger.info("Applying migration %03d: %s", migration.version, migration.name)
         
         try:
             # Read migration file
@@ -177,7 +177,7 @@ class MigrationRunner:
                 self._calculate_checksum(sql_content)
             ])
             
-            logger.info(f"Migration {migration.version:03d} applied successfully in {execution_time_ms}ms")
+            logger.info("Migration %03d applied successfully in %dms", migration.version, execution_time_ms)
             return True
             
         except (duckdb.Error, OSError, IOError) as e:
@@ -227,17 +227,17 @@ class MigrationRunner:
             pending_migrations = [m for m in pending_migrations if m.version <= target_version]
             
         if not pending_migrations:
-            logger.info(f"No pending migrations. Current version: {current_version}")
+            logger.info("No pending migrations. Current version: %d", current_version)
             return True
             
-        logger.info(f"Applying {len(pending_migrations)} migrations from version {current_version}")
+        logger.info("Applying %d migrations from version %d", len(pending_migrations), current_version)
         
         try:
             for migration in pending_migrations:
                 self.apply_migration(migration)
                 
             final_version = self.get_current_version()
-            logger.info(f"Migrations completed. Version: {current_version} → {final_version}")
+            logger.info("Migrations completed. Version: %d → %d", current_version, final_version)
             return True
             
         except (duckdb.Error, OSError, IOError) as e:

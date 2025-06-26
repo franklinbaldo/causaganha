@@ -39,5 +39,5 @@ def upload_file_to_gdrive(file_path: Path) -> None:
             body=file_metadata, media_body=media, fields="id"
         ).execute()
         logging.info("Uploaded %s to Google Drive", file_path.name)
-    except Exception as e:
+    except (OSError, IOError, ValueError, RuntimeError) as e:
         logging.error("Error uploading %s to Google Drive: %s", file_path.name, e)

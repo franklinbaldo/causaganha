@@ -178,7 +178,7 @@ def validate_decision(decision: dict) -> bool:
         )
         return False
 
-    logger.info(f"Decision (processo: {numero_processo}) passed validation.")
+    logger.info("Decision (processo: %s) passed validation.", numero_processo)
     return True
 
 
