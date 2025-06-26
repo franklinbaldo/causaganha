@@ -59,11 +59,13 @@ class AsyncDiarioPipeline:
                  data_dir: Path = Path("data"),
                  progress_file: Path = Path("data/diario_pipeline_progress.json"),
                  max_concurrent_downloads: int = MAX_CONCURRENT_DOWNLOADS,
-                 max_concurrent_uploads: int = MAX_CONCURRENT_IA_UPLOADS):
+                 max_concurrent_uploads: int = MAX_CONCURRENT_IA_UPLOADS,
+                 try_direct_upload: bool = True):
         self.data_dir = data_dir
         self.progress_file = progress_file
         self.max_concurrent_downloads = max_concurrent_downloads
         self.max_concurrent_uploads = max_concurrent_uploads
+        self.try_direct_upload = try_direct_upload
         self.logger = logging.getLogger(__name__)
         
         # Create directories
@@ -222,9 +224,71 @@ class AsyncDiarioPipeline:
         with ThreadPoolExecutor() as executor:
             return await loop.run_in_executor(executor, _hash_file)
     
-    def upload_to_ia(self, diario_data: Dict, status: ProcessingStatus) -> bool:
-        """Upload PDF to Internet Archive synchronously."""
-        if not status.local_path or status.status != "downloaded":
+    def upload_to_ia_direct(self, diario_data: Dict, status: ProcessingStatus) -> bool:
+        """Try direct upload to IA from TJRO URL (streaming)."""
+        status.status = "uploading"
+        
+        try:
+            # Prepare IA metadata
+            metadata = diario_data['metadata'].copy()
+            metadata['originalurl'] = diario_data['full_url']
+            metadata['addeddate'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            metadata['upload_method'] = 'direct_streaming'
+            
+            # Build ia command for direct upload
+            ia_cmd = [
+                'ia', 'upload',
+                status.ia_identifier,
+                '--remote-name', diario_data['full_url']
+            ]
+            
+            # Add metadata
+            for key, value in metadata.items():
+                if value:  # Skip empty values
+                    ia_cmd.extend([f'--metadata={key}:{value}'])
+            
+            # Execute direct upload
+            self.logger.info(f"Attempting direct streaming upload to IA: {status.ia_identifier}")
+            result = subprocess.run(
+                ia_cmd,
+                capture_output=True,
+                text=True,
+                timeout=600  # 10 minutes timeout
+            )
+            
+            if result.returncode == 0:
+                status.status = "completed"
+                status.ia_url = f"https://archive.org/details/{status.ia_identifier}"
+                self.logger.info(f"✅ Direct IA upload completed: {status.ia_url}")
+                return True
+            else:
+                # Log the specific error for debugging
+                error_msg = result.stderr.strip()
+                self.logger.warning(f"Direct upload failed for {status.ia_identifier}: {error_msg}")
+                
+                # Check if it's likely a TJRO blocking issue
+                if any(keyword in error_msg.lower() for keyword in ['403', 'forbidden', 'blocked', 'timeout', 'refused']):
+                    self.logger.info(f"Likely TJRO blocking detected, will fallback to local download method")
+                    status.status = "pending"  # Reset for fallback
+                    return False
+                else:
+                    raise subprocess.CalledProcessError(
+                        result.returncode, 
+                        ia_cmd, 
+                        result.stdout, 
+                        result.stderr
+                    )
+                
+        except Exception as e:
+            status.error_message = f"Direct upload error: {str(e)}"
+            status.status = "pending"  # Reset for fallback
+            self.logger.warning(f"Direct upload failed for {status.ia_identifier}, will try local method: {e}")
+            return False
+
+    def upload_to_ia_local(self, diario_data: Dict, status: ProcessingStatus) -> bool:
+        """Upload PDF to Internet Archive from local file."""
+        if not status.local_path or not Path(status.local_path).exists():
+            self.logger.error(f"Local file not available for {status.ia_identifier}")
             return False
         
         status.status = "uploading"
@@ -235,6 +299,7 @@ class AsyncDiarioPipeline:
             metadata['sha256'] = status.sha256_hash
             metadata['originalurl'] = diario_data['full_url']
             metadata['addeddate'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            metadata['upload_method'] = 'local_download_first'
             
             # Build ia command
             ia_cmd = [
@@ -249,7 +314,7 @@ class AsyncDiarioPipeline:
                     ia_cmd.extend([f'--metadata={key}:{value}'])
             
             # Execute upload
-            self.logger.info(f"Uploading to IA: {status.ia_identifier}")
+            self.logger.info(f"Uploading local file to IA: {status.ia_identifier}")
             result = subprocess.run(
                 ia_cmd,
                 capture_output=True,
@@ -260,10 +325,14 @@ class AsyncDiarioPipeline:
             if result.returncode == 0:
                 status.status = "completed"
                 status.ia_url = f"https://archive.org/details/{status.ia_identifier}"
-                self.logger.info(f"IA upload completed: {status.ia_url}")
+                self.logger.info(f"✅ Local IA upload completed: {status.ia_url}")
                 
-                # Optionally remove local file to save space
-                # Path(status.local_path).unlink()
+                # Remove local file to save space after successful upload
+                try:
+                    Path(status.local_path).unlink()
+                    self.logger.info(f"Cleaned up local file: {status.local_path}")
+                except Exception as cleanup_error:
+                    self.logger.warning(f"Failed to cleanup local file: {cleanup_error}")
                 
                 return True
             else:
@@ -277,23 +346,41 @@ class AsyncDiarioPipeline:
         except Exception as e:
             status.error_message = str(e)
             status.status = "failed"
-            self.logger.error(f"IA upload failed for {status.ia_identifier}: {e}")
+            self.logger.error(f"Local IA upload failed for {status.ia_identifier}: {e}")
             return False
     
-    async def upload_to_ia_async(self, diario_data: Dict, status: ProcessingStatus) -> bool:
-        """Async wrapper for IA upload."""
+    async def upload_to_ia_async(self, diario_data: Dict, status: ProcessingStatus, try_direct_first: bool = True) -> bool:
+        """Async wrapper for IA upload with hybrid approach."""
         async with self.upload_semaphore:
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
+                
+                # First, try direct upload if enabled
+                if try_direct_first:
+                    self.logger.info(f"Attempting direct streaming upload for {status.ia_identifier}")
+                    direct_success = await loop.run_in_executor(
+                        executor, 
+                        self.upload_to_ia_direct, 
+                        diario_data, 
+                        status
+                    )
+                    
+                    if direct_success:
+                        return True
+                    
+                    # If direct failed, fall back to local method
+                    self.logger.info(f"Direct upload failed, falling back to local download for {status.ia_identifier}")
+                
+                # Local method (download first, then upload)
                 return await loop.run_in_executor(
                     executor, 
-                    self.upload_to_ia, 
+                    self.upload_to_ia_local, 
                     diario_data, 
                     status
                 )
     
-    async def process_diario(self, diario_data: Dict) -> bool:
-        """Process a single diario: download + upload to IA."""
+    async def process_diario(self, diario_data: Dict, try_direct_first: bool = True) -> bool:
+        """Process a single diario with hybrid approach: try direct upload first, fallback to download+upload."""
         ia_identifier = diario_data['ia_identifier']
         
         # Get or create status tracker
@@ -311,8 +398,24 @@ class AsyncDiarioPipeline:
         if status.status == "completed":
             return True
         
-        # Download phase
+        # Try direct upload first (no local download needed)
+        if try_direct_first and status.status == "pending":
+            self.logger.info(f"Trying direct streaming upload for {ia_identifier}")
+            direct_success = await self.upload_to_ia_async(diario_data, status, try_direct_first=True)
+            
+            # Save progress after direct upload attempt
+            self.save_progress()
+            
+            if direct_success:
+                self.logger.info(f"✅ Direct upload successful for {ia_identifier}")
+                return True
+            
+            # If direct upload failed, status should be reset to "pending" for fallback
+            self.logger.info(f"Direct upload failed for {ia_identifier}, trying local method")
+        
+        # Fallback: Download first, then upload
         if status.status not in ["downloaded", "uploading"]:
+            self.logger.info(f"Downloading {ia_identifier} for local upload")
             download_success = await self.download_pdf(diario_data, status)
             if not download_success:
                 return False
@@ -320,9 +423,9 @@ class AsyncDiarioPipeline:
             # Save progress after download
             self.save_progress()
         
-        # Upload phase
+        # Upload phase (local file)
         if status.status == "downloaded":
-            upload_success = await self.upload_to_ia_async(diario_data, status)
+            upload_success = await self.upload_to_ia_async(diario_data, status, try_direct_first=False)
             
             # Save progress after upload attempt
             self.save_progress()
@@ -334,7 +437,8 @@ class AsyncDiarioPipeline:
                           diarios_data: List[Dict], 
                           start_date: Optional[str] = None,
                           end_date: Optional[str] = None,
-                          max_items: Optional[int] = None) -> None:
+                          max_items: Optional[int] = None,
+                          try_direct_first: bool = True) -> None:
         """Run the complete async pipeline."""
         
         # Filter by date range if specified
@@ -367,7 +471,7 @@ class AsyncDiarioPipeline:
         
         async def process_with_semaphore(diario_data):
             async with semaphore:
-                return await self.process_diario(diario_data)
+                return await self.process_diario(diario_data, try_direct_first=try_direct_first)
         
         # Create tasks
         tasks = [process_with_semaphore(diario) for diario in diarios_data]
@@ -458,6 +562,11 @@ async def main():
         action='store_true',
         help='Verbose logging'
     )
+    parser.add_argument(
+        '--no-direct-upload',
+        action='store_true',
+        help='Skip direct upload attempts, always download locally first'
+    )
     
     args = parser.parse_args()
     
@@ -508,7 +617,8 @@ async def main():
             diarios_data,
             start_date=args.start_date,
             end_date=args.end_date,
-            max_items=args.max_items
+            max_items=args.max_items,
+            try_direct_first=not args.no_direct_upload
         )
     
     return 0

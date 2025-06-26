@@ -11,6 +11,7 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "aiohttp>=3.10.0",
     "duckdb>=0.10.0",
     "google-generativeai>=0.8.5",
     "internetarchive>=5.4.0",

@@ -168,10 +168,10 @@ def _update_ratings_logic(logger: logging.Logger, dry_run: bool):
     if dry_run:
         logger.info("DRY-RUN: OpenSkill update process simulation, no files changed.")
 
-    json_input_dir = Path("causaganha/data/json/")
-    processed_json_dir = Path("causaganha/data/json_processed/")
-    ratings_file = Path("causaganha/data/ratings.csv")
-    partidas_file = Path("causaganha/data/partidas.csv")
+    json_input_dir = Path("data/json/")
+    processed_json_dir = Path("data/json_processed/")
+    ratings_file = Path("data/ratings.csv")
+    partidas_file = Path("data/partidas.csv")
 
     try:
         ratings_df = pd.read_csv(ratings_file, index_col="advogado_id")
@@ -439,7 +439,7 @@ def run_command(args):
     extract_output_dir = (
         Path(args.output_json_dir)
         if args.output_json_dir
-        else Path("causaganha/data/json/")
+        else Path("data/json/")
     )
     extractor = GeminiExtractor(verbose=args.verbose)
     json_output_path = extractor.extract_and_save_json(
