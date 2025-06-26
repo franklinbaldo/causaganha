@@ -7,6 +7,7 @@ Bem-vindo à documentação oficial do CausaGanha.
 - [FAQ e Limitações](faq.md)
 
 ## Architecture & Planning
+- [Project Structure Plan](project-structure-plan.md) - Modern Python project structure migration
 - [Database Archive Plan](database-archive-plan.md) - Internet Archive integration for public database snapshots
 - [Armazenamento Wayback](wayback-archive-plan.md) - PDF archival strategy
 - [Team Rating Plan](TEAM_RATING_PLAN.md) - Advanced TrueSkill team compositions
