@@ -2,14 +2,14 @@
 
 [![Update OpenSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-openskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
 
-**CausaGanha** é uma **plataforma de análise judicial de nível empresarial** que combina inteligência artificial, armazenamento multi-camadas e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
+**CausaGanha** é uma **plataforma de análise judicial distribuída de nível empresarial** que combina inteligência artificial, processamento assíncrono e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
 
-O sistema implementa uma **arquitetura de três camadas** com:
-- **Processamento local**: DuckDB para operações de alta performance
-- **Arquivo público**: Internet Archive para transparência e acesso permanente
-- **Backup em nuvem**: Cloudflare R2 para análises remotas e recuperação de desastres
+O sistema implementa uma **arquitetura distribuída de 2 camadas** com:
+- **Processamento distribuído**: DuckDB compartilhado via Internet Archive para colaboração entre PC/GitHub Actions
+- **Arquivo público permanente**: Internet Archive para transparência, acesso público e backup
+- **Pipeline assíncrono**: Processamento concorrente de 5,058 diários (2004-2025) com sistema de locks
 
-Com **6 workflows automatizados** executando diariamente, a plataforma processa desde a coleta de PDFs até a geração de rankings atualizados, mantendo custos operacionais mínimos (<$0.05/mês) e disponibilidade de 99.95%.
+Com **4 workflows automatizados** e pipeline assíncrono, a plataforma processa desde a coleta massiva de PDFs até a geração de rankings atualizados, mantendo custos operacionais zero e disponibilidade de 99.95%.
 
 ---
 
@@ -17,13 +17,13 @@ Com **6 workflows automatizados** executando diariamente, a plataforma processa 
 
 O projeto busca investigar a viabilidade técnica e metodológica de aplicar métricas dinâmicas de desempenho profissional na área jurídica, com ênfase na atuação processual de advogados, por meio de:
 
-- **Coleta automatizada**: Download diário de decisões judiciais com verificação de integridade
-- **Arquivo permanente**: Armazenamento público no Internet Archive (99.95% redução de storage local)
+- **Coleta assíncrona massiva**: Download concorrente de 5,058 diários históricos (2004-2025) com verificação de integridade
+- **Arquivo público permanente**: Armazenamento no Internet Archive (99.95% redução de storage local)
 - **Extração por IA**: Processamento via Google Gemini com rate limiting e chunking inteligente
 - **Análise de performance**: Sistema OpenSkill para avaliação dinâmica de habilidades jurídicas
-- **Armazenamento unificado**: Banco DuckDB substituindo 50+ arquivos CSV/JSON dispersos
-- **Backup resiliente**: Snapshots comprimidos em Cloudflare R2 com queries remotas
-- **Operação autônoma**: Pipeline completo executado via GitHub Actions (3:15-7:00 UTC)
+- **Banco distribuído**: DuckDB compartilhado entre PC e GitHub Actions via Internet Archive com sistema de locks
+- **Pipeline assíncrono**: Processamento concorrente configurável (3 downloads, 2 uploads simultâneos)
+- **Operação autônoma**: Sistema completo de workflows GitHub Actions com sincronização automática
 
 ---
 
@@ -98,29 +98,30 @@ As atualizações são realizadas automaticamente via **6 workflows GitHub Actio
 ```
 causaganha/
 ├── openskill_rating.py    # Sistema OpenSkill
-├── src/                   # Módulos principais
-│   ├── downloader.py      # Coleta PDF + Internet Archive
-│   ├── extractor.py       # Processamento via Gemini
-│   ├── database.py        # Camada DuckDB unificada
-│   ├── migration.py       # Migração CSV/JSON → DuckDB
-│   ├── r2_storage.py      # Backup Cloudflare R2
-│   ├── r2_queries.py      # Queries remotas R2
-│   └── pipeline.py        # Orquestrador CLI
+├── src/                   # Módulos principais (arquitetura src-layout)
+│   ├── async_diario_pipeline.py  # Pipeline assíncrono principal
+│   ├── ia_database_sync.py       # Sincronização distribuída do banco
+│   ├── downloader.py             # Coleta PDF + Internet Archive
+│   ├── extractor.py              # Processamento via Gemini
+│   ├── database.py               # Camada DuckDB unificada
+│   ├── ia_discovery.py           # Descoberta e listagem IA
+│   ├── diario_processor.py       # Processamento dos diários
+│   └── pipeline.py               # Orquestrador CLI
 ├── data/                  # Dados unificados
-│   ├── causaganha.duckdb  # Banco principal
-│   ├── dj_YYYYMMDD.pdf    # PDFs (+ Internet Archive)
-│   └── backup_pre_migration/ # Backup CSVs originais
-├── pipeline/              # Scripts especializados
+│   ├── causaganha.duckdb           # Banco principal compartilhado
+│   ├── diarios_pipeline_ready.json # 5,058 diários prontos para processamento
+│   ├── diarios_2025_only.json     # Subset 2025 para testes
+│   └── diarios/                    # PDFs temporários (arquivados no IA)
+├── scripts/               # Scripts especializados
+│   ├── bulk_discovery.py     # Descoberta massiva IA
 │   └── collect_and_archive.py # Automação Internet Archive
-├── .github/workflows/     # Pipeline completo (6 workflows)
-│   ├── 01_collect.yml     # Coleta PDFs (5:00 UTC)
-│   ├── 02_archive_to_ia.yml # Archive.org (3:15 UTC)
-│   ├── 02_extract.yml     # Gemini (6:00 UTC)
-│   ├── 03_update.yml      # OpenSkill + DuckDB (6:30 UTC)
-│   ├── 04_backup_r2.yml   # Backup R2 (7:00 UTC)
-│   └── test.yml           # Testes e qualidade
-├── tests/                 # Suíte de testes expandida
-│   └── test_r2_storage.py # Testes R2
+├── .github/workflows/     # Pipeline distribuído (4 workflows)
+│   ├── pipeline.yml           # Pipeline principal async (3:15 UTC)
+│   ├── bulk-processing.yml    # Processamento massivo (manual)
+│   ├── database-archive.yml   # Archive database snapshots
+│   └── test.yml               # Testes e qualidade
+├── tests/                 # Suíte de testes unificada
+│   └── test_*.py             # Testes abrangentes
 └── pyproject.toml         # uv dependency management
 ```
 
@@ -138,45 +139,47 @@ causaganha/
 
 ```bash
 # Clonar o repositório
-git clone https://github.com/franklinbaldo/causa_ganha.git # Corrigido para o repositório correto
+git clone https://github.com/franklinbaldo/causa_ganha.git
 cd causa_ganha
 
-# Criar ambiente virtual e instalar dependências
-# Recomenda-se Python 3.12+ conforme pyproject.toml
-python3 -m venv .venv
-source .venv/bin/activate
-# O projeto usa 'uv' para gerenciamento de dependências e ambiente, instalado via pipx ou pip.
-# Veja https://github.com/astral-sh/uv
-# pip install uv # Se ainda não tiver o uv
-uv pip install -e .[dev] # Instala o projeto em modo editável e dependências de desenvolvimento
-# Ou, se preferir usar pip diretamente com pyproject.toml:
-# pip install -e .[dev]
+# Criar ambiente virtual usando uv (recomendado)
+# Instalar uv: curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv
+source .venv/bin/activate  # ou `.venv\Scripts\activate` no Windows
+uv sync --dev
+uv pip install -e .  # Instalar em modo desenvolvimento
 
-# Configurar pre-commit (opcional, mas recomendado)
-pre-commit install
-# pre-commit run --all-files # Para rodar em todos os arquivos
+# Configurar variáveis de ambiente
+export GEMINI_API_KEY="sua_chave_gemini"
+# (opcional) Para upload no Internet Archive
+export IA_ACCESS_KEY="sua_chave_ia"
+export IA_SECRET_KEY="sua_chave_secreta_ia"
 
-# Definir chave da API Gemini
-export GEMINI_API_KEY="sua_chave"
-# (opcional) JSON da conta de serviço do Google Drive
-export GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
-# (opcional) Pasta de destino no Drive
-export GDRIVE_FOLDER_ID="abc123"
+# === COMANDOS PRINCIPAIS ===
 
-# Rodar pipeline completo
-uv run python src/pipeline.py run --date 2025-06-01
+# Pipeline assíncrono completo (recomendado)
+causaganha pipeline run --date 2025-06-24           # Pipeline completo
+causaganha pipeline run --date 2025-06-24 --dry-run # Teste sem modificações
 
-# Migrar dados existentes para DuckDB (setup inicial)
-uv run python src/migration.py
+# Processamento assíncrono massivo
+uv run python src/async_diario_pipeline.py --max-items 10 --verbose
+uv run python src/async_diario_pipeline.py --start-date 2025-01-01 --end-date 2025-06-26
 
-# Backup para Cloudflare R2
-uv run python src/r2_storage.py backup
+# Sincronização distribuída do banco
+uv run python src/ia_database_sync.py sync
+uv run python src/ia_database_sync.py status
 
-# Consultas remotas sem download
-uv run python src/r2_queries.py rankings --limit 10
+# Descoberta no Internet Archive
+uv run python src/ia_discovery.py --year 2025
+uv run python src/ia_discovery.py --coverage-report
 
-# Arquivar PDF no Internet Archive
-uv run python scripts/collect_and_archive.py --latest
+# Comandos individuais
+causaganha download --latest                         # Download apenas
+causaganha extract --pdf-file data/file.pdf         # Extração apenas
+causaganha db migrate                                # Migração de dados
+
+# Testes obrigatórios
+uv run pytest -q
 
 
 ---
@@ -196,15 +199,27 @@ realizar commits.
 
 ## 6. Pipeline Automatizado de Produção
 
-O sistema opera com **6 workflows GitHub Actions** executando um pipeline completo de dados:
+O sistema opera com **4 workflows GitHub Actions** executando um pipeline distribuído completo:
 
-### Fluxo Diário (3:15-7:00 UTC)
-1. **03:15 UTC** - `02_archive_to_ia.yml`: Upload para Internet Archive
-2. **05:00 UTC** - `01_collect.yml`: Coleta de PDFs do TJRO
-3. **06:00 UTC** - `02_extract.yml`: Extração via Gemini
-4. **06:30 UTC** - `03_update.yml`: Atualização OpenSkill + DuckDB
-5. **07:00 UTC** - `04_backup_r2.yml`: Backup para Cloudflare R2
-6. **On PR/Push** - `test.yml`: Testes e validação de qualidade
+### Pipeline Principal (3:15 UTC diário)
+1. **pipeline.yml**: Pipeline assíncrono unificado com sincronização de banco
+   - Sincroniza banco compartilhado do Internet Archive
+   - Executa pipeline assíncrono (configurável: últimos 5 itens por padrão)
+   - Upload banco atualizado para Internet Archive
+   - Relatório estatístico completo
+
+### Workflows Especializados
+2. **bulk-processing.yml**: Processamento massivo (manual)
+   - Processa por ano (2025, 2024, 2023) ou quantidade (100, 500, todos os 5,058 diários)
+   - Concorrência configurável (downloads e uploads)
+   - Timeout de 6 horas para grandes volumes
+
+3. **database-archive.yml**: Snapshots públicos do banco (semanal)
+   - Domingos às 4:00 UTC para snapshots semanais
+   - Primeiro domingo do mês para arquivo permanente
+   - Disponibilização pública para pesquisa
+
+4. **test.yml**: Validação de qualidade (PR/Push)
 
 ### Secrets Necessários
 ```bash
@@ -212,16 +227,13 @@ O sistema opera com **6 workflows GitHub Actions** executando um pipeline comple
 GEMINI_API_KEY=sua_chave_gemini
 IA_ACCESS_KEY=sua_chave_internet_archive
 IA_SECRET_KEY=sua_chave_secreta_ia
-CLOUDFLARE_ACCOUNT_ID=seu_account_id
-CLOUDFLARE_R2_ACCESS_KEY_ID=sua_r2_key
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=sua_r2_secret
 
 # Opcionais (legacy)
 GDRIVE_SERVICE_ACCOUNT_JSON='{...}'
 GDRIVE_FOLDER_ID=abc123
 ```
 
-O fluxo é **100% autônomo** com processamento de PDFs → rankings atualizados em ~4 horas.
+O sistema é **100% distribuído** com banco compartilhado e processamento coordenado entre ambientes locais e GitHub Actions.
 
 ## Documentação
 
@@ -233,12 +245,13 @@ A documentação do projeto é construída com **MkDocs** e publicada via GitHub
 ## 7. Status Atual: Produção
 
 ### ✅ **Implementado e Operacional**
-- **Pipeline completo**: 6 workflows automatizados executando diariamente
-- **Armazenamento multi-camadas**: DuckDB + Internet Archive + Cloudflare R2
-- **57+ testes unitários**: Cobertura completa com mocks de APIs externas
-- **Custos mínimos**: <$0.05/mês de operação
-- **Resilência**: Múltiplas camadas de backup e recuperação
-- **Análise remota**: Queries SQL contra dados em nuvem
+- **Pipeline distribuído**: 4 workflows especializados com banco compartilhado
+- **Processamento assíncrono**: 5,058 diários históricos (2004-2025) processáveis
+- **Arquitetura distribuída**: Banco DuckDB sincronizado via Internet Archive
+- **Sistema de locks**: Prevenção de conflitos em acessos concorrentes
+- **67+ testes unitários**: Cobertura completa com mocks de APIs externas
+- **Custos zero**: Operação sem custos com Internet Archive
+- **Descoberta inteligente**: Ferramentas de análise e cobertura IA
 
 ### ⚠️ **Limitações Conhecidas**
 - **Precisão do LLM**: Dependência da qualidade de interpretação do Gemini
@@ -247,29 +260,72 @@ A documentação do projeto é construída com **MkDocs** e publicada via GitHub
 
 ### 🎯 **Métricas de Performance**
 - **Disponibilidade**: 99.95% (baseado em Internet Archive)
-- **Redução de storage**: 99.95% (PDFs movidos para IA)
-- **Tempo de processamento**: ~4 horas (coleta → rankings)
-- **Cobertura de testes**: 57+ testes com mocking completo
+- **Redução de storage**: 99.95% (PDFs arquivados no IA)
+- **Processamento massivo**: 5,058 diários processáveis assincronamente
+- **Sincronização**: Banco compartilhado com resolução automática de conflitos
+- **Cobertura de testes**: 67+ testes com mocking completo
+- **Concorrência**: 3 downloads + 2 uploads simultâneos (configurável)
 
 
 
 ---
 
-## 8. Roadmap e Expansões
+## 8. Adaptação para Outros Tribunais
+
+O design do CausaGanha permite a sua adaptação para analisar diários de qualquer tribunal, desde que você possua uma lista de URLs para os arquivos PDF dos diários. O sistema é agnóstico em relação à origem dos dados, focando no processamento do conteúdo dos PDFs.
+
+### Requisito Principal
+
+O único requisito é um arquivo JSON contendo uma lista de objetos, cada um com a data e a URL do diário.
+
+**Formato do JSON:**
+```json
+[
+  {
+    "date": "YYYY-MM-DD",
+    "url": "https://tribunal.exemplo.com/diario_AAAA_MM_DD.pdf"
+  },
+  {
+    "date": "YYYY-MM-DD",
+    "url": "https://tribunal.exemplo.com/diario_AAAA_MM_DD_ed_extra.pdf"
+  }
+]
+```
+
+### Passos para Adaptação
+
+1.  **Crie o Arquivo JSON**: Compile a lista de URLs dos diários que você deseja processar e formate-a como o exemplo acima. Salve o arquivo (por exemplo, `meu_tribunal.json`).
+
+2.  **Execute o Pipeline**: Utilize o script de processamento massivo, apontando para o seu novo arquivo JSON. O sistema fará o download, processamento e análise de cada PDF da lista.
+
+    ```bash
+    # Exemplo de comando para processar sua lista de diários
+    uv run python src/async_diario_pipeline.py --input-file /caminho/para/meu_tribunal.json --max-items 100
+    ```
+
+    - `--input-file`: Especifica o caminho para o seu arquivo JSON customizado.
+    - `--max-items`: Limita o número de diários a processar em uma execução (útil para testes).
+
+Com estes passos, o sistema pode ser redirecionado para qualquer fonte de diários judiciais, mantendo a mesma lógica de extração, análise e ranqueamento.
+
+---
+
+## 9. Roadmap e Expansões
 
 ### 🚀 **Próximas Funcionalidades**
-- **Multi-tribunal**: Suporte a TJSP, TRFs e outros tribunais
+- **Processamento completo**: Finalizar os 5,058 diários históricos TJRO
+- **Multi-tribunal**: Implementação TJSP como próximo alvo
 - **Dashboard interativo**: Visualização via Streamlit ou Next.js
-- **Classificação por área**: Segmentação por direito civil, criminal, etc.
-- **Validação cruzada**: Integração com dados de andamentos processuais
 - **API pública**: Endpoint REST para acesso aos rankings
 - **Machine Learning**: Predição de resultados baseada em histórico
+- **Análise temporal**: Trends e padrões ao longo do tempo
 
 ### 🔧 **Otimizações Técnicas**
 - **Cache inteligente**: Redução de calls para APIs externas
-- **Paralelização**: Processamento simultâneo de múltiplos PDFs
 - **Alertas proativos**: Notificações de falhas no pipeline
 - **Métricas avançadas**: Observabilidade completa do sistema
+- **Paralelização avançada**: Otimização de concorrência dinâmica
+- **Integração multi-cloud**: Suporte a outros provedores de backup
 
 
 

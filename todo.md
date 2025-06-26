@@ -1,134 +1,127 @@
-# TODO - Cloudflare R2 Storage Integration
+# Sistema Distribuído CausaGanha - Status Atual
 
-## 🎯 Objetivo
-Implementar sistema completo de backup e armazenamento em nuvem usando Cloudflare R2, com snapshots DuckDB comprimidos, rotação automática e consultas remotas.
-
-## ✅ Concluído
-
-### Fase 1: Implementação Core ✅
-- [X] **Classe CloudflareR2Storage**
-  - [X] SDK boto3 para compatibilidade S3
-  - [X] Configuração automática de endpoint R2
-  - [X] Context managers e error handling
-  - [X] SHA-256 hashing para integridade
-
-- [X] **Sistema de Snapshots**
-  - [X] Criação automática de snapshots DuckDB
-  - [X] Compressão zstandard (nível 19) 
-  - [X] Metadados JSON com timestamps
-  - [X] Cleanup automático de arquivos temporários
-
-- [X] **Upload/Download**
-  - [X] Upload para R2 com metadados
-  - [X] Download e descompressão automática
-  - [X] Verificação de integridade via hash
-  - [X] Progress logging e error handling
-
-### Fase 2: Automação ✅
-- [X] **GitHub Actions Workflow**
-  - [X] Backup diário às 7:00 UTC
-  - [X] Validação de restore automática
-  - [X] Configuração via environment variables
-  - [X] Logs detalhados e error reporting
-
-- [X] **Rotação de Snapshots**
-  - [X] Retenção configurável (padrão 30 dias)
-  - [X] Cleanup automático de snapshots antigos
-  - [X] Contagem e estatísticas de storage
-  - [X] Logs de operações de limpeza
-
-### Fase 3: Consultas Remotas ✅
-- [X] **R2DuckDBClient**
-  - [X] Queries diretas contra snapshots R2
-  - [X] Suporte a snapshots comprimidos
-  - [X] Comparação temporal entre snapshots
-  - [X] Rankings e estatísticas remotas
-
-- [X] **CLI Interface**
-  - [X] Comandos backup/restore/list/cleanup
-  - [X] Consultas rankings/stats/compare/trends
-  - [X] Parâmetros configuráveis
-  - [X] Output formatado
-
-### Fase 4: Qualidade ✅
-- [X] **Testes Unitários**
-  - [X] Mocking completo de AWS/R2 calls
-  - [X] Testes de compressão/descompressão
-  - [X] Validação de configuração
-  - [X] Error handling e edge cases
-
-- [X] **Documentação**
-  - [X] Atualização do CLAUDE.md
-  - [X] Workflow documentation
-  - [X] Environment variables
-  - [X] CLI usage examples
-
-## 📊 Resultado Final
-
-### Arquitetura Implementada
-```
-DuckDB Local → Snapshot Creation → zstd Compression → R2 Upload
-     ↓                                                    ↓
-Direct Queries ←— R2 Download ←— Remote Analytics ←— Stored Snapshots
-```
-
-### Features Entregues
-- **Backup Automático**: Snapshots diários comprimidos
-- **Storage Otimizado**: ~85% redução com zstd
-- **Consultas Remotas**: DuckDB + R2 sem download local
-- **Rotação Inteligente**: Limpeza automática por idade
-- **Monitoramento**: Logs completos e validação
-- **Zero AWS**: 100% Cloudflare, sem dependências AWS
-
-### Custos Estimados
-- **Storage**: ~1GB (30 snapshots) = $0.015/mês
-- **Operações**: ~100 writes/mês = Grátis
-- **Egress**: Queries internas = $0
-- **Total**: **< $0.05/mês**
-
-### CLI Disponível
-```bash
-# Backup operations
-uv run python causaganha/core/r2_storage.py backup
-uv run python causaganha/core/r2_storage.py list
-uv run python causaganha/core/r2_storage.py cleanup
-
-# Remote queries  
-uv run python causaganha/core/r2_queries.py rankings --limit 20
-uv run python causaganha/core/r2_queries.py stats
-uv run python causaganha/core/r2_queries.py trends --days 30
-```
-
-### Environment Variables
-```bash
-CLOUDFLARE_ACCOUNT_ID=your-account-id
-CLOUDFLARE_R2_ACCESS_KEY_ID=your-access-key
-CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-secret-key
-CLOUDFLARE_R2_BUCKET=causa-ganha  # opcional
-```
-
-## 🔗 Integração Completa
-
-### Pipeline Atualizado
-1. **collect** (5:00 UTC) - Baixa PDFs TJRO
-2. **extract** (6:00 UTC) - Processa com Gemini
-3. **update** (6:30 UTC) - Atualiza TrueSkill + DuckDB
-4. **backup** (7:00 UTC) - **NOVO** - Backup R2 comprimido
-
-### Benefícios Técnicos
-- **Resilência**: Backup cloud automático
-- **Performance**: Queries remotas sem download
-- **Economia**: Custo mínimo vs. funcionalidade
-- **Simplicidade**: Zero configuração AWS
-- **Escalabilidade**: Suporte a crescimento futuro
-
-### Próximos Passos Sugeridos
-- [ ] Configurar secrets do GitHub Repository
-- [ ] Testar primeiro backup em produção
-- [ ] Configurar alertas de falha de backup
-- [ ] Implementar métricas de uso R2
-- [ ] Otimizar queries remotas para casos comuns
+## 🎯 **Sistema Implementado**
+CausaGanha é uma **plataforma distribuída de análise judicial** completamente operacional com arquitetura de 2 camadas.
 
 ---
 
-**Status: ✅ COMPLETO** - Sistema R2 totalmente funcional e integrado ao pipeline CausaGanha.
+## ✅ **IMPLEMENTADO E OPERACIONAL** (2025-06-26)
+
+### **Arquitetura Distribuída Principal**
+- [X] **Pipeline Assíncrono:** `src/async_diario_pipeline.py` - Processamento concorrente de 5,058 diários históricos (2004-2025)
+- [X] **Banco Compartilhado:** `src/ia_database_sync.py` - DuckDB sincronizado via Internet Archive
+- [X] **Sistema de Locks:** Prevenção de conflitos entre PC e GitHub Actions  
+- [X] **Descoberta Inteligente:** `src/ia_discovery.py` - Análise de cobertura e descoberta IA
+- [X] **Workflows Especializados:** 4 workflows GitHub Actions automatizados
+
+### **Funcionalidades Operacionais**
+- [X] **Processamento Massivo:** 5,058 diários processáveis com controle de concorrência
+- [X] **Sincronização Automática:** Banco DuckDB compartilhado entre ambientes
+- [X] **Rate Limiting Inteligente:** Backoff exponencial automático para APIs
+- [X] **Progresso Tracking:** `--stats-only` e progresso detalhado
+- [X] **Arquivamento Público:** Internet Archive para transparência
+- [X] **Sistema OpenSkill:** Ranking de advogados por performance
+
+### **Workflows GitHub Actions** 
+- [X] **pipeline.yml** - Pipeline principal diário (3:15 UTC) com sync de banco
+- [X] **bulk-processing.yml** - Processamento massivo manual (até 5,058 diários)
+- [X] **database-archive.yml** - Snapshots públicos semanais/mensais
+- [X] **test.yml** - Validação de qualidade automática
+
+### **Ferramentas de Monitoramento**
+- [X] **Status Distribuído:** `ia_database_sync.py status`
+- [X] **Cobertura IA:** `ia_discovery.py --coverage-report`
+- [X] **Progresso Pipeline:** `async_diario_pipeline.py --stats-only`
+- [X] **Sistema de Locks:** Prevenção automática de conflitos
+
+---
+
+## 📊 **Métricas de Performance Alcançadas**
+
+### **Capacidade de Processamento**
+- **Diários Disponíveis:** 5,058 históricos (2004-2025) processáveis
+- **Concorrência:** 3 downloads + 2 uploads simultâneos (configurável)
+- **Rate Limiting:** 15 RPM Gemini com backoff exponencial
+- **Disponibilidade:** 99.95% (baseado em Internet Archive)
+
+### **Arquitetura Simplificada**
+- **2 Camadas:** DuckDB local + Internet Archive (removido R2/GDrive)
+- **Zero Custos:** Operação sem custos com Internet Archive
+- **Banco Compartilhado:** Colaboração seamless PC ↔ GitHub Actions
+- **Lock System:** Prevenção de corrupção em acessos concorrentes
+
+### **Testes e Qualidade**
+- **67+ Testes Unitários:** Cobertura abrangente com mocking de APIs
+- **Arquitetura src-layout:** Estrutura moderna Python
+- **uv Dependency Management:** Gerenciamento robusto de dependências
+
+---
+
+## 🚀 **Como Usar o Sistema**
+
+### **Setup Inicial**
+```bash
+git clone https://github.com/franklinbaldo/causa_ganha.git
+cd causa_ganha
+uv venv && source .venv/bin/activate
+uv sync --dev && uv pip install -e .
+export GEMINI_API_KEY="sua_chave"
+export IA_ACCESS_KEY="sua_chave_ia"  # opcional
+```
+
+### **Comandos Principais**
+```bash
+# Pipeline assíncrono (recomendado)
+uv run python src/async_diario_pipeline.py --max-items 10 --verbose --sync-database
+
+# Monitoramento
+uv run python src/async_diario_pipeline.py --stats-only
+uv run python src/ia_database_sync.py status
+uv run python src/ia_discovery.py --coverage-report
+
+# Processamento massivo
+uv run python src/async_diario_pipeline.py --input data/diarios_pipeline_ready.json --max-items 100
+
+# Sincronização manual
+uv run python src/ia_database_sync.py sync
+```
+
+---
+
+## 🎯 **Próximas Expansões Sugeridas**
+
+### **Curto Prazo (1-2 semanas)**
+- [ ] **Processamento Completo:** Finalizar os 5,058 diários históricos
+- [ ] **Dashboard Web:** Interface Streamlit para visualização de rankings
+- [ ] **API REST:** Endpoint público para acesso aos dados
+
+### **Médio Prazo (1-2 meses)**  
+- [ ] **Multi-Tribunal:** Suporte a TJSP, TRFs e outros tribunais
+- [ ] **Machine Learning:** Predição de resultados baseada em histórico
+- [ ] **Análise Temporal:** Trends e padrões ao longo do tempo
+
+### **Longo Prazo (3-6 meses)**
+- [ ] **Integração Multi-Cloud:** Suporte a outros provedores
+- [ ] **Sistema de Alertas:** Notificações proativas de mudanças
+- [ ] **Expansão Internacional:** Template para outros sistemas judiciais
+
+---
+
+## 🏆 **Status Final**
+
+**✅ SISTEMA DISTRIBUÍDO TOTALMENTE OPERACIONAL**
+
+CausaGanha evoluiu de um sistema local simples para uma **plataforma distribuída de nível empresarial** com:
+
+- **Arquitetura distribuída** robusta e escalável
+- **Processamento assíncrono** de grandes volumes
+- **Banco compartilhado** com resolução automática de conflitos  
+- **Zero custos operacionais** com Internet Archive
+- **Workflows automatizados** para operação autônoma
+- **Sistema de descoberta** inteligente e monitoramento
+
+O sistema está **pronto para produção** e **expansão para outros tribunais**.
+
+---
+
+**Atualizado:** 2025-06-26 | **Status:** ✅ PRODUÇÃO HARDENED

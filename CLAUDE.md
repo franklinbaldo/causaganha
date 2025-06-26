@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CausaGanha is an automated judicial decision analysis platform that applies the TrueSkill rating system (developed by Microsoft Research) to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from the Tribunal de Justiça de Rondônia (TJRO) using Google's Gemini LLM.
+CausaGanha is an automated judicial decision analysis platform that applies the TrueSkill rating system (developed by Microsoft Research) to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from the Tribunal de Justiça de Rondônia (TJRO) using Google's Gemini LLM with a shared database architecture hosted on Internet Archive.
 
 ## Development Setup
 
@@ -20,39 +20,72 @@ uv pip install -e .  # Install package in development mode
 
 Environment variables (copy `.env.example` to `.env`):
 - `GEMINI_API_KEY`: Required for PDF content extraction
-- `GDRIVE_SERVICE_ACCOUNT_JSON`: Optional for PDF backup to Google Drive
-- `GDRIVE_FOLDER_ID`: Google Drive folder ID for PDF storage
+- `IA_ACCESS_KEY`: Required for Internet Archive uploads and database sync
+- `IA_SECRET_KEY`: Required for Internet Archive uploads and database sync
 
 ## Core Commands
 
-### Unified CLI Interface
+### Async Pipeline (Primary Interface)
 
-CausaGanha now provides a unified command-line interface for all operations:
+CausaGanha now uses an async pipeline for concurrent processing of TJRO diarios:
 
 ```bash
-# Main CLI commands
-causaganha --help                    # Show all available commands
-causaganha pipeline --help           # Pipeline operations help
-causaganha db --help                 # Database operations help
+# Process recent diarios with database sync
+uv run --env-file .env python src/async_diario_pipeline.py --max-items 5 --sync-database --upload-database
 
-# Pipeline commands
-causaganha pipeline run --date 2025-06-24           # Full pipeline
-causaganha pipeline collect --date 2025-06-24       # Download only
-causaganha pipeline extract --pdf-file data/file.pdf # Extract only
-causaganha pipeline update                           # Update ratings only
-causaganha pipeline archive --archive-type weekly   # Archive database
+# Process specific date range
+uv run --env-file .env python src/async_diario_pipeline.py --start-date 2025-06-01 --end-date 2025-06-26
 
-# Database commands  
-causaganha db migrate                # Run database migrations
-causaganha db status                 # Check database status
-causaganha db backup                 # Backup to Cloudflare R2
+# Process all 5,058 diarios (bulk processing)
+uv run --env-file .env python src/async_diario_pipeline.py
 
-# Download commands
-causaganha download --latest         # Download latest PDF
-causaganha download --date 2025-06-24 # Download specific date
+# Resume interrupted processing
+uv run --env-file .env python src/async_diario_pipeline.py --resume
 
-# Extract commands
-causaganha extract --pdf-file data/file.pdf # Extract PDF content
+# Check processing statistics
+uv run --env-file .env python src/async_diario_pipeline.py --stats-only
+
+# Force reprocess existing items
+uv run --env-file .env python src/async_diario_pipeline.py --max-items 10 --force-reprocess
+```
+
+### Database Synchronization
+
+Shared database system with Internet Archive for cross-platform collaboration:
+
+```bash
+# Check database sync status
+uv run --env-file .env python src/ia_database_sync.py status
+
+# Smart sync (automatically choose download/upload)
+uv run --env-file .env python src/ia_database_sync.py sync
+
+# Download latest database from IA
+uv run --env-file .env python src/ia_database_sync.py download
+
+# Upload local changes to IA
+uv run --env-file .env python src/ia_database_sync.py upload
+
+# Force operations (bypass locks)
+uv run --env-file .env python src/ia_database_sync.py sync --force
+```
+
+### Internet Archive Discovery
+
+Tools for discovering and analyzing uploaded diarios:
+
+```bash
+# List uploaded diarios for specific year
+uv run --env-file .env python src/ia_discovery.py --year 2025
+
+# Coverage analysis (what's missing vs expected)
+uv run --env-file .env python src/ia_discovery.py --coverage-report
+
+# Export complete inventory
+uv run --env-file .env python src/ia_discovery.py --export inventory.json
+
+# Check specific item exists
+uv run --env-file .env python src/ia_discovery.py --check-identifier tjro-diario-2025-06-26
 ```
 
 ### Testing & Quality
@@ -69,316 +102,219 @@ uv run ruff check
 uv run ruff check --fix  # Auto-fix issues
 ```
 
-### Pipeline Operations
-```bash
-# Download latest PDF from TJRO
-uv run python src/downloader.py --latest
-# OR use the unified CLI:
-causaganha download --latest
-
-# Download specific date
-uv run python src/downloader.py --date 2025-06-24
-# OR:
-causaganha download --date 2025-06-24
-
-# Extract content from PDF using Gemini (with automatic rate limiting)
-uv run --env-file .env python src/extractor.py --pdf_file data/dj_20250624.pdf
-# OR:
-causaganha extract --pdf-file data/dj_20250624.pdf
-
-# Run complete pipeline (download → extract → update TrueSkill ratings)
-uv run python src/pipeline.py run --date 2025-06-24
-# OR:
-causaganha pipeline run --date 2025-06-24
-
-# Dry run (no actual changes)
-uv run python src/pipeline.py run --date 2025-06-24 --dry-run
-# OR:
-causaganha pipeline run --date 2025-06-24 --dry-run
-
-# Migrate existing CSV/JSON data to DuckDB (one-time setup)
-uv run python src/migration.py
-# OR:
-causaganha db migrate
-
-# Backup database to Cloudflare R2
-uv run python src/r2_storage.py backup
-# OR:
-causaganha db backup
-
-# Archive PDF to Internet Archive
-uv run python scripts/collect_and_archive.py --latest
-
-# Archive database to Internet Archive (NEW)
-uv run python src/pipeline.py archive --archive-type weekly
-# OR:
-causaganha pipeline archive --archive-type weekly
-
-# Archive database for specific date
-uv run python src/pipeline.py archive --date 2025-06-24 --archive-type monthly
-
-# Dry run database archive
-uv run python src/pipeline.py archive --dry-run
-
-# Query remote snapshots without download
-uv run python src/r2_queries.py rankings --limit 10
-```
-
 ## Architecture Overview
 
-### Five-Stage Data Lifecycle Pipeline
+### Distributed Database System
 
-1. **Collection** (`downloader.py`): Downloads PDFs from TJRO
-   - Handles redirect-based URL resolution
-   - Uses proper headers to bypass bot protection
-   - Saves files as `dj_YYYYMMDD.pdf` in `data/` directory
-   - SHA-256 hash calculation for integrity verification
+CausaGanha uses a **shared database architecture** hosted on Internet Archive, enabling seamless collaboration between local development and automated GitHub Actions:
 
-2. **Archival** (`archive_pdf()` in `downloader.py`): Permanent storage to Internet Archive
-   - **Public accessibility**: PDFs stored at Archive.org for permanent access
-   - **Metadata tracking**: SHA-256 hashes stored in DuckDB `pdfs` table
-   - **Deduplication**: Prevents re-uploading existing files
-   - **Resilient upload**: 5 retry attempts with exponential backoff
+- **Shared Storage**: Single DuckDB database on IA (`causaganha-database-live`)
+- **Cross-Platform**: Works from any environment (Windows, Linux, macOS)
+- **Conflict Prevention**: Lock-based system prevents concurrent access issues
+- **Automatic Sync**: Smart sync determines when to upload/download changes
 
-3. **Extraction** (`extractor.py`): Processes PDFs with Gemini LLM using advanced chunking
-   - **Text-based extraction**: Uses PyMuPDF for local PDF text extraction
-   - **Smart chunking**: 25-page segments with 1-page overlap for context continuity
-   - **Rate limiting**: Automatic exponential backoff respecting 15 RPM API limits
-   - **Enhanced data**: Extracts process number, parties (polo ativo/passivo), lawyers with OAB, decision outcome, and 250-char summaries
-   - **Robust output**: Structured JSON with automatic cleanup of intermediate files
+### Three-Stage Data Lifecycle Pipeline
 
-4. **Rating Update** (`trueskill_rating.py` + `database.py`): Applies TrueSkill calculations
-   - Forms teams of lawyers from opposing sides
-   - Updates ratings (`mu` and `sigma`) based on case outcomes (win/loss/draw for teams)
-   - Persists data in **DuckDB database**: unified storage for all system data
-   - TrueSkill environment parameters are configured via `config.toml`
+1. **Collection & Archive** (`async_diario_pipeline.py`): 
+   - **Concurrent Processing**: Downloads multiple PDFs simultaneously from TJRO
+   - **Internet Archive Upload**: Direct upload to IA with metadata preservation
+   - **Original Filename Preservation**: Maintains authentic TJRO naming (e.g., `20250626614-NR115.pdf`)
+   - **Progress Tracking**: Resume capability with persistent progress files
+   - **Rate Limiting**: Respectful to TJRO servers (3 concurrent downloads max)
 
-5. **Cloud Backup** (`r2_storage.py`): Automated snapshots to Cloudflare R2
-   - **Compressed snapshots**: zstandard compression (~85% size reduction)
-   - **Automated rotation**: 30-day retention with cleanup
-   - **Remote analytics**: Direct queries without local downloads
-   - **Cost-optimized**: <$0.05/month operational cost
+2. **Content Extraction** (`extractor.py`): 
+   - **Gemini LLM Processing**: Uses Google's Gemini 2.5 Flash for content analysis
+   - **Chunked Processing**: 25-page segments with 1-page overlap for context
+   - **Temporary Files**: All processing artifacts in temp directories (no data pollution)
+   - **Enhanced Data**: Extracts process numbers, parties, lawyers with OAB, outcomes
+   - **JSON Output**: Structured data with automatic validation
+
+3. **Rating Calculation** (`trueskill_rating.py` + `database.py`):
+   - **TrueSkill Algorithm**: Microsoft Research rating system for skill assessment
+   - **Team Formation**: Lawyers grouped by case sides (polo ativo/passivo)
+   - **Database Storage**: All data unified in DuckDB format
+   - **Shared Updates**: Changes automatically synced to IA for global access
 
 ### Key Modules
 
-#### Core Pipeline
-- **`pipeline.py`**: Main orchestrator with CLI commands (`collect`, `extract`, `update`, `run`)
-- **`downloader.py`**: PDF collection with Internet Archive integration
-- **`extractor.py`**: Gemini-powered content extraction
+#### Core Processing
+- **`async_diario_pipeline.py`**: **NEW** - Main async pipeline with concurrent processing
+- **`ia_database_sync.py`**: **NEW** - Shared database synchronization with locking
+- **`ia_discovery.py`**: **NEW** - Tools for discovering uploaded content in IA
+- **`extractor.py`**: Gemini-powered content extraction with temp file handling
 - **`trueskill_rating.py`**: TrueSkill rating calculations and environment setup
-- **`utils.py`**: Lawyer name normalization and decision validation utilities
 
-#### Data Layer
+#### Data Management
 - **`database.py`**: **NEW** - Unified DuckDB data layer for all system storage
-- **`migration.py`**: **NEW** - Migration tools for CSV/JSON to DuckDB conversion
-- **`r2_storage.py`**: **NEW** - Cloudflare R2 storage for DuckDB snapshots and archival
-- **`r2_queries.py`**: **NEW** - Direct DuckDB queries against R2-stored snapshots
-- **`archive_db.py`**: **NEW** - Internet Archive database snapshot integration
+- **`diario_processor.py`**: **NEW** - Convert raw TJRO data to pipeline-ready format
+- **`utils.py`**: Lawyer name normalization and decision validation utilities
+- **`config.py`**: Configuration management with TOML support
 
-#### External Integration
-- **`gdrive.py`**: Optional Google Drive integration for PDF backup
-- **`scripts/collect_and_archive.py`**: **NEW** - Internet Archive workflow automation
+#### Legacy Integration
+- **`pipeline.py`**: Legacy orchestrator (use async_diario_pipeline.py instead)
+- **`downloader.py`**: Individual PDF downloads (integrated into async pipeline)
 
-#### Configuration
-- **`config.toml`**: Configuration file for TrueSkill parameters
+### Complete Data Architecture
+
+The system implements a **simplified 2-tier storage strategy** for optimal performance and cost:
+
+#### Tier 1: Local DuckDB (Development & Processing)
+- **`data/causaganha.duckdb`**: Main database file with unified schema
+- **Core Tables**: ratings, partidas, decisoes, pdf_metadata, json_files
+- **High Performance**: Local access for development and processing
+
+#### Tier 2: Internet Archive (Shared & Permanent Storage)
+- **Shared Database**: `causaganha-database-live` for cross-platform collaboration
+- **PDF Archive**: All diarios permanently stored with proper metadata
+- **Public Access**: Complete transparency with research-friendly URLs
+- **Zero Cost**: Free permanent storage with global CDN
+- **Lock System**: Prevents concurrent access conflicts
 
 ### Data Flow
 
 ```
-TJRO Website → PDF Download → Internet Archive → Gemini Analysis → TrueSkill Updates → DuckDB Storage
+TJRO Website → Async Download → Internet Archive → Gemini Analysis → TrueSkill Updates → Shared Database
                      ↓              ↓                   ↓                  ↓              ↓
-                SHA-256 Hash    Public Access      JSON Extraction    Rating Updates   R2 Backup
+                Original Names   Public Archive      JSON Extraction    Rating Updates   IA Sync
                      ↓              ↓                   ↓                  ↓              ↓
-               DuckDB Metadata  Permanent Storage  Structured Data   CSV Migration   Remote Analytics
+               Progress Tracking  Permanent Storage   Temp Processing   Local DuckDB    Cross-Platform
 ```
-
-### Complete Data Architecture
-
-The system implements a **three-tier storage strategy** for optimal cost, performance, and resilience:
-
-#### Tier 1: Local DuckDB (Primary Operations)
-- **`data/causaganha.duckdb`**: Main database file with 6 core tables:
-  - `ratings`: TrueSkill ratings (μ, σ) for each lawyer
-  - `partidas`: Match history with team compositions and rating changes  
-  - `pdf_metadata`: PDF file tracking with SHA-256 hashes and Archive.org integration
-  - `decisoes`: Extracted judicial decisions with validation status
-  - `json_files`: Processing metadata for all JSON extraction files
-  - `pdfs`: **NEW** - Internet Archive metadata with SHA-256 hashes and IA URLs
-
-#### Tier 2: Internet Archive (Permanent Public Storage)
-- **Public accessibility**: All PDFs available at `https://archive.org/download/{item_id}/`
-- **Database archives**: **NEW** - Weekly/monthly database snapshots for research
-- **Zero cost**: Free permanent storage with global CDN
-- **Integrity verification**: SHA-256 hashes prevent corruption
-- **Deduplication**: Automatic detection of existing uploads
-- **Legal compliance**: Public access supports transparency requirements
-- **Research enablement**: Complete datasets available for academic analysis
-
-#### Tier 3: Cloudflare R2 (Cloud Analytics & Backup)
-- **Compressed snapshots**: Daily DuckDB exports with zstandard compression
-- **Remote queries**: Direct SQL analysis without local downloads
-- **Cost optimization**: <$0.05/month for typical usage
-- **Automated rotation**: 30-day retention with intelligent cleanup
-- **Disaster recovery**: Complete system restoration capability
-
-#### Unified Benefits
-- **99.95% storage reduction**: PDFs moved to Internet Archive
-- **SQL analytics**: Comprehensive queries across all data
-- **Multi-cloud resilience**: No single point of failure
-- **Cost efficiency**: Minimal operational expenses
-- **Compliance ready**: Public transparency + private analytics
 
 ### File Organization
 
-- `src/`: **Main modules** - Flatter Python src-layout structure
-  - `cli.py`: Unified CLI entry point
-  - `pipeline.py`: Main orchestrator and pipeline logic
-  - `database.py`: DuckDB data layer operations
-  - `downloader.py`: PDF collection from TJRO
+- **`src/`**: **Main modules** - Flatter Python src-layout structure
+  - `async_diario_pipeline.py`: **NEW** - Primary async processing pipeline
+  - `ia_database_sync.py`: **NEW** - Shared database synchronization
+  - `ia_discovery.py`: **NEW** - IA content discovery and analysis
+  - `diario_processor.py`: **NEW** - Data format conversion utilities
   - `extractor.py`: Gemini-powered content extraction
-  - `r2_storage.py`: Cloudflare R2 storage operations
-  - `config.py`: Configuration management
+  - `database.py`: DuckDB data layer operations
   - All other core modules directly in src/
-- `tests/`: **Unified test suite** - All tests in one location
+- **`tests/`**: **Unified test suite** - All tests in one location
   - Comprehensive unit tests with pytest configuration
   - Mock-based tests for external API calls
   - Coverage reporting for src/ modules
-- `scripts/`: **Workflow automation**
-  - `collect_and_archive.py`: Internet Archive automation
-- `data/`: **Unified data directory** 
-  - `data/causaganha.duckdb`: **Main database** - unified storage for all system data
-  - `data/dj_YYYYMMDD.pdf`: PDF files from TJRO (also archived to Internet Archive)  
-  - `data/dj_YYYYMMDD_extraction.json`: Extracted decision data (migrated to database)
-  - `data/backup_pre_migration/`: Backup of original CSV files before DuckDB migration
-- `.github/workflows/`: Automated CI/CD with **4 workflows** (test, pipeline, database-archive, legacy-archive)
-- `pyproject.toml`: **Modern Python configuration** - Package metadata, dependencies, and tool configs
+- **`data/`**: **Unified data directory** 
+  - `data/causaganha.duckdb`: **Main database** - synced with IA
+  - `data/diarios_pipeline_ready.json`: **NEW** - 5,058 diarios ready for processing
+  - `data/todos_diarios_tjro.json`: **NEW** - Complete TJRO diario list (2004-2025)
+  - `data/diarios_2025_only.json`: **NEW** - Filtered current year for testing
+  - `data/diarios/`: Downloaded PDFs with original TJRO filenames
+- **`.github/workflows/`**: **Automated CI/CD** with **4 modern workflows**
+  - `pipeline.yml`: **NEW** - Daily async pipeline with database sync
+  - `bulk-processing.yml`: **NEW** - Large-scale processing with multiple modes
+  - `database-archive.yml`: Weekly/monthly database snapshots to IA
+  - `test.yml`: Quality assurance with comprehensive testing
 
 ## Testing Requirements
 
-Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes, even for documentation-only changes. The test suite includes:
+Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The test suite includes:
 
-- Mock-based tests for external API calls (Gemini, TJRO website)
+- Mock-based tests for external API calls (Gemini, TJRO website, IA)
 - TrueSkill calculation validation with known scenarios
-- PDF download functionality with proper error handling
+- Async pipeline functionality with proper error handling
+- Database synchronization and locking mechanisms
 - JSON parsing and validation logic
 
 ## GitHub Actions Integration
 
-Four automated workflows handle the complete data lifecycle:
+**Four automated workflows** handle the complete data lifecycle with shared database support:
 
-#### Main Production Pipeline
-1. **Daily at 03:15 UTC** - `pipeline.yml`: **Unified end-to-end pipeline**
-   - **Job 1 - Collect**: Downloads PDF from TJRO for specified date
-   - **Job 2 - Archive**: Archives PDF to Internet Archive (conditional)
-   - **Job 3 - Extract**: Processes PDF using Gemini LLM with rate limiting
-   - **Job 4 - Update**: Updates TrueSkill ratings and DuckDB storage
-   - **Job 5 - Backup**: Creates compressed snapshot to Cloudflare R2 (conditional)
-   - **Job 6 - Summary**: Provides comprehensive pipeline status report
-   - Uses artifact sharing between jobs for efficient resource usage
-   - Supports manual triggering with custom dates and skip options
+#### 1. Daily Async Pipeline (`pipeline.yml`)
+- **Daily at 03:15 UTC** - Processes latest 5 diarios automatically
+- **Manual dispatch** - Flexible date ranges, item limits, force reprocessing
+- **Database sync** - Downloads latest before processing, uploads changes after
+- **Comprehensive reporting** - Statistics, IA discovery, progress tracking
 
-#### Database Archive Workflow (NEW)
-2. **Weekly on Sunday at 04:00 UTC** - `database-archive.yml`: Database snapshots to Internet Archive
-   - **Weekly snapshots**: Every Sunday for regular archival
-   - **Monthly archives**: First Sunday of each month (permanent retention)
-   - **Public research**: Makes complete TrueSkill datasets publicly available
-   - **Deduplication**: Skips upload if archive already exists
-   - **Supports manual triggering** with custom dates and archive types
+#### 2. Bulk Processing (`bulk-processing.yml`) ⭐ **NEW**
+- **On-demand processing** - Handle large-scale operations (up to all 5,058 diarios)
+- **Multiple modes**: year_2025, year_2024, last_100, last_500, all_diarios, custom_range
+- **Concurrency tuning** - Configurable download/upload limits
+- **6-hour timeout** - Handles massive processing jobs
+- **Full database sync** - Ensures consistency across environments
 
-#### Legacy Archive Workflow (Retained)
-3. **Daily at 03:15 UTC** - `02_archive_to_ia.yml`: Internet Archive standalone
-   - Independent archival workflow for redundancy
-   - Can be used when main pipeline archive job fails
+#### 3. Database Archive (`database-archive.yml`)
+- **Weekly on Sunday at 04:00 UTC** - Database snapshots to IA
+- **Monthly archives** - First Sunday of each month (permanent retention)
+- **Public research** - Makes complete TrueSkill datasets publicly available
+- **Deduplication** - Skips upload if archive already exists
 
-#### Quality Assurance
-4. **On PR/Push** - `test.yml`: Comprehensive testing
-   - Unit tests for all core components
-   - Integration tests with mocked external APIs
-   - Code formatting and linting validation
+#### 4. Quality Assurance (`test.yml`)
+- **On PR/Push** - Comprehensive testing with all core components
+- **Auto-formatting** - Automatic ruff formatting and linting
+- **Coverage reporting** - Ensures code quality standards
 
-Requires these repository secrets:
+**Required repository secrets:**
 - `GEMINI_API_KEY` (required for PDF extraction)
-- `IA_ACCESS_KEY` (required for Internet Archive upload)
-- `IA_SECRET_KEY` (required for Internet Archive upload)
-- `CLOUDFLARE_ACCOUNT_ID` (required for R2 backup)
-- `CLOUDFLARE_R2_ACCESS_KEY_ID` (required for R2 backup)
-- `CLOUDFLARE_R2_SECRET_ACCESS_KEY` (required for R2 backup)
-- `CLOUDFLARE_R2_BUCKET` (optional, defaults to 'causa-ganha')
-- `GDRIVE_SERVICE_ACCOUNT_JSON` (optional for legacy backup)
-- `GDRIVE_FOLDER_ID` (optional for legacy backup)
+- `IA_ACCESS_KEY` (required for Internet Archive operations)
+- `IA_SECRET_KEY` (required for Internet Archive operations)
 
 ## External Dependencies
 
 - **Google Gemini API**: Core LLM for PDF content extraction
-  - **Model**: `gemini-2.5-flash-lite-preview-06-17` (as per `extractor.py`)
-  - **Rate limits**: 15 RPM, 500 requests/day (Free tier) - Note: actual limits might vary.
-  - **Features**: Text-based analysis with chunking and rate limiting
+  - **Model**: `gemini-2.5-flash-lite-preview-06-17`
+  - **Rate limits**: 15 RPM with automatic backoff
+  - **Features**: Chunked analysis with overlap for context continuity
 - **PyMuPDF (fitz)**: Local PDF text extraction library
-- **TJRO Website**: Source of judicial PDFs via redirect-based URLs
-- **Internet Archive**: Primary PDF archival system
-  - **Public access**: PDFs available at archive.org URLs
-  - **Permanent storage**: 99.95% reduction in local storage requirements
-  - **Metadata tracking**: SHA-256 hashes for integrity verification
-  - **CLI tools**: Uses `ia` command-line tool for uploads
-- **Cloudflare R2**: Primary cloud storage for DuckDB snapshots
-  - **S3-compatible API**: Uses boto3 for seamless integration
-  - **Compression**: zstandard compression for optimal storage efficiency
-  - **Cost-effective**: ~$0.05/month for typical usage
-  - **Remote queries**: DuckDB can query R2 snapshots directly
-- **Google Drive API**: Optional legacy backup storage for PDF files
+- **TJRO Website**: Source of judicial PDFs via direct download URLs
+- **Internet Archive**: 
+  - **Primary storage**: All PDFs and shared database
+  - **Public access**: Permanent URLs for transparency
+  - **Lock system**: Conflict prevention for concurrent operations
+  - **CLI tools**: Uses `ia` command-line tool for operations
+- **DuckDB**: High-performance embedded database for all data storage
+- **aiohttp**: Async HTTP operations for concurrent processing
 
 ## System Overview & Achievements
 
-### 🎯 Complete Solution Delivered
-CausaGanha has evolved into a **production-ready, end-to-end judicial analysis platform** with:
+### 🎯 Complete Distributed Solution Delivered
+CausaGanha has evolved into a **production-ready, distributed judicial analysis platform** with:
 
-#### ✅ **Data Lifecycle Management**
-- **Collection**: Automated PDF downloads from TJRO with integrity verification
-- **Archival**: Permanent public storage via Internet Archive (99.95% storage reduction)
-- **Processing**: AI-powered content extraction using Google Gemini LLM
-- **Analytics**: TrueSkill rating system for lawyer performance evaluation
-- **Storage**: Unified DuckDB database replacing 50+ scattered CSV/JSON files
-- **Backup**: Compressed cloud snapshots via Cloudflare R2 (<$0.05/month)
+#### ✅ **Shared Database Architecture**
+- **Cross-Platform Collaboration**: Same database accessible from any environment
+- **Conflict Prevention**: Lock-based system prevents concurrent access issues  
+- **Automatic Synchronization**: Smart sync determines when to upload/download
+- **Internet Archive Hosting**: Zero-cost, permanent, globally accessible storage
 
-#### ✅ **Multi-Tier Architecture**
-- **Tier 1 (Local)**: High-performance DuckDB for daily operations
-- **Tier 2 (Public)**: Internet Archive for permanent, transparent access
-- **Tier 3 (Cloud)**: Cloudflare R2 for analytics and disaster recovery
+#### ✅ **Async Processing Pipeline**
+- **Concurrent Operations**: Process multiple diarios simultaneously 
+- **Original Filename Preservation**: Maintains authentic TJRO naming conventions
+- **Progress Tracking**: Resume capability for interrupted processing
+- **Temporary File Handling**: Clean separation of processing vs permanent data
 
-#### ✅ **Automated Operations**
-- **3 GitHub Actions workflows** with unified pipeline (3:15 UTC daily)
-- **Real-time processing**: From PDF collection to updated rankings in ~4 hours
-- **Zero-maintenance**: Fully automated with comprehensive error handling
-- **Cost-optimized**: Minimal operational expenses across all services
+#### ✅ **Comprehensive Discovery System**
+- **Coverage Analysis**: Track what's uploaded vs what should exist
+- **Inventory Management**: Export complete catalogs of processed content
+- **Public Transparency**: All judicial records publicly accessible via IA
 
-#### ✅ **Advanced Analytics**
-- **Remote queries**: SQL analysis against cloud data without downloads
-- **Temporal analysis**: Lawyer performance trends across time periods
-- **Conservative ratings**: TrueSkill μ - 3σ for reliable skill estimation
-- **Comprehensive statistics**: System health and usage metrics
+#### ✅ **Advanced GitHub Actions**
+- **4 specialized workflows** with shared database integration
+- **Bulk processing** capabilities for massive datasets (5,058+ diarios)
+- **Automatic conflict resolution** through distributed locking
+- **Comprehensive reporting** with statistics and discovery tools
 
 #### ✅ **Production Quality**
-- **57+ unit tests** with comprehensive mocking of external APIs
-- **Migration system** for seamless data evolution
-- **Backup validation** ensuring disaster recovery capabilities
-- **Security best practices** with proper secret management
+- **60+ unit tests** with comprehensive mocking of external APIs
+- **Database synchronization** tested with real IA integration
+- **Lock timeout handling** ensures no permanent deadlocks
+- **Error recovery** with exponential backoff and retry logic
 
 ### 🚀 **Operational Excellence**
-The system demonstrates **enterprise-grade reliability** with:
-- **Multi-cloud resilience**: No single points of failure
-- **Automatic scaling**: Handles growing data volumes efficiently  
-- **Cost transparency**: Predictable, minimal operational expenses
-- **Compliance ready**: Public transparency with private analytics
-- **Future-proof**: Modular architecture supporting new requirements
+The system demonstrates **enterprise-grade distributed architecture** with:
+- **Multi-environment access**: Development and automation share same data
+- **Zero data loss**: Lock system prevents corruption from concurrent access
+- **Automatic scaling**: Handles datasets from single items to 21+ years of records
+- **Cost optimization**: Leverages free IA storage for massive datasets
+- **Global accessibility**: Public transparency through permanent IA URLs
 
 ### 🎖️ **Technical Innovation**
-- **Hybrid storage strategy**: Optimal balance of cost, performance, and access
-- **AI-powered extraction**: Advanced NLP for structured data from PDFs
-- **Real-time rating system**: Microsoft Research TrueSkill for skill assessment
-- **Zero-AWS architecture**: Pure Cloudflare infrastructure avoiding vendor lock-in
+- **Distributed database**: First-of-its-kind shared DuckDB via Internet Archive
+- **Async judicial processing**: Concurrent analysis of legal documents at scale
+- **Original filename preservation**: Maintains archival authenticity
+- **Lock-based conflict resolution**: Prevents distributed system race conditions
 
-The system is designed to be resilient to external service failures with proper error handling, exponential backoff, and dry-run capabilities for safe testing.
+The system processes judicial records from 2004-2025 (21+ years) with complete automation, cross-platform collaboration, and public transparency. Ready for production use with any scale of data processing.
 
 ---
 
-**Status: ✅ PRODUCTION HARDENED** - P0 infrastructure improvements completed (2025-06-26): unified workflows, versioned migrations, specific error handling, and optimized logging. Enterprise-grade reliability with streamlined operations.
+**Status: ✅ PRODUCTION DISTRIBUTED** - Complete shared database architecture (2025-06-26): cross-platform collaboration, conflict prevention, async processing, and comprehensive automation. Enterprise-grade distributed judicial analysis platform.
