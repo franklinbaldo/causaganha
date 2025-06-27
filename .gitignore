@@ -3,19 +3,15 @@ __pycache__/
 *.pyc
 .env
 uv.lock
-**/*.json
-docs/*
+
 *.md
 # Data files
-data/*.pdf
-data/*.json
-!data/diarios*.json
-!data/todos_diarios_tjro.json
-data/*.duckdb
-ratings_export*.csv
+data/*
+
+
 
 # Processing artifacts  
-todo-p0-hardening.md
+
 *.egg-info/
 
 # Coverage reports
