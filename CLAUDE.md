@@ -75,10 +75,13 @@ CausaGanha follows a **plan-first development approach** to ensure thoughtful fe
 ```
 docs/
 ├── plans/                      # 📋 Future features (planning phase)
+│   ├── MASTERPLAN.md           # 🎯 LIVE COORDINATION DOCUMENT
 │   ├── diario-class.md         # Plan: Diario dataclass system
 │   ├── dtb.md                  # Plan: dbt-duckdb migration
-│   ├── prompt_versioning_strategy.md  # Plan: LLM prompt versioning
-│   └── refactor_archive_command.md    # Plan: Archive command refactor
+│   ├── fix-database-integration-issues.md  # Plan: Database integration fixes
+│   ├── multi_tribunal_collection.md        # Plan: Multi-tribunal support
+│   ├── prompt_versioning_strategy.md       # Plan: LLM prompt versioning
+│   └── refactor_archive_command.md         # Plan: Archive command refactor
 ├── implemented/                # 📚 Completed features (documentation)
 │   └── (empty - features will move here when complete)
 ├── cli_design.md              # Current: CLI architecture and commands
@@ -118,6 +121,35 @@ When creating a new plan, use this structure:
 ```
 
 This approach ensures all new features are well-planned, reviewed, and properly documented throughout their lifecycle.
+
+## 🎯 **MASTERPLAN Coordination**
+
+CausaGanha uses a **living MASTERPLAN document** to coordinate all implementation efforts:
+
+### **📍 MASTERPLAN Location**
+- **Primary Document**: `/docs/plans/MASTERPLAN.md`
+- **Status**: Live coordination document (updated with each implementation phase)
+- **Purpose**: Ensures compatibility, proper sequencing, and resource allocation across all plans
+
+### **🔄 MASTERPLAN Workflow**
+1. **Before Creating New Plans**: Check MASTERPLAN for existing priorities and phases
+2. **After Creating Plans**: Update MASTERPLAN to include new plan and assess compatibility
+3. **During Implementation**: Update progress tracking and phase completion in MASTERPLAN
+4. **Resource Conflicts**: Use MASTERPLAN to coordinate developer allocation and timing
+
+### **⚠️ Alpha Development Guidelines**
+- **MASTERPLAN drives implementation order**: Follow phase priorities to avoid conflicts
+- **Breaking changes coordination**: Use MASTERPLAN to batch compatible breaking changes
+- **Dependencies management**: MASTERPLAN critical path prevents implementation deadlocks
+- **Quality gates**: Phase completion requirements ensure system stability
+
+### **📊 MASTERPLAN Maintenance**
+- **Weekly updates**: Implementation progress and phase completion tracking
+- **Plan additions**: New plans must be integrated into existing phase structure
+- **Conflict resolution**: Incompatible plans require MASTERPLAN revision and replanning
+- **Resource planning**: Developer allocation and timeline coordination
+
+**The MASTERPLAN is the single source of truth for coordinated development in the alpha phase.**
 
 ## Core Commands
 
@@ -460,10 +492,12 @@ The system processes judicial records from 2004-2025 (21+ years) with complete a
 When working with this codebase, follow the **plan-first development approach**:
 
 ### 🎯 **For New Features**
-1. **Always start with planning**: Before implementing any new feature, create a comprehensive plan in `/docs/plans/`
-2. **Use the planning template**: Follow the structured format with problem statement, solution, implementation steps, and risks
-3. **Get plan approval**: Plans should be reviewed and merged before implementation begins
-4. **Reference existing plans**: Check `/docs/plans/` for similar features or architectural patterns
+1. **Check MASTERPLAN first**: Always consult `/docs/plans/MASTERPLAN.md` to understand current implementation phases and priorities
+2. **Always start with planning**: Before implementing any new feature, create a comprehensive plan in `/docs/plans/`
+3. **Use the planning template**: Follow the structured format with problem statement, solution, implementation steps, and risks
+4. **Update MASTERPLAN**: Add new plans to MASTERPLAN.md and assess compatibility with existing plans
+5. **Get plan approval**: Plans should be reviewed and merged before implementation begins
+6. **Reference existing plans**: Check `/docs/plans/` for similar features or architectural patterns
 
 ### 📋 **When Creating Plans**
 - **Be specific**: Include concrete implementation steps, not just high-level ideas
