@@ -884,6 +884,156 @@ def _show_rating_stats():
         typer.echo(f"⚠️  Failed to show statistics: {e}")
 
 
+@app.command("get-urls")
+def get_urls(
+    date: Optional[str] = typer.Option(None, "--date", help="Date in YYYY-MM-DD format to collect"),
+    latest: bool = typer.Option(False, "--latest", help="Fetch the latest available PDF"),
+    tribunal: str = typer.Option("tjro", "--tribunal", help="Tribunal to fetch from (tjro, tjsp, etc.)"),
+    to_queue: bool = typer.Option(False, "--to-queue", help="Add URLs to queue instead of downloading immediately"),
+    as_diario: bool = typer.Option(False, "--as-diario", help="Use new Diario dataclass interface"),
+    db_path: Path = typer.Option(Path("data/causaganha.duckdb"), "--db-path", help="Path to DuckDB database file"),
+):
+    """Get URLs and download judicial diarios for specific dates or latest available."""
+    # Setup logging
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d %(funcName)s] - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    
+    # Validate tribunal
+    if tribunal.lower() not in ['tjro']:
+        typer.echo(f"❌ Unsupported tribunal: {tribunal}. Currently supported: tjro", err=True)
+        raise typer.Exit(1)
+    
+    if as_diario:
+        # New Diario-based workflow
+        _handle_diario_workflow(date, latest, tribunal, to_queue, db_path)
+        return
+    
+    if to_queue:
+        # Just get URLs and add to queue
+        import datetime
+        
+        # Import appropriate tribunal-specific functions
+        if tribunal.lower() == 'tjro':
+            from tribunais.tjro.downloader import get_tjro_pdf_url
+        
+        if not date and not latest:
+            typer.echo("📅 No date or --latest flag specified. Getting yesterday's diario URL.")
+        
+        # Get the URL(s) to queue
+        urls_to_queue = []
+        
+        if latest:
+            # For latest, we need to discover the most recent URL
+            typer.echo(f"🔍 Finding latest {tribunal.upper()} diario URL...")
+            # This would need implementation in downloader to get URL without downloading
+            typer.echo("⚠️  Latest URL discovery not yet implemented for queue mode")
+            return
+        elif date:
+            try:
+                target_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+                url = get_tjro_pdf_url(target_date)
+                if url:
+                    urls_to_queue.append(url)
+                else:
+                    typer.echo(f"❌ No URL found for date {date}")
+                    raise typer.Exit(1)
+            except ValueError:
+                typer.echo(f"❌ Invalid date format: '{date}'. Please use YYYY-MM-DD.")
+                raise typer.Exit(1)
+        else:
+            # Default to yesterday
+            yesterday = datetime.date.today() - datetime.timedelta(days=1)
+            url = get_tjro_pdf_url(yesterday)
+            if url:
+                urls_to_queue.append(url)
+            else:
+                typer.echo(f"❌ No URL found for yesterday ({yesterday})")
+                raise typer.Exit(1)
+        
+        # Add URLs to queue
+        from urllib.parse import urlparse
+        import json
+        
+        # Initialize job queue table if it doesn't exist (reuse from queue command)
+        db.conn.execute("""
+            CREATE TABLE IF NOT EXISTS job_queue (
+                id INTEGER PRIMARY KEY,
+                url TEXT NOT NULL UNIQUE,
+                date DATE,
+                tribunal TEXT,
+                filename TEXT,
+                metadata JSON,
+                status TEXT DEFAULT 'queued',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                error_message TEXT,
+                retry_count INTEGER DEFAULT 0,
+                ia_identifier TEXT,
+                analyze_result JSON,
+                arquivo_path TEXT,
+                queue_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        queued_count = 0
+        for url in urls_to_queue:
+            if not validate_tribunal_url(url):
+                typer.echo(f"❌ Only .jus.br domains are allowed: {url}", err=True)
+                continue
+                
+            tribunal = extract_tribunal_from_url(url)
+            date = extract_date_from_url(url)
+            filename = Path(urlparse(url).path).name
+            
+            try:
+                db.conn.execute("""
+                    INSERT INTO job_queue (url, date, tribunal, filename, metadata)
+                    VALUES (?, ?, ?, ?, ?)
+                """, [
+                    url,
+                    date,
+                    tribunal,
+                    filename,
+                    json.dumps({})
+                ])
+                queued_count += 1
+                
+            except Exception as e:
+                if "UNIQUE constraint failed" in str(e):
+                    typer.echo(f"⚠️  URL already in queue: {url}")
+                else:
+                    typer.echo(f"❌ Error queuing {url}: {e}", err=True)
+        
+        typer.echo(f"✅ Added {queued_count} URL(s) to queue")
+        
+    else:
+        # Download and archive immediately
+        if not date and not latest:
+            typer.echo(f"📅 No date or --latest flag specified. Getting yesterday's {tribunal.upper()} diario.")
+        
+        # Import appropriate tribunal-specific functions
+        if tribunal.lower() == 'tjro':
+            from tribunais.tjro.collect_and_archive import collect_and_archive_diario
+        
+        with typer.progressbar(length=1, label=f"Getting {tribunal.upper()} diario") as progress:
+            archive_url = collect_and_archive_diario(
+                date=date,
+                latest=latest,
+                db_path=db_path
+            )
+            progress.update(1)
+        
+        if archive_url:
+            typer.echo(f"✅ Successfully archived to: {archive_url}")
+        else:
+            typer.echo("❌ Failed to get and archive diario")
+            raise typer.Exit(1)
+
+
 @app.command()
 def pipeline(
     from_csv: Optional[Path] = typer.Option(None, "--from-csv", help="CSV file with URLs"),
@@ -1032,6 +1182,225 @@ def config():
     typer.echo(f"├── OpenSkill μ: {config['openskill']['mu']}")
     typer.echo(f"├── OpenSkill σ: {config['openskill']['sigma']}")
     typer.echo(f"└── OpenSkill β: {config['openskill']['beta']}")
+
+
+def _handle_diario_workflow(date: Optional[str], latest: bool, tribunal: str, 
+                           to_queue: bool, db_path: Path) -> None:
+    """Handle the new Diario-based workflow."""
+    import datetime
+    from models.diario import Diario
+    from tribunais import get_adapter, is_tribunal_supported
+    from database import CausaGanhaDB
+    
+    # Validate tribunal support in new system
+    if not is_tribunal_supported(tribunal):
+        typer.echo(f"❌ Tribunal '{tribunal}' not supported in Diario system yet", err=True)
+        raise typer.Exit(1)
+    
+    # Get tribunal adapter
+    adapter = get_adapter(tribunal)
+    
+    # Create diario object
+    diario = None
+    
+    if latest:
+        typer.echo(f"🔍 Finding latest {tribunal.upper()} diario...")
+        url = adapter.discovery.get_latest_diario_url()
+        if url:
+            # Extract date from URL or use today
+            today = datetime.date.today()
+            diario = Diario(
+                tribunal=tribunal,
+                data=today,
+                url=url,
+                filename=Path(url).name if url else None
+            )
+        else:
+            typer.echo(f"❌ No latest diario found for {tribunal.upper()}")
+            raise typer.Exit(1)
+            
+    elif date:
+        try:
+            target_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+            typer.echo(f"🔍 Finding {tribunal.upper()} diario for {target_date}...")
+            diario = adapter.create_diario(target_date)
+            if not diario:
+                typer.echo(f"❌ No diario found for {target_date}")
+                raise typer.Exit(1)
+        except ValueError:
+            typer.echo(f"❌ Invalid date format: '{date}'. Please use YYYY-MM-DD.")
+            raise typer.Exit(1)
+    else:
+        # Default to yesterday
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        typer.echo(f"📅 No date specified. Getting {tribunal.upper()} diario for yesterday ({yesterday})")
+        diario = adapter.create_diario(yesterday)
+        if not diario:
+            typer.echo(f"❌ No diario found for yesterday ({yesterday})")
+            raise typer.Exit(1)
+    
+    # Add discovered metadata
+    if hasattr(adapter.discovery, 'get_diario_metadata'):
+        diario.metadata.update(adapter.discovery.get_diario_metadata(diario.url))
+    
+    if to_queue:
+        # Add to queue using new Diario system
+        with CausaGanhaDB(db_path) as db:
+            success = db.queue_diario(diario)
+            if success:
+                typer.echo(f"✅ Added {diario.display_name} to queue using Diario system")
+            else:
+                typer.echo(f"❌ Failed to queue {diario.display_name}")
+                raise typer.Exit(1)
+    else:
+        # Process immediately using new Diario system
+        typer.echo(f"🚀 Processing {diario.display_name} immediately...")
+        
+        with typer.progressbar(length=3, label=f"Processing {tribunal.upper()} diario") as progress:
+            try:
+                # Download
+                typer.echo(f"⬇️  Downloading {diario.display_name}...")
+                diario = adapter.downloader.download_diario(diario)
+                progress.update(1)
+                
+                if diario.status == 'downloaded':
+                    # Archive
+                    typer.echo(f"📁 Archiving {diario.display_name}...")
+                    diario = adapter.downloader.archive_to_ia(diario)
+                    progress.update(1)
+                    
+                    if diario.ia_identifier:
+                        # Analyze
+                        typer.echo(f"🔍 Analyzing {diario.display_name}...")
+                        diario = adapter.analyzer.analyze_diario(diario)
+                        progress.update(1)
+                        
+                        # Update database with final status
+                        with CausaGanhaDB(db_path) as db:
+                            db.queue_diario(diario)
+                        
+                        # Show results
+                        decision_count = diario.metadata.get('decision_count', 0)
+                        ia_url = diario.metadata.get('ia_url', 'Unknown')
+                        
+                        typer.echo(f"✅ Successfully processed {diario.display_name}")
+                        typer.echo(f"📊 Extracted {decision_count} decisions")
+                        typer.echo(f"🌐 Archived at: {ia_url}")
+                        
+                        if 'tjro_analysis' in diario.metadata:
+                            stats = diario.metadata['tjro_analysis']
+                            typer.echo(f"📈 Unique processes: {stats['unique_processes']}")
+                            typer.echo(f"👥 Lawyers: {stats['lawyer_count']['ativo']} active, {stats['lawyer_count']['passivo']} passive")
+                    else:
+                        typer.echo(f"⚠️  Archive failed for {diario.display_name}")
+                        progress.update(2)
+                else:
+                    typer.echo(f"❌ Download failed for {diario.display_name}")
+                    progress.update(3)
+                    raise typer.Exit(1)
+                    
+            except Exception as e:
+                typer.echo(f"❌ Error processing {diario.display_name}: {e}")
+                raise typer.Exit(1)
+
+
+@app.command("diario")
+def diario_cmd(
+    action: str = typer.Argument(..., help="Action: list, stats, process"),
+    tribunal: Optional[str] = typer.Option(None, "--tribunal", help="Filter by tribunal"),
+    status: Optional[str] = typer.Option(None, "--status", help="Filter by status"),
+    limit: Optional[int] = typer.Option(None, "--limit", help="Limit results"),
+    db_path: Path = typer.Option(Path("data/causaganha.duckdb"), "--db-path"),
+):
+    """Manage diarios using the new Diario dataclass system."""
+    from database import CausaGanhaDB
+    from tribunais import list_supported_tribunals
+    
+    if action == "stats":
+        with CausaGanhaDB(db_path) as db:
+            stats = db.get_diario_statistics()
+            
+            typer.echo("📊 Diario Statistics")
+            typer.echo("=" * 50)
+            typer.echo(f"Total Diarios: {stats.get('total_diarios', 0)}")
+            typer.echo(f"Recent Activity (7 days): {stats.get('recent_activity', 0)}")
+            
+            typer.echo("\n📈 By Status:")
+            for status, count in stats.get('by_status', {}).items():
+                typer.echo(f"  {status}: {count}")
+            
+            typer.echo("\n🏛️  By Tribunal:")
+            for tribunal, count in stats.get('by_tribunal', {}).items():
+                typer.echo(f"  {tribunal.upper()}: {count}")
+            
+            typer.echo(f"\n🔧 Supported Tribunals: {', '.join(list_supported_tribunals())}")
+    
+    elif action == "list":
+        with CausaGanhaDB(db_path) as db:
+            if status:
+                diarios = db.get_diarios_by_status(status)
+                typer.echo(f"📋 Diarios with status '{status}':")
+            elif tribunal:
+                diarios = db.get_diarios_by_tribunal(tribunal)
+                typer.echo(f"📋 Diarios for tribunal '{tribunal.upper()}':")
+            else:
+                # Get all by getting each status
+                diarios = []
+                for st in ['pending', 'downloaded', 'analyzed', 'scored']:
+                    diarios.extend(db.get_diarios_by_status(st))
+                typer.echo("📋 All Diarios:")
+            
+            if limit:
+                diarios = diarios[:limit]
+            
+            if not diarios:
+                typer.echo("No diarios found.")
+            else:
+                typer.echo(f"Found {len(diarios)} diario(s):")
+                for diario in diarios:
+                    metadata_info = ""
+                    if 'decision_count' in diario.metadata:
+                        metadata_info = f" ({diario.metadata['decision_count']} decisions)"
+                    
+                    typer.echo(f"  • {diario.display_name} - {diario.status}{metadata_info}")
+    
+    elif action == "process":
+        if not tribunal:
+            typer.echo("❌ --tribunal is required for process action")
+            raise typer.Exit(1)
+            
+        with CausaGanhaDB(db_path) as db:
+            pending_diarios = db.get_diarios_by_status('pending')
+            tribunal_diarios = [d for d in pending_diarios if d.tribunal == tribunal]
+            
+            if not tribunal_diarios:
+                typer.echo(f"No pending diarios found for {tribunal.upper()}")
+                return
+            
+            typer.echo(f"🚀 Processing {len(tribunal_diarios)} pending {tribunal.upper()} diarios...")
+            
+            from tribunais import get_adapter
+            adapter = get_adapter(tribunal)
+            
+            for diario in tribunal_diarios:
+                try:
+                    typer.echo(f"Processing {diario.display_name}...")
+                    
+                    # Process the diario
+                    processed_diario = adapter.process_diario(diario)
+                    
+                    # Update database
+                    db.queue_diario(processed_diario)
+                    
+                    typer.echo(f"✅ Completed {diario.display_name}")
+                    
+                except Exception as e:
+                    typer.echo(f"❌ Failed {diario.display_name}: {e}")
+    
+    else:
+        typer.echo(f"❌ Unknown action: {action}")
+        typer.echo("Available actions: list, stats, process")
+        raise typer.Exit(1)
 
 
 @app.command("db")

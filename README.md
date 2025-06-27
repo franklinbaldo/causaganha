@@ -114,7 +114,6 @@ causaganha/
 │   └── diarios/                    # PDFs temporários (arquivados no IA)
 ├── scripts/               # Scripts especializados
 │   ├── bulk_discovery.py     # Descoberta massiva IA
-│   └── collect_and_archive.py # Automação Internet Archive
 ├── .github/workflows/     # Pipeline distribuído (4 workflows)
 │   ├── pipeline.yml           # Pipeline principal async (3:15 UTC)
 │   ├── bulk-processing.yml    # Processamento massivo (manual)

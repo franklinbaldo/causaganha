@@ -338,3 +338,231 @@ class CausaGanhaDB:
                 tables[table] = f"Error: {e}"
 
         return tables
+    
+    # Diario dataclass support methods
+    def queue_diario(self, diario) -> bool:
+        """
+        Add Diario to job queue.
+        
+        Args:
+            diario: Diario object to queue
+            
+        Returns:
+            True if successfully queued, False otherwise
+        """
+        try:
+            # Import here to avoid circular imports
+            from models.diario import Diario
+            
+            if not isinstance(diario, Diario):
+                raise ValueError("Expected Diario object")
+            
+            queue_item = diario.queue_item
+            
+            self.conn.execute("""
+                INSERT INTO job_queue (url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (url) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    updated_at = CURRENT_TIMESTAMP
+            """, [
+                queue_item['url'],
+                queue_item['date'],
+                queue_item['tribunal'],
+                queue_item['filename'],
+                json.dumps(queue_item['metadata']),
+                queue_item['status'],
+                queue_item['ia_identifier'],
+                queue_item['arquivo_path']
+            ])
+            
+            logger.info(f"Queued diario: {diario.display_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error queuing diario {diario.display_name if 'diario' in locals() else 'unknown'}: {e}")
+            return False
+    
+    def get_diarios_by_status(self, status: str) -> List:
+        """
+        Get all diarios with specific status.
+        
+        Args:
+            status: Status to filter by ('pending', 'downloaded', 'analyzed', 'scored')
+            
+        Returns:
+            List of Diario objects
+        """
+        try:
+            # Import here to avoid circular imports
+            from models.diario import Diario
+            
+            rows = self.conn.execute("""
+                SELECT url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path
+                FROM job_queue 
+                WHERE status = ?
+                ORDER BY created_at
+            """, [status]).fetchall()
+            
+            diarios = []
+            for row in rows:
+                queue_data = {
+                    'url': row[0],
+                    'date': row[1],
+                    'tribunal': row[2],
+                    'filename': row[3],
+                    'metadata': json.loads(row[4]) if row[4] else {},
+                    'status': row[5],
+                    'ia_identifier': row[6],
+                    'arquivo_path': row[7]
+                }
+                diarios.append(Diario.from_queue_item(queue_data))
+            
+            logger.info(f"Retrieved {len(diarios)} diarios with status '{status}'")
+            return diarios
+            
+        except Exception as e:
+            logger.error(f"Error retrieving diarios with status '{status}': {e}")
+            return []
+    
+    def update_diario_status(self, diario, new_status: str, **kwargs) -> bool:
+        """
+        Update diario status in the database.
+        
+        Args:
+            diario: Diario object or URL string
+            new_status: New status to set
+            **kwargs: Additional fields to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get URL for identification
+            url = diario.url if hasattr(diario, 'url') else str(diario)
+            
+            # Build update query dynamically
+            update_fields = ["status = ?", "updated_at = CURRENT_TIMESTAMP"]
+            values = [new_status]
+            
+            # Handle additional field updates
+            field_mappings = {
+                'ia_identifier': 'ia_identifier',
+                'arquivo_path': 'arquivo_path',
+                'pdf_path': 'arquivo_path',
+                'error_message': 'error_message'
+            }
+            
+            for key, value in kwargs.items():
+                if key in field_mappings:
+                    db_field = field_mappings[key]
+                    update_fields.append(f"{db_field} = ?")
+                    values.append(str(value) if value else None)
+            
+            query = f"""
+                UPDATE job_queue 
+                SET {', '.join(update_fields)}
+                WHERE url = ?
+            """
+            values.append(url)
+            
+            result = self.conn.execute(query, values)
+            
+            if result.rowcount > 0:
+                logger.info(f"Updated diario status: {url} -> {new_status}")
+                return True
+            else:
+                logger.warning(f"No diario found with URL: {url}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error updating diario status: {e}")
+            return False
+    
+    def get_diarios_by_tribunal(self, tribunal: str) -> List:
+        """
+        Get all diarios for a specific tribunal.
+        
+        Args:
+            tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
+            
+        Returns:
+            List of Diario objects
+        """
+        try:
+            # Import here to avoid circular imports
+            from models.diario import Diario
+            
+            rows = self.conn.execute("""
+                SELECT url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path
+                FROM job_queue 
+                WHERE tribunal = ?
+                ORDER BY date DESC
+            """, [tribunal]).fetchall()
+            
+            diarios = []
+            for row in rows:
+                queue_data = {
+                    'url': row[0],
+                    'date': row[1],
+                    'tribunal': row[2],
+                    'filename': row[3],
+                    'metadata': json.loads(row[4]) if row[4] else {},
+                    'status': row[5],
+                    'ia_identifier': row[6],
+                    'arquivo_path': row[7]
+                }
+                diarios.append(Diario.from_queue_item(queue_data))
+            
+            logger.info(f"Retrieved {len(diarios)} diarios for tribunal '{tribunal}'")
+            return diarios
+            
+        except Exception as e:
+            logger.error(f"Error retrieving diarios for tribunal '{tribunal}': {e}")
+            return []
+    
+    def get_diario_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about diarios in the database.
+        
+        Returns:
+            Dictionary with statistics
+        """
+        try:
+            stats = {}
+            
+            # Overall counts
+            total_result = self.conn.execute("SELECT COUNT(*) FROM job_queue").fetchone()
+            stats['total_diarios'] = total_result[0] if total_result else 0
+            
+            # By status
+            status_results = self.conn.execute("""
+                SELECT status, COUNT(*) 
+                FROM job_queue 
+                GROUP BY status 
+                ORDER BY COUNT(*) DESC
+            """).fetchall()
+            stats['by_status'] = {status: count for status, count in status_results}
+            
+            # By tribunal
+            tribunal_results = self.conn.execute("""
+                SELECT tribunal, COUNT(*) 
+                FROM job_queue 
+                GROUP BY tribunal 
+                ORDER BY COUNT(*) DESC
+            """).fetchall()
+            stats['by_tribunal'] = {tribunal: count for tribunal, count in tribunal_results}
+            
+            # Recent activity (last 7 days)
+            recent_results = self.conn.execute("""
+                SELECT COUNT(*) 
+                FROM job_queue 
+                WHERE created_at >= CURRENT_DATE - INTERVAL 7 DAY
+            """).fetchone()
+            stats['recent_activity'] = recent_results[0] if recent_results else 0
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error getting diario statistics: {e}")
+            return {}

@@ -13,6 +13,40 @@ TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"
 TJRO_LATEST_PAGE_URL = "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php"
 
 
+def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
+    """
+    Gets the PDF URL for the given date from TJRO without downloading.
+    
+    Args:
+        date_obj: A datetime.date object representing the desired date.
+        
+    Returns:
+        The PDF URL string, or None if not found.
+    """
+    date_str = date_obj.strftime("%Y%m%d")
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
+    try:
+        page_resp = requests.get(TJRO_DIARIO_OFICIAL_URL, headers=headers, timeout=30)
+        page_resp.raise_for_status()
+        pdf_match = re.search(
+            rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^\"']*{date_str}[^\"']*\.pdf",
+            page_resp.text,
+        )
+        if not pdf_match:
+            logging.error(f"Could not find PDF link for date {date_str} on page.")
+            return None
+        download_url = pdf_match.group(0)
+        logging.info(f"Found diary link: {download_url}")
+        return download_url
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error finding PDF URL for {date_obj.strftime('%Y-%m-%d')}: {e}")
+        return None
+
+
 def fetch_tjro_pdf(
     date_obj: datetime.date,
 ) -> pathlib.Path | None:  # Adjusted return type hint
@@ -42,18 +76,13 @@ def fetch_tjro_pdf(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
+    # Get the PDF URL first
+    download_url = get_tjro_pdf_url(date_obj)
+    if not download_url:
+        return None
+    
     try:
-        page_resp = requests.get(TJRO_DIARIO_OFICIAL_URL, headers=headers, timeout=30)
-        page_resp.raise_for_status()
-        pdf_match = re.search(
-            rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^\"']*{date_str}[^\"']*\.pdf",
-            page_resp.text,
-        )
-        if not pdf_match:
-            logging.error(f"Could not find PDF link for date {date_str} on page.")
-            return None
-        download_url = pdf_match.group(0)
-        logging.info(f"Found diary link: {download_url}")
+        # Download the PDF
         pdf_resp = requests.get(download_url, headers=headers, timeout=30)
         pdf_resp.raise_for_status()
         with open(output_path, "wb") as f:
