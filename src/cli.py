@@ -1,7 +1,7 @@
 """CausaGanha CLI - Modern command-line interface for judicial document processing."""
 
 import typer
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Tuple # Added Dict, Any, Tuple
 from pathlib import Path
 import csv
 from urllib.parse import urlparse
@@ -19,6 +19,15 @@ import time
 from database import CausaGanhaDB
 from config import load_config
 from extractor import GeminiExtractor
+from ia_helpers import (
+    archive_diario_to_master_item,
+    update_ia_file_level_metadata_summary,
+    download_ia_file_async,
+    MASTER_IA_ITEM_ID,
+    IA_METADATA_FILENAME
+    # execute_ia_command_async, # Not directly called by cli.py commands, but by other helpers
+    # execute_ia_upload_async,  # Ditto
+)
 
 app = typer.Typer(
     name="causaganha",
@@ -108,9 +117,11 @@ def queue(
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             error_message TEXT,
             retry_count INTEGER DEFAULT 0,
-            ia_identifier TEXT,
+            ia_identifier TEXT, # Will store the MASTER IA item ID
+            ia_remote_filename TEXT, # Full path of the file within the master IA item
             analyze_result JSON,
-            score_updated BOOLEAN DEFAULT FALSE
+            score_updated BOOLEAN DEFAULT FALSE,
+            ia_metadata_synced BOOLEAN DEFAULT FALSE
         )
     """)
     
