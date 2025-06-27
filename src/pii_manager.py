@@ -31,11 +31,20 @@ class PiiManager:
         logger.debug("PiiManager initialized. Assuming pii_decode_map table handled by migrations.")
         pass
 
-    def _generate_uuidv5(self, value: str) -> str:
-        """Generates a UUIDv5 for a given string value."""
+    def _generate_uuidv5(self, value: str, pii_type: str) -> str:
+        """
+        Generates a UUIDv5 for a given string value and PII type.
+        Incorporating pii_type ensures that the same value string used for different
+        PII types will result in different UUIDs.
+        """
         if not isinstance(value, str):
             value = str(value) # Ensure value is a string
-        return str(uuid.uuid5(APPLICATION_NAMESPACE_UUID, value))
+
+        # Combine value and pii_type to create a unique string for hashing
+        # Using a separator that is unlikely to appear naturally in pii_type or value
+        # or clearly demarcates them. A simple colon is often sufficient.
+        value_to_hash = f"{pii_type}:{value}"
+        return str(uuid.uuid5(APPLICATION_NAMESPACE_UUID, value_to_hash))
 
     def get_or_create_pii_mapping(self, original_value: str, pii_type: str, normalized_value: Optional[str] = None) -> str:
         """
@@ -62,7 +71,7 @@ class PiiManager:
              raise ValueError(f"Value for UUID generation cannot be empty or whitespace. Original: '{original_value}', Normalized: '{normalized_value}'")
 
 
-        generated_uuid = self._generate_uuidv5(value_for_uuid)
+        generated_uuid = self._generate_uuidv5(value_for_uuid, pii_type) # Pass pii_type
 
         # Check if this UUID already exists
         # Using pii_uuid for lookup is faster due to unique index.

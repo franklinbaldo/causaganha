@@ -227,52 +227,75 @@ def _update_ratings_logic(logger: logging.Logger, dry_run: bool, db: CausaGanhaD
             if not validate_decision(decision_data_original):
                 logger.warning(f"Invalid decision in {json_path.name} (processo: {decision_data_original.get('numero_processo', 'N/A')}). Skipping."); continue
 
+            # PII Replacement: numero_processo
             original_case_no_str = str(decision_data_original.get("numero_processo", ""))
             uuid_case_no = pii_manager.get_or_create_pii_mapping(original_case_no_str, "CASE_NUMBER", original_case_no_str)
-            decision_data_pii_replaced["numero_processo_uuid"] = uuid_case_no
+            decision_data_pii_replaced["numero_processo"] = uuid_case_no # Replace original field
 
-            for polo_key_orig, polo_key_uuid in [("polo_ativo", "polo_ativo_uuids"), ("polo_passivo", "polo_passivo_uuids")]:
+            # PII Replacement: polo_ativo, polo_passivo
+            for polo_key_orig in ["polo_ativo", "polo_passivo"]:
                 orig_polo_list = decision_data_original.get(polo_key_orig, [])
                 if isinstance(orig_polo_list, str): orig_polo_list = [orig_polo_list]
-                uuid_list = [pii_manager.get_or_create_pii_mapping(str(name), "PARTY_NAME", str(name)) for name in orig_polo_list if name and str(name).strip()]
-                decision_data_pii_replaced[polo_key_uuid] = uuid_list
+                uuid_list = [pii_manager.get_or_create_pii_mapping(str(name), "PARTY_NAME", str(name))
+                             for name in orig_polo_list if name and str(name).strip()]
+                decision_data_pii_replaced[polo_key_orig] = uuid_list # Replace original field
 
+            # PII Replacement: advogados_polo_ativo, advogados_polo_passivo
+            # These lists will store UUIDs of the full lawyer strings for the PII-replaced JSON
+            advs_polo_ativo_full_str_uuids_for_json = []
+            advs_polo_passivo_full_str_uuids_for_json = []
+
+            # These are needed for ratings logic (UUIDs of normalized lawyer names)
             adv_teams_rating_uuids = {}
-            advs_polo_ativo_full_str_uuids, advs_polo_passivo_full_str_uuids = [], []
 
             for adv_str_orig in decision_data_original.get("advogados_polo_ativo", []):
                 adv_clean = str(adv_str_orig).strip()
                 if not adv_clean: continue
                 norm_id = normalize_lawyer_name(adv_clean)
                 if not norm_id: continue
-                adv_teams_rating_uuids.setdefault("team_a", []).append(pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id))
-                advs_polo_ativo_full_str_uuids.append(pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean))
+
+                rating_uuid = pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id)
+                adv_teams_rating_uuids.setdefault("team_a", []).append(rating_uuid)
+
+                full_str_uuid = pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean)
+                advs_polo_ativo_full_str_uuids_for_json.append(full_str_uuid)
 
             for adv_str_orig in decision_data_original.get("advogados_polo_passivo", []):
                 adv_clean = str(adv_str_orig).strip()
                 if not adv_clean: continue
                 norm_id = normalize_lawyer_name(adv_clean)
                 if not norm_id: continue
-                adv_teams_rating_uuids.setdefault("team_b", []).append(pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id))
-                advs_polo_passivo_full_str_uuids.append(pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean))
 
+                rating_uuid = pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id)
+                adv_teams_rating_uuids.setdefault("team_b", []).append(rating_uuid)
+
+                full_str_uuid = pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean)
+                advs_polo_passivo_full_str_uuids_for_json.append(full_str_uuid)
+
+            # Update the original lawyer fields in decision_data_pii_replaced to hold UUIDs of full strings
+            decision_data_pii_replaced["advogados_polo_ativo"] = advs_polo_ativo_full_str_uuids_for_json
+            decision_data_pii_replaced["advogados_polo_passivo"] = advs_polo_passivo_full_str_uuids_for_json
+
+            # Store rating UUIDs separately in the PII-replaced JSON if needed for context, or for other downstream processes
+            # that might consume this raw_json. These are not PII themselves.
             decision_data_pii_replaced["advogados_polo_ativo_rating_uuids"] = adv_teams_rating_uuids.get("team_a", [])
             decision_data_pii_replaced["advogados_polo_passivo_rating_uuids"] = adv_teams_rating_uuids.get("team_b", [])
-            decision_data_pii_replaced["advogados_polo_ativo_full_str_uuids"] = advs_polo_ativo_full_str_uuids
-            decision_data_pii_replaced["advogados_polo_passivo_full_str_uuids"] = advs_polo_passivo_full_str_uuids
+            # Remove old specific full_str_uuid fields if they existed, as the main fields are now replaced.
+            # (The old code created separate vars advs_polo_ativo_full_str_uuids and added them as new keys,
+            # now we are overwriting original keys like "advogados_polo_ativo")
 
 
             if not dry_run:
                 try:
                     db.add_raw_decision(
-                        numero_processo_uuid=uuid_case_no,
-                        json_source_file=json_path.name, # Changed from pdf_source_filename
-                        polo_ativo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_ativo_uuids", [])),
-                        polo_passivo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_passivo_uuids", [])),
-                        advogados_polo_ativo_full_str_uuids_json=json.dumps(advs_polo_ativo_full_str_uuids),
-                        advogados_polo_passivo_full_str_uuids_json=json.dumps(advs_polo_passivo_full_str_uuids),
-                        tipo_decisao=decision_data_original.get("tipo_decisao"),
-                        resultado_original=decision_data_original.get("resultado"),
+                        numero_processo_uuid=uuid_case_no, # This is the UUID of the case number itself
+                        json_source_file=json_path.name,
+                        polo_ativo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_ativo", [])), # Now contains UUIDs
+                        polo_passivo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_passivo", [])), # Now contains UUIDs
+                        advogados_polo_ativo_full_str_uuids_json=json.dumps(decision_data_pii_replaced.get("advogados_polo_ativo", [])), # Now contains full string UUIDs
+                        advogados_polo_passivo_full_str_uuids_json=json.dumps(decision_data_pii_replaced.get("advogados_polo_passivo", [])), # Now contains full string UUIDs
+                        tipo_decisao=decision_data_original.get("tipo_decisao"), # Keep original non-PII fields
+                        resultado_original=decision_data_original.get("resultado"), # Keep original non-PII fields
                         data_decisao_original=decision_data_original.get("data_decisao") or decision_data_original.get("data"),
                         resumo_original=decision_data_original.get("resumo"),
                         raw_json_pii_replaced=json.dumps(decision_data_pii_replaced),
