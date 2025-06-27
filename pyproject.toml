@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-causaganha = "src.cli:app"
+causaganha = "cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
