@@ -299,7 +299,7 @@ The system implements a **simplified 2-tier storage strategy** for optimal perfo
 ### Data Flow
 
 ```
-TJRO Website → Async Download → Internet Archive → Gemini Analysis → TrueSkill Updates → Shared Database
+TJRO Website → Async Download → Internet Archive → Gemini Analysis → OpenSkill Updates → Shared Database
                      ↓              ↓                   ↓                  ↓              ↓
                 Original Names   Public Archive      JSON Extraction    Rating Updates   IA Sync
                      ↓              ↓                   ↓                  ↓              ↓
@@ -337,7 +337,7 @@ TJRO Website → Async Download → Internet Archive → Gemini Analysis → Tru
 Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The test suite includes:
 
 - Mock-based tests for external API calls (Gemini, TJRO website, IA)
-- TrueSkill calculation validation with known scenarios
+- OpenSkill calculation validation with known scenarios
 - Async pipeline functionality with proper error handling
 - Database synchronization and locking mechanisms
 - JSON parsing and validation logic
@@ -362,7 +362,7 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 #### 3. Database Archive (`database-archive.yml`)
 - **Weekly on Sunday at 04:00 UTC** - Database snapshots to IA
 - **Monthly archives** - First Sunday of each month (permanent retention)
-- **Public research** - Makes complete TrueSkill datasets publicly available
+- **Public research** - Makes complete OpenSkill datasets publicly available
 - **Deduplication** - Skips upload if archive already exists
 
 #### 4. Quality Assurance (`test.yml`)
