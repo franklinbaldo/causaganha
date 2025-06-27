@@ -44,7 +44,12 @@
       "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://example.com/test.pdf\")",
       "Bash(PYTHONPATH=src uv run causaganha db status)",
       "Bash(PYTHONPATH=src uv run causaganha pipeline --help)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(PYTHONPATH=src uv run causaganha db migrate)",
+      "Bash(PYTHONPATH=src uv run causaganha --help)",
+      "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://www.tjro.jus.br/test.pdf\")",
+      "Bash(PYTHONPATH=src uv run causaganha stats)",
+      "Bash(uv pip:*)"
     ],
     "deny": []
   }
