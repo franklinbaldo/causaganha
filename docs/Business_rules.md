@@ -75,19 +75,16 @@ This document outlines the business rules that govern the operation of the Causa
 
 ## V. Data Storage & Management
 
-1.  **Lawyer Ratings Storage:** Current OpenSkill ratings (`mu`, `sigma`) and the total number of matches played (`total_partidas`) for every lawyer are stored in a CSV file located at `data/ratings.csv` (relative to project root if `src/` layout is adopted, otherwise `causaganha/data/ratings.csv`). This file uses the normalized lawyer name as `advogado_id` and is typically sorted by `mu` in descending order.
-2.  **Match History Storage:** A detailed historical log of all processed OpenSkill matches is maintained in a CSV file at `data/partidas.csv` (or `causaganha/data/partidas.csv`). Each record in this file includes:
-    *   `data_partida`: Date of the match (derived from the `data` field of the judicial decision).
-    *   `equipe_a_ids`: Comma-separated string of normalized lawyer IDs for Team A.
-    *   `equipe_b_ids`: Comma-separated string of normalized lawyer IDs for Team B.
-    *   `ratings_equipe_a_antes`: JSON string representing a dictionary of {adv_id: [mu, sigma]} for Team A before the match.
-    *   `ratings_equipe_b_antes`: JSON string representing a dictionary of {adv_id: [mu, sigma]} for Team B before the match.
-    *   `resultado_partida`: The OpenSkill outcome of the match (e.g., "win_a", "win_b", "draw", "partial_a", "partial_b").
-    *   `ratings_equipe_a_depois`: JSON string representing a dictionary of {adv_id: [mu, sigma]} for Team A after the match.
-    *   `ratings_equipe_b_depois`: JSON string representing a dictionary of {adv_id: [mu, sigma]} for Team B after the match.
-    *   `numero_processo`: The case number associated with this match.
-3.  **Processed JSON Archival:** Original JSON files (extracted from PDFs) located in `data/json/` (or `causaganha/data/json/`) that result in at least one valid OpenSkill match being successfully processed are moved to an archive directory: `data/json_processed/` (or `causaganha/data/json_processed/`).
-4.  **Unprocessed/Skipped JSON Handling:** JSON files that do not yield any valid OpenSkill matches (e.g., if all decisions within are invalid, or all lack necessary lawyer information for pairing) remain in the `data/json/` (or `causaganha/data/json/`) directory and are not moved to the processed archive.
+1.  **Primary Data Store:** The authoritative data store for the entire system is a **DuckDB database** located at `data/causaganha.duckdb`. This single file contains all core data, including ratings, match history, and metadata. CSV files are no longer used for primary storage and should only be considered for occasional data export or backup.
+2.  **Distributed Database:** The `causaganha.duckdb` file is synchronized with a master version on the Internet Archive, allowing for a distributed workflow between local machines and automated GitHub Actions. The `ia_database_sync.py` script manages this synchronization, including a locking mechanism to prevent data corruption from concurrent writes.
+3.  **Core Tables in DuckDB:**
+    *   `ratings`: Stores the current OpenSkill ratings (`mu`, `sigma`) and total matches played (`total_partidas`) for each lawyer, identified by a normalized `advogado_id`.
+    *   `partidas`: Contains a detailed historical log of all processed OpenSkill matches. This includes team compositions, ratings before and after the match, the outcome, and the associated case number (`numero_processo`).
+    *   `decisoes`: Logs all decisions extracted from PDFs, including their validation status and the file they originated from.
+    *   `pdfs`: Tracks metadata for all PDF files processed by the system, including their original filenames, download URLs, and SHA-256 hashes for integrity.
+    *   `json_files`: (Legacy, may be phased out) Tracks metadata related to the intermediate JSON extraction process.
+4.  **Data Integrity:** The use of a relational database like DuckDB enforces data types and allows for transactional updates, significantly improving data integrity compared to the previous CSV-based system.
+5.  **In-Memory Processing:** The asynchronous pipeline (`async_diario_pipeline.py`) processes data largely in-memory, directly updating the DuckDB database. The concept of moving processed JSON files to an archive is deprecated, as the database now serves as the single source of truth for processed data.
 
 ## VI. System Operation & Automation
 
