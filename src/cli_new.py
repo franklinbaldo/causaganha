@@ -552,16 +552,17 @@ def _show_rating_stats():
             [mg],
         ).fetchall()
         if tl:
-            typer.echo(f"
-🏆 Top 10 Lawyers(min {mg} games):")
+            typer.echo(f"""
+🏆 Top 10 Lawyers(min {mg} games):""")
             for i, (n, mu, s, p, cs) in enumerate(tl, 1):
                 typer.echo(
-                    f"{i:2d}.{n[:30]:<30}|Skill:{cs:6.1f}(μ={mu:5.1f} σ={s:4.1f})|Games:{p:3d}"
+                    f"{i:2d}. {n[:30]:<30} | Skill: {cs:6.1f} | Games: {p:3d} | μ={mu:5.1f} σ={s:4.1f}"
                 )
-        tot_l = db.conn.execute("SELECT COUNT(*)FROM ratings").fetchone()[0]
-        tot_m = db.conn.execute("SELECT COUNT(*)FROM partidas").fetchone()[0]
-        typer.echo(f"
-📊 Overall:{tot_l:,} Lawyers,{tot_m:,} Matches")
+        tot_l = db.conn.execute("SELECT COUNT(*) FROM ratings").fetchone()[0]
+        tot_m = db.conn.execute("SELECT COUNT(*) FROM partidas").fetchone()[0]
+        typer.echo("\n📊 Overall Statistics:")
+        typer.echo(f"├── Total Lawyers: {tot_l:,}")
+        typer.echo(f"└── Total Matches: {tot_m:,}")
     except Exception as e:
         _LOG_.warning(f"Stats err:{e}")
 
