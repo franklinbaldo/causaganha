@@ -330,7 +330,7 @@ class CausaGanhaMigration:
                                     id, numero_processo, json_source_file, 
                                     polo_ativo, polo_passivo, advogados_polo_ativo, advogados_polo_passivo,
                                     tipo_decisao, resultado, resumo, raw_json_data,
-                                    processed_for_trueskill, validation_status, created_at
+                                    processed_for_openskill, validation_status, created_at
                                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                             """,
                                 [

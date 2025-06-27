@@ -15,7 +15,7 @@ class CausaGanhaDB:
     Classe unificada para gerenciar todos os dados do CausaGanha em DuckDB.
 
     Centraliza:
-    - Ratings TrueSkill (advogados)
+    - Ratings OpenSkill (advogados)
     - Partidas (histórico de matches)
     - Metadados de PDFs
     - Decisões extraídas
@@ -68,7 +68,7 @@ class CausaGanhaDB:
             raise
 
     # =====================================
-    # MÉTODOS: Ratings TrueSkill
+    # MÉTODOS: Ratings OpenSkill
     # =====================================
 
     def get_ratings(self) -> pd.DataFrame:

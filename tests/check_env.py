@@ -22,11 +22,11 @@ except ImportError as e:
     print(f"Failed to import requests: {e}")
 
 try:
-    import trueskill
+    import openskill
 
-    print(f"Successfully imported trueskill. Version: {trueskill.__version__}")
+    print(f"Successfully imported openskill. Version: {openskill.__version__}")
 except ImportError as e:
-    print(f"Failed to import trueskill: {e}")
+    print(f"Failed to import openskill: {e}")
 
 try:
     import toml

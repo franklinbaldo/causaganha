@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 DEFAULT_CONFIG = {
     "database": {"path": "data/causaganha.duckdb"},
-    "trueskill": {"mu": 25.0, "sigma": 8.333, "beta": 4.167},
+    "openskill": {"mu": 25.0, "sigma": 8.333, "beta": 4.167},
     "logging": {"level": "INFO"},
 }
 

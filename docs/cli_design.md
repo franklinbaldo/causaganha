@@ -9,19 +9,19 @@ The CausaGanha CLI provides a modular, tribunal-agnostic system for processing j
 ### Core Pipeline Stages
 
 1. **Queue** - Add documents to processing queue from various sources
-2. **Store** - Download documents and store permanently in Internet Archive
-3. **Parse** - Extract information using LLM and save to DuckDB
-4. **Rate** - Generate TrueSkill ratings from parsed data
+2. **Archive** - Download documents and store permanently in Internet Archive
+3. **Analyze** - Extract information using LLM and save to DuckDB
+4. **Score** - Generate OpenSkill ratings from parsed data
 
 ### Command Structure
 
 ```
 causaganha
 ├── queue      # Add documents to processing queue
-├── store      # Download and store documents to IA
-├── parse      # Extract information with LLM
-├── rate       # Generate TrueSkill ratings
-├── pipeline   # Run full pipeline (queue->store->parse->rate)
+├── archive    # Download and store documents to IA
+├── analyze    # Extract information with LLM
+├── score      # Generate OpenSkill ratings
+├── pipeline   # Run full pipeline (queue->archive->analyze->score)
 ├── stats      # Show processing statistics
 └── config     # Configuration management
 ```
@@ -31,19 +31,16 @@ causaganha
 ### Individual Commands
 
 ```bash
-# Add single URL to queue
-causaganha queue --url "https://tribunal.com/diario.pdf" --date 2025-06-26 --tribunal TJRO
+# Add single URL to queue (auto-detect everything from URL)
+causaganha queue --url "https://www.tjro.jus.br/diario20250626.pdf"
 
-# Add bulk from JSON file
-causaganha queue --json-file diarios_tjro_2025.json
-
-# Add bulk from CSV file  
-causaganha queue --csv-file diarios_batch.csv
+# Add bulk from CSV file
+causaganha queue --from-csv urls.csv
 
 # Process queued items through each stage
-causaganha store    # Download and upload to IA
-causaganha parse    # Extract with LLM
-causaganha rate     # Calculate ratings
+causaganha archive  # Download and upload to IA
+causaganha analyze  # Extract with LLM
+causaganha score    # Calculate ratings
 
 # Check progress
 causaganha stats
@@ -52,44 +49,37 @@ causaganha stats
 ### Pipeline Command (Convenience)
 
 ```bash
-# Run full pipeline from JSON input
-causaganha pipeline --json-file diarios.json
+# Run full pipeline from CSV file
+causaganha pipeline --from-csv urls.csv
 
 # Resume interrupted pipeline
 causaganha pipeline --resume
 
 # Run specific stages only
-causaganha pipeline --stages store,parse,rate
+causaganha pipeline --stages archive,analyze,score
 
 # Stop on first error
-causaganha pipeline --json-file diarios.json --stop-on-error
+causaganha pipeline --from-csv urls.csv --stop-on-error
 ```
 
 ## Input Formats
 
-### JSON Format
-```json
-[
-  {
-    "url": "https://tribunal.com/diario20250626.pdf",
-    "date": "2025-06-26", 
-    "tribunal": "TJRO",
-    "filename": "20250626614-NR115.pdf",
-    "metadata": {
-      "year": 2025,
-      "edition": 115,
-      "pages": 150
-    }
-  }
-]
+### CSV Format (urls.csv)
+```csv
+url
+https://www.tjro.jus.br/diario20250626.pdf
+https://www.tjro.jus.br/diario20250627.pdf
+
+# Or with optional date override
+url,date
+https://www.tjro.jus.br/diario1.pdf,2025-06-26
+https://www.tjro.jus.br/diario2.pdf,
 ```
 
-### CSV Format
-```csv
-url,date,tribunal,filename,metadata
-https://tribunal.com/diario1.pdf,2025-06-26,TJRO,20250626614-NR115.pdf,"{""year"":2025,""edition"":115}"
-https://tribunal.com/diario2.pdf,2025-06-27,TJRO,20250627615-NR116.pdf,"{""year"":2025,""edition"":116}"
-```
+**Auto-Detection**: Everything extracted from URL:
+- `tribunal`: From domain (`tjro.jus.br` → `TJRO`)
+- `date`: From URL patterns or filename
+- `filename`: From URL path or HTTP headers
 
 ## DuckDB Schema
 
@@ -102,23 +92,23 @@ CREATE TABLE job_queue (
     tribunal TEXT NOT NULL,
     filename TEXT NOT NULL,
     metadata JSON,
-    status TEXT DEFAULT 'queued',  -- queued, stored, parsed, rated, failed
+    status TEXT DEFAULT 'queued',  -- queued, archived, analyzed, scored, failed
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     error_message TEXT,
     retry_count INTEGER DEFAULT 0,
-    ia_identifier TEXT,           -- Set after successful store
-    parse_result JSON,            -- Set after successful parse
-    rating_updated BOOLEAN DEFAULT FALSE  -- Set after successful rate
+    ia_identifier TEXT,           -- Set after successful archive
+    analyze_result JSON,          -- Set after successful analyze
+    score_updated BOOLEAN DEFAULT FALSE  -- Set after successful score
 );
 ```
 
 ### Processing States
 
 - **queued** - Added to queue, ready for processing
-- **stored** - Successfully downloaded and stored in IA
-- **parsed** - LLM extraction completed, data in DuckDB
-- **rated** - TrueSkill ratings calculated and updated
+- **archived** - Successfully downloaded and stored in IA
+- **analyzed** - LLM extraction completed, data in DuckDB
+- **scored** - OpenSkill ratings calculated and updated
 - **failed** - Processing failed (with error_message)
 
 ## Features
@@ -146,15 +136,15 @@ causaganha stats
 # Output:
 # Pipeline Status:
 # ├── Queued:     1,250 items
-# ├── Stored:     1,100 items  
-# ├── Parsed:       950 items
-# ├── Rated:        800 items
+# ├── Archived:   1,100 items  
+# ├── Analyzed:     950 items
+# ├── Scored:       800 items
 # └── Failed:        25 items
 # 
 # Processing Speed:
-# ├── Store:  15 items/min
-# ├── Parse:   8 items/min  
-# └── Rate:   20 items/min
+# ├── Archive:  15 items/min
+# ├── Analyze:   8 items/min  
+# └── Score:    20 items/min
 ```
 
 ## Configuration
@@ -198,7 +188,14 @@ The CLI separates tribunal-specific URL discovery (Step 0) from the generic proc
 
 1. **External Step**: Generate URLs for any tribunal (TJRO, TJSP, etc.)
 2. **Generic Pipeline**: Process URLs regardless of source tribunal
-3. **Flexible Input**: Support various metadata formats per tribunal
+3. **Smart Detection**: Auto-extract tribunal and metadata from URLs
+4. **Flexible Input**: Support various metadata formats per tribunal
+
+**Auto-Detection Examples**:
+- `https://www.tjro.jus.br/diario.pdf` → `tribunal: TJRO`
+- `https://www.tjsp.jus.br/diario.pdf` → `tribunal: TJSP`
+- `diario20250626.pdf` → `date: 2025-06-26`
+- `20250626614-NR115.pdf` → `date: 2025-06-26, edition: 115`
 
 This design allows easy extension to new tribunals without modifying core processing logic.
 

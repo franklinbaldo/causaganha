@@ -78,11 +78,11 @@ class DatabaseArchiver:
         date_str = snapshot_date.strftime("%Y-%m-%d")
 
         metadata = {
-            "title": f"CausaGanha TrueSkill Database - {date_str}",
+            "title": f"CausaGanha OpenSkill Database - {date_str}",
             "creator": "CausaGanha Project",
             "date": date_str,
             "description": (
-                f"Judicial decision analysis database using TrueSkill rating system from "
+                f"Judicial decision analysis database using OpenSkill rating system from "
                 f"Tribunal de Justiça de Rondônia (TJRO). Contains lawyer performance "
                 f"ratings, match history, and decision metadata. "
                 f"Archive type: {archive_type}. "
@@ -93,7 +93,7 @@ class DatabaseArchiver:
             "subject": ";".join(
                 [
                     "legal-analytics",
-                    "trueskill",
+                    "openskill",
                     "judicial-decisions",
                     "rondonia",
                     "lawyer-performance",
@@ -108,7 +108,7 @@ class DatabaseArchiver:
             "archive_type": archive_type,
             "causaganha_version": "1.0.0",
             "data_source": "TJRO - Tribunal de Justiça de Rondônia",
-            "rating_system": "Microsoft TrueSkill",
+            "rating_system": "Microsoft OpenSkill",
             "export_timestamp": datetime.now().isoformat(),
         }
 

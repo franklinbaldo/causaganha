@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "causaganha"
 version = "1.0.0"
-description = "Automated judicial decision analysis using TrueSkill rating system"
+description = "Automated judicial decision analysis using OpenSkill rating system"
 authors = [{name = "CausaGanha Team"}]
 license = {text = "MIT"}
 readme = "README.md"
