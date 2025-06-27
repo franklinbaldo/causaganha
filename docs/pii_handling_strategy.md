@@ -33,7 +33,7 @@ The following fields across various database tables have been identified as cont
 ### 3.1 Method: UUIDv5
 
 PII values are replaced with UUIDv5 identifiers. This method was chosen because:
-*   **Determinism:** UUIDv5 generates a consistent UUID for the same input (a namespace UUID + a "name" string). This ensures that the same piece of PII always maps to the same UUID, which is crucial for data integrity and linking records.
+*   **Determinism:** UUIDv5 generates a consistent UUID for the same input. In this system, the input for UUID generation is a combination of the `pii_type` and a (potentially normalized) value string (referred to as `value_for_uuid_ref` in the `pii_decode_map` table). This ensures that the same piece of PII (defined by its value and type) always maps to the same UUID. It also guarantees that identical value strings used for different PII types (e.g., a numeric ID that could conceptually be part of a name and also a standalone identifier type) will generate distinct UUIDs, preventing unintended collisions.
 *   **Decode Map Compatibility:** It provides stable, unique identifiers suitable for use in a decoding map.
 *   **Uniqueness:** UUIDs have a very low probability of collision.
 
@@ -48,7 +48,7 @@ A dedicated table, `pii_decode_map`, stores the mappings between original PII va
 CREATE TABLE IF NOT EXISTS pii_decode_map (
     pii_uuid VARCHAR(36) PRIMARY KEY,    -- The UUIDv5 generated value, serves as the PK
     original_value TEXT NOT NULL,         -- The original PII string (e.g., name, case number)
-    value_for_uuid_ref TEXT NOT NULL,     -- The value (often normalized) that was used to generate pii_uuid
+    value_for_uuid_ref TEXT NOT NULL,     -- The value (often normalized) that, in combination with pii_type, was used to generate pii_uuid
     pii_type VARCHAR(50) NOT NULL,        -- Type of PII (e.g., 'LAWYER_ID_NORMALIZED', 'CASE_NUMBER', 'PARTY_NAME', 'LAWYER_FULL_STRING')
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -56,8 +56,8 @@ CREATE INDEX IF NOT EXISTS idx_pii_decode_map_ref_type ON pii_decode_map(value_f
 ```
 *   `pii_uuid`: The UUIDv5 replacement for the PII.
 *   `original_value`: The actual, original PII string. **This column contains highly sensitive data.**
-*   `value_for_uuid_ref`: The specific string (often a normalized version of `original_value`) used as input to the UUIDv5 generation function. This helps ensure consistent UUID generation for logically equivalent PII that might have different original string representations.
-*   `pii_type`: A category for the PII (e.g., `LAWYER_ID_NORMALIZED`, `LAWYER_FULL_STRING`, `CASE_NUMBER`, `PARTY_NAME`). This helps in managing different types of PII and applying specific normalization rules.
+*   `value_for_uuid_ref`: The specific string (often a normalized version of `original_value`) that, in combination with `pii_type`, is used as input to the UUIDv5 generation function. This helps ensure consistent UUID generation for logically equivalent PII that might have different original string representations within the same PII type.
+*   `pii_type`: A category for the PII (e.g., `LAWYER_ID_NORMALIZED`, `LAWYER_FULL_STRING`, `CASE_NUMBER`, `PARTY_NAME`). This is also part of the input to the UUIDv5 generation function and helps in managing different types of PII and applying specific normalization rules.
 *   `created_at`: Timestamp of mapping creation.
 
 **Security for `pii_decode_map`:**

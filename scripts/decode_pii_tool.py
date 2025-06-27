@@ -45,12 +45,12 @@ def main():
 
     args = parser.parse_args()
 
-    # --- Optional: Configuration Check ---
-    # config = load_config()
-    # if not config.get("security", {}).get("allow_pii_decoding", False):
-    #     logger.error("PII decoding is disabled in the application configuration (security.allow_pii_decoding).")
-    #     print("ERROR: PII decoding is disabled in the application configuration.", file=sys.stderr)
-    #     sys.exit(1)
+    # --- Configuration Check for PII Decoding ---
+    config = load_config()
+    if not config.get("security", {}).get("allow_pii_decoding", False): # Default to False if not set
+        logger.error("PII decoding is disabled in the application configuration (security.allow_pii_decoding = false).")
+        print("ERROR: PII decoding is disabled in the application configuration. To enable, set security.allow_pii_decoding = true in your config.toml.", file=sys.stderr)
+        sys.exit(1)
 
     if not args.db_path.exists():
         logger.error(f"Database file not found at: {args.db_path}")
@@ -94,5 +94,8 @@ if __name__ == "__main__":
     print("WARNING: You are about to run a tool that can expose Personally Identifiable Information (PII).")
     print("Ensure you are authorized and are following all data handling policies.\n")
     # Brief pause or confirmation could be added here if desired
-    # input("Press Enter to continue if you are sure...")
+    confirm = input("Press Enter to continue if you are sure, or type 'N' to cancel: ")
+    if confirm.lower() == 'n':
+        logger.info("PII decoding cancelled by user.")
+        sys.exit(0)
     main()

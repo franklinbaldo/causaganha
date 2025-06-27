@@ -225,8 +225,24 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         self.processed_json_dir = self.project_root_dir / "data" / "json_processed"
         self.processed_json_dir.mkdir(parents=True, exist_ok=True)
 
-        self.sample_decision_1 = {"numero_processo": "001", "advogados_polo_ativo": ["AdvA"], "advogados_polo_passivo": ["AdvB"], "resultado": "procedente", "polo_ativo":["PA"], "polo_passivo":["PB"], "data_decisao":"2023-01-01"}
-        self.sample_decision_2 = {"numero_processo": "002", "advogados_polo_ativo": ["AdvC"], "advogados_polo_passivo": ["AdvA"], "resultado": "improcedente", "polo_ativo":["PC"], "polo_passivo":["PD"], "data_decisao":"2023-01-02"}
+        self.sample_decision_1 = {
+            "numero_processo": "0000001-11.2023.8.22.0001",  # Validated format
+            "advogados_polo_ativo": ["AdvA"],
+            "advogados_polo_passivo": ["AdvB"],
+            "resultado": "procedente",
+            "polo_ativo": ["PA"],
+            "polo_passivo": ["PB"],
+            "data_decisao": "2023-01-01"
+        }
+        self.sample_decision_2 = {
+            "numero_processo": "0000002-22.2023.8.22.0002",  # Validated format
+            "advogados_polo_ativo": ["AdvC"],
+            "advogados_polo_passivo": ["AdvA"],
+            "resultado": "improcedente",
+            "polo_ativo": ["PC"],
+            "polo_passivo": ["PD"],
+            "data_decisao": "2023-01-02"
+        }
 
         with open(self.json_input_dir / "decision1.json", "w") as f: json.dump({"decisions": [self.sample_decision_1], "file_name_source": "decision1.pdf"}, f)
         with open(self.json_input_dir / "decision2.json", "w") as f: json.dump({"decisions": [self.sample_decision_2], "file_name_source": "decision2.pdf"}, f)

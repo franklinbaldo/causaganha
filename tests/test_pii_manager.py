@@ -30,18 +30,42 @@ def pii_manager(db_conn):
     return PiiManager(db_conn)
 
 def test_generate_uuidv5_consistency(pii_manager: PiiManager):
-    """Test that UUIDv5 generation is consistent for the same input."""
+    """Test that UUIDv5 generation is consistent for the same input and PII type."""
     value = "test_string_for_uuid"
-    uuid1 = pii_manager._generate_uuidv5(value)
-    uuid2 = pii_manager._generate_uuidv5(value)
+    pii_type = "TEST_TYPE_FOR_CONSISTENCY"  # Define a consistent type for this test
+    uuid1 = pii_manager._generate_uuidv5(value, pii_type)
+    uuid2 = pii_manager._generate_uuidv5(value, pii_type)
     assert uuid1 == uuid2
     assert uuid.UUID(uuid1).version == 5
 
-    # Check against a known UUID generated with the same namespace and name
+    # Check against a known UUID generated with the same namespace and name components
     # This requires knowing the namespace UUID used in PiiManager.
     # APPLICATION_NAMESPACE_UUID is imported for this.
-    expected_uuid = str(uuid.uuid5(APPLICATION_NAMESPACE_UUID, value))
+    value_to_hash = f"{pii_type}:{value}" # Reflect the new hashing input
+    expected_uuid = str(uuid.uuid5(APPLICATION_NAMESPACE_UUID, value_to_hash))
     assert uuid1 == expected_uuid
+
+def test_uuid_uniqueness_across_pii_types(pii_manager: PiiManager):
+    """Test that the same value string generates different UUIDs for different PII types."""
+    value = "TestData123"
+    pii_type1 = "TYPE_A"
+    pii_type2 = "TYPE_B"
+
+    uuid1 = pii_manager.get_or_create_pii_mapping(value, pii_type1, normalized_value=value)
+    uuid2 = pii_manager.get_or_create_pii_mapping(value, pii_type2, normalized_value=value)
+
+    assert uuid1 != uuid2, "UUIDs should be different for the same value but different PII types."
+
+    retrieved1 = pii_manager.get_original_pii(uuid1)
+    retrieved2 = pii_manager.get_original_pii(uuid2)
+
+    assert retrieved1 is not None
+    assert retrieved1["original_value"] == value
+    assert retrieved1["pii_type"] == pii_type1
+
+    assert retrieved2 is not None
+    assert retrieved2["original_value"] == value
+    assert retrieved2["pii_type"] == pii_type2
 
 def test_get_or_create_pii_mapping_new(pii_manager: PiiManager):
     """Test creating a new PII mapping."""
@@ -155,7 +179,7 @@ def test_replace_pii_in_text(pii_manager: PiiManager):
     assert decoded["original_value"] == original_text # Stores original
 
     # Test that the UUID was based on normalized value
-    expected_uuid_for_normalized = pii_manager._generate_uuidv5(simple_norm(original_text))
+    expected_uuid_for_normalized = pii_manager._generate_uuidv5(simple_norm(original_text), pii_type) # Pass pii_type
     assert uuid_val == expected_uuid_for_normalized
 
     assert pii_manager.replace_pii_in_text(None, pii_type) is None
