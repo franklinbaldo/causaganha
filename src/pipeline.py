@@ -4,47 +4,47 @@ from pathlib import Path
 import sys
 import json
 import shutil
-import pandas as pd
+# import pandas as pd # No longer directly needed for CSVs here
 import datetime
 
-# Assuming downloader and extractor are stable and correct
-from downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
-from extractor import GeminiExtractor as _RealGeminiExtractor
+# Corrected imports to be absolute from src
+from src.tribunais.tjro.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf # Corrected
+from src.extractor import GeminiExtractor as _RealGeminiExtractor
+
+# --- Import Database and PII Manager ---
+from src.database import CausaGanhaDB
+from src.pii_manager import PiiManager
+
 
 # --- Configuration and OpenSkill Setup ---
 try:
-    from utils import normalize_lawyer_name, validate_decision
-    from config import load_config
+    # Standardize imports to be absolute from src
+    from src.utils import normalize_lawyer_name, validate_decision
+    from src.config import load_config
 
     CONFIG = load_config()
 
-    from openskill_rating import (
+    from src.openskill_rating import ( # Standardize import
         get_openskill_model,
         create_rating as create_openskill_rating_object,
         rate_teams as update_openskill_ratings,
-        # OpenSkillRating # Type hint, not directly used for creation here
     )
 
-    # Enum for match results (still useful internally)
     from enum import Enum
 
     class MatchResult(Enum):
         WIN_A = "win_a"
         WIN_B = "win_b"
         DRAW = "draw"
-        PARTIAL_A = "partial_a"
-        PARTIAL_B = "partial_b"
+        PARTIAL_A = "partial_a" # Not currently used in outcome logic but defined
+        PARTIAL_B = "partial_b" # Not currently used
 
-    RATING_ENGINE_NAME = "openskill"  # Hardcoded as it's the only engine now
-    OS_CONFIG = CONFIG.get(
-        "openskill", {}
-    )  # Get OpenSkill specific config, or empty dict
-
+    RATING_ENGINE_NAME = "openskill"
+    OS_CONFIG = CONFIG.get("openskill", {})
     RATING_MODEL_INSTANCE = get_openskill_model(OS_CONFIG)
-    DEFAULT_MU = OS_CONFIG.get("mu", 25.0)  # Fallback if not in OS_CONFIG
-    DEFAULT_SIGMA = OS_CONFIG.get("sigma", 25.0 / 3.0)  # Fallback
+    DEFAULT_MU = OS_CONFIG.get("mu", 25.0)
+    DEFAULT_SIGMA = OS_CONFIG.get("sigma", 25.0 / 3.0)
 
-    # Lambda functions for consistent interface
     def CREATE_RATING_FROM_MU_SIGMA_FUNC(mu, sigma):
         return create_openskill_rating_object(
             RATING_MODEL_INSTANCE, mu=float(mu), sigma=float(sigma)
@@ -53,7 +53,6 @@ try:
     def CREATE_NEW_RATING_FUNC():
         return create_openskill_rating_object(RATING_MODEL_INSTANCE)
 
-    # OpenSkill's rate_teams expects the string value of the enum (e.g., "win_a")
     def UPDATE_RATINGS_FUNC(model, t_a, t_b, res_enum):
         return update_openskill_ratings(model, t_a, t_b, res_enum.value)
 
@@ -63,36 +62,46 @@ except ImportError as e:
         level=logging.CRITICAL,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+    # Log the actual import error to help diagnose
     logging.critical(
-        f"Failed to import critical modules (utils, config, openskill_rating): {e}. Pipeline cannot run."
+        f"Failed to import critical modules. Original error: {e}. Pipeline cannot run."
     )
     sys.exit(1)
-
-
-# --- Core Pipeline Functions (fetch_tjro_pdf, GeminiExtractor, setup_logging, command functions) ---
-# These remain largely the same as before, except _update_ratings_logic and its callers.
 
 
 def fetch_tjro_pdf(date_str: str, dry_run: bool = False, verbose: bool = False):
     logger = logging.getLogger(__name__)
     if dry_run:
         logger.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
+        # In dry run, we might not have a real PDF path, so return a placeholder
         return Path(f"/tmp/fake_tjro_{date_str.replace('-', '')}.pdf")
+
+    # _real_fetch_tjro_pdf is imported from src.tribunais.tjro.downloader
+    # Its signature in downloader.py is fetch_tjro_pdf(target_date: date, output_dir: Path = ...)
+    # This wrapper needs to adapt. The original call in AGENTS.md was `causaganha pipeline run --date YYYY-MM-DD`
+    # and in this file, it was `_real_fetch_tjro_pdf(date_obj)`
+    # Let's assume _real_fetch_tjro_pdf from the actual downloader.py can take a date string or needs a date object.
+    # The one in src.downloader (which was moved) was: fetch_tjro_pdf(date_str: str) -> Path | None:
+    # The one in src.tribunais.tjro.downloader.py is fetch_tjro_pdf(target_date: date, output_dir: Path = DEFAULT_DIARIO_DIR)
+    # This wrapper needs to parse the date_str.
     try:
         date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        logger.warning(f"Invalid date '{date_str}', attempting direct pass")
+        logger.warning(f"Invalid date format for fetch_tjro_pdf: '{date_str}'. Expected YYYY-MM-DD.")
+        # Try to parse directly if it's already a valid ISO date string (e.g. from other parts of code)
         try:
             date_obj = datetime.date.fromisoformat(date_str)
         except ValueError:
-            logger.error("Could not parse date '%s'", date_str)
+            logger.error(f"Could not parse date '{date_str}' for fetch_tjro_pdf.")
             return None
-    pdf_path = _real_fetch_tjro_pdf(date_obj)
+
+    # Assuming _real_fetch_tjro_pdf will use its default output_dir
+    pdf_path = _real_fetch_tjro_pdf(target_date=date_obj)
     return pdf_path
 
 
-class GeminiExtractor:
-    def __init__(self, verbose: bool = False):
+class GeminiExtractor: # Wrapper class, _RealGeminiExtractor is the actual implementation
+    def __init__(self, verbose: bool = False): # verbose is not directly used by _RealGeminiExtractor constructor
         self.logger = logging.getLogger(__name__)
         self.verbose = verbose
         self._real = _RealGeminiExtractor()
@@ -101,22 +110,42 @@ class GeminiExtractor:
         self, pdf_path: Path, output_json_dir: Path = None, dry_run: bool = False
     ):
         self.logger.debug(f"Attempting to extract text from PDF: {pdf_path}")
-        output_json_dir = (
-            Path(output_json_dir)
-            if output_json_dir
-            else pdf_path.parent / "json_extracted"
-        )
+
+        if output_json_dir is None:
+            project_root_dir = Path(__file__).resolve().parent.parent
+            output_json_dir = project_root_dir / "data" / "json"
+        else:
+            output_json_dir = Path(output_json_dir)
+
         output_json_dir.mkdir(parents=True, exist_ok=True)
+        # Use a consistent naming scheme, perhaps including date from pdf_path if possible
+        # For now, using pdf_path.stem
         output_json_path = output_json_dir / f"{pdf_path.stem}_extracted.json"
+
         if dry_run:
             self.logger.info(
                 f"DRY-RUN: Would extract from {pdf_path} to {output_json_path}"
             )
+            dummy_data = { # Ensure this dummy data is useful for downstream dry-run steps
+                "file_name_source": pdf_path.name,
+                "extraction_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "simulated_extraction": True,
+                "decisions": [{
+                    "numero_processo": "DRYRUN-0000000-00.0000.0.00.0000",
+                    "tipo_decisao": "simulada",
+                    "polo_ativo": ["DryRun Parte Ativa"],
+                    "advogados_polo_ativo": ["DryRun Advogado Ativo (OAB/UF 00000)"],
+                    "polo_passivo": ["DryRun Parte Passiva"],
+                    "advogados_polo_passivo": ["DryRun Advogado Passivo (OAB/UF 00001)"],
+                    "resultado": "procedente",
+                    "data_decisao": "2023-01-01",
+                    "resumo": "Decisão simulada para dry run."
+                }]
+            }
             with open(output_json_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    {"file_name_source": pdf_path.name, "simulated": True}, f, indent=2
-                )
+                json.dump(dummy_data, f, indent=2)
             return output_json_path
+
         return self._real.extract_and_save_json(pdf_path, output_json_dir)
 
 
@@ -130,456 +159,273 @@ def setup_logging(verbose: bool):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-
 def collect_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Collect command: {args}")
-    pdf_path = fetch_tjro_pdf(
-        date_str=args.date, dry_run=args.dry_run, verbose=args.verbose
-    )
-    if pdf_path:
-        logger.info(f"Collect successful. PDF: {pdf_path}")
-    else:
-        logger.error("Collect failed.")
+    pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
+    if pdf_path: logger.info(f"Collect successful. PDF: {pdf_path}")
+    else: logger.error("Collect failed.")
     return pdf_path
-
 
 def extract_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Extract command: {args}")
-    output_dir = (
-        Path(args.output_json_dir)
-        if args.output_json_dir
-        else Path(args.pdf_file).parent
-    )
+    pdf_file_path = Path(args.pdf_file)
+    # Default output_json_dir to pdf_file_path.parent if not provided
+    output_dir = Path(args.output_json_dir) if args.output_json_dir else pdf_file_path.parent
+
     extractor = GeminiExtractor(verbose=args.verbose)
     json_path = extractor.extract_and_save_json(
-        pdf_path=Path(args.pdf_file), output_json_dir=output_dir, dry_run=args.dry_run
+        pdf_path=pdf_file_path, output_json_dir=output_dir, dry_run=args.dry_run
     )
-    if json_path:
-        logger.info(f"Extract successful. JSON: {json_path}")
-    else:
-        logger.error("Extract failed.")
+    if json_path: logger.info(f"Extract successful. JSON: {json_path}")
+    else: logger.error("Extract failed.")
     return json_path
 
+def _update_ratings_logic(logger: logging.Logger, dry_run: bool, db: CausaGanhaDB, pii_manager: PiiManager):
+    logger.info("Starting ratings update process with PII replacement.")
+    if dry_run: logger.info("DRY-RUN: Update process simulation, no DB changes will be committed.")
 
-def _update_ratings_logic(logger: logging.Logger, dry_run: bool):
-    logger.info("Starting OpenSkill ratings update process.")  # Now always OpenSkill
-    if dry_run:
-        logger.info("DRY-RUN: OpenSkill update process simulation, no files changed.")
+    project_root_dir = Path(__file__).resolve().parent.parent
+    json_input_dir = project_root_dir / "data" / "json"
+    processed_json_dir = project_root_dir / "data" / "json_processed"
 
-    json_input_dir = Path("data/json/")
-    processed_json_dir = Path("data/json_processed/")
-    ratings_file = Path("data/ratings.csv")
-    partidas_file = Path("data/partidas.csv")
+    def get_rating_from_db_or_default(adv_uuid: str):
+        rating_data = db.get_rating(adv_uuid)
+        if rating_data:
+            return CREATE_RATING_FROM_MU_SIGMA_FUNC(rating_data['mu'], rating_data['sigma']), rating_data['total_partidas']
+        return CREATE_NEW_RATING_FUNC(), 0
 
-    try:
-        ratings_df = pd.read_csv(ratings_file, index_col="advogado_id")
-        if "mu" in ratings_df.columns:
-            ratings_df["mu"] = ratings_df["mu"].astype(float)
-        if "sigma" in ratings_df.columns:
-            ratings_df["sigma"] = ratings_df["sigma"].astype(float)
-        logger.info(f"Loaded ratings from {ratings_file}")
-    except FileNotFoundError:
-        logger.info(f"{ratings_file} not found. Initializing new ratings DataFrame.")
-        ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
-            pd.Index([], name="advogado_id")
-        )
-    except (pd.errors.EmptyDataError, ValueError) as e:
-        logger.error(
-            f"Error loading {ratings_file}: {e}. Initializing new ratings DataFrame."
-        )
-        ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
-            pd.Index([], name="advogado_id")
-        )
-
-    for col in ["mu", "sigma", "total_partidas"]:
-        if col not in ratings_df.columns:
-            if col == "mu":
-                ratings_df[col] = DEFAULT_MU
-            elif col == "sigma":
-                ratings_df[col] = DEFAULT_SIGMA
-            else:
-                ratings_df[col] = 0
-    ratings_df["mu"] = ratings_df["mu"].astype(float)
-    ratings_df["sigma"] = ratings_df["sigma"].astype(float)
-    ratings_df["total_partidas"] = ratings_df["total_partidas"].astype(int)
-
-    partidas_history = []
+    partidas_to_add_to_db = []
     processed_files_paths = []
+
     if not json_input_dir.exists():
-        logger.error(f"JSON input directory not found: {json_input_dir}")
-        return
+        logger.error(f"JSON input directory not found: {json_input_dir}"); return
     json_files_to_process = list(json_input_dir.glob("*.json"))
     if not json_files_to_process:
-        logger.info(f"No JSON files in {json_input_dir} to process.")
+        logger.info(f"No JSON files in {json_input_dir} to process."); return
 
     for json_path in json_files_to_process:
         logger.info(f"Processing JSON file: {json_path.name}")
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                loaded_content = json.load(f)
-        except Exception as e:
-            logger.error(f"Error reading/decoding {json_path.name}: {e}. Skipping.")
-            continue
+            with open(json_path, "r", encoding="utf-8") as f: loaded_content = json.load(f)
+        except Exception as e: logger.error(f"Error reading/decoding {json_path.name}: {e}. Skipping file."); continue
 
-        decisions_in_file = (
-            loaded_content.get("decisions", [])
-            if isinstance(loaded_content, dict)
-            else loaded_content
-            if isinstance(loaded_content, list)
-            else [loaded_content]
-            if loaded_content
-            else []
-        )
+        decisions_in_file = loaded_content.get("decisions", [])
+        if not isinstance(decisions_in_file, list):
+            logger.warning(f"Expected 'decisions' to be a list in {json_path.name}. Skipping."); continue
 
-        file_had_valid_decisions = False
-        for decision_data in decisions_in_file:
-            if not validate_decision(decision_data):
-                logger.warning(
-                    f"Skipping invalid decision in {json_path.name} (processo: {decision_data.get('numero_processo', 'N/A')})."
-                )
-                continue
+        source_pdf_filename = loaded_content.get("file_name_source", json_path.name)
+        file_had_valid_decisions_for_rating = False
 
-            raw_advs_polo_ativo = decision_data.get("advogados_polo_ativo", [])
-            raw_advs_polo_passivo = decision_data.get("advogados_polo_passivo", [])
-            team_a_ids = sorted(
-                list(
-                    set(
-                        normalize_lawyer_name(name)
-                        for name in raw_advs_polo_ativo
-                        if normalize_lawyer_name(name)
-                    )
-                )
-            )
-            team_b_ids = sorted(
-                list(
-                    set(
-                        normalize_lawyer_name(name)
-                        for name in raw_advs_polo_passivo
-                        if normalize_lawyer_name(name)
-                    )
-                )
-            )
+        for decision_data_original in decisions_in_file:
+            if not isinstance(decision_data_original, dict):
+                logger.warning(f"Decision data item not a dict in {json_path.name}. Skipping: {decision_data_original}"); continue
 
-            if not team_a_ids or not team_b_ids:
-                logger.warning(
-                    f"Missing lawyers in {json_path.name} ({decision_data.get('numero_processo')}). Skipping."
-                )
-                continue
-            if set(team_a_ids) == set(team_b_ids):
-                logger.info(
-                    f"Identical teams in {decision_data.get('numero_processo')}. Skipping."
-                )
-                continue
+            decision_data_pii_replaced = decision_data_original.copy()
 
-            resultado_str_raw = decision_data.get("resultado", "").lower()
-            match_outcome = MatchResult.DRAW
-            if resultado_str_raw in ["procedente", "provido", "confirmada"]:
-                match_outcome = MatchResult.WIN_A
-            elif resultado_str_raw in [
-                "improcedente",
-                "negado_provimento",
-                "reformada",
-            ]:
-                match_outcome = MatchResult.WIN_B
+            if not validate_decision(decision_data_original):
+                logger.warning(f"Invalid decision in {json_path.name} (processo: {decision_data_original.get('numero_processo', 'N/A')}). Skipping."); continue
 
-            team_a_ratings_before = [
-                CREATE_RATING_FROM_MU_SIGMA_FUNC(
-                    ratings_df.loc[adv_id, "mu"], ratings_df.loc[adv_id, "sigma"]
-                )
-                if adv_id in ratings_df.index
-                else CREATE_NEW_RATING_FUNC()
-                for adv_id in team_a_ids
-            ]
-            team_b_ratings_before = [
-                CREATE_RATING_FROM_MU_SIGMA_FUNC(
-                    ratings_df.loc[adv_id, "mu"], ratings_df.loc[adv_id, "sigma"]
-                )
-                if adv_id in ratings_df.index
-                else CREATE_NEW_RATING_FUNC()
-                for adv_id in team_b_ids
-            ]
+            original_case_no_str = str(decision_data_original.get("numero_processo", ""))
+            uuid_case_no = pii_manager.get_or_create_pii_mapping(original_case_no_str, "CASE_NUMBER", original_case_no_str)
+            decision_data_pii_replaced["numero_processo_uuid"] = uuid_case_no
 
-            partida_team_a_ratings_before_dict = {
-                adv_id: (r.mu, r.sigma)
-                for adv_id, r in zip(team_a_ids, team_a_ratings_before)
-            }
-            partida_team_b_ratings_before_dict = {
-                adv_id: (r.mu, r.sigma)
-                for adv_id, r in zip(team_b_ids, team_b_ratings_before)
-            }
+            for polo_key_orig, polo_key_uuid in [("polo_ativo", "polo_ativo_uuids"), ("polo_passivo", "polo_passivo_uuids")]:
+                orig_polo_list = decision_data_original.get(polo_key_orig, [])
+                if isinstance(orig_polo_list, str): orig_polo_list = [orig_polo_list]
+                uuid_list = [pii_manager.get_or_create_pii_mapping(str(name), "PARTY_NAME", str(name)) for name in orig_polo_list if name and str(name).strip()]
+                decision_data_pii_replaced[polo_key_uuid] = uuid_list
 
-            new_team_a_ratings, new_team_b_ratings = UPDATE_RATINGS_FUNC(
-                RATING_MODEL_INSTANCE,
-                team_a_ratings_before,
-                team_b_ratings_before,
-                match_outcome,
-            )
+            adv_teams_rating_uuids = {}
+            advs_polo_ativo_full_str_uuids, advs_polo_passivo_full_str_uuids = [], []
 
-            for i, adv_id in enumerate(team_a_ids):
-                current_partidas = (
-                    ratings_df.loc[adv_id, "total_partidas"]
-                    if adv_id in ratings_df.index
-                    else 0
-                )
-                ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
-                    new_team_a_ratings[i].mu,
-                    new_team_a_ratings[i].sigma,
-                    current_partidas + 1,
-                ]
-            for i, adv_id in enumerate(team_b_ids):
-                current_partidas = (
-                    ratings_df.loc[adv_id, "total_partidas"]
-                    if adv_id in ratings_df.index
-                    else 0
-                )
-                ratings_df.loc[adv_id, ["mu", "sigma", "total_partidas"]] = [
-                    new_team_b_ratings[i].mu,
-                    new_team_b_ratings[i].sigma,
-                    current_partidas + 1,
-                ]
+            for adv_str_orig in decision_data_original.get("advogados_polo_ativo", []):
+                adv_clean = str(adv_str_orig).strip()
+                if not adv_clean: continue
+                norm_id = normalize_lawyer_name(adv_clean)
+                if not norm_id: continue
+                adv_teams_rating_uuids.setdefault("team_a", []).append(pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id))
+                advs_polo_ativo_full_str_uuids.append(pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean))
 
-            logger.debug(
-                f"OpenSkill updated: A:{[f'{r.mu:.1f}±{r.sigma:.1f}' for r in new_team_a_ratings]} vs B:{[f'{r.mu:.1f}±{r.sigma:.1f}' for r in new_team_b_ratings]}"
-            )
-            partidas_history.append(
-                {
-                    "data_partida": decision_data.get(
-                        "data_decisao", datetime.date.today().isoformat()
-                    ),
-                    "equipe_a_ids": ",".join(team_a_ids),
-                    "equipe_b_ids": ",".join(team_b_ids),
-                    "ratings_equipe_a_antes": json.dumps(
-                        partida_team_a_ratings_before_dict
-                    ),
-                    "ratings_equipe_b_antes": json.dumps(
-                        partida_team_b_ratings_before_dict
-                    ),
-                    "resultado_partida": match_outcome.value,
-                    "ratings_equipe_a_depois": json.dumps(
-                        {
-                            adv_id: (r.mu, r.sigma)
-                            for adv_id, r in zip(team_a_ids, new_team_a_ratings)
-                        }
-                    ),
-                    "ratings_equipe_b_depois": json.dumps(
-                        {
-                            adv_id: (r.mu, r.sigma)
-                            for adv_id, r in zip(team_b_ids, new_team_b_ratings)
-                        }
-                    ),
-                    "numero_processo": decision_data.get("numero_processo"),
-                }
-            )
-            file_had_valid_decisions = True
-        if file_had_valid_decisions:
-            processed_files_paths.append(json_path)
+            for adv_str_orig in decision_data_original.get("advogados_polo_passivo", []):
+                adv_clean = str(adv_str_orig).strip()
+                if not adv_clean: continue
+                norm_id = normalize_lawyer_name(adv_clean)
+                if not norm_id: continue
+                adv_teams_rating_uuids.setdefault("team_b", []).append(pii_manager.get_or_create_pii_mapping(norm_id, "LAWYER_ID_NORMALIZED", norm_id))
+                advs_polo_passivo_full_str_uuids.append(pii_manager.get_or_create_pii_mapping(adv_clean, "LAWYER_FULL_STRING", adv_clean))
 
-    if not dry_run:
-        if not ratings_df.empty:
-            try:
-                if ratings_df.index.name is None:
-                    ratings_df.index.name = "advogado_id"
-                ratings_df.sort_values(
-                    by=["mu", "sigma"], ascending=[False, True]
-                ).to_csv(ratings_file)
-                logger.info(f"Ratings saved to {ratings_file}")
-            except Exception as e:
-                logger.error(f"Error saving ratings to {ratings_file}: {e}")
-        else:
-            logger.info("Ratings DataFrame empty. Not saving.")
-        if partidas_history:
-            try:
-                pd.DataFrame(partidas_history).to_csv(partidas_file, index=False)
-                logger.info(f"Partidas history saved to {partidas_file}")
-            except Exception as e:
-                logger.error(f"Error saving partidas to {partidas_file}: {e}")
-        else:
-            logger.info("No new partidas to save.")
-        if processed_files_paths:
-            processed_json_dir.mkdir(parents=True, exist_ok=True)
-            for p_file in processed_files_paths:
+            decision_data_pii_replaced["advogados_polo_ativo_rating_uuids"] = adv_teams_rating_uuids.get("team_a", [])
+            decision_data_pii_replaced["advogados_polo_passivo_rating_uuids"] = adv_teams_rating_uuids.get("team_b", [])
+            decision_data_pii_replaced["advogados_polo_ativo_full_str_uuids"] = advs_polo_ativo_full_str_uuids
+            decision_data_pii_replaced["advogados_polo_passivo_full_str_uuids"] = advs_polo_passivo_full_str_uuids
+
+
+            if not dry_run:
                 try:
-                    shutil.move(str(p_file), str(processed_json_dir / p_file.name))
-                    logger.info(f"Moved {p_file.name} to {processed_json_dir}")
-                except Exception as e:
-                    logger.error(f"Error moving {p_file.name}: {e}")
-        else:
-            logger.info("No JSON files processed to move.")
-    else:
-        logger.info("DRY-RUN: Skipping save/move for OpenSkill.")
-        if not ratings_df.empty:
-            logger.info(f"DRY-RUN: Would save {len(ratings_df)} ratings.")
-        if partidas_history:
-            logger.info(f"DRY-RUN: Would save {len(partidas_history)} partidas.")
-        if processed_files_paths:
-            logger.info(f"DRY-RUN: Would move {len(processed_files_paths)} JSONs.")
-    logger.info("OpenSkill ratings update process finished.")
+                    db.add_raw_decision(
+                        numero_processo_uuid=uuid_case_no,
+                        json_source_file=json_path.name, # Changed from pdf_source_filename
+                        polo_ativo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_ativo_uuids", [])),
+                        polo_passivo_uuids_json=json.dumps(decision_data_pii_replaced.get("polo_passivo_uuids", [])),
+                        advogados_polo_ativo_full_str_uuids_json=json.dumps(advs_polo_ativo_full_str_uuids),
+                        advogados_polo_passivo_full_str_uuids_json=json.dumps(advs_polo_passivo_full_str_uuids),
+                        tipo_decisao=decision_data_original.get("tipo_decisao"),
+                        resultado_original=decision_data_original.get("resultado"),
+                        data_decisao_original=decision_data_original.get("data_decisao") or decision_data_original.get("data"),
+                        resumo_original=decision_data_original.get("resumo"),
+                        raw_json_pii_replaced=json.dumps(decision_data_pii_replaced),
+                        validation_status="valid",
+                        extraction_timestamp=loaded_content.get("extraction_timestamp"),
+                        pdf_source_file=source_pdf_filename # Added this field
+                    )
+                except Exception as e_db_dec: logger.error(f"DB save error for decision {uuid_case_no}: {e_db_dec}", exc_info=True)
 
+            final_team_a_ids = sorted(list(set(adv_teams_rating_uuids.get("team_a", []))))
+            final_team_b_ids = sorted(list(set(adv_teams_rating_uuids.get("team_b", []))))
+
+            if not final_team_a_ids or not final_team_b_ids:
+                logger.warning(f"Missing lawyer UUIDs for rating {original_case_no_str}. Skip rating."); continue
+            if set(final_team_a_ids) == set(final_team_b_ids):
+                logger.info(f"Identical teams (UUIDs) for {original_case_no_str}. Skip rating."); continue
+
+            res_raw = decision_data_original.get("resultado", "").lower()
+            outcome = MatchResult.DRAW
+            if res_raw in ["procedente", "provido", "confirmada"]: outcome = MatchResult.WIN_A
+            elif res_raw in ["improcedente", "negado_provimento", "reformada"]: outcome = MatchResult.WIN_B
+
+            team_a_ratings_before = [get_rating_from_db_or_default(uid)[0] for uid in final_team_a_ids]
+            team_b_ratings_before = [get_rating_from_db_or_default(uid)[0] for uid in final_team_b_ids]
+
+            partida_a_antes = {uid: (r.mu, r.sigma) for uid, r in zip(final_team_a_ids, team_a_ratings_before)}
+            partida_b_antes = {uid: (r.mu, r.sigma) for uid, r in zip(final_team_b_ids, team_b_ratings_before)}
+
+            new_a_ratings, new_b_ratings = UPDATE_RATINGS_FUNC(RATING_MODEL_INSTANCE, team_a_ratings_before, team_b_ratings_before, outcome)
+
+            if not dry_run:
+                try:
+                    for i, uid in enumerate(final_team_a_ids): db.update_rating(uid, new_a_ratings[i].mu, new_a_ratings[i].sigma)
+                    for i, uid in enumerate(final_team_b_ids): db.update_rating(uid, new_b_ratings[i].mu, new_b_ratings[i].sigma)
+                except Exception as e_db_rate: logger.error(f"DB rating update error for {uuid_case_no}: {e_db_rate}", exc_info=True)
+
+            partidas_to_add_to_db.append({
+                "data_partida": decision_data_original.get("data_decisao") or decision_data_original.get("data") or datetime.date.today().isoformat(),
+                "numero_processo": uuid_case_no, "equipe_a_ids": final_team_a_ids, "equipe_b_ids": final_team_b_ids,
+                "ratings_antes_a": partida_a_antes, "ratings_antes_b": partida_b_antes,
+                "resultado": outcome.value, # Changed from "resultado_partida" to match add_partida signature
+                "ratings_depois_a": {uid:(r.mu,r.sigma) for uid,r in zip(final_team_a_ids,new_a_ratings)},
+                "ratings_depois_b": {uid:(r.mu,r.sigma) for uid,r in zip(final_team_b_ids,new_b_ratings)},
+            })
+            file_had_valid_decisions_for_rating = True
+
+        if file_had_valid_decisions_for_rating: processed_files_paths.append(json_path)
+
+    if not dry_run and partidas_to_add_to_db:
+        for entry in partidas_to_add_to_db:
+            try: db.add_partida(**entry)
+            except Exception as e_db_part: logger.error(f"DB save error for partida {entry['numero_processo']}: {e_db_part}", exc_info=True)
+        logger.info(f"Attempted to save {len(partidas_to_add_to_db)} partidas to database.")
+    elif dry_run: logger.info(f"DRY-RUN: Would save {len(partidas_to_add_to_db)} partidas.")
+    else: logger.info("No new partidas to save.")
+
+    if not dry_run and processed_files_paths:
+        processed_json_dir.mkdir(parents=True, exist_ok=True)
+        for p_file in processed_files_paths:
+            try: shutil.move(str(p_file), str(processed_json_dir / p_file.name))
+            except Exception as e: logger.error(f"Error moving {p_file.name}: {e}", exc_info=True)
+    elif dry_run: logger.info(f"DRY-RUN: Would move {len(processed_files_paths)} JSON files.")
+    else: logger.info("No JSON files processed to move.")
+
+    logger.info("Ratings update process (with PII replacement) finished.")
 
 def update_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Update command called with args: {args}")
-    _update_ratings_logic(logger, args.dry_run)
-
+    db_instance = None
+    try:
+        db_instance = CausaGanhaDB()
+        db_instance.connect()
+        pii_manager = PiiManager(db_instance.conn)
+        _update_ratings_logic(logger, args.dry_run, db_instance, pii_manager)
+    except Exception as e:
+        logger.critical(f"Failed during update command: {e}", exc_info=True)
+    finally:
+        if db_instance and hasattr(db_instance, 'conn') and db_instance.conn: db_instance.close()
 
 def run_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Run command called with args: {args}")
-    logger.info(f"Starting 'collect' step for date {args.date}...")
-    pdf_path = fetch_tjro_pdf(
-        date_str=args.date, dry_run=args.dry_run, verbose=args.verbose
-    )
-    if not pdf_path:
-        logger.error(f"'collect' failed for {args.date}. Aborting.")
-        return
-    logger.info(f"'collect' successful. PDF: {pdf_path}")
-    logger.info(f"Starting 'extract' for PDF {pdf_path}...")
-    extract_output_dir = (
-        Path(args.output_json_dir)
-        if args.output_json_dir
-        else Path("data/json/")
-    )
-    extractor = GeminiExtractor(verbose=args.verbose)
-    json_output_path = extractor.extract_and_save_json(
-        pdf_path=pdf_path, output_json_dir=extract_output_dir, dry_run=args.dry_run
-    )
-    if not json_output_path:
-        logger.error(f"'extract' failed for {pdf_path}. 'run' partially completed.")
-        return
-    logger.info(f"'extract' successful. JSON: {json_output_path}")
-    logger.info("Starting 'update' as part of 'run'...")
-    update_args = argparse.Namespace(dry_run=args.dry_run, verbose=args.verbose)
-    update_command(update_args)
-    logger.info(f"Run command completed for {args.date}.")
 
+    # Pass verbose to collect_command and extract_command
+    collect_args = argparse.Namespace(date=args.date, dry_run=args.dry_run, verbose=args.verbose if hasattr(args, 'verbose') else False)
+    pdf_path = collect_command(collect_args)
+    if not pdf_path: logger.error(f"'collect' failed for {args.date}. Aborting 'run'."); return
+
+    project_root_dir = Path(__file__).resolve().parent.parent
+    default_json_out_dir = project_root_dir / "data" / "json"
+    extract_output_dir = Path(args.output_json_dir) if args.output_json_dir else default_json_out_dir
+
+    extract_args = argparse.Namespace(pdf_file=pdf_path, output_json_dir=extract_output_dir, dry_run=args.dry_run, verbose=args.verbose if hasattr(args, 'verbose') else False)
+    json_output_path = extract_command(extract_args)
+    if not json_output_path: logger.error(f"'extract' failed for {pdf_path}. Aborting 'run'."); return
+
+    db_instance_run = None
+    try:
+        db_instance_run = CausaGanhaDB()
+        db_instance_run.connect()
+        pii_manager_run = PiiManager(db_instance_run.conn)
+        logger.info("Starting 'update' as part of 'run'...")
+        _update_ratings_logic(logger, args.dry_run, db_instance_run, pii_manager_run) # verbose not needed by _update_ratings_logic
+        logger.info(f"Run command completed for {args.date}.")
+    except Exception as e:
+        logger.critical(f"Failed during 'update' part of 'run' command: {e}", exc_info=True)
+    finally:
+        if db_instance_run and hasattr(db_instance_run, 'conn') and db_instance_run.conn: db_instance_run.close()
 
 def archive_command(args):
     logger = logging.getLogger(__name__)
     logger.debug(f"Archive command: {args}")
-    if args.dry_run:
-        logger.info(
-            f"DRY-RUN: Archive: type={args.archive_type}, date={args.date or 'today'}, db={args.db_path}"
-        )
-        return
+    if args.dry_run: logger.info(f"DRY-RUN: Archive: type={args.archive_type}, date={args.date or 'today'}, db={args.db_path}"); return
     try:
-        from archive_db import DatabaseArchiver, IAConfig
-        from datetime import datetime, date as DateObject
-
-        snap_date = (
-            datetime.strptime(args.date, "%Y-%m-%d").date()
-            if args.date
-            else DateObject.today()
-        )
-        logger.info(
-            f"Starting archive: type={args.archive_type}, date={snap_date}, db={args.db_path}"
-        )
-        if not args.db_path.exists():
-            logger.error(f"DB not found: {args.db_path}")
-            return
+        from src.archive_db import DatabaseArchiver, IAConfig
+        snap_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date() if args.date else datetime.date.today()
+        logger.info(f"Starting archive: type={args.archive_type}, date={snap_date}, db={args.db_path}")
+        if not args.db_path.exists(): logger.error(f"DB not found: {args.db_path}"); return
         archiver = DatabaseArchiver(IAConfig.from_env())
-        if archiver.archive_database(
-            db_path=args.db_path,
-            snapshot_date=snap_date,
-            archive_type=args.archive_type,
-        ):
+        if archiver.archive_database(db_path=args.db_path, snapshot_date=snap_date, archive_type=args.archive_type):
             logger.info("✅ Database archive completed successfully")
-        else:
-            logger.error("❌ Database archive failed")
-    except ImportError as e:
-        logger.error(f"Archive import error: {e}. 'internetarchive' installed?")
-    except ValueError as e:
-        logger.error(f"Archive config error: {e}. Check IA env vars.")
-    except Exception as e:
-        logger.error(f"Archive command failed: {e}", exc_info=args.verbose)
-
+        else: logger.error("❌ Database archive failed")
+    except ImportError as e: logger.error(f"Archive import error: {e}. 'internetarchive' installed?")
+    except ValueError as e: logger.error(f"Archive config error: {e}. Check IA env vars.")
+    except Exception as e: logger.error(f"Archive command failed: {e}", exc_info=args.verbose if hasattr(args, 'verbose') else False)
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="CausaGanha Legal Rating ETL Pipeline."
-    )
+    parser = argparse.ArgumentParser(description="CausaGanha Legal Rating ETL Pipeline.")
     parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging.")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Commands")
-
-    # Simplified argument definitions
-    cmd_definitions = [
-        (
-            "collect",
-            "Downloads documents.",
-            collect_command,
-            [
-                ("--date", {"required": True, "help": "Date (YYYY-MM-DD)."}),
-                ("--dry-run", {"action": "store_true"}),
-            ],
-        ),
-        (
-            "extract",
-            "Extracts PDF to JSON.",
-            extract_command,
-            [
-                ("--pdf_file", {"required": True, "type": Path, "help": "PDF path."}),
-                ("--output_json_dir", {"type": Path}),
-                ("--dry-run", {"action": "store_true"}),
-            ],
-        ),
-        (
-            "update",
-            "Updates ratings from JSONs.",
-            update_command,
-            [("--dry-run", {"action": "store_true"})],
-        ),
-        (
-            "archive",
-            "Archives database.",
-            archive_command,
-            [
-                ("--date", {"help": "Snapshot date (YYYY-MM-DD, default: today)."}),
-                (
-                    "--archive-type",
-                    {
-                        "choices": ["weekly", "monthly", "quarterly"],
-                        "default": "weekly",
-                    },
-                ),
-                (
-                    "--db-path",
-                    {"type": Path, "default": Path("data/causaganha.duckdb")},
-                ),
-                ("--dry-run", {"action": "store_true"}),
-            ],
-        ),
-        (
-            "run",
-            "Full pipeline: collect, extract, update.",
-            run_command,
-            [
-                ("--date", {"required": True, "help": "Date (YYYY-MM-DD)."}),
-                (
-                    "--output_json_dir",
-                    {"type": Path, "help": "JSON out dir for extract."},
-                ),
-                ("--dry-run", {"action": "store_true"}),
-            ],
-        ),
+    cmd_defs = [
+        ("collect", "Downloads documents.", collect_command, [("--date", {"required": True}), ("--dry-run", {"action": "store_true"})]),
+        ("extract", "Extracts PDF to JSON.", extract_command, [("--pdf_file", {"required": True, "type": Path}), ("--output_json_dir", {"type": Path}), ("--dry-run", {"action": "store_true"})]),
+        ("update", "Updates ratings from JSONs.", update_command, [("--dry-run", {"action": "store_true"})]),
+        ("archive", "Archives database.", archive_command, [("--date", {}), ("--archive-type", {"choices": ["weekly", "monthly", "quarterly"], "default": "weekly"}), ("--db-path", {"type": Path, "default": Path("data/causaganha.duckdb")}), ("--dry-run", {"action": "store_true"})]),
+        ("run", "Full pipeline.", run_command, [("--date", {"required": True}), ("--output_json_dir", {"type": Path}), ("--dry-run", {"action": "store_true"})]),
     ]
-
-    for name, help_text, func, arg_list in cmd_definitions:
+    for name, help_text, func, arg_list in cmd_defs:
         p = subparsers.add_parser(name, help=help_text)
         p.set_defaults(func=func)
-        for arg_name, arg_params in arg_list:
-            p.add_argument(arg_name, **arg_params)
+        # Add verbose to all subparsers for consistency if it's a global option
+        p.add_argument("--verbose", action="store_true", help="Enable DEBUG logging for this command.")
+        for arg_name, params in arg_list: p.add_argument(arg_name, **params)
 
     args = parser.parse_args()
-    setup_logging(args.verbose if hasattr(args, "verbose") else False)
+    # Setup logging based on the verbose flag of the *executed* command or global
+    setup_logging(args.verbose)
 
     logger = logging.getLogger(__name__)
     logger.debug(f"Command: {args.command}, Args: {vars(args)}")
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        parser.print_help()
-
+    if hasattr(args, "func"): args.func(args)
+    else: parser.print_help()
 
 if __name__ == "__main__":
     main()

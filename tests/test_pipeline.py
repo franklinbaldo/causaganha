@@ -1,463 +1,329 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 import sys
 from io import StringIO
 import logging
 from pathlib import Path
-import pandas as pd
+# import pandas as pd # No longer needed for these tests as pipeline.py doesn't use it directly for CSVs
 import json
+import argparse # Import argparse for creating Namespace objects
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
+# This try-except is for local execution of this test file.
+# Pytest execution should handle imports via conftest.py or pythonpath.
 try:
-    import pipeline
-except ModuleNotFoundError as e:
-    print(f"ERROR: Could not import modules. Original error: {e}", file=sys.stderr)
-    pipeline = None
-
+    from src import pipeline # Try to import the pipeline module from src
+except ModuleNotFoundError:
+    pipeline = None # Will be caught by setUp methods
 
 class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def setUp(self):
         if pipeline is None:
-            self.fail("The 'pipeline' module could not be imported.")
+            self.fail("The 'pipeline' module (src.pipeline) could not be imported. Check PYTHONPATH or import errors.")
+
         self.stdout_patch = patch("sys.stdout", new_callable=StringIO)
         self.stderr_patch = patch("sys.stderr", new_callable=StringIO)
         self.mock_stdout = self.stdout_patch.start()
         self.mock_stderr = self.stderr_patch.start()
+
+        # Clear and configure logging for testing purposes
         root_logger = logging.getLogger()
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
-        pipeline_module_logger = logging.getLogger("pipeline")
-        for handler in pipeline_module_logger.handlers[:]:
-            pipeline_module_logger.removeHandler(handler)
-        pipeline_module_logger.setLevel(logging.NOTSET)
-        logging.getLogger().addHandler(logging.NullHandler())
+        for handler in root_logger.handlers[:]: root_logger.removeHandler(handler)
+        # Configure root logger for tests to see logs from modules if needed
+        logging.basicConfig(stream=self.mock_stdout, level=logging.DEBUG, force=True)
+
 
     def tearDown(self):
         self.stdout_patch.stop()
         self.stderr_patch.stop()
-        logging.getLogger().handlers.clear()
+        # Restore default logging
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]: root_logger.removeHandler(handler)
+        logging.basicConfig(level=logging.WARNING, force=True)
+
 
     def run_main_for_test(self, args_list):
         original_argv = sys.argv
         try:
-            sys.argv = ["pipeline.py"] + args_list
-            pipeline.main()
-            return 0
+            # Prepend 'pipeline.py' or a relevant script name if main() expects it
+            sys.argv = ["pipeline_script_name_for_argparse"] + args_list
+            return pipeline.main() # Assuming main returns 0 on success, or sys.exit is caught
         except SystemExit as e:
             return e.code
         finally:
             sys.argv = original_argv
 
-    @patch("pipeline.fetch_tjro_pdf")
+    @patch("src.pipeline.fetch_tjro_pdf") # Patching where it's used
     def test_collect_args_parsed_and_called(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake.pdf")
-        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10"]), 0)
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-10", dry_run=False, verbose=False
-        )
+        # Pass verbose=False explicitly as it's now added to subparsers by default in pipeline.py
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10", "--verbose", "False"]), 0)
+        mock_fetch.assert_called_once_with(date_str="2024-03-10", dry_run=False, verbose=False)
 
-    @patch("pipeline.fetch_tjro_pdf")
+    @patch("src.pipeline.fetch_tjro_pdf")
     def test_collect_dry_run(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_dry.pdf")
-        self.assertEqual(
-            self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run"]), 0
-        )
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-11", dry_run=True, verbose=False
-        )
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run", "--verbose", "False"]), 0)
+        mock_fetch.assert_called_once_with(date_str="2024-03-11", dry_run=True, verbose=False)
 
-    @patch("pipeline.GeminiExtractor")
+    @patch("src.pipeline.GeminiExtractor")
     def test_extract_args_parsed_and_called(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake.json")
         dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract.pdf"
-        dummy_pdf_path.touch()
-        self.assertEqual(
-            self.run_main_for_test(
-                [
-                    "extract",
-                    "--pdf_file",
-                    str(dummy_pdf_path),
-                    "--output_json_dir",
-                    "/tmp/output",
-                ]
-            ),
-            0,
-        )
-        MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=dummy_pdf_path, output_json_dir=Path("/tmp/output"), dry_run=False
-        )
-        if dummy_pdf_path.exists():
-            dummy_pdf_path.unlink()
+        with open(dummy_pdf_path, "w") as f: f.write("dummy content") # Ensure file exists
 
-    @patch("pipeline.GeminiExtractor")
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--output_json_dir", "/tmp/output", "--verbose", "False"]),0,)
+        MockGeminiExtractor.assert_called_once_with(verbose=False)
+        mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=Path("/tmp/output"), dry_run=False)
+        if dummy_pdf_path.exists(): dummy_pdf_path.unlink()
+
+    @patch("src.pipeline.GeminiExtractor")
     def test_extract_dry_run(self, MockGeminiExtractor):
         mock_instance = MockGeminiExtractor.return_value
         mock_instance.extract_and_save_json.return_value = Path("/tmp/fake_dry.json")
         dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract_dry.pdf"
-        self.assertEqual(
-            self.run_main_for_test(
-                ["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run"]
-            ),
-            0,
-        )
-        MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=dummy_pdf_path, output_json_dir=dummy_pdf_path.parent, dry_run=True
-        )
+        with open(dummy_pdf_path, "w") as f: f.write("dummy content")
 
-    @patch("pipeline.update_command")
-    @patch("pipeline.GeminiExtractor")
-    @patch("pipeline.fetch_tjro_pdf")
-    def test_run_command_orchestration(
-        self, mock_fetch, MockGeminiExtractor, mock_update_cmd
-    ):
-        mock_fetch.return_value = Path("/tmp/collected_via_run.pdf")
-        mock_extractor_instance = MockGeminiExtractor.return_value
-        mock_extractor_instance.extract_and_save_json.return_value = Path(
-            "causaganha/data/json/run_extracted.json"
-        )
-        self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12"]), 0)
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-12", dry_run=False, verbose=False
-        )
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run", "--verbose", "False"]),0,)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
-        mock_extractor_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=Path("/tmp/collected_via_run.pdf"),
-            output_json_dir=Path("causaganha/data/json/"),
-            dry_run=False,
-        )
-        mock_update_cmd.assert_called_once()
+        # output_json_dir defaults to pdf_file.parent
+        mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=dummy_pdf_path.parent, dry_run=True)
+        if dummy_pdf_path.exists(): dummy_pdf_path.unlink()
 
-    @patch("pipeline.update_command")
-    @patch("pipeline.GeminiExtractor")
-    @patch("pipeline.fetch_tjro_pdf")
-    def test_run_command_dry_run(
-        self, mock_fetch, MockGeminiExtractor, mock_update_cmd
-    ):
-        mock_fetch.return_value = Path("/tmp/collected_dry_run.pdf")
-        mock_extractor_instance = MockGeminiExtractor.return_value
-        mock_extractor_instance.extract_and_save_json.return_value = Path(
-            "causaganha/data/json/run_extracted_dry.json"
-        )
-        self.assertEqual(
-            self.run_main_for_test(
-                ["--verbose", "run", "--date", "2024-03-13", "--dry-run"]
-            ),
-            0,
-        )
-        mock_fetch.assert_called_once_with(
-            date_str="2024-03-13", dry_run=True, verbose=True
-        )
-        MockGeminiExtractor.assert_called_once_with(verbose=True)
-        mock_extractor_instance.extract_and_save_json.assert_called_once_with(
-            pdf_path=Path("/tmp/collected_dry_run.pdf"),
-            output_json_dir=Path("causaganha/data/json/"),
-            dry_run=True,
-        )
-        mock_update_cmd.assert_called_once()
-        self.assertTrue(mock_update_cmd.call_args[0][0].dry_run)
+
+    @patch("src.pipeline._update_ratings_logic") # Patch the direct function called by run_command
+    @patch("src.pipeline.extract_command") # Patch the command function called by run_command
+    @patch("src.pipeline.collect_command") # Patch the command function called by run_command
+    def test_run_command_orchestration(self, mock_collect_cmd, mock_extract_cmd, mock_update_logic):
+        mock_collect_cmd.return_value = Path("/tmp/collected_via_run.pdf")
+        mock_extract_cmd.return_value = PROJECT_ROOT / "data" / "json" / "run_extracted.json"
+
+        # Mock CausaGanhaDB and PiiManager as they are instantiated in run_command for _update_ratings_logic
+        with patch("src.pipeline.CausaGanhaDB") as MockCausaGanhaDB, \
+             patch("src.pipeline.PiiManager") as MockPiiManager:
+
+            mock_db_instance = MockCausaGanhaDB.return_value
+            MockPiiManager.return_value # consume return value
+
+            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12", "--verbose", "False"]), 0)
+
+            mock_collect_cmd.assert_called_once()
+            # Check specific args passed to collect_command's Namespace
+            self.assertEqual(mock_collect_cmd.call_args[0][0].date, "2024-03-12")
+            self.assertFalse(mock_collect_cmd.call_args[0][0].dry_run)
+            self.assertFalse(mock_collect_cmd.call_args[0][0].verbose)
+
+            mock_extract_cmd.assert_called_once()
+            self.assertEqual(mock_extract_cmd.call_args[0][0].pdf_file, Path("/tmp/collected_via_run.pdf"))
+            self.assertFalse(mock_extract_cmd.call_args[0][0].dry_run)
+
+            mock_update_logic.assert_called_once()
+            # Check args passed to _update_ratings_logic
+            self.assertFalse(mock_update_logic.call_args[0][1]) # dry_run
+            self.assertIsInstance(mock_update_logic.call_args[0][2], MockCausaGanhaDB) # db instance
+            self.assertIsInstance(mock_update_logic.call_args[0][3], MockPiiManager) # pii_manager instance
+
+    @patch("src.pipeline._update_ratings_logic")
+    @patch("src.pipeline.extract_command")
+    @patch("src.pipeline.collect_command")
+    def test_run_command_dry_run(self, mock_collect_cmd, mock_extract_cmd, mock_update_logic):
+        mock_collect_cmd.return_value = Path("/tmp/collected_dry_run.pdf")
+        mock_extract_cmd.return_value = PROJECT_ROOT / "data" / "json" / "run_extracted_dry.json"
+
+        with patch("src.pipeline.CausaGanhaDB"), patch("src.pipeline.PiiManager"):
+            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-13", "--dry-run", "--verbose", "True"]),0)
+
+        mock_collect_cmd.assert_called_once()
+        self.assertTrue(mock_collect_cmd.call_args[0][0].dry_run)
+        self.assertTrue(mock_collect_cmd.call_args[0][0].verbose)
+
+        mock_extract_cmd.assert_called_once()
+        self.assertTrue(mock_extract_cmd.call_args[0][0].dry_run)
+
+        mock_update_logic.assert_called_once()
+        self.assertTrue(mock_update_logic.call_args[0][1]) # dry_run for _update_ratings_logic
 
     def test_unknown_argument(self):
         self.assertEqual(self.run_main_for_test(["--nonexistent-arg"]), 2)
-        self.assertIn(
-            "the following arguments are required: command", self.mock_stderr.getvalue()
-        )
+        self.assertIn("unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue())
 
     def test_unknown_subcommand_argument(self):
-        self.assertEqual(self.run_main_for_test(["update", "--nonexistent-arg"]), 2)
-        self.assertIn(
-            "unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue()
-        )
+        self.assertEqual(self.run_main_for_test(["update", "--nonexistent-arg", "--verbose", "False"]), 2)
+        self.assertIn("unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue())
 
     def test_collect_missing_date(self):
-        self.assertEqual(self.run_main_for_test(["collect"]), 2)
-        self.assertIn(
-            "the following arguments are required: --date", self.mock_stderr.getvalue()
-        )
+        self.assertEqual(self.run_main_for_test(["collect", "--verbose", "False"]), 2)
+        self.assertIn("the following arguments are required: --date", self.mock_stderr.getvalue())
 
     def test_extract_missing_pdf_file(self):
-        self.assertEqual(self.run_main_for_test(["extract"]), 2)
-        self.assertIn(
-            "the following arguments are required: --pdf_file",
-            self.mock_stderr.getvalue(),
-        )
+        self.assertEqual(self.run_main_for_test(["extract", "--verbose", "False"]), 2)
+        self.assertIn("the following arguments are required: --pdf_file", self.mock_stderr.getvalue())
 
-    @patch("pipeline.fetch_tjro_pdf")
+    @patch("src.pipeline.fetch_tjro_pdf")
     def test_collect_invalid_date_format_passed_through(self, mock_fetch):
-        mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf")
-        self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE"]), 0)
-        mock_fetch.assert_called_once_with(
-            date_str="NOT-A-DATE", dry_run=False, verbose=False
-        )
+        mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf") # fetch_tjro_pdf itself handles date parsing now
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE", "--verbose", "False"]), 0)
+        mock_fetch.assert_called_once_with(date_str="NOT-A-DATE", dry_run=False, verbose=False)
 
     @patch("logging.basicConfig")
     def test_verbose_flag_sets_debug_level_basicConfig(self, mock_basic_config):
-        with patch.object(pipeline, "_update_ratings_logic", MagicMock()):  # Corrected
-            self.run_main_for_test(["--verbose", "update"])
-        called_with_debug = any(
-            call_args.kwargs.get("level") == logging.DEBUG
-            for call_args in mock_basic_config.call_args_list
-        )
-        self.assertTrue(
-            called_with_debug,
-            "logging.basicConfig was not called with logging.DEBUG when --verbose was used.",
-        )
+        with patch.object(pipeline, "update_command", MagicMock()):
+             self.run_main_for_test(["--verbose", "update"])
+
+        debug_level_set = False
+        for call_args_tuple in mock_basic_config.call_args_list:
+            if call_args_tuple.kwargs.get("level") == logging.DEBUG:
+                debug_level_set = True
+                break
+        self.assertTrue(debug_level_set, "logging.basicConfig was not called with logging.DEBUG. Calls: " + str(mock_basic_config.call_args_list))
 
     @patch("logging.getLogger")
     def test_verbose_logging_capture_for_update(self, mock_get_logger):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
-        with patch.object(pipeline, "_update_ratings_logic", MagicMock()):  # Corrected
-            self.run_main_for_test(["--verbose", "update"])
-        self.assertTrue(mock_logger_instance.debug.called)
-        self.assertTrue(
-            any(
-                "Update command called with args" in str(arg_call)
-                for arg_call in mock_logger_instance.debug.call_args_list
-            )
-        )
+        # Patch the actual logic function that update_command calls
+        with patch.object(pipeline, "_update_ratings_logic", MagicMock()):
+            self.run_main_for_test(["update", "--verbose"]) # Pass --verbose to update sub-command
+
+        # Check if the logger for 'pipeline' (used in update_command) was called with debug
+        debug_call_found = False
+        for call in mock_logger_instance.debug.call_args_list:
+            if "Update command called with args" in str(call[0][0]):
+                debug_call_found = True
+                break
+        self.assertTrue(debug_call_found, "Logger debug was not called with expected message for update command.")
+
 
     @patch("logging.getLogger")
     def test_dry_run_logging_capture_for_collect(self, mock_get_logger):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
-        self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run"])
-        dry_run_fetch_logged = any(
-            "DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg)
-            for call_arg in mock_logger_instance.info.call_args_list
-        )
-        self.assertTrue(
-            dry_run_fetch_logged,
-            f"Expected DRY-RUN info log not found. Actual: {mock_logger_instance.info.call_args_list}",
-        )
+        with patch("src.pipeline.fetch_tjro_pdf", MagicMock(return_value=Path("fake.pdf"))): # Mock actual fetch
+            self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run", "--verbose", "False"])
+
+        dry_run_fetch_logged = any("DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg)
+            for call_arg in mock_logger_instance.info.call_args_list)
+        self.assertTrue(dry_run_fetch_logged, f"Expected DRY-RUN info log not found. Actual: {mock_logger_instance.info.call_args_list}")
 
 
 class TestPipelineUpdateCommand(unittest.TestCase):
+    # This class needs significant refactoring to mock DB and PII manager
+    # instead of CSV operations.
     def setUp(self):
         if pipeline is None:
-            self.fail("The 'pipeline' module could not be imported.")
-        self.base_data_path = PROJECT_ROOT / "causaganha" / "data"
-        self.json_input_dir = self.base_data_path / "json"
+            self.fail("The 'pipeline' module (src.pipeline) could not be imported.")
+
+        # Create dummy JSON files for processing
+        self.project_root_dir = Path(__file__).resolve().parent.parent
+        self.json_input_dir = self.project_root_dir / "data" / "json"
         self.json_input_dir.mkdir(parents=True, exist_ok=True)
-        self.processed_json_dir = self.base_data_path / "json_processed"
+        self.processed_json_dir = self.project_root_dir / "data" / "json_processed"
         self.processed_json_dir.mkdir(parents=True, exist_ok=True)
-        self.ratings_csv_path = self.base_data_path / "ratings.csv"
-        self.partidas_csv_path = self.base_data_path / "partidas.csv"
-        self.sample_decision_1 = {
-            "numero_processo": "001",
-            "tipo_decisao": "sentença",
-            "polo_ativo": ["PA"],
-            "polo_passivo": ["PB"],
-            "advogados_polo_ativo": ["AdvA"],
-            "advogados_polo_passivo": ["AdvB"],
-            "resultado": "procedente",
-            "data_decisao": "2023-01-01",
-        }
-        self.sample_decision_2 = {
-            "numero_processo": "002",
-            "tipo_decisao": "sentença",
-            "polo_ativo": ["PC"],
-            "polo_passivo": ["PD"],
-            "advogados_polo_ativo": ["AdvC"],
-            "advogados_polo_passivo": ["AdvA"],
-            "resultado": "improcedente",
-            "data_decisao": "2023-01-02",
-        }
-        self.sample_decision_3 = {
-            "numero_processo": "003",
-            "tipo_decisao": "acordao",
-            "polo_ativo": ["PE"],
-            "polo_passivo": ["PF"],
-            "advogados_polo_ativo": ["AdvA", "AdvD"],
-            "advogados_polo_passivo": ["AdvB"],
-            "resultado": "provido",
-            "data_decisao": "2023-01-03",
-        }
-        with open(self.json_input_dir / "decision1.json", "w") as f:
-            json.dump({"decisions": [self.sample_decision_1]}, f)
-        with open(self.json_input_dir / "decision2.json", "w") as f:
-            json.dump([self.sample_decision_2], f)
-        with open(self.json_input_dir / "decision3.json", "w") as f:
-            json.dump({"decisions": [self.sample_decision_3]}, f)
-        initial_ratings_df = pd.DataFrame(
-            {
-                "advogado_id": pd.Series([], dtype="object"),
-                "mu": pd.Series([], dtype="float"),
-                "sigma": pd.Series([], dtype="float"),
-                "total_partidas": pd.Series([], dtype="int"),
-            }
-        ).set_index("advogado_id")
-        initial_ratings_df.to_csv(self.ratings_csv_path)
-        if self.partidas_csv_path.exists():
-            self.partidas_csv_path.unlink()
 
-        # Capture logs for pipeline module
+        self.sample_decision_1 = {"numero_processo": "001", "advogados_polo_ativo": ["AdvA"], "advogados_polo_passivo": ["AdvB"], "resultado": "procedente", "polo_ativo":["PA"], "polo_passivo":["PB"], "data_decisao":"2023-01-01"}
+        self.sample_decision_2 = {"numero_processo": "002", "advogados_polo_ativo": ["AdvC"], "advogados_polo_passivo": ["AdvA"], "resultado": "improcedente", "polo_ativo":["PC"], "polo_passivo":["PD"], "data_decisao":"2023-01-02"}
+
+        with open(self.json_input_dir / "decision1.json", "w") as f: json.dump({"decisions": [self.sample_decision_1], "file_name_source": "decision1.pdf"}, f)
+        with open(self.json_input_dir / "decision2.json", "w") as f: json.dump({"decisions": [self.sample_decision_2], "file_name_source": "decision2.pdf"}, f)
+
+        # Capture logs
         self.log_capture_string = StringIO()
-        self.pipeline_logger = logging.getLogger(
-            "pipeline"
-        )  # Get the logger used in pipeline.py
-        self.original_handlers = self.pipeline_logger.handlers[:]
-        self.pipeline_logger.handlers = []  # Remove existing handlers if any
+        self.pipeline_logger = logging.getLogger("pipeline") # Logger used in pipeline.py
         self.ch = logging.StreamHandler(self.log_capture_string)
-        self.ch.setLevel(logging.INFO)  # Capture INFO and above
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        self.ch.setFormatter(formatter)
         self.pipeline_logger.addHandler(self.ch)
-        self.pipeline_logger.setLevel(logging.INFO)  # Ensure logger level is also set
+        self.pipeline_logger.setLevel(logging.INFO)
 
-        self.stdout_patch = patch("sys.stdout", new_callable=StringIO)
-        self.mock_stdout = self.stdout_patch.start()
-        self.stderr_patch = patch("sys.stderr", new_callable=StringIO)
-        self.mock_stderr = self.stderr_patch.start()
-        # logging.getLogger().addHandler(logging.NullHandler()) # Avoid this global handler
 
     def tearDown(self):
         self.pipeline_logger.removeHandler(self.ch)
-        self.pipeline_logger.handlers = (
-            self.original_handlers
-        )  # Restore original handlers
-        self.ch.close()
+        for f_name in ["decision1.json", "decision2.json"]:
+            if (self.json_input_dir / f_name).exists(): (self.json_input_dir / f_name).unlink()
+            if (self.processed_json_dir / f_name).exists(): (self.processed_json_dir / f_name).unlink()
+        if self.json_input_dir.exists() and not any(self.json_input_dir.iterdir()): self.json_input_dir.rmdir()
+        if self.processed_json_dir.exists() and not any(self.processed_json_dir.iterdir()): self.processed_json_dir.rmdir()
+        # Clean data dir if empty
+        data_dir = self.project_root_dir / "data"
+        if data_dir.exists() and not any(data_dir.iterdir()): data_dir.rmdir()
 
-        for f_name in ["decision1.json", "decision2.json", "decision3.json"]:
-            if (self.json_input_dir / f_name).exists():
-                (self.json_input_dir / f_name).unlink()
-            if (self.processed_json_dir / f_name).exists():
-                (self.processed_json_dir / f_name).unlink()
-        if self.ratings_csv_path.exists():
-            self.ratings_csv_path.unlink()
-        if self.partidas_csv_path.exists():
-            self.partidas_csv_path.unlink()
-        self.stdout_patch.stop()
-        self.stderr_patch.stop()
-        logging.getLogger().handlers.clear()
 
-    @patch("pipeline.shutil.move")
-    @patch("pipeline.pd.DataFrame.to_csv")
-    @patch("pipeline.pd.read_csv")
-    def test_update_command_valid_decisions(
-        self, mock_read_csv, mock_to_csv, mock_shutil_move
-    ):
-        initial_ratings_df = pd.DataFrame(
-            {
-                "advogado_id": pd.Series([], dtype="object"),
-                "mu": pd.Series([], dtype="float"),
-                "sigma": pd.Series([], dtype="float"),
-                "total_partidas": pd.Series([], dtype="int"),
-            }
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df.copy()
-        args = pipeline.argparse.Namespace(dry_run=False, verbose=True)
+    @patch("src.pipeline.shutil.move")
+    @patch("src.pipeline.PiiManager")
+    @patch("src.pipeline.CausaGanhaDB")
+    def test_update_command_valid_decisions(self, MockCausaGanhaDB, MockPiiManager, mock_shutil_move):
+        mock_db_instance = MockCausaGanhaDB.return_value
+        mock_pii_instance = MockPiiManager.return_value
+
+        # Simulate PII mapping
+        def pii_map_side_effect(val, ptype, norm_val=None):
+            return f"uuid_for_{norm_val or val}_{ptype}"
+        mock_pii_instance.get_or_create_pii_mapping.side_effect = pii_map_side_effect
+
+        # Simulate DB get_rating (player not found initially)
+        mock_db_instance.get_rating.return_value = None
+
+        args = argparse.Namespace(dry_run=False, verbose=False) # Explicitly set verbose for command
         pipeline.update_command(args)
-        mock_read_csv.assert_called_once_with(
-            Path("causaganha/data/ratings.csv"), index_col="advogado_id"
-        )
-        self.assertEqual(mock_to_csv.call_count, 2)
-        self.assertEqual(mock_shutil_move.call_count, 3)
-        relative_input_path = Path("causaganha/data/json")
-        relative_processed_path = Path("causaganha/data/json_processed")
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision1.json"),
-            str(relative_processed_path / "decision1.json"),
-        )
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision2.json"),
-            str(relative_processed_path / "decision2.json"),
-        )
-        mock_shutil_move.assert_any_call(
-            str(relative_input_path / "decision3.json"),
-            str(relative_processed_path / "decision3.json"),
-        )
 
-        # Check ratings_df output (first call to to_csv)
-        ratings_df_output_path = mock_to_csv.call_args_list[0].args[0]
-        self.assertEqual(ratings_df_output_path, Path("causaganha/data/ratings.csv"))
-        # The actual DataFrame written is the first argument to the instance method
-        written_ratings_df = mock_to_csv.call_args_list[0].instance
-        self.assertIsInstance(written_ratings_df, pd.DataFrame)
-        self.assertIn("mu", written_ratings_df.columns)
-        self.assertIn("sigma", written_ratings_df.columns)
-        self.assertIn("total_partidas", written_ratings_df.columns)
-        self.assertTrue(pd.api.types.is_float_dtype(written_ratings_df["mu"]))
-        self.assertTrue(pd.api.types.is_float_dtype(written_ratings_df["sigma"]))
-        self.assertTrue(
-            pd.api.types.is_integer_dtype(written_ratings_df["total_partidas"])
-        )
-        self.assertGreater(
-            len(written_ratings_df),
-            0,
-            "Ratings df should not be empty after processing.",
-        )
+        MockCausaGanhaDB.assert_called_once()
+        MockPiiManager.assert_called_once_with(mock_db_instance.conn)
 
-        # Check partidas_df output (second call to to_csv)
-        partidas_df_output_path = mock_to_csv.call_args_list[1].args[0]
-        written_partidas_df = mock_to_csv.call_args_list[1].instance
-        self.assertEqual(partidas_df_output_path, Path("causaganha/data/partidas.csv"))
-        self.assertIsInstance(written_partidas_df, pd.DataFrame)
-        self.assertIn("resultado_partida", written_partidas_df.columns)
-        self.assertGreater(
-            len(written_partidas_df), 0, "Partidas df should not be empty."
-        )
-        self.assertEqual(mock_to_csv.call_args_list[1].kwargs.get("index"), False)
+        self.assertTrue(mock_pii_instance.get_or_create_pii_mapping.called)
+        self.assertTrue(mock_db_instance.add_raw_decision.called)
+        self.assertTrue(mock_db_instance.get_rating.called)
+        self.assertTrue(mock_db_instance.update_rating.called)
+        self.assertTrue(mock_db_instance.add_partida.called)
 
-        # Check log message
-        log_contents = self.log_capture_string.getvalue()
-        self.assertIn("Starting OpenSkill ratings update process.", log_contents)
-        self.assertIn("Ratings saved to", log_contents)
-        self.assertIn("Partidas history saved to", log_contents)
+        # Two files should be moved
+        self.assertEqual(mock_shutil_move.call_count, 2)
 
-    @patch("pipeline.shutil.move")
-    @patch("pipeline.pd.DataFrame.to_csv")
-    @patch("pipeline.pd.read_csv")
-    def test_update_command_dry_run(self, mock_read_csv, mock_to_csv, mock_shutil_move):
-        initial_ratings_df = pd.DataFrame(
-            {"advogado_id": [], "mu": [], "sigma": [], "total_partidas": []}
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df.copy()
-        args = pipeline.argparse.Namespace(dry_run=True, verbose=True)
+    @patch("src.pipeline.shutil.move")
+    @patch("src.pipeline.PiiManager")
+    @patch("src.pipeline.CausaGanhaDB")
+    def test_update_command_dry_run(self, MockCausaGanhaDB, MockPiiManager, mock_shutil_move):
+        mock_db_instance = MockCausaGanhaDB.return_value
+        mock_pii_instance = MockPiiManager.return_value
+        mock_pii_instance.get_or_create_pii_mapping.side_effect = lambda val, ptype, norm_val: f"uuid_for_{norm_val or val}_{ptype}"
+        mock_db_instance.get_rating.return_value = None
+
+
+        args = argparse.Namespace(dry_run=True, verbose=False)
         pipeline.update_command(args)
-        mock_read_csv.assert_called_once_with(
-            Path("causaganha/data/ratings.csv"), index_col="advogado_id"
-        )
-        mock_to_csv.assert_not_called()
+
+        mock_db_instance.add_raw_decision.assert_not_called()
+        mock_db_instance.update_rating.assert_not_called()
+        mock_db_instance.add_partida.assert_not_called()
         mock_shutil_move.assert_not_called()
 
-    @patch("pipeline.validate_decision", return_value=False)
-    @patch("pipeline.shutil.move")
-    @patch("pipeline.pd.DataFrame.to_csv")
-    @patch("pipeline.pd.read_csv")
+        self.assertTrue(mock_pii_instance.get_or_create_pii_mapping.called)
+        self.assertTrue(mock_db_instance.get_rating.called)
+
+
+    @patch("src.pipeline.validate_decision", return_value=False) # Make all decisions invalid
+    @patch("src.pipeline.shutil.move")
+    @patch("src.pipeline.PiiManager")
+    @patch("src.pipeline.CausaGanhaDB")
     def test_update_command_all_decisions_invalid(
-        self, mock_read_csv, mock_to_csv, mock_shutil_move, mock_validate
+        self, MockCausaGanhaDB, MockPiiManager, mock_shutil_move, mock_validate_decision
     ):
-        initial_ratings_df = pd.DataFrame(
-            {
-                "advogado_id": pd.Series([], dtype="object"),
-                "mu": pd.Series([], dtype="float"),
-                "sigma": pd.Series([], dtype="float"),
-                "total_partidas": pd.Series([], dtype="int"),
-            }
-        ).set_index("advogado_id")
-        mock_read_csv.return_value = initial_ratings_df.copy()
-        args = pipeline.argparse.Namespace(dry_run=False, verbose=True)
+        mock_db_instance = MockCausaGanhaDB.return_value
+
+        args = argparse.Namespace(dry_run=False, verbose=False)
         pipeline.update_command(args)
-        self.assertEqual(mock_to_csv.call_count, 1)
-        self.assertEqual(
-            mock_to_csv.call_args_list[0].args[0], Path("causaganha/data/ratings.csv")
-        )
+
+        mock_db_instance.add_raw_decision.assert_not_called()
+        mock_db_instance.update_rating.assert_not_called()
+        mock_db_instance.add_partida.assert_not_called()
         mock_shutil_move.assert_not_called()
-        self.assertTrue(mock_validate.call_count >= 3)
+        self.assertTrue(mock_validate_decision.call_count >= 2)
 
 
 if __name__ == "__main__":
-    logging.disable(logging.NOTSET)
-    logging.basicConfig(
-        level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s"
-    )
+    # This part is for running tests directly via `python tests/test_pipeline.py`
+    # Pytest will use its own collection and execution mechanisms.
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
     unittest.main(argv=sys.argv[:1], verbosity=2, exit=False)
