@@ -544,9 +544,26 @@ def _update_lawyer_rating(ln,mu,sigma):
 def _store_match_record(did,np,ta,tp,r):
     try:db.conn.execute("INSERT INTO partidas(decisao_id,numero_processo,advogados_polo_ativo,advogados_polo_passivo,resultado_partida,created_at)VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)",[did,np,json.dumps(ta),json.dumps(tp),r])
     except Exception as e:_LOG_.warning(f"Fail store match {did}:{e}")
-def _show_rating_stats():    try:        mg = config_data.get("openskill", {}).get("min_games_for_ranking", 3)        tl = db.conn.execute(            f"SELECT advogado_id,mu,sigma,total_partidas,mu-3*sigma as cs FROM ratings WHERE total_partidas>=? ORDER BY cs DESC LIMIT 10",            [mg],        ).fetchall()        if tl:            typer.echo(f"
-🏆 Top 10 Lawyers(min {mg} games):")            for i, (n, mu, s, p, cs) in enumerate(tl, 1):                typer.echo(                    f"{i:2d}.{n[:30]:<30}|Skill:{cs:6.1f}(μ={mu:5.1f} σ={s:4.1f})|Games:{p:3d}"                )        tot_l = db.conn.execute("SELECT COUNT(*)FROM ratings").fetchone()[0]        tot_m = db.conn.execute("SELECT COUNT(*)FROM partidas").fetchone()[0]        typer.echo(f"
-📊 Overall:{tot_l:,} Lawyers,{tot_m:,} Matches")    except Exception as e:        _LOG_.warning(f"Stats err:{e}")
+def _show_rating_stats():
+    try:
+        mg = config_data.get("openskill", {}).get("min_games_for_ranking", 3)
+        tl = db.conn.execute(
+            f"SELECT advogado_id,mu,sigma,total_partidas,mu-3*sigma as cs FROM ratings WHERE total_partidas>=? ORDER BY cs DESC LIMIT 10",
+            [mg],
+        ).fetchall()
+        if tl:
+            typer.echo(f"
+🏆 Top 10 Lawyers(min {mg} games):")
+            for i, (n, mu, s, p, cs) in enumerate(tl, 1):
+                typer.echo(
+                    f"{i:2d}.{n[:30]:<30}|Skill:{cs:6.1f}(μ={mu:5.1f} σ={s:4.1f})|Games:{p:3d}"
+                )
+        tot_l = db.conn.execute("SELECT COUNT(*)FROM ratings").fetchone()[0]
+        tot_m = db.conn.execute("SELECT COUNT(*)FROM partidas").fetchone()[0]
+        typer.echo(f"
+📊 Overall:{tot_l:,} Lawyers,{tot_m:,} Matches")
+    except Exception as e:
+        _LOG_.warning(f"Stats err:{e}")
 
 @app.command()
 def stats():
