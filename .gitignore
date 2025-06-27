@@ -4,7 +4,7 @@ __pycache__/
 .env
 uv.lock
 
-*.md
+
 # Data files
 data/*
 
