@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 import tempfile
 import sys
-import uuid # Required for new temp_db logic
+import uuid  # Required for new temp_db logic
 
 # Add src to Python path for development
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -27,7 +27,9 @@ def temp_db():
             db_file_path.unlink()
         except OSError as e:
             # This might happen if a previous test run failed to clean up and the file is locked
-            pytest.skip(f"Could not remove pre-existing temp DB file {db_file_path}: {e}")
+            pytest.skip(
+                f"Could not remove pre-existing temp DB file {db_file_path}: {e}"
+            )
 
     yield db_file_path  # DuckDB will create the file when db.connect() is called
 
@@ -41,7 +43,9 @@ def temp_db():
             # If it's a persistent issue, tests might need specific teardown logic for their DB instances.
             # For now, we'll log a warning if cleanup fails but not fail the test itself here.
             # (pytest doesn't easily allow logging from fixture teardown to main report)
-            print(f"Warning: Could not clean up temporary database file {db_file_path} after test.")
+            print(
+                f"Warning: Could not clean up temporary database file {db_file_path} after test."
+            )
             pass
 
 

@@ -59,17 +59,23 @@ def rate_teams(
 
     if result == "win_a":
         ranks = [0, 1]
-        print(f"Before rating (win_a): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
+        print(
+            f"Before rating (win_a): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}"
+        )
         new_ratings = os_model.rate(teams, ranks=ranks)
         print(f"After rating (win_a): new_ratings={new_ratings}")
     elif result == "win_b":
         ranks = [1, 0]
-        print(f"Before rating (win_b): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
+        print(
+            f"Before rating (win_b): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}"
+        )
         new_ratings = os_model.rate(teams, ranks=ranks)
         print(f"After rating (win_b): new_ratings={new_ratings}")
     elif result == "draw":
         ranks = [0, 0]
-        print(f"Before rating (draw): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
+        print(
+            f"Before rating (draw): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}"
+        )
         new_ratings = os_model.rate(teams, ranks=ranks)
         print(f"After rating (draw): new_ratings={new_ratings}")
     elif result == "partial_a":

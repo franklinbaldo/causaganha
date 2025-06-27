@@ -10,6 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class CausaGanhaDB:
     """
     Classe unificada para gerenciar todos os dados do CausaGanha em DuckDB.
@@ -282,16 +283,14 @@ class CausaGanhaDB:
             arquivo_path TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );"""
+        );""",
     ]
-
 
     def __init__(self, db_path: Path = Path("data/causaganha.duckdb")):
         self.db_path = db_path
         self.conn = None
         # The 'migrations' directory is no longer needed for schema setup
         # self.migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
-
 
     def __enter__(self):
         self.connect()
@@ -307,34 +306,43 @@ class CausaGanhaDB:
             raise ConnectionError("Database connection not established.")
         try:
             for stmt_idx, statement in enumerate(self.SCHEMA_STATEMENTS):
-                logger.debug(f"Executing schema statement {stmt_idx+1}/{len(self.SCHEMA_STATEMENTS)}: {statement[:100]}...")
+                logger.debug(
+                    f"Executing schema statement {stmt_idx + 1}/{len(self.SCHEMA_STATEMENTS)}: {statement[:100]}..."
+                )
                 self.conn.execute(statement)
-            self.conn.commit() # Ensure all schema changes are committed
+            self.conn.commit()  # Ensure all schema changes are committed
             logger.info("All schema statements executed successfully.")
         except Exception as e:
             logger.error(f"Error executing schema statement: {e}", exc_info=True)
             # Attempt to rollback if transaction was started by execute many, though DuckDB DDL is often auto-committed
-            try: self.conn.rollback()
-            except Exception as rb_e: logger.error(f"Rollback failed after schema error: {rb_e}")
+            try:
+                self.conn.rollback()
+            except Exception as rb_e:
+                logger.error(f"Rollback failed after schema error: {rb_e}")
             raise
-
 
     def connect(self):
         """Conecta ao banco DuckDB e cria tabelas se não existirem."""
         try:
             logger.info(f"Connecting to DuckDB: {self.db_path}")
             self.conn = duckdb.connect(str(self.db_path))
-            logger.info(f"Connected to DuckDB: {self.db_path}. Ensuring schema exists...")
-            self._create_tables_if_not_exist() # Create all tables directly
+            logger.info(
+                f"Connected to DuckDB: {self.db_path}. Ensuring schema exists..."
+            )
+            self._create_tables_if_not_exist()  # Create all tables directly
             logger.info("Schema setup complete.")
         except Exception as e:
-            logger.error(f"Failed to connect or setup schema for DB {self.db_path}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to connect or setup schema for DB {self.db_path}: {e}",
+                exc_info=True,
+            )
             if self.conn:
-                try: self.conn.close()
-                except: pass
+                try:
+                    self.conn.close()
+                except:
+                    pass
             self.conn = None
             raise
-
 
     def close(self):
         """Fecha conexão com banco."""
@@ -362,7 +370,7 @@ class CausaGanhaDB:
         self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
     ):
         """Atualiza rating de um advogado. advogado_id is now expected to be a UUID."""
-        existing = self.get_rating(advogado_id) # advogado_id is UUID
+        existing = self.get_rating(advogado_id)  # advogado_id is UUID
 
         if existing:
             if increment_partidas:
@@ -388,7 +396,6 @@ class CausaGanhaDB:
             self.conn.execute(sql, [advogado_id, mu, sigma, total_partidas])
         self.conn.commit()
 
-
     def get_rating(self, advogado_id: str) -> Optional[Dict]:
         """Retorna rating específico de um advogado. advogado_id is UUID."""
         result = self.conn.execute(
@@ -397,7 +404,12 @@ class CausaGanhaDB:
         ).fetchone()
 
         if result:
-            return {"advogado_id": result[0], "mu": result[1], "sigma": result[2], "total_partidas": result[3]}
+            return {
+                "advogado_id": result[0],
+                "mu": result[1],
+                "sigma": result[2],
+                "total_partidas": result[3],
+            }
         return None
 
     # =====================================
@@ -407,18 +419,22 @@ class CausaGanhaDB:
     def add_partida(
         self,
         data_partida: str,
-        numero_processo: str, # This will be a UUID
-        equipe_a_ids: List[str], # List of lawyer UUIDs
-        equipe_b_ids: List[str], # List of lawyer UUIDs
-        ratings_antes_a: Dict[str, tuple], # Keys are lawyer UUIDs
-        ratings_antes_b: Dict[str, tuple], # Keys are lawyer UUIDs
+        numero_processo: str,  # This will be a UUID
+        equipe_a_ids: List[str],  # List of lawyer UUIDs
+        equipe_b_ids: List[str],  # List of lawyer UUIDs
+        ratings_antes_a: Dict[str, tuple],  # Keys are lawyer UUIDs
+        ratings_antes_b: Dict[str, tuple],  # Keys are lawyer UUIDs
         resultado: str,
-        ratings_depois_a: Dict[str, tuple], # Keys are lawyer UUIDs
-        ratings_depois_b: Dict[str, tuple], # Keys are lawyer UUIDs
+        ratings_depois_a: Dict[str, tuple],  # Keys are lawyer UUIDs
+        ratings_depois_b: Dict[str, tuple],  # Keys are lawyer UUIDs
     ) -> int:
         """Adiciona nova partida e retorna ID. numero_processo and lawyer IDs are UUIDs."""
-        max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM partidas").fetchone()
-        next_id = max_id_result[0] if max_id_result and max_id_result[0] is not None else 1
+        max_id_result = self.conn.execute(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM partidas"
+        ).fetchone()
+        next_id = (
+            max_id_result[0] if max_id_result and max_id_result[0] is not None else 1
+        )
 
         sql = """
             INSERT INTO partidas (
@@ -428,19 +444,32 @@ class CausaGanhaDB:
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """
         try:
-            self.conn.execute(sql, [
-                next_id, data_partida, numero_processo,
-                json.dumps(equipe_a_ids), json.dumps(equipe_b_ids),
-                json.dumps(ratings_antes_a), json.dumps(ratings_antes_b),
-                resultado,
-                json.dumps(ratings_depois_a), json.dumps(ratings_depois_b)
-            ])
+            self.conn.execute(
+                sql,
+                [
+                    next_id,
+                    data_partida,
+                    numero_processo,
+                    json.dumps(equipe_a_ids),
+                    json.dumps(equipe_b_ids),
+                    json.dumps(ratings_antes_a),
+                    json.dumps(ratings_antes_b),
+                    resultado,
+                    json.dumps(ratings_depois_a),
+                    json.dumps(ratings_depois_b),
+                ],
+            )
             self.conn.commit()
             return next_id
         except Exception as e:
-            logger.error(f"Error adding partida for numero_processo {numero_processo}: {e}", exc_info=True)
-            try: self.conn.rollback()
-            except Exception as rb_e: logger.error(f"Rollback failed after add_partida error: {rb_e}")
+            logger.error(
+                f"Error adding partida for numero_processo {numero_processo}: {e}",
+                exc_info=True,
+            )
+            try:
+                self.conn.rollback()
+            except Exception as rb_e:
+                logger.error(f"Rollback failed after add_partida error: {rb_e}")
             raise
 
     def get_partidas(self, limit: int = None) -> pd.DataFrame:
@@ -462,23 +491,30 @@ class CausaGanhaDB:
         resultado_original: Optional[str],
         data_decisao_original: Optional[str],
         raw_json_pii_replaced: str,
-        pdf_source_file: Optional[str] = None, # This might map to json_source_file if pdf filename is in json
+        pdf_source_file: Optional[
+            str
+        ] = None,  # This might map to json_source_file if pdf filename is in json
         json_source_file: Optional[str] = None,
         tipo_decisao: Optional[str] = None,
         resumo_original: Optional[str] = None,
         texto_completo_original: Optional[str] = None,
-        validation_status: str = 'pending',
+        validation_status: str = "pending",
         validation_errors: Optional[str] = None,
         extraction_timestamp: Optional[str] = None,
         pdf_source_id: Optional[int] = None,
-        partida_id: Optional[int] = None
+        partida_id: Optional[int] = None,
     ):
-        max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes").fetchone()
-        next_id = max_id_result[0] if max_id_result and max_id_result[0] is not None else 1
+        max_id_result = self.conn.execute(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes"
+        ).fetchone()
+        next_id = (
+            max_id_result[0] if max_id_result and max_id_result[0] is not None else 1
+        )
 
         current_ts_iso = extraction_timestamp
         if current_ts_iso is None:
             from datetime import datetime, timezone
+
             current_ts_iso = datetime.now(timezone.utc).isoformat()
 
         sql = """
@@ -492,21 +528,41 @@ class CausaGanhaDB:
         """
         try:
             params = [
-                next_id, numero_processo_uuid, pdf_source_id, json_source_file, current_ts_iso,
-                polo_ativo_uuids_json, polo_passivo_uuids_json,
-                advogados_polo_ativo_full_str_uuids_json, advogados_polo_passivo_full_str_uuids_json,
-                tipo_decisao, resultado_original, data_decisao_original, resumo_original, texto_completo_original,
-                raw_json_pii_replaced, False, partida_id,
-                validation_status, validation_errors
+                next_id,
+                numero_processo_uuid,
+                pdf_source_id,
+                json_source_file,
+                current_ts_iso,
+                polo_ativo_uuids_json,
+                polo_passivo_uuids_json,
+                advogados_polo_ativo_full_str_uuids_json,
+                advogados_polo_passivo_full_str_uuids_json,
+                tipo_decisao,
+                resultado_original,
+                data_decisao_original,
+                resumo_original,
+                texto_completo_original,
+                raw_json_pii_replaced,
+                False,
+                partida_id,
+                validation_status,
+                validation_errors,
             ]
             self.conn.execute(sql, params)
             self.conn.commit()
-            logger.info(f"Added decision ID {next_id} (processo_uuid: {numero_processo_uuid}) to 'decisoes'.")
+            logger.info(
+                f"Added decision ID {next_id} (processo_uuid: {numero_processo_uuid}) to 'decisoes'."
+            )
             return next_id
         except Exception as e:
-            logger.error(f"Error adding decision for {numero_processo_uuid} to 'decisoes': {e}", exc_info=True)
-            try: self.conn.rollback()
-            except Exception as rb_e: logger.error(f"Rollback failed after add_raw_decision error: {rb_e}")
+            logger.error(
+                f"Error adding decision for {numero_processo_uuid} to 'decisoes': {e}",
+                exc_info=True,
+            )
+            try:
+                self.conn.rollback()
+            except Exception as rb_e:
+                logger.error(f"Rollback failed after add_raw_decision error: {rb_e}")
             raise
 
     # =====================================
@@ -521,14 +577,14 @@ class CausaGanhaDB:
         # For now, assume it exists and returns expected columns.
         try:
             result = self.conn.execute("SELECT * FROM estatisticas_gerais").fetchone()
-            if not result: return {}
+            if not result:
+                return {}
             # Get column names from cursor description
             colnames = [desc[0] for desc in self.conn.description]
             return dict(zip(colnames, result))
         except Exception as e:
             logger.error(f"Error fetching statistics: {e}", exc_info=True)
             return {}
-
 
     # =====================================
     # MÉTODOS: Backup e Utilitários
@@ -537,9 +593,25 @@ class CausaGanhaDB:
     def export_to_csv(self, output_dir: Path):
         output_dir.mkdir(exist_ok=True)
         # Added pii_decode_map to tables to export
-        tables_to_export = ["ratings", "partidas", "pdf_metadata", "decisoes", "json_files", "pii_decode_map", "pdfs", "archived_databases", "pdf_discovery_queue", "pdf_archive_queue", "pdf_extraction_queue", "rating_processing_queue", "queue_processing_log"]
+        tables_to_export = [
+            "ratings",
+            "partidas",
+            "pdf_metadata",
+            "decisoes",
+            "json_files",
+            "pii_decode_map",
+            "pdfs",
+            "archived_databases",
+            "pdf_discovery_queue",
+            "pdf_archive_queue",
+            "pdf_extraction_queue",
+            "rating_processing_queue",
+            "queue_processing_log",
+        ]
 
-        existing_tables = [row[0] for row in self.conn.execute("SHOW TABLES").fetchall()]
+        existing_tables = [
+            row[0] for row in self.conn.execute("SHOW TABLES").fetchall()
+        ]
 
         for table in tables_to_export:
             if table in existing_tables:
@@ -569,7 +641,9 @@ class CausaGanhaDB:
             logger.error("Database export failed: %s", e, exc_info=True)
             return False
 
-    def get_archive_statistics(self) -> Dict[str, Any]: # Kept for compatibility, relies on get_statistics
+    def get_archive_statistics(
+        self,
+    ) -> Dict[str, Any]:  # Kept for compatibility, relies on get_statistics
         return self.get_statistics()
 
     def vacuum(self):
@@ -590,10 +664,14 @@ class CausaGanhaDB:
     def _get_table_info(self) -> Dict:
         tables_info = {}
         try:
-            all_db_tables = [row[0] for row in self.conn.execute("SHOW TABLES").fetchall()]
+            all_db_tables = [
+                row[0] for row in self.conn.execute("SHOW TABLES").fetchall()
+            ]
             for table_name in all_db_tables:
                 try:
-                    count = self.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+                    count = self.conn.execute(
+                        f"SELECT COUNT(*) FROM {table_name}"
+                    ).fetchone()[0]
                     tables_info[table_name] = count
                 except Exception as e:
                     tables_info[table_name] = f"Error counting: {e}"
@@ -605,44 +683,70 @@ class CausaGanhaDB:
     def queue_diario(self, diario) -> bool:
         try:
             from models.diario import Diario
-            if not isinstance(diario, Diario): raise ValueError("Expected Diario object")
+
+            if not isinstance(diario, Diario):
+                raise ValueError("Expected Diario object")
             item = diario.queue_item
             self.conn.execute(
                 "INSERT INTO job_queue (url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (url) DO UPDATE SET status = EXCLUDED.status, updated_at = CURRENT_TIMESTAMP",
-                [item['url'], item['date'], item['tribunal'], item['filename'], json.dumps(item['metadata']), item['status'], item['ia_identifier'], item['arquivo_path']]
+                [
+                    item["url"],
+                    item["date"],
+                    item["tribunal"],
+                    item["filename"],
+                    json.dumps(item["metadata"]),
+                    item["status"],
+                    item["ia_identifier"],
+                    item["arquivo_path"],
+                ],
             )
             self.conn.commit()
             logger.info(f"Queued diario: {diario.display_name}")
             return True
         except Exception as e:
-            logger.error(f"Error queuing diario {getattr(diario, 'display_name', 'unknown')}: {e}", exc_info=True)
+            logger.error(
+                f"Error queuing diario {getattr(diario, 'display_name', 'unknown')}: {e}",
+                exc_info=True,
+            )
             return False
 
     def get_diarios_by_status(self, status: str) -> List:
         # This is a read-only method, no commit needed
         try:
             from models.diario import Diario
+
             # Construct column names from a sample Diario object or define explicitly
             # Assuming Diario.from_queue_item can handle dicts from zip(colnames, row)
             cursor = self.conn.execute(
                 "SELECT url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path "
-                "FROM job_queue WHERE status = ? ORDER BY created_at", [status]
+                "FROM job_queue WHERE status = ? ORDER BY created_at",
+                [status],
             )
             colnames = [desc[0] for desc in cursor.description]
-            diarios = [Diario.from_queue_item(dict(zip(colnames, row))) for row in cursor.fetchall()]
+            diarios = [
+                Diario.from_queue_item(dict(zip(colnames, row)))
+                for row in cursor.fetchall()
+            ]
             logger.info(f"Retrieved {len(diarios)} diarios with status '{status}'")
             return diarios
         except Exception as e:
-            logger.error(f"Error retrieving diarios with status '{status}': {e}", exc_info=True)
+            logger.error(
+                f"Error retrieving diarios with status '{status}': {e}", exc_info=True
+            )
             return []
 
     def update_diario_status(self, diario, new_status: str, **kwargs) -> bool:
         try:
-            url = diario.url if hasattr(diario, 'url') else str(diario)
+            url = diario.url if hasattr(diario, "url") else str(diario)
             update_fields = ["status = ?", "updated_at = CURRENT_TIMESTAMP"]
             values = [new_status]
-            field_mappings = {'ia_identifier': 'ia_identifier', 'arquivo_path': 'arquivo_path', 'pdf_path': 'arquivo_path', 'error_message': 'error_message'}
+            field_mappings = {
+                "ia_identifier": "ia_identifier",
+                "arquivo_path": "arquivo_path",
+                "pdf_path": "arquivo_path",
+                "error_message": "error_message",
+            }
             for key, value in kwargs.items():
                 if key in field_mappings:
                     update_fields.append(f"{field_mappings[key]} = ?")
@@ -657,39 +761,61 @@ class CausaGanhaDB:
             logger.warning(f"No diario found with URL for status update: {url}")
             return False
         except Exception as e:
-            logger.error(f"Error updating diario status for {getattr(diario, 'url', diario)}: {e}", exc_info=True)
+            logger.error(
+                f"Error updating diario status for {getattr(diario, 'url', diario)}: {e}",
+                exc_info=True,
+            )
             return False
 
     def get_diarios_by_tribunal(self, tribunal: str) -> List:
         # Read-only, no commit
         try:
             from models.diario import Diario
+
             cursor = self.conn.execute(
                 "SELECT url, date, tribunal, filename, metadata, status, ia_identifier, arquivo_path "
-                "FROM job_queue WHERE tribunal = ? ORDER BY date DESC", [tribunal]
+                "FROM job_queue WHERE tribunal = ? ORDER BY date DESC",
+                [tribunal],
             )
             colnames = [desc[0] for desc in cursor.description]
-            diarios = [Diario.from_queue_item(dict(zip(colnames, row))) for row in cursor.fetchall()]
+            diarios = [
+                Diario.from_queue_item(dict(zip(colnames, row)))
+                for row in cursor.fetchall()
+            ]
             logger.info(f"Retrieved {len(diarios)} diarios for tribunal '{tribunal}'")
             return diarios
         except Exception as e:
-            logger.error(f"Error retrieving diarios for tribunal '{tribunal}': {e}", exc_info=True)
+            logger.error(
+                f"Error retrieving diarios for tribunal '{tribunal}': {e}",
+                exc_info=True,
+            )
             return []
 
     def get_diario_statistics(self) -> Dict[str, Any]:
         # Read-only, no commit
         try:
-            stats = {'total_diarios': self.conn.execute("SELECT COUNT(*) FROM job_queue").fetchone()[0]}
-            status_res = self.conn.execute("SELECT status, COUNT(*) FROM job_queue GROUP BY status ORDER BY COUNT(*) DESC").fetchall()
-            stats['by_status'] = {status: count for status, count in status_res}
-            tribunal_res = self.conn.execute("SELECT tribunal, COUNT(*) FROM job_queue GROUP BY tribunal ORDER BY COUNT(*) DESC").fetchall()
-            stats['by_tribunal'] = {tribunal: count for tribunal, count in tribunal_res}
-            recent_res = self.conn.execute("SELECT COUNT(*) FROM job_queue WHERE created_at >= CURRENT_DATE - INTERVAL 7 DAY").fetchone()
-            stats['recent_activity'] = recent_res[0] if recent_res else 0
+            stats = {
+                "total_diarios": self.conn.execute(
+                    "SELECT COUNT(*) FROM job_queue"
+                ).fetchone()[0]
+            }
+            status_res = self.conn.execute(
+                "SELECT status, COUNT(*) FROM job_queue GROUP BY status ORDER BY COUNT(*) DESC"
+            ).fetchall()
+            stats["by_status"] = {status: count for status, count in status_res}
+            tribunal_res = self.conn.execute(
+                "SELECT tribunal, COUNT(*) FROM job_queue GROUP BY tribunal ORDER BY COUNT(*) DESC"
+            ).fetchall()
+            stats["by_tribunal"] = {tribunal: count for tribunal, count in tribunal_res}
+            recent_res = self.conn.execute(
+                "SELECT COUNT(*) FROM job_queue WHERE created_at >= CURRENT_DATE - INTERVAL 7 DAY"
+            ).fetchone()
+            stats["recent_activity"] = recent_res[0] if recent_res else 0
             return stats
         except Exception as e:
             logger.error(f"Error getting diario statistics: {e}", exc_info=True)
             return {}
+
 
 # Removed MigrationRunner import and _run_migrations method.
 # Schema creation is now handled by _create_tables_if_not_exist called from connect().

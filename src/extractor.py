@@ -380,6 +380,7 @@ REGRAS OBRIGATÓRIAS:
             # Clean up temporary directory
             try:
                 import shutil
+
                 shutil.rmtree(temp_dir)
                 logging.info(f"Cleaned up temporary directory: {temp_dir}")
             except (OSError, FileNotFoundError) as cleanup_error:
@@ -393,6 +394,7 @@ REGRAS OBRIGATÓRIAS:
             # Clean up temp directory even on failure
             try:
                 import shutil
+
                 shutil.rmtree(temp_dir)
             except:
                 pass

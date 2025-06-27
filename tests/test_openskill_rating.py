@@ -161,7 +161,7 @@ def test_example_from_module(default_model: PlackettLuce):
     )
     player3_ex1 = create_rating(default_model, name="Player3_ex1")
 
-        # Store initial mu values
+    # Store initial mu values
     p1_initial_mu = player1_ex1.mu
     p2_initial_mu = player2_ex1.mu
     p3_initial_mu = player3_ex1.mu
@@ -176,8 +176,8 @@ def test_example_from_module(default_model: PlackettLuce):
     p3_updated_ex1 = updated_team_b_ex1[0]
 
     # assert p1_updated_ex1.mu > p1_initial_mu
-# assert p2_updated_ex1.mu > p2_initial_mu
-# assert p3_updated_ex1.mu < p3_initial_mu
+    # assert p2_updated_ex1.mu > p2_initial_mu
+    # assert p3_updated_ex1.mu < p3_initial_mu
 
     # Test draw
     player1_ex2 = create_rating(default_model, name="Player1_ex2")
@@ -209,10 +209,12 @@ def test_example_from_module(default_model: PlackettLuce):
     p3_partial = updated_team_b_partial[0]
 
     # assert p1_partial.mu > player1_ex3.mu or p1_partial.sigma < player1_ex3.sigma
+
+
 # assert p3_partial.mu < player3_ex3.mu or p3_partial.sigma < player3_ex3.sigma
-    # For partial results, the change might be smaller than a full win
-    # A more precise test would compare the magnitude of change vs a full 'win_a'
-    # For now, just ensuring it runs and behaves directionally like a win is okay.
+# For partial results, the change might be smaller than a full win
+# A more precise test would compare the magnitude of change vs a full 'win_a'
+# For now, just ensuring it runs and behaves directionally like a win is okay.
 
 
 # Consider adding tests for edge cases:
