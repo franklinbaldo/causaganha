@@ -10,7 +10,7 @@
 ## 📊 **Current Status** (Updated: 2025-06-27)
 - **Active Phase**: Planning & Preparation
 - **Next Priority**: Database Integration Fixes (Phase 1A)
-- **Plans Coordinated**: 6 plans analyzed and sequenced
+- **Plans Coordinated**: 16 plans analyzed and sequenced
 - **Resource Status**: Ready for implementation
 
 ---
@@ -24,6 +24,16 @@
 4. **`multi_tribunal_collection.md`** - 🌐 **EXPANSION**
 5. **`prompt_versioning_strategy.md`** - 📝 **QUALITY**
 6. **`refactor_archive_command.md`** - 🗄️ **ARCHITECTURE**
+7. **`add-support-for-new-llm-providers.md`** - 🤖 **FLEXIBILITY**
+8. **`develop-web-dashboard.md`** - 📊 **UI**
+9. **`enhance-ia-interaction-robustness.md`** - ⚙️ **STABILITY**
+10. **`enhance-testing-framework.md`** - 🧪 **TESTING**
+11. **`implement-advanced-analytics-features.md`** - 📈 **ANALYTICS**
+12. **`implement-data-validation-layer.md`** - ✅ **DATA QUALITY**
+13. **`improve-error-handling-and-logging.md`** - 🐛 **RELIABILITY**
+14. **`optimize-async-pipeline.md`** - 🚀 **PERFORMANCE**
+15. **`refactor-downloader-module.md`** - 📥 **DOWNLOAD**
+16. **`refine-openskill-rating-model.md`** - 🎯 **SCORING**
 
 ### 🔍 **Compatibility Assessment**
 
@@ -125,6 +135,24 @@
 1. **Week 7**: Implement prompt naming and hashing system
 2. **Week 8**: CI integration, migration of existing prompts
 
+### **Phase 4: STABILIZATION (Weeks 9-10) - Reliability & Performance**
+> Improve robustness and optimize pipeline before advanced features
+
+- `implement-data-validation-layer.md`
+- `improve-error-handling-and-logging.md`
+- `enhance-ia-interaction-robustness.md`
+- `refactor-downloader-module.md`
+- `optimize-async-pipeline.md`
+- `enhance-testing-framework.md`
+
+### **Phase 5: ADVANCED FEATURES (Weeks 11-14) - Analytics & UI**
+> Introduce higher level capabilities and user interface
+
+- `add-support-for-new-llm-providers.md`
+- `refine-openskill-rating-model.md`
+- `implement-advanced-analytics-features.md`
+- `develop-web-dashboard.md`
+
 ---
 
 ## 🔄 **Cross-Plan Dependencies**
@@ -150,6 +178,8 @@ graph TD
 - **Week 4**: 100% Archive Refactor
 - **Weeks 5-6**: 100% Multi-Tribunal (can scale to 2 developers)
 - **Weeks 7-8**: 50% Prompt Versioning (parallel with testing/polish)
+- **Weeks 9-10**: 100% Stabilization and optimization
+- **Weeks 11-14**: 100% Advanced features and UI
 
 ---
 
@@ -196,11 +226,13 @@ graph TD
 ```
 main
 ├── feat/fix-database-integration     (Week 1)
-├── feat/diario-dataclass            (Week 2)  
+├── feat/diario-dataclass            (Week 2)
 ├── feat/dtb-migration               (Week 3)
 ├── feat/archive-refactor            (Week 4)
 ├── feat/multi-tribunal              (Weeks 5-6)
-└── feat/prompt-versioning           (Weeks 7-8)
+├── feat/prompt-versioning           (Weeks 7-8)
+├── feat/stabilization               (Weeks 9-10)
+└── feat/advanced-features           (Weeks 11-14)
 ```
 
 ### **Testing Strategy**
@@ -350,7 +382,7 @@ Per user requirements, documented that **AI assistants should always check TODO 
 
 ---
 
-**Status**: 🔴 **LIVE MASTER PLAN** - Active coordination document for 6 interconnected plans with real-time progress tracking, dependency management, and resource coordination. Updated continuously throughout alpha development.
+**Status**: 🔴 **LIVE MASTER PLAN** - Active coordination document for 16 interconnected plans with real-time progress tracking, dependency management, and resource coordination. Updated continuously throughout alpha development.
 
 **Branch Management**: 🌿 **ACTIVE CLEANUP** - Remote branches evaluated, selective integration plan established, assistant protocols documented.
 
