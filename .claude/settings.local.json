@@ -38,7 +38,12 @@
       "Bash(touch:*)",
       "WebFetch(domain:www.tjro.jus.br)",
       "Bash(jq:*)",
-      "Bash(ia upload:*)"
+      "Bash(ia upload:*)",
+      "Bash(PYTHONPATH=src uv run causaganha queue --help)",
+      "Bash(PYTHONPATH=src uv run causaganha db --help)",
+      "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://example.com/test.pdf\")",
+      "Bash(PYTHONPATH=src uv run causaganha db status)",
+      "Bash(PYTHONPATH=src uv run causaganha pipeline --help)"
     ],
     "deny": []
   }
