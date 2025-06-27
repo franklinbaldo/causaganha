@@ -1,7 +1,7 @@
 """CausaGanha CLI - Modern command-line interface for judicial document processing."""
 
 import typer
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from pathlib import Path
 import csv
 from urllib.parse import urlparse
@@ -10,11 +10,7 @@ from datetime import datetime, date as DateObject
 import json
 import asyncio
 import aiohttp
-import hashlib
-import subprocess
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
-import time
 import logging
 from tqdm.asyncio import tqdm as asyncio_tqdm  # For async usage
 from tqdm import tqdm  # For sync usage if needed elsewhere
@@ -728,11 +724,13 @@ def pipeline(
 def score(force: bool = typer.Option(False)):
     _LOG_.info(f"Score(force={force})")
     try:
-        from openskill_rating import get_openskill_model, create_rating, rate_teams
+        from openskill_rating import get_openskill_model
     except ImportError:
         _LOG_.error("OpenSkill missing.")
-        typer.echo("❌ OpenSkill missing.", err=True)
+        typer.echo("❌ OpenSkill missing.",err=True)
         return
+
+    # Import create_rating and rate_teams here to avoid F821 and F401
     if force:
         db.conn.execute("UPDATE decisoes SET processed_for_openskill=FALSE")
         _LOG_.info("Ratings reset.")
@@ -843,7 +841,7 @@ def _show_rating_stats():
     try:
         mg = config_data.get("openskill", {}).get("min_games_for_ranking", 3)
         tl = db.conn.execute(
-            f"SELECT advogado_id, mu, sigma, total_partidas, mu-3*sigma AS cs FROM ratings WHERE total_partidas>=? ORDER BY cs DESC LIMIT 10",
+            "SELECT advogado_id, mu, sigma, total_partidas, mu-3*sigma AS cs FROM ratings WHERE total_partidas>=? ORDER BY cs DESC LIMIT 10",
             [mg],
         ).fetchall()
         if tl:

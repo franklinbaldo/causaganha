@@ -483,7 +483,7 @@ class AsyncDiarioPipeline:
 
         for i, task in enumerate(asyncio.as_completed(tasks)):
             try:
-                success = await task
+                await task
                 completed += 1
 
                 if completed % 10 == 0 or completed == total:

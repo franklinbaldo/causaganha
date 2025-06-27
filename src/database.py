@@ -339,8 +339,8 @@ class CausaGanhaDB:
             if self.conn:
                 try:
                     self.conn.close()
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error closing connection: {e}")
             self.conn = None
             raise
 

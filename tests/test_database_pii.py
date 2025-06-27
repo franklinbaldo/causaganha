@@ -82,9 +82,9 @@ def test_add_raw_decision_basic(
         "validation_status": "valid",
     }
 
-    if (
-        dry_run_flag := False
-    ):  # Placeholder if we want to test dry run logic if add_raw_decision supported it
+    # Placeholder if we want to test dry run logic if add_raw_decision supported it
+    # Placeholder if we want to test dry run logic if add_raw_decision supported it
+    if False:
         pass
     else:
         decision_id = db_instance.add_raw_decision(**decision_params)

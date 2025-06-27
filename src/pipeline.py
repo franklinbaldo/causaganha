@@ -218,7 +218,7 @@ def _update_ratings_logic(
 
     project_root_dir = Path(__file__).resolve().parent.parent
     json_input_dir = project_root_dir / "data" / "json"
-    processed_json_dir = project_root_dir / "data" / "json_processed"
+    project_root_dir / "data" / "json_processed"
 
     def get_rating_from_db_or_default(adv_uuid: str):
         rating_data = db.get_rating(adv_uuid)

@@ -147,7 +147,6 @@ def test_get_or_create_pii_mapping_no_normalization(pii_manager: PiiManager):
 
 def test_get_original_pii_existing(pii_manager: PiiManager):
     """Test decoding an existing PII UUID."""
-    original_value = "Adv. Fulano Ciclano"
     normalized_value = (
         "fulano ciclano"  # This is what the UUID is based on for LAWYER_ID_NORMALIZED
     )

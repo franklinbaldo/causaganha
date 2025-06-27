@@ -159,7 +159,6 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
             patch("src.pipeline.CausaGanhaDB") as MockCausaGanhaDB,
             patch("src.pipeline.PiiManager") as MockPiiManager,
         ):
-            mock_db_instance = MockCausaGanhaDB.return_value
             MockPiiManager.return_value  # consume return value
 
             self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12"]), 0)

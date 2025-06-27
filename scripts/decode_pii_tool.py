@@ -3,13 +3,13 @@ import logging
 import sys
 from pathlib import Path
 
-# Add project root to sys.path to allow importing from src
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-
 from src.database import CausaGanhaDB
 from src.pii_manager import PiiManager
 from src.config import load_config  # For potential future config like allow_decoding
+
+# Add project root to sys.path to allow importing from src
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
 
 # Setup basic logging for the tool
 logging.basicConfig(

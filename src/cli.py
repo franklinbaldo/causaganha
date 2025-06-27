@@ -728,11 +728,20 @@ def score(
 
     sys.path.append(".")
 
+    # Import OpenSkill functionality
+    import sys
+
+    sys.path.append(".")
+
     try:
-        from openskill_rating import get_openskill_model, create_rating, rate_teams
+        from openskill_rating import get_openskill_model
     except ImportError:
         typer.echo("❌ OpenSkill rating module not found")
         return
+
+    # Import create_rating and rate_teams here to avoid F821 and F401
+
+    
 
     # Get analyzed items that need scoring
     if force:
@@ -863,6 +872,8 @@ def _process_decision_for_rating(
             return False
 
         # Get or create ratings for lawyers
+        from openskill_rating import create_rating, rate_teams
+
         def get_or_create_lawyer_rating(lawyer_name):
             # Check if lawyer exists in database
             existing = db.conn.execute(

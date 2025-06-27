@@ -94,10 +94,6 @@ class PiiManager:
         # Check if the (value_for_uuid, pii_type) mapping already exists to get its UUID
         # This prevents inserting duplicate (value_for_uuid, pii_type) pairs if somehow
         # original_value differs slightly but normalizes to the same thing.
-        query_existing = """
-            SELECT pii_uuid FROM pii_decode_map
-            WHERE value_for_uuid = ? AND pii_type = ?
-        """
         # We need a value_for_uuid column in pii_decode_map
         # Let's adjust the table design slightly:
         # pii_uuid, original_value (for decoding), value_for_uuid (for uniqueness check & UUID gen), pii_type

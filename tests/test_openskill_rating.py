@@ -162,9 +162,6 @@ def test_example_from_module(default_model: PlackettLuce):
     player3_ex1 = create_rating(default_model, name="Player3_ex1")
 
     # Store initial mu values
-    p1_initial_mu = player1_ex1.mu
-    p2_initial_mu = player2_ex1.mu
-    p3_initial_mu = player3_ex1.mu
 
     team_a_ex1 = [player1_ex1, player2_ex1]
     team_b_ex1 = [player3_ex1]
@@ -173,7 +170,7 @@ def test_example_from_module(default_model: PlackettLuce):
         default_model, team_a_ex1, team_b_ex1, "win_a"
     )
     p1_updated_ex1, p2_updated_ex1 = updated_team_a_ex1
-    p3_updated_ex1 = updated_team_b_ex1[0]
+    updated_team_b_ex1[0]
 
     # assert p1_updated_ex1.mu > p1_initial_mu
     # assert p2_updated_ex1.mu > p2_initial_mu
@@ -206,7 +203,7 @@ def test_example_from_module(default_model: PlackettLuce):
         default_model, team_a_ex3, team_b_ex3, "partial_a", partial_play_tau=0.7
     )
     p1_partial, _ = updated_team_a_partial
-    p3_partial = updated_team_b_partial[0]
+    updated_team_b_partial[0]
 
     # assert p1_partial.mu > player1_ex3.mu or p1_partial.sigma < player1_ex3.sigma
 

@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """
 Tests for the Diario dataclass implementation.
 """
@@ -160,7 +161,7 @@ class TestTJROIntegration(unittest.TestCase):
 
         # Test that we can create a diario (without actual network call)
         # This tests the basic interface without requiring network access
-        test_date = date(2025, 6, 26)
+        date(2025, 6, 26)
 
         # The create_diario method would normally call discovery.get_diario_url()
         # but we can test the adapter structure

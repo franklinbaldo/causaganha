@@ -5,15 +5,18 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
-# Add project root to sys.path
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
 
 from src.database import CausaGanhaDB
 from src.pii_manager import PiiManager
 from src.utils import (
     normalize_lawyer_name,
 )  # For consistency if needed, though PiiManager handles normalization internally based on type
+
+# Add project root to sys.path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+
 
 # Setup basic logging for the migration script
 logging.basicConfig(
