@@ -115,27 +115,7 @@ class TestFetchTjroPdf(unittest.TestCase):
         # The current `fetch_tjro_pdf` writes to `PROJECT_ROOT/causaganha/data/diarios`.
         # So, we adjust `self.expected_file_path` for this test.
 
-        real_output_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        real_expected_file_path = real_output_dir / self.expected_file_name
-        if real_expected_file_path.exists():  # Clean before test
-            real_expected_file_path.unlink()
-
-        # Make the mock_path_constructor return our controlled path for the final output file
-        # This means when `output_dir / file_name` is called, it resolves to our test path.
-        # We need `output_dir` to be our `self.download_dir`
-        # Let's assume the `Path(__file__)...` part resolves, and then `output_dir / file_name` is called.
-        # Patch the final `open` call on the Path object.
-
-        # This is getting complicated. Let's simplify:
-        # The test will check the *actual default path* used by `fetch_tjro_pdf`.
-        # `setUp` and `tearDown` will manage files in that *actual default path*.
-        self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        self.download_dir.mkdir(parents=True, exist_ok=True)  # Ensure actual dir exists
-        self.expected_file_path = self.download_dir / self.expected_file_name
-        if self.expected_file_path.exists():
-            self.expected_file_path.unlink()
-
-        result_path = fetch_tjro_pdf(self.test_date)
+        result_path = fetch_tjro_pdf(self.test_date, output_dir=self.download_dir)
 
         # Assertions
         self.assertEqual(result_path, self.expected_file_path)
@@ -275,13 +255,7 @@ class TestFetchLatestTjroPdf(unittest.TestCase):
 
         mock_get.side_effect = [mock_redirect, mock_pdf]
 
-        self.download_dir = PROJECT_ROOT / "causaganha" / "data" / "diarios"
-        self.download_dir.mkdir(parents=True, exist_ok=True)
-        self.expected_file_path = self.download_dir / self.expected_file_name
-        if self.expected_file_path.exists():
-            self.expected_file_path.unlink()
-
-        result = fetch_latest_tjro_pdf()
+        result = fetch_latest_tjro_pdf(output_dir=self.download_dir)
 
         self.assertEqual(result, self.expected_file_path)
         self.assertTrue(self.expected_file_path.exists())

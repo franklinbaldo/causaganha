@@ -1,59 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)",
-      "Bash(uv pip install:*)",
-      "Bash(python:*)",
-      "Bash(source:*)",
-      "Bash(pip install:*)",
-      "Bash(uv venv:*)",
-      "Bash(pytest:*)",
-      "Bash(wget:*)",
-      "Bash(uv add:*)",
-      "Bash(rm:*)",
-      "Bash(uv lock:*)",
-      "Bash(uv run pytest:*)",
-      "Bash(uv run:*)",
-      "Bash(grep:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git config:*)",
-      "Bash(rg:*)",
-      "Bash(mv:*)",
-      "Bash(find:*)",
-      "Bash(cp:*)",
-      "Bash(mkdir:*)",
-      "Bash(uv sync:*)",
-      "Bash(git checkout:*)",
-      "Bash(git push:*)",
-      "Bash(git restore:*)",
-      "Bash(git rm:*)",
-      "Bash(git branch:*)",
-      "Bash(git remote:*)",
-      "WebFetch(domain:docs.anthropic.com)",
-      "Bash(uv remove:*)",
-      "Bash(git merge:*)",
-      "Bash(sed:*)",
-      "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)",
-      "Bash(touch:*)",
-<<<<<<< Updated upstream
-      "WebFetch(domain:www.tjro.jus.br)",
-      "Bash(jq:*)",
-      "Bash(ia upload:*)",
-      "Bash(PYTHONPATH=src uv run causaganha queue --help)",
-      "Bash(PYTHONPATH=src uv run causaganha db --help)",
-      "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://example.com/test.pdf\")",
-      "Bash(PYTHONPATH=src uv run causaganha db status)",
-      "Bash(PYTHONPATH=src uv run causaganha pipeline --help)",
-      "Bash(true)",
-      "Bash(PYTHONPATH=src uv run causaganha db migrate)",
-      "Bash(PYTHONPATH=src uv run causaganha --help)",
-      "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://www.tjro.jus.br/test.pdf\")",
-      "Bash(PYTHONPATH=src uv run causaganha stats)",
-      "Bash(uv pip:*)"
-=======
-      "Bash(git rev-list:*)"
->>>>>>> Stashed changes
+      "Bash(git cherry-pick:*)"
     ],
     "deny": []
   }

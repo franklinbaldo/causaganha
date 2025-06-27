@@ -8,7 +8,7 @@ from openskill.models.weng_lin.plackett_luce import (
 DEFAULT_OS_MU = 25.0
 DEFAULT_OS_SIGMA = 25.0 / 3.0
 DEFAULT_OS_BETA = 25.0 / 6.0
-DEFAULT_OS_TAU = (25.0 / 3.0) / 100.0  # sigma / 100, openskill.py default
+DEFAULT_OS_TAU = (25.0 / 3.0) / 5.0  # sigma / 5, increased for more noticeable changes
 
 OS_CONFIG_TYPE = Optional[Dict[str, Any]]
 
@@ -59,13 +59,19 @@ def rate_teams(
 
     if result == "win_a":
         ranks = [0, 1]
+        print(f"Before rating (win_a): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
         new_ratings = os_model.rate(teams, ranks=ranks)
+        print(f"After rating (win_a): new_ratings={new_ratings}")
     elif result == "win_b":
         ranks = [1, 0]
+        print(f"Before rating (win_b): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
         new_ratings = os_model.rate(teams, ranks=ranks)
+        print(f"After rating (win_b): new_ratings={new_ratings}")
     elif result == "draw":
         ranks = [0, 0]
+        print(f"Before rating (draw): team_a_ratings={team_a_ratings}, team_b_ratings={team_b_ratings}")
         new_ratings = os_model.rate(teams, ranks=ranks)
+        print(f"After rating (draw): new_ratings={new_ratings}")
     elif result == "partial_a":
         ranks = [0, 1]
         new_ratings = os_model.rate(teams, ranks=ranks, tau=partial_play_tau)

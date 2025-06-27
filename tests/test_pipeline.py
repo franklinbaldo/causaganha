@@ -61,13 +61,13 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def test_collect_args_parsed_and_called(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake.pdf")
         # Pass verbose=False explicitly as it's now added to subparsers by default in pipeline.py
-        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10", "--verbose", "False"]), 0)
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-10"]), 0)
         mock_fetch.assert_called_once_with(date_str="2024-03-10", dry_run=False, verbose=False)
 
     @patch("src.pipeline.fetch_tjro_pdf")
     def test_collect_dry_run(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_dry.pdf")
-        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run", "--verbose", "False"]), 0)
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-03-11", "--dry-run"]), 0)
         mock_fetch.assert_called_once_with(date_str="2024-03-11", dry_run=True, verbose=False)
 
     @patch("src.pipeline.GeminiExtractor")
@@ -77,7 +77,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract.pdf"
         with open(dummy_pdf_path, "w") as f: f.write("dummy content") # Ensure file exists
 
-        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--output_json_dir", "/tmp/output", "--verbose", "False"]),0,)
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--output_json_dir", "/tmp/output"]),0,)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
         mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=Path("/tmp/output"), dry_run=False)
         if dummy_pdf_path.exists(): dummy_pdf_path.unlink()
@@ -89,7 +89,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         dummy_pdf_path = PROJECT_ROOT / "dummy_for_extract_dry.pdf"
         with open(dummy_pdf_path, "w") as f: f.write("dummy content")
 
-        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run", "--verbose", "False"]),0,)
+        self.assertEqual(self.run_main_for_test(["extract", "--pdf_file", str(dummy_pdf_path), "--dry-run"]),0,)
         MockGeminiExtractor.assert_called_once_with(verbose=False)
         # output_json_dir defaults to pdf_file.parent
         mock_instance.extract_and_save_json.assert_called_once_with(pdf_path=dummy_pdf_path, output_json_dir=dummy_pdf_path.parent, dry_run=True)
@@ -110,7 +110,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
             mock_db_instance = MockCausaGanhaDB.return_value
             MockPiiManager.return_value # consume return value
 
-            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12", "--verbose", "False"]), 0)
+            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-12"]), 0)
 
             mock_collect_cmd.assert_called_once()
             # Check specific args passed to collect_command's Namespace
@@ -136,7 +136,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         mock_extract_cmd.return_value = PROJECT_ROOT / "data" / "json" / "run_extracted_dry.json"
 
         with patch("src.pipeline.CausaGanhaDB"), patch("src.pipeline.PiiManager"):
-            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-13", "--dry-run", "--verbose", "True"]),0)
+            self.assertEqual(self.run_main_for_test(["run", "--date", "2024-03-13", "--dry-run", "--verbose"]),0)
 
         mock_collect_cmd.assert_called_once()
         self.assertTrue(mock_collect_cmd.call_args[0][0].dry_run)
@@ -167,13 +167,13 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     @patch("src.pipeline.fetch_tjro_pdf")
     def test_collect_invalid_date_format_passed_through(self, mock_fetch):
         mock_fetch.return_value = Path("/tmp/fake_invalid_date.pdf") # fetch_tjro_pdf itself handles date parsing now
-        self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE", "--verbose", "False"]), 0)
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "NOT-A-DATE"]), 0)
         mock_fetch.assert_called_once_with(date_str="NOT-A-DATE", dry_run=False, verbose=False)
 
     @patch("logging.basicConfig")
     def test_verbose_flag_sets_debug_level_basicConfig(self, mock_basic_config):
         with patch.object(pipeline, "update_command", MagicMock()):
-             self.run_main_for_test(["--verbose", "update"])
+             self.run_main_for_test(["update"])
 
         debug_level_set = False
         for call_args_tuple in mock_basic_config.call_args_list:
@@ -188,7 +188,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         mock_get_logger.return_value = mock_logger_instance
         # Patch the actual logic function that update_command calls
         with patch.object(pipeline, "_update_ratings_logic", MagicMock()):
-            self.run_main_for_test(["update", "--verbose"]) # Pass --verbose to update sub-command
+            self.run_main_for_test(["update"]) # Pass --verbose to update sub-command
 
         # Check if the logger for 'pipeline' (used in update_command) was called with debug
         debug_call_found = False
@@ -204,7 +204,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
         with patch("src.pipeline.fetch_tjro_pdf", MagicMock(return_value=Path("fake.pdf"))): # Mock actual fetch
-            self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run", "--verbose", "False"])
+            self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run"])
 
         dry_run_fetch_logged = any("DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg)
             for call_arg in mock_logger_instance.info.call_args_list)
