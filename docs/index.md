@@ -1,47 +1,48 @@
 # CausaGanha Documentation
 
-Bem-vindo à documentação oficial do CausaGanha - plataforma distribuída de análise judicial.
+Welcome to the official CausaGanha documentation - a distributed judicial analysis platform.
 
 ## User Guides
-- [Tutorial Rápido](quickstart.md) - Pipeline assíncrono e sincronização distribuída
-- [FAQ e Limitações](faq.md) - Perguntas frequentes e limitações conhecidas
+- [Quickstart Guide](quickstart.md) - Get started with the modern CLI
+- [CLI Design](cli_design.md) - Complete command reference and architecture
+- [FAQ](faq.md) - Frequently asked questions and known limitations
 
-## Architecture & Implementation
-- [Database Archive Implementation](database-archive-implementation.md) - Sistema de snapshots públicos no Internet Archive (✅ COMPLETO)
-- [Internet Archive Discovery Guide](ia_discovery_guide.md) - Como descobrir e listar diários arquivados
-- [OpenSkill Implementation](openskill.md) - Sistema de ranking OpenSkill (substituí TrueSkill)
-- [Business Rules](Business_rules.md) - Regras de negócio do sistema
+## System Architecture
+- [Internet Archive Discovery Guide](ia_discovery_guide.md) - Discover and list archived judicial documents
+- [OpenSkill Implementation](openskill.md) - Rating system for lawyer performance evaluation
+- [Business Rules](Business_rules.md) - System business logic and rules
+- [Prompt Versioning Strategy](prompt_versioning_strategy.md) - LLM prompt management
 
-## Historical & Planning Documents
-- [Team Rating Plan](TEAM_RATING_PLAN.md) - Planejamento histórico da transição para times (TrueSkill)
-- [Architectural Review](architectural_review.md) - Revisão arquitetural do sistema
-- [PDF Archival Strategy](pdf-archival-strategy.md) - Estratégia de arquivamento (planejamento)
-- [Enhanced Scraping](better-scrap.md) - Melhorias na coleta de PDFs (planejamento)
-- [Review 2025-06-25](review-2025-06-25.md) - Crítica e plano de ação
+## Historical Documents
+- [Review 2025-06-25](review-2025-06-25.md) - System critique and action plan
 
 ## Current System Status
 
-✅ **Sistema Distribuído Operacional** (2025-06-26)
-- Pipeline assíncrono para 5,058 diários históricos (2004-2025)
-- Banco DuckDB compartilhado via Internet Archive com sistema de locks
-- 4 workflows GitHub Actions especializados
-- Arquitetura simplificada de 2 camadas (DuckDB local + Internet Archive)
-- Sistema de descoberta e cobertura inteligente
-- Processamento concorrente configurável
+✅ **Modern CLI System Operational** (2025-06-27)
+- **4-stage pipeline**: queue → archive → analyze → score
+- **Modern Typer CLI** with rich progress display and error handling
+- **OpenSkill rating system** for lawyer performance evaluation
+- **Shared DuckDB database** via Internet Archive with conflict prevention
+- **Domain validation** (.jus.br only) for security
+- **Resume capability** for interrupted processing
+- **Database management** with migrate, sync, backup, and reset operations
+- **Concurrent processing** with configurable limits and rate limiting
 
 ## Quick Start
 
 ```bash
-# Setup inicial
-git clone https://github.com/franklinbaldo/causa_ganha.git
-cd causa_ganha
-uv venv && source .venv/bin/activate
-uv sync --dev && uv pip install -e .
+# Install and setup
+uv sync --dev
+uv run --env-file .env causaganha db migrate
 
-# Pipeline assíncrono (recomendado)
-uv run python src/async_diario_pipeline.py --max-items 5 --verbose --sync-database
+# Queue judicial documents (.jus.br domains only)
+uv run --env-file .env causaganha queue --from-csv diarios.csv
 
-# Verificar status
-uv run python src/ia_database_sync.py status
-uv run python src/ia_discovery.py --year 2025
+# Run full pipeline
+uv run --env-file .env causaganha pipeline --from-csv diarios.csv
+
+# Monitor progress
+uv run --env-file .env causaganha stats
 ```
+
+See the [Quickstart Guide](quickstart.md) for detailed setup instructions.
