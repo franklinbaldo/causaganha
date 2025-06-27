@@ -18,3 +18,8 @@ data/*
 coverage.xml
 .coverage
 htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
