@@ -36,6 +36,7 @@
       "Bash(sed:*)",
       "Bash(PYTHONPATH=/mnt/c/Users/frank/causa_ganha uv run python causaganha/core/pipeline.py --help)",
       "Bash(touch:*)",
+<<<<<<< Updated upstream
       "WebFetch(domain:www.tjro.jus.br)",
       "Bash(jq:*)",
       "Bash(ia upload:*)",
@@ -50,6 +51,9 @@
       "Bash(PYTHONPATH=src uv run causaganha queue --url \"https://www.tjro.jus.br/test.pdf\")",
       "Bash(PYTHONPATH=src uv run causaganha stats)",
       "Bash(uv pip:*)"
+=======
+      "Bash(git rev-list:*)"
+>>>>>>> Stashed changes
     ],
     "deny": []
   }
