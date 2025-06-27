@@ -8,10 +8,12 @@ This guide shows how to get CausaGanha running quickly with the modern CLI.
 2. **uv** package manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 3. **Environment variables** (create `.env` file):
    ```bash
-   GEMINI_API_KEY=your_gemini_api_key_here
-   IA_ACCESS_KEY=your_ia_access_key_here  
-   IA_SECRET_KEY=your_ia_secret_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here    # Required for analyze stage
+   IA_ACCESS_KEY=your_ia_access_key_here      # Required for archive stage  
+   IA_SECRET_KEY=your_ia_secret_key_here      # Required for archive stage
    ```
+   
+   ⚠️ **Important**: The `GEMINI_API_KEY` is **required** for the analyze stage. Without it, extraction will fail and no valid data will be available for scoring. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ## Installation
 
@@ -137,6 +139,8 @@ uv run causaganha pipeline --help  # Pipeline options
 ## Troubleshooting
 
 - **Missing API keys**: Ensure `.env` file has all required keys
+- **Gemini extraction fails**: Verify `GEMINI_API_KEY` is valid. Test with: `curl -H "Content-Type: application/json" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" -d '{"contents":[{"parts":[{"text":"Hello"}]}]}'`
+- **No data for scoring**: If analyze stage produces no valid decisions, check Gemini API configuration. Dummy data is automatically filtered out during scoring.
 - **Database errors**: Run `causaganha db migrate` to initialize/update schema
 - **Import errors**: Run `uv sync` to ensure all dependencies installed
 - **Permission errors**: Check IA credentials have upload permissions

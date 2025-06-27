@@ -417,6 +417,8 @@ def analyze(
     
     if not extractor.gemini_configured:
         typer.echo("❌ Gemini not configured. Please set GEMINI_API_KEY environment variable.")
+        typer.echo("💡 Analysis requires a valid Gemini API key for LLM extraction.")
+        typer.echo("   Get your API key from: https://aistudio.google.com/app/apikey")
         return
     
     # Create output directories
@@ -517,12 +519,16 @@ def _analyze_single_item(extractor: GeminiExtractor, ia_identifier: str, url: st
         json_path = extractor.extract_and_save_json(temp_pdf, json_output_dir)
         
         if json_path and json_path.exists():
-            typer.echo(f"📄 Extracted to: {json_path.name}")
-            
-            # Store JSON results in database
-            _store_extraction_results(json_path, ia_identifier)
-            
-            return True
+            # Validate that we got real data, not dummy data
+            if _validate_extraction_results(json_path):
+                typer.echo(f"📄 Extracted to: {json_path.name}")
+                
+                # Store JSON results in database
+                _store_extraction_results(json_path, ia_identifier)
+                
+                return True
+            else:
+                raise Exception("Extraction produced dummy/invalid data - check Gemini API configuration")
         else:
             raise Exception("Gemini extraction failed")
             
@@ -536,6 +542,40 @@ def _analyze_single_item(extractor: GeminiExtractor, ia_identifier: str, url: st
                 temp_pdf.unlink()
         except Exception:
             pass
+
+
+def _validate_extraction_results(json_path: Path) -> bool:
+    """Validate extraction results to detect dummy data."""
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Check for dummy data indicators
+        if isinstance(data, dict):
+            # Single decision format
+            if data.get('status') == 'dummy_data_gemini_not_configured':
+                return False
+            if data.get('numero_processo') == '0000000-00.0000.0.00.0000':
+                return False
+            if data.get('data_decisao') == '1900-01-01':
+                return False
+        elif isinstance(data, list):
+            # Multiple decisions format
+            if not data:  # Empty list
+                return False
+            for decision in data:
+                if isinstance(decision, dict):
+                    if decision.get('status') == 'dummy_data_gemini_not_configured':
+                        return False
+                    if decision.get('numero_processo') == '0000000-00.0000.0.00.0000':
+                        return False
+                    if decision.get('data_decisao') == '1900-01-01':
+                        return False
+        
+        return True
+        
+    except Exception:
+        return False
 
 
 def _store_extraction_results(json_path: Path, ia_identifier: str):
@@ -608,7 +648,7 @@ def score(
         db.conn.execute("UPDATE decisoes SET processed_for_openskill = FALSE")
         typer.echo("🔄 Reset all decisions for reprocessing")
     
-    # Get unprocessed decisions
+    # Get unprocessed decisions (excluding dummy data)
     result = db.conn.execute("""
         SELECT id, numero_processo, advogados_polo_ativo, advogados_polo_passivo, resultado
         FROM decisoes 
@@ -616,6 +656,8 @@ def score(
         AND validation_status = 'valid'
         AND resultado IS NOT NULL
         AND resultado != ''
+        AND numero_processo != '0000000-00.0000.0.00.0000'
+        AND raw_json_data NOT LIKE '%dummy_data_gemini_not_configured%'
     """).fetchall()
     
     if not result:
@@ -870,6 +912,15 @@ def pipeline(
     if not resume and not from_csv and 'queue' in pipeline_stages:
         typer.echo("❌ Either --from-csv or --resume is required for pipeline", err=True)
         raise typer.Exit(1)
+    
+    # Validate configuration for stages that need it
+    if 'analyze' in pipeline_stages:
+        from extractor import GeminiExtractor
+        extractor = GeminiExtractor()
+        if not extractor.gemini_configured:
+            typer.echo("❌ Gemini not configured for analyze stage. Please set GEMINI_API_KEY environment variable.")
+            typer.echo("💡 Get your API key from: https://aistudio.google.com/app/apikey")
+            raise typer.Exit(1)
     
     typer.echo(f"🚀 Starting pipeline with stages: {' → '.join(pipeline_stages)}")
     
