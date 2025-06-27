@@ -297,8 +297,79 @@ This MASTERPLAN is referenced in CLAUDE.md as the **primary coordination documen
 
 ---
 
+## 🌿 **REMOTE BRANCH ASSESSMENT** (Updated: 2025-06-27)
+
+### **Branch Evaluation Summary**
+
+Following the assistant instruction to "always check TODO in root for tasks to implement", comprehensive evaluation of all remote branches:
+
+#### **1. origin/codex/escolher-plano-para-implementar** ❌ **OBSOLETE**
+- **Status**: 58 commits behind main - **SEVERELY OUTDATED**
+- **Content**: Comprehensive R2 Storage implementation with Cloudflare integration
+- **TODO Status**: Complete R2 system documented, marked as ✅ COMPLETO
+- **Assessment**: **DO NOT MERGE** - Too far behind, functionality superseded by current IA-based architecture
+- **Action**: Archive branch, extract any valuable R2 concepts for future cloud storage plans
+
+#### **2. origin/feat/ia-strategy-refactor-plan** ⚠️ **PARTIALLY VALUABLE**
+- **Status**: 15 commits behind main - **MODERATELY OUTDATED**
+- **Content**: Distributed system implementation, async pipeline, shared database
+- **TODO Status**: Complete distributed system documented as ✅ PRODUÇÃO HARDENED
+- **Assessment**: **SELECTIVE MERGE** - Contains valuable distributed architecture patterns
+- **Action**: Cherry-pick specific commits for distributed system improvements
+
+#### **3. origin/feat/pii-replacement-and-db-consolidation** ⚠️ **MODERATE VALUE**
+- **Status**: 18 commits behind main - **MODERATELY OUTDATED**  
+- **Content**: PII handling improvements and database consolidation
+- **TODO Status**: Multiple TODO files present
+- **Assessment**: **SELECTIVE MERGE** - PII handling important for legal compliance
+- **Action**: Review PII handling code for potential integration
+
+#### **4. origin/feat/temp-duckdb** ⚠️ **MINIMAL VALUE**
+- **Status**: 18 commits behind main - **MODERATELY OUTDATED**
+- **Content**: DuckDB temporary file handling improvements
+- **TODO Status**: No root TODO found
+- **Assessment**: **LOW PRIORITY** - Feature may be superseded by current database architecture
+- **Action**: Review for temporary file handling patterns only
+
+#### **5. origin/fix/cli_flaws_ux_quality** ⚠️ **MODERATE VALUE**
+- **Status**: 16 commits behind main - **MODERATELY OUTDATED**
+- **Content**: CLI/UX improvements and quality fixes
+- **TODO Status**: Contains ia_helpers integration and master IA item strategy
+- **Assessment**: **SELECTIVE MERGE** - UX improvements always valuable
+- **Action**: Cherry-pick UX/CLI improvements that don't conflict with current architecture
+
+### **Overall Branch Strategy**
+
+#### **Immediate Actions (This Week)**
+1. **Archive Obsolete Branch**: Delete `origin/codex/escolher-plano-para-implementar` after documenting R2 concepts
+2. **Create Extraction Plan**: Document valuable patterns from partially-outdated branches
+3. **Update Remote Repository**: Clean up remote branches to reflect current development state
+
+#### **Integration Plan (Next Week)**  
+1. **Selective Cherry-picking**: Extract specific commits that enhance current architecture
+2. **PII Compliance**: Integrate PII handling improvements for legal data requirements
+3. **UX Enhancements**: Merge CLI/UX improvements that align with current Typer implementation
+
+#### **Branch Maintenance Protocol**
+- **Regular Sync**: All feature branches must stay within 5 commits of main
+- **TODO Requirements**: All branches MUST have TODO in root describing implementation status
+- **Compatibility Check**: Before merging, verify compatibility with current MASTERPLAN phases
+
+### **Assistant Instructions Added**
+Per user requirements, documented that **AI assistants should always check TODO in root of branches** for implementation tasks. This pattern ensures:
+- ✅ Clear task visibility for AI assistants
+- ✅ Implementation status tracking
+- ✅ Coordination with MASTERPLAN phases
+- ✅ Reduced duplicate work across branches
+
+---
+
 **Status**: 🔴 **LIVE MASTER PLAN** - Active coordination document for 6 interconnected plans with real-time progress tracking, dependency management, and resource coordination. Updated continuously throughout alpha development.
+
+**Branch Management**: 🌿 **ACTIVE CLEANUP** - Remote branches evaluated, selective integration plan established, assistant protocols documented.
 
 ---
 
 > 💡 **Remember**: This is ALPHA software. Breaking changes are acceptable and expected. The MASTERPLAN coordinates these changes to minimize conflicts and maximize development efficiency.
+
+> 🤖 **For AI Assistants**: Always check TODO files in branch root before implementing features. Use this MASTERPLAN for coordination across all development efforts.
