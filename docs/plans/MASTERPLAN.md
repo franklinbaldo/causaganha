@@ -303,52 +303,38 @@ This MASTERPLAN is referenced in CLAUDE.md as the **primary coordination documen
 
 Following the assistant instruction to "always check TODO in root for tasks to implement", comprehensive evaluation of all remote branches:
 
-#### **1. origin/codex/escolher-plano-para-implementar** ❌ **OBSOLETE**
-- **Status**: 58 commits behind main - **SEVERELY OUTDATED**
-- **Content**: Comprehensive R2 Storage implementation with Cloudflare integration
-- **TODO Status**: Complete R2 system documented, marked as ✅ COMPLETO
-- **Assessment**: **DO NOT MERGE** - Too far behind, functionality superseded by current IA-based architecture
-- **Action**: Archive branch, extract any valuable R2 concepts for future cloud storage plans
+#### **1. origin/fix/cli_flaws_ux_quality** ✅ **HIGH VALUE**
+- **Status**: 16 commits behind main - **MODERATELY OUTDATED**
+- **Content**: CLI/UX improvements, ia_helpers integration, master IA item strategy
+- **TODO Status**: Contains ia_helpers integration patterns
+- **Assessment**: **PRIORITY MERGE** - Essential UX improvements and IA helpers
+- **Action**: Cherry-pick CLI/UX improvements and ia_helpers functionality
 
-#### **2. origin/feat/ia-strategy-refactor-plan** ⚠️ **PARTIALLY VALUABLE**
-- **Status**: 15 commits behind main - **MODERATELY OUTDATED**
-- **Content**: Distributed system implementation, async pipeline, shared database
-- **TODO Status**: Complete distributed system documented as ✅ PRODUÇÃO HARDENED
-- **Assessment**: **SELECTIVE MERGE** - Contains valuable distributed architecture patterns
-- **Action**: Cherry-pick specific commits for distributed system improvements
-
-#### **3. origin/feat/pii-replacement-and-db-consolidation** ⚠️ **MODERATE VALUE**
+#### **2. origin/feat/pii-replacement-and-db-consolidation** ✅ **HIGH VALUE**
 - **Status**: 18 commits behind main - **MODERATELY OUTDATED**  
 - **Content**: PII handling improvements and database consolidation
 - **TODO Status**: Multiple TODO files present
-- **Assessment**: **SELECTIVE MERGE** - PII handling important for legal compliance
-- **Action**: Review PII handling code for potential integration
+- **Assessment**: **PRIORITY MERGE** - Critical for legal compliance in judicial data
+- **Action**: Extract PII handling code and database consolidation improvements
 
-#### **4. origin/feat/temp-duckdb** ⚠️ **MINIMAL VALUE**
-- **Status**: 18 commits behind main - **MODERATELY OUTDATED**
-- **Content**: DuckDB temporary file handling improvements
-- **TODO Status**: No root TODO found
-- **Assessment**: **LOW PRIORITY** - Feature may be superseded by current database architecture
-- **Action**: Review for temporary file handling patterns only
-
-#### **5. origin/fix/cli_flaws_ux_quality** ⚠️ **MODERATE VALUE**
-- **Status**: 16 commits behind main - **MODERATELY OUTDATED**
-- **Content**: CLI/UX improvements and quality fixes
-- **TODO Status**: Contains ia_helpers integration and master IA item strategy
-- **Assessment**: **SELECTIVE MERGE** - UX improvements always valuable
-- **Action**: Cherry-pick UX/CLI improvements that don't conflict with current architecture
+#### **3. Remaining Branches** ❌ **NO VALUE**
+- **origin/codex/escolher-plano-para-implementar** (58 commits behind) - R2 storage superseded
+- **origin/feat/ia-strategy-refactor-plan** (15 commits behind) - Distributed features already implemented
+- **origin/feat/temp-duckdb** (18 commits behind) - Temporary file features not needed
+- **Assessment**: **ARCHIVE ALL** - No valuable features not already implemented
+- **Action**: Delete remote branches after confirming no dependencies
 
 ### **Overall Branch Strategy**
 
 #### **Immediate Actions (This Week)**
-1. **Archive Obsolete Branch**: Delete `origin/codex/escolher-plano-para-implementar` after documenting R2 concepts
-2. **Create Extraction Plan**: Document valuable patterns from partially-outdated branches
-3. **Update Remote Repository**: Clean up remote branches to reflect current development state
+1. **Extract CLI/UX Improvements**: Cherry-pick from `origin/fix/cli_flaws_ux_quality`
+2. **Extract PII Handling**: Cherry-pick from `origin/feat/pii-replacement-and-db-consolidation`
+3. **Archive Obsolete Branches**: Delete 3 no-value remote branches
 
-#### **Integration Plan (Next Week)**  
-1. **Selective Cherry-picking**: Extract specific commits that enhance current architecture
-2. **PII Compliance**: Integrate PII handling improvements for legal data requirements
-3. **UX Enhancements**: Merge CLI/UX improvements that align with current Typer implementation
+#### **Integration Plan (Simplified - 2 Branches Only)**  
+1. **CLI/UX Priority**: ia_helpers integration and user experience improvements
+2. **PII Compliance Priority**: Legal data handling and database consolidation
+3. **Clean Repository**: Remove branches with no added value
 
 #### **Branch Maintenance Protocol**
 - **Regular Sync**: All feature branches must stay within 5 commits of main
