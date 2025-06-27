@@ -77,7 +77,7 @@ https://www.tjro.jus.br/diario2.pdf,
 ```
 
 **Auto-Detection**: Everything extracted from URL:
-- `tribunal`: From domain (`tjro.jus.br` → `TJRO`)
+- `tribunal`: From domain (`www.tjro.jus.br`)
 - `date`: From URL patterns or filename
 - `filename`: From URL path or HTTP headers
 
@@ -192,8 +192,8 @@ The CLI separates tribunal-specific URL discovery (Step 0) from the generic proc
 4. **Flexible Input**: Support various metadata formats per tribunal
 
 **Auto-Detection Examples**:
-- `https://www.tjro.jus.br/diario.pdf` → `tribunal: TJRO`
-- `https://www.tjsp.jus.br/diario.pdf` → `tribunal: TJSP`
+- `https://www.tjro.jus.br/diario.pdf` → `tribunal: www.tjro.jus.br`
+- `https://www.tjsp.jus.br/diario.pdf` → `tribunal: www.tjsp.jus.br`
 - `diario20250626.pdf` → `date: 2025-06-26`
 - `20250626614-NR115.pdf` → `date: 2025-06-26, edition: 115`
 
