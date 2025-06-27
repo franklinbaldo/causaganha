@@ -12,7 +12,6 @@ import logging
 from typing import List, Dict, Optional
 from datetime import datetime, date
 import argparse
-from urllib.parse import quote
 import time
 
 
@@ -296,7 +295,7 @@ def main():
         print("🔍 Generating coverage report...")
         report = discovery.generate_coverage_report(year=args.year)
         
-        print(f"\n📊 Coverage Report" + (f" for {report['year']}" if report['year'] else ""))
+        print("\n📊 Coverage Report" + (f" for {report['year']}" if report['year'] else ""))
         print(f"   Items in IA: {report['total_in_ia']:,}")
         print(f"   Expected items: {report['total_expected']:,}")
         print(f"   Coverage: {report['coverage_percentage']:.1f}%")
@@ -304,7 +303,7 @@ def main():
         print(f"   Extra: {report['extra_count']:,}")
         
         if report['missing_dates'] and len(report['missing_dates']) <= 20:
-            print(f"\n📅 Missing dates:")
+            print("\n📅 Missing dates:")
             for date_str in report['missing_dates'][:10]:
                 print(f"   - {date_str}")
             if len(report['missing_dates']) > 10:

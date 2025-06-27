@@ -54,7 +54,6 @@ class IADatabaseSync:
             return False
         
         try:
-            import internetarchive as ia
             import configparser
             
             # Create IA config file

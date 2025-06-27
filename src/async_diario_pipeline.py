@@ -17,15 +17,13 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import argparse
 from datetime import datetime, date, timezone
 import hashlib
 import subprocess
-import sys
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
-import tempfile
 
 # Load environment variables from .env file
 try:
@@ -42,7 +40,6 @@ def configure_ia():
     
     if access_key and secret_key:
         try:
-            import internetarchive as ia
             from pathlib import Path
             import configparser
             
@@ -458,7 +455,7 @@ class AsyncDiarioPipeline:
         
         for i, task in enumerate(asyncio.as_completed(tasks)):
             try:
-                success = await task
+                await task
                 completed += 1
                 
                 if completed % 10 == 0 or completed == total:
@@ -610,7 +607,7 @@ async def main():
         if args.stats_only:
             if pipeline.status_tracker:
                 stats = pipeline.get_statistics()
-                print(f"📊 Pipeline Statistics:")
+                print("📊 Pipeline Statistics:")
                 print(f"   Total: {stats['total']}")
                 print(f"   Completed: {stats['completed']} ({stats['completion_rate']:.1f}%)")
                 print(f"   Failed: {stats['failed']}")

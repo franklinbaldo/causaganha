@@ -1,7 +1,7 @@
 """CausaGanha CLI - Modern command-line interface for judicial document processing."""
 
 import typer
-from typing import Optional, List, Dict, Any, Tuple # Added Dict, Any, Tuple
+from typing import Optional, List # Added Dict, Any, Tuple
 from pathlib import Path
 import csv
 from urllib.parse import urlparse
@@ -12,22 +12,11 @@ import asyncio
 import aiohttp
 import hashlib
 import subprocess
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
-import time
 
 from database import CausaGanhaDB
 from config import load_config
 from extractor import GeminiExtractor
-from ia_helpers import (
-    archive_diario_to_master_item,
-    update_ia_file_level_metadata_summary,
-    download_ia_file_async,
-    MASTER_IA_ITEM_ID,
-    IA_METADATA_FILENAME
-    # execute_ia_command_async, # Not directly called by cli.py commands, but by other helpers
-    # execute_ia_upload_async,  # Ditto
-)
 
 app = typer.Typer(
     name="causaganha",
@@ -648,7 +637,7 @@ def score(
     sys.path.append('.')
     
     try:
-        from openskill_rating import get_openskill_model, create_rating, rate_teams
+        from openskill_rating import get_openskill_model
     except ImportError:
         typer.echo("❌ OpenSkill rating module not found")
         return
@@ -887,7 +876,7 @@ def _show_rating_stats():
         total_lawyers = db.conn.execute("SELECT COUNT(*) FROM ratings").fetchone()[0]
         total_matches = db.conn.execute("SELECT COUNT(*) FROM partidas").fetchone()[0]
         
-        typer.echo(f"\n📊 Overall Statistics:")
+        typer.echo("\n📊 Overall Statistics:")
         typer.echo(f"├── Total Lawyers: {total_lawyers:,}")
         typer.echo(f"└── Total Matches: {total_matches:,}")
         

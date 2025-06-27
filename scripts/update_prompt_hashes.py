@@ -1,5 +1,4 @@
 import hashlib
-import os
 import re
 import sys
 from pathlib import Path
@@ -30,7 +29,7 @@ def update_prompt_hashes(prompts_dir: Path):
             
             if match:
                 # File already has a hash, verify it
-                base_name_without_hash = match.group(1)
+                match.group(1)
                 existing_hash = match.group(2)
                 current_content_hash = calculate_file_hash(filepath)
                 

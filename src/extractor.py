@@ -394,7 +394,7 @@ REGRAS OBRIGATÓRIAS:
             try:
                 import shutil
                 shutil.rmtree(temp_dir)
-            except:
+            except Exception:
                 pass
             return None
 

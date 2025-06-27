@@ -9,7 +9,7 @@ import datetime
 import logging
 import re
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from .downloader import (
     fetch_tjro_pdf,

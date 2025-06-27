@@ -70,7 +70,7 @@ def fetch_tjro_pdf(
         f"Attempting to locate PDF for {date_obj.strftime('%Y-%m-%d')} from {TJRO_DIARIO_OFICIAL_URL}"
     )
 
-    date_str = date_obj.strftime("%Y%m%d")
+    date_obj.strftime("%Y%m%d")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"

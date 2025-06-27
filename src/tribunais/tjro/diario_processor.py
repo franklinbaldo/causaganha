@@ -10,7 +10,7 @@ import json
 import logging
 from pathlib import Path
 from typing import List, Dict, Optional
-from datetime import datetime, date
+from datetime import date
 import argparse
 
 
@@ -285,12 +285,12 @@ def main():
     print(f"   Entries: {len(diarios):,}")
     
     if args.format == 'json':
-        print(f"\n🚀 Ready for async pipeline processing!")
-        print(f"   Each entry includes:")
-        print(f"   - Full PDF URL")
-        print(f"   - Internet Archive identifier")
-        print(f"   - Complete metadata for IA upload")
-        print(f"   - Standardized filename for local storage")
+        print("\n🚀 Ready for async pipeline processing!")
+        print("   Each entry includes:")
+        print("   - Full PDF URL")
+        print("   - Internet Archive identifier")
+        print("   - Complete metadata for IA upload")
+        print("   - Standardized filename for local storage")
     
     return 0
 
