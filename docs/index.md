@@ -11,10 +11,7 @@ Welcome to the official CausaGanha documentation - a distributed judicial analys
 - [Internet Archive Discovery Guide](ia_discovery_guide.md) - Discover and list archived judicial documents
 - [OpenSkill Implementation](openskill.md) - Rating system for lawyer performance evaluation
 - [Business Rules](Business_rules.md) - System business logic and rules
-- [Prompt Versioning Strategy](prompt_versioning_strategy.md) - LLM prompt management
-
-## Historical Documents
-- [Review 2025-06-25](review-2025-06-25.md) - System critique and action plan
+- [Prompt Versioning Strategy](prompt_versioning_strategy.md) - LLM prompt management and versioning
 
 ## Current System Status
 
