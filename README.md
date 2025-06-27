@@ -134,6 +134,8 @@ causaganha/
 
 ## 5. Execução Local
 
+> 🤖 **Para Assistentes de IA**: Consulte `CLAUDE.md` para instruções completas de desenvolvimento, incluindo abordagem plan-first, coordenação MASTERPLAN, e guidelines específicas para agentes de código.
+
 ### Pré-requisitos
 
 - Python 3.11+
@@ -197,8 +199,7 @@ Após instalar as dependências, execute a suíte de testes com:
 uv run pytest -q
 ```
 
-Conforme descrito em `AGENTS.md`, rodar os testes é obrigatório antes de
-realizar commits.
+Conforme descrito em `AGENTS.md` e `CLAUDE.md`, rodar os testes é obrigatório antes de realizar commits. Para instruções completas de desenvolvimento, consulte `CLAUDE.md`.
 
 ---
 
@@ -243,6 +244,11 @@ O sistema é **100% distribuído** com banco compartilhado e processamento coord
 ## Documentação
 
 A documentação do projeto é construída com **MkDocs** e publicada via GitHub Pages em `franklinbaldo.github.io/causa_ganha`. Os arquivos fonte encontram-se na pasta [`docs/`](docs/).
+
+### 🤖 **Para Desenvolvedores e Assistentes de IA**
+- **`CLAUDE.md`**: Instruções primárias para agentes de código, desenvolvimento plan-first, e coordenação MASTERPLAN
+- **`AGENTS.md`**: Instruções específicas do sistema e arquitetura (referencia CLAUDE.md)
+- **`docs/plans/MASTERPLAN.md`**: Documento vivo de coordenação para todas as implementações
 
 
 ---

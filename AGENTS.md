@@ -1,5 +1,7 @@
 # AGENTS Instructions
 
+> 📋 **Primary Instructions**: For comprehensive coding agent instructions, development workflow, and plan-first approach, see **`CLAUDE.md`** - the primary source of truth for all AI coding assistants working with this repository.
+
 The scope of this file is the entire repository.
 
 ## Current System Architecture (2025-06-26)
@@ -56,4 +58,17 @@ causaganha db status
 - Provide concise summaries describing the changes
 - Reference the relevant files when summarizing your work in the PR description
 - For distributed system changes, mention impact on sync/locks if relevant
+
+---
+
+## 🤖 **For AI Coding Assistants**
+
+**See `CLAUDE.md` for complete instructions including:**
+- Plan-first development approach and workflow
+- MASTERPLAN coordination requirements
+- Alpha development guidelines and breaking change management
+- Development phases, testing requirements, and quality gates
+- Detailed project architecture and command reference
+
+`CLAUDE.md` is the **authoritative source** for coding agent instructions and must be consulted before making any changes to this repository.
 
