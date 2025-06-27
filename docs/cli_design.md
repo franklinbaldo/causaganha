@@ -23,6 +23,7 @@ causaganha
 ├── score      # Generate OpenSkill ratings
 ├── pipeline   # Run full pipeline (queue->archive->analyze->score)
 ├── stats      # Show processing statistics
+├── db         # Database management operations
 └── config     # Configuration management
 ```
 
@@ -44,6 +45,12 @@ causaganha score    # Calculate ratings
 
 # Check progress
 causaganha stats
+
+# Database management
+causaganha db status      # Show database info
+causaganha db migrate     # Run migrations
+causaganha db sync        # Sync with Internet Archive
+causaganha db backup      # Create backup
 ```
 
 ### Pipeline Command (Convenience)

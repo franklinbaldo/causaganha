@@ -983,5 +983,166 @@ def config():
     typer.echo(f"└── OpenSkill β: {config['openskill']['beta']}")
 
 
+@app.command("db")
+def database_cmd(
+    action: str = typer.Argument(..., help="Action to perform: migrate, status, sync, backup, reset"),
+    force: bool = typer.Option(False, "--force", help="Force operation without confirmation"),
+):
+    """Database management operations."""
+    
+    if action == "migrate":
+        _db_migrate()
+    elif action == "status":
+        _db_status()
+    elif action == "sync":
+        _db_sync(force)
+    elif action == "backup":
+        _db_backup()
+    elif action == "reset":
+        _db_reset(force)
+    else:
+        typer.echo(f"❌ Unknown action: {action}")
+        typer.echo("Valid actions: migrate, status, sync, backup, reset")
+        raise typer.Exit(1)
+
+
+def _db_migrate():
+    """Run database migrations."""
+    try:
+        from migration_runner import run_migrations
+        typer.echo("🔄 Running database migrations...")
+        run_migrations()
+        typer.echo("✅ Database migrations completed")
+    except ImportError:
+        typer.echo("❌ Migration runner not found")
+    except Exception as e:
+        typer.echo(f"❌ Migration failed: {e}")
+
+
+def _db_status():
+    """Show database status and statistics."""
+    try:
+        db_path = Path(config["database"]["path"])
+        
+        typer.echo("💾 Database Status:")
+        typer.echo(f"├── Path: {db_path}")
+        typer.echo(f"├── Exists: {'✅' if db_path.exists() else '❌'}")
+        
+        if db_path.exists():
+            size_mb = db_path.stat().st_size / (1024 * 1024)
+            typer.echo(f"├── Size: {size_mb:.1f} MB")
+            
+            # Table counts
+            tables_info = [
+                ("job_queue", "Job Queue"),
+                ("ratings", "Lawyer Ratings"), 
+                ("partidas", "Matches"),
+                ("decisoes", "Decisions"),
+                ("json_files", "JSON Files")
+            ]
+            
+            typer.echo("├── Table Counts:")
+            for table, label in tables_info:
+                try:
+                    count = db.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    typer.echo(f"│   ├── {label}: {count:,}")
+                except Exception:
+                    typer.echo(f"│   ├── {label}: N/A")
+            
+            # Queue status
+            try:
+                queue_stats = db.conn.execute("""
+                    SELECT status, COUNT(*) as count
+                    FROM job_queue 
+                    GROUP BY status
+                """).fetchall()
+                
+                if queue_stats:
+                    typer.echo("└── Queue Status:")
+                    for status, count in queue_stats:
+                        typer.echo(f"    ├── {status}: {count:,}")
+                else:
+                    typer.echo("└── Queue Status: Empty")
+            except Exception:
+                typer.echo("└── Queue Status: N/A")
+        
+    except Exception as e:
+        typer.echo(f"❌ Failed to get database status: {e}")
+
+
+def _db_sync(force: bool):
+    """Sync database with Internet Archive."""
+    try:
+        from ia_database_sync import main as sync_main
+        import sys
+        
+        typer.echo("🔄 Syncing database with Internet Archive...")
+        
+        # Set up sys.argv for ia_database_sync
+        old_argv = sys.argv
+        sys.argv = ["ia_database_sync.py", "sync"]
+        if force:
+            sys.argv.append("--force")
+        
+        try:
+            sync_main()
+            typer.echo("✅ Database sync completed")
+        finally:
+            sys.argv = old_argv
+            
+    except ImportError:
+        typer.echo("❌ IA database sync module not found")
+    except Exception as e:
+        typer.echo(f"❌ Database sync failed: {e}")
+
+
+def _db_backup():
+    """Create database backup."""
+    try:
+        db_path = Path(config["database"]["path"])
+        if not db_path.exists():
+            typer.echo("❌ Database file not found")
+            return
+        
+        # Create backup with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = db_path.parent / f"{db_path.stem}_backup_{timestamp}.duckdb"
+        
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        
+        size_mb = backup_path.stat().st_size / (1024 * 1024)
+        typer.echo(f"✅ Database backup created: {backup_path.name} ({size_mb:.1f} MB)")
+        
+    except Exception as e:
+        typer.echo(f"❌ Backup failed: {e}")
+
+
+def _db_reset(force: bool):
+    """Reset database (dangerous operation)."""
+    db_path = Path(config["database"]["path"])
+    
+    if not force:
+        confirm = typer.confirm(
+            f"⚠️  This will DELETE the entire database at {db_path}\n"
+            "Are you sure you want to continue?"
+        )
+        if not confirm:
+            typer.echo("❌ Database reset cancelled")
+            return
+    
+    try:
+        if db_path.exists():
+            db_path.unlink()
+            typer.echo("🗑️  Database file deleted")
+        
+        # Reinitialize database
+        _db_migrate()
+        typer.echo("✅ Database reset completed")
+        
+    except Exception as e:
+        typer.echo(f"❌ Database reset failed: {e}")
+
+
 if __name__ == "__main__":
     app()
