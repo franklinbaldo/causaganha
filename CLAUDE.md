@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CausaGanha is an automated judicial decision analysis platform that applies the TrueSkill rating system (developed by Microsoft Research) to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from the Tribunal de Justiça de Rondônia (TJRO) using Google's Gemini LLM with a shared database architecture hosted on Internet Archive.
+CausaGanha is an automated judicial decision analysis platform that applies the OpenSkill rating system to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from Brazilian tribunals using Google's Gemini LLM with a shared database architecture hosted on Internet Archive.
 
 ## Development Setup
 
@@ -25,28 +25,42 @@ Environment variables (copy `.env.example` to `.env`):
 
 ## Core Commands
 
-### Async Pipeline (Primary Interface)
+### Modern CLI (Primary Interface)
 
-CausaGanha now uses an async pipeline for concurrent processing of TJRO diarios:
+CausaGanha now provides a modern, user-friendly CLI for judicial document processing:
 
 ```bash
-# Process recent diarios with database sync
+# Queue URLs from CSV file
+uv run --env-file .env causaganha queue --from-csv diarios.csv
+
+# Download and archive to Internet Archive
+uv run --env-file .env causaganha archive --limit 10
+
+# Extract information using Gemini LLM
+uv run --env-file .env causaganha analyze --limit 5
+
+# Calculate OpenSkill ratings
+uv run --env-file .env causaganha score
+
+# Run full pipeline in one command
+uv run --env-file .env causaganha pipeline --from-csv diarios.csv
+
+# Monitor progress and statistics
+uv run --env-file .env causaganha stats
+
+# Database management
+uv run --env-file .env causaganha db status
+uv run --env-file .env causaganha db migrate
+uv run --env-file .env causaganha db sync
+```
+
+### Legacy Async Pipeline (Advanced Users)
+
+For advanced users, the original async pipeline is still available:
+
+```bash
+# Legacy async pipeline commands
 uv run --env-file .env python src/async_diario_pipeline.py --max-items 5 --sync-database --upload-database
-
-# Process specific date range
-uv run --env-file .env python src/async_diario_pipeline.py --start-date 2025-06-01 --end-date 2025-06-26
-
-# Process all 5,058 diarios (bulk processing)
-uv run --env-file .env python src/async_diario_pipeline.py
-
-# Resume interrupted processing
-uv run --env-file .env python src/async_diario_pipeline.py --resume
-
-# Check processing statistics
-uv run --env-file .env python src/async_diario_pipeline.py --stats-only
-
-# Force reprocess existing items
-uv run --env-file .env python src/async_diario_pipeline.py --max-items 10 --force-reprocess
 ```
 
 ### Database Synchronization
@@ -113,36 +127,52 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 - **Conflict Prevention**: Lock-based system prevents concurrent access issues
 - **Automatic Sync**: Smart sync determines when to upload/download changes
 
-### Three-Stage Data Lifecycle Pipeline
+### Four-Stage Data Lifecycle Pipeline
 
-1. **Collection & Archive** (`async_diario_pipeline.py`): 
+**Modern CLI Interface**: Primary user interface with `causaganha` command providing intuitive access to all pipeline stages.
+
+**Pipeline Stages**:
+
+1. **Queue** (`causaganha queue`): Add judicial documents to processing queue
+   - **Flexible Input**: URLs or CSV files with automatic tribunal detection
+   - **Domain Validation**: Only .jus.br domains accepted for security
+   - **Smart Detection**: Auto-extract date and metadata from URLs
+
+2. **Archive** (`causaganha archive`): 
    - **Concurrent Processing**: Downloads multiple PDFs simultaneously from TJRO
    - **Internet Archive Upload**: Direct upload to IA with metadata preservation
    - **Original Filename Preservation**: Maintains authentic TJRO naming (e.g., `20250626614-NR115.pdf`)
    - **Progress Tracking**: Resume capability with persistent progress files
    - **Rate Limiting**: Respectful to TJRO servers (3 concurrent downloads max)
 
-2. **Content Extraction** (`extractor.py`): 
+3. **Analyze** (`causaganha analyze`): 
    - **Gemini LLM Processing**: Uses Google's Gemini 2.5 Flash for content analysis
    - **Chunked Processing**: 25-page segments with 1-page overlap for context
    - **Temporary Files**: All processing artifacts in temp directories (no data pollution)
    - **Enhanced Data**: Extracts process numbers, parties, lawyers with OAB, outcomes
    - **JSON Output**: Structured data with automatic validation
 
-3. **Rating Calculation** (`trueskill_rating.py` + `database.py`):
-   - **TrueSkill Algorithm**: Microsoft Research rating system for skill assessment
+4. **Score** (`causaganha score`):
+   - **OpenSkill Algorithm**: Advanced rating system for skill assessment
    - **Team Formation**: Lawyers grouped by case sides (polo ativo/passivo)
    - **Database Storage**: All data unified in DuckDB format
    - **Shared Updates**: Changes automatically synced to IA for global access
 
 ### Key Modules
 
+#### Modern CLI Interface
+- **`cli.py`**: **NEW** - Modern Typer-based CLI with 4-stage pipeline
+  - Queue, Archive, Analyze, Score commands with rich progress display
+  - Database management (migrate, status, sync, backup, reset)
+  - Pipeline orchestration with resume capability and error handling
+  - .jus.br domain validation and smart metadata extraction
+
 #### Core Processing
 - **`async_diario_pipeline.py`**: **NEW** - Main async pipeline with concurrent processing
 - **`ia_database_sync.py`**: **NEW** - Shared database synchronization with locking
 - **`ia_discovery.py`**: **NEW** - Tools for discovering uploaded content in IA
 - **`extractor.py`**: Gemini-powered content extraction with temp file handling
-- **`trueskill_rating.py`**: TrueSkill rating calculations and environment setup
+- **`openskill_rating.py`**: OpenSkill rating calculations and environment setup
 
 #### Data Management
 - **`database.py`**: **NEW** - Unified DuckDB data layer for all system storage

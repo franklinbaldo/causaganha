@@ -1,130 +1,148 @@
-# Tutorial Rápido
+# Quickstart Guide
 
-Este tutorial demonstra como rodar o pipeline completo localmente.
+This guide shows how to get CausaGanha running quickly with the modern CLI.
 
-## Pré-requisitos
+## Prerequisites
 
-1.  **Python 3.12+** instalado.
-2.  **uv** instalado (gerenciador de pacotes e ambiente). Se não tiver, instale com `pip install uv` ou `curl -LsSf https://astral.sh/uv/install.sh | sh`.
-3.  Chave da API **Google Gemini** configurada como variável de ambiente:
-    ```bash
-    export GEMINI_API_KEY="SUA_CHAVE_API_AQUI"
-    ```
-4.  (Opcional) Clone o repositório se ainda não o fez:
-    ```bash
-    git clone https://github.com/franklinbaldo/causa_ganha.git
-    cd causa_ganha
-    ```
+1. **Python 3.10+** installed
+2. **uv** package manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+3. **Environment variables** (create `.env` file):
+   ```bash
+   GEMINI_API_KEY=your_gemini_api_key_here
+   IA_ACCESS_KEY=your_ia_access_key_here  
+   IA_SECRET_KEY=your_ia_secret_key_here
+   ```
 
-## Instalação e Execução
+## Installation
 
-1.  **Crie um ambiente virtual e instale as dependências:**
-    ```bash
-    # Dentro do diretório do projeto clonado
-    uv venv # Cria o ambiente .venv
-    source .venv/bin/activate # Ativa o ambiente (Linux/macOS)
-    # no Windows: .venv\Scripts\activate
-    uv pip install -e .[dev] # Instala o projeto e dependências de desenvolvimento
-    ```
+1. **Clone and setup:**
+   ```bash
+   git clone https://github.com/franklinbaldo/causa_ganha.git
+   cd causa_ganha
+   uv sync --dev
+   ```
 
-2.  **(Opcional) Configure os parâmetros do TrueSkill:**
-    Os parâmetros padrão do ambiente TrueSkill (como `mu`, `sigma` iniciais, `beta`, `tau`, `draw_probability`) estão definidos em `config.toml`. Você pode ajustar esses valores conforme necessário antes de executar o pipeline.
+2. **Initialize database:**
+   ```bash
+   uv run --env-file .env causaganha db migrate
+   ```
 
-3.  **Execute o pipeline completo para uma data específica:**
-    O comando `run` executa as etapas de coleta do PDF, extração de dados e atualização dos ratings.
-    ```bash
-    # Certifique-se que o ambiente virtual está ativado e GEMINI_API_KEY está exportada
-    python -m causaganha.core.pipeline run --date AAAA-MM-DD
-    ```
-    Por exemplo, para a data 24 de junho de 2025:
-    ```bash
-    python -m causaganha.core.pipeline run --date 2025-06-24
-    ```
-    Alternativamente, usando `uv run` (que também pode gerenciar variáveis de ambiente se configurado no `pyproject.toml` ou via `.env`):
-    ```bash
-    uv run python -m causaganha.core.pipeline run --date 2025-06-24
-    ```
+## Basic Usage
 
-## Verificando os Resultados
+### 1. Queue Documents
 
-### Pipeline Assíncrono
-Após a execução do pipeline assíncrono, verifique:
-```bash
-# Estatísticas do progresso
-uv run python src/async_diario_pipeline.py --stats-only
+Create a CSV file with URLs (only .jus.br domains allowed):
 
-# Status do banco distribuído
-uv run python src/ia_database_sync.py status
-
-# Descobrir itens no Internet Archive
-uv run python src/ia_discovery.py --year 2025
+```csv
+url
+https://www.tjro.jus.br/diario20250626.pdf
+https://www.tjsp.jus.br/diario20250627.pdf
 ```
 
-### Dados Atualizados
--   `data/causaganha.duckdb`: Banco unificado com todas as tabelas
--   `data/diario_pipeline_progress.json`: Progresso do pipeline assíncrono
--   `data/diarios/`: PDFs temporários (arquivados automaticamente no IA)
--   Dados sincronizados automaticamente com Internet Archive
-
-### Comandos de Verificação
+Queue for processing:
 ```bash
-# Verificar cobertura no Internet Archive
-uv run python src/ia_discovery.py --coverage-report --year 2025
-
-# Estatísticas do banco
-causaganha db status
-
-# Testar sistema completo
-uv run pytest -q
+uv run --env-file .env causaganha queue --from-csv diarios.csv
 ```
 
-## Processamento Massivo
+### 2. Run Pipeline
 
-Para processar grandes volumes de diários:
+Process all stages automatically:
+```bash
+uv run --env-file .env causaganha pipeline --from-csv diarios.csv
+```
+
+Or run stages individually:
+```bash
+# Download and archive to Internet Archive
+uv run --env-file .env causaganha archive --limit 5
+
+# Extract information with Gemini LLM  
+uv run --env-file .env causaganha analyze --limit 5
+
+# Calculate OpenSkill ratings
+uv run --env-file .env causaganha score
+```
+
+### 3. Monitor Progress
+
+Check pipeline status:
+```bash
+uv run --env-file .env causaganha stats
+```
+
+Example output:
+```
+📊 Pipeline Status:
+├── ⏳ Queued: 10 items
+├── 📦 Archived: 8 items  
+├── 🔍 Analyzed: 5 items
+├── ⭐ Scored: 3 items
+└── ❌ Failed: 0 items
+```
+
+## Database Management
 
 ```bash
-# Processar todos os diários de 2025 (115 itens)
-uv run python src/async_diario_pipeline.py --input data/diarios_2025_only.json --sync-database --upload-database
+# Check database status
+uv run --env-file .env causaganha db status
 
-# Processar todos os 5,058 diários históricos (2004-2025)
-uv run python src/async_diario_pipeline.py --input data/diarios_pipeline_ready.json --max-items 100
+# Sync with Internet Archive shared database
+uv run --env-file .env causaganha db sync
 
-# Ajustar concorrência para sua máquina
-uv run python src/async_diario_pipeline.py --concurrent-downloads 2 --concurrent-uploads 1
+# Create backup
+uv run --env-file .env causaganha db backup
+
+# View configuration
+uv run --env-file .env causaganha config
+```
+
+## Advanced Usage
+
+### Resume Interrupted Processing
+```bash
+uv run --env-file .env causaganha pipeline --resume
+```
+
+### Run Specific Stages
+```bash
+uv run --env-file .env causaganha pipeline --stages archive,analyze
+```
+
+### Force Reprocessing  
+```bash
+uv run --env-file .env causaganha archive --force
+uv run --env-file .env causaganha score --force
+```
+
+### Limit Processing
+```bash
+uv run --env-file .env causaganha pipeline --from-csv diarios.csv --limit 10
+```
+
+## What Happens During Processing
+
+1. **Queue**: URLs are validated (.jus.br only) and metadata extracted
+2. **Archive**: PDFs downloaded and uploaded to Internet Archive
+3. **Analyze**: Gemini LLM extracts judicial decisions and lawyer information
+4. **Score**: OpenSkill ratings calculated for lawyer performance
+
+## Getting Help
+
+```bash
+uv run causaganha --help           # Main help
+uv run causaganha queue --help     # Command-specific help
+uv run causaganha pipeline --help  # Pipeline options
 ```
 
 ## Troubleshooting
 
-### Problemas Comuns
+- **Missing API keys**: Ensure `.env` file has all required keys
+- **Database errors**: Run `causaganha db migrate` to initialize/update schema
+- **Import errors**: Run `uv sync` to ensure all dependencies installed
+- **Permission errors**: Check IA credentials have upload permissions
 
-**Erro de lock de banco:**
-```bash
-# Forçar remoção de lock (use com cuidado)
-uv run python src/ia_database_sync.py sync --force
-```
+## Next Steps
 
-**Falha de sincronização:**
-```bash
-# Verificar status detalhado
-uv run python src/ia_database_sync.py status
-
-# Download manual do banco do IA
-uv run python src/ia_database_sync.py download --force
-```
-
-**Performance lenta:**
-```bash
-# Reduzir concorrência
-uv run python src/async_diario_pipeline.py --concurrent-downloads 1 --concurrent-uploads 1
-```
-
-### Configuração Avançada
-
-Crie arquivo `.env` na raiz do projeto:
-```bash
-GEMINI_API_KEY=sua_chave_aqui
-IA_ACCESS_KEY=sua_chave_ia
-IA_SECRET_KEY=sua_chave_secreta_ia
-MAX_CONCURRENT_DOWNLOADS=3
-MAX_CONCURRENT_IA_UPLOADS=2
-```
+- Check [CLI Design](cli_design.md) for complete command reference
+- See [Architecture Overview](../CLAUDE.md) for system details
+- Review [OpenSkill Documentation](openskill.md) for rating system details
