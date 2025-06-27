@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .env
 uv.lock
+**/*.json
+docs/*
+*.md
 # Data files
 data/*.pdf
 data/*.json
