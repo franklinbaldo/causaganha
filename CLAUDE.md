@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+![Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
+![Breaking Changes](https://img.shields.io/badge/breaking_changes-expected-red?style=for-the-badge)
+![No Backwards Compatibility](https://img.shields.io/badge/backwards_compatibility-none-critical?style=for-the-badge)
+
+> ⚠️ **ALPHA SOFTWARE**: This project is in active development with frequent breaking changes. APIs, database schemas, and core functionality may change without notice or backwards compatibility. Use at your own risk in production environments.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -297,8 +303,8 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 
 ## System Overview & Achievements
 
-### 🎯 Complete Distributed Solution Delivered
-CausaGanha has evolved into a **production-ready, distributed judicial analysis platform** with:
+### 🎯 Alpha Distributed Solution
+CausaGanha has evolved into an **alpha-stage, distributed judicial analysis platform** with:
 
 #### ✅ **Shared Database Architecture**
 - **Cross-Platform Collaboration**: Same database accessible from any environment
@@ -323,11 +329,12 @@ CausaGanha has evolved into a **production-ready, distributed judicial analysis 
 - **Automatic conflict resolution** through distributed locking
 - **Comprehensive reporting** with statistics and discovery tools
 
-#### ✅ **Production Quality**
+#### ✅ **Alpha Quality Features**
 - **60+ unit tests** with comprehensive mocking of external APIs
 - **Database synchronization** tested with real IA integration
 - **Lock timeout handling** ensures no permanent deadlocks
 - **Error recovery** with exponential backoff and retry logic
+- **⚠️ Breaking changes expected**: Core APIs and data structures may change
 
 ### 🚀 **Operational Excellence**
 The system demonstrates **enterprise-grade distributed architecture** with:
@@ -343,8 +350,21 @@ The system demonstrates **enterprise-grade distributed architecture** with:
 - **Original filename preservation**: Maintains archival authenticity
 - **Lock-based conflict resolution**: Prevents distributed system race conditions
 
-The system processes judicial records from 2004-2025 (21+ years) with complete automation, cross-platform collaboration, and public transparency. Ready for production use with any scale of data processing.
+The system processes judicial records from 2004-2025 (21+ years) with complete automation, cross-platform collaboration, and public transparency.
+
+## ⚠️ Alpha Status Warning
+
+**CausaGanha is ALPHA software** with the following implications:
+
+- **Breaking Changes**: Core APIs, CLI commands, and database schemas may change without notice
+- **No Backwards Compatibility**: Updates may require complete data migration or reinstallation
+- **Experimental Features**: New functionality may be added, modified, or removed rapidly
+- **API Instability**: Function signatures, return types, and behavior may change
+- **Data Format Changes**: Database schema and file formats may evolve incompatibly
+- **Configuration Changes**: Settings and environment variables may be restructured
+
+**Use in production at your own risk.** Consider this software experimental and expect to adapt to breaking changes.
 
 ---
 
-**Status: ✅ PRODUCTION DISTRIBUTED** - Complete shared database architecture (2025-06-26): cross-platform collaboration, conflict prevention, async processing, and comprehensive automation. Enterprise-grade distributed judicial analysis platform.
+**Status: 🔶 ALPHA DISTRIBUTED** - Experimental shared database architecture (2025-06-27): cross-platform collaboration, conflict prevention, async processing, and comprehensive automation. Alpha-stage distributed judicial analysis platform with breaking changes expected.

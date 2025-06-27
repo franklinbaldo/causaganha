@@ -1,8 +1,14 @@
 # CausaGanha
 
+![Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
+![Breaking Changes](https://img.shields.io/badge/breaking_changes-expected-red?style=for-the-badge)
+![No Backwards Compatibility](https://img.shields.io/badge/backwards_compatibility-none-critical?style=for-the-badge)
+
 [![Update OpenSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-openskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
 
-**CausaGanha** é uma **plataforma de análise judicial distribuída de nível empresarial** que combina inteligência artificial, processamento assíncrono e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
+> ⚠️ **SOFTWARE ALPHA**: Este projeto está em desenvolvimento ativo com mudanças radicais frequentes. APIs, schemas de banco de dados e funcionalidades principais podem mudar sem aviso ou compatibilidade com versões anteriores. Use por sua conta e risco em ambientes de produção.
+
+**CausaGanha** é uma **plataforma de análise judicial distribuída em estágio alpha** que combina inteligência artificial, processamento assíncrono e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
 
 O sistema implementa uma **arquitetura distribuída de 2 camadas** com:
 - **Processamento distribuído**: DuckDB compartilhado via Internet Archive para colaboração entre PC/GitHub Actions
@@ -241,9 +247,9 @@ A documentação do projeto é construída com **MkDocs** e publicada via GitHub
 
 ---
 
-## 7. Status Atual: Produção
+## 7. Status Atual: Alpha
 
-### ✅ **Implementado e Operacional**
+### ✅ **Implementado e Operacional (Alpha)**
 - **Pipeline distribuído**: 4 workflows especializados com banco compartilhado
 - **Processamento assíncrono**: 5,058 diários históricos (2004-2025) processáveis
 - **Arquitetura distribuída**: Banco DuckDB sincronizado via Internet Archive
@@ -251,11 +257,15 @@ A documentação do projeto é construída com **MkDocs** e publicada via GitHub
 - **67+ testes unitários**: Cobertura completa com mocks de APIs externas
 - **Custos zero**: Operação sem custos com Internet Archive
 - **Descoberta inteligente**: Ferramentas de análise e cobertura IA
+- **⚠️ Mudanças radicais**: APIs e estruturas podem mudar sem compatibilidade
 
-### ⚠️ **Limitações Conhecidas**
+### ⚠️ **Limitações e Riscos Alpha**
 - **Precisão do LLM**: Dependência da qualidade de interpretação do Gemini
 - **Nomes inconsistentes**: Grafias variadas podem afetar identificação de advogados
 - **Decisões complexas**: Empates e resultados parciais com ponderação básica (OpenSkill pode lidar com parciais se identificados)
+- **Software Alpha**: Mudanças radicais podem quebrar funcionalidades existentes
+- **Sem compatibilidade**: Atualizações podem exigir migração completa de dados
+- **APIs instáveis**: Comandos e estruturas podem mudar sem aviso
 
 ### 🎯 **Métricas de Performance**
 - **Disponibilidade**: 99.95% (baseado em Internet Archive)
@@ -351,12 +361,25 @@ Google Gemini API – developers.generativeai.google
 
 ---
 
-## 🏆 **CausaGanha: Plataforma de Análise Judicial de Nível Empresarial**
+## 🔶 **CausaGanha: Plataforma Experimental de Análise Judicial**
 
-CausaGanha demonstra como **inteligência artificial**, **arquitetura multi-nuvem** e **algoritmos de avaliação de habilidades** podem ser combinados para criar uma plataforma robusta, escalável e econômica para análise empírica do desempenho jurídico.
+CausaGanha demonstra como **inteligência artificial**, **arquitetura multi-nuvem** e **algoritmos de avaliação de habilidades** podem ser combinados para criar uma plataforma experimental, escalável e econômica para análise empírica do desempenho jurídico.
 
-Com **arquitetura de três camadas**, **pipeline totalmente automatizado** e **custos operacionais mínimos**, o projeto representa um avanço significativo na aplicação de ciência de dados ao sistema judiciário brasileiro.
+Com **arquitetura de três camadas**, **pipeline totalmente automatizado** e **custos operacionais mínimos**, o projeto representa um experimento significativo na aplicação de ciência de dados ao sistema judiciário brasileiro.
 
-**Status: ✅ PRODUÇÃO** - Sistema completo operando com automação de nível empresarial.
+## ⚠️ Aviso de Status Alpha
+
+**CausaGanha é SOFTWARE ALPHA** com as seguintes implicações:
+
+- **Mudanças Radicais**: APIs principais, comandos CLI e schemas de banco podem mudar sem aviso
+- **Sem Compatibilidade**: Atualizações podem exigir migração completa de dados ou reinstalação
+- **Recursos Experimentais**: Novas funcionalidades podem ser adicionadas, modificadas ou removidas rapidamente
+- **Instabilidade de API**: Assinaturas de funções, tipos de retorno e comportamentos podem mudar
+- **Mudanças de Formato**: Schema do banco e formatos de arquivo podem evoluir de forma incompatível
+- **Mudanças de Configuração**: Settings e variáveis de ambiente podem ser reestruturadas
+
+**Use em produção por sua conta e risco.** Considere este software experimental e espere adaptar-se a mudanças radicais.
+
+**Status: 🔶 ALPHA DISTRIBUÍDO** - Sistema experimental operando com automação avançada, mudanças radicais esperadas.
 
 O projeto está aberto à colaboração e feedback da comunidade jurídica, técnica e acadêmica.
