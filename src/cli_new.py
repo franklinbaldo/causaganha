@@ -95,7 +95,6 @@ def queue(url:Optional[str]=typer.Option(None,"--url"), from_csv:Optional[Path]=
     ul:List[Dict[str,Any]]=[]
     if url:
         if not validate_tribunal_url(url):
-            if not validate_tribunal_url(url):
             typer.echo(f"❌ Invalid URL:{url}", err=True)
             _LOG_.error(f"Q:Invalid URL {url}")
             raise typer.Exit(1)
@@ -146,7 +145,6 @@ def get_urls(date:Optional[str]=typer.Option(None,help="Date YYYY-MM-DD."),lates
         url_v:Optional[str]=None
         date_v:Optional[DateObject]=None
         if latest:
-            if latest:
             _LOG_.info(f"Latest {tribunal.upper()}...")
             url_v,date_v=get_latest_tjro_url_and_date()
         elif date:

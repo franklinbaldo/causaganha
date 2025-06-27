@@ -16,19 +16,19 @@ TJRO_LATEST_PAGE_URL = "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php
 def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
     """
     Gets the PDF URL for the given date from TJRO without downloading.
-    
+
     Args:
         date_obj: A datetime.date object representing the desired date.
-        
+
     Returns:
         The PDF URL string, or None if not found.
     """
     date_str = date_obj.strftime("%Y%m%d")
-    
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
-    
+
     try:
         page_resp = requests.get(TJRO_DIARIO_OFICIAL_URL, headers=headers, timeout=30)
         page_resp.raise_for_status()
@@ -80,7 +80,7 @@ def fetch_tjro_pdf(
     download_url = get_tjro_pdf_url(date_obj)
     if not download_url:
         return None
-    
+
     try:
         # Download the PDF
         pdf_resp = requests.get(download_url, headers=headers, timeout=30)

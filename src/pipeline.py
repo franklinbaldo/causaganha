@@ -437,9 +437,7 @@ def run_command(args):
     logger.info(f"'collect' successful. PDF: {pdf_path}")
     logger.info(f"Starting 'extract' for PDF {pdf_path}...")
     extract_output_dir = (
-        Path(args.output_json_dir)
-        if args.output_json_dir
-        else Path("data/json/")
+        Path(args.output_json_dir) if args.output_json_dir else Path("data/json/")
     )
     extractor = GeminiExtractor(verbose=args.verbose)
     json_output_path = extractor.extract_and_save_json(
