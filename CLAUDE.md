@@ -29,6 +29,96 @@ Environment variables (copy `.env.example` to `.env`):
 - `IA_ACCESS_KEY`: Required for Internet Archive uploads and database sync
 - `IA_SECRET_KEY`: Required for Internet Archive uploads and database sync
 
+## Development Flow
+
+CausaGanha follows a **plan-first development approach** to ensure thoughtful feature design and implementation:
+
+### 📋 **Phase 1: Planning**
+1. **Create Plan Document**: New features must start as a plan in `/docs/plans/feature-name.md`
+2. **Problem Context**: The plan must clearly explain:
+   - What problem it's trying to solve
+   - Why this solution is needed
+   - Current limitations or pain points
+3. **Actionable Solution**: The plan must provide:
+   - Concrete implementation steps
+   - Technical approach and architecture decisions
+   - Expected outcomes and success criteria
+   - Potential risks and mitigations
+
+### 🔍 **Phase 2: Review & Approval**
+1. **Plan Review**: The plan document is reviewed for:
+   - Technical feasibility
+   - Alignment with project goals
+   - Implementation clarity
+   - Resource requirements
+2. **Merge to Main**: Once approved, the plan is merged to `main` branch
+3. **Implementation Ready**: Plan serves as the implementation specification
+
+### 🚀 **Phase 3: Implementation**
+1. **Feature Branch**: Implementation happens in separate feature branches
+2. **Incremental Development**: Features are built according to the approved plan
+3. **Testing & Validation**: Implementation includes comprehensive tests
+4. **Code Review**: Standard pull request review process
+
+### 📚 **Phase 4: Documentation**
+1. **Feature Complete**: Once the plan is fully implemented and tested
+2. **Documentation Conversion**: The original plan document is transformed into:
+   - User documentation explaining how to use the feature
+   - Technical documentation explaining the implementation
+   - Examples and usage patterns
+3. **Move Documentation**: The updated documentation is moved:
+   - **Major features**: From `/docs/plans/` to `/docs/implemented/`
+   - **Core system docs**: From `/docs/plans/` directly to `/docs/` (for fundamental features)
+   - **Archive original plan**: Keep implementation history for reference
+
+### 📁 **Directory Structure**
+```
+docs/
+├── plans/                      # 📋 Future features (planning phase)
+│   ├── diario-class.md         # Plan: Diario dataclass system
+│   ├── dtb.md                  # Plan: dbt-duckdb migration
+│   ├── prompt_versioning_strategy.md  # Plan: LLM prompt versioning
+│   └── refactor_archive_command.md    # Plan: Archive command refactor
+├── implemented/                # 📚 Completed features (documentation)
+│   └── (empty - features will move here when complete)
+├── cli_design.md              # Current: CLI architecture and commands
+├── faq.md                     # Current: Frequently asked questions
+├── ia_discovery_guide.md      # Current: Internet Archive discovery tools
+└── openskill.md               # Current: OpenSkill rating system
+```
+
+### ✅ **Planning Template**
+When creating a new plan, use this structure:
+
+```markdown
+# Feature Name
+
+## Problem Statement
+- What problem does this solve?
+- Why is this important?
+- Current limitations
+
+## Proposed Solution
+- High-level approach
+- Technical architecture
+- Implementation steps
+
+## Success Criteria
+- How do we know it's working?
+- What are the expected outcomes?
+
+## Implementation Plan
+1. Step 1: Description
+2. Step 2: Description
+3. Step 3: Description
+
+## Risks & Mitigations
+- Risk 1: Mitigation strategy
+- Risk 2: Mitigation strategy
+```
+
+This approach ensures all new features are well-planned, reviewed, and properly documented throughout their lifecycle.
+
 ## Core Commands
 
 ### Modern CLI (Primary Interface)
@@ -364,6 +454,46 @@ The system processes judicial records from 2004-2025 (21+ years) with complete a
 - **Configuration Changes**: Settings and environment variables may be restructured
 
 **Use in production at your own risk.** Consider this software experimental and expect to adapt to breaking changes.
+
+## Claude Code Instructions
+
+When working with this codebase, follow the **plan-first development approach**:
+
+### 🎯 **For New Features**
+1. **Always start with planning**: Before implementing any new feature, create a comprehensive plan in `/docs/plans/`
+2. **Use the planning template**: Follow the structured format with problem statement, solution, implementation steps, and risks
+3. **Get plan approval**: Plans should be reviewed and merged before implementation begins
+4. **Reference existing plans**: Check `/docs/plans/` for similar features or architectural patterns
+
+### 📋 **When Creating Plans**
+- **Be specific**: Include concrete implementation steps, not just high-level ideas
+- **Consider architecture**: Explain how the feature fits into the existing system
+- **Identify risks**: Think about potential issues and mitigation strategies
+- **Define success**: Clear criteria for when the feature is considered complete
+
+### 🚀 **During Implementation**
+- **Follow the plan**: Implement according to the approved specification
+- **Create feature branch**: Use separate branches for each feature development
+- **Test thoroughly**: Include comprehensive tests for new functionality
+- **Update documentation**: Transform the plan into user/technical documentation when complete
+
+### 📚 **After Implementation**
+- **Convert plan to docs**: Transform the plan into proper documentation
+- **Move to appropriate location**: 
+  - Major features → `/docs/implemented/`
+  - Core system features → `/docs/`
+- **Update references**: Ensure all documentation links are updated
+
+### 🔍 **Plan Review Checklist**
+- [ ] Problem clearly defined and justified
+- [ ] Solution approach is technically sound
+- [ ] Implementation steps are actionable
+- [ ] Success criteria are measurable
+- [ ] Risks are identified with mitigations
+- [ ] Fits with existing architecture
+- [ ] Considers alpha status and breaking changes
+
+This approach ensures thoughtful development and maintains high-quality documentation throughout the feature lifecycle.
 
 ---
 
