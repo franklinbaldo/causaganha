@@ -106,7 +106,8 @@ def fetch_latest_tjro_pdf(
     }
 
     # The ultimo-diario.php URL directly redirects to the PDF file
-    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
+    if output_dir is None:
+        output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
