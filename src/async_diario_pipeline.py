@@ -35,7 +35,7 @@ except ImportError:
 
 
 # Configure Internet Archive with environment variables
-def configure_ia():
+def configure_ia() -> bool:
     """Configure Internet Archive credentials from environment variables."""
     access_key = os.getenv("IA_ACCESS_KEY")
     secret_key = os.getenv("IA_SECRET_KEY")

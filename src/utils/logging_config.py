@@ -8,9 +8,12 @@ from typing import Optional
 
 from pythonjsonlogger import jsonlogger
 
+_LOGGER_INITIALIZED = False
+
 
 def setup_logging(
-    level: Optional[str] = None, fmt: Optional[str] = None
+    level: Optional[str] = None,
+    fmt: Optional[str] = None,
 ) -> logging.Logger:
     """Configure root logger.
 
@@ -49,4 +52,15 @@ def setup_logging(
     root_logger.handlers.clear()
     root_logger.setLevel(log_level)
     root_logger.addHandler(handler)
+
+    global _LOGGER_INITIALIZED
+    _LOGGER_INITIALIZED = True
+
     return root_logger
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Return a logger, initializing the root logger if necessary."""
+    if not _LOGGER_INITIALIZED:
+        setup_logging()
+    return logging.getLogger(name)

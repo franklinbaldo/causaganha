@@ -33,7 +33,7 @@ CTX_DB_PATH_CFG = "db_path_cfg"
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     global db_manager_global, cg_db_global
 
     if ctx.resilient_parsing or (hasattr(ctx, "obj") and ctx.obj is not None):
@@ -187,7 +187,7 @@ def extract_date_from_url(url: str) -> Optional[str]:
 
 # --- Stubs for commands not yet refactored ---
 @app.command()
-def queue(url: Optional[str] = None, from_csv: Optional[Path] = None):
+def queue(url: Optional[str] = None, from_csv: Optional[Path] = None) -> None:
     typer.echo("Queue command (stub) NOT YET FULLY REFACTORED.", err=True)
     global db  # Uses old global db
     if not url and not from_csv:
@@ -204,17 +204,17 @@ def queue(url: Optional[str] = None, from_csv: Optional[Path] = None):
 
 
 @app.command()
-def archive(limit: Optional[int] = None, force: bool = False):
+def archive(limit: Optional[int] = None, force: bool = False) -> None:
     typer.echo("Archive command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
 @app.command()
-def analyze(limit: Optional[int] = None, force: bool = False):
+def analyze(limit: Optional[int] = None, force: bool = False) -> None:
     typer.echo("Analyze command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
 @app.command()
-def score(force: bool = False):
+def score(force: bool = False) -> None:
     typer.echo("Score command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
@@ -225,7 +225,7 @@ def get_urls_cmd(
     tribunal: str = "tjro",
     to_queue: bool = False,
     as_diario: bool = False,
-):
+) -> None:
     typer.echo("get-urls command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
@@ -235,12 +235,12 @@ def pipeline(
     stages: Optional[str] = None,
     stop_on_error: bool = False,
     limit: Optional[int] = None,
-):
+) -> None:
     typer.echo("Pipeline command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
 @app.command(name="stats")
-def stats_cmd(ctx: typer.Context):
+def stats_cmd(ctx: typer.Context) -> None:
     cg_db = get_cg_db_from_ctx(ctx)
     try:
         with cg_db.db_manager:
@@ -254,19 +254,19 @@ def stats_cmd(ctx: typer.Context):
 
 
 @app.command(name="config")
-def show_config_cmd(ctx: typer.Context):
+def show_config_cmd(ctx: typer.Context) -> None:
     typer.echo(json.dumps(cg_config, indent=2, default=str))
 
 
 @app.command("diario")
-def diario_cmd_group(ctx: typer.Context, action: str = typer.Argument(...)):
+def diario_cmd_group(ctx: typer.Context, action: str = typer.Argument(...)) -> None:
     typer.echo("Diario command (stub) NOT YET FULLY REFACTORED.", err=True)
     if action == "stats":
         ctx.invoke(stats_cmd)
 
 
 # --- Refactored 'db' command group and its helpers ---
-def _db_status(ctx: typer.Context):
+def _db_status(ctx: typer.Context) -> None:
     cg_db = get_cg_db_from_ctx(ctx)
     try:
         with cg_db.db_manager:
@@ -310,7 +310,7 @@ def database_cmd_group(
         ..., help="Action: migrate, status, backup, reset, healthcheck"
     ),
     force: bool = typer.Option(False, help="Force operation"),
-):
+) -> None:
     db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
 
     if action == "migrate":
