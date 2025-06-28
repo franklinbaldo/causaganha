@@ -18,4 +18,5 @@ data/*
 coverage.xml
 .coverage
 htmlcov/
+docs/_build/
 data/causaganha.duckdb

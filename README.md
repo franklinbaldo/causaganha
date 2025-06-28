@@ -92,6 +92,13 @@ Para quem utiliza o VSCode, o diretório `.vscode/` contém configurações que:
 - Ativam o linter **Ruff**;
 - Configuram a descoberta de testes em `tests/`.
 
+## Documentação
+
+Para gerar a documentação HTML localmente utilize o Sphinx:
+
+```bash
+sphinx-build -b html docs/api docs/_build
+```
 
 ## Status do Projeto
 
