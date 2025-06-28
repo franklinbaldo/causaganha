@@ -7,17 +7,52 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.database import CausaGanhaDB
+from src.database import CausaGanhaDB, DatabaseManager, run_db_migrations
 from src.pii_manager import PiiManager  # Needed to generate some UUIDs for testing
 
 
 @pytest.fixture
 def db_instance(temp_db: Path):  # temp_db from conftest.py
     """Fixture to provide an initialized CausaGanhaDB instance for testing PII-related DB operations."""
-    db = CausaGanhaDB(db_path=temp_db)
-    db.connect()  # Runs migrations
+    db_manager = DatabaseManager(db_path=temp_db)
+    db = CausaGanhaDB(db_manager=db_manager)
+    test_migrations_path = db_manager.db_path.parent / "temp_test_migrations"
+    test_migrations_path.mkdir(exist_ok=True)
+    minimal_schema_sql = """
+        CREATE TABLE IF NOT EXISTS pii_decode_map (
+            pii_uuid TEXT PRIMARY KEY,
+            original_value TEXT NOT NULL,
+            value_for_uuid_ref TEXT NOT NULL,
+            pii_type TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS decisoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_processo TEXT,
+            numero_processo_uuid TEXT,
+            polo_ativo TEXT,
+            polo_ativo_uuids TEXT,
+            polo_passivo TEXT,
+            polo_passivo_uuids TEXT,
+            advogados_polo_ativo TEXT,
+            advogados_polo_ativo_full_str_uuids TEXT,
+            advogados_polo_passivo TEXT,
+            advogados_polo_passivo_full_str_uuids TEXT,
+            resultado TEXT,
+            resultado_original TEXT,
+            data_decisao DATE,
+            data_decisao_original TEXT,
+            raw_json_pii_replaced TEXT,
+            json_source_file TEXT,
+            tipo_decisao TEXT,
+            validation_status TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    (test_migrations_path / "001_test_schema.sql").write_text(minimal_schema_sql)
+    run_db_migrations(db_manager.db_path, migrations_path_override=test_migrations_path) # Ensure migrations are run
     yield db
-    db.close()
+    db_manager.close()
 
 
 @pytest.fixture
