@@ -25,6 +25,11 @@ import subprocess
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 
+from .anonymization_hooks import anonymize_metadata
+from .pii_manager import PiiManager
+from .config import load_config
+from .database import DatabaseManager, CausaGanhaDB, run_db_migrations
+
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -111,13 +116,29 @@ class AsyncDiarioPipeline:
         max_concurrent_downloads: int = MAX_CONCURRENT_DOWNLOADS,
         max_concurrent_uploads: int = MAX_CONCURRENT_IA_UPLOADS,
         try_direct_upload: bool = True,
+        anonymize_metadata: bool = False,
+        pii_manager: PiiManager | None = None,
     ):
         self.data_dir = data_dir
         self.progress_file = progress_file
         self.max_concurrent_downloads = max_concurrent_downloads
         self.max_concurrent_uploads = max_concurrent_uploads
         self.try_direct_upload = try_direct_upload
+        self.anonymize_metadata_flag = anonymize_metadata
         self.logger = logging.getLogger(__name__)
+
+        if self.anonymize_metadata_flag:
+            if pii_manager is None:
+                config = load_config()
+                db_path = Path(config["database"]["path"])
+                db_manager = DatabaseManager(db_path=db_path)
+                run_db_migrations(db_manager.db_path)
+                db = CausaGanhaDB(db_manager=db_manager)
+                self.pii_manager = PiiManager(db.conn)
+            else:
+                self.pii_manager = pii_manager
+        else:
+            self.pii_manager = None
 
         # Create directories
         self.data_dir.mkdir(exist_ok=True)
@@ -158,9 +179,9 @@ class AsyncDiarioPipeline:
                     key: ProcessingStatus(**data) for key, data in progress_data.items()
                 }
 
-                completed = len(
-                    [s for s in self.status_tracker.values() if s.status == "completed"]
-                )
+                completed = len([
+                    s for s in self.status_tracker.values() if s.status == "completed"
+                ])
                 total = len(self.status_tracker)
                 self.logger.info(f"Loaded progress: {completed}/{total} completed")
 
@@ -314,6 +335,8 @@ class AsyncDiarioPipeline:
                 "%Y-%m-%d %H:%M:%S"
             )
             metadata["upload_method"] = "local_download_first"
+            if self.pii_manager:
+                metadata = anonymize_metadata(metadata, self.pii_manager)
 
             # Build ia command
             ia_cmd = [
@@ -561,6 +584,11 @@ async def main():
         action="store_true",
         help="Upload database to IA after processing",
     )
+    parser.add_argument(
+        "--anonymize-metadata",
+        action="store_true",
+        help="Replace creator and title metadata with UUIDs",
+    )
 
     args = parser.parse_args()
 
@@ -611,6 +639,7 @@ async def main():
         progress_file=progress_file,
         max_concurrent_downloads=args.concurrent_downloads,
         max_concurrent_uploads=args.concurrent_uploads,
+        anonymize_metadata=args.anonymize_metadata,
     ) as pipeline:
         # Load existing progress if resuming
         if args.resume:
