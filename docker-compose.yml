@@ -5,3 +5,8 @@ services:
     volumes:
       - .:/app
     command: bash
+  analytics:
+    build: .
+    volumes:
+      - .:/app
+    command: python scripts/run_analytics.py

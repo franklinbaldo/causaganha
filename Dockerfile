@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # Install uv
-RUN apt-get update && apt-get install -y git \
+RUN apt-get update && apt-get install -y git make \
     && pip install --no-cache-dir uv pre-commit \
     && rm -rf /var/lib/apt/lists/*
 

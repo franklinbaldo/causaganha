@@ -24,3 +24,8 @@ repos:
         entry: uv run pytest -q
         language: system
         pass_filenames: false
+      - id: build-docs
+        name: build docs
+        entry: make docs
+        language: system
+        pass_filenames: false
