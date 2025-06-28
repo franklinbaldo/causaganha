@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 """
 Tests for the Diario dataclass implementation.
 """
@@ -9,14 +8,20 @@ from pathlib import Path
 import json
 import sys
 
+from models.diario import Diario  # Moved to top
+from tribunais import (
+    get_adapter,
+    is_tribunal_supported,
+    list_supported_tribunals,
+)  # Moved to top
+# Specific import for testing can remain if not causing E402, or also moved.
+# from tribunais.tjro.adapter import TJROAdapter
+
 # Add src directory to path for testing
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
-
-from models.diario import Diario
-from tribunais import get_adapter, is_tribunal_supported, list_supported_tribunals
 
 
 class TestDiario(unittest.TestCase):
@@ -66,7 +71,9 @@ class TestDiario(unittest.TestCase):
             "tribunal": "tjro",
             "filename": "test.pdf",
             "status": "analyzed",
-            "metadata": json.dumps({"test": "value"}),
+            "metadata": json.dumps(
+                {"test": "value"}
+            ),  # metadata in DB is TEXT (json string)
             "ia_identifier": "test-identifier",
             "arquivo_path": "/path/to/file.pdf",
         }
@@ -78,7 +85,9 @@ class TestDiario(unittest.TestCase):
         self.assertEqual(diario.url, "https://tjro.jus.br/test.pdf")
         self.assertEqual(diario.filename, "test.pdf")
         self.assertEqual(diario.status, "analyzed")
-        self.assertEqual(diario.metadata, {"test": "value"})
+        self.assertEqual(
+            diario.metadata, {"test": "value"}
+        )  # from_queue_item should parse JSON string
         self.assertEqual(diario.ia_identifier, "test-identifier")
         self.assertEqual(str(diario.pdf_path), "/path/to/file.pdf")
 
@@ -104,7 +113,6 @@ class TestDiario(unittest.TestCase):
             metadata={"test": "value"},
         )
 
-        # Convert to dict and back
         dict_data = original.to_dict()
         restored = Diario.from_dict(dict_data)
 
@@ -130,7 +138,9 @@ class TestTribunalRegistry(unittest.TestCase):
     def test_get_adapter(self):
         """Test getting tribunal adapter."""
         adapter = get_adapter("tjro")
+        from tribunais.tjro.adapter import TJROAdapter  # Import here to check type
 
+        self.assertIsInstance(adapter, TJROAdapter)
         self.assertEqual(adapter.tribunal_code, "tjro")
         self.assertIsNotNone(adapter.discovery)
         self.assertIsNotNone(adapter.downloader)
@@ -158,13 +168,10 @@ class TestTJROIntegration(unittest.TestCase):
     def test_tjro_adapter_creation(self):
         """Test creating TJRO adapter."""
         adapter = get_adapter("tjro")
+        from tribunais.tjro.adapter import TJROAdapter
 
-        # Test that we can create a diario (without actual network call)
-        # This tests the basic interface without requiring network access
-        date(2025, 6, 26)
+        self.assertIsInstance(adapter, TJROAdapter)
 
-        # The create_diario method would normally call discovery.get_diario_url()
-        # but we can test the adapter structure
         self.assertEqual(adapter.tribunal_code, "tjro")
         self.assertTrue(hasattr(adapter, "create_diario"))
         self.assertTrue(hasattr(adapter, "process_diario"))

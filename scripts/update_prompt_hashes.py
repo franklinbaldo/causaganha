@@ -31,7 +31,7 @@ def update_prompt_hashes(prompts_dir: Path):
 
             if match:
                 # File already has a hash, verify it
-
+                match.group(1)
                 existing_hash = match.group(2)
                 current_content_hash = calculate_file_hash(filepath)
 
