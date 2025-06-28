@@ -1,11 +1,11 @@
-# Agent: quality-docs
+# Agent: julia-martins
 > 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
-- **Name**: quality-docs
+- **Name**: julia-martins
 - **Specialization**: Quality & Documentation Specialist
 - **Sprint**: sprint-2025-03
-- **Branch**: `feat/sprint-2025-03-quality-docs`
+- **Branch**: `feat/sprint-2025-03-julia-martins`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -51,7 +51,7 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-03-quality-docs` with:
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-julia-martins` with:
 - TJSP and TJMG mock datasets
 - Error simulation tests for collectors
 - Multi-tribunal architecture diagram
@@ -90,7 +90,7 @@ All work will be delivered in a single PR from branch `feat/sprint-2025-03-quali
 - [x] Code examples repository: set up initial structure
 
 *All sprint tasks completed as of 5 July 2025.*
-- 2025-07-05: Branch `feat/sprint-2025-03-quality-docs` started. Reviewed board tasks; all deliverables already committed.
+- 2025-07-05: Branch `feat/sprint-2025-03-julia-martins` started. Reviewed board tasks; all deliverables already committed.
 
 ### Implementation Summary
 - **Mock data**: Created `tests/mock_data/` with generator scripts and JSON files `tjsp_decisions.json`, `tjmg_decisions.json` and `cross_tribunal_cases.json` representing realistic decisions.
