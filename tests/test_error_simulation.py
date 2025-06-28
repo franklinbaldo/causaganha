@@ -1,5 +1,6 @@
 import unittest
 import os
+from unittest.mock import patch
 
 # Assume these are placeholder functions representing actual system operations
 def simulate_network_request():
@@ -7,9 +8,33 @@ def simulate_network_request():
     # For simulation, we can raise common network errors
     raise ConnectionError("Simulated network connection error")
 
+def simulate_network_request_with_retry(attempts=3):
+    """Simulates a network request with simple retry logic."""
+    for attempt in range(attempts):
+        try:
+            simulate_network_request()
+        except ConnectionError:
+            if attempt == attempts - 1:
+                raise
+        else:
+            return True
+    return False
+
 def simulate_api_call_limit():
     # Simulate hitting an API rate limit
     raise Exception("API rate limit exceeded")
+
+def simulate_api_call_with_backoff(max_calls=3):
+    """Attempts API calls until success or limit exceeded."""
+    for attempt in range(max_calls):
+        try:
+            simulate_api_call_limit()
+        except Exception:
+            if attempt == max_calls - 1:
+                raise
+        else:
+            return True
+    return False
 
 def simulate_file_processing(file_path):
     # Simulate processing a file that might be corrupted
@@ -25,7 +50,12 @@ class TestErrorSimulation(unittest.TestCase):
         # For example, by retrying or logging the error
         with self.assertRaises(ConnectionError):
             simulate_network_request()
-        # Add assertions here to check recovery mechanisms, e.g., retry attempts logged
+        # Retry logic should eventually raise after max attempts
+        with self.assertRaises(ConnectionError):
+            simulate_network_request_with_retry(attempts=2)
+        # Successful retry if attempts allow a pass-through (no error)
+        with patch(__name__ + '.simulate_network_request', return_value=True):
+            self.assertTrue(simulate_network_request_with_retry(attempts=2))
 
     def test_api_limit_handling(self):
         # This test would verify how the system responds to API rate limits
@@ -33,7 +63,12 @@ class TestErrorSimulation(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             simulate_api_call_limit()
         self.assertTrue("API rate limit exceeded" in str(context.exception))
-        # Add assertions for backoff/notification mechanisms
+        # Backoff helper should raise after exceeding limit
+        with self.assertRaises(Exception):
+            simulate_api_call_with_backoff(max_calls=1)
+        # When the limit is generous, the call should succeed
+        with patch(__name__ + '.simulate_api_call_limit', return_value=True):
+            self.assertTrue(simulate_api_call_with_backoff(max_calls=2))
 
     def test_file_corruption_handling(self):
         # This test ensures the system can handle corrupted or missing files

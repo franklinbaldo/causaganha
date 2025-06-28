@@ -134,3 +134,17 @@ uv run python src/async_diario_pipeline.py --max-items 10
 # Combinar filtros
 uv run python src/async_diario_pipeline.py --input data/diarios_2025_only.json --max-items 50
 ```
+
+### Troubleshooting Geral
+
+Se encontrar erros de rede ou limites de API durante o processamento:
+
+```bash
+# Repetir a operação com verbosidade para identificar o problema
+uv run python src/async_diario_pipeline.py --verbose --max-items 1
+
+# Caso atinja o limite da API Gemini, aguarde alguns minutos e tente novamente
+uv run python src/async_diario_pipeline.py --resume
+```
+
+Para falhas persistentes, verifique se há conexão estável e consulte os logs em `logs/` para detalhes adicionais.

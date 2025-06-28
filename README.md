@@ -121,3 +121,7 @@ Este projeto é licenciado sob os termos da MIT License.
 ---
 
 O projeto está aberto à colaboração e feedback da comunidade jurídica, técnica e acadêmica.
+
+## Exemplos
+
+Veja scripts de exemplo em [docs/examples](docs/examples) para demonstrações de processamento de dados e tratamento de erros.
