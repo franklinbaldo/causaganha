@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import shutil
+import fitz
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -44,6 +45,14 @@ class TestGeminiExtractor(unittest.TestCase):
     def tearDown(self):
         if self.test_data_root.exists():
             shutil.rmtree(self.test_data_root)
+
+    def _create_pdf(self, path: pathlib.Path, pages: int) -> None:
+        doc = fitz.open()
+        for i in range(pages):
+            page = doc.new_page()
+            page.insert_text((72, 72), f"Page {i + 1}")
+        doc.save(str(path))
+        doc.close()
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
@@ -137,6 +146,79 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
         mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
+
+    def test_extract_text_from_pdf_chunking(self):
+        multi_pdf = self.dummy_pdf_dir / "multi_page.pdf"
+        self._create_pdf(multi_pdf, 30)
+
+        extractor = GeminiExtractor(api_key=None)
+        chunks = extractor._extract_text_from_pdf(multi_pdf)
+
+        self.assertEqual(len(chunks), 2)
+        self.assertIn("PÁGINA 1", chunks[0])
+        self.assertIn("PÁGINA 25", chunks[0])
+        self.assertNotIn("CONTINUAÇÃO DO TRECHO", chunks[0])
+        self.assertTrue(chunks[1].lstrip().startswith("=== CONTINUAÇÃO DO TRECHO ANTERIOR"))
+        self.assertIn("PÁGINA 25 (OVERLAP)", chunks[1])
+        self.assertIn("PÁGINA 30", chunks[1])
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
+    @patch("extractor.genai")
+    def test_multi_page_json_parsing_success(self, mock_genai):
+        multi_pdf = self.dummy_pdf_dir / "multi_parse.pdf"
+        self._create_pdf(multi_pdf, 30)
+
+        mock_genai.configure = MagicMock()
+        mock_model_instance = MagicMock()
+        response1 = MagicMock()
+        response1.text = json.dumps([
+            {"numero_processo": "111", "resultado": "procedente"}
+        ])
+        response2 = MagicMock()
+        response2.text = json.dumps([
+            {"numero_processo": "222", "resultado": "improcedente"}
+        ])
+        mock_model_instance.generate_content.side_effect = [response1, response2]
+        mock_genai.GenerativeModel.return_value = mock_model_instance
+
+        extractor = GeminiExtractor()
+        result_path = extractor.extract_and_save_json(multi_pdf, self.output_json_dir)
+
+        self.assertIsNotNone(result_path)
+        self.assertTrue(pathlib.Path(result_path).exists())
+        self.assertEqual(mock_model_instance.generate_content.call_count, 2)
+
+        with open(result_path, "r") as f:
+            data = json.load(f)
+
+        self.assertEqual(data["chunks_processed"], 2)
+        self.assertEqual(data["total_decisions_found"], 2)
+        numeros = [d["numero_processo"] for d in data["decisions"]]
+        self.assertEqual(numeros, ["111", "222"])
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
+    @patch("extractor.genai")
+    def test_multi_page_json_parsing_failure(self, mock_genai):
+        multi_pdf = self.dummy_pdf_dir / "multi_fail.pdf"
+        self._create_pdf(multi_pdf, 30)
+
+        mock_genai.configure = MagicMock()
+        mock_model_instance = MagicMock()
+        response1 = MagicMock()
+        response1.text = json.dumps([
+            {"numero_processo": "111", "resultado": "procedente"}
+        ])
+        response2 = MagicMock()
+        response2.text = "not json"
+        mock_model_instance.generate_content.side_effect = [response1, response2]
+        mock_genai.GenerativeModel.return_value = mock_model_instance
+
+        extractor = GeminiExtractor()
+        result_path = extractor.extract_and_save_json(multi_pdf, self.output_json_dir)
+
+        self.assertIsNone(result_path)
+        self.assertEqual(mock_model_instance.generate_content.call_count, 2)
+        self.assertFalse(any(self.output_json_dir.iterdir()))
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
