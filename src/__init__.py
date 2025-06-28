@@ -1,1 +1,4 @@
-# Core modules for the CausaGanha package.
+"""
+Package marker for the source root.
+"""
+__all__ = []

@@ -49,7 +49,8 @@ def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
 
 def fetch_tjro_pdf(
     date_obj: datetime.date,
-) -> pathlib.Path | None:  # Adjusted return type hint
+    output_dir: pathlib.Path | None = None,
+) -> pathlib.Path | None:
     """
     Downloads the Diário da Justiça PDF for the given date from TJRO.
 
@@ -62,7 +63,8 @@ def fetch_tjro_pdf(
     """
     file_name = f"dj_{date_obj.strftime('%Y%m%d')}.pdf"
 
-    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
+    if output_dir is None:
+        output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / file_name
 
@@ -94,15 +96,17 @@ def fetch_tjro_pdf(
         return None
 
 
-def fetch_latest_tjro_pdf() -> pathlib.Path | None:
-    """Downloads the most recent Diário da Justiça PDF available."""
+def fetch_latest_tjro_pdf(
+    output_dir: pathlib.Path | None = None,
+) -> pathlib.Path | None:
     logging.info(f"Fetching latest diary from {TJRO_LATEST_PAGE_URL}")
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
     # The ultimo-diario.php URL directly redirects to the PDF file
-    output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
+    if output_dir is None:
+        output_dir = pathlib.Path(__file__).resolve().parent.parent / "data" / "diarios"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
