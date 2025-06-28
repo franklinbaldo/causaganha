@@ -6,7 +6,12 @@ implementations through the new Diario dataclass system.
 """
 
 from typing import List, Dict, Type
-from models.interfaces import DiarioDiscovery, DiarioDownloader, DiarioAnalyzer, TribunalAdapter
+from models.interfaces import (
+    DiarioDiscovery,
+    DiarioDownloader,
+    DiarioAnalyzer,
+    TribunalAdapter,
+)
 
 # Import tribunal-specific implementations
 from .tjro.discovery import TJRODiscovery
@@ -16,32 +21,32 @@ from .tjro.adapter import TJROAdapter
 
 # Registry for tribunal-specific implementations
 _DISCOVERIES: Dict[str, Type[DiarioDiscovery]] = {
-    'tjro': TJRODiscovery,
+    "tjro": TJRODiscovery,
 }
 
 _DOWNLOADERS: Dict[str, Type[DiarioDownloader]] = {
-    'tjro': TJRODownloader,
+    "tjro": TJRODownloader,
 }
 
 _ANALYZERS: Dict[str, Type[DiarioAnalyzer]] = {
-    'tjro': TJROAnalyzer,
+    "tjro": TJROAnalyzer,
 }
 
 _ADAPTERS: Dict[str, Type[TribunalAdapter]] = {
-    'tjro': TJROAdapter,
+    "tjro": TJROAdapter,
 }
 
 
 def get_discovery(tribunal: str) -> DiarioDiscovery:
     """
     Get discovery implementation for tribunal.
-    
+
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
-        
+
     Returns:
         DiarioDiscovery implementation
-        
+
     Raises:
         ValueError: If tribunal is not supported
     """
@@ -54,13 +59,13 @@ def get_discovery(tribunal: str) -> DiarioDiscovery:
 def get_downloader(tribunal: str) -> DiarioDownloader:
     """
     Get downloader implementation for tribunal.
-    
+
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
-        
+
     Returns:
         DiarioDownloader implementation
-        
+
     Raises:
         ValueError: If tribunal is not supported
     """
@@ -73,13 +78,13 @@ def get_downloader(tribunal: str) -> DiarioDownloader:
 def get_analyzer(tribunal: str) -> DiarioAnalyzer:
     """
     Get analyzer implementation for tribunal.
-    
+
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
-        
+
     Returns:
         DiarioAnalyzer implementation
-        
+
     Raises:
         ValueError: If tribunal is not supported
     """
@@ -92,16 +97,16 @@ def get_analyzer(tribunal: str) -> DiarioAnalyzer:
 def get_adapter(tribunal: str) -> TribunalAdapter:
     """
     Get complete tribunal adapter.
-    
+
     This is the recommended way to get a tribunal implementation
     as it provides all functionality in one object.
-    
+
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
-        
+
     Returns:
         TribunalAdapter implementation
-        
+
     Raises:
         ValueError: If tribunal is not supported
     """
@@ -114,7 +119,7 @@ def get_adapter(tribunal: str) -> TribunalAdapter:
 def list_supported_tribunals() -> List[str]:
     """
     Get list of supported tribunals.
-    
+
     Returns:
         List of tribunal codes
     """
@@ -124,30 +129,32 @@ def list_supported_tribunals() -> List[str]:
 def is_tribunal_supported(tribunal: str) -> bool:
     """
     Check if a tribunal is supported.
-    
+
     Args:
         tribunal: Tribunal code to check
-        
+
     Returns:
         True if supported, False otherwise
     """
     return tribunal in _DISCOVERIES
 
 
-def register_tribunal(tribunal_code: str, 
-                     discovery_class: Type[DiarioDiscovery],
-                     downloader_class: Type[DiarioDownloader],
-                     analyzer_class: Type[DiarioAnalyzer],
-                     adapter_class: Type[TribunalAdapter]) -> None:
+def register_tribunal(
+    tribunal_code: str,
+    discovery_class: Type[DiarioDiscovery],
+    downloader_class: Type[DiarioDownloader],
+    analyzer_class: Type[DiarioAnalyzer],
+    adapter_class: Type[TribunalAdapter],
+) -> None:
     """
     Register a new tribunal implementation.
-    
+
     This allows for dynamic registration of new tribunals at runtime.
-    
+
     Args:
         tribunal_code: Unique code for the tribunal
         discovery_class: DiarioDiscovery implementation
-        downloader_class: DiarioDownloader implementation  
+        downloader_class: DiarioDownloader implementation
         analyzer_class: DiarioAnalyzer implementation
         adapter_class: TribunalAdapter implementation
     """

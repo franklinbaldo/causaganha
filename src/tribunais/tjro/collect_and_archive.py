@@ -9,7 +9,7 @@ import datetime
 import logging
 import re
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from .downloader import (
     fetch_tjro_pdf,
@@ -25,12 +25,12 @@ def collect_and_archive_diario(
 ) -> Optional[str]:
     """
     Download and archive a TJRO diario for a specific date or latest available.
-    
+
     Args:
         date: Date in YYYY-MM-DD format to collect
         latest: If True, fetch the latest available PDF
         db_path: Path to DuckDB database file
-        
+
     Returns:
         Internet Archive URL if successful, None if failed
     """
