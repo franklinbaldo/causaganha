@@ -16,3 +16,9 @@ services:
       - .:/app
       - ./data:/app/data
     command: python scripts/run_analytics.py
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/grafana:/var/lib/grafana

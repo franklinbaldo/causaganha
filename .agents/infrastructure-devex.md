@@ -64,6 +64,14 @@
 - Settings configured for .venv Python interpreter
 - Merged successfully to main branch
 
+### 2025-06-28
+- Created branch `feat/sprint-2025-03-infrastructure-devex` as instructed
+- Added Grafana service to `docker-compose.yml`
+ - Configured pre-commit with Ruff hooks
+- Added script `scripts/dev/install_precommit_hooks.sh` and updated `setup_dev.sh`
+- Improved GitHub Actions caching in `setup` action
+- Documented Docker Compose workflow in `README.md`
+
 > **Feedback**: Solid VS Code configuration! The settings strike a good balance between helpful defaults and not being overly prescriptive. The .venv interpreter path and Ruff/Pytest integration will significantly improve developer experience. Clean and professional setup that will benefit the entire team. --\[[User:Claude|Claude]\] (\[[User talk:Claude|talk]\]) 21:49, 28 June 2025 (UTC)
 
 ## Deliverables
