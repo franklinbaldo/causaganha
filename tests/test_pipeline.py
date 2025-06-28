@@ -9,7 +9,7 @@ import json
 import argparse  # Added for Namespace
 import tempfile
 import shutil
-import pipeline
+from src import pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = PROJECT_ROOT / "src"
@@ -188,7 +188,7 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
 
     def test_unknown_argument(self):
         # argparse in Python 3.9+ exits with 2 for argument errors
-        self.assertEqual(self.run_main_for_test(["--nonexistent-arg"]), 2)
+        self.assertEqual(self.run_main_for_test(["collect", "--date", "2024-01-01", "--nonexistent-arg"]), 2)
         self.assertIn(
             "unrecognized arguments: --nonexistent-arg", self.mock_stderr.getvalue()
         )
@@ -264,11 +264,8 @@ class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def test_dry_run_logging_capture_for_collect(self, mock_get_logger):
         mock_logger_instance = MagicMock()
         mock_get_logger.return_value = mock_logger_instance
-        # Patch the actual fetch function to avoid network calls
-        with patch(
-            "src.pipeline.fetch_tjro_pdf", MagicMock(return_value=Path("/tmp/dry.pdf"))
-        ):
-            self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run"])
+        # Don't patch fetch_tjro_pdf so we can test the dry-run logging behavior
+        self.run_main_for_test(["collect", "--date", "2024-01-01", "--dry-run"])
 
         dry_run_fetch_logged = any(
             "DRY-RUN: Would fetch TJRO PDF for date: 2024-01-01" in str(call_arg)
@@ -289,7 +286,7 @@ class TestPipelineUpdateCommand(unittest.TestCase):
             self.fail("The 'pipeline' module could not be imported.")
 
         self.test_data_root = Path(tempfile.mkdtemp(prefix="causaganha_pipeline_test_"))
-        self.json_input_dir = self.test_data_root / "json_input"
+        self.json_input_dir = self.test_data_root / "json"
         self.processed_json_dir = self.test_data_root / "json_processed"
         self.ratings_csv_path = self.test_data_root / "ratings.csv"
         self.partidas_csv_path = self.test_data_root / "partidas.csv"
@@ -299,11 +296,13 @@ class TestPipelineUpdateCommand(unittest.TestCase):
 
         # Sample data (simplified)
         self.sample_decision_1 = {
-            "numero_processo": "001",
+            "numero_processo": "1234567-89.2023.8.23.0001",
             "resultado": "procedente",
             "advogados_polo_ativo": ["AdvA"],
             "advogados_polo_passivo": ["AdvB"],
             "data_decisao": "2023-01-01",
+            "polo_ativo": "Test Requerente",
+            "polo_passivo": "Test Requerido",
         }
         with open(self.json_input_dir / "decision1.json", "w") as f:
             json.dump({"decisions": [self.sample_decision_1]}, f)
@@ -333,10 +332,14 @@ class TestPipelineUpdateCommand(unittest.TestCase):
         args = argparse.Namespace(
             dry_run=False, verbose=False
         )  # Use argparse.Namespace
-        pipeline.update_command(args)  # Call the command function
+        
+        # Patch CONFIG to use test directory
+        with patch("src.pipeline.CONFIG", {"data_dir": str(self.test_data_root)}):
+            pipeline.update_command(args)  # Call the command function
 
         self.assertTrue(mock_read_csv.called)
         self.assertTrue(mock_to_csv.called)  # Should be called for ratings and partidas
+        # Move should be called since we have test JSON files
         self.assertTrue(mock_move.called)  # For moving processed JSON
 
     @patch("src.pipeline.pd.read_csv")
@@ -347,7 +350,10 @@ class TestPipelineUpdateCommand(unittest.TestCase):
             columns=["mu", "sigma", "total_partidas"]
         ).set_index(pd.Index([], name="advogado_id"))
         args = argparse.Namespace(dry_run=True, verbose=False)
-        pipeline.update_command(args)
+        
+        # Patch CONFIG to use test directory
+        with patch("src.pipeline.CONFIG", {"data_dir": str(self.test_data_root)}):
+            pipeline.update_command(args)
         self.assertTrue(mock_read_csv.called)
         mock_to_csv.assert_not_called()
         mock_move.assert_not_called()
@@ -365,11 +371,15 @@ class TestPipelineUpdateCommand(unittest.TestCase):
             columns=["mu", "sigma", "total_partidas"]
         ).set_index(pd.Index([], name="advogado_id"))
         args = argparse.Namespace(dry_run=False, verbose=False)
-        pipeline.update_command(args)
+        
+        # Patch CONFIG to use test directory
+        with patch("src.pipeline.CONFIG", {"data_dir": str(self.test_data_root)}):
+            pipeline.update_command(args)
         # Ratings file might still be saved even if empty or unchanged
         self.assertTrue(mock_to_csv.called)
         # No files should be moved if no valid decisions processed
         mock_move.assert_not_called()
+        # Validate should be called since we have test JSON files
         self.assertTrue(mock_validate.called)
 
 
