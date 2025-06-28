@@ -14,13 +14,18 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+1. Implement unified CLI entrypoint `causaganha` with `db sync` and `pipeline run` subcommands
+2. Provide help examples and update README
+3. Create CLI tests for new commands
+4. Document progress here
 
-## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 3/3 tasks completed
 
 ## Notes
-- Card created for future assignments.
+- Started development on branch `feat/sprint-2025-03-juan-carlos`.
+- Added new CLI commands and documentation.
+- Documented CLI help usage in README.
+- Created basic tests for `db sync` and `pipeline run`.
 
 ## 🎛️ Agent Communication
 **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for usage instructions.

@@ -2,6 +2,9 @@
 
 import typer
 from typing import Optional
+import asyncio
+import sys
+import async_diario_pipeline
 from pathlib import Path
 from urllib.parse import urlparse
 import re
@@ -21,6 +24,10 @@ app = typer.Typer(
     no_args_is_help=True,
     pretty_exceptions_show_locals=False,
 )
+
+# Subcommand groups
+pipeline_app = typer.Typer(help="Pipeline operations")
+app.add_typer(pipeline_app, name="pipeline")
 
 cg_config = load_config()
 
@@ -229,14 +236,35 @@ def get_urls_cmd(
     typer.echo("get-urls command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
-@app.command()
-def pipeline(
-    from_csv: Optional[Path] = None,
-    stages: Optional[str] = None,
-    stop_on_error: bool = False,
-    limit: Optional[int] = None,
+@pipeline_app.command("run")
+def pipeline_run(
+    date: Optional[str] = typer.Option(
+        None, help="Process only a specific YYYY-MM-DD date"
+    ),
+    max_items: Optional[int] = typer.Option(
+        None, help="Limit number of diarios processed"
+    ),
+    verbose: bool = typer.Option(False, help="Enable verbose logging"),
+    sync_database: bool = typer.Option(False, help="Sync database before run"),
 ) -> None:
-    typer.echo("Pipeline command (stub) NOT YET FULLY REFACTORED.", err=True)
+    """Execute the async pipeline."""
+    args = []
+    if date:
+        args += ["--start-date", date, "--end-date", date]
+    if max_items:
+        args += ["--max-items", str(max_items)]
+    if verbose:
+        args.append("--verbose")
+    if sync_database:
+        args.append("--sync-database")
+
+    sys_argv_backup = sys.argv
+    sys.argv = ["async_diario_pipeline.py"] + args
+    try:
+        exit_code = asyncio.run(async_diario_pipeline.main())
+    finally:
+        sys.argv = sys_argv_backup
+    raise typer.Exit(exit_code)
 
 
 @app.command(name="stats")
@@ -307,7 +335,7 @@ def _db_status(ctx: typer.Context) -> None:
 def database_cmd_group(
     ctx: typer.Context,
     action: str = typer.Argument(
-        ..., help="Action: migrate, status, backup, reset, healthcheck"
+        ..., help="Action: migrate, status, sync, backup, reset, healthcheck"
     ),
     force: bool = typer.Option(False, help="Force operation"),
 ) -> None:
@@ -331,6 +359,15 @@ def database_cmd_group(
             raise typer.Exit(1)
     elif action == "status":
         _db_status(ctx)
+    elif action == "sync":
+        from ia_database_sync import IADatabaseSync
+
+        typer.echo("🔄 Syncing database with Internet Archive...")
+        syncer = IADatabaseSync(db_path_cfg)
+        result = syncer.smart_sync(prefer_local=True, wait_for_lock=not force)
+        typer.echo(f"Sync result: {result}")
+        if result in ["upload_failed", "download_failed", "lock_timeout"]:
+            raise typer.Exit(1)
     elif action == "healthcheck":
         temp_manager = DatabaseManager(db_path_cfg)
         typer.echo(f"🩺 Health check for {temp_manager.db_path}...")

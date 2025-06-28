@@ -46,8 +46,11 @@ uv run --env-file .env causaganha db migrate
 # Adicionar URLs para processamento
 uv run --env-file .env causaganha queue --from-csv diarios.csv
 
+# Sincronizar banco de dados com a IA
+uv run --env-file .env causaganha db sync
+
 # Executar pipeline completo
-uv run --env-file .env causaganha pipeline --from-csv diarios.csv
+uv run --env-file .env causaganha pipeline run --date 2025-06-24
 
 # Monitorar progresso
 uv run --env-file .env causaganha stats
@@ -66,9 +69,25 @@ uv run --env-file .env causaganha score
 | `archive` | Download e armazenamento no Internet Archive |
 | `analyze` | Extração de informações via LLM |
 | `score` | Geração de rankings OpenSkill |
-| `pipeline` | Executa pipeline completo |
+| `pipeline run` | Executa pipeline assíncrono |
 | `stats` | Estatísticas e progresso |
+| `db sync` | Sincroniza banco de dados |
 | `db` | Operações de banco de dados |
+
+### Exemplos de CLI
+
+```bash
+causaganha db sync
+causaganha pipeline run --date 2025-06-24
+```
+
+### Ajuda da CLI
+
+```bash
+causaganha --help             # visão geral dos comandos
+causaganha db --help          # opções do grupo de banco
+causaganha pipeline run --help # parâmetros do pipeline
+```
 
 ## Variáveis de Ambiente
 
