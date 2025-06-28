@@ -92,6 +92,23 @@ Para quem utiliza o VSCode, o diretório `.vscode/` contém configurações que:
 - Ativam o linter **Ruff**;
 - Configuram a descoberta de testes em `tests/`.
 
+### Ambiente de desenvolvimento com Docker Compose
+
+Para quem prefere um ambiente isolado em contêiner:
+
+```bash
+./scripts/setup_dev.sh          # cria `.venv` e instala dependências
+./scripts/dev/install_precommit_hooks.sh  # configura hooks do pre-commit (Ruff)
+./scripts/dev/docker_shell.sh   # abre um shell dentro do contêiner
+```
+
+O serviço `analytics` pode ser executado via Docker Compose, e um painel Grafana
+é disponibilizado em `http://localhost:3000` ao rodar:
+
+```bash
+docker compose up grafana
+```
+
 ## Documentação
 
 Para gerar a documentação HTML localmente utilize o Sphinx:
