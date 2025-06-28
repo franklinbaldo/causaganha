@@ -27,7 +27,7 @@ def normalize_lawyer_name(name: str) -> str:
     # Order is important: "dr. " before "dr.", "doutora " before "dra. " etc.
     # And "dra. " before "dr. " to correctly parse "dra. dra." if such a case existed.
     # Titles with trailing space (to be removed with the space)
-    titles_with_space = [
+    titles_with_space: list[str] = [
         "DOUTORA ",
         "DOUTOR ",
         "DRA. ",
@@ -38,7 +38,7 @@ def normalize_lawyer_name(name: str) -> str:
     # Titles without trailing space (to be removed if they are exactly at the end or followed by non-alpha)
     # For simplicity now, this list will be for titles that might be directly followed by name characters
     # e.g. "Dra.Ana". We remove these specific prefixes.
-    titles_without_space = [
+    titles_without_space: list[str] = [
         "DOUTORA",
         "DOUTOR",  # e.g. "DoutoraAna"
         "DRA.",
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     # Expected outputs for normalize_lawyer_name after potential logic adjustments
     # (e.g. iterative title removal, title regex not needing trailing space)
     # These reflect the new title removal logic.
-    expected_normalize_outputs = [
+    expected_normalize_outputs: list[str] = [
         "JOAO ALVES DA SILVA",  # Dr. João Álves da Silva
         "MARIA AUXILIADORA NUNES",  # DRA.    MARIA  AUXILIADORA NUNES
         "PEDRO DE ALCANTARA MACHADO",  # Pedro de Alcântara Machado
