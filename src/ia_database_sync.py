@@ -12,10 +12,13 @@ import logging
 import subprocess
 import tempfile
 import shutil
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import hashlib
+
+from observability import DB_SYNC_COUNTER, DB_SYNC_DURATION
 
 # Load environment variables
 try:
@@ -303,6 +306,8 @@ class IADatabaseSync:
 
     def download_database_from_ia(self, force: bool = False) -> bool:
         """Download database from Internet Archive."""
+        DB_SYNC_COUNTER.inc()
+        start_time = time.time()
         if not force and self.local_db_path.exists():
             self.logger.info("Local database exists. Use force=True to overwrite.")
             return False
@@ -377,11 +382,15 @@ class IADatabaseSync:
         except Exception as e:
             self.logger.error(f"Failed to download database: {e}")
             return False
+        finally:
+            DB_SYNC_DURATION.observe(time.time() - start_time)
 
     def upload_database_to_ia(
         self, force: bool = False, wait_for_lock: bool = True
     ) -> bool:
         """Upload local database to Internet Archive."""
+        DB_SYNC_COUNTER.inc()
+        start_time = time.time()
         if not self.local_db_path.exists():
             self.logger.error("Local database not found")
             return False
@@ -468,6 +477,8 @@ class IADatabaseSync:
             self.logger.error(f"Failed to upload database: {e}")
             self._remove_lock()  # Remove lock on exception
             return False
+        finally:
+            DB_SYNC_DURATION.observe(time.time() - start_time)
 
     def sync_status(self) -> Dict[str, Any]:
         """Get current sync status."""
@@ -505,53 +516,57 @@ class IADatabaseSync:
 
     def smart_sync(self, prefer_local: bool = True, wait_for_lock: bool = True) -> str:
         """Intelligent sync based on modification times and existence."""
+        DB_SYNC_COUNTER.inc()
+        start_time = time.time()
+        try:
+            # Check for lock first
+            lock_metadata = self._check_lock_exists()
+            if lock_metadata:
+                if wait_for_lock:
+                    self.logger.info("Database is locked, waiting for release...")
+                    if not self._wait_for_lock_release():
+                        return "lock_timeout"
+                else:
+                    return "locked"
 
-        # Check for lock first
-        lock_metadata = self._check_lock_exists()
-        if lock_metadata:
-            if wait_for_lock:
-                self.logger.info("Database is locked, waiting for release...")
-                if not self._wait_for_lock_release():
-                    return "lock_timeout"
+            local_exists = self.local_db_path.exists()
+            ia_exists = self.database_exists_in_ia()
+
+            if not local_exists and not ia_exists:
+                return "no_database_found"
+
+            if local_exists and not ia_exists:
+                self.logger.info(
+                    "Local database exists, IA database missing - uploading to IA"
+                )
+                success = self.upload_database_to_ia()
+                return "uploaded_to_ia" if success else "upload_failed"
+
+            if not local_exists and ia_exists:
+                self.logger.info("IA database exists, local missing - downloading from IA")
+                success = self.download_database_from_ia()
+                return "downloaded_from_ia" if success else "download_failed"
+
+            # Both exist - need to decide which is newer
+            sync_metadata = self._get_sync_metadata()
+            local_metadata = self._get_local_metadata()
+
+            # If we have sync metadata, use it to make smart decisions
+            if sync_metadata.get("sha256") == local_metadata["sha256"]:
+                self.logger.info("Local database unchanged since last sync")
+                return "already_synced"
+
+            # Local has changes - upload to IA (assuming local is authoritative for development)
+            if prefer_local:
+                self.logger.info("Local database has changes - uploading to IA")
+                success = self.upload_database_to_ia()
+                return "uploaded_to_ia" if success else "upload_failed"
             else:
-                return "locked"
-
-        local_exists = self.local_db_path.exists()
-        ia_exists = self.database_exists_in_ia()
-
-        if not local_exists and not ia_exists:
-            return "no_database_found"
-
-        if local_exists and not ia_exists:
-            self.logger.info(
-                "Local database exists, IA database missing - uploading to IA"
-            )
-            success = self.upload_database_to_ia()
-            return "uploaded_to_ia" if success else "upload_failed"
-
-        if not local_exists and ia_exists:
-            self.logger.info("IA database exists, local missing - downloading from IA")
-            success = self.download_database_from_ia()
-            return "downloaded_from_ia" if success else "download_failed"
-
-        # Both exist - need to decide which is newer
-        sync_metadata = self._get_sync_metadata()
-        local_metadata = self._get_local_metadata()
-
-        # If we have sync metadata, use it to make smart decisions
-        if sync_metadata.get("sha256") == local_metadata["sha256"]:
-            self.logger.info("Local database unchanged since last sync")
-            return "already_synced"
-
-        # Local has changes - upload to IA (assuming local is authoritative for development)
-        if prefer_local:
-            self.logger.info("Local database has changes - uploading to IA")
-            success = self.upload_database_to_ia()
-            return "uploaded_to_ia" if success else "upload_failed"
-        else:
-            self.logger.info("Downloading latest from IA")
-            success = self.download_database_from_ia(force=True)
-            return "downloaded_from_ia" if success else "download_failed"
+                self.logger.info("Downloading latest from IA")
+                success = self.download_database_from_ia(force=True)
+                return "downloaded_from_ia" if success else "download_failed"
+        finally:
+            DB_SYNC_DURATION.observe(time.time() - start_time)
 
 
 def main():

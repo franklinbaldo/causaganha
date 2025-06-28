@@ -1,0 +1,17 @@
+{
+  "dashboard": {
+    "title": "CausaGanha Pipeline",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "Database Sync Duration",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(database_sync_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      }
+    ]
+  }
+}

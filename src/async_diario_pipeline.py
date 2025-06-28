@@ -18,6 +18,8 @@ import os
 import time
 from pathlib import Path
 from typing import List, Dict, Optional
+
+from observability import get_tracer, setup_metrics, setup_tracing
 import argparse
 from datetime import datetime, date, timezone
 import hashlib
@@ -200,10 +202,13 @@ class AsyncDiarioPipeline:
 
     async def download_pdf(self, diario_data: Dict, status: ProcessingStatus) -> bool:
         """Download a single PDF with retries."""
-        async with self.download_semaphore:
-            status.status = "downloading"
-            status.attempts += 1
-            start_time = time.time()
+
+        tracer = get_tracer()
+        with tracer.start_as_current_span("download_pdf"):
+            async with self.download_semaphore:
+                status.status = "downloading"
+                status.attempts += 1
+                start_time = time.time()
 
             try:
                 local_path = (
@@ -382,53 +387,57 @@ class AsyncDiarioPipeline:
         self, diario_data: Dict, skip_existing: bool = True
     ) -> bool:
         """Process a single diario: check if exists, download, then upload to IA."""
-        ia_identifier = diario_data["ia_identifier"]
 
-        # Get or create status tracker
-        if ia_identifier not in self.status_tracker:
-            self.status_tracker[ia_identifier] = ProcessingStatus(
-                ia_identifier=ia_identifier,
-                original_filename=diario_data["original_filename"],
-                full_url=diario_data["full_url"],
-                date=diario_data["date"],
-            )
+        tracer = get_tracer()
+        with tracer.start_as_current_span("process_diario"):
+            ia_identifier = diario_data["ia_identifier"]
 
-        status = self.status_tracker[ia_identifier]
+            # Get or create status tracker
+            if ia_identifier not in self.status_tracker:
+                self.status_tracker[ia_identifier] = ProcessingStatus(
+                    ia_identifier=ia_identifier,
+                    original_filename=diario_data["original_filename"],
+                    full_url=diario_data["full_url"],
+                    date=diario_data["date"],
+                )
 
-        # Skip if already completed
-        if status.status == "completed":
-            self.logger.info(f"Already completed: {ia_identifier}")
-            return True
-
-        # Check if item already exists in IA
-        if skip_existing and status.status == "pending":
-            exists = await self.check_ia_exists(ia_identifier)
-            if exists:
-                status.status = "completed"
-                status.ia_url = f"https://archive.org/details/{ia_identifier}"
-                self.logger.info(f"✅ Item already exists in IA: {status.ia_url}")
-                self.save_progress()
+            status = self.status_tracker[ia_identifier]
+            # Skip if already completed
+            if status.status == "completed":
+                self.logger.info(f"Already completed: {ia_identifier}")
                 return True
 
-        # Download phase
-        if status.status not in ["downloaded", "uploading"]:
-            self.logger.info(f"Downloading {ia_identifier}")
-            download_success = await self.download_pdf(diario_data, status)
-            if not download_success:
-                return False
+            # Check if item already exists in IA
+            if skip_existing and status.status == "pending":
+                exists = await self.check_ia_exists(ia_identifier)
+                if exists:
+                    status.status = "completed"
+                    status.ia_url = f"https://archive.org/details/{ia_identifier}"
+                    self.logger.info(
+                        f"✅ Item already exists in IA: {status.ia_url}"
+                    )
+                    self.save_progress()
+                    return True
 
-            # Save progress after download
-            self.save_progress()
+            # Download phase
+            if status.status not in ["downloaded", "uploading"]:
+                self.logger.info(f"Downloading {ia_identifier}")
+                download_success = await self.download_pdf(diario_data, status)
+                if not download_success:
+                    return False
 
-        # Upload phase
-        if status.status == "downloaded":
-            upload_success = await self.upload_to_ia_async(diario_data, status)
+                # Save progress after download
+                self.save_progress()
 
-            # Save progress after upload attempt
-            self.save_progress()
-            return upload_success
+            # Upload phase
+            if status.status == "downloaded":
+                upload_success = await self.upload_to_ia_async(diario_data, status)
 
-        return status.status == "completed"
+                # Save progress after upload attempt
+                self.save_progress()
+                return upload_success
+
+            return status.status == "completed"
 
     async def run_pipeline(
         self,
@@ -440,68 +449,71 @@ class AsyncDiarioPipeline:
     ) -> None:
         """Run the complete async pipeline."""
 
-        # Filter by date range if specified
-        if start_date or end_date:
-            filtered_diarios = []
-            for diario in diarios_data:
-                diario_date = date.fromisoformat(diario["date"])
+        tracer = get_tracer()
+        with tracer.start_as_current_span("run_pipeline"):
 
-                include = True
-                if start_date and diario_date < date.fromisoformat(start_date):
-                    include = False
-                if end_date and diario_date > date.fromisoformat(end_date):
-                    include = False
+            # Filter by date range if specified
+            if start_date or end_date:
+                filtered_diarios = []
+                for diario in diarios_data:
+                    diario_date = date.fromisoformat(diario["date"])
 
-                if include:
-                    filtered_diarios.append(diario)
+                    include = True
+                    if start_date and diario_date < date.fromisoformat(start_date):
+                        include = False
+                    if end_date and diario_date > date.fromisoformat(end_date):
+                        include = False
+
+                    if include:
+                        filtered_diarios.append(diario)
 
             diarios_data = filtered_diarios
             self.logger.info(f"Filtered to {len(diarios_data)} diarios in date range")
 
-        # Limit number of items if specified
-        if max_items:
-            diarios_data = diarios_data[:max_items]
-            self.logger.info(f"Limited to {max_items} diarios")
+            # Limit number of items if specified
+            if max_items:
+                diarios_data = diarios_data[:max_items]
+                self.logger.info(f"Limited to {max_items} diarios")
 
-        self.logger.info(f"Starting pipeline for {len(diarios_data)} diarios")
+            self.logger.info(f"Starting pipeline for {len(diarios_data)} diarios")
 
-        # Process diarios with controlled concurrency
-        semaphore = asyncio.Semaphore(self.max_concurrent_downloads)
+            # Process diarios with controlled concurrency
+            semaphore = asyncio.Semaphore(self.max_concurrent_downloads)
 
-        async def process_with_semaphore(diario_data):
-            async with semaphore:
-                return await self.process_diario(
-                    diario_data, skip_existing=skip_existing
-                )
-
-        # Create tasks
-        tasks = [process_with_semaphore(diario) for diario in diarios_data]
-
-        # Process with progress reporting
-        completed = 0
-        total = len(tasks)
-
-        for i, task in enumerate(asyncio.as_completed(tasks)):
-            try:
-                await task
-                completed += 1
-
-                if completed % 10 == 0 or completed == total:
-                    stats = self.get_statistics()
-                    self.logger.info(
-                        f"Progress: {completed}/{total} processed "
-                        f"({stats['completion_rate']:.1f}% complete, "
-                        f"{stats['failed']} failed)"
+            async def process_with_semaphore(diario_data):
+                async with semaphore:
+                    return await self.process_diario(
+                        diario_data, skip_existing=skip_existing
                     )
 
-            except Exception as e:
-                self.logger.error(f"Task failed: {e}")
-                completed += 1
+            # Create tasks
+            tasks = [process_with_semaphore(diario) for diario in diarios_data]
 
-        # Final statistics
-        final_stats = self.get_statistics()
-        self.logger.info("Pipeline completed!")
-        self.logger.info(f"Final statistics: {final_stats}")
+            # Process with progress reporting
+            completed = 0
+            total = len(tasks)
+
+            for i, task in enumerate(asyncio.as_completed(tasks)):
+                try:
+                    await task
+                    completed += 1
+
+                    if completed % 10 == 0 or completed == total:
+                        stats = self.get_statistics()
+                        self.logger.info(
+                            f"Progress: {completed}/{total} processed "
+                            f"({stats['completion_rate']:.1f}% complete, "
+                            f"{stats['failed']} failed)"
+                        )
+
+                except Exception as e:
+                    self.logger.error(f"Task failed: {e}")
+                    completed += 1
+
+            # Final statistics
+            final_stats = self.get_statistics()
+            self.logger.info("Pipeline completed!")
+            self.logger.info(f"Final statistics: {final_stats}")
 
 
 async def main():
@@ -569,6 +581,9 @@ async def main():
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
+
+    setup_tracing()
+    setup_metrics()
 
     # Configure Internet Archive
     if not configure_ia():
