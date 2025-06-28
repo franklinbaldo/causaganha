@@ -14,10 +14,14 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+- [x] Document GDPR compliance requirements
+- [x] Implement data anonymization hooks in pipeline
+- [x] Define data retention policies for IA storage
+- [x] Expand governance guidelines for new tribunals
+- [x] Write security and privacy best practices doc
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 5/5 tasks completed
 
 ## Notes
 - Card created for future assignments.

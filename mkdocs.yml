@@ -3,5 +3,9 @@ nav:
   - Home: index.md
   - Tutorial: quickstart.md
   - FAQ: faq.md
+  - GDPR Compliance: gdpr_compliance.md
+  - Data Retention: data_retention_policies.md
+  - Governance Guidelines: governance_guidelines.md
+  - Security & Privacy: security_privacy_best_practices.md
 docs_dir: docs
 site_dir: site
