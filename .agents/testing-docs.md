@@ -1,4 +1,5 @@
 # Agent: testing-docs
+> 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
 - **Name**: testing-docs

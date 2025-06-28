@@ -1,4 +1,5 @@
 # Agent: monitoring-integration
+> 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
 - **Name**: monitoring-integration

@@ -1,9 +1,10 @@
 # Agent: infrastructure-devex
+> 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
-
 - **Name**: infrastructure-devex
 - **Specialization**: Infrastructure & DevEx Specialist
+
 - **Sprint**: sprint-2025-03
 - **Branch**: `feat/sprint-2025-03-infrastructure-devex`
 - **Status**: Active
