@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.database import CausaGanhaDB
+from src.database import CausaGanhaDB, DatabaseManager, run_db_migrations
 from src.pii_manager import PiiManager, APPLICATION_NAMESPACE_UUID
 
 # Test PII types
@@ -20,11 +20,23 @@ PARTY_NAME = "PARTY_NAME"
 @pytest.fixture
 def db_conn(temp_db: Path):
     """Fixture to provide an initialized CausaGanhaDB connection for PiiManager tests."""
-    # temp_db fixture from conftest.py provides the path
-    db = CausaGanhaDB(db_path=temp_db)
-    db.connect()  # This runs migrations, including for pii_decode_map
-    yield db.conn  # Yield the connection object
-    db.close()
+    db_manager = DatabaseManager(db_path=temp_db)
+    db = CausaGanhaDB(db_manager=db_manager)
+    test_migrations_path = db_manager.db_path.parent / "temp_test_migrations"
+    test_migrations_path.mkdir(exist_ok=True)
+    minimal_schema_sql = """
+        CREATE TABLE IF NOT EXISTS pii_decode_map (
+            pii_uuid TEXT PRIMARY KEY,
+            original_value TEXT NOT NULL,
+            value_for_uuid_ref TEXT NOT NULL,
+            pii_type TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """
+    (test_migrations_path / "001_test_schema.sql").write_text(minimal_schema_sql)
+    run_db_migrations(db_manager.db_path, migrations_path_override=test_migrations_path) # Ensure migrations are run
+    yield db.conn
+    db_manager.close()
 
 
 @pytest.fixture

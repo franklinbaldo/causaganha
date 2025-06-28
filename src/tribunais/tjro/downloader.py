@@ -1,3 +1,4 @@
+from typing import Optional
 import datetime
 import pathlib
 import re
@@ -49,7 +50,8 @@ def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
 
 def fetch_tjro_pdf(
     date_obj: datetime.date,
-) -> pathlib.Path | None:  # Adjusted return type hint
+    output_dir: Optional[pathlib.Path] = None
+) -> pathlib.Path | None:
     """
     Downloads the Diário da Justiça PDF for the given date from TJRO.
 
@@ -94,7 +96,9 @@ def fetch_tjro_pdf(
         return None
 
 
-def fetch_latest_tjro_pdf() -> pathlib.Path | None:
+def fetch_latest_tjro_pdf(
+    output_dir: Optional[pathlib.Path] = None
+) -> pathlib.Path | None:
     """Downloads the most recent Diário da Justiça PDF available."""
     logging.info(f"Fetching latest diary from {TJRO_LATEST_PAGE_URL}")
     headers = {
