@@ -8,6 +8,11 @@ DEFAULT_CONFIG = {
     "database": {"path": "data/causaganha.duckdb"},
     "openskill": {"mu": 25.0, "sigma": 8.333, "beta": 4.167},
     "logging": {"level": "INFO"},
+    "multilingual": {
+        "enable_translation": True,
+        "target_language": "pt",
+        "supported_languages": ["pt", "es"],
+    },
 }
 
 

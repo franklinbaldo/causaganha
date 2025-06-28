@@ -17,7 +17,7 @@
 _None assigned_
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 5/5 tasks completed
 
 ## Notes
 - Card created for future assignments.
@@ -27,3 +27,5 @@ _None assigned_
 
 ## 📝 Scratchpad & Notes (Edit Freely)
 
+- 2025-06-30: Reviewed board instructions and README. Started branch `feat/sprint-2025-03-liu-wei`. Awaiting task assignments.
+- 2025-06-30: Implemented multilingual detection, translation and evaluation utilities. Updated extractor and docs. All tasks completed.

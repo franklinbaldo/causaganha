@@ -95,6 +95,33 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
 
+        with open(result_path, "r") as f:
+            data = json.load(f)
+        self.assertIn(data["decisions"][0]["language"], {"pt", "es"})
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
+    @patch.object(GeminiExtractor, "_extract_text_from_pdf")
+    @patch("extractor.genai")
+    def test_language_detection_translation(self, mock_genai, mock_extract_text_from_pdf):
+        mock_genai.configure = MagicMock()
+        mock_extract_text_from_pdf.return_value = ["dummy"]
+        mock_model_instance = MagicMock()
+        mock_gemini_response = MagicMock()
+        mock_gemini_response.text = json.dumps([
+            {"numero_processo": "123", "resultado": "rechazado"}
+        ])
+        mock_model_instance.generate_content.return_value = mock_gemini_response
+        mock_genai.GenerativeModel.return_value = mock_model_instance
+
+        extractor = GeminiExtractor(enable_translation=True)
+        result_path = extractor.extract_and_save_json(self.dummy_pdf_path, self.output_json_dir)
+        with open(result_path, "r") as f:
+            data = json.load(f)
+
+        dec = data["decisions"][0]
+        self.assertEqual(dec["language"], "es")
+        self.assertNotEqual(dec.get("resultado_translated"), "rechazado")
+
 
 
     @patch("extractor.genai", None)

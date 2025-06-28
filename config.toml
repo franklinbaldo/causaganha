@@ -7,3 +7,8 @@ tau = 0.08333333333333333  # Default: (25.0 / 3.0) / 100.0
 # partial_play_tau = 0.7 # Optional: Custom tau for partial matches, if different from model's tau.
                           # openskill_rating.py's rate_teams function has its own default for this (0.7)
                           # This entry is not directly used by get_openskill_model but could be for rate_teams if customized.
+
+[multilingual]
+enable_translation = true
+target_language = "pt"
+supported_languages = ["pt", "es"]

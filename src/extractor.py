@@ -8,6 +8,7 @@ import logging
 import time
 import random
 import tempfile
+from src.language_utils import detect_language, translate_text
 
 try:
     import google.generativeai as genai
@@ -32,7 +33,11 @@ class GeminiExtractor:
     """
 
     def __init__(
-        self, api_key: str | None = None, model_name: str = "gemini-1.5-flash-latest"
+        self,
+        api_key: str | None = None,
+        model_name: str = "gemini-1.5-flash-latest",
+        enable_translation: bool = False,
+        target_language: str = "pt",
     ):
         if api_key:
             self.api_key = api_key
@@ -40,6 +45,8 @@ class GeminiExtractor:
             self.api_key = os.getenv("GEMINI_API_KEY")
 
         self.model_name = model_name
+        self.enable_translation = enable_translation
+        self.target_language = target_language
 
         if genai and self.api_key:
             try:
@@ -290,6 +297,20 @@ REGRAS OBRIGATÓRIAS:
                             f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}..."
                         )  # type: ignore
                         return None
+
+                # Detect language and optionally translate
+                for dec in all_decisions:
+                    combined = " ".join(
+                        str(v) if not isinstance(v, list) else " ".join(v)
+                        for v in dec.values()
+                    )
+                    lang = detect_language(combined)
+                    dec["language"] = lang
+                    if self.enable_translation and lang != self.target_language:
+                        if "resultado" in dec and isinstance(dec["resultado"], str):
+                            dec["resultado_translated"] = translate_text(
+                                dec["resultado"], self.target_language
+                            )
 
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,

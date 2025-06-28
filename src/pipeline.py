@@ -112,6 +112,12 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
             self._real = _RealGeminiExtractor(
                 api_key=CONFIG.get("gemini", {}).get("api_key"),
                 model_name=CONFIG.get("gemini", {}).get("model_name"),
+                enable_translation=CONFIG.get("multilingual", {}).get(
+                    "enable_translation", True
+                ),
+                target_language=CONFIG.get("multilingual", {}).get(
+                    "target_language", "pt"
+                ),
             )
 
         def extract_and_save_json(
