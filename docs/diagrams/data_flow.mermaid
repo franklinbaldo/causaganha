@@ -1,0 +1,15 @@
+graph TD
+    A[User Interface] -->|Submits Data| B(API Gateway)
+    B -->|Forwards Request| C{Data Processing Service}
+    C -->|Stores/Retrieves| D[(Database)]
+    C -->|Requests External Info| E(External APIs)
+    E -->|Returns Data| C
+    C -->|Sends Processed Data| B
+    B -->|Delivers to UI| A
+
+    subgraph Error Handling
+        C -->|Error Occurred| F{Error Handling Module}
+        F -->|Logs Error| G[(Error Logs)]
+        F -->|Notifies Admin| H(Admin Dashboard)
+        F -->|Sends Error Response| B
+    end
