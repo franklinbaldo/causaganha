@@ -7,3 +7,8 @@ This section documents the core data models used in CausaGanha.
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. automodule:: src.models.analytics
+   :members:
+   :undoc-members:
+   :show-inheritance:

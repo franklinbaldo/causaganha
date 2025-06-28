@@ -20,6 +20,14 @@ src.models.interfaces module
    :show-inheritance:
    :undoc-members:
 
+src.models.analytics module
+---------------------------
+
+.. automodule:: src.models.analytics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 Module contents
 ---------------
 
