@@ -1,0 +1,15 @@
+name: Run Tests
+description: Run unit tests for a given tribunal
+inputs:
+  tribunal:
+    description: "Tribunal code"
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup
+    - name: Run tests
+      run: uv run pytest -q
+      shell: bash
+      env:
+        TRIBUNAL: ${{ inputs.tribunal }}

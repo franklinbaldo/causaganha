@@ -2,11 +2,17 @@ version: '3.9'
 services:
   app:
     build: .
+    environment:
+      - TRIBUNAL=${TRIBUNAL:-tjro}
     volumes:
       - .:/app
+      - ./data:/app/data
     command: bash
   analytics:
     build: .
+    environment:
+      - TRIBUNAL=${TRIBUNAL:-tjro}
     volumes:
       - .:/app
+      - ./data:/app/data
     command: python scripts/run_analytics.py

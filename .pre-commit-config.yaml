@@ -29,3 +29,8 @@ repos:
         entry: make docs
         language: system
         pass_filenames: false
+      - id: check-registry
+        name: check tribunal registry
+        entry: python scripts/check_tribunal_registry.py
+        language: system
+        pass_filenames: false
