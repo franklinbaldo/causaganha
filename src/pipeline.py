@@ -13,7 +13,7 @@ from src.tribunais.tjro.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
 from src.extractor import GeminiExtractor as _RealGeminiExtractor
 
 try:
-    from src.utils import normalize_lawyer_name, validate_decision
+    from src.utils import validate_decision
     from src.config import load_config
     from src.openskill_rating import (
         get_openskill_model,
@@ -205,31 +205,33 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
 
         # Read existing ratings or create empty DataFrame
         try:
-            ratings_df = pd.read_csv(ratings_csv_path, index_col='advogado_id')
+            ratings_df = pd.read_csv(ratings_csv_path, index_col="advogado_id")
         except FileNotFoundError:
-            ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
-                pd.Index([], name="advogado_id")
-            )
+            ratings_df = pd.DataFrame(
+                columns=["mu", "sigma", "total_partidas"]
+            ).set_index(pd.Index([], name="advogado_id"))
 
         # Process JSON files
         json_files = list(json_input_dir.glob("*.json"))
         valid_decisions_processed = 0
-        
+
         for json_file in json_files:
             try:
-                with open(json_file, 'r', encoding='utf-8') as f:
+                with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    decisions = data.get('decisions', [])
-                    
+                    decisions = data.get("decisions", [])
+
                 for decision in decisions:
                     if validate_decision(decision):
                         valid_decisions_processed += 1
                         # Processing logic would go here
-                
+
                 # Move processed file if not dry run
                 if not dry_run and valid_decisions_processed > 0:
-                    shutil.move(str(json_file), str(processed_json_dir / json_file.name))
-                    
+                    shutil.move(
+                        str(json_file), str(processed_json_dir / json_file.name)
+                    )
+
             except Exception as e:
                 logger_func.error(f"Error processing {json_file}: {e}")
 
@@ -237,7 +239,9 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         if not dry_run:
             ratings_df.to_csv(ratings_csv_path)
             # Create empty partidas file for test compatibility
-            partidas_df = pd.DataFrame(columns=["partida_id", "advogado_id", "resultado"])
+            partidas_df = pd.DataFrame(
+                columns=["partida_id", "advogado_id", "resultado"]
+            )
             partidas_df.to_csv(partidas_csv_path, index=False)
 
         logger_func.info(f"Processed {valid_decisions_processed} valid decisions.")
