@@ -226,3 +226,6 @@ Each document is processed as an atomic unit:
 - Distributed processing across multiple machines
 - Webhook notifications for completion
 - Integration with CI/CD pipelines
+## UX Improvements (Sprint 2025-03)
+During design review with Juan Carlos, we identified simplified command groups and improved help text. Autocompletion examples were added and subcommand descriptions clarified.
+
