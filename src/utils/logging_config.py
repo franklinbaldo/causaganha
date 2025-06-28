@@ -7,6 +7,7 @@ import os
 from typing import Optional
 
 from pythonjsonlogger import jsonlogger
+from rich.logging import RichHandler
 
 _LOGGER_INITIALIZED = False
 
@@ -23,9 +24,9 @@ def setup_logging(
         Logging level as a string (e.g. ``"INFO"``). Defaults to ``LOG_LEVEL``
         environment variable or ``"INFO"``.
     fmt:
-        Log format, ``"json"`` for structured logs or ``"simple"`` for
-        human-readable format. Defaults to ``LOG_FORMAT`` environment variable
-        or ``"simple"``.
+        Log format. ``"json"`` for structured logs, ``"rich"`` for colorised
+        human readable output, or ``"simple"`` for basic formatting. Defaults to
+        the ``LOG_FORMAT`` environment variable or ``"simple"``.
 
     Returns
     -------
@@ -37,16 +38,24 @@ def setup_logging(
 
     log_level = getattr(logging, level_str, logging.INFO)
 
-    handler = logging.StreamHandler()
     if fmt == "json":
+        handler = logging.StreamHandler()
         formatter = jsonlogger.JsonFormatter(
             "%(asctime)s %(levelname)s %(name)s %(message)s"
         )
+        handler.setFormatter(formatter)
+    elif fmt == "rich":
+        handler = RichHandler(rich_tracebacks=True)
+        formatter = logging.Formatter(
+            "%(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
     else:
+        handler = logging.StreamHandler()
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-    handler.setFormatter(formatter)
+        handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
     root_logger.handlers.clear()

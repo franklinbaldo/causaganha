@@ -80,7 +80,7 @@ class DatabaseManager:
             logger.error(f"Failed to connect to database {self.db_path}: {e}")
             raise RuntimeError(f"Database connection failed for {self.db_path}") from e
 
-    def close(self):
+    def close(self) -> None:
         """Closes the database connection if it is open and sets internal reference to None."""
         if self._connection:
             try:
@@ -116,7 +116,7 @@ class DatabaseManager:
             raise RuntimeError("Failed to establish a database connection.")
         return self._connection
 
-    def ensure_connection(self):
+    def ensure_connection(self) -> duckdb.DuckDBPyConnection:
         """Ensures an active connection is available, connecting if necessary. Alias for get_connection."""
         return self.get_connection()
 
@@ -137,16 +137,16 @@ class DatabaseManager:
             logger.error(f"Database health check failed for {self.db_path}: {e}")
             return False
 
-    def __enter__(self):
+    def __enter__(self) -> "DatabaseManager":
         """Context manager entry: connects to the database."""
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit: closes the database connection."""
         self.close()
 
-    def set_testing_mode(self, is_testing: bool):
+    def set_testing_mode(self, is_testing: bool) -> None:
         """
         Sets a flag for testing mode.
         Note: This flag is for use by other parts of the system and does not alter
@@ -160,7 +160,7 @@ class DatabaseManager:
             )
 
 
-def run_db_migrations(db_path: Path, migrations_path_override: Optional[Path] = None):
+def run_db_migrations(db_path: Path, migrations_path_override: Optional[Path] = None) -> None:
     """
     Runs database migrations using MigrationRunner.
 
@@ -209,7 +209,7 @@ class CausaGanhaDB:
         self,
         db_manager: DatabaseManager = None,
         db_path: Optional[Path] = None,
-    ):
+    ) -> None:
         # Allow passing a db_path directly for testing convenience
         if db_path is not None:
             db_manager = DatabaseManager(db_path=db_path)
@@ -312,7 +312,7 @@ class CausaGanhaDB:
 
     def update_rating(
         self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
-    ):
+    ) -> None:
         existing_rating = self.get_rating(advogado_id)
         if existing_rating is not None:
             if increment_partidas:
@@ -402,7 +402,7 @@ class CausaGanhaDB:
             logger.error(f"Error fetching from 'estatisticas_gerais': {e}")
             return None
 
-    def export_to_csv(self, output_dir: Path):
+    def export_to_csv(self, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         tables = [
             "ratings",
@@ -444,7 +444,7 @@ class CausaGanhaDB:
         # ... (implementation as before) ...
         return stats
 
-    def vacuum(self):
+    def vacuum(self) -> None:
         try:
             self.conn.execute("VACUUM")
             logger.info("Database vacuumed.")

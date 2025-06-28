@@ -33,7 +33,7 @@ def get_openskill_model(os_config: OS_CONFIG_TYPE = None) -> PlackettLuce:
 
 
 def create_rating(
-    os_model: PlackettLuce, mu: float = None, sigma: float = None, name: str = None
+    os_model: PlackettLuce, mu: Optional[float] = None, sigma: Optional[float] = None, name: Optional[str] = None
 ) -> OpenSkillRating:
     """
     Creates an OpenSkill Rating object using the provided model.
