@@ -10,20 +10,21 @@ This script processes the pipeline-ready diarios list and handles:
 - Rate limiting to be respectful to TJRO servers
 """
 
+import argparse
 import asyncio
-import aiohttp
+import hashlib
 import json
 import logging
 import os
-import time
-from pathlib import Path
-from typing import List, Dict, Optional
-import argparse
-from datetime import datetime, date, timezone
-import hashlib
 import subprocess
-from dataclasses import dataclass, asdict
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import aiohttp
 
 # Load environment variables from .env file
 try:
@@ -40,31 +41,31 @@ def configure_ia() -> bool:
     access_key = os.getenv("IA_ACCESS_KEY")
     secret_key = os.getenv("IA_SECRET_KEY")
 
-    if access_key and secret_key:
-        try:
-            from pathlib import Path
-            import configparser
+    if not access_key or not secret_key:
+        raise RuntimeError("IA_ACCESS_KEY or IA_SECRET_KEY not found in environment")
 
-            # Create IA config file
-            config_dir = Path.home() / ".config" / "internetarchive"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            config_file = config_dir / "ia.ini"
+    try:
+        import configparser
+        from pathlib import Path
 
-            config = configparser.ConfigParser()
-            config["s3"] = {"access": access_key, "secret": secret_key}
-            config["general"] = {"screenname": "causaganha-bot"}
-            config["cookies"] = {}
+        # Create IA config file
+        config_dir = Path.home() / ".config" / "internetarchive"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = config_dir / "ia.ini"
 
-            with open(config_file, "w") as f:
-                config.write(f)
+        config = configparser.ConfigParser()
+        config["s3"] = {"access": access_key, "secret": secret_key}
+        config["general"] = {"screenname": "causaganha-bot"}
+        config["cookies"] = {}
 
-            logging.info("Internet Archive configured successfully")
-            return True
-        except Exception as e:
-            logging.warning(f"Failed to configure IA: {e}")
-            return False
-    else:
-        logging.warning("IA_ACCESS_KEY or IA_SECRET_KEY not found in environment")
+        with open(config_file, "w") as f:
+            config.write(f)
+        config_file.chmod(0o600)
+
+        logging.info("Internet Archive configured successfully")
+        return True
+    except Exception as e:
+        logging.warning(f"Failed to configure IA: {e}")
         return False
 
 
@@ -158,9 +159,9 @@ class AsyncDiarioPipeline:
                     key: ProcessingStatus(**data) for key, data in progress_data.items()
                 }
 
-                completed = len(
-                    [s for s in self.status_tracker.values() if s.status == "completed"]
-                )
+                completed = len([
+                    s for s in self.status_tracker.values() if s.status == "completed"
+                ])
                 total = len(self.status_tracker)
                 self.logger.info(f"Loaded progress: {completed}/{total} completed")
 
