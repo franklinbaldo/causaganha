@@ -566,7 +566,7 @@ def run_command(args):
         update_result = _update_ratings_logic(
             logger, args.dry_run, db_instance_run, pii_manager_run
         )
-        if update_result != 0:
+        if isinstance(update_result, int) and update_result != 0:
             logger.critical("'update' failed as part of 'run' command.")
             return 1
         logger.info(f"Run command completed for {args.date}.")
