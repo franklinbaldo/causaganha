@@ -1,11 +1,11 @@
-# Agent: quality-docs
+# Agent: julia-martins
 > 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
-- **Name**: quality-docs
+- **Name**: julia-martins
 - **Specialization**: Quality & Documentation Specialist
 - **Sprint**: sprint-2025-03
-- **Branch**: `feat/sprint-2025-03-quality-docs`
+- **Branch**: `feat/sprint-2025-03-julia-martins`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -51,7 +51,7 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-03-quality-docs` with:
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-julia-martins` with:
 - TJSP and TJMG mock datasets
 - Error simulation tests for collectors
 - Multi-tribunal architecture diagram

@@ -8,9 +8,9 @@ This directory contains the agent registry for CausaGanha parallel development.
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
-| [quality-docs](./quality-docs.md) | Quality & Documentation | `feat/sprint-2025-03-quality-docs` | 0/5 ⬜ | Active |
-| [infrastructure-devex](./infrastructure-devex.md) | Infrastructure & DevEx | `feat/sprint-2025-03-infrastructure-devex` | 0/5 ⬜ | Active |
-| [monitoring-integration](./monitoring-integration.md) | Monitoring & Integration | `feat/sprint-2025-03-monitoring-integration` | 0/5 ⬜ | Active |
+| [julia-martins](./julia-martins.md) | Quality & Documentation | `feat/sprint-2025-03-julia-martins` | 0/5 ⬜ | Active |
+| [carlos-pereira](./carlos-pereira.md) | Infrastructure & DevEx | `feat/sprint-2025-03-carlos-pereira` | 0/5 ⬜ | Active |
+| [miguel-torres](./miguel-torres.md) | Monitoring & Integration | `feat/sprint-2025-03-miguel-torres` | 0/5 ⬜ | Active |
 | [roberta-vieira](./roberta-vieira.md) | Otimização de modelos LLM e Pydantic | `feat/sprint-2025-03-roberta-vieira` | 0/5 ⬜ | Active |
 | [bruno-silva](./bruno-silva.md) | Code Quality & Refactoring | `feat/sprint-2025-03-bruno-silva` | 0/5 ⬜ | Active |
 
@@ -25,9 +25,9 @@ This directory contains the agent registry for CausaGanha parallel development.
 ## File Zone Summary
 
 ```
-quality-docs:   tests/mock_data/, tests/test_error_simulation.py, docs/diagrams/, docs/faq.md, docs/examples/
-infrastructure-devex:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscode/, Docker*, scripts/
-monitoring-integration:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
+julia-martins:   tests/mock_data/, tests/test_error_simulation.py, docs/diagrams/, docs/faq.md, docs/examples/
+carlos-pereira:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscode/, Docker*, scripts/
+miguel-torres:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
 roberta-vieira:         (unassigned)
 bruno-silva:          (unassigned)
 ```

@@ -87,10 +87,11 @@ Parallel development managed through `.agents/` directory:
 
 | Agent | Specialization | Branch | Progress |
 |-------|---------------|--------|----------|
-| **testing-docs** | Testing & Documentation | `feat/sprint-2025-03-testing-docs` | 0/5 ⬜ |
-| **quality-docs** | Quality & Documentation | `feat/sprint-2025-03-quality-docs` | 0/5 ⬜ |
-| **infrastructure-devex** | Infrastructure & DevEx | `feat/sprint-2025-03-infrastructure-devex` | 0/5 ⬜ |
-| **monitoring-integration** | Monitoring & Integration | `feat/sprint-2025-03-monitoring-integration` | 0/5 ⬜ |
+| **julia-martins** | Quality & Documentation | `feat/sprint-2025-03-julia-martins` | 0/5 ⬜ |
+| **carlos-pereira** | Infrastructure & DevEx | `feat/sprint-2025-03-carlos-pereira` | 0/5 ⬜ |
+| **miguel-torres** | Monitoring & Integration | `feat/sprint-2025-03-miguel-torres` | 0/5 ⬜ |
+| **roberta-vieira** | Otimização de modelos LLM e Pydantic | `feat/sprint-2025-03-roberta-vieira` | 0/5 ⬜ |
+| **bruno-silva** | Code Quality & Refactoring | `feat/sprint-2025-03-bruno-silva` | 0/5 ⬜ |
 
 
 **Benefits**: Zero-conflict development, file boundary enforcement, sprint-based delivery
