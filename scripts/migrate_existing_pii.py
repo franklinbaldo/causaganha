@@ -17,7 +17,6 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 
-
 # Setup basic logging for the migration script
 logging.basicConfig(
     stream=sys.stdout,

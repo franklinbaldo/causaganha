@@ -727,7 +727,7 @@ def score(force: bool = typer.Option(False)):
         from openskill_rating import get_openskill_model
     except ImportError:
         _LOG_.error("OpenSkill missing.")
-        typer.echo("❌ OpenSkill missing.",err=True)
+        typer.echo("❌ OpenSkill missing.", err=True)
         return
 
     # Import create_rating and rate_teams here to avoid F821 and F401

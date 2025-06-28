@@ -741,8 +741,6 @@ def score(
 
     # Import create_rating and rate_teams here to avoid F821 and F401
 
-    
-
     # Get analyzed items that need scoring
     if force:
         # Reset all processed flags
