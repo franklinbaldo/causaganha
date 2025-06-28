@@ -107,6 +107,7 @@ make -C docs/api html
 ```
 
 Consulte os notebooks em `docs/tutorials/` para exemplos de uso do pipeline.
+Documentação das rotinas de analytics está disponível em `docs/api/analytics.rst`.
 
 ## Status do Projeto
 

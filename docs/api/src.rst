@@ -85,6 +85,14 @@ src.ia\_helpers module
    :show-inheritance:
    :undoc-members:
 
+src.analytics module
+--------------------
+
+.. automodule:: src.analytics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 src.openskill\_rating module
 ----------------------------
 

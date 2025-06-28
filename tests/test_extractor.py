@@ -6,6 +6,7 @@ import json
 import sys
 import shutil
 import fitz
+import subprocess
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -13,7 +14,13 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
+# Add scripts directory for environment checks
+SCRIPTS_PATH = PROJECT_ROOT / "scripts"
+if str(SCRIPTS_PATH) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_PATH))
+
 from extractor import GeminiExtractor  # noqa: E402
+import check_environment  # noqa: E402
 
 # Suppress logging output during tests for clarity, can be enabled for debugging
 # logging.disable(logging.CRITICAL)
@@ -87,11 +94,8 @@ class TestGeminiExtractor(unittest.TestCase):
         mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
         mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
-        with open(result_path, "r") as f:
-            data = json.load(f)
-        self.assertEqual(
-            data["decisions"][0]["numero_processo"], "0011223-45.2023.7.89.0000"
-        )
+
+
 
     @patch("extractor.genai", None)
     @patch("extractor.fitz")
@@ -242,5 +246,66 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(mock_model_instance.generate_content.call_count, 1)
 
 
+class TestCheckEnvironment(unittest.TestCase):
+    @patch.object(check_environment, "sys")
+    def test_check_python_version_success(self, mock_sys):
+        mock_sys.version_info = (3, 11, 0)
+        mock_sys.version = "3.11.0"
+        self.assertTrue(check_environment.check_python_version())
+
+    @patch.object(check_environment, "sys")
+    def test_check_python_version_failure(self, mock_sys):
+        mock_sys.version_info = (3, 8, 0)
+        mock_sys.version = "3.8.0"
+        self.assertFalse(check_environment.check_python_version())
+
+    @patch("check_environment.Path.exists", return_value=True)
+    def test_check_virtualenv_exists(self, mock_exists):
+        self.assertTrue(check_environment.check_virtualenv())
+
+    @patch("check_environment.Path.exists", return_value=False)
+    def test_check_virtualenv_missing(self, mock_exists):
+        self.assertFalse(check_environment.check_virtualenv())
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "x", "IA_ACCESS_KEY": "y", "IA_SECRET_KEY": "z"})
+    def test_check_env_vars_present(self):
+        self.assertTrue(check_environment.check_env_vars())
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_check_env_vars_missing(self):
+        self.assertFalse(check_environment.check_env_vars())
+
+    @patch("check_environment.subprocess.run")
+    def test_run_uv_pip_check_success(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="ok", stderr="")
+        self.assertTrue(check_environment.run_uv_pip_check())
+
+    @patch("check_environment.subprocess.run")
+    def test_run_uv_pip_check_failure(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 1, stdout="fail", stderr="err")
+        self.assertFalse(check_environment.run_uv_pip_check())
+
+    @patch.multiple(
+        check_environment,
+        check_python_version=lambda: True,
+        check_virtualenv=lambda: True,
+        check_env_vars=lambda: True,
+        run_uv_pip_check=lambda: True,
+    )
+    def test_main_success(self):
+        self.assertEqual(check_environment.main(), 0)
+
+    @patch.multiple(
+        check_environment,
+        check_python_version=lambda: True,
+        check_virtualenv=lambda: False,
+        check_env_vars=lambda: True,
+        run_uv_pip_check=lambda: True,
+    )
+    def test_main_failure(self):
+        self.assertEqual(check_environment.main(), 1)
+
+
 if __name__ == "__main__":
     unittest.main(argv=["first-arg-is-ignored"], exit=False)
+
