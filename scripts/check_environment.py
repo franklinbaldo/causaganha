@@ -5,7 +5,8 @@ This script verifies:
 - Python version is at least 3.10
 - `.venv` directory exists
 - Required environment variables are set
-- Project dependencies are satisfied via `uv pip check`
+- Project dependencies are satisfied via ``uv pip check``
+- Analytics libraries are importable
 """
 
 from __future__ import annotations
@@ -79,12 +80,27 @@ def run_uv_pip_check() -> bool:
     return True
 
 
+def check_analytics_imports() -> bool:
+    """Ensure analytics libraries can be imported."""
+    required_modules = ["pandas", "duckdb", "openskill"]
+    ok = True
+    for mod in required_modules:
+        try:
+            __import__(mod)
+            logger.info("✅ %s import successful", mod)
+        except Exception as exc:
+            logger.error("Failed to import %s: %s", mod, exc)
+            ok = False
+    return ok
+
+
 def main() -> int:
     checks = [
         check_python_version(),
         check_virtualenv(),
         check_env_vars(),
         run_uv_pip_check(),
+        check_analytics_imports(),
     ]
 
     if all(checks):

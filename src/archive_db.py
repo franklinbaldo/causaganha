@@ -53,11 +53,11 @@ class DatabaseArchiver:
     - Integration with existing IA infrastructure
     """
 
-    def __init__(self, ia_config: IAConfig):
+    def __init__(self, ia_config: IAConfig) -> None:
         self.ia_config = ia_config
         self._configure_ia_auth()
 
-    def _configure_ia_auth(self):
+    def _configure_ia_auth(self) -> None:
         """Configure Internet Archive authentication."""
         # Set environment variables for ia CLI tool
         os.environ["IA_ACCESS"] = self.ia_config.access_key
@@ -382,7 +382,7 @@ class DatabaseArchiver:
                 return False
 
 
-def main():
+def main() -> None:
     """CLI interface for database archiving."""
     import argparse
 
