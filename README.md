@@ -136,3 +136,4 @@ O projeto está aberto à colaboração e feedback da comunidade jurídica, téc
 
 Veja scripts de exemplo em [docs/examples](docs/examples) para demonstrações de processamento de dados e tratamento de erros.
 O script [diario_processing_example.py](docs/examples/diario_processing_example.py) mostra como executar o pipeline para diferentes tribunais usando a opção `--tribunal`.
+Esses exemplos utilizam os dados fictícios em ``tests/mock_data`` para facilitar testes locais.

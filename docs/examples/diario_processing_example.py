@@ -1,4 +1,7 @@
-"""Example: Running the pipeline for multiple tribunals."""
+"""Example: Running the pipeline for multiple tribunals.
+
+See the *Multi-tribunal* section in ``docs/faq.md`` for details.
+"""
 
 import subprocess
 
