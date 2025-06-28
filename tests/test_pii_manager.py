@@ -264,4 +264,3 @@ def test_replace_pii_in_list(pii_manager: PiiManager):
 # More tests could be added for replace_pii_in_dict_keys and replace_pii_in_json_string
 # if those helper functions in PiiManager were made more robust.
 # The current replace_pii_in_json_string is a very basic placeholder.
-pytest.main(["-v", __file__])  # Optional: run tests if file is executed directly
