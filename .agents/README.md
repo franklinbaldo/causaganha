@@ -8,17 +8,17 @@ This directory contains the agent registry for CausaGanha parallel development.
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
-| [jules1](./jules1.md) | Testing & Documentation | `feat/sprint-2025-01-jules1` | 5 | Active |
-| [jules2](./jules2.md) | Quality & Documentation | `feat/sprint-2025-01-jules2` | 5 | Active |
-| [codex1](./codex1.md) | Infrastructure & DevEx | `feat/sprint-2025-01-codex1` | 5 | Active |
-| [gemini1](./gemini1.md) | Monitoring & Integration | `feat/sprint-2025-01-gemini1` | 5 | Active |
+| [jules1](./jules1.md) | Testing & Documentation | `feat/sprint-2025-01-jules1` | 2/5 ✅ | Active |
+| [jules2](./jules2.md) | Quality & Documentation | `feat/sprint-2025-01-jules2` | 1/5 ✅ | Active |
+| [codex1](./codex1.md) | Infrastructure & DevEx | `feat/sprint-2025-01-codex1` | 1/5 ✅ | Active |
+| [gemini1](./gemini1.md) | Monitoring & Integration | `feat/sprint-2025-01-gemini1` | 1/5 ✅ | Active |
 
 ## Sprint Overview
 
 - **Sprint ID**: sprint-2025-01
 - **Duration**: 2-3 weeks (estimated)
-- **Total Tasks**: 20/30 parallel tasks assigned
-- **File Conflicts**: Zero (strict file boundaries enforced)
+- **Total Tasks**: 5/20 completed ✅ (25% progress)
+- **File Conflicts**: Zero (strict file boundaries enforced)  
 - **Delivery Method**: Single PR per agent at sprint end
 
 ## File Zone Summary
@@ -44,11 +44,23 @@ Available for assignment:
 - Analytics & Monitoring tasks (5)
 - External Integration tasks (5)
 
-## Usage
+## Usage & Communication
 
+### **Sprint Workflow**
 Each agent should:
 1. Read their individual `.md` file for assignments
 2. Create their sprint branch
 3. Work within assigned file boundaries
 4. Update progress in their agent file
 5. Deliver all work in a single PR at sprint end
+
+### **Agent Communication Guidelines**
+- **Card Permissions**: You may freely modify your entire agent card as a scratchpad
+- **Questions & Suggestions**: You can ask questions in your card's scratchpad section about:
+  - Future tasks or sprint planning
+  - Project architecture suggestions
+  - Process improvements
+  - Technical recommendations
+- **What NOT to ask**: Questions about current task implementation details (work autonomously on assigned deliverables)
+- **Response Method**: Questions will be answered directly in your card using Wikipedia-style signatures
+- **Collaboration**: Feel free to suggest cross-agent collaboration opportunities
