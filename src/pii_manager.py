@@ -31,10 +31,19 @@ class PiiManager:
         # This method will be more relevant once migrations are set up.
         # For now, it can be a pass-through or log a message.
         # Actual table creation will be in a migration file.
-        logger.debug(
-            "PiiManager initialized. Assuming pii_decode_map table handled by migrations."
+        logger.debug("Ensuring pii_decode_map table exists.")
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pii_decode_map (
+                pii_uuid TEXT PRIMARY KEY,
+                original_value TEXT NOT NULL,
+                value_for_uuid_ref TEXT NOT NULL,
+                pii_type TEXT NOT NULL
+            )
+            """
         )
-        pass
+        self.conn.commit()
 
     def _generate_uuidv5(self, value: str, pii_type: str) -> str:
         """

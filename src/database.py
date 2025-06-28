@@ -2,6 +2,7 @@
 import duckdb
 import pandas as pd
 from pathlib import Path
+from src.config import load_config
 from typing import List, Dict, Optional, Any
 import json  # Ensure json is imported
 import logging
@@ -204,7 +205,19 @@ class CausaGanhaDB:
     Provides an API for interacting with the CausaGanha application database.
     """
 
-    def __init__(self, db_manager: DatabaseManager):
+    def __init__(
+        self,
+        db_manager: DatabaseManager = None,
+        db_path: Optional[Path] = None,
+    ):
+        # Allow passing a db_path directly for testing convenience
+        if db_path is not None:
+            db_manager = DatabaseManager(db_path=db_path)
+        if db_manager is None:
+            # Fallback to default path from config
+            config = load_config()
+            default_path = Path(config["database"]["path"])
+            db_manager = DatabaseManager(db_path=default_path)
         self.db_manager = db_manager
 
     @property
@@ -218,6 +231,84 @@ class CausaGanhaDB:
             FROM ratings
             ORDER BY mu DESC
         """).df()
+
+    def connect(self) -> duckdb.DuckDBPyConnection:
+        """Connect to the database via DatabaseManager."""
+        return self.db_manager.connect()
+
+    def close(self) -> None:
+        """Close the database connection via DatabaseManager."""
+        return self.db_manager.close()
+
+    def add_raw_decision(
+        self,
+        numero_processo_uuid: str,
+        polo_ativo_uuids_json: str,
+        polo_passivo_uuids_json: str,
+        advogados_polo_ativo_full_str_uuids_json: str = None,
+        advogados_polo_passivo_full_str_uuids_json: str = None,
+        resultado_original: str = None,
+        data_decisao_original: Any = None,
+        raw_json_pii_replaced: str = None,
+        json_source_file: str = None,
+        tipo_decisao: str = None,
+        validation_status: str = None,
+    ) -> int:
+        """Insert a raw decision record (with PII replaced) into the database."""
+        # Ensure decisoes table exists
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS decisoes (
+                id INTEGER PRIMARY KEY,
+                numero_processo TEXT NOT NULL,
+                json_source_file TEXT,
+                ia_identifier TEXT,
+                tipo_decisao TEXT,
+                resultado TEXT,
+                polo_ativo TEXT,
+                polo_passivo TEXT,
+                advogados_polo_ativo TEXT,
+                advogados_polo_passivo TEXT,
+                data_decisao DATE,
+                raw_json_data TEXT,
+                processed_for_openskill BOOLEAN DEFAULT FALSE,
+                validation_status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        # Compute new ID
+        row = self.conn.execute(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes"
+        ).fetchone()
+        new_id = row[0] if row else 1
+        # Insert record
+        self.conn.execute(
+            """
+            INSERT INTO decisoes (
+                id, numero_processo, polo_ativo, polo_passivo,
+                advogados_polo_ativo, advogados_polo_passivo,
+                resultado, data_decisao, raw_json_data,
+                json_source_file, tipo_decisao, validation_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                new_id,
+                numero_processo_uuid,
+                polo_ativo_uuids_json,
+                polo_passivo_uuids_json,
+                advogados_polo_ativo_full_str_uuids_json,
+                advogados_polo_passivo_full_str_uuids_json,
+                resultado_original,
+                data_decisao_original,
+                raw_json_pii_replaced,
+                json_source_file,
+                tipo_decisao,
+                validation_status,
+            ],
+        )
+        return new_id
 
     def update_rating(
         self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
