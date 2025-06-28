@@ -4,7 +4,7 @@ This directory contains the agent registry for CausaGanha parallel development.
 
 ## Current Sprint: sprint-2025-03
 
-### Active Agents (18/18)
+### Active Agents (19/19)
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
@@ -26,12 +26,13 @@ This directory contains the agent registry for CausaGanha parallel development.
 | [fernando-costa](./fernando-costa.md) | Project Manager | `feat/sprint-2025-03-fernando-costa` | 0/5 ⬜ | Active |
 | [lucas-ribeiro](./lucas-ribeiro.md) | Tech Lead | `feat/sprint-2025-03-lucas-ribeiro` | 0/5 ⬜ | Active |
 | [elena-rossi](./elena-rossi.md) | UX Researcher | `feat/sprint-2025-03-elena-rossi` | 0/5 ⬜ | Active |
+| [bruno-silva](./bruno-silva.md) | Code Quality & Refactoring | `feat/sprint-2025-03-bruno-silva` | 0/5 ⬜ | Active |
 
 ## Sprint Overview
 
 - **Sprint ID**: sprint-2025-03
 - **Duration**: 2-3 weeks (estimated)
-- **Total Tasks**: 0/90 completed ⬜ (0% progress)
+- **Total Tasks**: 0/95 completed ⬜ (0% progress)
 - **File Conflicts**: Zero (strict file boundaries enforced)
 - **Delivery Method**: Single PR per agent at sprint end
 
@@ -56,6 +57,7 @@ clara-alves:           (unassigned)
 fernando-costa:        (unassigned)
 lucas-ribeiro:         (unassigned)
 elena-rossi:           (unassigned)
+bruno-silva:          (unassigned)
 ```
 
 ## Agent Coordination
