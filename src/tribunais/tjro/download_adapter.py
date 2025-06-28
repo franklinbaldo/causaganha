@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from models.interfaces import DiarioDownloader
 from models.diario import Diario
-from .downloader import fetch_tjro_pdf
+from .downloader import fetch_tjro_pdf, archive_pdf
 from datetime import date
 
 
@@ -66,10 +66,16 @@ class TJRODownloader(DiarioDownloader):
         logging.info(f"Archiving {diario.display_name} to Internet Archive")
 
         try:
-            # TODO: Implement proper archive function
-            # For now, return a placeholder URL
-            logging.warning(f"Archive function not yet implemented for {diario.display_name}")
-            ia_url = f"https://archive.org/details/tjro-diario-{diario.data.strftime('%Y-%m-%d')}"
+            # Use the existing archive function
+            # Note: archive_pdf expects (pdf_path, db_path)
+            from pathlib import Path
+
+            db_path = Path("data/causaganha.duckdb")  # Default path
+
+            ia_url = archive_pdf(
+                pdf_path=diario.pdf_path,
+                db_path=db_path,
+            )
 
             if ia_url:
                 # Extract IA identifier from URL
