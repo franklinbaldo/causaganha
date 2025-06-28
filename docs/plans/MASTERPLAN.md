@@ -10,8 +10,8 @@
 ## 📊 **Current Status** (Updated: 2025-06-28)
 - **Active Phase**: System Integration Resolution wrapping up
 - **Next Priority**: Diario dataclass and DTB migration
-- **Plans Coordinated**: 19 active plans with expanded team
-- **Parallel Development**: Sprint `sprint-2025-03` active with 19 agents (0/95 tasks started ⬜)
+- **Plans Coordinated**: 19 active plans with streamlined team
+- **Parallel Development**: Sprint `sprint-2025-03` active with 5 agents (0/25 tasks started ⬜)
 - **Recent Changes**: Environment scripts merged, agent registry expanded, 141 tests passing
 
 ---
@@ -179,7 +179,7 @@ graph TD
 
 ### **Immediate Priorities**
 1. **Complete System Integration**: finalize unified CLI and pipeline consolidation
-2. **Agent Sprint Expanded**: sprint-2025-03 now includes 19 specialized agents
+2. **Agent Sprint Expanded**: sprint-2025-03 now includes 5 specialized agents
 3. **Phase 2 Preparation**: start Diario dataclass and DTB migration work
 4. **Quality Assurance**: maintain 140+ passing tests with new coverage goals
 5. **Next Sprint Execution**: deliver multi-tribunal and analytics foundations
@@ -201,9 +201,9 @@ By completion of coordinated phases, CausaGanha will have:
 
 ---
 
-**Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 19 plans with real-time progress tracking, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
+**Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 19 plans with real-time progress tracking and a 5-agent team, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
 
-**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-03` with 19 agents (0% complete, 0/95 tasks delivered)
+**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-03` with 5 agents (0% complete, 0/25 tasks delivered)
 
 ---
 
