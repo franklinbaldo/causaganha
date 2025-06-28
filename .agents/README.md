@@ -44,11 +44,23 @@ Available for assignment:
 - Analytics & Monitoring tasks (5)
 - External Integration tasks (5)
 
-## Usage
+## Usage & Communication
 
+### **Sprint Workflow**
 Each agent should:
 1. Read their individual `.md` file for assignments
 2. Create their sprint branch
 3. Work within assigned file boundaries
 4. Update progress in their agent file
 5. Deliver all work in a single PR at sprint end
+
+### **Agent Communication Guidelines**
+- **Card Permissions**: You may freely modify your entire agent card as a scratchpad
+- **Questions & Suggestions**: You can ask questions in your card's scratchpad section about:
+  - Future tasks or sprint planning
+  - Project architecture suggestions
+  - Process improvements
+  - Technical recommendations
+- **What NOT to ask**: Questions about current task implementation details (work autonomously on assigned deliverables)
+- **Response Method**: Questions will be answered directly in your card using Wikipedia-style signatures
+- **Collaboration**: Feel free to suggest cross-agent collaboration opportunities
