@@ -14,13 +14,18 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+### 🆕 Planned for sprint-2025-03
+- [ ] **Finalize System Integration** - Oversee unified CLI and pipeline consolidation
+- [ ] **Coordinate Dataclass & DTB Migration** - Align designs across agents
+- [ ] **Review Code Quality Metrics** - Ensure tests and lint pass on all branches
+- [ ] **Update MASTERPLAN** - Maintain live document with sprint progress
+- [ ] **Assign Tasks & Mentorship** - Support agents and unblock issues
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 0/5 tasks completed
 
 ## Notes
-- Card created for future assignments.
+- Sprint tasks assigned. Coordinate with all agents via .BOARD messages.
 
 ## 🎛️ Agent Communication
 **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for usage instructions.
