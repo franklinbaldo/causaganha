@@ -14,13 +14,18 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+1. Finalize distributed lock protocol design.
+2. Improve conflict resolution logic for IA sync.
+3. Add replication tests for DuckDB database.
+4. Document distributed architecture decisions.
+5. Provide guidelines for database scaling.
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 5/5 tasks completed
 
 ## Notes
-- Card created for future assignments.
+- Initial tasks assigned via board message from Tech Lead.
+- Implemented lock protocol docs, conflict resolution improvements and tests.
 
 ## 🎛️ Agent Communication
 **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for usage instructions.

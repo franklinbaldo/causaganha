@@ -140,6 +140,17 @@ class IADatabaseSync:
             self.logger.error(f"Failed to get IA metadata: {e}")
             return None
 
+    def _get_ia_db_file_info(self) -> Optional[Dict[str, Any]]:
+        """Return file info for the DuckDB file stored on IA."""
+        ia_metadata = self._get_ia_metadata()
+        if not ia_metadata:
+            return None
+
+        for file_info in ia_metadata.get("files", []):
+            if file_info.get("name") == self.ia_database_filename:
+                return file_info
+        return None
+
     def database_exists_in_ia(self) -> bool:
         """Check if database exists in Internet Archive."""
         ia_metadata = self._get_ia_metadata()
@@ -540,11 +551,41 @@ class IADatabaseSync:
 
         # If we have sync metadata, use it to make smart decisions
         if sync_metadata.get("sha256") == local_metadata["sha256"]:
+            ia_file_info = self._get_ia_db_file_info()
+            ia_mtime = None
+            if ia_file_info:
+                try:
+                    ia_mtime = float(ia_file_info.get("mtime", 0))
+                except (TypeError, ValueError):
+                    ia_mtime = None
+
+            local_mtime = local_metadata.get("modified_time")
+
+            if ia_mtime and local_mtime and ia_mtime > local_mtime:
+                self.logger.info("IA database updated since last sync - downloading")
+                success = self.download_database_from_ia(force=True)
+                return "downloaded_from_ia" if success else "download_failed"
+
             self.logger.info("Local database unchanged since last sync")
             return "already_synced"
+        ia_file_info = self._get_ia_db_file_info()
+        ia_mtime = None
+        if ia_file_info:
+            try:
+                ia_mtime = float(ia_file_info.get("mtime", 0))
+            except (TypeError, ValueError):
+                ia_mtime = None
+
+        local_mtime = local_metadata.get("modified_time")
+
+        if ia_mtime and local_mtime:
+            if ia_mtime > local_mtime:
+                self.logger.info("IA database is newer - downloading")
+                success = self.download_database_from_ia(force=True)
+                return "downloaded_from_ia" if success else "download_failed"
 
         # Local has changes - upload to IA (assuming local is authoritative for development)
-        if prefer_local:
+        if prefer_local or not ia_mtime or (local_mtime and local_mtime >= ia_mtime):
             self.logger.info("Local database has changes - uploading to IA")
             success = self.upload_database_to_ia()
             return "uploaded_to_ia" if success else "upload_failed"
