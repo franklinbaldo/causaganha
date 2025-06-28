@@ -1,0 +1,35 @@
+@startuml
+!theme materia
+
+title System Architecture Overview
+
+actor User
+participant "Web Interface" as Web
+participant "API Gateway" as APIGateway
+participant "Data Processing Service" as DPS
+participant "Database" as DB
+participant "External APIs" as ExtAPI
+
+User -> Web: Interacts
+Web -> APIGateway: Sends requests
+APIGateway -> DPS: Routes requests
+DPS -> DB: Stores/Retrieves data
+DPS -> ExtAPI: Fetches external data
+
+alt Error Handling
+    DPS -> APIGateway: Reports error
+    APIGateway -> Web: Relays error
+    Web -> User: Displays error message
+else Successful Operation
+    DPS -> APIGateway: Returns data
+    APIGateway -> Web: Relays data
+    Web -> User: Displays results
+end
+
+note right of DPS
+  Handles core logic,
+  data transformation,
+  and error recovery.
+end note
+
+@enduml

@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "CASE001",
+    "date": "2023-01-15",
+    "court": "Supreme Court",
+    "judges": ["Judge A", "Judge B"],
+    "outcome": "Affirmed",
+    "keywords": ["contract law", "appeal"]
+  },
+  {
+    "case_id": "CASE002",
+    "date": "2023-02-20",
+    "court": "District Court",
+    "judges": ["Judge C"],
+    "outcome": "Dismissed",
+    "keywords": ["torts", "negligence"]
+  },
+  {
+    "case_id": "CASE003",
+    "date": "2023-03-10",
+    "court": "Appellate Court",
+    "judges": ["Judge D", "Judge E", "Judge F"],
+    "outcome": "Reversed",
+    "keywords": ["criminal law", "due process"]
+  }
+]
