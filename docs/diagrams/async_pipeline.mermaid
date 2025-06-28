@@ -1,0 +1,16 @@
+graph TD
+    A[Queue CSV URLs] --> B{Downloader}
+    B -->|PDFs| C[(Internet Archive)]
+    C --> D[Gemini Analysis]
+    D --> E[(DuckDB Database)]
+    E --> F[OpenSkill Scoring]
+    F --> G[(Updated Database)]
+
+    subgraph Concurrency
+        B --3 downloads--> B
+        C --2 uploads--> C
+    end
+
+    subgraph Sync
+        E <--> C
+    end
