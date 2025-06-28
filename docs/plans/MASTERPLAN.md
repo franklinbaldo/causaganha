@@ -178,45 +178,75 @@
 
 #### **🧪 Testing & Quality (No Dependencies)**
 - [ ] **Enhance test coverage for extractor.py** - Add tests for PDF chunking and Gemini API integration
+  - **Branch**: `feat/parallel-extractor-test-coverage`
 - [ ] **Add integration tests for IA discovery** - Test coverage analysis and inventory management
+  - **Branch**: `feat/parallel-ia-discovery-tests`
 - [ ] **Performance benchmarking suite** - Measure pipeline throughput and database operations
+  - **Branch**: `feat/parallel-performance-benchmarks`
 - [ ] **Mock data generators** - Create realistic test datasets for judicial decisions
+  - **Branch**: `feat/parallel-mock-data-generators`
 - [ ] **Error simulation tests** - Test failure scenarios and recovery mechanisms
+  - **Branch**: `feat/parallel-error-simulation-tests`
 
 #### **📚 Documentation & Examples (No Dependencies)**
 - [ ] **API documentation generation** - Auto-generate docs from docstrings using Sphinx
+  - **Branch**: `feat/parallel-api-docs-sphinx`
 - [ ] **Tutorial notebooks** - Jupyter notebooks demonstrating key workflows
+  - **Branch**: `feat/parallel-tutorial-notebooks`
 - [ ] **Architecture diagrams** - Update system diagrams with current implementation
+  - **Branch**: `feat/parallel-architecture-diagrams`
 - [ ] **FAQ updates** - Document common issues and solutions from recent development
+  - **Branch**: `feat/parallel-faq-updates`
 - [ ] **Code examples repository** - Standalone examples for each major component
+  - **Branch**: `feat/parallel-code-examples`
 
 #### **🔧 Code Quality & Tooling (Independent)**
 - [ ] **Ruff configuration optimization** - Fine-tune linting rules for project standards
+  - **Branch**: `feat/parallel-ruff-optimization`
 - [ ] **Pre-commit hooks enhancement** - Add automated testing and documentation checks
+  - **Branch**: `feat/parallel-precommit-enhancement`
 - [ ] **GitHub Actions workflow optimization** - Improve CI/CD performance and reliability
+  - **Branch**: `feat/parallel-github-actions-optimization`
 - [ ] **Type hint improvements** - Add comprehensive type annotations across codebase
+  - **Branch**: `feat/parallel-type-hints`
 - [ ] **Logging standardization** - Consistent logging format and levels throughout
+  - **Branch**: `feat/parallel-logging-standardization`
 
 #### **🛠️ Developer Experience (Standalone)**
 - [ ] **VS Code workspace configuration** - Optimal settings for Python development
+  - **Branch**: `feat/parallel-vscode-workspace`
 - [ ] **Docker development environment** - Containerized setup for consistent development
+  - **Branch**: `feat/parallel-docker-devenv`
 - [ ] **Local development scripts** - Helper scripts for common development tasks
+  - **Branch**: `feat/parallel-dev-scripts`
 - [ ] **Database migration utilities** - Tools for schema versioning and data migration
+  - **Branch**: `feat/parallel-db-migration-utils`
 - [ ] **Environment validation scripts** - Check dependencies and configuration
+  - **Branch**: `feat/parallel-env-validation`
 
 #### **📊 Analytics & Monitoring (Optional)**
 - [ ] **OpenTelemetry integration** - Add distributed tracing for pipeline operations
+  - **Branch**: `feat/parallel-opentelemetry`
 - [ ] **Metrics dashboard preparation** - Define key performance indicators
+  - **Branch**: `feat/parallel-metrics-dashboard`
 - [ ] **Health check endpoints** - System status monitoring for production deployment
+  - **Branch**: `feat/parallel-health-checks`
 - [ ] **Performance profiling tools** - Memory and CPU usage analysis utilities
+  - **Branch**: `feat/parallel-profiling-tools`
 - [ ] **Error tracking integration** - Sentry or similar error monitoring setup
+  - **Branch**: `feat/parallel-error-tracking`
 
 #### **🌐 External Integration Prep (Future-Ready)**
 - [ ] **Additional LLM provider interfaces** - Prepare for Claude, GPT-4, etc.
+  - **Branch**: `feat/parallel-llm-providers`
 - [ ] **Alternative storage backends** - S3, Google Cloud Storage adapters
+  - **Branch**: `feat/parallel-storage-backends`
 - [ ] **Export format implementations** - CSV, Excel, PDF report generators
+  - **Branch**: `feat/parallel-export-formats`
 - [ ] **API client libraries** - Python SDK for external integrations
+  - **Branch**: `feat/parallel-api-client-sdk`
 - [ ] **Webhook system design** - Event notification system architecture
+  - **Branch**: `feat/parallel-webhook-system`
 
 ### **Task Selection Guidelines for Agents**
 
@@ -255,7 +285,7 @@
 #### **Before Starting Any Task**
 1. **Check MASTERPLAN**: Ensure no conflicts with current phase priorities
 2. **Update task status**: Mark your selected task as `in_progress`
-3. **Create feature branch**: Use naming: `feat/parallel-[task-name]`
+3. **Create feature branch**: Use the specific branch name listed with each task
 4. **Inform team**: Comment in relevant issues or discussions
 
 #### **During Implementation**
