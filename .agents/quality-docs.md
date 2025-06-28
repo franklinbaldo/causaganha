@@ -1,4 +1,5 @@
 # Agent: quality-docs
+> 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
 - **Name**: quality-docs

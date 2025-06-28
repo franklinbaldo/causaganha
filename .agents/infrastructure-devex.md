@@ -1,4 +1,5 @@
 # Agent: infrastructure-devex
+> 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
 - **Name**: infrastructure-devex
