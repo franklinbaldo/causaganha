@@ -1,9 +1,10 @@
 {
     "python.defaultInterpreterPath": ".venv/bin/python",
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["tests"],
+    "python.formatting.provider": "ruff",
     "python.linting.enabled": true,
     "python.linting.ruffEnabled": true,
-    "python.testing.pytestEnabled": true,
-    "python.testing.pytestArgs": [
-        "tests"
-    ]
+    "python.linting.ruffArgs": ["--fix"],
+    "python.analysis.typeCheckingMode": "basic"
 }
