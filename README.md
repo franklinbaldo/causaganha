@@ -84,6 +84,14 @@ IA_SECRET_KEY=sua_chave_secreta_ia # Obrigatório para Internet Archive
 uv run pytest -q
 ```
 
+## Documentação
+
+Para gerar a documentação HTML localmente utilize o Sphinx:
+
+```bash
+sphinx-build -b html docs/api docs/_build
+```
+
 ## Status do Projeto
 
 **Status: 🔶 ALPHA DISTRIBUÍDO** - Sistema experimental operando com automação avançada, mudanças radicais esperadas.
