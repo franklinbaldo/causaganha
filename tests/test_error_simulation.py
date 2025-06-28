@@ -43,6 +43,23 @@ def simulate_file_processing(file_path):
     # Simulate a corruption error
     raise IOError("Simulated file corruption error")
 
+def simulate_ia_sync_failure():
+    """Simulate a failure during Internet Archive sync."""
+    raise Exception("IA sync failed")
+
+
+def simulate_ia_sync_with_recovery(retries: int = 2):
+    """Attempt IA sync with basic retry logic."""
+    for attempt in range(retries):
+        try:
+            simulate_ia_sync_failure()
+        except Exception:
+            if attempt == retries - 1:
+                raise
+        else:
+            return True
+    return False
+
 class TestErrorSimulation(unittest.TestCase):
 
     def test_network_failure_recovery(self):
@@ -86,6 +103,17 @@ class TestErrorSimulation(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
              simulate_file_processing("non_existent_file.txt")
         # Add assertions for file quarantining or error logging
+
+    def test_ia_sync_failure_recovery(self):
+        """IA sync should retry and eventually raise after failures."""
+        with self.assertRaises(Exception):
+            simulate_ia_sync_failure()
+
+        with self.assertRaises(Exception):
+            simulate_ia_sync_with_recovery(retries=2)
+
+        with patch(__name__ + '.simulate_ia_sync_failure', return_value=True):
+            self.assertTrue(simulate_ia_sync_with_recovery(retries=2))
 
 if __name__ == '__main__':
     unittest.main()

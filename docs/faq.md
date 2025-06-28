@@ -148,3 +148,20 @@ uv run python src/async_diario_pipeline.py --resume
 ```
 
 Para falhas persistentes, verifique se há conexão estável e consulte os logs em `logs/` para detalhes adicionais.
+
+
+## Troubleshooting de Analytics
+
+Se os comandos de analytics não exibirem resultados ou apresentarem erros:
+
+```bash
+# Verificar se o banco distribuído está sincronizado
+uv run python src/ia_database_sync.py status
+
+# Executar um resumo de tendências de decisões (exemplo)
+causaganha analytics outcome-trend --limit 50
+```
+
+- Certifique-se de que `data/causaganha.duckdb` está atualizado e acessível
+- Utilize a opção `--refresh` para forçar nova coleta de dados quando necessário
+- Consulte `logs/analytics.log` para mensagens detalhadas de erro
