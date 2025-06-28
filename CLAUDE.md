@@ -159,10 +159,11 @@ CausaGanha implements a **parallel development system** using an agent registry 
 ```
 .agents/
 ├── README.md              # Central coordination and communication guidelines
-├── testing-docs.md             # Testing & Documentation specialist
-├── quality-docs.md             # Quality & Documentation specialist  
-├── infrastructure-devex.md             # Infrastructure & DevEx specialist
-└── monitoring-integration.md            # Monitoring & Integration specialist
+├── julia-martins.md       # Quality & Documentation specialist
+├── carlos-pereira.md      # Infrastructure & DevEx specialist
+├── miguel-torres.md       # Monitoring & Integration specialist
+├── roberta-vieira.md      # Otimização de modelos LLM e Pydantic
+└── bruno-silva.md         # Code Quality & Refactoring specialist
 ```
 
 ### **🎯 Agent Sprint System**
@@ -186,10 +187,11 @@ Agents can use their cards to:
 
 ### **🎪 File Zone Management**
 Each agent has exclusive access to specific areas:
-- **testing-docs**: `tests/test_extractor.py`, `tests/test_ia_discovery.py`, `tests/benchmarks/`, `docs/api/`, `docs/tutorials/`
-- **quality-docs**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
-- **infrastructure-devex**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
-- **monitoring-integration**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
+- **julia-martins**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
+- **carlos-pereira**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
+- **miguel-torres**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
+- **roberta-vieira**: (unassigned)
+- **bruno-silva**: (unassigned)
 
 ### **🚀 Integration Benefits**
 - **Parallel Development**: Multiple improvement streams without blocking main development

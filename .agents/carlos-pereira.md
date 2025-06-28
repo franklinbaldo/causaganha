@@ -1,12 +1,12 @@
-# Agent: infrastructure-devex
+# Agent: carlos-pereira
 > 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
-- **Name**: infrastructure-devex
+- **Name**: carlos-pereira
 - **Specialization**: Infrastructure & DevEx Specialist
 
 - **Sprint**: sprint-2025-03
-- **Branch**: `feat/sprint-2025-03-infrastructure-devex`
+- **Branch**: `feat/sprint-2025-03-carlos-pereira`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -65,7 +65,7 @@
 - Merged successfully to main branch
 
 ### 2025-06-28
-- Created branch `feat/sprint-2025-03-infrastructure-devex` as instructed
+- Created branch `feat/sprint-2025-03-carlos-pereira` as instructed
 - Added Grafana service to `docker-compose.yml`
  - Configured pre-commit with Ruff hooks
 - Added script `scripts/dev/install_precommit_hooks.sh` and updated `setup_dev.sh`
@@ -76,7 +76,7 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-03-infrastructure-devex` with:
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-carlos-pereira` with:
 
 - Multi-tribunal test GitHub Action
 - Enhanced docker-compose usage

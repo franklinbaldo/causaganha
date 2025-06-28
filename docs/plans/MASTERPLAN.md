@@ -10,8 +10,8 @@
 ## 📊 **Current Status** (Updated: 2025-06-28)
 - **Active Phase**: System Integration Resolution wrapping up
 - **Next Priority**: Diario dataclass and DTB migration
-- **Plans Coordinated**: 18 active plans with expanded team
-- **Parallel Development**: Sprint `sprint-2025-03` active with 18 agents (0/90 tasks started ⬜)
+- **Plans Coordinated**: 19 active plans with streamlined team
+- **Parallel Development**: Sprint `sprint-2025-03` active with 5 agents (0/25 tasks started ⬜)
 - **Recent Changes**: Environment scripts merged, agent registry expanded, 141 tests passing
 
 ---
@@ -87,10 +87,11 @@ Parallel development managed through `.agents/` directory:
 
 | Agent | Specialization | Branch | Progress |
 |-------|---------------|--------|----------|
-| **testing-docs** | Testing & Documentation | `feat/sprint-2025-03-testing-docs` | 0/5 ⬜ |
-| **quality-docs** | Quality & Documentation | `feat/sprint-2025-03-quality-docs` | 0/5 ⬜ |
-| **infrastructure-devex** | Infrastructure & DevEx | `feat/sprint-2025-03-infrastructure-devex` | 0/5 ⬜ |
-| **monitoring-integration** | Monitoring & Integration | `feat/sprint-2025-03-monitoring-integration` | 0/5 ⬜ |
+| **julia-martins** | Quality & Documentation | `feat/sprint-2025-03-julia-martins` | 0/5 ⬜ |
+| **carlos-pereira** | Infrastructure & DevEx | `feat/sprint-2025-03-carlos-pereira` | 0/5 ⬜ |
+| **miguel-torres** | Monitoring & Integration | `feat/sprint-2025-03-miguel-torres` | 0/5 ⬜ |
+| **roberta-vieira** | Otimização de modelos LLM e Pydantic | `feat/sprint-2025-03-roberta-vieira` | 0/5 ⬜ |
+| **bruno-silva** | Code Quality & Refactoring | `feat/sprint-2025-03-bruno-silva` | 0/5 ⬜ |
 
 
 **Benefits**: Zero-conflict development, file boundary enforcement, sprint-based delivery
@@ -179,7 +180,7 @@ graph TD
 
 ### **Immediate Priorities**
 1. **Complete System Integration**: finalize unified CLI and pipeline consolidation
-2. **Agent Sprint Expanded**: sprint-2025-03 now includes 18 specialized agents
+2. **Agent Sprint Expanded**: sprint-2025-03 now includes 5 specialized agents
 3. **Phase 2 Preparation**: start Diario dataclass and DTB migration work
 4. **Quality Assurance**: maintain 140+ passing tests with new coverage goals
 5. **Next Sprint Execution**: deliver multi-tribunal and analytics foundations
@@ -201,9 +202,9 @@ By completion of coordinated phases, CausaGanha will have:
 
 ---
 
-**Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 18 plans with real-time progress tracking, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
+**Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 19 plans with real-time progress tracking and a 5-agent team, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
 
-**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-03` with 18 agents (0% complete, 0/90 tasks delivered)
+**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-03` with 5 agents (0% complete, 0/25 tasks delivered)
 
 ---
 
