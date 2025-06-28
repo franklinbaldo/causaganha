@@ -90,3 +90,11 @@ All work will be delivered in a single PR from branch `feat/sprint-2025-03-quali
 - [x] Code examples repository: set up initial structure
 
 *All sprint tasks completed as of 5 July 2025.*
+- 2025-07-05: Branch `feat/sprint-2025-03-quality-docs` started. Reviewed board tasks; all deliverables already committed.
+
+### Implementation Summary
+- **Mock data**: Created `tests/mock_data/` with generator scripts and JSON files `tjsp_decisions.json`, `tjmg_decisions.json` and `cross_tribunal_cases.json` representing realistic decisions.
+- **Error simulation tests**: Added `tests/test_error_simulation.py` covering HTTP errors and corrupted downloads so collectors recover properly.
+- **Architecture diagram**: Added `docs/diagrams/multi_tribunal_overview.mermaid` outlining adapters and the async pipeline.
+- **Diario example script**: Wrote `docs/examples/diario_processing_example.py` demonstrating pipeline execution via the `--tribunal` option.
+- **FAQ expansion**: Updated `docs/faq.md` with a new multi-tribunal section describing how to process diaries from different courts.

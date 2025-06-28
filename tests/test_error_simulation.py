@@ -2,6 +2,9 @@ import unittest
 import os
 from unittest.mock import patch
 
+# Tests here simulate failures across different tribunal collectors using
+# mock datasets from ``tests/mock_data``.
+
 # Assume these are placeholder functions representing actual system operations
 def simulate_network_request():
     # In a real scenario, this would make a network request
