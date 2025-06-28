@@ -227,7 +227,6 @@ class TestFetchLatestTjroPdf(unittest.TestCase):
     def setUp(self):
         self.dummy_data_root = PROJECT_ROOT / "causaganha_test_data_latest"
         self.download_dir = self.dummy_data_root / "data" / "diarios"
-        self.download_dir.mkdir(parents=True, exist_ok=True)
         self.expected_file_name = "dj_20240725.pdf"
         self.expected_file_path = self.download_dir / self.expected_file_name
 
