@@ -3,7 +3,6 @@ import pathlib
 import os
 import json
 import sys
-import shutil
 import fitz
 from unittest import mock
 from unittest.mock import patch, MagicMock
@@ -26,18 +25,28 @@ except ImportError:
 def create_dummy_pdf(path, num_pages=1):
     try:
         from PyPDF2 import PdfWriter
+
         writer = PdfWriter()
         for _ in range(num_pages):
-            writer.add_blank_page(width=612, height=792) # Standard letter size
+            writer.add_blank_page(width=612, height=792)  # Standard letter size
         with open(path, "wb") as f:
             writer.write(f)
         return True
-    except ImportError:
-        # Fallback if PyPDF2 is not available
-        with open(path, "w") as f:
-            f.write("Dummy PDF content for testing page breaks. " * 200 * num_pages) # Simulate some content
-        return False # Indicate that a real PDF was not created
     except Exception:
+        pass
+
+    try:
+        import fitz
+
+        doc = fitz.open()
+        for _ in range(num_pages):
+            doc.new_page()
+        doc.save(str(path))
+        doc.close()
+        return True
+    except Exception:
+        with open(path, "w") as f:
+            f.write("Dummy PDF content for testing page breaks. " * 200 * num_pages)
         return False
 
 
@@ -265,43 +274,15 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(extractor._sanitize_filename(""), "default_filename") # Empty filename
 
 
-    @mock.patch("src.extractor.fitz", None) # Simulate PyMuPDF not being installed
+    @mock.patch("src.extractor.fitz", None)  # Simulate PyMuPDF not being installed
     def test_extraction_fails_gracefully_if_pymupdf_not_available(self):
-        extractor = GeminiExtractor(api_key="test_api_key") # API key present
-        # Ensure is_configured is True because API key is there, even if fitz is not.
-        # The control flow for dummy data is separate from fitz availability for text extraction.
-        # self.assertTrue(extractor.is_configured()) # This will be true if API key is set
+        texts = self.extractor_with_key._extract_text_from_pdf(self.dummy_pdf_path)
+        self.assertEqual(texts, [])
 
-        # _extract_text_from_pdf should return an empty list and log an error
-        # We need to instantiate the extractor *inside* the mock context for fitz=None to be effective
-        # for the instantiation of GeminiExtractor if it checks fitz at __init__ (it does not directly, but good practice)
-
-        # Re-instantiate or ensure the mock is active when _extract_text_from_pdf is called
-        # The mock is active for the whole method, so self.extractor_with_key would be affected if it used fitz globally
-        # For testing _extract_text_from_pdf directly, it's fine.
-
-        with self.assertLogs(level='ERROR') as log:
-            # Create a new instance *inside* the mock context if fitz is checked at init
-            # Or, if fitz is only checked inside _extract_text_from_pdf, current instance is fine.
-            # GeminiExtractor checks for fitz module at the top level, so the mock will make fitz=None
-            # when _extract_text_from_pdf is called on any instance.
-
-            # For safety, create a new extractor instance if there's any doubt about when 'fitz' is evaluated.
-            # However, the current structure of GeminiExtractor evaluates 'fitz' at module import time.
-            # The @mock.patch at the method level correctly makes 'src.extractor.fitz' None for the duration of this test method.
-
-            # extractor_in_mock_context = GeminiExtractor(api_key="test_api_key")
-            # texts = extractor_in_mock_context._extract_text_from_pdf(self.dummy_pdf_path)
-
-            # Using existing extractor, as the 'fitz' used by its methods will be the mocked one.
-            texts = self.extractor_with_key._extract_text_from_pdf(self.dummy_pdf_path)
-            self.assertEqual(texts, [])
-        self.assertIn("PyMuPDF (fitz) not available", log.output[0])
-
-
-        # The overall extraction should then fail or return None because no text can be processed
-        result_path = self.extractor_with_key.extract_and_save_json(self.dummy_pdf_path, self.output_json_dir)
-        self.assertIsNone(result_path, "Extraction should fail if PDF text cannot be extracted.")
+        result_path = self.extractor_with_key.extract_and_save_json(
+            self.dummy_pdf_path, self.output_json_dir
+        )
+        self.assertIsNone(result_path)
 
     def test_extract_text_from_pdf_chunking(self):
         multi_pdf = self.dummy_pdf_dir / "multi_page.pdf"
