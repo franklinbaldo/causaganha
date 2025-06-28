@@ -68,6 +68,21 @@ class TestIADiscoveryCLI(unittest.TestCase):
             self.assertEqual(len(data["items"]), len(self.sample_search_items))
             self.assertIn("generated_at", data)
 
+    @patch("ia_discovery.IADiscovery.search_tjro_diarios")
+    def test_generate_coverage_report_function(self, mock_search):
+        mock_search.return_value = self.sample_search_items
+        mopen = mock_open(read_data=json.dumps(self.sample_pipeline_data))
+        with patch("ia_discovery.open", mopen):
+            from ia_discovery import IADiscovery
+
+            discovery = IADiscovery()
+            report = discovery.generate_coverage_report(year=2025)
+
+        self.assertEqual(report["coverage_percentage"], 66.66666666666666)
+        self.assertEqual(report["missing_count"], 1)
+        self.assertEqual(report["extra_count"], 1)
+        self.assertIn("2025-01-03", report["missing_dates"])
+
 
 if __name__ == "__main__":
     unittest.main()
