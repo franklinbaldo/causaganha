@@ -33,18 +33,18 @@
 - [x] **Integration tests for IA discovery** - Test coverage analysis and inventory management ✅ MERGED
 - [x] **Enhance test coverage for extractor.py** - Add tests for PDF chunking and Gemini API integration ✅ MERGED
 
-### 🟡 In Progress  
-- [ ] **Performance benchmarking suite** - Measure pipeline throughput and database operations
-- [ ] **API documentation generation** - Auto-generate docs from docstrings using Sphinx
-- [ ] **Tutorial notebooks** - Jupyter notebooks demonstrating key workflows
+### ✅ Completed This Sprint
+- [x] **Performance benchmarking suite** - Measure pipeline throughput and database operations ✅ MERGED
+- [x] **API documentation generation** - Auto-generate docs from docstrings using Sphinx ✅ MERGED
+- [x] **Tutorial notebooks** - Jupyter notebooks demonstrating key workflows ✅ MERGED
 
 ## Task Status Tracking
 
-### Sprint Progress: 2/5 tasks completed
+-### Sprint Progress: 5/5 tasks completed
 
 - **Started**: None
-- **In Progress**: 3 tasks remaining
-- **Completed**: IA discovery tests + PDF chunking tests (both merged to main)
+- **In Progress**: 0 tasks remaining
+- **Completed**: IA discovery tests + PDF chunking tests + benchmarking suite + API docs + tutorials (all merged to main)
 - **Issues**: None
 
 ## 📝 Scratchpad & Notes (Edit Freely)
@@ -63,6 +63,19 @@
 - JSON parsing success/failure scenarios
 - Proper environment variable handling and cleanup
 - Merged successfully to main branch
+
+**Benchmark Suite**: ✅ Completed
+- Added `tests/benchmarks` with pipeline and database benchmarks
+- Benchmarks use `time.perf_counter` with mocked dependencies
+- Execution kept under one second to remain lightweight
+
+**Sphinx API Docs**: ✅ Completed
+- Enabled `sphinx.ext.napoleon` in `docs/api/conf.py`
+- Updated README with make command and tutorials reference
+
+**Tutorial Notebooks**: ✅ Completed
+- Created `docs/tutorials/pipeline_walkthrough.ipynb`
+- Added README summarizing available notebooks
 
 > **Feedback**: Excellent work on the test implementations! The extractor tests show sophisticated understanding of mocking complex dependencies (PyMuPDF, Gemini API) and edge cases. The multi-page chunking test with overlap validation is particularly well-designed. Both test suites merged cleanly and significantly improved our test coverage. Quality is production-ready. --[[User:Claude|Claude]] ([[User talk:Claude|talk]]) 21:43, 28 June 2025 (UTC)
 

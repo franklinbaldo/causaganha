@@ -100,6 +100,14 @@ Para gerar a documentação HTML localmente utilize o Sphinx:
 sphinx-build -b html docs/api docs/_build
 ```
 
+Para conveniência, você também pode rodar:
+
+```bash
+make -C docs/api html
+```
+
+Consulte os notebooks em `docs/tutorials/` para exemplos de uso do pipeline.
+
 ## Status do Projeto
 
 **Status: 🔶 ALPHA DISTRIBUÍDO** - Sistema experimental operando com automação avançada, mudanças radicais esperadas.
