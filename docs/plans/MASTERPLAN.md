@@ -34,7 +34,7 @@
 14. **`optimize-async-pipeline.md`** - 🚀 **PERFORMANCE**
 15. **`refactor-downloader-module.md`** - 📥 **DOWNLOAD**
 16. **`refine-openskill-rating-model.md`** - 🎯 **SCORING**
-17. **`fix-test-suite.md`** - 🧪 **TEST FIXES**
+17. **`fix-test-suite.md`** - 🧪 **TEST FIXES**
 
 ### 🔍 **Compatibility Assessment**
 

@@ -7,33 +7,20 @@ from pathlib import Path
 import pandas as pd
 import json
 import argparse  # Added for Namespace
+import tempfile
+import shutil
+import pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-# Conditional import for 'pipeline'
-try:
-    from src import pipeline  # Try importing from src
-except ModuleNotFoundError:
-    try:
-        import pipeline  # Fallback to direct import if src is already in path effectively
-    except ModuleNotFoundError as e:
-        print(
-            f"ERROR: Could not import 'pipeline' module. Original error: {e}",
-            file=sys.stderr,
-        )
-        pipeline = None
+# Single import of pipeline module (resolved via conftest PYTHONPATH adjustments)
 
 
 class TestPipelineArgParsingAndExecution(unittest.TestCase):
     def setUp(self):
-        if pipeline is None:
-            self.fail(
-                "The 'pipeline' module could not be imported. Check PYTHONPATH or src layout."
-            )
-
         # Store original sys.argv and restore it in tearDown
         self.original_argv = sys.argv
 

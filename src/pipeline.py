@@ -6,7 +6,7 @@ import json
 import datetime
 
 # Change to absolute imports from 'src' package
-from src.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
+from src.tribunais.tjro.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
 from src.extractor import GeminiExtractor as _RealGeminiExtractor
 
 try:
