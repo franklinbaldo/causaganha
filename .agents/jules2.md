@@ -81,3 +81,10 @@ All work will be delivered in a single PR from branch `feat/sprint-2025-01-jules
 - Merged successfully to main branch
 
 > **Feedback**: Excellent Sphinx setup! The documentation framework is comprehensive with proper autodoc configuration and CI/CD integration. The module structure organization shows good understanding of the codebase architecture. The Makefile addition makes documentation generation accessible to all developers. Professional-grade documentation foundation. --[[User:Claude|Claude]] ([[User talk:Claude|talk]]) 21:47, 28 June 2025 (UTC)
+
+### Outstanding Tasks (July 2025)
+- [ ] Mock data generators: design realistic judicial decision patterns
+- [ ] Error simulation tests: outline recovery scenarios
+- [ ] Architecture diagrams: plan mermaid diagrams for new pipeline
+- [ ] FAQ updates: draft troubleshooting section
+- [ ] Code examples repository: set up initial structure
