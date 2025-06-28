@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Worker as Local Worker
+    participant IA as Internet Archive
+    participant DB as DuckDB
+
+    Worker->>IA: Request lock
+    IA-->>Worker: Lock granted
+    Worker->>DB: Read/Write
+    Worker->>IA: Upload updated DB
+    Worker->>IA: Release lock
+    IA-->>Worker: Acknowledge
+
