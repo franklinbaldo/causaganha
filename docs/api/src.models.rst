@@ -20,6 +20,14 @@ src.models.interfaces module
    :show-inheritance:
    :undoc-members:
 
+src.models.llm_output module
+----------------------------
+
+.. automodule:: src.models.llm_output
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 Module contents
 ---------------
 
