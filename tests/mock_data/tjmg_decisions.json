@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "TJMG0001",
+    "date": "2025-05-15",
+    "court": "TJMG",
+    "judges": ["Des. X"],
+    "outcome": "Deferido",
+    "keywords": ["agravo", "liminar"]
+  },
+  {
+    "case_id": "TJMG0002",
+    "date": "2025-05-20",
+    "court": "TJMG",
+    "judges": ["Des. Y", "Des. Z"],
+    "outcome": "Indeferido",
+    "keywords": ["usucapi\u00e3o", "posse"]
+  },
+  {
+    "case_id": "TJMG0003",
+    "date": "2025-05-25",
+    "court": "TJMG",
+    "judges": ["Des. W"],
+    "outcome": "Arquivado",
+    "keywords": ["execu\u00e7\u00e3o"]
+  }
+]

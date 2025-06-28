@@ -1,0 +1,11 @@
+flowchart LR
+    subgraph Collectors
+        TJRO[TJRO Adapter]
+        TJSP[TJSP Adapter]
+        TJMG[TJMG Adapter]
+    end
+    TJRO --> Parser[Unified Parser]
+    TJSP --> Parser
+    TJMG --> Parser
+    Parser --> DB[(DuckDB)]
+    DB --> Analytics[OpenSkill & Analytics]
