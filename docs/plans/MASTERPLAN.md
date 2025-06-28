@@ -11,7 +11,7 @@
 - **Active Phase**: Database Integration Complete ✅ → System Integration Resolution In Progress
 - **Next Priority**: Pipeline consolidation and unified CLI implementation
 - **Plans Coordinated**: 18 interconnected plans with clear sequencing
-- **Parallel Development**: Sprint `sprint-2025-02` active with 4 agents (0/20 tasks completed ⬜)
+- **Parallel Development**: Sprint `sprint-2025-03` active with 4 agents (0/20 tasks completed ⬜)
 - **Recent Changes**: Sprint work integration complete - dev environment enhancements (#51) with logging scripts, Sphinx docs, environment validation, and PDF tests merged
 
 ---
@@ -82,20 +82,16 @@ Analytics, monitoring, and user interface
 
 ## 🤖 **Parallel Development System**
 
-### **Agent Registry** - Current Sprint: `sprint-2025-02`
+### **Agent Registry** - Current Sprint: `sprint-2025-03`
 Parallel development managed through `.agents/` directory:
 
 | Agent | Specialization | Branch | Progress |
 |-------|---------------|--------|----------|
-| **jules1** | Testing & Documentation | `feat/sprint-2025-02-jules1` | 0/5 ⬜ |
-| **jules2** | Quality & Documentation | `feat/sprint-2025-02-jules2` | 0/5 ⬜ |
-| **codex1** | Infrastructure & DevEx | `feat/sprint-2025-02-codex1` | 0/5 ⬜ |
-| **gemini1** | Monitoring & Integration | `feat/sprint-2025-02-gemini1` | 0/5 ⬜ |
-| **techlead1** | Technical Lead | `feat/sprint-2025-02-techlead1` | 0/0 ⬜ |
-| **pm1** | Product Management | `feat/sprint-2025-02-pm1` | 0/0 ⬜ |
-| **flowlead1** | Flow Leader | `feat/sprint-2025-02-flowlead1` | 0/0 ⬜ |
+| **testing-docs** | Testing & Documentation | `feat/sprint-2025-03-testing-docs` | 0/5 ⬜ |
+| **quality-docs** | Quality & Documentation | `feat/sprint-2025-03-quality-docs` | 0/5 ⬜ |
+| **infrastructure-devex** | Infrastructure & DevEx | `feat/sprint-2025-03-infrastructure-devex` | 0/5 ⬜ |
+| **monitoring-integration** | Monitoring & Integration | `feat/sprint-2025-03-monitoring-integration` | 0/5 ⬜ |
 
-*Techlead1 may coordinate across the entire repository and leave signed notes in other agent cards. PM1 manages all planning documents in `docs/plans/`. Flowlead1 dispatches tasks to each agent at sprint kickoff.*
 
 **Benefits**: Zero-conflict development, file boundary enforcement, sprint-based delivery
 **Timeline**: 2-3 weeks parallel to main development phases
@@ -183,10 +179,10 @@ graph TD
 
 ### **Immediate Priorities**
 1. **Complete System Integration**: Unified CLI and pipeline consolidation
-2. **Agent Sprint Initiated**: sprint-2025-02 with 20 fresh tasks
+2. **Agent Sprint Initiated**: sprint-2025-03 with 20 fresh tasks
 3. **Phase 2 Preparation**: Ready infrastructure modernization plans  
 4. **Quality Assurance**: Maintain test coverage and documentation standards
-5. **Next Sprint Planning**: Outline sprint-2025-02 to extend quality and infrastructure work
+5. **Next Sprint Planning**: Outline sprint-2025-03 to extend multi-tribunal features
 
 ### **Sprint 2025-03 Concept**
 The following high-level objectives will guide the next sprint:
@@ -207,7 +203,7 @@ By completion of coordinated phases, CausaGanha will have:
 
 **Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 18 plans with real-time progress tracking, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
 
-**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-02` with 7 agents (0% complete, 0/20 tasks delivered)
+**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-03` with 4 agents (0% complete, 0/20 tasks delivered)
 
 ---
 

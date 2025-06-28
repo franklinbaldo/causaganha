@@ -1,10 +1,10 @@
-# Agent: codex1
+# Agent: infrastructure-devex
 
 ## Profile
-- **Name**: codex1
+- **Name**: infrastructure-devex
 - **Specialization**: Infrastructure & DevEx Specialist
-- **Sprint**: sprint-2025-02
-- **Branch**: `feat/sprint-2025-02-codex1`
+- **Sprint**: sprint-2025-03
+- **Branch**: `feat/sprint-2025-03-infrastructure-devex`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -32,12 +32,12 @@
 ### ✅ Completed
 - [x] **VS Code workspace configuration** - Optimal settings for Python development ✅ MERGED
 
-### 🆕 Planned for sprint-2025-02
-- [ ] **Analytics workflow automation** - New GitHub Actions for analytics tests
-- [ ] **Docker compose for analytics** - Container for analytics pipeline
-- [ ] **Pre-commit docs build** - Ensure docs compile before commit
-- [ ] **Dev script for analytics** - Helper script under `scripts/`
-- [ ] **Ruff rules update** - Include analytics modules
+### 🆕 Planned for sprint-2025-03
+- [ ] **Multi-tribunal test action** - GitHub Actions matrix for adapters
+- [ ] **Docker compose enhancements** - Tribunal-specific environments
+- [ ] **Bootstrap tribunal script** - Generate adapter scaffolding
+- [ ] **Reusable test matrix action** - Composite step for workflows
+- [ ] **Pre-commit registry check** - Validate tribunal registration
 
 ## Task Status Tracking
 
@@ -60,12 +60,12 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-02-codex1` with:
-- GitHub Actions automation for analytics
-- Docker compose file supporting analytics tasks
-- Pre-commit hook to build documentation
-- Development script to run analytics pipeline
-- Updated Ruff configuration for analytics modules
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-infrastructure-devex` with:
+- Multi-tribunal test GitHub Action
+- Enhanced docker-compose usage
+- Tribunal bootstrap developer script
+- Reusable test matrix action
+- Pre-commit registry validator
 
 ## Notes
 - Focus on developer experience and infrastructure automation

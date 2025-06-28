@@ -1,10 +1,10 @@
-# Agent: jules1
+# Agent: testing-docs
 
 ## Profile
-- **Name**: jules1
+- **Name**: testing-docs
 - **Specialization**: Testing & Documentation Specialist
-- **Sprint**: sprint-2025-02
-- **Branch**: `feat/sprint-2025-02-jules1`
+- **Sprint**: sprint-2025-03
+- **Branch**: `feat/sprint-2025-03-testing-docs`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -38,12 +38,12 @@
 - [x] **API documentation generation** - Auto-generate docs from docstrings using Sphinx ✅ MERGED
 - [x] **Tutorial notebooks** - Jupyter notebooks demonstrating key workflows ✅ MERGED
 
-### 🆕 Planned for sprint-2025-02
-- [ ] **Analytics CLI tests** - Validate new analytics commands
-- [ ] **Sphinx docs for analytics module** - Document usage and API
-- [ ] **Tutorial notebook for analytics features** - Showcase trend analysis
-- [ ] **Benchmark analytics queries** - Measure performance of report generation
-- [ ] **Tests for environment script** - Ensure check_environment.py coverage
+### 🆕 Planned for sprint-2025-03
+- [ ] **Multi-Tribunal Test Framework** - Parametrized tests for adapters
+- [ ] **Comprehensive Diario tests** - Validate dataclass logic and serialization
+- [ ] **Pydantic Validation tests** - Ensure models accept good data and reject bad
+- [ ] **API docs for src/models** - Generate Sphinx documentation
+- [ ] **New tribunal tutorial** - Notebook guiding adapter creation
 
 ## Task Status Tracking
 
@@ -88,12 +88,12 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-02-jules1` with:
-- Analytics CLI test suite
-- Sphinx documentation for analytics commands
-- Tutorial notebook covering analytics workflows
-- Benchmark results for analytics queries
-- Unit tests for environment validation script
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-testing-docs` with:
+- Multi-tribunal pytest framework
+- Diario dataclass unit tests
+- Validation layer test coverage
+- API docs for models package
+- Tutorial notebook for adding tribunals
 
 ## Notes
 - Focus on improving system reliability through comprehensive testing
