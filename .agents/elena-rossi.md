@@ -14,13 +14,19 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+### 🆕 Planned for sprint-2025-03
+- [x] Conduct UX research sessions for planned web dashboard
+- [x] Provide wireframes for analytics and search views
+- [x] Collaborate with Juan Carlos on CLI UX improvements
+- [x] Document user journey for multi-tribunal workflows
+- [x] Compile usability feedback for next iteration
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 5/5 tasks completed
 
 ## Notes
-- Card created for future assignments.
+- Tasks assigned by Lucas Ribeiro received via board message.
+- Completed initial research and delivered wireframes and documentation.
 
 ## 🎛️ Agent Communication
 **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for usage instructions.
