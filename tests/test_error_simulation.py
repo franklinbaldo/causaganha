@@ -60,6 +60,30 @@ def simulate_ia_sync_with_recovery(retries: int = 2):
             return True
     return False
 
+# --- Collector error simulations ---
+
+def simulate_collector_timeout():
+    """Simulate a collector timing out while fetching data."""
+    raise TimeoutError("Collector timed out")
+
+
+def simulate_collector_parsing_error():
+    """Simulate a failure when parsing a retrieved diario."""
+    raise ValueError("Failed to parse diario")
+
+
+def run_collector_with_retry(retries: int = 2):
+    """Attempt collector operation with retry on timeout."""
+    for attempt in range(retries):
+        try:
+            simulate_collector_timeout()
+        except TimeoutError:
+            if attempt == retries - 1:
+                raise
+        else:
+            return True
+    return False
+
 class TestErrorSimulation(unittest.TestCase):
 
     def test_network_failure_recovery(self):
@@ -114,6 +138,22 @@ class TestErrorSimulation(unittest.TestCase):
 
         with patch(__name__ + '.simulate_ia_sync_failure', return_value=True):
             self.assertTrue(simulate_ia_sync_with_recovery(retries=2))
+
+    def test_collector_timeout_retry(self):
+        """Collector should retry on timeout and eventually succeed."""
+        with self.assertRaises(TimeoutError):
+            simulate_collector_timeout()
+
+        with self.assertRaises(TimeoutError):
+            run_collector_with_retry(retries=2)
+
+        with patch(__name__ + '.simulate_collector_timeout', return_value=True):
+            self.assertTrue(run_collector_with_retry(retries=2))
+
+    def test_collector_parsing_error(self):
+        """Parsing errors should be surfaced to the caller."""
+        with self.assertRaises(ValueError):
+            simulate_collector_parsing_error()
 
 if __name__ == '__main__':
     unittest.main()

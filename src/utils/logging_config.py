@@ -4,12 +4,30 @@ from __future__ import annotations
 
 import logging
 import os
+import contextvars
 from typing import Optional
 
 from pythonjsonlogger import jsonlogger
 from rich.logging import RichHandler
 
 _LOGGER_INITIALIZED = False
+# Context variable used to inject tribunal_code into log records
+_tribunal_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "tribunal_code", default=""
+)
+
+
+class _TribunalFilter(logging.Filter):
+    """Inject tribunal_code context variable into log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+        record.tribunal_code = _tribunal_var.get() or "-"
+        return True
+
+
+def set_tribunal_code(code: str) -> None:
+    """Set the tribunal code for contextual logging."""
+    _tribunal_var.set(code)
 
 
 def setup_logging(
@@ -41,19 +59,19 @@ def setup_logging(
     if fmt == "json":
         handler = logging.StreamHandler()
         formatter = jsonlogger.JsonFormatter(
-            "%(asctime)s %(levelname)s %(name)s %(message)s"
+            "%(asctime)s %(levelname)s %(name)s %(tribunal_code)s %(message)s"
         )
         handler.setFormatter(formatter)
     elif fmt == "rich":
         handler = RichHandler(rich_tracebacks=True)
         formatter = logging.Formatter(
-            "%(name)s - %(levelname)s - %(message)s"
+            "%(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s"
         )
         handler.setFormatter(formatter)
     else:
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s"
         )
         handler.setFormatter(formatter)
 
@@ -61,6 +79,7 @@ def setup_logging(
     root_logger.handlers.clear()
     root_logger.setLevel(log_level)
     root_logger.addHandler(handler)
+    root_logger.addFilter(_TribunalFilter())
 
     global _LOGGER_INITIALIZED
     _LOGGER_INITIALIZED = True
@@ -68,8 +87,10 @@ def setup_logging(
     return root_logger
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Return a logger, initializing the root logger if necessary."""
+def get_logger(name: str, tribunal_code: str | None = None) -> logging.Logger:
+    """Return a logger and optionally set tribunal context."""
     if not _LOGGER_INITIALIZED:
         setup_logging()
+    if tribunal_code:
+        set_tribunal_code(tribunal_code)
     return logging.getLogger(name)

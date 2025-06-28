@@ -176,6 +176,24 @@ class TestTJROIntegration(unittest.TestCase):
         self.assertTrue(hasattr(adapter, "create_diario"))
         self.assertTrue(hasattr(adapter, "process_diario"))
 
+    def test_update_status_extra_field(self):
+        """Unknown kwargs should be stored in metadata."""
+        diario = Diario(tribunal="tjro", data=date(2025, 6, 27), url="u")
+        diario.update_status("downloaded", custom="yes")
+        self.assertEqual(diario.status, "downloaded")
+        self.assertEqual(diario.metadata.get("custom"), "yes")
+
+    def test_from_queue_item_bad_json(self):
+        """Invalid JSON metadata should result in empty dict."""
+        queue_data = {
+            "url": "https://tjro.jus.br/test.pdf",
+            "date": "2025-06-26",
+            "tribunal": "tjro",
+            "metadata": "not-json",
+        }
+        diario = Diario.from_queue_item(queue_data)
+        self.assertEqual(diario.metadata, {})
+
 
 if __name__ == "__main__":
     unittest.main()

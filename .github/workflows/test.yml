@@ -29,7 +29,22 @@ jobs:
             git commit -am "chore(ci): auto-fix linting"
             git push
           fi
-      - name: Run tests
-        run: uv run pytest tests/ --cov=src --cov-report=xml
+  tribunal-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tribunal: [tjro]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/run-tests
+        with:
+          tribunal: ${{ matrix.tribunal }}
+  docs:
+    needs: tribunal-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - name: Build documentation
         run: make docs

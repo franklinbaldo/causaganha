@@ -108,6 +108,7 @@ make -C docs/api html
 
 Consulte os notebooks em `docs/tutorials/` para exemplos de uso do pipeline.
 Documentação das rotinas de analytics está disponível em `docs/api/analytics.rst`.
+O tutorial `tribunal_adapter.ipynb` detalha a criação de adaptadores.
 
 ## Status do Projeto
 
@@ -134,3 +135,4 @@ O projeto está aberto à colaboração e feedback da comunidade jurídica, téc
 ## Exemplos
 
 Veja scripts de exemplo em [docs/examples](docs/examples) para demonstrações de processamento de dados e tratamento de erros.
+O script [diario_processing_example.py](docs/examples/diario_processing_example.py) mostra como executar o pipeline para diferentes tribunais usando a opção `--tribunal`.

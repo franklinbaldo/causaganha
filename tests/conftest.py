@@ -26,11 +26,9 @@ def temp_db():
     if db_file_path.exists():
         try:
             db_file_path.unlink()
-        except OSError as e:
-            # This might happen if a previous test run failed to clean up and the file is locked
-            pytest.skip(
-                f"Could not remove pre-existing temp DB file {db_file_path}: {e}"
-            )
+        except OSError:
+            # If we can't remove it, just use a different unique filename
+            db_file_path = temp_dir / f"test_causaganha_db_{uuid.uuid4()}_alt.duckdb"
 
     yield db_file_path  # DuckDB will create the file when db.connect() is called
 
