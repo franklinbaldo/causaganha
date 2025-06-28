@@ -20,6 +20,9 @@ from database import CausaGanhaDB
 
 logger = logging.getLogger(__name__)
 
+# Track archive versions in a JSON file so each upload increments
+VERSION_FILE_PATH = Path("data/archive_version.json")
+
 
 @dataclass
 class IAConfig:
@@ -63,6 +66,30 @@ class DatabaseArchiver:
         os.environ["IA_ACCESS"] = self.ia_config.access_key
         os.environ["IA_SECRET"] = self.ia_config.secret_key
         logger.info("Internet Archive authentication configured")
+
+    def _load_versions(self) -> Dict[str, int]:
+        """Load archive version information."""
+        if VERSION_FILE_PATH.exists():
+            try:
+                with open(VERSION_FILE_PATH, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+
+    def _save_versions(self, data: Dict[str, int]) -> None:
+        """Persist archive version information."""
+        VERSION_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(VERSION_FILE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+    def get_next_version(self, archive_type: str) -> int:
+        """Get and increment the archive version for the given type."""
+        versions = self._load_versions()
+        next_version = versions.get(archive_type, 0) + 1
+        versions[archive_type] = next_version
+        self._save_versions(versions)
+        return next_version
 
     def create_database_item_id(
         self, snapshot_date: date, archive_type: str = "weekly"
@@ -350,11 +377,13 @@ class DatabaseArchiver:
                 # Compress exports
                 archive_path = self.compress_exports(exports, Path(temp_dir))
 
-                # Create IA metadata
+                # Create IA metadata with versioning
                 item_id = self.create_database_item_id(snapshot_date, archive_type)
                 metadata = self.create_archive_metadata(
                     snapshot_date, archive_type, db_stats
                 )
+                version = self.get_next_version(archive_type)
+                metadata["version"] = str(version)
 
                 # Upload to Internet Archive
                 upload_success = self.upload_to_internet_archive(

@@ -12,6 +12,7 @@ from datetime import datetime
 import json
 import logging
 import duckdb
+from ia_database_sync import IADatabaseSync
 
 from database import DatabaseManager, CausaGanhaDB, run_db_migrations
 from config import load_config
@@ -284,6 +285,18 @@ def stats_cmd(ctx: typer.Context) -> None:
 @app.command(name="config")
 def show_config_cmd(ctx: typer.Context) -> None:
     typer.echo(json.dumps(cg_config, indent=2, default=str))
+
+
+@app.command("archive-status")
+def archive_status_cmd(verbose: bool = False) -> None:
+    """Display Internet Archive sync status."""
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+    sync = IADatabaseSync()
+    status = sync.sync_status()
+    typer.echo(json.dumps(status, indent=2, default=str))
 
 
 @app.command("diario")
