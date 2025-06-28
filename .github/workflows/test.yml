@@ -19,6 +19,8 @@ jobs:
         run: |
           uv run ruff format
           uv run ruff check --fix
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
       - name: Commit changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
