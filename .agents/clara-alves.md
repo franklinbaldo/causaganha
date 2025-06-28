@@ -14,15 +14,26 @@
 - _No file assignments yet_
 
 ## Current Sprint Tasks
-_None assigned_
+### ✅ Completed
+- _No tasks completed yet_
+### 🆕 Planned for sprint-2025-03
+- [ ] **Gather requirements** - Web dashboard feature planning
+- [ ] **Prioritize backlog** - Multi-tribunal support items
+- [ ] **Coordinate user feedback** - Sessions with legal partners
+- [ ] **Prepare release notes** - Summarize sprint deliverables
+- [ ] **Manage sprint board** - Update task status daily
 
 ## Task Status Tracking
-### Sprint Progress: 0/0 tasks completed
+### Sprint Progress: 0/5 tasks completed
 
 ## Notes
-- Card created for future assignments.
+- Initial tasks assigned via board message from Lucas Ribeiro.
+- Reference message: `.agents/.BOARD/20250628T130855Z_to_clara-alves.md`.
+- Working from branch `feat/sprint-2025-03-clara-alves`.
 
 ## 🎛️ Agent Communication
 **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for usage instructions.
 
 ## 📝 Scratchpad & Notes (Edit Freely)
+- 2025-06-28: Created sprint branch and noted initial tasks.
+- Plan to schedule requirements gathering meetings next week.
