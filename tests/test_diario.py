@@ -14,8 +14,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from models.diario import Diario
-from tribunais import get_adapter, is_tribunal_supported, list_supported_tribunals
+from models.diario import Diario  # noqa: E402
+from tribunais import get_adapter, is_tribunal_supported, list_supported_tribunals  # noqa: E402
 
 
 class TestDiario(unittest.TestCase):

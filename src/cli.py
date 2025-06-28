@@ -1,7 +1,7 @@
 """CausaGanha CLI - Modern command-line interface for judicial document processing."""
 
 import typer
-from typing import Optional, List  # Added Dict, Any, Tuple
+from typing import Optional, List
 from pathlib import Path
 import csv
 from urllib.parse import urlparse
@@ -824,6 +824,7 @@ def _process_decision_for_rating(
     try:
         # Parse lawyer lists
         import json
+        from openskill_rating import create_rating, rate_teams
 
         advogados_ativo = (
             json.loads(advogados_ativo_json) if advogados_ativo_json else []
