@@ -165,3 +165,16 @@ causaganha analytics outcome-trend --limit 50
 - Certifique-se de que `data/causaganha.duckdb` está atualizado e acessível
 - Utilize a opção `--refresh` para forçar nova coleta de dados quando necessário
 - Consulte `logs/analytics.log` para mensagens detalhadas de erro
+
+## Multi-tribunal
+
+O pipeline suporta adaptadores para diferentes tribunais. Utilize a opção
+`--tribunal` para especificar qual diário processar.
+
+```bash
+# Processar diário do TJSP
+causaganha pipeline run --tribunal TJSP --date 2025-06-24
+
+# Processar diário do TJMG
+causaganha pipeline run --tribunal TJMG --date 2025-06-24
+```
