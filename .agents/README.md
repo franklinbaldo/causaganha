@@ -4,7 +4,7 @@ This directory contains the agent registry for CausaGanha parallel development.
 
 ## Current Sprint: sprint-2025-02
 
-### Active Agents (4/4)
+### Active Agents (7/7)
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
@@ -12,6 +12,9 @@ This directory contains the agent registry for CausaGanha parallel development.
 | [jules2](./jules2.md) | Quality & Documentation | `feat/sprint-2025-02-jules2` | 0/5 ⬜ | Active |
 | [codex1](./codex1.md) | Infrastructure & DevEx | `feat/sprint-2025-02-codex1` | 0/5 ⬜ | Active |
 | [gemini1](./gemini1.md) | Monitoring & Integration | `feat/sprint-2025-02-gemini1` | 0/5 ⬜ | Active |
+| [techlead1](./techlead1.md) | Technical Lead | `feat/sprint-2025-02-techlead1` | 0/0 ⬜ | Active |
+| [pm1](./pm1.md) | Product Management | `feat/sprint-2025-02-pm1` | 0/0 ⬜ | Active |
+| [flowlead1](./flowlead1.md) | Flow Leader | `feat/sprint-2025-02-flowlead1` | 0/0 ⬜ | Active |
 
 ## Sprint Overview
 
@@ -28,6 +31,9 @@ jules1:   tests/test_extractor.py, tests/test_ia_discovery.py, tests/benchmarks/
 jules2:   tests/mock_data/, tests/test_error_simulation.py, docs/diagrams/, docs/faq.md, docs/examples/
 codex1:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscode/, Docker*, scripts/
 gemini1:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
+techlead1:  entire repository (coordination only), agent card notes
+pm1:        docs/plans/
+flowlead1:  .agents/
 ```
 
 ## Agent Coordination

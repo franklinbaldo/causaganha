@@ -91,6 +91,11 @@ Parallel development managed through `.agents/` directory:
 | **jules2** | Quality & Documentation | `feat/sprint-2025-02-jules2` | 0/5 ⬜ |
 | **codex1** | Infrastructure & DevEx | `feat/sprint-2025-02-codex1` | 0/5 ⬜ |
 | **gemini1** | Monitoring & Integration | `feat/sprint-2025-02-gemini1` | 0/5 ⬜ |
+| **techlead1** | Technical Lead | `feat/sprint-2025-02-techlead1` | 0/0 ⬜ |
+| **pm1** | Product Management | `feat/sprint-2025-02-pm1` | 0/0 ⬜ |
+| **flowlead1** | Flow Leader | `feat/sprint-2025-02-flowlead1` | 0/0 ⬜ |
+
+*Techlead1 may coordinate across the entire repository and leave signed notes in other agent cards. PM1 manages all planning documents in `docs/plans/`. Flowlead1 dispatches tasks to each agent at sprint kickoff.*
 
 **Benefits**: Zero-conflict development, file boundary enforcement, sprint-based delivery
 **Timeline**: 2-3 weeks parallel to main development phases
@@ -183,6 +188,14 @@ graph TD
 4. **Quality Assurance**: Maintain test coverage and documentation standards
 5. **Next Sprint Planning**: Outline sprint-2025-02 to extend quality and infrastructure work
 
+### **Sprint 2025-03 Concept**
+The following high-level objectives will guide the next sprint:
+1. **Analytics Framework**: establish a dedicated CLI and pipeline for aggregated reports.
+2. **Centralized Monitoring**: expand logging utilities and add sync metrics.
+3. **Database Migrations**: design tables for analytics results with migration scripts.
+4. **Developer Tooling**: refine Docker compose and scripts for analytics tasks.
+5. **Documentation & Examples**: produce user tutorials and API docs for analytics features.
+
 ### **Success Vision**
 By completion of coordinated phases, CausaGanha will have:
 - ✅ **Unified System**: Single CLI, consolidated pipelines, modern architecture
@@ -194,7 +207,7 @@ By completion of coordinated phases, CausaGanha will have:
 
 **Status**: 🔴 **LIVE COORDINATION** - Active document coordinating 18 plans with real-time progress tracking, agent registry system, and phase-based implementation. System integration in progress, parallel development active.
 
-**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-02` with 4 agents (0% complete, 0/20 tasks delivered)
+**Agent Registry**: 🤖 **SPRINT PROGRESS** - `sprint-2025-02` with 7 agents (0% complete, 0/20 tasks delivered)
 
 ---
 
