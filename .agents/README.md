@@ -2,23 +2,20 @@
 
 This directory contains the agent registry for CausaGanha parallel development.
 
-## Current Sprint: sprint-2025-02
+## Current Sprint: sprint-2025-03
 
-### Active Agents (7/7)
+### Active Agents (4/4)
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
-| [jules1](./jules1.md) | Testing & Documentation | `feat/sprint-2025-02-jules1` | 0/5 ⬜ | Active |
-| [jules2](./jules2.md) | Quality & Documentation | `feat/sprint-2025-02-jules2` | 0/5 ⬜ | Active |
-| [codex1](./codex1.md) | Infrastructure & DevEx | `feat/sprint-2025-02-codex1` | 0/5 ⬜ | Active |
-| [gemini1](./gemini1.md) | Monitoring & Integration | `feat/sprint-2025-02-gemini1` | 0/5 ⬜ | Active |
-| [techlead1](./techlead1.md) | Technical Lead | `feat/sprint-2025-02-techlead1` | 0/0 ⬜ | Active |
-| [pm1](./pm1.md) | Product Management | `feat/sprint-2025-02-pm1` | 0/0 ⬜ | Active |
-| [flowlead1](./flowlead1.md) | Flow Leader | `feat/sprint-2025-02-flowlead1` | 0/0 ⬜ | Active |
+| [testing-docs](./testing-docs.md) | Testing & Documentation | `feat/sprint-2025-03-testing-docs` | 0/5 ⬜ | Active |
+| [quality-docs](./quality-docs.md) | Quality & Documentation | `feat/sprint-2025-03-quality-docs` | 0/5 ⬜ | Active |
+| [infrastructure-devex](./infrastructure-devex.md) | Infrastructure & DevEx | `feat/sprint-2025-03-infrastructure-devex` | 0/5 ⬜ | Active |
+| [monitoring-integration](./monitoring-integration.md) | Monitoring & Integration | `feat/sprint-2025-03-monitoring-integration` | 0/5 ⬜ | Active |
 
 ## Sprint Overview
 
-- **Sprint ID**: sprint-2025-02
+- **Sprint ID**: sprint-2025-03
 - **Duration**: 2-3 weeks (estimated)
 - **Total Tasks**: 0/20 completed ⬜ (0% progress)
 - **File Conflicts**: Zero (strict file boundaries enforced)
@@ -27,27 +24,24 @@ This directory contains the agent registry for CausaGanha parallel development.
 ## File Zone Summary
 
 ```
-jules1:   tests/test_extractor.py, tests/test_ia_discovery.py, tests/benchmarks/, docs/api/, docs/tutorials/
-jules2:   tests/mock_data/, tests/test_error_simulation.py, docs/diagrams/, docs/faq.md, docs/examples/
-codex1:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscode/, Docker*, scripts/
-gemini1:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
-techlead1:  entire repository (coordination only), agent card notes
-pm1:        docs/plans/
-flowlead1:  .agents/
+testing-docs:   tests/test_extractor.py, tests/test_ia_discovery.py, tests/benchmarks/, docs/api/, docs/tutorials/
+quality-docs:   tests/mock_data/, tests/test_error_simulation.py, docs/diagrams/, docs/faq.md, docs/examples/
+infrastructure-devex:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscode/, Docker*, scripts/
+monitoring-integration:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
 ```
 
 ## Agent Coordination
 
 1. **File Boundaries**: Strict enforcement to prevent merge conflicts
 2. **Single PR Delivery**: Each agent delivers all work in one comprehensive PR
-3. **Sprint Branches**: Named `feat/sprint-2025-02-{agent-name}`
+3. **Sprint Branches**: Named `feat/sprint-2025-03-{agent-name}`
 4. **Status Tracking**: Individual agent files track progress
 5. **Quality Standards**: All work must include tests and documentation
 
 ## Next Sprint
 
-Sprint `sprint-2025-02` is now active with a focus on analytics, monitoring and
-external integration improvements.
+Sprint `sprint-2025-03` focuses on multi-tribunal infrastructure, validation and
+expanded documentation.
 
 ## Usage & Communication
 

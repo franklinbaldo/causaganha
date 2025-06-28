@@ -159,10 +159,10 @@ CausaGanha implements a **parallel development system** using an agent registry 
 ```
 .agents/
 ├── README.md              # Central coordination and communication guidelines
-├── jules1.md             # Testing & Documentation specialist
-├── jules2.md             # Quality & Documentation specialist  
-├── codex1.md             # Infrastructure & DevEx specialist
-└── gemini1.md            # Monitoring & Integration specialist
+├── testing-docs.md             # Testing & Documentation specialist
+├── quality-docs.md             # Quality & Documentation specialist  
+├── infrastructure-devex.md             # Infrastructure & DevEx specialist
+└── monitoring-integration.md            # Monitoring & Integration specialist
 ```
 
 ### **🎯 Agent Sprint System**
@@ -186,10 +186,10 @@ Agents can use their cards to:
 
 ### **🎪 File Zone Management**
 Each agent has exclusive access to specific areas:
-- **jules1**: `tests/test_extractor.py`, `tests/test_ia_discovery.py`, `tests/benchmarks/`, `docs/api/`, `docs/tutorials/`
-- **jules2**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
-- **codex1**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
-- **gemini1**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
+- **testing-docs**: `tests/test_extractor.py`, `tests/test_ia_discovery.py`, `tests/benchmarks/`, `docs/api/`, `docs/tutorials/`
+- **quality-docs**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
+- **infrastructure-devex**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
+- **monitoring-integration**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
 
 ### **🚀 Integration Benefits**
 - **Parallel Development**: Multiple improvement streams without blocking main development

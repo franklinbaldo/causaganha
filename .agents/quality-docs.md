@@ -1,10 +1,10 @@
-# Agent: jules2
+# Agent: quality-docs
 
 ## Profile
-- **Name**: jules2
+- **Name**: quality-docs
 - **Specialization**: Quality & Documentation Specialist
-- **Sprint**: sprint-2025-02
-- **Branch**: `feat/sprint-2025-02-jules2`
+- **Sprint**: sprint-2025-03
+- **Branch**: `feat/sprint-2025-03-quality-docs`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -32,12 +32,12 @@
 ### ✅ Completed
 - [x] **API documentation generation** - Auto-generate docs from docstrings using Sphinx ✅ MERGED
 
-### 🆕 Planned for sprint-2025-02
-- [ ] **Mock datasets for analytics** - Generate cross-tribunal sample data
-- [ ] **Error simulation tests for IA sync** - Validate recovery logic
-- [ ] **Updated locking diagrams** - Document distributed locking flow
-- [ ] **FAQ additions for analytics** - Expand troubleshooting section
-- [ ] **Example scripts** - Demonstrate analytics CLI usage
+### 🆕 Planned for sprint-2025-03
+- [ ] **Mock data for TJSP & TJMG** - Generate tribunal-specific JSON
+- [ ] **Error simulation tests for collectors** - Handle HTTP failures gracefully
+- [ ] **Multi-tribunal architecture diagram** - Mermaid overview of adapters
+- [ ] **Diario processing example** - Script showing adapter usage
+- [ ] **FAQ expansion** - Multi-tribunal section
 
 ## Task Status Tracking
 
@@ -50,12 +50,12 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-02-jules2` with:
-- Mock datasets for analytics examples
-- Error simulation tests covering IA sync
-- Updated distributed locking diagrams
-- FAQ entries for analytics workflow
-- Example scripts demonstrating analytics CLI
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-quality-docs` with:
+- TJSP and TJMG mock datasets
+- Error simulation tests for collectors
+- Multi-tribunal architecture diagram
+- Diario usage example script
+- Expanded FAQ section
 
 ## Notes
 - Focus on quality assurance and developer-friendly documentation
