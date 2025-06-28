@@ -7,7 +7,7 @@ import logging
 import subprocess
 from typing import List
 
-from src.utils.logging_config import setup_logging
+from src.utils.logging_config import setup_logging, get_logger
 
 
 def run_pytest(extra_args: List[str] | None = None) -> int:
@@ -37,7 +37,12 @@ def run_pytest(extra_args: List[str] | None = None) -> int:
 
 def main() -> None:
     setup_logging()
+    logger = get_logger(__name__)
     exit_code = run_pytest()
+    if exit_code == 0:
+        logger.info("Test suite completed successfully")
+    else:
+        logger.error("Test suite failed")
     raise SystemExit(exit_code)
 
 

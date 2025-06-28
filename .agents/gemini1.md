@@ -65,11 +65,14 @@
 - Created `src/utils/logging_config.py` for centralized setup
 - Added `LOG_FORMAT` variable to `.env.example`
 - Introduced `rich` dependency for nicer console output
+- Added `get_logger` helper and updated dev scripts to use it
 
 **Development Scripts**:
 - `scripts/dev/run_tests.py` to run test suite with standardized logging
+- `scripts/dev/run_lint.py` for formatting and linting checks
 - `scripts/db/migrate.py` to execute database migrations
 - `scripts/env/show_env.py` to display key environment variables
+- Added initial type hints for CLI functions
 
 ## Deliverables
 

@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from src.database import run_db_migrations
-from src.utils.logging_config import setup_logging
+from src.utils.logging_config import setup_logging, get_logger
 
 
 def main() -> None:
@@ -27,12 +27,13 @@ def main() -> None:
 
     args = parser.parse_args()
     setup_logging()
+    logger = get_logger(__name__)
 
     try:
         run_db_migrations(args.db, args.migrations)
-        logging.info("Database migrations completed successfully")
+        logger.info("Database migrations completed successfully")
     except Exception as exc:
-        logging.error("Migration failed: %s", exc)
+        logger.error("Migration failed: %s", exc)
         raise SystemExit(1)
 
 
