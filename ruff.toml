@@ -1,7 +1,7 @@
 line-length = 88
 target-version = "py312"
 extend-exclude = ["docs", "tests"]
-src = ["src", "scripts"]
+src = ["src", "scripts", "analytics"]
 preview = true
 
 [lint]
