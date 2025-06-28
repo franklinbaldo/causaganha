@@ -1,7 +1,9 @@
 FROM python:3.12-slim
 
 # Install uv
-RUN pip install --no-cache-dir uv
+RUN apt-get update && apt-get install -y git \
+    && pip install --no-cache-dir uv pre-commit \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
