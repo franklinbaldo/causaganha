@@ -29,3 +29,5 @@ jobs:
           fi
       - name: Run tests
         run: uv run pytest tests/ --cov=src --cov-report=xml
+      - name: Build documentation
+        run: make docs

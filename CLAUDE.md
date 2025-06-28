@@ -151,6 +151,54 @@ CausaGanha uses a **living MASTERPLAN document** to coordinate all implementatio
 
 **The MASTERPLAN is the single source of truth for coordinated development in the alpha phase.**
 
+## 🤖 **Agent Registry System**
+
+CausaGanha implements a **parallel development system** using an agent registry for scalable, conflict-free collaboration:
+
+### **📁 Agent Registry Structure**
+```
+.agents/
+├── README.md              # Central coordination and communication guidelines
+├── jules1.md             # Testing & Documentation specialist
+├── jules2.md             # Quality & Documentation specialist  
+├── codex1.md             # Infrastructure & DevEx specialist
+└── gemini1.md            # Monitoring & Integration specialist
+```
+
+### **🎯 Agent Sprint System**
+- **Sprint-based delivery**: Each agent works on 5 tasks per sprint (2-3 week cycles)
+- **File boundary enforcement**: Agents have exclusive write access to specific directories/files
+- **Zero-conflict development**: Strict file boundaries prevent merge conflicts
+- **Single PR delivery**: All agent work delivered in one comprehensive PR at sprint end
+
+### **📋 Agent Communication Flow**
+1. **Task Assignment**: Agents receive tasks in their individual `.md` cards
+2. **Autonomous Work**: Agents work independently within their file boundaries
+3. **Progress Tracking**: Real-time updates in agent cards with scratchpad notes
+4. **Strategic Input**: Agents can ask questions about future tasks, project architecture, and process improvements
+5. **Feedback Loop**: Responses provided directly in agent cards using Wikipedia-style signatures
+
+### **🔧 Communication Guidelines**
+Agents can use their cards to:
+- ✅ **Ask about**: Next sprint planning, architecture suggestions, process improvements, collaboration opportunities
+- ✅ **Update**: Progress tracking, implementation notes, technical decisions  
+- ❌ **Avoid asking**: Current deliverable implementation details (work autonomously)
+
+### **🎪 File Zone Management**
+Each agent has exclusive access to specific areas:
+- **jules1**: `tests/test_extractor.py`, `tests/test_ia_discovery.py`, `tests/benchmarks/`, `docs/api/`, `docs/tutorials/`
+- **jules2**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
+- **codex1**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
+- **gemini1**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
+
+### **🚀 Integration Benefits**
+- **Parallel Development**: Multiple improvement streams without blocking main development
+- **Quality Assurance**: All agent work includes comprehensive tests and documentation
+- **Scalable Process**: Agent registry can grow with project needs
+- **Professional Standards**: Maintains high code quality across all contributions
+
+**See `.agents/README.md` for detailed communication guidelines and current sprint status.**
+
 ## Core Commands
 
 ### Modern CLI (Primary Interface)
@@ -528,6 +576,16 @@ When working with this codebase, follow the **plan-first development approach**:
 - [ ] Considers alpha status and breaking changes
 
 This approach ensures thoughtful development and maintains high-quality documentation throughout the feature lifecycle.
+
+### 🤖 **Agent Registry Integration with Planning**
+
+The agent registry system complements the plan-first approach:
+
+- **Strategic Planning**: MASTERPLAN and plans focus on high-level architecture and feature design
+- **Tactical Execution**: Agent registry handles quality improvements, testing, documentation, and tooling
+- **Parallel Development**: Main development follows critical path while agents enhance system quality
+- **Communication Flow**: Agents can suggest improvements to plans and architecture through their cards
+- **Resource Efficiency**: Reduces bottlenecks by distributing non-critical-path work across specialized agents
 
 ---
 
