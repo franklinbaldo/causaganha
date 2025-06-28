@@ -170,6 +170,8 @@ causaganha analytics outcome-trend --limit 50
 
 O pipeline suporta adaptadores para diferentes tribunais. Utilize a opção
 `--tribunal` para especificar qual diário processar.
+Consulte `docs/examples/diario_processing_example.py` para um script completo que
+mostra essa funcionalidade.
 
 ```bash
 # Processar diário do TJSP
