@@ -15,6 +15,8 @@ KEY_VARS: List[str] = [
     "IA_SECRET_KEY",
     "LOG_LEVEL",
     "LOG_FORMAT",
+    "ENABLED_TRIBUNALS",
+    "DEFAULT_TRIBUNAL",
 ]
 
 
