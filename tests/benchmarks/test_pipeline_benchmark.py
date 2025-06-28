@@ -14,23 +14,33 @@ except ImportError:
     sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
     from src.extractor import GeminiExtractor
     from src.ia_discovery import IADiscovery
-    import requests # For IADiscovery mock
 
 # Helper to create dummy PDF (copied from test_extractor.py - consider refactoring to a shared test utils module)
 def create_dummy_pdf(path, num_pages=1):
     try:
-        from PyPDF2 import PdfWriter # PyPDF2 is already a dependency from other tests
+        from PyPDF2 import PdfWriter
+
         writer = PdfWriter()
         for _ in range(num_pages):
             writer.add_blank_page(width=612, height=792)
         with open(path, "wb") as f:
             writer.write(f)
         return True
-    except ImportError:
+    except Exception:
+        pass
+
+    try:
+        import fitz
+
+        doc = fitz.open()
+        for _ in range(num_pages):
+            doc.new_page()
+        doc.save(str(path))
+        doc.close()
+        return True
+    except Exception:
         with open(path, "w") as f:
             f.write("Dummy PDF content " * 100 * num_pages)
-        return False
-    except Exception:
         return False
 
 # Mock for IADiscovery tests (similar to test_ia_discovery.py)
@@ -54,7 +64,7 @@ class TestPipelineBenchmarks(unittest.TestCase):
         self.test_files_dir = pathlib.Path(__file__).parent / "benchmark_files"
         self.test_files_dir.mkdir(exist_ok=True)
         self.dummy_pdf_path = self.test_files_dir / "benchmark_dummy.pdf"
-        create_dummy_pdf(self.dummy_pdf_path, 10) # 10-page PDF for extractor benchmark
+        self.real_pdf_created = create_dummy_pdf(self.dummy_pdf_path, 10)
 
         # Mock GEMINI_API_KEY for GeminiExtractor
         self.patcher = mock.patch.dict(os.environ, {"GEMINI_API_KEY": "benchmark_fake_key"})
@@ -85,6 +95,8 @@ class TestPipelineBenchmarks(unittest.TestCase):
     @mock.patch("src.extractor.genai.GenerativeModel")
     def test_benchmark_gemini_extractor_pdf_processing(self, mock_generative_model):
         """Benchmark GeminiExtractor.extract_and_save_json (with mocked API)."""
+        if not self.real_pdf_created:
+            self.skipTest("PyPDF2 or fitz not available to create valid PDF")
         # Configure the mock for the Gemini API
         mock_model_instance = mock_generative_model.return_value
         mock_response = mock.Mock()
