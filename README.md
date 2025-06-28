@@ -108,6 +108,7 @@ make -C docs/api html
 
 Consulte os notebooks em `docs/tutorials/` para exemplos de uso do pipeline.
 Documentação das rotinas de analytics está disponível em `docs/api/analytics.rst`.
+O tutorial `tribunal_adapter.ipynb` detalha a criação de adaptadores.
 
 ## Status do Projeto
 
