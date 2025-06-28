@@ -1,11 +1,11 @@
-# Agent: monitoring-integration
+# Agent: miguel-torres
 > 📝️ **Read [README.md](./README.md) before editing this card.**
 
 ## Profile
-- **Name**: monitoring-integration
+- **Name**: miguel-torres
 - **Specialization**: Monitoring & Integration Specialist
 - **Sprint**: sprint-2025-03
-- **Branch**: `feat/sprint-2025-03-monitoring-integration`
+- **Branch**: `feat/sprint-2025-03-miguel-torres`
 - **Status**: Active
 - **Capacity**: 5 tasks
 
@@ -78,7 +78,7 @@
 
 ## Deliverables
 
-All work will be delivered in a single PR from branch `feat/sprint-2025-03-monitoring-integration` with:
+All work will be delivered in a single PR from branch `feat/sprint-2025-03-miguel-torres` with:
 - Context-aware logging implementation
 - Complete type hints for models
 - Tribunal availability monitoring script
