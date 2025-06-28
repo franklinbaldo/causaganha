@@ -269,137 +269,39 @@
 4. **Mark Complete**: Update status and move to completed section
 5. **Document**: Add brief completion note with PR/commit reference
 
-### **Current Task Status Tracking**
+### **Agent Parallel Development System**
 
-#### **🟢 Available Tasks** (Ready for implementation)
-- None remaining - all tasks assigned to agents
+#### **🤖 Agent Registry**
+Parallel development is managed through the **Agent Registry** system located in `.agents/`:
 
-#### **🟡 In Progress Tasks** (Currently being worked on)
+- **Registry Location**: `.agents/` directory contains individual agent files
+- **Current Sprint**: `sprint-2025-01` with 4 active agents
+- **Agents Active**: `jules1`, `jules2`, `codex1`, `gemini1` (20/30 tasks assigned)
+- **Delivery Method**: Single PR per agent at sprint completion
+- **File Boundaries**: Strict enforcement prevents merge conflicts
 
-##### **👤 jules1** (Testing & Documentation Specialist)
-- [ ] **Enhance test coverage for extractor.py** - Add tests for PDF chunking and Gemini API integration
-  - **Branch**: `feat/parallel-extractor-test-coverage`
-- [ ] **Add integration tests for IA discovery** - Test coverage analysis and inventory management
-  - **Branch**: `feat/parallel-ia-discovery-tests`
-- [ ] **Performance benchmarking suite** - Measure pipeline throughput and database operations
-  - **Branch**: `feat/parallel-performance-benchmarks`
-- [ ] **API documentation generation** - Auto-generate docs from docstrings using Sphinx
-  - **Branch**: `feat/parallel-api-docs-sphinx`
-- [ ] **Tutorial notebooks** - Jupyter notebooks demonstrating key workflows
-  - **Branch**: `feat/parallel-tutorial-notebooks`
+#### **Sprint Overview**
+- **Sprint ID**: sprint-2025-01  
+- **Timeline**: 2-3 weeks estimated completion
+- **Capacity**: 4 agents × 5 tasks = 20 parallel tasks in progress
+- **Remaining**: 10 tasks available for next sprint (Analytics & External Integration)
+- **Conflict Risk**: ZERO (non-overlapping file zones)
 
-##### **👤 jules2** (Quality & Documentation Specialist)
-- [ ] **Mock data generators** - Create realistic test datasets for judicial decisions
-  - **Branch**: `feat/parallel-mock-data-generators`
-- [ ] **Error simulation tests** - Test failure scenarios and recovery mechanisms
-  - **Branch**: `feat/parallel-error-simulation-tests`
-- [ ] **Architecture diagrams** - Update system diagrams with current implementation
-  - **Branch**: `feat/parallel-architecture-diagrams`
-- [ ] **FAQ updates** - Document common issues and solutions from recent development
-  - **Branch**: `feat/parallel-faq-updates`
-- [ ] **Code examples repository** - Standalone examples for each major component
-  - **Branch**: `feat/parallel-code-examples`
+#### **Agent Specializations**
+| Agent | Focus | Branch | File Zones |
+|-------|-------|--------|------------|
+| **jules1** | Testing & Documentation | `feat/sprint-2025-01-jules1` | tests/, docs/api/, docs/tutorials/ |
+| **jules2** | Quality & Documentation | `feat/sprint-2025-01-jules2` | tests/mock_data/, docs/diagrams/, docs/examples/ |
+| **codex1** | Infrastructure & DevEx | `feat/sprint-2025-01-codex1` | .github/, Docker*, scripts/, .vscode/ |
+| **gemini1** | Monitoring & Integration | `feat/sprint-2025-01-gemini1` | src/ (type hints), scripts/{dev,db,env}/ |
 
-##### **👤 codex1** (Infrastructure & DevEx Specialist)
-- [ ] **Ruff configuration optimization** - Fine-tune linting rules for project standards
-  - **Branch**: `feat/parallel-ruff-optimization`
-- [ ] **Pre-commit hooks enhancement** - Add automated testing and documentation checks
-  - **Branch**: `feat/parallel-precommit-enhancement`
-- [ ] **GitHub Actions workflow optimization** - Improve CI/CD performance and reliability
-  - **Branch**: `feat/parallel-github-actions-optimization`
-- [ ] **VS Code workspace configuration** - Optimal settings for Python development
-  - **Branch**: `feat/parallel-vscode-workspace`
-- [ ] **Docker development environment** - Containerized setup for consistent development
-  - **Branch**: `feat/parallel-docker-devenv`
+#### **Key Benefits**
+- **🔄 True Parallelism**: Zero coordination overhead between agents
+- **⚡ Conflict-Free Merges**: Non-overlapping file boundaries
+- **📋 Clear Ownership**: Each file zone has exactly one owner
+- **🚀 Sprint Delivery**: All work delivered in coordinated PRs at sprint end
 
-##### **👤 gemini1** (Monitoring & Integration Specialist)
-- [ ] **Type hint improvements** - Add comprehensive type annotations across codebase
-  - **Branch**: `feat/parallel-type-hints`
-- [ ] **Logging standardization** - Consistent logging format and levels throughout
-  - **Branch**: `feat/parallel-logging-standardization`
-- [ ] **Local development scripts** - Helper scripts for common development tasks
-  - **Branch**: `feat/parallel-dev-scripts`
-- [ ] **Database migration utilities** - Tools for schema versioning and data migration
-  - **Branch**: `feat/parallel-db-migration-utils`
-- [ ] **Environment validation scripts** - Check dependencies and configuration
-  - **Branch**: `feat/parallel-env-validation`
-
-#### **🔄 Unassigned Tasks** (Available for next sprint)
-- [ ] **OpenTelemetry integration** - Add distributed tracing for pipeline operations
-  - **Branch**: `feat/parallel-opentelemetry`
-- [ ] **Metrics dashboard preparation** - Define key performance indicators
-  - **Branch**: `feat/parallel-metrics-dashboard`
-- [ ] **Health check endpoints** - System status monitoring for production deployment
-  - **Branch**: `feat/parallel-health-checks`
-- [ ] **Performance profiling tools** - Memory and CPU usage analysis utilities
-  - **Branch**: `feat/parallel-profiling-tools`
-- [ ] **Error tracking integration** - Sentry or similar error monitoring setup
-  - **Branch**: `feat/parallel-error-tracking`
-- [ ] **Additional LLM provider interfaces** - Prepare for Claude, GPT-4, etc.
-  - **Branch**: `feat/parallel-llm-providers`
-- [ ] **Alternative storage backends** - S3, Google Cloud Storage adapters
-  - **Branch**: `feat/parallel-storage-backends`
-- [ ] **Export format implementations** - CSV, Excel, PDF report generators
-  - **Branch**: `feat/parallel-export-formats`
-- [ ] **API client libraries** - Python SDK for external integrations
-  - **Branch**: `feat/parallel-api-client-sdk`
-- [ ] **Webhook system design** - Event notification system architecture
-  - **Branch**: `feat/parallel-webhook-system`
-
-#### **✅ Completed Tasks** (Finished parallel work)
-- None yet completed
-
-### **Agent Assignments & Specializations**
-
-#### **Current Agent Capacity & Focus Areas**
-
-##### **👤 jules1** - Testing & Documentation Specialist (5/5 tasks assigned)
-- **Specialty**: Test coverage enhancement, documentation generation
-- **Focus**: Improving system reliability through comprehensive testing
-- **Skills**: pytest, Sphinx documentation, Jupyter notebooks, PDF processing tests
-
-##### **👤 jules2** - Quality & Documentation Specialist (5/5 tasks assigned)  
-- **Specialty**: Mock data generation, error testing, visual documentation
-- **Focus**: Quality assurance and developer-friendly documentation
-- **Skills**: Test data generation, error simulation, architecture diagrams, examples
-
-##### **👤 codex1** - Infrastructure & DevEx Specialist (5/5 tasks assigned)
-- **Specialty**: Development tooling, CI/CD optimization, environment setup
-- **Focus**: Developer experience and infrastructure automation
-- **Skills**: Ruff/linting, GitHub Actions, Docker, VS Code configuration
-
-##### **👤 gemini1** - Monitoring & Integration Specialist (5/5 tasks assigned)
-- **Specialty**: Code quality, logging, development utilities, database tools
-- **Focus**: System monitoring, type safety, and developer tooling
-- **Skills**: Type hints, logging systems, shell scripting, database migrations
-
-#### **Sprint Planning Notes**
-- **Current Sprint**: All 4 agents at full capacity (20/30 tasks assigned)
-- **Next Sprint**: 10 tasks available for assignment (Analytics & External Integration focus)
-- **Estimated Completion**: 2-3 weeks for current sprint based on task complexity
-- **Load Balancing**: Tasks distributed by agent specialization and expertise
-
-### **Agent Coordination Protocol**
-
-#### **Before Starting Any Task**
-1. **Check Assignment**: Work only on tasks assigned to your agent name
-2. **Check MASTERPLAN**: Ensure no conflicts with current phase priorities
-3. **Create feature branch**: Use the specific branch name listed with your task
-4. **Update task status**: Mark your specific task as `in_progress` (change `[ ]` to `[🔄]`)
-5. **Inform team**: Comment in relevant issues or discussions
-
-#### **During Implementation**
-1. **Regular updates**: Update progress in task status section
-2. **Test thoroughly**: All parallel tasks must include comprehensive tests
-3. **Document changes**: Update relevant documentation files
-4. **Maintain compatibility**: Ensure no breaking changes to existing functionality
-
-#### **Upon Completion**
-1. **Mark complete**: Update task status (change `[ ]` to `[✅]`) with completion date
-2. **Move to completed section**: Cut task from your assignment and paste to "Completed Tasks"
-3. **Create PR**: Standard review process applies
-4. **Update MASTERPLAN**: Add reference to completed work and PR number
-5. **Share learnings**: Document any insights or improvements discovered
+**For detailed agent assignments, tasks, and file permissions, see: `.agents/README.md`**
 
 ---
 
@@ -628,13 +530,13 @@ Per user requirements, documented that **AI assistants should always check TODO 
 - ✅ Coordination with MASTERPLAN phases
 - ✅ Reduced duplicate work across branches
 
-### **Agent Parallel Task System**
-**NEW**: Added comprehensive parallel task system for AI agents to contribute independently:
-- ✅ **30+ independent tasks** categorized by type (testing, docs, tooling, etc.)
-- ✅ **Safe task guidelines** - Clear identification of non-conflicting work
-- ✅ **Coordination protocol** - Structured process for task selection and completion
-- ✅ **Status tracking** - Real-time visibility into parallel work progress
-- ✅ **Quality standards** - All parallel tasks must include tests and documentation
+### **Agent Registry System**
+**NEW**: Clean agent registry system for scalable parallel development:
+- ✅ **Agent Registry** in `.agents/` directory with individual agent files
+- ✅ **Sprint-based delivery** - All work delivered in single PR per agent
+- ✅ **File boundary enforcement** - Zero-conflict development through strict zones
+- ✅ **Current Sprint** - `sprint-2025-01` with 4 agents, 20 tasks in progress
+- ✅ **Scalable coordination** - MASTERPLAN stays clean, detailed tracking in registry
 
 ---
 
@@ -649,5 +551,5 @@ Per user requirements, documented that **AI assistants should always check TODO 
 > 🤖 **For AI Assistants**: 
 > 1. **Check TODO files** in branch root before implementing features
 > 2. **Use this MASTERPLAN** for coordination across all development efforts  
-> 3. **NEW: Select from Agent Parallel Tasks** - 30+ independent tasks available for immediate implementation without coordination conflicts
-> 4. **Follow coordination protocol** - Update task status and create feature branches for parallel work
+> 3. **NEW: Agent Registry** - Check `.agents/` directory for current sprint assignments
+> 4. **Follow your agent file** - Individual task tracking and file boundaries in `.agents/{agent-name}.md`
