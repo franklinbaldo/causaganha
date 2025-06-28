@@ -1,5 +1,6 @@
 graph TD
-    A[Queue CSV URLs] --> B{Downloader}
+    A[Queue CSV URLs] --> O{Download Orchestrator}
+    O --> B{Downloader}
     B -->|PDFs| C[(Internet Archive)]
     C --> D[Gemini Analysis]
     D --> E[(DuckDB Database)]
@@ -7,7 +8,7 @@ graph TD
     F --> G[(Updated Database)]
 
     subgraph Concurrency
-        B --3 downloads--> B
+        O --3 workers--> B
         C --2 uploads--> C
     end
 

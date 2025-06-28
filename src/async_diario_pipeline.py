@@ -18,12 +18,15 @@ import os
 import time
 from pathlib import Path
 from typing import List, Dict, Optional
+from src.utils.logging_config import setup_logging, get_logger, set_tribunal_code
 import argparse
 from datetime import datetime, date, timezone
 import hashlib
 import subprocess
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
+
+from .download_orchestrator import DownloadOrchestrator
 
 # Load environment variables from .env file
 try:
@@ -69,9 +72,10 @@ def configure_ia() -> bool:
 
 
 # Configuration (with environment variable support)
+CPU_COUNT = os.cpu_count() or 1
 MAX_CONCURRENT_DOWNLOADS = int(
-    os.getenv("MAX_CONCURRENT_DOWNLOADS", "3")
-)  # Be respectful to TJRO servers
+    os.getenv("MAX_CONCURRENT_DOWNLOADS", str(min(8, CPU_COUNT * 2)))
+)  # Dynamic default based on CPU cores
 MAX_CONCURRENT_IA_UPLOADS = int(
     os.getenv("MAX_CONCURRENT_IA_UPLOADS", "2")
 )  # Internet Archive rate limiting
@@ -117,7 +121,7 @@ class AsyncDiarioPipeline:
         self.max_concurrent_downloads = max_concurrent_downloads
         self.max_concurrent_uploads = max_concurrent_uploads
         self.try_direct_upload = try_direct_upload
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
         # Create directories
         self.data_dir.mkdir(exist_ok=True)
@@ -437,6 +441,7 @@ class AsyncDiarioPipeline:
         end_date: Optional[str] = None,
         max_items: Optional[int] = None,
         skip_existing: bool = True,
+        use_queue: bool = True,
     ) -> None:
         """Run the complete async pipeline."""
 
@@ -465,40 +470,38 @@ class AsyncDiarioPipeline:
 
         self.logger.info(f"Starting pipeline for {len(diarios_data)} diarios")
 
-        # Process diarios with controlled concurrency
-        semaphore = asyncio.Semaphore(self.max_concurrent_downloads)
+        if use_queue:
+            orchestrator = DownloadOrchestrator(self.max_concurrent_downloads)
+            await orchestrator.run(diarios_data, self)
+        else:
+            semaphore = asyncio.Semaphore(self.max_concurrent_downloads)
 
-        async def process_with_semaphore(diario_data):
-            async with semaphore:
-                return await self.process_diario(
-                    diario_data, skip_existing=skip_existing
-                )
-
-        # Create tasks
-        tasks = [process_with_semaphore(diario) for diario in diarios_data]
-
-        # Process with progress reporting
-        completed = 0
-        total = len(tasks)
-
-        for i, task in enumerate(asyncio.as_completed(tasks)):
-            try:
-                await task
-                completed += 1
-
-                if completed % 10 == 0 or completed == total:
-                    stats = self.get_statistics()
-                    self.logger.info(
-                        f"Progress: {completed}/{total} processed "
-                        f"({stats['completion_rate']:.1f}% complete, "
-                        f"{stats['failed']} failed)"
+            async def process_with_semaphore(diario_data):
+                async with semaphore:
+                    return await self.process_diario(
+                        diario_data, skip_existing=skip_existing
                     )
 
-            except Exception as e:
-                self.logger.error(f"Task failed: {e}")
-                completed += 1
+            tasks = [process_with_semaphore(diario) for diario in diarios_data]
 
-        # Final statistics
+            completed = 0
+            total = len(tasks)
+
+            for task in asyncio.as_completed(tasks):
+                try:
+                    await task
+                    completed += 1
+                    if completed % 10 == 0 or completed == total:
+                        stats = self.get_statistics()
+                        self.logger.info(
+                            f"Progress: {completed}/{total} processed "
+                            f"({stats['completion_rate']:.1f}% complete, "
+                            f"{stats['failed']} failed)"
+                        )
+                except Exception as e:
+                    self.logger.error(f"Task failed: {e}")
+                    completed += 1
+
         final_stats = self.get_statistics()
         self.logger.info("Pipeline completed!")
         self.logger.info(f"Final statistics: {final_stats}")
@@ -564,11 +567,9 @@ async def main():
 
     args = parser.parse_args()
 
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
+    # Setup logging with structured format
+    setup_logging("DEBUG" if args.verbose else "INFO", fmt="json")
+    set_tribunal_code("tjro")
 
     # Configure Internet Archive
     if not configure_ia():
@@ -639,6 +640,7 @@ async def main():
             end_date=args.end_date,
             max_items=args.max_items,
             skip_existing=not args.force_reprocess,
+            use_queue=True,
         )
 
         # Database upload after processing
