@@ -232,6 +232,17 @@ class TestDatabaseArchiver(unittest.TestCase):
             self.assertTrue(archive_path.name.endswith(".tar.gz"))
             self.assertGreater(archive_path.stat().st_size, 0)
 
+    def test_get_next_version(self):
+        """Version file increments correctly."""
+        archiver = DatabaseArchiver(self.ia_config)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            version_file = Path(temp_dir) / "ver.json"
+            with patch("archive_db.VERSION_FILE_PATH", version_file):
+                v1 = archiver.get_next_version("weekly")
+                self.assertEqual(v1, 1)
+                v2 = archiver.get_next_version("weekly")
+                self.assertEqual(v2, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
