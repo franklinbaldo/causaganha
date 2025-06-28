@@ -30,7 +30,7 @@ def get_tjro_pdf_url(date_obj: datetime.date) -> Optional[str]:
     try:
         resp = requests.get(TJRO_DIARIO_OFICIAL_URL, headers=headers, timeout=30)
         resp.raise_for_status()
-        pattern = rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^"]*{date_str}[^"]*\.pdf"
+        pattern = rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^\"]*{date_str}[^\"]*\.pdf"
         m = re.search(pattern, resp.text)
         if not m:
             logging.error(f"Could not find PDF link for date {date_str} on page.")
