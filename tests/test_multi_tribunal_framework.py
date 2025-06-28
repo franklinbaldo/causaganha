@@ -1,5 +1,6 @@
 import pytest
 from datetime import date
+from unittest.mock import patch
 
 from tribunais import register_tribunal, get_adapter, list_supported_tribunals
 from models.diario import Diario
@@ -73,3 +74,11 @@ def test_register_and_get_adapter(code):
     diario = adapter_instance.create_diario(date(2025, 1, 1))
     assert isinstance(diario, Diario)
     assert diario.tribunal == code
+
+@pytest.mark.parametrize("tribunal", list_supported_tribunals())
+def test_real_adapters_create_diario(tribunal):
+    adapter = get_adapter(tribunal)
+    with patch.object(adapter.discovery, "get_diario_url", return_value="https://example.com/test.pdf"):
+        diario = adapter.create_diario(date(2025, 1, 2))
+    assert isinstance(diario, Diario)
+    assert diario.tribunal == tribunal
