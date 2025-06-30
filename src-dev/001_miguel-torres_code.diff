@@ -1,0 +1,107 @@
+--- a/src/models/diario.py
++++ b/src/models/diario.py
+@@ -3,12 +3,15 @@
+ """
+
+ import json
+-from dataclasses import dataclass, field
++import logging # Added by Miguel
++from dataclasses import dataclass, field
+ from datetime import date
+ from typing import Optional, Dict, Any
+ from pathlib import Path
+
++logger = logging.getLogger(__name__) # Added by Miguel
+
+ @dataclass
+ class Diario:
+@@ -32,6 +35,9 @@
+     status: str = "pending"  # pending, downloaded, analyzed, scored
+     metadata: Dict[str, Any] = field(default_factory=dict)
+
++    def __post_init__(self): # Added by Miguel
++        logger.debug(f"Diario instance created: {self.display_name}, URL: {self.url}, Status: {self.status}")
++
+     @property
+     def display_name(self) -> str:
+         """Human-readable identifier for this diario."""
+@@ -40,7 +46,7 @@
+     @property
+     def queue_item(self) -> Dict[str, Any]:
+         """Convert to job_queue table format for existing database."""
+-        return {
++        item = {
+             "url": self.url,
+             "date": self.data.isoformat(),
+             "tribunal": self.tribunal,
+@@ -50,18 +56,21 @@
+             "status": self.status,
+             "arquivo_path": str(self.pdf_path) if self.pdf_path else None,
+         }
++        logger.debug(f"Diario {self.display_name} converted to queue_item: {item}") # Added by Miguel
++        return item
+
+     @classmethod
+     def from_queue_item(cls, queue_row: Dict[str, Any]) -> "Diario":
+         """Create Diario from existing job_queue database row."""
++        logger.debug(f"Creating Diario from queue_item: {queue_row.get('url')}, Tribunal: {queue_row.get('tribunal')}, Date: {queue_row.get('date')}") # Added by Miguel
+         # Handle metadata field - could be JSON string or dict
+         metadata = queue_row.get("metadata", {})
+         if isinstance(metadata, str):
+             try:
+                 metadata = json.loads(metadata)
+-            except (json.JSONDecodeError, TypeError):
++            except (json.JSONDecodeError, TypeError) as e: # Added by Miguel
++                logger.warning(f"Failed to parse metadata JSON string from queue_item: '{metadata}'. Error: {e}. Defaulting to empty dict.")
+                 metadata = {}
+
+-        return cls(
++        instance = cls(
+             tribunal=queue_row["tribunal"],
+             data=date.fromisoformat(queue_row["date"]),
+             url=queue_row["url"],
+@@ -73,21 +82,28 @@
+             if queue_row.get("arquivo_path")
+             else None,
+         )
++        logger.info(f"Diario instance created from queue_item: {instance.display_name}") # Added by Miguel
++        return instance
+
+     def update_status(self, new_status: str, **kwargs) -> None:
+         """Update diario status and any additional fields."""
++        old_status = self.status # Added by Miguel
+         self.status = new_status
++        logger.info(f"Diario {self.display_name} status updated from '{old_status}' to '{new_status}'. Additional updates: {kwargs}") # Added by Miguel
+         for key, value in kwargs.items():
+             if hasattr(self, key):
+                 setattr(self, key, value)
+             else:
+                 self.metadata[key] = value
++                logger.debug(f"Diario {self.display_name} metadata updated: {key}={value}") # Added by Miguel
+
+     def to_dict(self) -> Dict[str, Any]:
+         """Convert to dictionary for serialization."""
+-        return {
++        data_dict = {
+             "tribunal": self.tribunal,
+             "data": self.data.isoformat(),
+             "url": self.url,
+@@ -99,13 +115,18 @@
+             "status": self.status,
+             "metadata": self.metadata,
+         }
++        logger.debug(f"Diario {self.display_name} converted to dict: {data_dict}") # Added by Miguel
++        return data_dict
+
+     @classmethod
+     def from_dict(cls, data: Dict[str, Any]) -> "Diario":
+         """Create Diario from dictionary."""
++        logger.debug(f"Creating Diario from dict: {data.get('url')}, Tribunal: {data.get('tribunal')}, Date: {data.get('data')}") # Added by Miguel
+         data_copy = data.copy()
+         data_copy["data"] = date.fromisoformat(data_copy["data"])
+         if data_copy.get("pdf_path"):
+             data_copy["pdf_path"] = Path(data_copy["pdf_path"])
+-        return cls(**data_copy)
++        instance = cls(**data_copy)
++        logger.info(f"Diario instance created from dict: {instance.display_name}") # Added by Miguel
++        return instance

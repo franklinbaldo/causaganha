@@ -34,3 +34,10 @@ repos:
         entry: python scripts/check_tribunal_registry.py
         language: system
         pass_filenames: false
+      - id: dbt-parse
+        name: dbt parse
+        entry: dbt parse --project-dir dbt
+        language: system # Assumes dbt is installed in the environment
+        types: [sql, yaml] # Run on changes to .sql or .yml files in models/seeds/etc.
+        files: ^dbt/ # Only run if files in dbt/ directory change
+        pass_filenames: false

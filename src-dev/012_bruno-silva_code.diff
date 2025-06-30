@@ -1,0 +1,77 @@
+--- a/src/models/diario.py
++++ b/src/models/diario.py
+@@ -12,6 +12,9 @@
+
+     This dataclass provides a common interface for handling judicial documents
+     across different tribunals while maintaining compatibility with the existing
++    job_queue database schema.
++
++    It uses Pydantic for data validation and serialization.
+     job_queue database schema.
+     """
+     tribunal: str  # 'tjro', 'tjsp', etc.
+@@ -32,13 +35,20 @@
+
+     @property
+     def queue_item(self) -> Dict[str, Any]:
+-        """Convert to job_queue table format for existing database."""
++        """
++        Convert Pydantic model to a dictionary format suitable for the
++        existing job_queue database table schema.
++        Ensures 'hash' alias is used for 'hash_val' if present.
++        """
+         # Use model_dump for Pydantic models
+         item_dict = self.model_dump(exclude_none=True, by_alias=True) # by_alias=True for 'hash'
+         # Ensure date is isoformat string if not already by model_dump
+         item_dict['data'] = self.data.isoformat()
+         # Ensure 'arquivo_path' is present if pdf_path was set
+         item_dict['arquivo_path'] = str(self.pdf_path) if self.pdf_path else None
++
++        # Clean up to match expected queue_item schema precisely
+         # Remove pdf_path from queue_item if it's not part of that schema, keep only arquivo_path
+         if 'pdf_path' in item_dict:
+             del item_dict['pdf_path']
+@@ -52,7 +62,11 @@
+
+     @classmethod
+     def from_queue_item(cls, queue_row: Dict[str, Any]) -> "DiarioModel":
+-        """Create Diario from existing job_queue database row."""
++        """
++        Create a DiarioModel instance from a dictionary representing an
++        existing job_queue database row.
++        Handles potential JSON string for metadata and 'arquivo_path' for pdf_path.
++        """
+         # logger.debug(f"Creating Diario from queue_item: {queue_row.get('url')}, Tribunal: {queue_row.get('tribunal')}, Date: {queue_row.get('date')}")
+
+         data_for_model = queue_row.copy()
+@@ -82,7 +96,10 @@
+         return instance
+
+     def update_status(self, new_status: str, **kwargs) -> None:
+-        """Update diario status and any additional fields."""
++        """
++        Update the diario's status and optionally other attributes or metadata.
++        Kwargs not matching model fields are added to metadata.
++        """
+         # old_status = self.status
+         self.status = new_status
+         # logger.info(f"Diario {self.display_name} status updated from '{old_status}' to '{new_status}'. Additional updates: {kwargs}")
+@@ -99,12 +116,18 @@
+     @field_validator('filename', 'ia_identifier', 'hash_val', mode='before')
+     @classmethod
+     def empty_str_to_none(cls, v: Any) -> Optional[Any]:
++        """Convert empty strings to None for optional fields."""
+         if isinstance(v, str) and v == "":
+             return None
+         return v
+
+     @field_validator('pdf_path', mode='before')
+     @classmethod
+     def str_to_path(cls, v: Any) -> Optional[Path]:
++        """
++        Coerce a string to a Path object for pdf_path.
++        Allows None or existing Path objects to pass through.
++        """
+         if isinstance(v, str) and v:
+             return Path(v)
+         if isinstance(v, Path):

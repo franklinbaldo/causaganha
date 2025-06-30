@@ -1,0 +1,144 @@
+--- a/src/extractor.py
++++ b/src/extractor.py
+@@ -14,6 +14,12 @@
+     fitz = None
+     logging.warning(
+         "Module fitz (PyMuPDF) could not be imported. PDF text extraction will not be available."
++    )
++
++try:
++    from .models.llm_output import Decision, ExtractionResult # Added
++except ImportError:
++    Decision, ExtractionResult = None, None # type: ignore
++    logging.warning(
++        "Could not import Decision/ExtractionResult Pydantic models. LLM output validation will be skipped."
+     )
+
+
+@@ -160,7 +166,7 @@
+                         "polo_ativo": ["Nome Agravante", "Nome Autor"],
+                         "advogados_polo_ativo": ["Nome Advogado (OAB/UF)"],
+                         "polo_passivo": ["Nome Agravado", "Nome Réu"],
+-                        "advogados_polo_passivo": ["Nome Advogado (OAB/UF)"],
+-                        "resultado": "procedente|improcedente|parcialmente_procedente|extinto|provido|negado_provimento|confirmada|reformada",
+-                        "data": "YYYY-MM-DD",
++                        "advogados_polo_passivo": ["Nome Advogado (OAB/UF)"], # Corrected typo from example
++                        "resultado": "procedente|improcedente|parcialmente_procedente|extinto|provido|negado_provimento|confirmada|reformada", # Example outcomes
++                        "data_decisao": "YYYY-MM-DD", # Changed from "data" to "data_decisao"
+                         "resumo": "Resumo da decisão em no máximo 250 caracteres"
+                     }
+                 ]
+@@ -228,25 +234,42 @@
+                             .removesuffix("```")
+                             .strip()
+                         )  # type: ignore
+-                        chunk_decisions_raw = json.loads(clean_response)
+-                        if isinstance(chunk_decisions_raw, list):
+-                            all_decisions.extend(chunk_decisions_raw)
+-                        else:
++
++                        parsed_chunk_json = json.loads(clean_response)
++                        if not isinstance(parsed_chunk_json, list):
+                             logging.warning(
+-                                f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}"
++                                f"Chunk {chunk_index + 1}: LLM response is not a list as expected. Got: {type(parsed_chunk_json)}"
+                             )
++                            continue # Skip this chunk if it's not a list of decisions
++
++                        # Validate each decision in the chunk using Pydantic model
++                        for dec_data in parsed_chunk_json:
++                            if Decision:
++                                try:
++                                    decision_obj = Decision(**dec_data)
++                                    all_decisions.append(decision_obj)
++                                except Exception as pydantic_error: # Catch Pydantic validation errors
++                                    logging.warning(
++                                        f"Chunk {chunk_index + 1}: Pydantic validation error for decision: {dec_data}. Error: {pydantic_error}. Skipping this decision."
++                                    )
++                            else: # Fallback if Pydantic models not imported
++                                all_decisions.append(dec_data) # type: ignore
++
+                     except json.JSONDecodeError as je:
+                         logging.error(
+                             f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}..."
+                         )  # type: ignore
+                         return None
+-
+-                final_extracted_data = {
+-                    "file_name_source": pdf_path.name,
+-                    "extraction_timestamp": datetime.datetime.now(
++
++                if ExtractionResult and Decision:
++                    extraction_result_obj = ExtractionResult(
++                        file_name_source=pdf_path.name,
++                        extraction_timestamp=datetime.datetime.now(
++                            datetime.timezone.utc
++                        ),
++                        decisions=all_decisions, # type: ignore # all_decisions now list of Decision objects
++                        chunks_processed=len(pdf_text_chunks),
++                        total_decisions_found=len(all_decisions)
++                    )
++                    final_extracted_data_dict = extraction_result_obj.model_dump(mode='json')
++                else: # Fallback if Pydantic models not imported
++                    final_extracted_data_dict = {
++                        "file_name_source": pdf_path.name,
++                        "extraction_timestamp": datetime.datetime.now(
++                            datetime.timezone.utc
++                        ).isoformat(),
++                        "decisions": all_decisions, # Could be dicts or Decision objects
++                        "chunks_processed": len(pdf_text_chunks),
++                        "total_decisions_found": len(all_decisions),
++                    }
++
++                logging.info(
++                    f"Processed {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total valid decisions: {len(all_decisions)}"
++                )
++
++            if final_extracted_data_dict is None: # Check the dict version
++                logging.warning(f"No data extracted for {pdf_path.name}.")
++                return None
++
++            json_filename = f"{self._sanitize_filename(pdf_path.stem)}_extraction.json"
++            output_json_path = output_json_dir / json_filename
++
++            try:
++                with open(output_json_path, "w", encoding="utf-8") as f:
++                    json.dump(final_extracted_data_dict, f, ensure_ascii=False, indent=4)
++                logging.info(
++                    f"Successfully saved extracted data to: {output_json_path}"
++                )
++                return output_json_path
++            except IOError as e:
++                logging.error(f"Error saving JSON file {output_json_path}: {e}")
++                return None
++        # TemporaryDirectory is automatically cleaned up here via 'with' statement
+
+-                    "extraction_timestamp": datetime.datetime.now(
+-                        datetime.timezone.utc
+-                    ).isoformat(),
+-                    "decisions": all_decisions,
+-                    "chunks_processed": len(pdf_text_chunks),
+-                    "total_decisions_found": len(all_decisions),
+-                }
+-                logging.info(
+-                    f"Processed {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions: {len(all_decisions)}"
+-                )
+-
+-            if final_extracted_data is None:
+-                logging.warning(f"No data extracted for {pdf_path.name}.")
+-                return None
+-
+-            json_filename = f"{self._sanitize_filename(pdf_path.stem)}_extraction.json"
+-            output_json_path = output_json_dir / json_filename
+-
+-            try:
+-                with open(output_json_path, "w", encoding="utf-8") as f:
+-                    json.dump(final_extracted_data, f, ensure_ascii=False, indent=4)
+-                logging.info(
+-                    f"Successfully saved extracted data to: {output_json_path}"
+-                )
+-                return output_json_path
+-            except IOError as e:
+-                logging.error(f"Error saving JSON file {output_json_path}: {e}")
+-                return None
+-        # TemporaryDirectory is automatically cleaned up here via 'with' statement

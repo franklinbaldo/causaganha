@@ -1,0 +1,75 @@
+name: CausaGanha DBT Checks
+
+on:
+  push:
+    branches:
+      - main
+      - master # Or your primary development branch
+    paths:
+      - 'dbt/**'
+      - '.github/workflows/dbt_build_test.yml'
+  pull_request:
+    paths:
+      - 'dbt/**'
+      - '.github/workflows/dbt_build_test.yml'
+
+jobs:
+  dbt_build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies (including dbt-duckdb)
+        run: uv pip install -e .[dev] # dbt-duckdb is in dev dependencies
+
+      - name: Setup dbt profiles directory
+        run: mkdir -p ~/.dbt
+
+      - name: Create dbt profiles.yml for CI
+        # This profile assumes the database file is created in the GHA runner's workspace
+        # The path 'data/causaganha_ci.duckdb' will be relative to GITHUB_WORKSPACE
+        run: |
+          echo "causa_ganha:" > ~/.dbt/profiles.yml
+          echo "  target: ci" >> ~/.dbt/profiles.yml
+          echo "  outputs:" >> ~/.dbt/profiles.yml
+          echo "    ci:" >> ~/.dbt/profiles.yml
+          echo "      type: duckdb" >> ~/.dbt/profiles.yml
+          echo "      path: ${{ github.workspace }}/data/causaganha_ci.duckdb" >> ~/.dbt/profiles.yml
+          # Add any other necessary profile configurations for CI
+
+      - name: dbt deps (if any dbt packages are used)
+        # Only needed if you add packages to dbt_project.yml
+        run: dbt deps --project-dir dbt
+
+      - name: Build dbt models
+        run: dbt build --project-dir dbt --target ci
+
+      - name: Test dbt models
+        run: dbt test --project-dir dbt --target ci
+
+      - name: Schema Drift Check (Optional - requires list_unbuilt_models macro)
+        # This step assumes a custom dbt macro 'list_unbuilt_models' exists
+        # or you adapt it to a different dbt command for checking.
+        # For simplicity, this can be initially commented out or adapted.
+        # run: |
+        #   echo "Running schema drift check..."
+        #   dbt run-operation list_unbuilt_models --args '{"compiled": false}' --project-dir dbt --target ci | \
+        #   grep '.' && { echo "Schema drift detected: Unbuilt models found."; exit 1; } || echo "No schema drift detected."
+        run: echo "Skipping schema drift check for now. Implement list_unbuilt_models macro or alternative if needed."
+
+      # Example of how to make the database file an artifact (for debugging CI)
+      # - name: Archive DuckDB database on failure
+      #   if: failure()
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: duckdb-database-ci
+      #     path: ${{ github.workspace }}/data/causaganha_ci.duckdb

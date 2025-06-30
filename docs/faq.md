@@ -180,3 +180,39 @@ causaganha pipeline run --tribunal TJSP --date 2025-06-24
 # Processar diário do TJMG
 causaganha pipeline run --tribunal TJMG --date 2025-06-24
 ```
+
+## Diario Dataclass
+
+**O que é a `Diario` Dataclass?**
+
+A `Diario` dataclass (`src/models/diario.py`) é uma representação unificada de um diário judicial dentro do sistema CausaGanha. Ela foi introduzida para padronizar a forma como os dados dos diários são manipulados, independentemente do tribunal de origem.
+
+**Quais são os principais campos da `Diario` Dataclass?**
+
+-   `tribunal`: Identificador do tribunal (ex: 'tjro').
+-   `data`: Data de publicação do diário.
+-   `url`: URL do diário.
+-   `filename`: Nome do arquivo PDF (opcional).
+-   `status`: Status do processamento (ex: 'pending', 'downloaded').
+-   Outros campos opcionais como `hash`, `pdf_path`, `ia_identifier`, `metadata`.
+
+**Como a `Diario` Dataclass é utilizada?**
+
+Ela é usada em conjunto com interfaces como `DiarioDiscovery`, `DiarioDownloader`, e `DiarioAnalyzer` para criar um fluxo de processamento de diários mais modular e extensível. A CLI também está sendo adaptada para usar esta dataclass, por exemplo, com o flag `--as-diario`. Consulte o tutorial em `docs/tutorials/diario_dataclass_tutorial.ipynb` para mais detalhes.
+
+## Migração do Banco de Dados para dbt-duckdb (DTB)
+
+**Por que estamos migrando para `dbt-duckdb`?**
+
+A migração para `dbt-duckdb` visa simplificar o gerenciamento do esquema do banco de dados, transformações de dados, testes e documentação, utilizando `dbt` como ferramenta principal. Isso melhora a reprodutibilidade, a qualidade dos dados e facilita a manutenção.
+
+**Como essa migração afeta o desenvolvimento?**
+
+-   **Definição de Esquema**: O esquema do banco de dados será definido por modelos SQL no diretório `dbt/models/` em vez de migrações tradicionais (como Alembic).
+-   **Workflow Local**: Os desenvolvedores usarão comandos `dbt` (ex: `dbt build`, `dbt run`, `dbt test`) para construir e testar o banco de dados localmente.
+-   **CLI**: O comando `causaganha db migrate` será atualizado para executar `dbt build`.
+-   **Estrutura de Dados**: Espera-se uma organização em camadas `staging` (dados brutos) e `marts` (dados analíticos).
+
+**Onde encontro mais informações sobre a migração para dbt e o novo esquema?**
+
+Consulte o guia do desenvolvedor em `docs/developer/database_migration_dbt.md`. Ele detalha o processo de setup, conceitos chave do dbt, workflow de desenvolvimento e a abordagem para o novo esquema.
