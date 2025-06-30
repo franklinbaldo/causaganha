@@ -22,6 +22,8 @@ def normalize_lawyer_name(name: str) -> str:
     # Using regex with word boundaries \b to avoid partial matches in names.
     # Titles like "dr.", "dra.", "dr ", "dra ", "doutor ", "doutora "
     # 2. Remove common titles. Iteratively.
+    # The iteration helps handle multiple titles (e.g., "Dr. Dra. Nome") and ensures
+    # that longer titles are checked before shorter ones (e.g., "DOUTORA " before "DR. ").
     # List of titles to remove, from longest to shortest, and handling variations.
     # These will be checked at the beginning of the string.
     # Order is important: "dr. " before "dr.", "doutora " before "dra. " etc.

@@ -4,7 +4,7 @@ This directory contains the agent registry for CausaGanha parallel development.
 
 ## Current Sprint: sprint-2025-03
 
-### Active Agents (5/5)
+### Active Agents (6/6)
 
 | Agent | Specialization | Branch | Tasks | Status |
 |-------|---------------|--------|-------|--------|
@@ -13,12 +13,13 @@ This directory contains the agent registry for CausaGanha parallel development.
 | [miguel-torres](./miguel-torres.md) | Monitoring & Integration | `feat/sprint-2025-03-miguel-torres` | 0/5 ⬜ | Active |
 | [roberta-vieira](./roberta-vieira.md) | Otimização de modelos LLM e Pydantic | `feat/sprint-2025-03-roberta-vieira` | 0/5 ⬜ | Active |
 | [bruno-silva](./bruno-silva.md) | Code Quality & Refactoring | `feat/sprint-2025-03-bruno-silva` | 0/5 ⬜ | Active |
+| [david-coordinator](./david-coordinator.md) | Sprint Coordination | `feat/sprint-2025-03-david-coordinator` | 0/5 ⬜ | Active |
 
 ## Sprint Overview
 
 - **Sprint ID**: sprint-2025-03
 - **Duration**: 2-3 weeks (estimated)
-- **Total Tasks**: 0/25 completed ⬜ (0% progress)
+- **Total Tasks**: 0/30 completed ⬜ (0% progress)
 - **File Conflicts**: Zero (strict file boundaries enforced)
 - **Delivery Method**: Single PR per agent at sprint end
 
@@ -30,6 +31,7 @@ carlos-pereira:   ruff.toml, .pre-commit-config.yaml, .github/workflows/, .vscod
 miguel-torres:  src/ (type hints), src/utils/logging_config.py, scripts/{dev,db,env}/, .env.example
 roberta-vieira:         (unassigned)
 bruno-silva:          (unassigned)
+david-coordinator: .agents/*.md, docs/plans/MASTERPLAN.md (Read-only for most project files)
 ```
 
 ## Agent Coordination
@@ -66,4 +68,3 @@ Each agent should:
 - **Response Method**: Questions will be answered directly in your card using Wikipedia-style signatures
 - **Collaboration**: Feel free to suggest cross-agent collaboration opportunities
 - **Board Messaging**: Use `.BOARD/` messages for cross-agent communication and never edit another agent's card
-

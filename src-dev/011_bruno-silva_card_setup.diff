@@ -1,0 +1,29 @@
+--- a/.agents/bruno-silva.md
++++ b/.agents/bruno-silva.md
+@@ -16,16 +16,20 @@
+ - _No file assignments yet_
+
+ ## Current Sprint Tasks
+-1. Review unassigned modules across the repository for code quality issues.
+-2. Refactor unused or outdated code following modern best practices.
+-3. Document refactoring decisions in code comments and commit messages.
+-4. Suggest improvements to linting or formatting configurations.
+-5. Summarize quality improvements at sprint end.
++
++### 🆕 Planned for sprint-2025-03 (aligned with MASTERPLAN Phase 2 & Sprint 2025-03 concepts) - Cycle YYYYMMDDTHHMMSSZ
++- [ ] Review the code implementation of the new "Diario Dataclass" (now Pydantic model `DiarioModel` in `src/models/diario.py`) for quality, clarity, and adherence to best practices.
++- [ ] Analyze and refactor any duplicated code that may arise from the initial implementation of the "TJRO adapter integration" with the new Diario Dataclass/Model. (Focus on `src/tribunais/tjro/adapter.py` if it exists, or related TJRO modules).
++- [ ] Perform a code quality review of the scripts and modules related to the "DTB Database Migration" (new dbt setup in `dbt/` directory, scripts in `scripts/db/`).
++- [ ] Ensure all new code for Phase 2 (Dataclass/Model, DTB) includes appropriate docstrings and comments. (Review changes made by other agents for this).
+
+ ## Task Status Tracking
+-### Sprint Progress: 0/5 tasks completed
++### Sprint Progress: 0/4 tasks completed for the current cycle.
++
++- **Started**: None for current cycle.
++- **In Progress**: None for current cycle.
++- **Completed**: None for current cycle.
++- **Issues**: None
+
+ ## Notes
+ - Card created for code quality oversight across unassigned files.

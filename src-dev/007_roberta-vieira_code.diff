@@ -1,0 +1,134 @@
+--- a/src/models/diario.py
++++ b/src/models/diario.py
+@@ -3,37 +3,44 @@
+ """
+
+ import json
+-from dataclasses import dataclass, field
+ from datetime import date
+ from typing import Optional, Dict, Any
+ from pathlib import Path
++from pydantic import BaseModel, Field, field_validator # Use field_validator for Pydantic v2
+
+
+-@dataclass
+-class Diario:
++class DiarioModel(BaseModel): # Changed from @dataclass to Pydantic BaseModel
+     """
+-    Unified representation of a judicial diary from any tribunal.
++    Unified Pydantic model for a judicial diary from any tribunal.
+
+     This dataclass provides a common interface for handling judicial documents
+     across different tribunals while maintaining compatibility with the existing
+     job_queue database schema.
+     """
+-
+     tribunal: str  # 'tjro', 'tjsp', etc.
+     data: date
+     url: str
+     filename: Optional[str] = None
+-    hash: Optional[str] = None
++    hash_val: Optional[str] = Field(default=None, alias='hash') # Renamed, Pydantic uses alias
+     pdf_path: Optional[Path] = None
+     ia_identifier: Optional[str] = None
+     status: str = "pending"  # pending, downloaded, analyzed, scored
+     metadata: Dict[str, Any] = Field(default_factory=dict)
+
++    # Pydantic handles __init__ and __post_init__ differently.
++    # Logging for creation would happen where instances are made or via a model_validator(mode='after').
++
+     @property
+     def display_name(self) -> str:
+         """Human-readable identifier for this diario."""
+         return f"{self.tribunal.upper()} - {self.data.isoformat()}"
+
+     @property
+     def queue_item(self) -> Dict[str, Any]:
+         """Convert to job_queue table format for existing database."""
+-        return {
++        # Use model_dump for Pydantic models
++        item_dict = self.model_dump(exclude_none=True, by_alias=True) # by_alias=True for 'hash'
++        # Ensure date is isoformat string if not already by model_dump
++        item_dict['data'] = self.data.isoformat()
++        # Ensure 'arquivo_path' is present if pdf_path was set
++        item_dict['arquivo_path'] = str(self.pdf_path) if self.pdf_path else None
++        # Remove pdf_path from queue_item if it's not part of that schema, keep only arquivo_path
++        if 'pdf_path' in item_dict:
++            del item_dict['pdf_path']
++        if 'hash_val' in item_dict and 'hash' not in item_dict: # Ensure alias worked
++             item_dict['hash'] = item_dict.pop('hash_val')
++        elif 'hash_val' in item_dict and 'hash' in item_dict: # if both somehow exist
++             del item_dict['hash_val']
++
++        # logger.debug(f"Diario {self.display_name} converted to queue_item: {item_dict}")
++        return item_dict
++
++    @classmethod
++    def from_queue_item(cls, queue_row: Dict[str, Any]) -> "DiarioModel":
++        """Create Diario from existing job_queue database row."""
++        # logger.debug(f"Creating Diario from queue_item: {queue_row.get('url')}, Tribunal: {queue_row.get('tribunal')}, Date: {queue_row.get('date')}")
++
++        data_for_model = queue_row.copy()
++
++        # Handle metadata field - could be JSON string or dict
++        metadata_val = data_for_model.get("metadata", {})
++        if isinstance(metadata_val, str):
++            try:
++                metadata_val = json.loads(metadata_val)
++            except (json.JSONDecodeError, TypeError): # as e:
++                # logger.warning(f"Failed to parse metadata JSON string from queue_item: '{metadata_val}'. Error: {e}. Defaulting to empty dict.")
++                metadata_val = {}
++        data_for_model['metadata'] = metadata_val
++
++        if 'arquivo_path' in data_for_model and data_for_model['arquivo_path']:
++            data_for_model['pdf_path'] = Path(data_for_model['arquivo_path'])
++        if 'arquivo_path' in data_for_model: # remove to avoid passing to model if not a field
++            del data_for_model['arquivo_path']
++
++        # Handle hash alias: if queue_row has 'hash', it should map to 'hash_val'
++        if 'hash' in data_for_model:
++            data_for_model['hash_val'] = data_for_model.pop('hash')
++
++        # Pydantic will parse 'date' string to datetime.date
++        instance = cls(**data_for_model)
++        # logger.info(f"Diario instance created from queue_item: {instance.display_name}")
++        return instance
++
++    def update_status(self, new_status: str, **kwargs) -> None:
++        """Update diario status and any additional fields."""
++        # old_status = self.status
++        self.status = new_status
++        # logger.info(f"Diario {self.display_name} status updated from '{old_status}' to '{new_status}'. Additional updates: {kwargs}")
++        for key, value in kwargs.items():
++            if key in self.model_fields: # Pydantic v2 way to check fields
++                setattr(self, key, value)
++            else:
++                self.metadata[key] = value
++                # logger.debug(f"Diario {self.display_name} metadata updated: {key}={value}")
++
++    # to_dict is effectively model_dump()
++    # from_dict is effectively model_validate() or parse_obj() or __init__
++
++    @field_validator('filename', 'ia_identifier', 'hash_val', mode='before')
++    @classmethod
++    def empty_str_to_none(cls, v: Any) -> Optional[Any]:
++        if isinstance(v, str) and v == "":
++            return None
++        return v
++
++    @field_validator('pdf_path', mode='before')
++    @classmethod
++    def str_to_path(cls, v: Any) -> Optional[Path]:
++        if isinstance(v, str) and v:
++            return Path(v)
++        if isinstance(v, Path):
++            return v
++        return None
++
++    class Config:
++        from_attributes = True  # Pydantic v2 (was orm_mode in v1)
++        arbitrary_types_allowed = True
++        populate_by_name = True # Allows using alias 'hash' in input data for 'hash_val'
++
++# For compatibility, we can keep the old name 'Diario' as an alias for DiarioModel
++Diario = DiarioModel

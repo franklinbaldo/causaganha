@@ -22,3 +22,14 @@ services:
       - "3000:3000"
     volumes:
       - ./data/grafana:/var/lib/grafana
+  test_runner:
+    build: .
+    environment:
+      - TRIBUNAL=${TRIBUNAL:-tjro} # Or specific test environment vars
+      # Potential: DBT_PROFILES_DIR=/app/.dbt_profiles # If custom profiles dir needed for tests
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      # Example: Mount a specific dbt profile for testing if needed
+      # - ./profiles_test.yml:/app/dbt_profiles/profiles.yml
+    command: ["/app/scripts/run_all_tests.sh"]

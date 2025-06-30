@@ -1,0 +1,77 @@
+--- a/.agents/miguel-torres.md
++++ b/.agents/miguel-torres.md
+@@ -27,12 +27,21 @@
+
+ ## Current Sprint Tasks
+
+-### ✅ Completed
++### ✅ Completed (sprint-2025-03 - previous cycle)
+ - [x] **Environment validation scripts** - Check dependencies and configuration ✅ MERGED
+-
+-### 🆕 Planned for sprint-2025-03
+ - [x] **Contextual logging** - Include tribunal_code in log messages
+ - [x] **Full type hinting for models** - Annotate src/models package
+ - [x] **Tribunal health check script** - Verify discovery endpoints
+ - [x] **Pydantic data models** - Validate LLM output structures
+ - [x] **Config updates for multi-tribunal** - Expand .env and loader
++
++### 🆕 Planned for next cycle (aligned with MASTERPLAN Phase 2 & Sprint 2025-03 concepts) - Cycle YYYYMMDDTHHMMSSZ
++- [x] Implement logging mechanisms for the "Diario Dataclass" operations, ensuring important events are captured.
++- [x] Design and implement basic monitoring for the "DTB Database Migration" process (e.g., progress, errors).
++- [x] Extend `src/utils/logging_config.py` if necessary to support structured logging for easier aggregation in a centralized monitoring system.
++- [x] Develop a health check script that can verify the status and integration of new tribunal adapters as they are added.
+
+ ## Task Status Tracking
+
+-### Sprint Progress: 5/5 tasks completed
++### Sprint Progress: 4/4 tasks completed for the current cycle. Previous sprint (sprint-2025-03 cycle 1) fully completed.
+
+-- **Started**: Contextual logging, type hints, health check, Pydantic models, config updates
+-- **In Progress**: None
+-- **Completed**: All sprint tasks plus environment validation script
++- **Started**: All tasks for current cycle.
++- **In Progress**: None.
++- **Completed**: All tasks for current cycle.
+ - **Issues**: None
+
+ ## 📝 Scratchpad & Notes (Edit Freely)
+@@ -72,6 +81,7 @@
+ - Pydantic data models
+ - Updated environment examples and loader
+
++
+ ## Notes
+ - Focus on system monitoring, type safety, and developer tooling
+ - Type hints should improve IDE support and catch type errors
+@@ -83,3 +93,30 @@
+
+ ## 🎛️ Agent Communication
+ **See [Agent Communication Guidelines](./README.md#agent-communication-guidelines)** for card permissions, how to ask questions, and collaboration opportunities.
++
++---
++# turn sprint-2025-03 turn 1 timestamp YYYYMMDDTHHMMSSZ
++## Card State Summary (miguel-torres)
++
++**Profile:**
++- Name: miguel-torres
++- Specialization: Monitoring & Integration Specialist
++- Sprint: sprint-2025-03
++- Status: Active
++
++**Current Sprint Tasks:**
++- All tasks from original sprint-2025-03 (previous cycle) are marked [x].
++- New cycle tasks (4 tasks: Diario logging, DTB monitoring script, logging_config extension, adapter health check script) are all marked [x] (completed this turn).
++
++**Task Status Tracking:**
++- Sprint Progress: 4/4 tasks completed for the new cycle.
++- Issues: None.
++
++**Deliverables (This Turn):**
++- Diff for `src/models/diario.py` (Diario logging) in `src-dev/001_miguel-torres_code.diff`.
++- New script `scripts/db/monitor_dbt_run.py` (diff in `src-dev/002_miguel-torres_code.diff`).
++- Diff for `src/utils/logging_config.py` (JSON logging enhancement) in `src-dev/003_miguel-torres_code.diff`.
++- New script `scripts/env/tribunal_adapter_health_check.py` (diff in `src-dev/004_miguel-torres_code.diff`).
++
++**Scratchpad/Notes:**
++- Updated card to reflect tasks assigned by David Coordinator via board message.
++- All assigned tasks for this cycle completed and changes stored as diffs in `src-dev/`.
