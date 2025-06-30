@@ -1,21 +1,23 @@
 """CausaGanha CLI - Modern command-line interface for judicial document processing."""
 
-import typer
-from typing import Optional
 import asyncio
-import sys
-import async_diario_pipeline
-from pathlib import Path
-from urllib.parse import urlparse
-import re
-from datetime import datetime
 import json
 import logging
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+from urllib.parse import urlparse
+
 import duckdb
+import typer
+
+from config import load_config
+from database import CausaGanhaDB, DatabaseManager, run_db_migrations
 from ia_database_sync import IADatabaseSync
 
-from database import DatabaseManager, CausaGanhaDB, run_db_migrations
-from config import load_config
+from . import async_diario_pipeline
 
 logger = logging.getLogger(__name__)
 
