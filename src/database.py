@@ -3,10 +3,11 @@ import duckdb
 import pandas as pd
 from pathlib import Path
 from src.config import load_config
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 import json  # Ensure json is imported
 import logging
 from datetime import datetime  # Ensure datetime is imported for now()
+from models.diario import Diario
 import uuid  # For generating IDs
 
 # MigrationRunner will be imported in a dedicated migration function
@@ -255,29 +256,12 @@ class CausaGanhaDB:
         validation_status: str = None,
     ) -> int:
         """Insert a raw decision record (with PII replaced) into the database."""
-        # Ensure decisoes table exists
-        self.conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS decisoes (
-                id INTEGER PRIMARY KEY,
-                numero_processo TEXT NOT NULL,
-                json_source_file TEXT,
-                ia_identifier TEXT,
-                tipo_decisao TEXT,
-                resultado TEXT,
-                polo_ativo TEXT,
-                polo_passivo TEXT,
-                advogados_polo_ativo TEXT,
-                advogados_polo_passivo TEXT,
-                data_decisao DATE,
-                raw_json_data TEXT,
-                processed_for_openskill BOOLEAN DEFAULT FALSE,
-                validation_status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
+        # NOTE (Bruno Silva - Code Quality): The 'decisoes' table schema,
+        # including its creation, should be managed by the database migration system.
+        # This inline CREATE TABLE IF NOT EXISTS has been removed.
+        # Ensure migrations are run before this method is used.
+        # TODO: Implement a proper migration runner to replace 'migration_runner.py' stub.
+
         # Compute new ID
         row = self.conn.execute(
             "SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes"
@@ -313,19 +297,40 @@ class CausaGanhaDB:
     def update_rating(
         self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
     ) -> None:
-        existing_rating = self.get_rating(advogado_id)
-        if existing_rating is not None:
-            if increment_partidas:
-                sql = "UPDATE ratings SET mu = ?, sigma = ?, total_partidas = total_partidas + 1, updated_at = CURRENT_TIMESTAMP WHERE advogado_id = ?"
-                self.conn.execute(sql, [mu, sigma, advogado_id])
-            else:
-                sql = "UPDATE ratings SET mu = ?, sigma = ?, updated_at = CURRENT_TIMESTAMP WHERE advogado_id = ?"
-                self.conn.execute(sql, [mu, sigma, advogado_id])
+        """Updates an advogado's rating or inserts a new one if it doesn't exist."""
+        # NOTE (Bruno Silva - Code Quality):
+        # Assumes 'ratings' table has a UNIQUE constraint on 'advogado_id'.
+        # This constraint should be defined in the database migration scripts.
+        # Assumes 'created_at' and 'updated_at' columns exist and have appropriate
+        # DEFAULT CURRENT_TIMESTAMP settings, also defined in migration scripts.
+
+        if increment_partidas:
+            # For new records, total_partidas starts at 1.
+            # For existing records, total_partidas is incremented.
+            sql = """
+            INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
+            VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (advogado_id) DO UPDATE SET
+                mu = excluded.mu,
+                sigma = excluded.sigma,
+                total_partidas = ratings.total_partidas + 1,
+                updated_at = CURRENT_TIMESTAMP;
+            """
         else:
-            total_partidas = 1 if increment_partidas else 0
-            # Assuming created_at and updated_at have DEFAULT CURRENT_TIMESTAMP in schema for new inserts
-            sql = "INSERT INTO ratings (advogado_id, mu, sigma, total_partidas) VALUES (?, ?, ?, ?)"
-            self.conn.execute(sql, [advogado_id, mu, sigma, total_partidas])
+            # For new records, total_partidas starts at 0 (or could be existing if not specified).
+            # For existing records, total_partidas is NOT incremented.
+            # If a new record is inserted here, total_partidas will be 0.
+            # If an existing record is updated, its total_partidas remains unchanged by this SET.
+            sql = """
+            INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
+            VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (advogado_id) DO UPDATE SET
+                mu = excluded.mu,
+                sigma = excluded.sigma,
+                -- total_partidas is NOT modified for existing records in this branch
+                updated_at = CURRENT_TIMESTAMP;
+            """
+        self.conn.execute(sql, [advogado_id, mu, sigma])
 
     def get_rating(self, advogado_id: str) -> Optional[Dict[str, Any]]:
         result = self.conn.execute(
@@ -353,6 +358,11 @@ class CausaGanhaDB:
         ratings_depois_a: Dict[str, Any],
         ratings_depois_b: Dict[str, Any],
     ) -> int:
+        # NOTE (Bruno Silva - Code Quality):
+        # The 'partidas' table should use a database-native auto-incrementing primary key (e.g., IDENTITY or SERIAL).
+        # The current ID generation method (MAX(id) + 1) is not robust for concurrent access
+        # and should be replaced by schema features handled via migrations.
+        # TODO: Update schema in migrations and remove manual ID generation.
         max_id_result = self.conn.execute(
             "SELECT COALESCE(MAX(id), 0) + 1 FROM partidas"
         ).fetchone()
@@ -483,10 +493,8 @@ class CausaGanhaDB:
                 tbl_info[tbl_n] = f"Error: {e}"
         return tbl_info
 
-    def queue_diario(self, diario_obj: Any) -> bool:
+    def queue_diario(self, diario_obj: Diario) -> bool:
         try:
-            from models.diario import Diario
-
             if not isinstance(diario_obj, Diario):
                 logger.error(f"Expected Diario object, got {type(diario_obj)}")
                 return False
@@ -557,10 +565,8 @@ class CausaGanhaDB:
                 self.db_manager.close()
             return False
 
-    def get_diarios_by_status(self, status: str) -> List[Any]:
+    def get_diarios_by_status(self, status: str) -> List[Diario]:
         try:
-            from models.diario import Diario
-
             rows = self.conn.execute(
                 """
                 SELECT id, url, date, tribunal, filename, metadata, status,
@@ -603,7 +609,7 @@ class CausaGanhaDB:
             return []
 
     def update_diario_status(
-        self, diario_identifier: Any, new_status: str, **kwargs: Any
+        self, diario_identifier: Union[Diario, str], new_status: str, **kwargs: Any
     ) -> bool:
         try:
             url_to_update: Optional[str] = None
@@ -660,10 +666,8 @@ class CausaGanhaDB:
             )
             return False
 
-    def get_diarios_by_tribunal(self, tribunal_code: str) -> List[Any]:
+    def get_diarios_by_tribunal(self, tribunal_code: str) -> List[Diario]:
         try:
-            from models.diario import Diario
-
             rows = self.conn.execute(
                 "SELECT * FROM job_queue WHERE tribunal = ? ORDER BY date DESC, created_at DESC",
                 [tribunal_code],

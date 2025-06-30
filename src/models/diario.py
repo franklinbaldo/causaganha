@@ -73,7 +73,18 @@ class Diario:
         )
 
     def update_status(self, new_status: str, **kwargs) -> None:
-        """Update diario status and any additional fields."""
+        """
+        Update diario status and optionally other direct attributes.
+
+        Direct attributes that can be updated via kwargs include:
+        'filename', 'hash', 'pdf_path', 'ia_identifier'.
+        Any other keyword arguments provided will be stored in the
+        'metadata' dictionary.
+
+        Args:
+            new_status: The new status string.
+            **kwargs: Additional attributes or metadata to update.
+        """
         self.status = new_status
         for key, value in kwargs.items():
             if hasattr(self, key):
