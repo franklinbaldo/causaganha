@@ -1,0 +1,39 @@
+--- a/src/models/diario.py
++++ b/src/models/diario.py
+@@ -42,25 +42,29 @@
+     @classmethod
+     def from_queue_item(cls, queue_row: Dict[str, Any]) -> "Diario":
+         """Create Diario from existing job_queue database row."""
+-        # Handle metadata field - could be JSON string or dict
+-        metadata = queue_row.get("metadata", {})
+-        if isinstance(metadata, str):
++        # Handle metadata field - could be JSON string, dict, or None
++        raw_metadata = queue_row.get("metadata")
++        loaded_metadata = {}
++        if isinstance(raw_metadata, str):
+             try:
+-                metadata = json.loads(metadata)
++                loaded_metadata = json.loads(raw_metadata)
+             except (json.JSONDecodeError, TypeError):
+-                metadata = {}
++                # If JSON string is malformed, keep metadata empty
++                pass
++        elif isinstance(raw_metadata, dict):
++            loaded_metadata = raw_metadata
++        # If raw_metadata is None or any other type, loaded_metadata remains {}
+
+         return cls(
+             tribunal=queue_row["tribunal"],
+             data=date.fromisoformat(queue_row["date"]),
+             url=queue_row["url"],
+             filename=queue_row.get("filename"),
+             ia_identifier=queue_row.get("ia_identifier"),
+             status=queue_row.get("status", "pending"),
+-            metadata=metadata,
++            metadata=loaded_metadata,  # Use the processed metadata
+             pdf_path=Path(queue_row["arquivo_path"])
+             if queue_row.get("arquivo_path")
+             else None,
+         )
+
+     def update_status(self, new_status: str, **kwargs) -> None:

@@ -1,0 +1,14 @@
+--- a/src/archive_db.py
++++ b/src/archive_db.py
+@@ -180,6 +180,11 @@
+             csv_dir = export_dir / "csv_exports"
+             csv_dir.mkdir(exist_ok=True)
+
++            # TODO (Bruno Silva - Code Quality): The list of tables for CSV export
++            # is hardcoded here. Consider making this list dynamic by fetching table
++            # names from the database schema (e.g., via "PRAGMA show_tables;" or
++            # querying "information_schema.tables" in DuckDB) to improve maintainability
++            # as the schema evolves.
+             tables = ["ratings", "partidas", "pdf_metadata", "decisoes", "json_files"]
+
+             for table in tables:
