@@ -6,12 +6,12 @@ on:
       - main
       - master # Or your primary development branch
     paths:
-      - 'dbt/**'
-      - '.github/workflows/dbt_build_test.yml'
+      - "dbt/**"
+      - ".github/workflows/dbt_build_test.yml"
   pull_request:
     paths:
-      - 'dbt/**'
-      - '.github/workflows/dbt_build_test.yml'
+      - "dbt/**"
+      - ".github/workflows/dbt_build_test.yml"
 
 jobs:
   dbt_build_and_test:
@@ -23,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install uv
         run: pip install uv

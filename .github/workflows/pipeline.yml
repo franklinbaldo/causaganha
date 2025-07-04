@@ -4,29 +4,29 @@ on:
   workflow_dispatch:
     inputs:
       date:
-        description: 'Process specific date (YYYY-MM-DD)'
+        description: "Process specific date (YYYY-MM-DD)"
         required: false
         type: string
       max_items:
-        description: 'Maximum items to process (for testing)'
+        description: "Maximum items to process (for testing)"
         required: false
         type: string
-        default: ''
+        default: ""
       start_date:
-        description: 'Start date for range processing (YYYY-MM-DD)'
+        description: "Start date for range processing (YYYY-MM-DD)"
         required: false
         type: string
       end_date:
-        description: 'End date for range processing (YYYY-MM-DD)'
+        description: "End date for range processing (YYYY-MM-DD)"
         required: false
         type: string
       force_reprocess:
-        description: 'Force reprocess items even if they exist in IA'
+        description: "Force reprocess items even if they exist in IA"
         required: false
         type: boolean
         default: false
   schedule:
-    - cron: '15 3 * * *'  # Daily at 3:15 AM UTC
+    - cron: "15 3 * * *" # Daily at 3:15 AM UTC
 
 env:
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,31 +69,31 @@ jobs:
         id: pipeline
         run: |
           echo "🚀 Starting CausaGanha Async Pipeline..."
-          
+
           # Build command arguments
           CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
-          
+
           # Add parameters based on input
           if [ -n "${{ steps.params.outputs.max_items }}" ]; then
             CMD="$CMD --max-items ${{ steps.params.outputs.max_items }}"
           fi
-          
+
           if [ -n "${{ steps.params.outputs.date }}" ]; then
             CMD="$CMD --start-date ${{ steps.params.outputs.date }} --end-date ${{ steps.params.outputs.date }}"
           fi
-          
+
           if [ -n "${{ steps.params.outputs.start_date }}" ]; then
             CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"
           fi
-          
+
           if [ -n "${{ steps.params.outputs.end_date }}" ]; then
             CMD="$CMD --end-date ${{ steps.params.outputs.end_date }}"
           fi
-          
+
           if [ "${{ steps.params.outputs.force_reprocess }}" = "true" ]; then
             CMD="$CMD --force-reprocess"
           fi
-          
+
           echo "Executing: $CMD"
           eval $CMD
 
@@ -102,7 +102,7 @@ jobs:
         run: |
           echo "📊 Pipeline Statistics:"
           uv run python src/async_diario_pipeline.py --stats-only || echo "No progress data found"
-          
+
           echo ""
           echo "🔍 Internet Archive Discovery:"
           uv run python src/ia_discovery.py --year $(date +%Y) | head -10 || echo "Discovery failed"
@@ -122,7 +122,7 @@ jobs:
     needs: async-pipeline
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Pipeline Summary
         run: |
@@ -132,7 +132,7 @@ jobs:
           echo "**Status**: ${{ needs.async-pipeline.result }}" >> $GITHUB_STEP_SUMMARY
           echo "**Run ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.async-pipeline.result }}" = "success" ]; then
             echo "✅ Pipeline completed successfully!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

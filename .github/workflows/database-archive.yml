@@ -3,24 +3,24 @@ name: Archive Database to Internet Archive
 on:
   schedule:
     # Weekly on Sunday at 04:00 UTC (after main pipeline completes)
-    - cron: '0 4 * * 0'
+    - cron: "0 4 * * 0"
   workflow_dispatch:
     inputs:
       archive_type:
-        description: 'Type of archive to create'
+        description: "Type of archive to create"
         required: true
-        default: 'weekly'
+        default: "weekly"
         type: choice
         options:
           - weekly
           - monthly
           - quarterly
       snapshot_date:
-        description: 'Snapshot date (YYYY-MM-DD, defaults to today)'
+        description: "Snapshot date (YYYY-MM-DD, defaults to today)"
         required: false
         type: string
       force_upload:
-        description: 'Force upload even if archive exists'
+        description: "Force upload even if archive exists"
         required: false
         default: false
         type: boolean
@@ -33,29 +33,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: dev
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          
+
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          
+
       - name: Install dependencies
         run: |
           uv sync --dev
-          
+
       - name: Install Internet Archive CLI
         run: |
           uv pip install internetarchive
-          
+
       - name: Verify database exists
         run: |
           if [ ! -f "data/causaganha.duckdb" ]; then
@@ -63,11 +63,11 @@ jobs:
             echo "Cannot create archive without database"
             exit 1
           fi
-          
+
           # Show database info
           echo "📊 Database info:"
           ls -lh data/causaganha.duckdb
-          
+
       - name: Determine archive parameters
         id: archive_params
         run: |
@@ -84,25 +84,25 @@ jobs:
             # Manual trigger
             echo "archive_type=${{ github.event.inputs.archive_type }}" >> $GITHUB_OUTPUT
           fi
-          
+
           # Set snapshot date
           if [ -n "${{ github.event.inputs.snapshot_date }}" ]; then
             echo "snapshot_date=${{ github.event.inputs.snapshot_date }}" >> $GITHUB_OUTPUT
           else
             echo "snapshot_date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "force_upload=${{ github.event.inputs.force_upload || 'false' }}" >> $GITHUB_OUTPUT
-          
+
       - name: Check for existing archive
         id: check_existing
         if: ${{ steps.archive_params.outputs.force_upload != 'true' }}
         run: |
           # Check if archive already exists for this date and type
           ITEM_ID="causaganha-database-${{ steps.archive_params.outputs.snapshot_date }}-${{ steps.archive_params.outputs.archive_type }}"
-          
+
           echo "Checking for existing archive: $ITEM_ID"
-          
+
           # Use ia CLI to check if item exists
           if ia metadata "$ITEM_ID" >/dev/null 2>&1; then
             echo "⚠️ Archive already exists: $ITEM_ID"
@@ -116,14 +116,14 @@ jobs:
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-          
+
       - name: Skip if archive exists
         if: ${{ steps.check_existing.outputs.archive_exists == 'true' && steps.archive_params.outputs.force_upload != 'true' }}
         run: |
           echo "🔄 Archive already exists and force_upload is not enabled"
           echo "Skipping archive creation for ${{ steps.check_existing.outputs.item_id }}"
           echo "To force upload, re-run with force_upload=true"
-          
+
       - name: Create database archive
         if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
         id: create_archive
@@ -131,28 +131,28 @@ jobs:
           echo "🚀 Creating database archive..."
           echo "Archive type: ${{ steps.archive_params.outputs.archive_type }}"
           echo "Snapshot date: ${{ steps.archive_params.outputs.snapshot_date }}"
-          
+
           # Run the archive command
           uv run python src/archive_db.py \
             --db-path data/causaganha.duckdb \
             --date "${{ steps.archive_params.outputs.snapshot_date }}" \
             --archive-type "${{ steps.archive_params.outputs.archive_type }}" \
             --verbose
-            
+
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-          
+
       - name: Verify archive upload
         if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
         run: |
           ITEM_ID="${{ steps.check_existing.outputs.item_id }}"
-          
+
           echo "🔍 Verifying archive upload: $ITEM_ID"
-          
+
           # Wait a moment for IA processing
           sleep 30
-          
+
           # Check if item is accessible
           if ia metadata "$ITEM_ID" >/dev/null 2>&1; then
             echo "✅ Archive successfully uploaded and accessible"
@@ -170,13 +170,13 @@ jobs:
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-          
+
       - name: Update database with archive record
         if: ${{ steps.check_existing.outputs.archive_exists != 'true' || steps.archive_params.outputs.force_upload == 'true' }}
         run: |
           echo "📝 Archive process completed successfully"
           echo "Archive uploaded to Internet Archive for public access"
-          
+
       - name: Archive summary
         if: always()
         run: |
@@ -185,7 +185,7 @@ jobs:
           echo "- **Date**: ${{ steps.archive_params.outputs.snapshot_date }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Type**: ${{ steps.archive_params.outputs.archive_type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Item ID**: ${{ steps.check_existing.outputs.item_id }}" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ steps.check_existing.outputs.archive_exists }}" = "true" ] && [ "${{ steps.archive_params.outputs.force_upload }}" != "true" ]; then
             echo "- **Status**: ⚠️ Skipped (archive already exists)" >> $GITHUB_STEP_SUMMARY
             echo "- **Archive URL**: https://archive.org/details/${{ steps.check_existing.outputs.item_id }}" >> $GITHUB_STEP_SUMMARY
@@ -195,7 +195,7 @@ jobs:
           else
             echo "- **Status**: ❌ Archive failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
       - name: Notify on failure
         if: failure()
         run: |

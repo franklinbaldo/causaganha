@@ -25,13 +25,15 @@ O nome do arquivo de prompt terá o seguinte formato:
 **`<descritivo_curto>-<hash_curto>.txt`**
 
 Onde:
--   **`<descritivo_curto>`**: Um "slug" em kebab-case que descreve a **intenção** da mudança (ex: `versao-inicial`, `melhora-extracao-oab`, `adiciona-resumo-executivo`). Este é o componente legível por humanos.
--   **`<hash_curto>`**: Os primeiros 8 a 12 caracteres de um hash (UUIDv5 ou SHA-1) do conteúdo do arquivo. Este hash é o **garantidor da imutabilidade**.
+
+- **`<descritivo_curto>`**: Um "slug" em kebab-case que descreve a **intenção** da mudança (ex: `versao-inicial`, `melhora-extracao-oab`, `adiciona-resumo-executivo`). Este é o componente legível por humanos.
+- **`<hash_curto>`**: Os primeiros 8 a 12 caracteres de um hash (UUIDv5 ou SHA-1) do conteúdo do arquivo. Este hash é o **garantidor da imutabilidade**.
 
 **Exemplos de Nomes de Arquivo:**
--   `versao-inicial-a1b2c3d4.txt`
--   `melhora-extracao-oab-e5f6g7h8.txt`
--   `adiciona-resumo-executivo-9i0j1k2l.txt`
+
+- `versao-inicial-a1b2c3d4.txt`
+- `melhora-extracao-oab-e5f6g7h8.txt`
+- `adiciona-resumo-executivo-9i0j1k2l.txt`
 
 O histórico cronológico é gerenciado pelo Git, eliminando a necessidade de datas nos nomes dos arquivos.
 
@@ -42,13 +44,13 @@ O histórico cronológico é gerenciado pelo Git, eliminando a necessidade de da
 Este fluxo de trabalho é projetado para ser seguro e forçar as boas práticas.
 
 1.  **Criação/Edição Manual**: Um desenvolvedor cria ou edita um arquivo de prompt no diretório `prompts/` com um nome temporário e legível, **sem o hash**.
-    -   *Exemplo*: `melhora-extracao-oab.txt`
+    - _Exemplo_: `melhora-extracao-oab.txt`
 
 2.  **Automação (Script/Pre-commit Hook)**: Um script automatizado (idealmente um hook de pre-commit do Git) é executado. Ele realiza as seguintes ações:
-    -   Encontra todos os arquivos em `prompts/` que **não** contêm um hash no final do seu nome (antes da extensão).
-    -   Para cada um desses arquivos, calcula o hash do seu conteúdo.
-    -   **Renomeia o arquivo**, anexando o hash.
-        -   *Exemplo*: `melhora-extracao-oab.txt` é renomeado para `melhora-extracao-oab-e5f6g7h8.txt`.
+    - Encontra todos os arquivos em `prompts/` que **não** contêm um hash no final do seu nome (antes da extensão).
+    - Para cada um desses arquivos, calcula o hash do seu conteúdo.
+    - **Renomeia o arquivo**, anexando o hash.
+      - _Exemplo_: `melhora-extracao-oab.txt` é renomeado para `melhora-extracao-oab-e5f6g7h8.txt`.
 
 3.  **Ação Forçada pelo Desenvolvedor**: O desenvolvedor vê que seu arquivo foi renomeado automaticamente. Ele é então **obrigado** a copiar o novo nome completo do arquivo e atualizá-lo no `config.toml`.
 
@@ -114,7 +116,7 @@ Para garantir a total reprodutibilidade, o nome completo do arquivo de prompt (i
 
 ## 5. Vantagens da Estratégia Final
 
--   **Foco no Propósito**: O nome do arquivo descreve *o que* o prompt faz, não *quando* foi feito. É mais limpo e semântico.
--   **Imutabilidade Absoluta**: A garantia criptográfica de que um prompt não pode ser alterado sem que seu identificador mude.
--   **Fluxo de Trabalho à Prova de Erros**: O "circuit breaker" é um mecanismo de segurança ativo que previne erros humanos de configuração.
--   **Fonte da Verdade Única**: O Git gerencia o histórico e a cronologia. O nome do arquivo gerencia a identidade e a imutabilidade do conteúdo.
+- **Foco no Propósito**: O nome do arquivo descreve _o que_ o prompt faz, não _quando_ foi feito. É mais limpo e semântico.
+- **Imutabilidade Absoluta**: A garantia criptográfica de que um prompt não pode ser alterado sem que seu identificador mude.
+- **Fluxo de Trabalho à Prova de Erros**: O "circuit breaker" é um mecanismo de segurança ativo que previne erros humanos de configuração.
+- **Fonte da Verdade Única**: O Git gerencia o histórico e a cronologia. O nome do arquivo gerencia a identidade e a imutabilidade do conteúdo.

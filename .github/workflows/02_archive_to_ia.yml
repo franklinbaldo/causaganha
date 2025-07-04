@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       max_items:
-        description: 'Maximum items to process'
+        description: "Maximum items to process"
         required: false
         type: string
-        default: '10'
+        default: "10"
       start_date:
-        description: 'Start date (YYYY-MM-DD)'
+        description: "Start date (YYYY-MM-DD)"
         required: false
         type: string
       end_date:
-        description: 'End date (YYYY-MM-DD)'
+        description: "End date (YYYY-MM-DD)"
         required: false
         type: string
 
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,22 +39,22 @@ jobs:
       - name: Legacy Archive Process
         run: |
           echo "🚀 Running legacy archive process..."
-          
+
           # Build command for async pipeline
           CMD="uv run python src/async_diario_pipeline.py --verbose"
-          
+
           if [ -n "${{ inputs.max_items }}" ]; then
             CMD="$CMD --max-items ${{ inputs.max_items }}"
           fi
-          
+
           if [ -n "${{ inputs.start_date }}" ]; then
             CMD="$CMD --start-date ${{ inputs.start_date }}"
           fi
-          
+
           if [ -n "${{ inputs.end_date }}" ]; then
             CMD="$CMD --end-date ${{ inputs.end_date }}"
           fi
-          
+
           echo "Executing: $CMD"
           eval $CMD
 

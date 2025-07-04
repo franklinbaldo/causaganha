@@ -1,6 +1,7 @@
 # Refactor Downloader Module
 
 ## Problem Statement
+
 - **What problem does this solve?**
   The current downloader logic, spread across `src/downloader.py` and potentially parts of `src/tribunais/tjro/collect_and_archive.py` and `src/cli.py` (archive command), might lack unified resilience, advanced error handling, and clear separation of concerns for downloading files from various sources (tribunal websites, Internet Archive).
 - **Why is this important?**
@@ -13,6 +14,7 @@
   - Logic for downloading from different types of sources (direct HTTP, IA) could be better abstracted.
 
 ## Proposed Solution
+
 - **High-level approach**
   Refactor the existing download functionalities into a dedicated, well-structured downloader module. This module will provide a unified interface for downloading files, incorporating robust retry logic, detailed error reporting, and configurable parameters. It will also clearly distinguish between downloading source diários and fetching files from the project's IA items.
 - **Technical architecture**
@@ -50,6 +52,7 @@
       - Refine error messages and logging based on testing.
 
 ## Success Criteria
+
 - **Improved Resilience**: Downloads automatically retry on transient errors and configurable server errors, leading to fewer permanent failures.
 - **Better Error Insight**: Clear and informative error messages and logs when downloads fail, aiding in debugging.
 - **Maintainability**: Download logic is centralized, making it easier to update and maintain (e.g., changing User-Agent globally).
@@ -59,25 +62,28 @@
 - **No Regressions**: Existing download functionalities (e.g., fetching latest TJRO diário, fetching from IA) continue to work correctly through the new service.
 
 ## Implementation Plan (High-Level for this document)
+
 1.  **Create `DownloaderService`**: Implement the class with `aiohttp`, retry logic (`tenacity`), and custom exceptions.
 2.  **Refactor TJRO Downloads**: Update `src/tribunais/tjro/downloader.py` (if using `Diario` model) or relevant parts of `cli.py`/`collect_and_archive.py` to use `DownloaderService` for fetching original diários.
 3.  **Refactor IA Downloads**: Update `ia_helpers.py` or `cli.py` (analyze stage) to use `DownloaderService` for fetching PDFs from the project's IA items.
 4.  **Centralize Config & Add Tests**: Move configurations to `config.toml`. Write extensive unit and integration tests. Document the module.
 
 ## Risks & Mitigations
+
 - **Risk 1: Over-Engineering Retries**: Making the retry logic too complex or too aggressive could lead to unintended consequences (e.g., overwhelming a server).
-  - *Mitigation*: Start with a sensible default retry policy (e.g., 3-5 retries, exponential backoff with a cap). Make it configurable. Follow best practices for retries (e.g., add jitter).
+  - _Mitigation_: Start with a sensible default retry policy (e.g., 3-5 retries, exponential backoff with a cap). Make it configurable. Follow best practices for retries (e.g., add jitter).
 - **Risk 2: Handling Diverse Server Behaviors**: Different servers might have unique ways of indicating rate limits or temporary issues.
-  - *Mitigation*: Allow configuration of which HTTP status codes trigger retries. Log server responses thoroughly to help diagnose issues with specific sources.
+  - _Mitigation_: Allow configuration of which HTTP status codes trigger retries. Log server responses thoroughly to help diagnose issues with specific sources.
 - **Risk 3: Introducing Regressions**: Changing existing download logic could break parts of the pipeline.
-  - *Mitigation*:
+  - _Mitigation_:
     - Implement thorough integration tests for pipeline stages that rely on downloads.
     - Initially, the new `DownloaderService` can be introduced alongside existing logic, and then gradually replace it.
     - Test against real tribunal URLs and IA items.
 - **Risk 4: Configuration Complexity**: Too many configuration options can make the downloader hard to use.
-  - *Mitigation*: Provide sensible defaults for all configuration parameters. Only expose configuration for parameters that genuinely need tuning.
+  - _Mitigation_: Provide sensible defaults for all configuration parameters. Only expose configuration for parameters that genuinely need tuning.
 
 ## Dependencies
+
 - `aiohttp`: For asynchronous HTTP requests.
 - `tenacity` (recommended): For robust retry mechanisms.
 - Standard Python `logging` module.

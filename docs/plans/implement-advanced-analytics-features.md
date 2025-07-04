@@ -1,6 +1,7 @@
 # Implement Advanced Analytics Features
 
 ## Problem Statement
+
 - **What problem does this solve?**
   The CausaGanha project currently focuses on data collection, processing, and generating OpenSkill ratings for lawyers. While this is valuable, the rich dataset of judicial decisions and extracted information holds potential for deeper analytical insights that are not yet being explored.
 - **Why is this important?**
@@ -11,6 +12,7 @@
   - The `decisoes` table stores extracted JSON, but this data isn't systematically analyzed for broader patterns.
 
 ## Proposed Solution
+
 - **High-level approach**
   Develop a new set of features and tools for advanced analytics, leveraging the structured data in the DuckDB database. This could involve new CLI commands, extensions to the potential web dashboard, or scripts for generating analytical reports.
 - **Technical architecture Ideas (to be chosen from or expanded)**
@@ -25,9 +27,9 @@
       - Requires enhancing the `ratings` and `partidas` tables or creating analytical views.
   3.  **Legal Argument/Topic Analysis (Requires NLP/LLM enhancements)**:
       - If LLM extraction can identify key legal arguments, topics, or cited jurisprudence:
-          - Cluster similar arguments.
-          - Analyze the success rate of specific arguments or topics.
-          - Identify common co-occurring arguments.
+        - Cluster similar arguments.
+        - Analyze the success rate of specific arguments or topics.
+        - Identify common co-occurring arguments.
       - This is more ambitious and depends on enhancing the LLM extraction capabilities.
   4.  **Case Outcome Predictors (Experimental)**:
       - Explore simple models to see if certain features (e.g., lawyer ratings, case type, tribunal) correlate with case outcomes. This is highly experimental and should be approached with caution.
@@ -49,8 +51,8 @@
       - Design and implement SQL queries (or Pandas/DuckDB operations) to extract and aggregate data for the chosen feature.
       - Develop Python functions/classes to perform the analysis.
       - Example for "Lawyer Rating Trends":
-          - Need to store historical rating data or reconstruct it. The `partidas` table (if it stores ratings before/after) is key.
-          - Create functions to plot a lawyer's rating over time or number of matches.
+        - Need to store historical rating data or reconstruct it. The `partidas` table (if it stores ratings before/after) is key.
+        - Create functions to plot a lawyer's rating over time or number of matches.
   3.  **Phase 3: CLI/Dashboard Integration (Weeks 5-6, per feature)**
       - Create new CLI commands to trigger the analytics and display/save results (e.g., `causaganha analytics lawyer-trends --advogado-id "XYZ"`).
       - If a web dashboard exists, add new sections or charts to display these analytics.
@@ -60,6 +62,7 @@
       - Refine based on feedback and further data exploration.
 
 ## Success Criteria
+
 - **New Insights**: The implemented features provide novel and useful insights from the judicial data beyond basic ratings.
 - **Functionality**: At least one or two advanced analytics features are fully implemented and accessible via CLI or dashboard.
 - **Accuracy**: The analytical results are accurate and correctly derived from the source data.
@@ -68,7 +71,8 @@
 - **Extensibility**: The analytics framework (if one emerges) is designed to allow for the addition of more analytical features in the future.
 
 ## Implementation Plan (High-Level for this document - focusing on 1-2 initial features)
-*Assume we pick "Lawyer Rating Trends" and "Decision Outcome Trends" as initial features.*
+
+_Assume we pick "Lawyer Rating Trends" and "Decision Outcome Trends" as initial features._
 
 1.  **Data Model for Rating History**: Ensure `partidas` stores enough info to reconstruct rating history, or add a `rating_history` table.
 2.  **Develop Trend Logic**:
@@ -81,30 +85,32 @@
 5.  **Test & Document**: Validate results. Document new commands and interpretations.
 
 ## Risks & Mitigations
+
 - **Risk 1: Data Sparsity/Quality**: The quality or quantity of extracted data might be insufficient for some advanced analytics.
-  - *Mitigation*:
+  - _Mitigation_:
     - Start with analytics that can be supported by the current robust data (e.g., trends based on `resultado` field, lawyer IDs).
     - Clearly state assumptions and limitations of any analysis.
     - Improving LLM extraction (a separate effort) can provide richer data over time.
 - **Risk 2: Misinterpretation of Results**: Analytical findings can be misinterpreted or oversimplified.
-  - *Mitigation*:
+  - _Mitigation_:
     - Carefully document the methodology and limitations of each analytical feature.
     - Present results with appropriate caveats.
     - For predictive features (if any), emphasize their experimental nature and potential biases.
 - **Risk 3: Computational Cost**: Some analytics (especially NLP-heavy ones or complex aggregations on large data) can be computationally expensive.
-  - *Mitigation*:
+  - _Mitigation_:
     - Optimize queries and calculations.
     - Consider pre-aggregating data or building summary tables if needed for performance.
     - For very intensive tasks, consider offloading to background jobs or indicating that the analysis might take time.
 - **Risk 4: Scope Creep**: The range of possible analytics is vast.
-  - *Mitigation*: Prioritize a few high-impact features initially. Get feedback before expanding to many more.
+  - _Mitigation_: Prioritize a few high-impact features initially. Get feedback before expanding to many more.
 - **Risk 5: Ethical Considerations**: Analytics, especially those related to performance or prediction, must be handled ethically and responsibly, avoiding bias.
-  - *Mitigation*:
+  - _Mitigation_:
     - Be transparent about how analytics are calculated.
     - Scrutinize for potential biases in data or algorithms.
     - Avoid creating features that could be used in discriminatory ways. Focus on systemic trends rather than individual predictive judgments where sensitive.
 
 ## Dependencies
+
 - Relies heavily on the quality and structure of data in the DuckDB database, especially the `decisoes`, `partidas`, and `ratings` tables.
 - LLM extraction quality (for content-based analytics).
 - Python data analysis libraries (`pandas`, `numpy`).

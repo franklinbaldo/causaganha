@@ -1,6 +1,7 @@
 # Improve Error Handling and Logging
 
 ## Problem Statement
+
 - **What problem does this solve?**
   The current application may have inconsistent error handling mechanisms and logging practices. This can lead to difficulties in diagnosing issues, ungraceful failure modes for users, and insufficient information for debugging and monitoring.
 - **Why is this important?**
@@ -12,6 +13,7 @@
   - Lack of correlation IDs for tracing requests/operations across distributed parts of the system (e.g., async tasks, IA interactions).
 
 ## Proposed Solution
+
 - **High-level approach**
   Implement a standardized approach to error handling and logging throughout the application. This includes defining custom exception classes, establishing consistent logging formats and levels, and ensuring that errors are caught, logged appropriately, and communicated effectively to the user or calling system.
 - **Technical architecture**
@@ -52,6 +54,7 @@
       - Document the logging and error handling strategy.
 
 ## Success Criteria
+
 - **Improved Diagnosability**: Errors are easier to trace and diagnose using structured logs and correlation IDs.
 - **User Experience**: CLI provides clear, user-friendly error messages for common failure scenarios.
 - **Robustness**: The application handles errors gracefully without crashing unexpectedly.
@@ -61,33 +64,36 @@
 - **Monitoring Readiness**: Logs are suitable for ingestion into log management systems (e.g., ELK stack, Splunk, CloudWatch Logs).
 
 ## Implementation Plan (High-Level for this document)
+
 1.  **Define Custom Exceptions & Central Logging**: Create `src/exceptions.py`. Configure `logging` module with structured formats.
 2.  **Refactor Core Sync Modules**: Update `cli.py`, `database.py`, `extractor.py` to use new exceptions and logging. Implement correlation IDs in CLI.
 3.  **Refactor Async Pipeline**: Update `async_diario_pipeline.py` and related modules. Ensure correlation IDs work with async tasks.
 4.  **Audit & Document**: Review all modules for compliance. Document the strategy. Add sensitive data redaction.
 
 ## Risks & Mitigations
+
 - **Risk 1: Performance Overhead**: Excessive or poorly configured logging can impact performance.
-  - *Mitigation*:
+  - _Mitigation_:
     - Use appropriate log levels (e.g., DEBUG only in development or for specific troubleshooting).
     - Optimize log formatting and output handlers.
     - Asynchronous logging can be considered for high-throughput scenarios, though likely not needed initially.
 - **Risk 2: Log Volume**: Very verbose logging can generate large volumes of data, increasing storage costs.
-  - *Mitigation*:
+  - _Mitigation_:
     - Implement log rotation and retention policies.
     - Use appropriate log levels and allow dynamic adjustment of log levels if possible.
 - **Risk 3: Complexity**: Introducing a complex logging or error handling framework can increase code complexity.
-  - *Mitigation*:
+  - _Mitigation_:
     - Keep the custom exception hierarchy clear and purposeful.
     - Provide clear guidelines and examples for using the logging system.
     - Focus on practical benefits rather than over-engineering.
 - **Risk 4: Masking Bugs**: Overly broad exception handling can hide underlying bugs.
-  - *Mitigation*:
+  - _Mitigation_:
     - Catch specific exceptions rather than generic `Exception`.
     - Ensure that when an exception is caught and re-raised (or handled), the original exception information is preserved (e.g., using `raise NewException from original_exception`).
     - Critical errors that cannot be handled should still be allowed to propagate or terminate the process if necessary.
 
 ## Dependencies
+
 - Standard Python `logging` module.
 - Potentially `python-json-logger` or `structlog` for structured logging.
 - No major new external dependencies are anticipated otherwise.

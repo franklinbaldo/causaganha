@@ -1,6 +1,7 @@
 # Multi-Tribunal Data Collection
 
 ## Problem Statement
+
 - **What problem does this solve?**
   Currently, CausaGanha's data collection is limited to the Tribunal de Justiça de Rondônia (TJRO). This feature aims to expand data collection capabilities to include all (or a significant number of) Brazilian tribunals.
 - **Why is this important?**
@@ -9,6 +10,7 @@
   The existing data collection mechanism (`src/tribunais/tjro/`) is tightly coupled with TJRO's specific website structure and PDF naming conventions. It lacks the flexibility to adapt to other tribunals' diverse systems for publishing Diários de Justiça.
 
 ## Proposed Solution
+
 - **High-level approach**
   Develop a modular, extensible, and configurable data collection framework. This framework will abstract common collection tasks while allowing for tribunal-specific implementations for discovery, download, and metadata extraction of Diários de Justiça.
 - **Technical architecture**
@@ -44,6 +46,7 @@
       - Document how to add support for new tribunals.
 
 ## Success Criteria
+
 - **Functional Collection**: The system can successfully discover, queue, download, and archive Diários de Justiça from at least three different tribunals (e.g., TJRO, TJSP, TJMG).
 - **Extensibility**: The framework allows adding support for new tribunals by creating a new collector class and a configuration file, without major changes to the core system.
 - **Configurability**: Tribunal-specific parameters (URLs, rate limits, etc.) are managed through external configuration.
@@ -52,6 +55,7 @@
 - **Documentation**: Clear documentation exists for using the multi-tribunal feature and for developers on how to add new tribunal collectors.
 
 ## Implementation Plan (High-Level for this document)
+
 1.  **Phase 1: Research & Base Framework Design**:
     - Research data access methods for TJSP, TJMG, TRF1.
     - Design `TribunalCollector` ABC and configuration structure.
@@ -70,29 +74,30 @@
     - Write comprehensive tests and user/developer documentation.
 
 ## Risks & Mitigations
+
 - **Risk 1: Diverse and Inconsistent Tribunal Systems**: Each tribunal's website/API for accessing Diários can be vastly different, undocumented, or frequently changing.
-  - *Mitigation*:
+  - _Mitigation_:
     - Design a highly flexible adapter pattern within each collector.
     - Prioritize tribunals with more stable or developer-friendly access methods.
     - Implement robust error handling and logging for each collector.
     - Plan for ongoing maintenance and updates as tribunal systems change.
 - **Risk 2: Rate Limiting, CAPTCHAs, and Access Restrictions**: Tribunals may employ aggressive rate limiting, CAPTCHAs, or require specific headers/authentication, blocking automated collection.
-  - *Mitigation*:
+  - _Mitigation_:
     - Implement configurable per-tribunal rate limiting and polite request intervals.
     - Use sophisticated retry mechanisms with exponential backoff.
     - For CAPTCHAs, investigate if alternative (e.g., API) access routes exist. Human-assisted CAPTCHA solving is out of scope for automated collection. Prioritize tribunals without such aggressive measures for initial implementation.
     - Support common authentication patterns if necessary and documented by tribunals.
 - **Risk 3: Scalability and Maintenance Overhead**: Supporting a large number of tribunals will significantly increase the complexity and maintenance burden.
-  - *Mitigation*:
+  - _Mitigation_:
     - Prioritize implementation for major national and state tribunals first.
     - Design the collector framework to be as self-contained as possible per tribunal, minimizing cascading changes.
     - Provide excellent documentation and contribution guidelines to encourage community support for adding and maintaining collectors.
     - Implement a monitoring system to detect when a collector might be broken due to changes in a tribunal's website.
 - **Risk 4: Legal and Ethical Considerations**: Ensuring compliance with each tribunal's terms of service for data access.
-  - *Mitigation*:
+  - _Mitigation_:
     - For each tribunal, review any stated terms of service or data usage policies.
     - Focus on publicly available data and mimic respectful browsing behavior (e.g., appropriate User-Agent, respecting `robots.txt` where applicable, conservative request rates).
     - Be transparent about the data sources and collection methods.
 - **Risk 5: Data Normalization**: Diários from different tribunals might have different formats, content structures, or metadata.
-  - *Mitigation*: While this plan focuses on collection, the design should anticipate that downstream processes (extraction, analysis) will need to handle this variability. The collector should aim to capture as much raw metadata as possible. The `tribunal_id` will be crucial for context-specific parsing rules later.
-[end of docs/plans/multi_tribunal_collection.md]
+  - _Mitigation_: While this plan focuses on collection, the design should anticipate that downstream processes (extraction, analysis) will need to handle this variability. The collector should aim to capture as much raw metadata as possible. The `tribunal_id` will be crucial for context-specific parsing rules later.
+    [end of docs/plans/multi_tribunal_collection.md]

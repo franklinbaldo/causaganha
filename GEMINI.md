@@ -9,12 +9,14 @@
 This document provides Gemini-specific instructions for working with the CausaGanha judicial analysis platform.
 
 ### **📋 Before Starting Work**
+
 1. **Read CLAUDE.md first** - Contains complete development workflow and plan-first approach
 2. **Check MASTERPLAN.md** - Current implementation phases and coordination
 3. **Review AGENTS.md** - Technical architecture and testing requirements
 4. **Follow alpha development guidelines** - Breaking changes are acceptable
 
 ### **🔧 Key Commands for Gemini**
+
 ```bash
 # Setup
 uv venv && source .venv/bin/activate
@@ -31,6 +33,7 @@ PYTHONPATH=src uv run causaganha pipeline --help
 ```
 
 ### **⚠️ Alpha Development Context**
+
 - **Status**: Alpha software with frequent breaking changes
 - **Approach**: Plan-first development (see CLAUDE.md)
 - **Coordination**: Use MASTERPLAN.md for all implementation decisions
@@ -38,19 +41,23 @@ PYTHONPATH=src uv run causaganha pipeline --help
 - **Quality**: >60% test coverage required
 
 ### **🏗️ Current Architecture**
+
 - **Database**: DuckDB with Internet Archive synchronization
 - **CLI**: Modern Typer-based interface (causaganha command)
 - **Pipeline**: 4-stage process (queue → archive → analyze → score)
 - **Rating System**: OpenSkill for lawyer performance evaluation
 
 ### **📚 Documentation Hierarchy**
+
 1. **CLAUDE.md** - Primary instructions and development workflow
 2. **MASTERPLAN.md** - Live coordination document
 3. **AGENTS.md** - Technical specifics and architecture
 4. **README.md** - User documentation
 
 ### **🎯 Development Priorities**
+
 Current focus areas (see MASTERPLAN.md for details):
+
 - Database integration fixes (Critical)
 - Diario dataclass implementation
 - Multi-tribunal collection support
@@ -62,6 +69,7 @@ Current focus areas (see MASTERPLAN.md for details):
 ## 🤖 **For Google Gemini**
 
 When working with this codebase:
+
 - **Always consult CLAUDE.md** for complete development guidelines
 - **Follow plan-first approach** - create plans before implementation
 - **Update MASTERPLAN.md** when adding new features or plans

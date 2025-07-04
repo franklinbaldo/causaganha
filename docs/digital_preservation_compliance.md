@@ -7,4 +7,3 @@ Nora Khaled researched applicable laws and standards regarding digital document 
 - **ISO 14721 (OAIS)** – used as a conceptual model for long-term preservation workflows.
 
 CausaGanha's archival process aligns with these regulations by ensuring integrity hashes, metadata versioning and open formats.
-

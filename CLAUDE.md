@@ -25,6 +25,7 @@ uv pip install -e .  # Install package in development mode
 ```
 
 Environment variables (copy `.env.example` to `.env`):
+
 - `GEMINI_API_KEY`: Required for PDF content extraction
 - `IA_ACCESS_KEY`: Required for Internet Archive uploads and database sync
 - `IA_SECRET_KEY`: Required for Internet Archive uploads and database sync
@@ -34,6 +35,7 @@ Environment variables (copy `.env.example` to `.env`):
 CausaGanha follows a **plan-first development approach** to ensure thoughtful feature design and implementation:
 
 ### 📋 **Phase 1: Planning**
+
 1. **Create Plan Document**: New features must start as a plan in `/docs/plans/feature-name.md`
 2. **Problem Context**: The plan must clearly explain:
    - What problem it's trying to solve
@@ -46,6 +48,7 @@ CausaGanha follows a **plan-first development approach** to ensure thoughtful fe
    - Potential risks and mitigations
 
 ### 🔍 **Phase 2: Review & Approval**
+
 1. **Plan Review**: The plan document is reviewed for:
    - Technical feasibility
    - Alignment with project goals
@@ -55,12 +58,14 @@ CausaGanha follows a **plan-first development approach** to ensure thoughtful fe
 3. **Implementation Ready**: Plan serves as the implementation specification
 
 ### 🚀 **Phase 3: Implementation**
+
 1. **Feature Branch**: Implementation happens in separate feature branches
 2. **Incremental Development**: Features are built according to the approved plan
 3. **Testing & Validation**: Implementation includes comprehensive tests
 4. **Code Review**: Standard pull request review process
 
 ### 📚 **Phase 4: Documentation**
+
 1. **Feature Complete**: Once the plan is fully implemented and tested
 2. **Documentation Conversion**: The original plan document is transformed into:
    - User documentation explaining how to use the feature
@@ -72,6 +77,7 @@ CausaGanha follows a **plan-first development approach** to ensure thoughtful fe
    - **Archive original plan**: Keep implementation history for reference
 
 ### 📁 **Directory Structure**
+
 ```
 docs/
 ├── plans/                      # 📋 Future features (planning phase)
@@ -91,31 +97,37 @@ docs/
 ```
 
 ### ✅ **Planning Template**
+
 When creating a new plan, use this structure:
 
 ```markdown
 # Feature Name
 
 ## Problem Statement
+
 - What problem does this solve?
 - Why is this important?
 - Current limitations
 
 ## Proposed Solution
+
 - High-level approach
 - Technical architecture
 - Implementation steps
 
 ## Success Criteria
+
 - How do we know it's working?
 - What are the expected outcomes?
 
 ## Implementation Plan
+
 1. Step 1: Description
 2. Step 2: Description
 3. Step 3: Description
 
 ## Risks & Mitigations
+
 - Risk 1: Mitigation strategy
 - Risk 2: Mitigation strategy
 ```
@@ -127,23 +139,27 @@ This approach ensures all new features are well-planned, reviewed, and properly 
 CausaGanha uses a **living MASTERPLAN document** to coordinate all implementation efforts:
 
 ### **📍 MASTERPLAN Location**
+
 - **Primary Document**: `/docs/plans/MASTERPLAN.md`
 - **Status**: Live coordination document (updated with each implementation phase)
 - **Purpose**: Ensures compatibility, proper sequencing, and resource allocation across all plans
 
 ### **🔄 MASTERPLAN Workflow**
+
 1. **Before Creating New Plans**: Check MASTERPLAN for existing priorities and phases
 2. **After Creating Plans**: Update MASTERPLAN to include new plan and assess compatibility
 3. **During Implementation**: Update progress tracking and phase completion in MASTERPLAN
 4. **Resource Conflicts**: Use MASTERPLAN to coordinate developer allocation and timing
 
 ### **⚠️ Alpha Development Guidelines**
+
 - **MASTERPLAN drives implementation order**: Follow phase priorities to avoid conflicts
 - **Breaking changes coordination**: Use MASTERPLAN to batch compatible breaking changes
 - **Dependencies management**: MASTERPLAN critical path prevents implementation deadlocks
 - **Quality gates**: Phase completion requirements ensure system stability
 
 ### **📊 MASTERPLAN Maintenance**
+
 - **Weekly updates**: Implementation progress and phase completion tracking
 - **Plan additions**: New plans must be integrated into existing phase structure
 - **Conflict resolution**: Incompatible plans require MASTERPLAN revision and replanning
@@ -156,22 +172,25 @@ CausaGanha uses a **living MASTERPLAN document** to coordinate all implementatio
 CausaGanha implements a **parallel development system** using an agent registry for scalable, conflict-free collaboration:
 
 ### **📁 Agent Registry Structure**
+
 ```
 .agents/
 ├── README.md              # Central coordination and communication guidelines
 ├── testing-docs.md             # Testing & Documentation specialist
-├── quality-docs.md             # Quality & Documentation specialist  
+├── quality-docs.md             # Quality & Documentation specialist
 ├── infrastructure-devex.md             # Infrastructure & DevEx specialist
 └── monitoring-integration.md            # Monitoring & Integration specialist
 ```
 
 ### **🎯 Agent Sprint System**
+
 - **Sprint-based delivery**: Each agent works on 5 tasks per sprint (2-3 week cycles)
 - **File boundary enforcement**: Agents have exclusive write access to specific directories/files
 - **Zero-conflict development**: Strict file boundaries prevent merge conflicts
 - **Single PR delivery**: All agent work delivered in one comprehensive PR at sprint end
 
 ### **📋 Agent Communication Flow**
+
 1. **Task Assignment**: Agents receive tasks in their individual `.md` cards
 2. **Autonomous Work**: Agents work independently within their file boundaries
 3. **Progress Tracking**: Real-time updates in agent cards with scratchpad notes
@@ -179,19 +198,24 @@ CausaGanha implements a **parallel development system** using an agent registry 
 5. **Feedback Loop**: Responses provided directly in agent cards using Wikipedia-style signatures
 
 ### **🔧 Communication Guidelines**
+
 Agents can use their cards to:
+
 - ✅ **Ask about**: Next sprint planning, architecture suggestions, process improvements, collaboration opportunities
-- ✅ **Update**: Progress tracking, implementation notes, technical decisions  
+- ✅ **Update**: Progress tracking, implementation notes, technical decisions
 - ❌ **Avoid asking**: Current deliverable implementation details (work autonomously)
 
 ### **🎪 File Zone Management**
+
 Each agent has exclusive access to specific areas:
+
 - **testing-docs**: `tests/test_extractor.py`, `tests/test_ia_discovery.py`, `tests/benchmarks/`, `docs/api/`, `docs/tutorials/`
 - **quality-docs**: `tests/mock_data/`, `tests/test_error_simulation.py`, `docs/diagrams/`, `docs/faq.md`, `docs/examples/`
 - **infrastructure-devex**: `ruff.toml`, `.pre-commit-config.yaml`, `.github/workflows/`, `.vscode/`, `Docker*`, `scripts/`
 - **monitoring-integration**: `src/` (type hints only), `src/utils/logging_config.py`, `scripts/{dev,db,env}/`, `.env.example`
 
 ### **🚀 Integration Benefits**
+
 - **Parallel Development**: Multiple improvement streams without blocking main development
 - **Quality Assurance**: All agent work includes comprehensive tests and documentation
 - **Scalable Process**: Agent registry can grow with project needs
@@ -279,6 +303,7 @@ uv run --env-file .env python src/ia_discovery.py --check-identifier tjro-diario
 ```
 
 ### Testing & Quality
+
 ```bash
 # Run all tests (required before commits)
 uv run pytest -q
@@ -314,14 +339,14 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
    - **Domain Validation**: Only .jus.br domains accepted for security
    - **Smart Detection**: Auto-extract date and metadata from URLs
 
-2. **Archive** (`causaganha archive`): 
+2. **Archive** (`causaganha archive`):
    - **Concurrent Processing**: Downloads multiple PDFs simultaneously from TJRO
    - **Internet Archive Upload**: Direct upload to IA with metadata preservation
    - **Original Filename Preservation**: Maintains authentic TJRO naming (e.g., `20250626614-NR115.pdf`)
    - **Progress Tracking**: Resume capability with persistent progress files
    - **Rate Limiting**: Respectful to TJRO servers (3 concurrent downloads max)
 
-3. **Analyze** (`causaganha analyze`): 
+3. **Analyze** (`causaganha analyze`):
    - **Gemini LLM Processing**: Uses Google's Gemini 2.5 Flash for content analysis
    - **Chunked Processing**: 25-page segments with 1-page overlap for context
    - **Temporary Files**: All processing artifacts in temp directories (no data pollution)
@@ -337,6 +362,7 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 ### Key Modules
 
 #### Modern CLI Interface
+
 - **`cli.py`**: **NEW** - Modern Typer-based CLI with 4-stage pipeline
   - Queue, Archive, Analyze, Score commands with rich progress display
   - Database management (migrate, status, sync, backup, reset)
@@ -344,6 +370,7 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
   - .jus.br domain validation and smart metadata extraction
 
 #### Core Processing
+
 - **`async_diario_pipeline.py`**: **NEW** - Main async pipeline with concurrent processing
 - **`ia_database_sync.py`**: **NEW** - Shared database synchronization with locking
 - **`ia_discovery.py`**: **NEW** - Tools for discovering uploaded content in IA
@@ -351,12 +378,14 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 - **`openskill_rating.py`**: OpenSkill rating calculations and environment setup
 
 #### Data Management
+
 - **`database.py`**: **NEW** - Unified DuckDB data layer for all system storage
 - **`diario_processor.py`**: **NEW** - Convert raw TJRO data to pipeline-ready format
 - **`utils.py`**: Lawyer name normalization and decision validation utilities
 - **`config.py`**: Configuration management with TOML support
 
 #### Legacy Integration
+
 - **`pipeline.py`**: Legacy orchestrator (use async_diario_pipeline.py instead)
 - **`downloader.py`**: Individual PDF downloads (integrated into async pipeline)
 
@@ -365,11 +394,13 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 The system implements a **simplified 2-tier storage strategy** for optimal performance and cost:
 
 #### Tier 1: Local DuckDB (Development & Processing)
+
 - **`data/causaganha.duckdb`**: Main database file with unified schema
 - **Core Tables**: ratings, partidas, decisoes, pdf_metadata, json_files
 - **High Performance**: Local access for development and processing
 
 #### Tier 2: Internet Archive (Shared & Permanent Storage)
+
 - **Shared Database**: `causaganha-database-live` for cross-platform collaboration
 - **PDF Archive**: All diarios permanently stored with proper metadata
 - **Public Access**: Complete transparency with research-friendly URLs
@@ -400,7 +431,7 @@ TJRO Website → Async Download → Internet Archive → Gemini Analysis → Ope
   - Comprehensive unit tests with pytest configuration
   - Mock-based tests for external API calls
   - Coverage reporting for src/ modules
-- **`data/`**: **Unified data directory** 
+- **`data/`**: **Unified data directory**
   - `data/causaganha.duckdb`: **Main database** - synced with IA
   - `data/diarios_pipeline_ready.json`: **NEW** - 5,058 diarios ready for processing
   - `data/todos_diarios_tjro.json`: **NEW** - Complete TJRO diario list (2004-2025)
@@ -427,12 +458,14 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 **Four automated workflows** handle the complete data lifecycle with shared database support:
 
 #### 1. Daily Async Pipeline (`pipeline.yml`)
+
 - **Daily at 03:15 UTC** - Processes latest 5 diarios automatically
 - **Manual dispatch** - Flexible date ranges, item limits, force reprocessing
 - **Database sync** - Downloads latest before processing, uploads changes after
 - **Comprehensive reporting** - Statistics, IA discovery, progress tracking
 
 #### 2. Bulk Processing (`bulk-processing.yml`) ⭐ **NEW**
+
 - **On-demand processing** - Handle large-scale operations (up to all 5,058 diarios)
 - **Multiple modes**: year_2025, year_2024, last_100, last_500, all_diarios, custom_range
 - **Concurrency tuning** - Configurable download/upload limits
@@ -440,17 +473,20 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 - **Full database sync** - Ensures consistency across environments
 
 #### 3. Database Archive (`database-archive.yml`)
+
 - **Weekly on Sunday at 04:00 UTC** - Database snapshots to IA
 - **Monthly archives** - First Sunday of each month (permanent retention)
 - **Public research** - Makes complete OpenSkill datasets publicly available
 - **Deduplication** - Skips upload if archive already exists
 
 #### 4. Quality Assurance (`test.yml`)
+
 - **On PR/Push** - Comprehensive testing with all core components
 - **Auto-formatting** - Automatic ruff formatting and linting
 - **Coverage reporting** - Ensures code quality standards
 
 **Required repository secrets:**
+
 - `GEMINI_API_KEY` (required for PDF extraction)
 - `IA_ACCESS_KEY` (required for Internet Archive operations)
 - `IA_SECRET_KEY` (required for Internet Archive operations)
@@ -463,7 +499,7 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
   - **Features**: Chunked analysis with overlap for context continuity
 - **PyMuPDF (fitz)**: Local PDF text extraction library
 - **TJRO Website**: Source of judicial PDFs via direct download URLs
-- **Internet Archive**: 
+- **Internet Archive**:
   - **Primary storage**: All PDFs and shared database
   - **Public access**: Permanent URLs for transparency
   - **Lock system**: Conflict prevention for concurrent operations
@@ -474,32 +510,38 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 ## System Overview & Achievements
 
 ### 🎯 Alpha Distributed Solution
+
 CausaGanha has evolved into an **alpha-stage, distributed judicial analysis platform** with:
 
 #### ✅ **Shared Database Architecture**
+
 - **Cross-Platform Collaboration**: Same database accessible from any environment
-- **Conflict Prevention**: Lock-based system prevents concurrent access issues  
+- **Conflict Prevention**: Lock-based system prevents concurrent access issues
 - **Automatic Synchronization**: Smart sync determines when to upload/download
 - **Internet Archive Hosting**: Zero-cost, permanent, globally accessible storage
 
 #### ✅ **Async Processing Pipeline**
-- **Concurrent Operations**: Process multiple diarios simultaneously 
+
+- **Concurrent Operations**: Process multiple diarios simultaneously
 - **Original Filename Preservation**: Maintains authentic TJRO naming conventions
 - **Progress Tracking**: Resume capability for interrupted processing
 - **Temporary File Handling**: Clean separation of processing vs permanent data
 
 #### ✅ **Comprehensive Discovery System**
+
 - **Coverage Analysis**: Track what's uploaded vs what should exist
 - **Inventory Management**: Export complete catalogs of processed content
 - **Public Transparency**: All judicial records publicly accessible via IA
 
 #### ✅ **Advanced GitHub Actions**
+
 - **4 specialized workflows** with shared database integration
 - **Bulk processing** capabilities for massive datasets (5,058+ diarios)
 - **Automatic conflict resolution** through distributed locking
 - **Comprehensive reporting** with statistics and discovery tools
 
 #### ✅ **Alpha Quality Features**
+
 - **60+ unit tests** with comprehensive mocking of external APIs
 - **Database synchronization** tested with real IA integration
 - **Lock timeout handling** ensures no permanent deadlocks
@@ -507,7 +549,9 @@ CausaGanha has evolved into an **alpha-stage, distributed judicial analysis plat
 - **⚠️ Breaking changes expected**: Core APIs and data structures may change
 
 ### 🚀 **Operational Excellence**
+
 The system demonstrates **enterprise-grade distributed architecture** with:
+
 - **Multi-environment access**: Development and automation share same data
 - **Zero data loss**: Lock system prevents corruption from concurrent access
 - **Automatic scaling**: Handles datasets from single items to 21+ years of records
@@ -515,6 +559,7 @@ The system demonstrates **enterprise-grade distributed architecture** with:
 - **Global accessibility**: Public transparency through permanent IA URLs
 
 ### 🎖️ **Technical Innovation**
+
 - **Distributed database**: First-of-its-kind shared DuckDB via Internet Archive
 - **Async judicial processing**: Concurrent analysis of legal documents at scale
 - **Original filename preservation**: Maintains archival authenticity
@@ -540,6 +585,7 @@ The system processes judicial records from 2004-2025 (21+ years) with complete a
 When working with this codebase, follow the **plan-first development approach**:
 
 ### 🎯 **For New Features**
+
 1. **Check MASTERPLAN first**: Always consult `/docs/plans/MASTERPLAN.md` to understand current implementation phases and priorities
 2. **Always start with planning**: Before implementing any new feature, create a comprehensive plan in `/docs/plans/`
 3. **Use the planning template**: Follow the structured format with problem statement, solution, implementation steps, and risks
@@ -548,25 +594,29 @@ When working with this codebase, follow the **plan-first development approach**:
 6. **Reference existing plans**: Check `/docs/plans/` for similar features or architectural patterns
 
 ### 📋 **When Creating Plans**
+
 - **Be specific**: Include concrete implementation steps, not just high-level ideas
 - **Consider architecture**: Explain how the feature fits into the existing system
 - **Identify risks**: Think about potential issues and mitigation strategies
 - **Define success**: Clear criteria for when the feature is considered complete
 
 ### 🚀 **During Implementation**
+
 - **Follow the plan**: Implement according to the approved specification
 - **Create feature branch**: Use separate branches for each feature development
 - **Test thoroughly**: Include comprehensive tests for new functionality
 - **Update documentation**: Transform the plan into user/technical documentation when complete
 
 ### 📚 **After Implementation**
+
 - **Convert plan to docs**: Transform the plan into proper documentation
-- **Move to appropriate location**: 
+- **Move to appropriate location**:
   - Major features → `/docs/implemented/`
   - Core system features → `/docs/`
 - **Update references**: Ensure all documentation links are updated
 
 ### 🔍 **Plan Review Checklist**
+
 - [ ] Problem clearly defined and justified
 - [ ] Solution approach is technically sound
 - [ ] Implementation steps are actionable

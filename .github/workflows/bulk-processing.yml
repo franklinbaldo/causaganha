@@ -4,45 +4,45 @@ on:
   workflow_dispatch:
     inputs:
       processing_mode:
-        description: 'Processing mode'
+        description: "Processing mode"
         required: true
         type: choice
         options:
-          - 'year_2025'
-          - 'year_2024'
-          - 'year_2023'
-          - 'last_100'
-          - 'last_500'
-          - 'all_diarios'
-          - 'custom_range'
-        default: 'year_2025'
+          - "year_2025"
+          - "year_2024"
+          - "year_2023"
+          - "last_100"
+          - "last_500"
+          - "all_diarios"
+          - "custom_range"
+        default: "year_2025"
       start_date:
-        description: 'Start date for custom range (YYYY-MM-DD)'
+        description: "Start date for custom range (YYYY-MM-DD)"
         required: false
         type: string
       end_date:
-        description: 'End date for custom range (YYYY-MM-DD)'
+        description: "End date for custom range (YYYY-MM-DD)"
         required: false
         type: string
       max_items:
-        description: 'Maximum items to process (overrides mode)'
+        description: "Maximum items to process (overrides mode)"
         required: false
         type: string
       force_reprocess:
-        description: 'Force reprocess existing items'
+        description: "Force reprocess existing items"
         required: false
         type: boolean
         default: false
       concurrent_downloads:
-        description: 'Concurrent downloads (1-5)'
+        description: "Concurrent downloads (1-5)"
         required: false
         type: string
-        default: '3'
+        default: "3"
       concurrent_uploads:
-        description: 'Concurrent IA uploads (1-3)'
+        description: "Concurrent IA uploads (1-3)"
         required: false
         type: string
-        default: '2'
+        default: "2"
 
 env:
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -52,10 +52,10 @@ env:
 jobs:
   bulk-processing:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 360 # 6 hours max
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
           # Set concurrent limits
           echo "MAX_CONCURRENT_DOWNLOADS=${{ inputs.concurrent_downloads }}" >> "$GITHUB_ENV"
           echo "MAX_CONCURRENT_IA_UPLOADS=${{ inputs.concurrent_uploads }}" >> "$GITHUB_ENV"
-          
+
           # Determine date range and limits based on mode
           case "${{ inputs.processing_mode }}" in
             "year_2025")
@@ -104,7 +104,7 @@ jobs:
               echo "description=Process custom date range" >> "$GITHUB_OUTPUT"
               ;;
           esac
-          
+
           # Override with manual max_items if provided
           if [ -n "${{ inputs.max_items }}" ]; then
             echo "max_items=${{ inputs.max_items }}" >> "$GITHUB_OUTPUT"
@@ -128,26 +128,26 @@ jobs:
         id: processing
         run: |
           echo "🚀 Starting bulk processing..."
-          
+
           # Build command
           CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
-          
+
           if [ -n "${{ steps.params.outputs.start_date }}" ]; then
             CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"
           fi
-          
+
           if [ -n "${{ steps.params.outputs.end_date }}" ]; then
             CMD="$CMD --end-date ${{ steps.params.outputs.end_date }}"
           fi
-          
+
           if [ -n "${{ steps.params.outputs.max_items }}" ]; then
             CMD="$CMD --max-items ${{ steps.params.outputs.max_items }}"
           fi
-          
+
           if [ "${{ inputs.force_reprocess }}" = "true" ]; then
             CMD="$CMD --force-reprocess"
           fi
-          
+
           echo "🔧 Executing: $CMD"
           echo ""
           eval $CMD
@@ -157,7 +157,7 @@ jobs:
         run: |
           echo "📊 **Final Processing Statistics:**"
           uv run python src/async_diario_pipeline.py --stats-only || echo "No progress data available"
-          
+
           echo ""
           echo "🔍 **Internet Archive Status:**"
           # Show recent uploads
@@ -178,7 +178,7 @@ jobs:
     needs: bulk-processing
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Processing Summary
         run: |
@@ -188,7 +188,7 @@ jobs:
           echo "**Status**: ${{ needs.bulk-processing.result }}" >> $GITHUB_STEP_SUMMARY
           echo "**Duration**: ~${{ github.run_duration || 'Unknown' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.bulk-processing.result }}" = "success" ]; then
             echo "✅ **Bulk processing completed successfully!**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -200,7 +200,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Check the workflow logs for detailed error information." >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "*Generated by CausaGanha Async Pipeline*" >> $GITHUB_STEP_SUMMARY

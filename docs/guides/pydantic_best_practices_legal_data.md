@@ -11,35 +11,35 @@ This document outlines best practices for using Pydantic models in the CausaGanh
 ## 2. Field Types and Validation
 
 - **Use Specific Types**:
-    - `HttpUrl` for URLs.
-    - `EmailStr` for email addresses.
-    - `datetime.date` for dates, `datetime.datetime` for timestamps.
-    - `Enum` (from Python's `enum` module) for fields with a controlled vocabulary (e.g., `tipo_decisao`, `status`, `resultado`).
-    - `List[SubModel]` or `Dict[str, SubModel]` for nested structured data.
+  - `HttpUrl` for URLs.
+  - `EmailStr` for email addresses.
+  - `datetime.date` for dates, `datetime.datetime` for timestamps.
+  - `Enum` (from Python's `enum` module) for fields with a controlled vocabulary (e.g., `tipo_decisao`, `status`, `resultado`).
+  - `List[SubModel]` or `Dict[str, SubModel]` for nested structured data.
 - **Custom Validators**:
-    - Use `@validator` (Pydantic v1) or `@field_validator` (Pydantic v2) for complex validation rules not covered by standard types.
-    - Examples for legal data:
-        - Validating CNJ (Conselho Nacional de Justiça) process number format.
-        - Validating OAB (Ordem dos Advogados do Brasil) number format.
-        - Ensuring date consistency (e.g., `data_decisao` is not in the future).
+  - Use `@validator` (Pydantic v1) or `@field_validator` (Pydantic v2) for complex validation rules not covered by standard types.
+  - Examples for legal data:
+    - Validating CNJ (Conselho Nacional de Justiça) process number format.
+    - Validating OAB (Ordem dos Advogados do Brasil) number format.
+    - Ensuring date consistency (e.g., `data_decisao` is not in the future).
 - **Constrained Types**:
-    - `constr` for strings with min/max length, regex patterns.
-    - `conint`, `confloat`, `conlist` for constrained numbers and lists.
+  - `constr` for strings with min/max length, regex patterns.
+  - `conint`, `confloat`, `conlist` for constrained numbers and lists.
 - **Optional Fields and Defaults**:
-    - Clearly distinguish between `Optional[X]` (can be `None`) and fields with default values (`field_name: X = default_value` or `Field(default=...)`).
-    - Use `Field(default_factory=...)` for mutable default types (e.g., `list`, `dict`).
+  - Clearly distinguish between `Optional[X]` (can be `None`) and fields with default values (`field_name: X = default_value` or `Field(default=...)`).
+  - Use `Field(default_factory=...)` for mutable default types (e.g., `list`, `dict`).
 
 ## 3. Model Configuration (`class Config`)
 
 - **`allow_population_by_field_name` (V1) / `populate_by_name` (V2)**: Useful when field names in input data differ from model attribute names (e.g., using `alias`). Set to `True`.
 - **`from_attributes` (V2) / `orm_mode` (V1)**: Set to `True` if creating Pydantic models from ORM objects or other arbitrary class instances.
 - **`extra` behavior**:
-    - `'ignore'`: Silently ignore extra fields in input data.
-    - `'forbid'`: Raise an error if extra fields are present (stricter, often better for APIs).
-    - `'allow'`: Allow extra fields and include them in the model instance (use with caution).
+  - `'ignore'`: Silently ignore extra fields in input data.
+  - `'forbid'`: Raise an error if extra fields are present (stricter, often better for APIs).
+  - `'allow'`: Allow extra fields and include them in the model instance (use with caution).
 - **JSON Encoders (`json_encoders`)**:
-    - Provide custom serializers for types not natively handled by `json.dumps` (e.g., `pathlib.Path: str`, `datetime.timedelta`).
-    - Consider using `orjson` for improved JSON parsing/serialization performance if needed, by setting `json_loads` and `json_dumps` in `Config`.
+  - Provide custom serializers for types not natively handled by `json.dumps` (e.g., `pathlib.Path: str`, `datetime.timedelta`).
+  - Consider using `orjson` for improved JSON parsing/serialization performance if needed, by setting `json_loads` and `json_dumps` in `Config`.
 
 ## 4. Aliases
 
@@ -54,9 +54,9 @@ This document outlines best practices for using Pydantic models in the CausaGanh
 ## 6. Serialization
 
 - Use `.model_dump()` (V2) or `.dict()` (V1) for converting models to dictionaries.
-    - `exclude_unset=True`: Useful for PATCH operations or when you only want to serialize fields that were explicitly set.
-    - `exclude_none=True`: Omits fields that have a `None` value.
-    - `by_alias=True`: Serializes using field aliases if defined.
+  - `exclude_unset=True`: Useful for PATCH operations or when you only want to serialize fields that were explicitly set.
+  - `exclude_none=True`: Omits fields that have a `None` value.
+  - `by_alias=True`: Serializes using field aliases if defined.
 - Use `.model_dump_json()` (V2) or `.json()` (V1) for direct JSON string output.
 
 ## 7. Model Inheritance
@@ -75,6 +75,7 @@ This document outlines best practices for using Pydantic models in the CausaGanh
 - **Anonymization/PII**: If models handle PII, ensure fields are clearly marked or consider separate models for anonymized vs. non-anonymized data. Pydantic can be used to strip PII during serialization by selectively excluding fields.
 
 ## 10. Versioning
+
 - As data structures evolve, consider versioning your Pydantic models, especially if they are used in APIs or persistent storage. This can be done via module versioning, namespaces, or specific fields in the model (e.g., `model_version: str = "1.0.0"`).
 
 By following these practices, we can ensure that our Pydantic models are robust, maintainable, and effectively validate the complex data structures found in legal documents.

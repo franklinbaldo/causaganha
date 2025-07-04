@@ -63,16 +63,16 @@ uv run --env-file .env causaganha score
 
 ## Comandos Principais
 
-| Comando | Descrição |
-|---------|-----------|
-| `queue` | Adiciona documentos à fila de processamento |
-| `archive` | Download e armazenamento no Internet Archive |
-| `analyze` | Extração de informações via LLM |
-| `score` | Geração de rankings OpenSkill |
-| `pipeline run` | Executa pipeline assíncrono |
-| `stats` | Estatísticas e progresso |
-| `db sync` | Sincroniza banco de dados |
-| `db` | Operações de banco de dados |
+| Comando        | Descrição                                    |
+| -------------- | -------------------------------------------- |
+| `queue`        | Adiciona documentos à fila de processamento  |
+| `archive`      | Download e armazenamento no Internet Archive |
+| `analyze`      | Extração de informações via LLM              |
+| `score`        | Geração de rankings OpenSkill                |
+| `pipeline run` | Executa pipeline assíncrono                  |
+| `stats`        | Estatísticas e progresso                     |
+| `db sync`      | Sincroniza banco de dados                    |
+| `db`           | Operações de banco de dados                  |
 
 ### Exemplos de CLI
 
@@ -172,4 +172,4 @@ O projeto está aberto à colaboração e feedback da comunidade jurídica, téc
 
 Veja scripts de exemplo em [docs/examples](docs/examples) para demonstrações de processamento de dados e tratamento de erros.
 O script [diario_processing_example.py](docs/examples/diario_processing_example.py) mostra como executar o pipeline para diferentes tribunais usando a opção `--tribunal`.
-Esses exemplos utilizam os dados fictícios em ``tests/mock_data`` para facilitar testes locais.
+Esses exemplos utilizam os dados fictícios em `tests/mock_data` para facilitar testes locais.

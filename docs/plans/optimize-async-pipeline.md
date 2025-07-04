@@ -1,6 +1,7 @@
 # Optimize Async Pipeline (`async_diario_pipeline.py`)
 
 ## Problem Statement
+
 - **What problem does this solve?**
   The `async_diario_pipeline.py` is responsible for processing a large number of diários (5,058 historical items mentioned in `AGENTS.md`). While it's designed for concurrency, there might be bottlenecks, suboptimal resource utilization, or areas where performance can be further enhanced to process diários faster and more efficiently.
 - **Why is this important?**
@@ -13,6 +14,7 @@
   - Error handling within concurrent tasks might lead to inefficiencies if not managed carefully.
 
 ## Proposed Solution
+
 - **High-level approach**
   Systematically analyze the performance of `async_diario_pipeline.py`, identify bottlenecks, and implement optimizations. This includes tuning concurrency parameters, improving I/O operations, optimizing asyncio usage, and potentially refactoring critical sections of the code for better performance.
 - **Technical architecture**
@@ -57,6 +59,7 @@
       - Document performance findings, applied optimizations, and recommendations for configuring concurrency.
 
 ## Success Criteria
+
 - **Reduced Processing Time**: Significant reduction (e.g., 20-30% or more) in the total time taken to process a benchmark set of diários.
 - **Improved Resource Utilization**: More balanced CPU, memory, and network usage during pipeline execution. Reduced idle times.
 - **Scalability**: The pipeline can handle larger volumes of diários more effectively with tuned concurrency.
@@ -65,6 +68,7 @@
 - **Configurability**: Users or system administrators can tune key performance parameters.
 
 ## Implementation Plan (High-Level for this document)
+
 1.  **Profile & Analyze**: Benchmark current `async_diario_pipeline.py`, identify bottlenecks using profiling tools.
 2.  **Tune Concurrency**: Make download/upload/LLM concurrency limits configurable. Experiment with `asyncio.Semaphore` values.
 3.  **Optimize I/O**: Focus on database interactions (async wrappers for DuckDB) and file handling within the async context.
@@ -72,18 +76,20 @@
 5.  **Benchmark & Document**: Measure improvements against baseline. Document findings and configuration advice.
 
 ## Risks & Mitigations
+
 - **Risk 1: Premature Optimization**: Spending time optimizing non-bottlenecked code.
-  - *Mitigation*: Rely heavily on profiling data (Phase 1) to guide optimization efforts. Focus on the most impactful areas first.
+  - _Mitigation_: Rely heavily on profiling data (Phase 1) to guide optimization efforts. Focus on the most impactful areas first.
 - **Risk 2: Increased Complexity**: Some performance optimizations can make code harder to understand or maintain.
-  - *Mitigation*: Prioritize clear and maintainable optimizations. Document complex optimizations thoroughly. Balance performance gains against complexity costs.
+  - _Mitigation_: Prioritize clear and maintainable optimizations. Document complex optimizations thoroughly. Balance performance gains against complexity costs.
 - **Risk 3: Introducing Race Conditions or Deadlocks**: Incorrectly managing concurrency or shared resources can lead to new bugs.
-  - *Mitigation*: Use asyncio synchronization primitives (Semaphore, Lock) correctly. Conduct thorough testing under concurrent load. Code reviews by developers experienced with asyncio.
+  - _Mitigation_: Use asyncio synchronization primitives (Semaphore, Lock) correctly. Conduct thorough testing under concurrent load. Code reviews by developers experienced with asyncio.
 - **Risk 4: External System Limits**: Optimizations might hit rate limits or bottlenecks in external systems (TJRO website, IA, Gemini API) more quickly.
-  - *Mitigation*: Ensure that interactions with external systems respect their rate limits. The existing built-in exponential backoff is good. Optimizations should focus on internal efficiency, allowing the system to make better use of the allowed quota from external services.
+  - _Mitigation_: Ensure that interactions with external systems respect their rate limits. The existing built-in exponential backoff is good. Optimizations should focus on internal efficiency, allowing the system to make better use of the allowed quota from external services.
 - **Risk 5: Diminishing Returns**: After initial optimizations, further gains may require disproportionate effort.
-  - *Mitigation*: Set realistic performance goals. Stop optimizing when the effort outweighs the benefits or when performance is "good enough" for the project's needs.
+  - _Mitigation_: Set realistic performance goals. Stop optimizing when the effort outweighs the benefits or when performance is "good enough" for the project's needs.
 
 ## Dependencies
+
 - Python `asyncio`, `cProfile`, `pstats`.
 - Potentially `uvloop`.
 - Existing libraries like `aiohttp`.

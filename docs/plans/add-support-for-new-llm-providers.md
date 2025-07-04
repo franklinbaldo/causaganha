@@ -1,6 +1,7 @@
 # Add Support for New LLM Providers
 
 ## Problem Statement
+
 - **What problem does this solve?**
   The current CausaGanha system is tightly coupled with Google's Gemini LLM for PDF content extraction and analysis (`src/extractor.py`). This dependency limits flexibility, prevents experimentation with other models, and poses a risk if access to Gemini changes or if other models offer better performance or cost-effectiveness for specific tasks.
 - **Why is this important?**
@@ -11,11 +12,13 @@
   - Configuration for LLM interaction (`GEMINI_API_KEY`, model name) is Gemini-specific.
 
 ## Proposed Solution
+
 - **High-level approach**
   Refactor the LLM interaction layer to use an adapter pattern. Define a common interface for LLM services, and implement specific adapters for each supported LLM provider (starting with Gemini, then adding others).
 - **Technical architecture**
   1.  **`LLMProviderInterface` (Abstract Base Class)**:
       - Define an ABC in `src/llm/interface.py` with common methods, e.g.:
+
         ```python
         from abc import ABC, abstractmethod
         from typing import Dict, Any, List
@@ -35,6 +38,7 @@
             # async def generate_summary(self, text_content: str) -> str:
             #     pass
         ```
+
   2.  **Specific Adapters**:
       - `src/llm/gemini_adapter.py`: Refactor existing `GeminiExtractor` logic into a class `GeminiAdapter` that implements `LLMProviderInterface`.
       - `src/llm/openai_adapter.py`: New adapter for OpenAI models.
@@ -49,6 +53,7 @@
         ```
   4.  **Configuration (`config.toml`)**:
       - Add a general `[llm]` section and provider-specific sections:
+
         ```toml
         [llm]
         default_provider = "gemini" # or "openai", "claude"
@@ -66,6 +71,7 @@
         api_key = "env:ANTHROPIC_API_KEY"
         model_name = "claude-3-opus-20240229"
         ```
+
   5.  **Refactor `src/extractor.py`**:
       - Rename `extractor.py` to something more generic like `data_extractor_service.py` or have it use the `LLMProviderInterface`.
       - The core logic for chunking text, applying prompts, and handling responses will now use the `LLMProviderInterface` methods.
@@ -96,6 +102,7 @@
       - Consider adding a mechanism to easily A/B test different LLMs on the same documents and compare results/costs.
 
 ## Success Criteria
+
 - **Provider Agnostic**: The core application logic in `src/extractor.py` (or its successor) interacts with LLMs via `LLMProviderInterface` and is unaware of the specific provider being used.
 - **Multiple Providers Supported**: At least two LLM providers (e.g., Gemini and OpenAI) are successfully integrated and can be selected via configuration.
 - **Configuration Driven**: The active LLM provider and its model are chosen based on `config.toml` settings.
@@ -104,27 +111,30 @@
 - **No Regression**: Existing LLM-based extraction functionality (using Gemini) remains fully operational through the new abstraction layer.
 
 ## Implementation Plan (High-Level for this document)
+
 1.  **Define Interface & Refactor Gemini**: Create `LLMProviderInterface`. Convert `GeminiExtractor` to `GeminiAdapter`. Update config and `extractor.py` to use the interface.
 2.  **Implement OpenAI Adapter**: Create `OpenAIAdapter`, add its config, and test.
 3.  **Implement Claude Adapter**: Create `ClaudeAdapter`, add its config, and test.
 4.  **Standardize Response (Pydantic)**: Define a common output model. Ensure adapters map to it. Document.
 
 ## Risks & Mitigations
+
 - **Risk 1: Diverging LLM Capabilities**: Different LLMs have varying strengths, weaknesses, prompt syntaxes, and API features (e.g., tool use, system prompts). A purely generic interface might not leverage all features of a specific LLM.
-  - *Mitigation*:
+  - _Mitigation_:
     - Design the interface around common core tasks (e.g., text extraction based on a prompt).
     - Allow `**kwargs` in interface methods for provider-specific parameters.
     - If advanced features are needed, the interface might need to be extended, or specific tasks might still require provider-aware logic at a higher level.
 - **Risk 2: Prompt Engineering Variations**: Prompts often need to be tailored for optimal performance with different LLMs.
-  - *Mitigation*: The `extraction_prompt_file` can still be specific. The system could support provider-specific prompts if necessary (e.g., `gemini_extraction_prompt.txt`, `openai_extraction_prompt.txt`) and load the appropriate one. The "Prompt Versioning Strategy" plan needs to accommodate this.
+  - _Mitigation_: The `extraction_prompt_file` can still be specific. The system could support provider-specific prompts if necessary (e.g., `gemini_extraction_prompt.txt`, `openai_extraction_prompt.txt`) and load the appropriate one. The "Prompt Versioning Strategy" plan needs to accommodate this.
 - **Risk 3: Inconsistent Response Structures**: LLMs return data in different JSON structures or formats.
-  - *Mitigation*: This is a key area for the adapter to handle. Each adapter is responsible for transforming the provider's native response into a standardized internal format (ideally a Pydantic model). This is crucial for decoupling.
+  - _Mitigation_: This is a key area for the adapter to handle. Each adapter is responsible for transforming the provider's native response into a standardized internal format (ideally a Pydantic model). This is crucial for decoupling.
 - **Risk 4: API Key Management**: Managing API keys for multiple providers securely.
-  - *Mitigation*: Continue using environment variables for API keys (`env:GEMINI_API_KEY`). Ensure `.env.example` lists all potential keys. Securely manage these in CI/CD environments.
+  - _Mitigation_: Continue using environment variables for API keys (`env:GEMINI_API_KEY`). Ensure `.env.example` lists all potential keys. Securely manage these in CI/CD environments.
 - **Risk 5: Cost Management**: Different LLMs have different pricing.
-  - *Mitigation*: The choice of LLM provider will be configurable. The project should track costs associated with each provider if usage becomes significant. This plan focuses on technical integration, not cost optimization strategies.
+  - _Mitigation_: The choice of LLM provider will be configurable. The project should track costs associated with each provider if usage becomes significant. This plan focuses on technical integration, not cost optimization strategies.
 
 ## Dependencies
+
 - New HTTP client libraries might be needed for different LLM providers (e.g., `openai` Python library, `anthropic` Python library).
 - `pydantic` for standardized response models.
 - This plan should align with the "Prompt Versioning Strategy" to manage prompts effectively, potentially with provider-specific prompt variants.

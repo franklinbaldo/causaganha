@@ -1,14 +1,14 @@
 Below is a **fully-fleshed “Plan B”** that replaces Alembic + hand-rolled runners with **dbt-duckdb** as the single engine for DDL, tests, and documentation.
-I keep it opinionated, minimal, and focused on what you need for *causa\_ganha* right now; bolt-ons (snapshots, exposures, Airbyte, etc.) can be added later.
+I keep it opinionated, minimal, and focused on what you need for _causa_ganha_ right now; bolt-ons (snapshots, exposures, Airbyte, etc.) can be added later.
 
 ---
 
 ## 0 — Why dbt-duckdb instead of Alembic
 
-* **One binary (`dbt`) rules them all**: DDL, tests, lineage docs, CI drift-checks.
-* **No dialect hacks**: the adapter is maintained by DuckDB core devs and supports full SQL + Parquet/CSV external tables. ([github.com][1])
-* **Reversible in dev, idempotent in prod**: models are re-built from source on every `dbt build`; you only keep data you care about.
-* **Built-in data quality**: null-checks and uniqueness tests live next to the model code. ([docs.getdbt.com][2])
+- **One binary (`dbt`) rules them all**: DDL, tests, lineage docs, CI drift-checks.
+- **No dialect hacks**: the adapter is maintained by DuckDB core devs and supports full SQL + Parquet/CSV external tables. ([github.com][1])
+- **Reversible in dev, idempotent in prod**: models are re-built from source on every `dbt build`; you only keep data you care about.
+- **Built-in data quality**: null-checks and uniqueness tests live next to the model code. ([docs.getdbt.com][2])
 
 If tomorrow you outgrow the embedded file, switch the profile to MotherDuck or Postgres and keep the same models.
 
@@ -25,7 +25,7 @@ dbt init causa_ganha --adapter duckdb
 cd causa_ganha
 ```
 
-*dbt* creates a `profiles.yml` stub in `~/.dbt`. Edit it:
+_dbt_ creates a `profiles.yml` stub in `~/.dbt`. Edit it:
 
 ```yaml
 causa_ganha:
@@ -33,7 +33,7 @@ causa_ganha:
   outputs:
     local:
       type: duckdb
-      path: data/causaganha.duckdb          # relative to repo root
+      path: data/causaganha.duckdb # relative to repo root
 ```
 
 Now `dbt debug` should succeed and create the file if it doesn’t exist.
@@ -158,7 +158,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
       - name: Install deps
         run: |
           pip install --quiet "dbt-duckdb~=1.9"
@@ -213,16 +213,16 @@ Wire it to your CLI as `causaganha db reset`.
 
 ## 10 — Pull-request checklist (dbt edition)
 
-* [ ] All changed/added models pass `dbt build`.
-* [ ] Added/updated tests cover new columns.
-* [ ] `dbt docs generate` shows no duplicate or disabled objects.
-* [ ] CI drift check green.
+- [ ] All changed/added models pass `dbt build`.
+- [ ] Added/updated tests cover new columns.
+- [ ] `dbt docs generate` shows no duplicate or disabled objects.
+- [ ] CI drift check green.
 
 ---
 
 ### Upshot
 
-*You trade thousands of lines of Alembic boilerplate for \~200 lines of model SQL and a rock-solid testing layer.*
+_You trade thousands of lines of Alembic boilerplate for \~200 lines of model SQL and a rock-solid testing layer._
 dbt-duckdb keeps everything reproducible, reviewable, and future-proof—with virtually zero friction on laptops.
 
 If at some point you need more traditional, file-based migrations (e.g., packaged releases for on-prem clients), bolt **Dbmate** on top for just those DDL patches and keep using dbt for everything analytic. Until then, dbt alone will carry you comfortably to production.
