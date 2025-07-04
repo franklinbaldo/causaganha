@@ -9,6 +9,7 @@ Once your TJRO diarios are uploaded to Internet Archive, there are multiple ways
 ## **1. Programmatic Discovery (Our Tools)**
 
 ### **A. Search by Year**
+
 ```bash
 # Find all 2025 diarios
 uv run python src/ia_discovery.py --year 2025
@@ -18,6 +19,7 @@ uv run python src/ia_discovery.py --year 2024
 ```
 
 ### **B. Search by Date Range**
+
 ```bash
 # Find diarios in specific date range
 uv run python src/ia_discovery.py --start-date 2024-01-01 --end-date 2024-12-31
@@ -27,6 +29,7 @@ uv run python src/ia_discovery.py --start-date 2025-06-01 --end-date 2025-06-26
 ```
 
 ### **C. Coverage Analysis**
+
 ```bash
 # Check what's missing vs what should be there
 uv run python src/ia_discovery.py --coverage-report --year 2025
@@ -36,6 +39,7 @@ uv run python src/ia_discovery.py --coverage-report
 ```
 
 ### **D. Export Inventory**
+
 ```bash
 # Export complete inventory to JSON
 uv run python src/ia_discovery.py --export ia_inventory_2025.json --year 2025
@@ -45,6 +49,7 @@ uv run python src/ia_discovery.py --export ia_complete_inventory.json
 ```
 
 ### **E. Check Specific Items**
+
 ```bash
 # Check if specific identifier exists
 uv run python src/ia_discovery.py --check-identifier "tjro-diario-2025-06-26"
@@ -55,11 +60,13 @@ uv run python src/ia_discovery.py --check-identifier "tjro-diario-2025-06-26"
 ## **2. Internet Archive Web Interface**
 
 ### **A. Direct Search URL**
+
 ```
 https://archive.org/search.php?query=creator%3A%22Tribunal%20de%20Justi%C3%A7a%20de%20Rond%C3%B4nia%22
 ```
 
 ### **B. Advanced Search**
+
 1. Go to https://archive.org/advancedsearch.php
 2. Enter search criteria:
    - **Creator**: `Tribunal de Justiça de Rondônia`
@@ -68,6 +75,7 @@ https://archive.org/search.php?query=creator%3A%22Tribunal%20de%20Justi%C3%A7a%2
    - **Media Type**: `texts`
 
 ### **C. Collection Browsing**
+
 - Browse the `opensource` collection: https://archive.org/details/opensource
 - Filter by creator or title
 
@@ -76,18 +84,21 @@ https://archive.org/search.php?query=creator%3A%22Tribunal%20de%20Justi%C3%A7a%2
 ## **3. Internet Archive API**
 
 ### **A. Search API**
+
 ```bash
 # Direct API call
 curl "https://archive.org/advancedsearch.php?q=creator:\"Tribunal de Justiça de Rondônia\"&fl=identifier,title,date&output=json"
 ```
 
 ### **B. Metadata API**
+
 ```bash
 # Get detailed metadata for specific item
 curl "https://archive.org/metadata/tjro-diario-2025-06-26"
 ```
 
 ### **C. Python Requests**
+
 ```python
 import requests
 
@@ -115,24 +126,29 @@ for item in items:
 Our diarios follow predictable identifier patterns:
 
 ### **A. Standard Format**
+
 ```
 tjro-diario-YYYY-MM-DD
 ```
 
 **Examples:**
+
 - `tjro-diario-2025-06-26`
 - `tjro-diario-2024-12-30`
 - `tjro-diario-2004-07-30`
 
 ### **B. Supplements (rare)**
+
 ```
 tjro-diario-YYYY-MM-DD-sufix
 ```
 
 **Example:**
+
 - `tjro-diario-2024-08-29-sup`
 
 ### **C. Generate Expected URLs**
+
 ```python
 from datetime import date, timedelta
 
@@ -153,6 +169,7 @@ while current_date <= end_date:
 ## **5. Bulk Access Methods**
 
 ### **A. Internet Archive Python Library**
+
 ```bash
 # Install IA library
 pip install internetarchive
@@ -162,6 +179,7 @@ ia search 'creator:"Tribunal de Justiça de Rondônia" AND date:[2025-01-01 TO 2
 ```
 
 ### **B. wget Bulk Download**
+
 ```bash
 # Generate download list
 uv run python src/ia_discovery.py --export download_list.json --year 2025
@@ -184,6 +202,7 @@ wget -i urls.txt
 ## **6. Monitoring and Validation**
 
 ### **A. Daily Check Script**
+
 ```bash
 #!/bin/bash
 # Check what was uploaded today
@@ -192,6 +211,7 @@ uv run python src/ia_discovery.py --check-identifier "tjro-diario-$TODAY"
 ```
 
 ### **B. Weekly Coverage Report**
+
 ```bash
 #!/bin/bash
 # Generate weekly coverage report
@@ -200,6 +220,7 @@ uv run python src/ia_discovery.py --coverage-report --year $YEAR > weekly_covera
 ```
 
 ### **C. Missing Items Detection**
+
 ```bash
 # Find missing items and generate retry list
 uv run python src/ia_discovery.py --coverage-report --export missing_items.json --year 2025
@@ -212,11 +233,13 @@ uv run python src/ia_discovery.py --coverage-report --export missing_items.json 
 Internet Archive provides feeds for new uploads:
 
 ### **A. By Creator**
+
 ```
 https://archive.org/services/search/v1/scrape?q=creator:"Tribunal de Justiça de Rondônia"&count=100
 ```
 
 ### **B. By Collection**
+
 ```
 https://archive.org/services/search/v1/scrape?q=collection:opensource AND creator:"Tribunal de Justiça de Rondônia"&count=100
 ```
@@ -228,16 +251,19 @@ https://archive.org/services/search/v1/scrape?q=collection:opensource AND creato
 Our discovery tool supports multiple export formats:
 
 ### **A. JSON (Complete)**
+
 ```bash
 uv run python src/ia_discovery.py --export inventory.json --format json
 ```
 
 ### **B. CSV (Tabular)**
+
 ```bash
 uv run python src/ia_discovery.py --export inventory.csv --format csv
 ```
 
 ### **C. URLs Only (Simple)**
+
 ```bash
 uv run python src/ia_discovery.py --export urls.txt --format urls_only
 ```
@@ -247,6 +273,7 @@ uv run python src/ia_discovery.py --export urls.txt --format urls_only
 ## **9. Integration with Existing Pipeline**
 
 ### **A. Post-Upload Validation**
+
 ```python
 # After uploading, verify it's accessible
 import time
@@ -266,6 +293,7 @@ else:
 ```
 
 ### **B. Gap Detection and Retry**
+
 ```python
 # Find missing items and add to retry queue
 report = discovery.generate_coverage_report(year=2025)
@@ -281,21 +309,25 @@ for date_str in missing_dates:
 ## **10. URL Patterns for Direct Access**
 
 ### **A. Item Detail Page**
+
 ```
 https://archive.org/details/{identifier}
 ```
 
 ### **B. Direct PDF Download**
+
 ```
 https://archive.org/download/{identifier}/{identifier}.pdf
 ```
 
 ### **C. Metadata JSON**
+
 ```
 https://archive.org/metadata/{identifier}
 ```
 
 ### **D. Thumbnail/Preview**
+
 ```
 https://archive.org/services/img/{identifier}
 ```

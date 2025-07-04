@@ -3,287 +3,160 @@
     "case_id": "CASE0001",
     "date": "2023-11-18",
     "court": "Small Claims Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Settled",
-    "keywords": [
-      "appeal",
-      "negligence"
-    ]
+    "keywords": ["appeal", "negligence"]
   },
   {
     "case_id": "CASE0002",
     "date": "2024-11-06",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Remanded",
-    "keywords": [
-      "due process",
-      "torts"
-    ]
+    "keywords": ["due process", "torts"]
   },
   {
     "case_id": "CASE0003",
     "date": "2025-01-07",
     "court": "Small Claims Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Settled",
-    "keywords": [
-      "labor dispute"
-    ]
+    "keywords": ["labor dispute"]
   },
   {
     "case_id": "CASE0004",
     "date": "2023-03-11",
     "court": "Small Claims Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Remanded",
-    "keywords": [
-      "torts"
-    ]
+    "keywords": ["torts"]
   },
   {
     "case_id": "CASE0005",
     "date": "2025-07-30",
     "court": "Supreme Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Dismissed",
-    "keywords": [
-      "contract",
-      "appeal",
-      "due process"
-    ]
+    "keywords": ["contract", "appeal", "due process"]
   },
   {
     "case_id": "CASE0006",
     "date": "2023-09-26",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Remanded",
-    "keywords": [
-      "negligence",
-      "criminal law"
-    ]
+    "keywords": ["negligence", "criminal law"]
   },
   {
     "case_id": "CASE0007",
     "date": "2023-12-16",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Reversed",
-    "keywords": [
-      "negligence",
-      "criminal law"
-    ]
+    "keywords": ["negligence", "criminal law"]
   },
   {
     "case_id": "CASE0008",
     "date": "2022-01-09",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Reversed",
-    "keywords": [
-      "labor dispute",
-      "torts"
-    ]
+    "keywords": ["labor dispute", "torts"]
   },
   {
     "case_id": "CASE0009",
     "date": "2024-06-02",
     "court": "Small Claims Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Remanded",
-    "keywords": [
-      "negligence",
-      "contract",
-      "due process"
-    ]
+    "keywords": ["negligence", "contract", "due process"]
   },
   {
     "case_id": "CASE0010",
     "date": "2025-01-03",
     "court": "Labor Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Remanded",
-    "keywords": [
-      "appeal",
-      "criminal law"
-    ]
+    "keywords": ["appeal", "criminal law"]
   },
   {
     "case_id": "CASE0011",
     "date": "2023-12-25",
     "court": "District Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Reversed",
-    "keywords": [
-      "criminal law",
-      "labor dispute"
-    ]
+    "keywords": ["criminal law", "labor dispute"]
   },
   {
     "case_id": "CASE0012",
     "date": "2024-09-05",
     "court": "Small Claims Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Remanded",
-    "keywords": [
-      "contract",
-      "negligence",
-      "criminal law"
-    ]
+    "keywords": ["contract", "negligence", "criminal law"]
   },
   {
     "case_id": "CASE0013",
     "date": "2025-11-11",
     "court": "Supreme Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Dismissed",
-    "keywords": [
-      "due process",
-      "torts",
-      "criminal law"
-    ]
+    "keywords": ["due process", "torts", "criminal law"]
   },
   {
     "case_id": "CASE0014",
     "date": "2023-01-16",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Reversed",
-    "keywords": [
-      "contract",
-      "appeal"
-    ]
+    "keywords": ["contract", "appeal"]
   },
   {
     "case_id": "CASE0015",
     "date": "2023-07-03",
     "court": "Supreme Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Dismissed",
-    "keywords": [
-      "labor dispute",
-      "torts",
-      "appeal"
-    ]
+    "keywords": ["labor dispute", "torts", "appeal"]
   },
   {
     "case_id": "CASE0016",
     "date": "2025-07-30",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B"
-    ],
+    "judges": ["Judge A", "Judge B"],
     "outcome": "Dismissed",
-    "keywords": [
-      "due process",
-      "appeal"
-    ]
+    "keywords": ["due process", "appeal"]
   },
   {
     "case_id": "CASE0017",
     "date": "2022-02-18",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Affirmed",
-    "keywords": [
-      "criminal law",
-      "contract",
-      "negligence"
-    ]
+    "keywords": ["criminal law", "contract", "negligence"]
   },
   {
     "case_id": "CASE0018",
     "date": "2022-01-05",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A"
-    ],
+    "judges": ["Judge A"],
     "outcome": "Reversed",
-    "keywords": [
-      "contract",
-      "torts"
-    ]
+    "keywords": ["contract", "torts"]
   },
   {
     "case_id": "CASE0019",
     "date": "2025-01-01",
     "court": "Appellate Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Remanded",
-    "keywords": [
-      "torts",
-      "criminal law",
-      "contract"
-    ]
+    "keywords": ["torts", "criminal law", "contract"]
   },
   {
     "case_id": "CASE0020",
     "date": "2023-10-15",
     "court": "Supreme Court",
-    "judges": [
-      "Judge A",
-      "Judge B",
-      "Judge C"
-    ],
+    "judges": ["Judge A", "Judge B", "Judge C"],
     "outcome": "Remanded",
-    "keywords": [
-      "contract",
-      "labor dispute"
-    ]
+    "keywords": ["contract", "labor dispute"]
   }
 ]

@@ -5,6 +5,7 @@
 Esta é uma adaptação do plano original para implementar a dataclass `Diario` considerando o estado atual do projeto CausaGanha, que já possui:
 
 ✅ **Já Implementado:**
+
 - Modern CLI com suporte a `--tribunal` parameter (`causaganha get-urls --tribunal tjro`)
 - Modularização tribunal-específica em `src/tribunais/tjro/`
 - Sistema de queue unificado com DuckDB
@@ -42,12 +43,12 @@ class Diario:
     ia_identifier: Optional[str] = None
     status: str = 'pending'  # pending, downloaded, analyzed, scored
     metadata: dict = field(default_factory=dict)
-    
+
     @property
     def display_name(self) -> str:
         """Human-readable identifier for this diario."""
         return f"{self.tribunal.upper()} - {self.data.isoformat()}"
-    
+
     @property
     def queue_item(self) -> dict:
         """Convert to job_queue table format for existing database."""
@@ -60,7 +61,7 @@ class Diario:
             'ia_identifier': self.ia_identifier,
             'status': self.status
         }
-    
+
     @classmethod
     def from_queue_item(cls, queue_row: dict) -> 'Diario':
         """Create Diario from existing job_queue database row."""
@@ -87,17 +88,17 @@ from .diario import Diario
 
 class DiarioDiscovery(ABC):
     """Abstract interface for discovering diario URLs from tribunal websites."""
-    
+
     @abstractmethod
     def get_diario_url(self, target_date: date) -> Optional[str]:
         """Get diario URL for specific date."""
         pass
-    
+
     @abstractmethod
     def get_latest_diario_url(self) -> Optional[str]:
         """Get URL for the most recent available diario."""
         pass
-    
+
     @abstractmethod
     def list_diarios_in_range(self, start_date: date, end_date: date) -> List[str]:
         """Get URLs for all diarios in date range."""
@@ -105,12 +106,12 @@ class DiarioDiscovery(ABC):
 
 class DiarioDownloader(ABC):
     """Abstract interface for downloading diario PDFs."""
-    
+
     @abstractmethod
     def download_diario(self, diario: Diario) -> Diario:
         """Download PDF and update diario with local path."""
         pass
-    
+
     @abstractmethod
     def archive_to_ia(self, diario: Diario) -> Diario:
         """Archive to Internet Archive and update IA identifier."""
@@ -118,7 +119,7 @@ class DiarioDownloader(ABC):
 
 class DiarioAnalyzer(ABC):
     """Abstract interface for analyzing diario content."""
-    
+
     @abstractmethod
     def extract_decisions(self, diario: Diario) -> List[dict]:
         """Extract judicial decisions from diario PDF."""
@@ -138,36 +139,36 @@ from models.interfaces import DiarioDiscovery
 
 class TJRODiscovery(DiarioDiscovery):
     """TJRO-specific diario URL discovery."""
-    
+
     TJRO_BASE_URL = "https://www.tjro.jus.br/diario_oficial/"
-    
+
     def get_diario_url(self, target_date: date) -> Optional[str]:
         """Reuse existing logic from downloader.py get_tjro_pdf_url."""
         date_str = target_date.strftime("%Y%m%d")
-        
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
-        
+
         try:
             response = requests.get(self.TJRO_BASE_URL, headers=headers, timeout=30)
             response.raise_for_status()
-            
+
             pdf_match = re.search(
                 rf"https://www\.tjro\.jus\.br/novodiario/\d{{4}}/[^\"']*{date_str}[^\"']*\.pdf",
                 response.text,
             )
-            
+
             return pdf_match.group(0) if pdf_match else None
-            
+
         except requests.RequestException:
             return None
-    
+
     def get_latest_diario_url(self) -> Optional[str]:
         """Implement latest discovery logic."""
         # Implementation based on existing fetch_latest_tjro_pdf logic
         pass
-    
+
     def list_diarios_in_range(self, start_date: date, end_date: date) -> List[str]:
         """Get all diario URLs in date range."""
         urls = []
@@ -199,14 +200,14 @@ def get_urls(
     db_path: Path = typer.Option(Path("data/causaganha.duckdb"), "--db-path"),
 ):
     """Get URLs and download judicial diarios - supports both legacy and Diario modes."""
-    
+
     if as_diario:
         # New Diario-based workflow
         from models.diario import Diario
         from tribunais import get_discovery
-        
+
         discovery = get_discovery(tribunal)
-        
+
         if date:
             target_date = datetime.strptime(date, "%Y-%m-%d").date()
             url = discovery.get_diario_url(target_date)
@@ -217,7 +218,7 @@ def get_urls(
                     url=url,
                     filename=Path(url).name
                 )
-                
+
                 if to_queue:
                     # Add Diario to queue
                     _queue_diario(diario)
@@ -263,7 +264,7 @@ def get_discovery(tribunal: str):
     return _DISCOVERIES[tribunal]()
 
 def get_downloader(tribunal: str):
-    """Get downloader implementation for tribunal.""" 
+    """Get downloader implementation for tribunal."""
     if tribunal not in _DOWNLOADERS:
         raise ValueError(f"Unsupported tribunal: {tribunal}")
     return _DOWNLOADERS[tribunal]()
@@ -311,7 +312,7 @@ def get_diarios_by_status(status: str) -> List[Diario]:
     rows = conn.execute("""
         SELECT * FROM job_queue WHERE status = ?
     """, [status]).fetchall()
-    
+
     return [Diario.from_queue_item(dict(row)) for row in rows]
 ```
 
@@ -322,16 +323,19 @@ def get_diarios_by_status(status: str) -> List[Diario]:
 **Implementação gradual mantendo compatibilidade:**
 
 ### **Phase 1: Coexistence** ✅ Ready to implement
+
 - Implementar Diario dataclass e interfaces
 - Adicionar `--as-diario` flag à CLI existente
 - Testar com TJRO usando ambas as abordagens
 
 ### **Phase 2: Adoption**
+
 - Migrar comandos CLI para usar Diario por padrão
 - Deprecar flags legacy
 - Adicionar tribunal validation usando registry
 
 ### **Phase 3: Extension**
+
 - Adicionar suporte a novos tribunais (TJSP, TJSC, etc.)
 - Implementar discovery automático de tribunais
 - Performance optimizations
@@ -366,7 +370,7 @@ def test_queue_integration():
 ✅ **Clean Architecture**: Separa concerns entre discovery, download, analysis  
 ✅ **Easy Extension**: Novos tribunais só precisam implementar as interfaces  
 ✅ **Type Safety**: Dataclass provides structure and validation  
-✅ **Database Integration**: Works with existing DuckDB schema  
+✅ **Database Integration**: Works with existing DuckDB schema
 
 ---
 
