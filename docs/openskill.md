@@ -5,7 +5,9 @@
 **Objetivo**: Este documento descreve a implementação do sistema de rating [OpenSkill](https://github.com/open-skill/openskill.py) no projeto CausaGanha, utilizado para ranquear advogados com base nos resultados de processos judiciais.
 
 ## Motivação para Escolha do OpenSkill
+
 A biblioteca OpenSkill foi escolhida como o sistema de rating principal devido às seguintes vantagens:
+
 - **Licença Permissiva**: OpenSkill (LGPL-3.0) é livre de patentes, ao contrário de algumas implementações do TrueSkill.
 - **Desempenho e API**: Oferece uma API similar ao TrueSkill (μ±σ) e bom desempenho.
 - **Flexibilidade**: Permite ajustes flexíveis de ranking e tem capacidade de lidar com decisões parciais (embora a lógica de identificação de decisões parciais ainda não esteja completamente implementada no pipeline).
@@ -17,6 +19,7 @@ Originalmente, o OpenSkill foi avaliado como um substituto potencial ao TrueSkil
 
 1.  **Dependência Adicionada**:
     A biblioteca `openskill` foi adicionada ao projeto via `pyproject.toml`.
+
     ```toml
     openskill==5.0.1
     ```
@@ -40,7 +43,9 @@ Originalmente, o OpenSkill foi avaliado como um substituto potencial ao TrueSkil
     - Testes de integração no pipeline (`tests/test_pipeline.py`) foram revisados e atualizados para refletir o uso exclusivo do OpenSkill.
 
 ## Configuração (`config.toml`)
+
 A configuração dos parâmetros do OpenSkill é feita na seção `[openskill]` do arquivo `config.toml`:
+
 ```toml
 [openskill]
 mu = 25.0
@@ -50,6 +55,7 @@ tau = 0.08333333333333333  # Padrão: (25.0 / 3.0) / 100.0
 ```
 
 ## Exemplo Rápido de Uso (Biblioteca OpenSkill)
+
 ```python
 from openskill import Rating, rate # Exemplo direto da biblioteca
 
@@ -67,9 +73,14 @@ team_b_ratings = [Rating(mu=30, sigma=7.5)]
 # Exemplo de vitória parcial da equipe A (usando tau específico para a partida)
 # new_a, new_b = model.rate([team_a_ratings, team_b_ratings], ranks=[0, 1], tau=0.7)
 ```
+
 O módulo `src/openskill_rating.py` abstrai essas chamadas, facilitando o uso no pipeline.
 
 ## Considerações Futuras
+
 - **Detecção de Resultados Parciais**: Aprimorar a lógica no `pipeline.py` para identificar resultados parciais (e.g., "parcialmente procedente") a partir dos dados extraídos e mapeá-los para `MatchResult.PARTIAL_A` ou `MatchResult.PARTIAL_B`, para que o `openskill_rating.py` possa aplicar a lógica de `tau` diferenciado para essas partidas.
 - **Time Decay**: Avaliar a necessidade e implementar um mecanismo de decaimento de rating ao longo do tempo, se relevante para o projeto. OpenSkill suporta isso através do argumento `decay` na função `rate`.
+
+```
+
 ```

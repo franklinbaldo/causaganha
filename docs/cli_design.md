@@ -72,6 +72,7 @@ causaganha pipeline --from-csv urls.csv --stop-on-error
 ## Input Formats
 
 ### CSV Format (urls.csv)
+
 ```csv
 url
 https://www.tjro.jus.br/diario20250626.pdf
@@ -84,6 +85,7 @@ https://www.tjro.jus.br/diario2.pdf,
 ```
 
 **Auto-Detection**: Everything extracted from URL:
+
 - `tribunal`: From domain (`www.tjro.jus.br`)
 - `date`: From URL patterns or filename
 - `filename`: From URL path or HTTP headers
@@ -91,6 +93,7 @@ https://www.tjro.jus.br/diario2.pdf,
 ## DuckDB Schema
 
 ### Job Queue Table
+
 ```sql
 CREATE TABLE job_queue (
     id INTEGER PRIMARY KEY,
@@ -121,42 +124,47 @@ CREATE TABLE job_queue (
 ## Features
 
 ### Progress Tracking
+
 - tqdm progress bars for all long-running operations
 - Real-time statistics showing items in each stage
 - ETA calculations and throughput metrics
 
 ### Error Handling
+
 - Automatic retry with exponential backoff
 - Detailed error logging and reporting
 - Resume capability from any stage
 - Graceful handling of interruptions
 
 ### Modularity
+
 - Each stage can run independently
 - Support for multiple tribunals through external URL generation
 - Flexible input formats (URL, JSON, CSV)
 - Configurable concurrency and rate limiting
 
 ### Stats System
+
 ```bash
 causaganha stats
 # Output:
 # Pipeline Status:
 # ├── Queued:     1,250 items
-# ├── Archived:   1,100 items  
+# ├── Archived:   1,100 items
 # ├── Analyzed:     950 items
 # ├── Scored:       800 items
 # └── Failed:        25 items
-# 
+#
 # Processing Speed:
 # ├── Archive:  15 items/min
-# ├── Analyze:   8 items/min  
+# ├── Analyze:   8 items/min
 # └── Score:    20 items/min
 ```
 
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 GEMINI_API_KEY=your_gemini_key
 IA_ACCESS_KEY=your_ia_access_key
@@ -165,6 +173,7 @@ DUCKDB_PATH=data/causaganha.duckdb
 ```
 
 ### Config File (~/.causaganha/config.toml)
+
 ```toml
 [processing]
 max_workers = 5
@@ -184,6 +193,7 @@ temperature = 0.1
 ## Implementation Notes
 
 ### Technology Stack
+
 - **Typer**: Modern Python CLI framework
 - **DuckDB**: Job queue and data storage
 - **tqdm**: Progress bars and status display
@@ -191,6 +201,7 @@ temperature = 0.1
 - **asyncio**: Concurrent processing
 
 ### Tribunal Agnostic Design
+
 The CLI separates tribunal-specific URL discovery (Step 0) from the generic processing pipeline:
 
 1. **External Step**: Generate URLs for any tribunal (TJRO, TJSP, etc.)
@@ -199,6 +210,7 @@ The CLI separates tribunal-specific URL discovery (Step 0) from the generic proc
 4. **Flexible Input**: Support various metadata formats per tribunal
 
 **Auto-Detection Examples**:
+
 - `https://www.tjro.jus.br/diario.pdf` → `tribunal: www.tjro.jus.br`
 - `https://www.tjsp.jus.br/diario.pdf` → `tribunal: www.tjsp.jus.br`
 - `diario20250626.pdf` → `date: 2025-06-26`
@@ -207,25 +219,30 @@ The CLI separates tribunal-specific URL discovery (Step 0) from the generic proc
 This design allows easy extension to new tribunals without modifying core processing logic.
 
 ### Atomic Operations
+
 Each document is processed as an atomic unit:
+
 - State transitions are transactional
-- Failed items can be retried independently  
+- Failed items can be retried independently
 - Pipeline can be safely interrupted and resumed
 - No partial states or data corruption
 
 ## Future Enhancements
 
 ### HTTP Dashboard
+
 - Real-time monitoring via web interface
 - Job control (pause, resume, cancel)
 - Historical statistics and charts
 - API for programmatic access
 
 ### Advanced Features
+
 - Priority queues for urgent processing
 - Distributed processing across multiple machines
 - Webhook notifications for completion
 - Integration with CI/CD pipelines
-## UX Improvements (Sprint 2025-03)
-During design review with Juan Carlos, we identified simplified command groups and improved help text. Autocompletion examples were added and subcommand descriptions clarified.
 
+## UX Improvements (Sprint 2025-03)
+
+During design review with Juan Carlos, we identified simplified command groups and improved help text. Autocompletion examples were added and subcommand descriptions clarified.

@@ -2,91 +2,61 @@
   {
     "case_id": "XT001",
     "primary_tribunal": "Electoral Court",
-    "cross_referenced_tribunals": [
-      "Civil Court",
-      "Labor Court"
-    ],
+    "cross_referenced_tribunals": ["Civil Court", "Labor Court"],
     "summary": "Example cross tribunal case 1"
   },
   {
     "case_id": "XT002",
     "primary_tribunal": "Criminal Court",
-    "cross_referenced_tribunals": [
-      "Civil Court",
-      "Electoral Court"
-    ],
+    "cross_referenced_tribunals": ["Civil Court", "Electoral Court"],
     "summary": "Example cross tribunal case 2"
   },
   {
     "case_id": "XT003",
     "primary_tribunal": "Civil Court",
-    "cross_referenced_tribunals": [
-      "Electoral Court",
-      "Criminal Court"
-    ],
+    "cross_referenced_tribunals": ["Electoral Court", "Criminal Court"],
     "summary": "Example cross tribunal case 3"
   },
   {
     "case_id": "XT004",
     "primary_tribunal": "Labor Court",
-    "cross_referenced_tribunals": [
-      "Criminal Court",
-      "Civil Court"
-    ],
+    "cross_referenced_tribunals": ["Criminal Court", "Civil Court"],
     "summary": "Example cross tribunal case 4"
   },
   {
     "case_id": "XT005",
     "primary_tribunal": "Electoral Court",
-    "cross_referenced_tribunals": [
-      "Labor Court",
-      "Criminal Court"
-    ],
+    "cross_referenced_tribunals": ["Labor Court", "Criminal Court"],
     "summary": "Example cross tribunal case 5"
   },
   {
     "case_id": "XT006",
     "primary_tribunal": "Civil Court",
-    "cross_referenced_tribunals": [
-      "Criminal Court",
-      "Labor Court"
-    ],
+    "cross_referenced_tribunals": ["Criminal Court", "Labor Court"],
     "summary": "Example cross tribunal case 6"
   },
   {
     "case_id": "XT007",
     "primary_tribunal": "Civil Court",
-    "cross_referenced_tribunals": [
-      "Criminal Court",
-      "Labor Court"
-    ],
+    "cross_referenced_tribunals": ["Criminal Court", "Labor Court"],
     "summary": "Example cross tribunal case 7"
   },
   {
     "case_id": "XT008",
     "primary_tribunal": "Labor Court",
-    "cross_referenced_tribunals": [
-      "Criminal Court",
-      "Civil Court"
-    ],
+    "cross_referenced_tribunals": ["Criminal Court", "Civil Court"],
     "summary": "Example cross tribunal case 8"
   },
   {
     "case_id": "XT009",
     "primary_tribunal": "Criminal Court",
-    "cross_referenced_tribunals": [
-      "Labor Court",
-      "Electoral Court"
-    ],
+    "cross_referenced_tribunals": ["Labor Court", "Electoral Court"],
     "summary": "Example cross tribunal case 9"
   },
   {
     "case_id": "XT010",
     "primary_tribunal": "Labor Court",
-    "cross_referenced_tribunals": [
-      "Electoral Court",
-      "Criminal Court"
-    ],
+    "cross_referenced_tribunals": ["Electoral Court", "Criminal Court"],
     "summary": "Example cross tribunal case 10"
   }
 ]
