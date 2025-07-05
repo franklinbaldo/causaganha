@@ -17,13 +17,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import hashlib
 
-# Load environment variables
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
+# Environment variables are loaded from system environment
 
 
 class IADatabaseSync:

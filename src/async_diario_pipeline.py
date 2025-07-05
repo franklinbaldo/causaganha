@@ -31,13 +31,7 @@ from .pii_manager import PiiManager
 from .config import load_config
 from .database import DatabaseManager, CausaGanhaDB, run_db_migrations
 
-# Load environment variables from .env file
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass  # python-dotenv not available, continue without it
+# Environment variables are loaded from system environment
 
 
 # Configure Internet Archive with environment variables
