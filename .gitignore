@@ -4,7 +4,6 @@ __pycache__/
 .env
 uv.lock
 
-**.duckdb
 # Data files
 data/*
 
@@ -19,4 +18,3 @@ coverage.xml
 .coverage
 htmlcov/
 docs/_build/
-data/causaganha.duckdb

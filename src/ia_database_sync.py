@@ -16,6 +16,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import hashlib
+import duckdb
 
 # Environment variables are loaded from system environment
 
@@ -588,6 +589,241 @@ class IADatabaseSync:
             success = self.download_database_from_ia(force=True)
             return "downloaded_from_ia" if success else "download_failed"
 
+    def export_and_upload_parquet_datasets(
+        self,
+        tables: Optional[list] = None,
+        collection: str = "opensource",
+        wait_for_lock: bool = True,
+        cleanup_files: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Export tables from DuckDB to Parquet files and upload to Internet Archive.
+        
+        Args:
+            tables: List of table names to export. If None, exports all tables.
+            collection: IA collection to upload to (default: "opensource")
+            wait_for_lock: Whether to wait for database lock release
+            cleanup_files: Whether to clean up temporary Parquet files after upload
+            
+        Returns:
+            Dict with export results and upload status for each table
+        """
+        if not self.local_db_path.exists():
+            self.logger.error("Local database not found")
+            return {"error": "Local database not found"}
+
+        # Check for existing lock
+        lock_metadata = self._check_lock_exists()
+        if lock_metadata:
+            if wait_for_lock:
+                self.logger.info("Database is locked, waiting for release...")
+                if not self._wait_for_lock_release():
+                    return {"error": "Lock timeout"}
+            else:
+                return {"error": "Database is locked by another operation"}
+
+        # Create lock for export operation
+        if not self._create_lock("parquet_export", timeout_minutes=90):
+            self.logger.error("Failed to create lock for export operation")
+            return {"error": "Failed to create lock for export operation"}
+
+        results = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "tables_exported": [],
+            "tables_failed": [],
+            "upload_results": {},
+            "total_files_created": 0,
+            "total_files_uploaded": 0,
+        }
+
+        temp_files = []  # Track temporary files for cleanup
+
+        try:
+            # Connect to DuckDB
+            self.logger.info("Connecting to DuckDB database")
+            with duckdb.connect(str(self.local_db_path)) as conn:
+                
+                # Get list of tables if not provided
+                if tables is None:
+                    table_query = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+                    tables = [row[0] for row in conn.execute(table_query).fetchall()]
+                    self.logger.info(f"Found {len(tables)} tables in database")
+                else:
+                    self.logger.info(f"Exporting {len(tables)} specified tables")
+
+                if not tables:
+                    self.logger.warning("No tables found to export")
+                    return {"error": "No tables found to export"}
+
+                # Create temporary directory for parquet files
+                temp_dir = Path(tempfile.mkdtemp(prefix="causaganha_parquet_"))
+                self.logger.info(f"Created temporary directory: {temp_dir}")
+
+                # Export each table to Parquet
+                for table_name in tables:
+                    try:
+                        self.logger.info(f"Exporting table: {table_name}")
+                        
+                        # Create timestamp for filename versioning
+                        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                        parquet_filename = f"{table_name}_{timestamp}.parquet"
+                        parquet_path = temp_dir / parquet_filename
+                        
+                        # Check if table exists and has data
+                        count_query = f"SELECT COUNT(*) FROM {table_name}"
+                        row_count = conn.execute(count_query).fetchone()[0]
+                        
+                        if row_count == 0:
+                            self.logger.warning(f"Table {table_name} is empty, skipping")
+                            continue
+                            
+                        self.logger.info(f"Table {table_name} has {row_count:,} rows")
+                        
+                        # Export table to Parquet using DuckDB's COPY command
+                        copy_query = f"COPY {table_name} TO '{parquet_path}' (FORMAT 'parquet')"
+                        conn.execute(copy_query)
+                        
+                        # Verify file was created
+                        if not parquet_path.exists():
+                            raise Exception(f"Parquet file was not created: {parquet_path}")
+                            
+                        file_size = parquet_path.stat().st_size
+                        self.logger.info(f"✅ Exported {table_name} to {parquet_filename} ({file_size:,} bytes)")
+                        
+                        temp_files.append(parquet_path)
+                        results["tables_exported"].append(table_name)
+                        results["total_files_created"] += 1
+                        
+                    except Exception as e:
+                        self.logger.error(f"❌ Failed to export table {table_name}: {e}")
+                        results["tables_failed"].append({"table": table_name, "error": str(e)})
+                        continue
+
+                # Upload each Parquet file to Internet Archive
+                self.logger.info(f"Uploading {len(temp_files)} Parquet files to Internet Archive")
+                
+                for parquet_path in temp_files:
+                    try:
+                        table_name = parquet_path.name.split('_')[0]  # Extract table name from filename
+                        
+                        # Create unique IA identifier for this dataset
+                        ia_identifier = f"causaganha-dataset-{table_name}"
+                        
+                        # Calculate file hash
+                        file_hash = self._calculate_file_hash(parquet_path)
+                        file_size = parquet_path.stat().st_size
+                        
+                        # Prepare metadata for IA upload
+                        upload_metadata = {
+                            "title": f"CausaGanha Dataset - {table_name}",
+                            "description": f"Parquet dataset export from CausaGanha database table '{table_name}'. "
+                                         f"Contains judicial analysis data exported on {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC.",
+                            "creator": "CausaGanha System",
+                            "subject": f"database; judicial; legal; parquet; dataset; {table_name}; causaganha",
+                            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                            "language": "por",
+                            "collection": collection,
+                            "mediatype": "data",
+                            "file_size": str(file_size),
+                            "sha256": file_hash,
+                            "export_timestamp": datetime.now(timezone.utc).isoformat(),
+                            "source_table": table_name,
+                            "format": "parquet",
+                            "database_version": "1.0",
+                            "causaganha_version": "1.0",
+                        }
+                        
+                        # Build IA upload command
+                        cmd = ["ia", "upload", ia_identifier, str(parquet_path)]
+                        
+                        # Add metadata
+                        for key, value in upload_metadata.items():
+                            cmd.extend([f"--metadata={key}:{value}"])
+                        
+                        self.logger.info(f"Uploading {parquet_path.name} to IA identifier: {ia_identifier}")
+                        
+                        # Execute upload with extended timeout for large files
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+                        
+                        if result.returncode == 0:
+                            ia_url = f"https://archive.org/details/{ia_identifier}"
+                            self.logger.info(f"✅ Successfully uploaded {parquet_path.name} to {ia_url}")
+                            
+                            results["upload_results"][table_name] = {
+                                "success": True,
+                                "ia_identifier": ia_identifier,
+                                "ia_url": ia_url,
+                                "file_size": file_size,
+                                "sha256": file_hash,
+                                "filename": parquet_path.name,
+                            }
+                            results["total_files_uploaded"] += 1
+                            
+                        else:
+                            error_msg = f"IA upload failed: {result.stderr}"
+                            self.logger.error(f"❌ Failed to upload {parquet_path.name}: {error_msg}")
+                            
+                            results["upload_results"][table_name] = {
+                                "success": False,
+                                "error": error_msg,
+                                "filename": parquet_path.name,
+                            }
+                            
+                    except Exception as e:
+                        error_msg = f"Upload error: {e}"
+                        self.logger.error(f"❌ Failed to upload {parquet_path.name}: {error_msg}")
+                        
+                        results["upload_results"][table_name] = {
+                            "success": False,
+                            "error": error_msg,
+                            "filename": parquet_path.name,
+                        }
+
+                # Clean up temporary files if requested
+                if cleanup_files:
+                    self.logger.info("Cleaning up temporary Parquet files")
+                    try:
+                        shutil.rmtree(temp_dir)
+                        self.logger.info(f"✅ Cleaned up temporary directory: {temp_dir}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to clean up temporary directory: {e}")
+                else:
+                    self.logger.info(f"Temporary files kept in: {temp_dir}")
+                    results["temp_directory"] = str(temp_dir)
+
+        except Exception as e:
+            self.logger.error(f"Export operation failed: {e}")
+            results["error"] = str(e)
+            
+            # Clean up temporary files on error
+            if cleanup_files:
+                for temp_file in temp_files:
+                    try:
+                        if temp_file.exists():
+                            temp_file.unlink()
+                    except Exception as cleanup_error:
+                        self.logger.warning(f"Failed to clean up {temp_file}: {cleanup_error}")
+
+        finally:
+            # Always remove the lock
+            self._remove_lock()
+
+        # Log final results
+        exported_count = len(results["tables_exported"])
+        failed_count = len(results["tables_failed"])
+        uploaded_count = results["total_files_uploaded"]
+        
+        if exported_count > 0:
+            self.logger.info(f"📊 Export Summary:")
+            self.logger.info(f"  • Tables exported: {exported_count}")
+            self.logger.info(f"  • Tables failed: {failed_count}")
+            self.logger.info(f"  • Files uploaded to IA: {uploaded_count}")
+            
+            if uploaded_count > 0:
+                self.logger.info(f"  • All datasets available at: https://archive.org/search.php?query=creator%3A%22CausaGanha%20System%22")
+        
+        return results
+
 
 def main():
     """CLI interface for database sync."""
@@ -598,7 +834,7 @@ def main():
     )
     parser.add_argument(
         "action",
-        choices=["status", "download", "upload", "sync"],
+        choices=["status", "download", "upload", "sync", "export-parquet"],
         help="Action to perform",
     )
     parser.add_argument(
@@ -608,6 +844,21 @@ def main():
         "--prefer-ia", action="store_true", help="Prefer IA version in smart sync"
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+    parser.add_argument(
+        "--tables",
+        nargs="+",
+        help="Specific tables to export (for export-parquet action)",
+    )
+    parser.add_argument(
+        "--collection",
+        default="opensource",
+        help="IA collection to upload to (default: opensource)",
+    )
+    parser.add_argument(
+        "--keep-files",
+        action="store_true",
+        help="Keep temporary Parquet files after upload",
+    )
 
     args = parser.parse_args()
 
@@ -648,6 +899,22 @@ def main():
             print(
                 "Database is locked by another operation. Use --force to skip waiting."
             )
+            exit(1)
+
+    elif args.action == "export-parquet":
+        result = sync.export_and_upload_parquet_datasets(
+            tables=args.tables,
+            collection=args.collection,
+            wait_for_lock=not args.force,
+            cleanup_files=not args.keep_files,
+        )
+        
+        print(json.dumps(result, indent=2, default=str))
+        
+        if "error" in result:
+            exit(1)
+        elif result["total_files_uploaded"] == 0:
+            print("No files were successfully uploaded")
             exit(1)
 
 
