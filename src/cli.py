@@ -15,9 +15,9 @@ import typer
 
 from config import load_config
 from database import CausaGanhaDB, DatabaseManager, run_db_migrations
-from ia_database_sync import IADatabaseSync
+from simple_backup import backup_database_before_changes, export_and_upload_to_ia
 
-from . import async_diario_pipeline
+from async_diario_pipeline import main as async_pipeline_main
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +248,6 @@ def pipeline_run(
         None, help="Limit number of diarios processed"
     ),
     verbose: bool = typer.Option(False, help="Enable verbose logging"),
-    sync_database: bool = typer.Option(False, help="Sync database before run"),
 ) -> None:
     """Execute the async pipeline."""
     args = []
@@ -258,13 +257,11 @@ def pipeline_run(
         args += ["--max-items", str(max_items)]
     if verbose:
         args.append("--verbose")
-    if sync_database:
-        args.append("--sync-database")
 
     sys_argv_backup = sys.argv
     sys.argv = ["async_diario_pipeline.py"] + args
     try:
-        exit_code = asyncio.run(async_diario_pipeline.main())
+        exit_code = asyncio.run(async_pipeline_main())
     finally:
         sys.argv = sys_argv_backup
     raise typer.Exit(exit_code)
@@ -289,16 +286,6 @@ def show_config_cmd(ctx: typer.Context) -> None:
     typer.echo(json.dumps(cg_config, indent=2, default=str))
 
 
-@app.command("archive-status")
-def archive_status_cmd(verbose: bool = False) -> None:
-    """Display Internet Archive sync status."""
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-    sync = IADatabaseSync()
-    status = sync.sync_status()
-    typer.echo(json.dumps(status, indent=2, default=str))
 
 
 @app.command("diario")
@@ -350,7 +337,7 @@ def _db_status(ctx: typer.Context) -> None:
 def database_cmd_group(
     ctx: typer.Context,
     action: str = typer.Argument(
-        ..., help="Action: migrate, status, sync, backup, reset, healthcheck"
+        ..., help="Action: migrate, status, backup, reset, healthcheck"
     ),
     force: bool = typer.Option(False, help="Force operation"),
 ) -> None:
@@ -374,15 +361,6 @@ def database_cmd_group(
             raise typer.Exit(1)
     elif action == "status":
         _db_status(ctx)
-    elif action == "sync":
-        from ia_database_sync import IADatabaseSync
-
-        typer.echo("🔄 Syncing database with Internet Archive...")
-        syncer = IADatabaseSync(db_path_cfg)
-        result = syncer.smart_sync(prefer_local=True, wait_for_lock=not force)
-        typer.echo(f"Sync result: {result}")
-        if result in ["upload_failed", "download_failed", "lock_timeout"]:
-            raise typer.Exit(1)
     elif action == "healthcheck":
         temp_manager = DatabaseManager(db_path_cfg)
         typer.echo(f"🩺 Health check for {temp_manager.db_path}...")
@@ -435,6 +413,37 @@ def database_cmd_group(
             raise typer.Exit(1)
     else:
         typer.echo(f"❌ Unknown 'db' action: {action}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("backup")
+def backup_cmd(ctx: typer.Context) -> None:
+    """Create a timestamped backup of the database."""
+    db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
+    
+    try:
+        backup_path = backup_database_before_changes(db_path_cfg)
+        typer.echo(f"✅ Database backed up to: {backup_path}")
+    except Exception as e:
+        typer.echo(f"❌ Backup failed: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("export")
+def export_cmd(ctx: typer.Context) -> None:
+    """Export database to parquet format and upload to Internet Archive."""
+    db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
+    
+    try:
+        uploaded_urls = export_and_upload_to_ia(db_path_cfg)
+        if uploaded_urls:
+            typer.echo(f"✅ Export completed! Uploaded {len(uploaded_urls)} tables:")
+            for table_name, url in uploaded_urls.items():
+                typer.echo(f"  - {table_name}: {url}")
+        else:
+            typer.echo("⚠️  No files were uploaded. Check your data and IA credentials.")
+    except Exception as e:
+        typer.echo(f"❌ Export failed: {e}", err=True)
         raise typer.Exit(1)
 
 

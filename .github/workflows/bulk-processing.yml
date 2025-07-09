@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360 # 6 hours max
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -129,8 +129,13 @@ jobs:
         run: |
           echo "🚀 Starting bulk processing..."
 
+          # Create backup before processing
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          mkdir -p data/backups
+          cp data/causaganha.duckdb data/backups/causaganha_${timestamp}.duckdb || true
+          
           # Build command
-          CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
+          CMD="uv run python src/async_diario_pipeline.py --verbose"
 
           if [ -n "${{ steps.params.outputs.start_date }}" ]; then
             CMD="$CMD --start-date ${{ steps.params.outputs.start_date }}"
@@ -151,6 +156,29 @@ jobs:
           echo "🔧 Executing: $CMD"
           echo ""
           eval $CMD
+
+      - name: Commit database changes
+        if: success()
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add database and backup files
+          git add data/causaganha.duckdb data/backups/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Commit changes
+            git commit -m "chore: update database after bulk processing $(date)"
+            
+            # Push to main branch
+            git push origin main
+            
+            echo "Successfully committed and pushed database changes"
+          fi
 
       - name: Processing Statistics
         if: always()

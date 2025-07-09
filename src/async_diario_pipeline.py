@@ -570,16 +570,6 @@ async def main():
         help="Reprocess items even if they already exist in IA",
     )
     parser.add_argument(
-        "--sync-database",
-        action="store_true",
-        help="Sync database with IA before processing",
-    )
-    parser.add_argument(
-        "--upload-database",
-        action="store_true",
-        help="Upload database to IA after processing",
-    )
-    parser.add_argument(
         "--anonymize-metadata",
         action="store_true",
         help="Replace creator and title metadata with UUIDs",
@@ -599,24 +589,6 @@ async def main():
             "Failed to configure Internet Archive. Please check IA_ACCESS_KEY and IA_SECRET_KEY environment variables."
         )
         return 1
-
-    # Database sync before processing
-    if args.sync_database:
-        try:
-            from ia_database_sync import IADatabaseSync
-
-            db_sync = IADatabaseSync()
-
-            logging.info("🔄 Syncing database with Internet Archive...")
-            sync_result = db_sync.smart_sync(prefer_local=True)
-            logging.info(f"Database sync result: {sync_result}")
-
-            if sync_result in ["upload_failed", "download_failed"]:
-                logging.error("Database sync failed, continuing with local database")
-
-        except Exception as e:
-            logging.error(f"Database sync failed: {e}")
-            logging.info("Continuing with local database")
 
     # Load diarios data
     try:
@@ -665,23 +637,6 @@ async def main():
             skip_existing=not args.force_reprocess,
         )
 
-        # Database upload after processing
-        if args.upload_database:
-            try:
-                from ia_database_sync import IADatabaseSync
-
-                db_sync = IADatabaseSync()
-
-                logging.info("⬆️ Uploading updated database to Internet Archive...")
-                success = db_sync.upload_database_to_ia()
-
-                if success:
-                    logging.info("✅ Database uploaded successfully")
-                else:
-                    logging.error("❌ Database upload failed")
-
-            except Exception as e:
-                logging.error(f"Database upload failed: {e}")
 
     return 0
 

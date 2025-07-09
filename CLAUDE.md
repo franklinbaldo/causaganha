@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CausaGanha is an automated judicial decision analysis platform that applies the OpenSkill rating system to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from Brazilian tribunals using Google's Gemini LLM with a shared database architecture hosted on Internet Archive.
+CausaGanha is an automated judicial decision analysis platform that applies the OpenSkill rating system to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from Brazilian tribunals using Google's Gemini LLM with local DuckDB storage and Internet Archive for PDF archiving.
 
 ## Development Setup
 
@@ -251,7 +251,7 @@ uv run --env-file .env causaganha stats
 # Database management
 uv run --env-file .env causaganha db status
 uv run --env-file .env causaganha db migrate
-uv run --env-file .env causaganha db sync
+uv run --env-file .env causaganha db backup
 ```
 
 ### Legacy Async Pipeline (Advanced Users)
@@ -260,28 +260,22 @@ For advanced users, the original async pipeline is still available:
 
 ```bash
 # Legacy async pipeline commands
-uv run --env-file .env python src/async_diario_pipeline.py --max-items 5 --sync-database --upload-database
+uv run --env-file .env python src/async_diario_pipeline.py --max-items 5
 ```
 
-### Database Synchronization
+### Database Backup and Export
 
-Shared database system with Internet Archive for cross-platform collaboration:
+Local DuckDB database with optional Internet Archive backup:
 
 ```bash
-# Check database sync status
-uv run --env-file .env python src/ia_database_sync.py status
+# Export database to Internet Archive for backup
+uv run --env-file .env causaganha db export
 
-# Smart sync (automatically choose download/upload)
-uv run --env-file .env python src/ia_database_sync.py sync
+# Check database status
+uv run --env-file .env causaganha db status
 
-# Download latest database from IA
-uv run --env-file .env python src/ia_database_sync.py download
-
-# Upload local changes to IA
-uv run --env-file .env python src/ia_database_sync.py upload
-
-# Force operations (bypass locks)
-uv run --env-file .env python src/ia_database_sync.py sync --force
+# Create local backup
+uv run --env-file .env causaganha db backup
 ```
 
 ### Internet Archive Discovery
@@ -319,14 +313,14 @@ uv run ruff check --fix  # Auto-fix issues
 
 ## Architecture Overview
 
-### Distributed Database System
+### Local Database with Archive Backup
 
-CausaGanha uses a **shared database architecture** hosted on Internet Archive, enabling seamless collaboration between local development and automated GitHub Actions:
+CausaGanha uses a **local DuckDB database** with optional Internet Archive backup for data persistence:
 
-- **Shared Storage**: Single DuckDB database on IA (`causaganha-database-live`)
+- **Local Storage**: Primary DuckDB database file (`data/causaganha.duckdb`)
 - **Cross-Platform**: Works from any environment (Windows, Linux, macOS)
-- **Conflict Prevention**: Lock-based system prevents concurrent access issues
-- **Automatic Sync**: Smart sync determines when to upload/download changes
+- **Backup System**: Optional export to Internet Archive for data preservation
+- **Simple Management**: Direct file operations without complex synchronization
 
 ### Four-Stage Data Lifecycle Pipeline
 
@@ -372,7 +366,6 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 #### Core Processing
 
 - **`async_diario_pipeline.py`**: **NEW** - Main async pipeline with concurrent processing
-- **`ia_database_sync.py`**: **NEW** - Shared database synchronization with locking
 - **`ia_discovery.py`**: **NEW** - Tools for discovering uploaded content in IA
 - **`extractor.py`**: Gemini-powered content extraction with temp file handling
 - **`openskill_rating.py`**: OpenSkill rating calculations and environment setup
@@ -391,37 +384,36 @@ CausaGanha uses a **shared database architecture** hosted on Internet Archive, e
 
 ### Complete Data Architecture
 
-The system implements a **simplified 2-tier storage strategy** for optimal performance and cost:
+The system implements a **simplified local-first storage strategy** for optimal performance and simplicity:
 
-#### Tier 1: Local DuckDB (Development & Processing)
+#### Primary Storage: Local DuckDB
 
 - **`data/causaganha.duckdb`**: Main database file with unified schema
 - **Core Tables**: ratings, partidas, decisoes, pdf_metadata, json_files
-- **High Performance**: Local access for development and processing
+- **High Performance**: Direct local access for development and processing
 
-#### Tier 2: Internet Archive (Shared & Permanent Storage)
+#### Archive Storage: Internet Archive (PDF Storage & Backup)
 
-- **Shared Database**: `causaganha-database-live` for cross-platform collaboration
 - **PDF Archive**: All diarios permanently stored with proper metadata
+- **Database Backup**: Optional export of database for data preservation
 - **Public Access**: Complete transparency with research-friendly URLs
 - **Zero Cost**: Free permanent storage with global CDN
-- **Lock System**: Prevents concurrent access conflicts
+- **Simple Operations**: Direct file upload/download without complex synchronization
 
 ### Data Flow
 
 ```
-TJRO Website → Async Download → Internet Archive → Gemini Analysis → OpenSkill Updates → Shared Database
+TJRO Website → Async Download → Internet Archive → Gemini Analysis → OpenSkill Updates → Local Database
                      ↓              ↓                   ↓                  ↓              ↓
-                Original Names   Public Archive      JSON Extraction    Rating Updates   IA Sync
+                Original Names   Public Archive      JSON Extraction    Rating Updates   DuckDB Storage
                      ↓              ↓                   ↓                  ↓              ↓
-               Progress Tracking  Permanent Storage   Temp Processing   Local DuckDB    Cross-Platform
+               Progress Tracking  Permanent Storage   Temp Processing   Local DuckDB    Optional Backup
 ```
 
 ### File Organization
 
 - **`src/`**: **Main modules** - Flatter Python src-layout structure
   - `async_diario_pipeline.py`: **NEW** - Primary async processing pipeline
-  - `ia_database_sync.py`: **NEW** - Shared database synchronization
   - `ia_discovery.py`: **NEW** - IA content discovery and analysis
   - `diario_processor.py`: **NEW** - Data format conversion utilities
   - `extractor.py`: Gemini-powered content extraction
@@ -455,13 +447,13 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 
 ## GitHub Actions Integration
 
-**Four automated workflows** handle the complete data lifecycle with shared database support:
+**Four automated workflows** handle the complete data lifecycle with local database and backup support:
 
 #### 1. Daily Async Pipeline (`pipeline.yml`)
 
 - **Daily at 03:15 UTC** - Processes latest 5 diarios automatically
 - **Manual dispatch** - Flexible date ranges, item limits, force reprocessing
-- **Database sync** - Downloads latest before processing, uploads changes after
+- **Database backup** - Optional export to Internet Archive after processing
 - **Comprehensive reporting** - Statistics, IA discovery, progress tracking
 
 #### 2. Bulk Processing (`bulk-processing.yml`) ⭐ **NEW**
@@ -470,7 +462,7 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 - **Multiple modes**: year_2025, year_2024, last_100, last_500, all_diarios, custom_range
 - **Concurrency tuning** - Configurable download/upload limits
 - **6-hour timeout** - Handles massive processing jobs
-- **Full database sync** - Ensures consistency across environments
+- **Database backup** - Optional export to Internet Archive after processing
 
 #### 3. Database Archive (`database-archive.yml`)
 
@@ -500,25 +492,25 @@ Per `AGENTS.md`: Always run `uv run pytest -q` before committing changes. The te
 - **PyMuPDF (fitz)**: Local PDF text extraction library
 - **TJRO Website**: Source of judicial PDFs via direct download URLs
 - **Internet Archive**:
-  - **Primary storage**: All PDFs and shared database
+  - **PDF storage**: All PDFs permanently archived
+  - **Database backup**: Optional export for data preservation
   - **Public access**: Permanent URLs for transparency
-  - **Lock system**: Conflict prevention for concurrent operations
   - **CLI tools**: Uses `ia` command-line tool for operations
 - **DuckDB**: High-performance embedded database for all data storage
 - **aiohttp**: Async HTTP operations for concurrent processing
 
 ## System Overview & Achievements
 
-### 🎯 Alpha Distributed Solution
+### 🎯 Alpha Local-First Solution
 
-CausaGanha has evolved into an **alpha-stage, distributed judicial analysis platform** with:
+CausaGanha has evolved into an **alpha-stage, local-first judicial analysis platform** with:
 
-#### ✅ **Shared Database Architecture**
+#### ✅ **Simplified Local Database Architecture**
 
-- **Cross-Platform Collaboration**: Same database accessible from any environment
-- **Conflict Prevention**: Lock-based system prevents concurrent access issues
-- **Automatic Synchronization**: Smart sync determines when to upload/download
-- **Internet Archive Hosting**: Zero-cost, permanent, globally accessible storage
+- **Local-First Storage**: Primary DuckDB database for immediate access and processing
+- **Simple Backup System**: Optional export to Internet Archive for data preservation
+- **Direct File Operations**: No complex synchronization or locking mechanisms
+- **Internet Archive for PDFs**: Zero-cost, permanent, globally accessible PDF storage
 
 #### ✅ **Async Processing Pipeline**
 
@@ -535,37 +527,37 @@ CausaGanha has evolved into an **alpha-stage, distributed judicial analysis plat
 
 #### ✅ **Advanced GitHub Actions**
 
-- **4 specialized workflows** with shared database integration
+- **4 specialized workflows** with local database and backup integration
 - **Bulk processing** capabilities for massive datasets (5,058+ diarios)
-- **Automatic conflict resolution** through distributed locking
+- **Simple data management** without complex synchronization requirements
 - **Comprehensive reporting** with statistics and discovery tools
 
 #### ✅ **Alpha Quality Features**
 
 - **60+ unit tests** with comprehensive mocking of external APIs
-- **Database synchronization** tested with real IA integration
-- **Lock timeout handling** ensures no permanent deadlocks
+- **Database backup** tested with real IA integration
+- **Simple file operations** eliminate complex synchronization issues
 - **Error recovery** with exponential backoff and retry logic
 - **⚠️ Breaking changes expected**: Core APIs and data structures may change
 
 ### 🚀 **Operational Excellence**
 
-The system demonstrates **enterprise-grade distributed architecture** with:
+The system demonstrates **enterprise-grade local-first architecture** with:
 
-- **Multi-environment access**: Development and automation share same data
-- **Zero data loss**: Lock system prevents corruption from concurrent access
+- **High-performance local access**: Direct DuckDB operations for optimal speed
+- **Simple data management**: No complex synchronization or locking requirements
 - **Automatic scaling**: Handles datasets from single items to 21+ years of records
-- **Cost optimization**: Leverages free IA storage for massive datasets
+- **Cost optimization**: Leverages free IA storage for massive PDF datasets
 - **Global accessibility**: Public transparency through permanent IA URLs
 
 ### 🎖️ **Technical Innovation**
 
-- **Distributed database**: First-of-its-kind shared DuckDB via Internet Archive
+- **Local-first database**: High-performance DuckDB with optional Internet Archive backup
 - **Async judicial processing**: Concurrent analysis of legal documents at scale
 - **Original filename preservation**: Maintains archival authenticity
-- **Lock-based conflict resolution**: Prevents distributed system race conditions
+- **Simplified data management**: Direct file operations without complex synchronization
 
-The system processes judicial records from 2004-2025 (21+ years) with complete automation, cross-platform collaboration, and public transparency.
+The system processes judicial records from 2004-2025 (21+ years) with complete automation, local-first storage, and public transparency.
 
 ## ⚠️ Alpha Status Warning
 
@@ -639,4 +631,4 @@ The agent registry system complements the plan-first approach:
 
 ---
 
-**Status: 🔶 ALPHA DISTRIBUTED** - Experimental shared database architecture (2025-06-27): cross-platform collaboration, conflict prevention, async processing, and comprehensive automation. Alpha-stage distributed judicial analysis platform with breaking changes expected.
+**Status: 🔶 ALPHA LOCAL-FIRST** - Simplified local database architecture (2025-07-09): local-first storage, optional backup, async processing, and comprehensive automation. Alpha-stage local-first judicial analysis platform with breaking changes expected.

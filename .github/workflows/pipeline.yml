@@ -39,7 +39,7 @@ jobs:
   async-pipeline:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -70,8 +70,13 @@ jobs:
         run: |
           echo "🚀 Starting CausaGanha Async Pipeline..."
 
+          # Create backup before processing
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          mkdir -p data/backups
+          cp data/causaganha.duckdb data/backups/causaganha_${timestamp}.duckdb || true
+          
           # Build command arguments
-          CMD="uv run python src/async_diario_pipeline.py --verbose --sync-database --upload-database"
+          CMD="uv run python src/async_diario_pipeline.py --verbose"
 
           # Add parameters based on input
           if [ -n "${{ steps.params.outputs.max_items }}" ]; then
@@ -106,6 +111,29 @@ jobs:
           echo ""
           echo "🔍 Internet Archive Discovery:"
           uv run python src/ia_discovery.py --year $(date +%Y) | head -10 || echo "Discovery failed"
+
+      - name: Commit database changes
+        if: success()
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add database and backup files
+          git add data/causaganha.duckdb data/backups/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Commit changes
+            git commit -m "chore: update database after pipeline run $(date)"
+            
+            # Push to main branch
+            git push origin main
+            
+            echo "Successfully committed and pushed database changes"
+          fi
 
       - name: Upload Progress Artifacts
         if: always()
