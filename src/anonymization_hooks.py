@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
-from .pii_manager import PiiManager
+from pii_manager import PiiManager
 
 
 def anonymize_metadata(

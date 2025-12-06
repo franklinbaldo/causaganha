@@ -1,6 +1,9 @@
 import re
 import unicodedata
-import logging  # Added for validate_decision
+import logging
+from urllib.parse import urlparse
+from typing import Optional
+from datetime import datetime
 
 # It's good practice for a library module to not configure logging directly.
 # Instead, it should get a logger and use it. Application configures logging.
@@ -186,6 +189,54 @@ def validate_decision(decision: dict) -> bool:
 
     logger.info("Decision (processo: %s) passed validation.", numero_processo)
     return True
+
+
+def extract_tribunal_from_url(url: str) -> str:
+    return urlparse(url).netloc.lower()
+
+
+def extract_tribunal_code_from_url(url: str) -> str:
+    netloc = urlparse(url).netloc.lower()
+    parts = netloc.split(".")
+    for part in parts:
+        if (
+            part.startswith("tj")
+            or part.startswith("tr")
+            or part == "stj"
+            or part == "stf"
+        ):
+            return part
+    return netloc
+
+
+def validate_tribunal_url(url: str) -> bool:
+    return urlparse(url).netloc.lower().endswith(".jus.br")
+
+
+def extract_date_from_url(url: str) -> Optional[str]:
+    date_patterns = [
+        r"diario(?:jus)?(?:tj)?(\d{8})",
+        r"(?:data=|date=|dt=)(\d{8})",
+        r"(\d{4})[/_-]?(\d{2})[/_-]?(\d{2})",
+        r"(\d{2})[/_-]?(\d{2})[/_-]?(\d{4})",
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, url, re.IGNORECASE)
+        if match:
+            groups = match.groups()
+            try:
+                if len(groups) == 3:
+                    year, month, day = (
+                        (int(groups[0]), int(groups[1]), int(groups[2]))
+                        if len(groups[0]) == 4
+                        else (int(groups[2]), int(groups[1]), int(groups[0]))
+                    )
+                    return datetime(year, month, day).strftime("%Y-%m-%d")
+                elif len(groups) == 1 and len(groups[0]) == 8 and groups[0].isdigit():
+                    return datetime.strptime(groups[0], "%Y%m%d").strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+    return None
 
 
 if __name__ == "__main__":

@@ -26,10 +26,10 @@ from typing import Dict, List, Optional
 
 import aiohttp
 
-from .anonymization_hooks import anonymize_metadata
-from .pii_manager import PiiManager
-from .config import load_config
-from .database import DatabaseManager, CausaGanhaDB, run_db_migrations
+from anonymization_hooks import anonymize_metadata
+from pii_manager import PiiManager
+from config import load_config
+from database import DatabaseManager, CausaGanhaDB, run_db_migrations
 
 # Environment variables are loaded from system environment
 

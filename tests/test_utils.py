@@ -13,6 +13,9 @@ if str(SRC_PATH) not in sys.path:
 from utils import (  # noqa: E402
     normalize_lawyer_name,
     validate_decision,
+    extract_tribunal_from_url,
+    validate_tribunal_url,
+    extract_date_from_url,
 )
 
 # Suppress logging output during tests unless specifically testing for it
@@ -214,6 +217,43 @@ class TestValidateDecision(unittest.TestCase):
             mock_log.assert_called_with(
                 "Validation failed: 'resultado' is missing or empty."
             )
+
+
+class TestUrlHelpers(unittest.TestCase):
+    def test_extract_tribunal_from_url(self):
+        self.assertEqual(
+            extract_tribunal_from_url("https://diario.tjro.jus.br"),
+            "diario.tjro.jus.br",
+        )
+        self.assertEqual(
+            extract_tribunal_from_url("http://www.tjsp.jus.br/"), "www.tjsp.jus.br"
+        )
+
+    def test_validate_tribunal_url(self):
+        self.assertTrue(validate_tribunal_url("https://diario.tjro.jus.br/foo"))
+        self.assertTrue(validate_tribunal_url("http://tjsp.jus.br"))
+        self.assertFalse(validate_tribunal_url("https://google.com"))
+        self.assertFalse(
+            validate_tribunal_url("http://example.com/jus.br")
+        )  # path doesn't count
+
+    def test_extract_date_from_url(self):
+        self.assertEqual(
+            extract_date_from_url("http://example.com?data=20231025"), "2023-10-25"
+        )
+        self.assertEqual(
+            extract_date_from_url("http://example.com/2023-10-25/doc.pdf"),
+            "2023-10-25",
+        )
+        self.assertEqual(
+            extract_date_from_url("http://example.com/25-10-2023/doc.pdf"),
+            "2023-10-25",
+        )
+        self.assertEqual(
+            extract_date_from_url("http://example.com/diario20231025.pdf"),
+            "2023-10-25",
+        )
+        self.assertIsNone(extract_date_from_url("http://example.com/nodate"))
 
 
 if __name__ == "__main__":
