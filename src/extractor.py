@@ -10,6 +10,14 @@ import random
 import tempfile
 
 try:
+    import ibis
+    import pandas as pd
+except ImportError:
+    ibis = None
+    pd = None
+    logging.warning("Ibis or Pandas not available. Progress persistence via DuckDB will be disabled.")
+
+try:
     import google.generativeai as genai
 except ImportError:
     genai = None
@@ -182,26 +190,30 @@ class GeminiExtractor:
                 all_decisions = []
                 chunks_processed_count = 0
 
-                # Check for progress file (resume capability)
+                # Check for progress file (resume capability via DuckDB/Ibis)
                 sanitized_stem = self._sanitize_filename(pdf_path.stem)
-                progress_file_path = output_json_dir / f".{sanitized_stem}_extraction_progress.json"
+                progress_db_path = output_json_dir / f".{sanitized_stem}_progress.duckdb"
 
-                if progress_file_path.exists():
+                if ibis and pd and progress_db_path.exists():
                     try:
-                        with open(progress_file_path, "r", encoding="utf-8") as f:
-                            progress_data = json.load(f)
-                            # Basic validation: check if source file matches
-                            if progress_data.get("file_name_source") == pdf_path.name:
-                                chunks_processed_count = progress_data.get("chunks_processed_count", 0)
-                                all_decisions = progress_data.get("decisions", [])
-                                logging.info(
-                                    f"Resuming extraction from chunk {chunks_processed_count + 1}. "
-                                    f"Found {len(all_decisions)} decisions so far."
-                                )
-                            else:
-                                logging.warning("Progress file found but file name mismatch. Starting over.")
+                        con = ibis.duckdb.connect(str(progress_db_path))
+                        if "progress" in con.list_tables():
+                            t = con.table("progress")
+                            df = t.execute()
+                            if not df.empty:
+                                row = df.iloc[0]
+                                if row["file_name_source"] == pdf_path.name:
+                                    chunks_processed_count = int(row["chunks_processed_count"])
+                                    all_decisions = json.loads(row["decisions"])
+                                    logging.info(
+                                        f"Resuming extraction from chunk {chunks_processed_count + 1}. "
+                                        f"Found {len(all_decisions)} decisions so far."
+                                    )
+                                else:
+                                    logging.warning("Progress DB found but file name mismatch. Starting over.")
+                        del con
                     except Exception as e:
-                        logging.warning(f"Failed to load progress file {progress_file_path}: {e}. Starting over.")
+                        logging.warning(f"Failed to load progress DB {progress_db_path}: {e}. Starting over.")
 
                 if genai is None:
                     logging.error("genai module is None, cannot proceed with API call.")
@@ -308,18 +320,23 @@ REGRAS OBRIGATÓRIAS:
                         if isinstance(chunk_decisions, list):
                             all_decisions.extend(chunk_decisions)
 
-                            # Save progress after successful chunk processing
-                            try:
-                                progress_data = {
-                                    "file_name_source": pdf_path.name,
-                                    "last_updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                                    "chunks_processed_count": chunk_index + 1,
-                                    "decisions": all_decisions
-                                }
-                                with open(progress_file_path, "w", encoding="utf-8") as f:
-                                    json.dump(progress_data, f, ensure_ascii=False, indent=4)
-                            except Exception as e_prog:
-                                logging.warning(f"Failed to save progress for chunk {chunk_index + 1}: {e_prog}")
+                            # Save progress after successful chunk processing (DuckDB/Ibis)
+                            if ibis and pd:
+                                try:
+                                    con_save = ibis.duckdb.connect(str(progress_db_path))
+
+                                    progress_data = {
+                                        "file_name_source": pdf_path.name,
+                                        "last_updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                                        "chunks_processed_count": chunk_index + 1,
+                                        "decisions": json.dumps(all_decisions, ensure_ascii=False)
+                                    }
+
+                                    df_save = pd.DataFrame([progress_data])
+                                    con_save.create_table("progress", df_save, overwrite=True)
+                                    del con_save
+                                except Exception as e_prog:
+                                    logging.warning(f"Failed to save progress for chunk {chunk_index + 1}: {e_prog}")
                         else:
                             logging.warning(
                                 f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}"
@@ -330,12 +347,16 @@ REGRAS OBRIGATÓRIAS:
                         )  # type: ignore
                         return None
 
-                # Cleanup progress file on successful completion
+                # Cleanup progress DB on successful completion
                 try:
-                    if progress_file_path.exists():
-                        progress_file_path.unlink()
+                    if ibis and pd and progress_db_path.exists():
+                        progress_db_path.unlink()
+                        # Also cleanup wal if exists
+                        wal = pathlib.Path(str(progress_db_path) + ".wal")
+                        if wal.exists():
+                            wal.unlink()
                 except Exception as e_clean:
-                    logging.warning(f"Failed to delete progress file {progress_file_path}: {e_clean}")
+                    logging.warning(f"Failed to delete progress DB {progress_db_path}: {e_clean}")
 
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,

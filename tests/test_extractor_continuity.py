@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import shutil
+import ibis
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -33,7 +34,7 @@ class TestExtractorContinuity(unittest.TestCase):
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key"})
     @patch("extractor.genai")
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
-    def test_resume_capability(self, mock_extract, mock_genai, mock_sleep):
+    def test_resume_capability_duckdb(self, mock_extract, mock_genai, mock_sleep):
         # Setup mocks
         mock_genai.configure = MagicMock()
         mock_model = MagicMock()
@@ -46,16 +47,8 @@ class TestExtractorContinuity(unittest.TestCase):
 
         # --- Run 1: Fail on chunk 2 ---
 
-        # Response for chunk 1 (success)
         response1 = MagicMock()
         response1.text = json.dumps([{"id": "1", "res": "ok"}])
-
-        # Response for chunk 2 (failure - returns invalid json or raises error)
-        # In the code, if generate_content raises, it retries. If it returns invalid JSON, it logs error and continues?
-        # Let's see code:
-        # catch Exception as e_api -> retry loop.
-        # if max retries -> response_successful = False -> return None.
-        # So we simulate max retries failure by raising Exception every time.
 
         mock_model.generate_content.side_effect = [
             response1, # Chunk 1
@@ -67,9 +60,31 @@ class TestExtractorContinuity(unittest.TestCase):
         # Assert failure
         self.assertIsNone(result_path, "First run should fail")
 
-        # Verify call count (1 success + 5 retries = 6 calls)
-        # Or simply that it tried chunk 1 and chunk 2
-        # We can inspect print/logs, but mocking side_effect is enough to know it went through.
+        # VERIFY DUCKDB PERSISTENCE
+        # Check that a DuckDB file exists
+        sanitized_name = extractor._sanitize_filename(self.dummy_pdf_path.stem)
+        progress_db_path = self.output_json_dir / f".{sanitized_name}_progress.duckdb"
+        self.assertTrue(progress_db_path.exists(), "Progress DuckDB file should exist after failure")
+
+        # Check content using Ibis
+        con = ibis.duckdb.connect(str(progress_db_path))
+        try:
+            self.assertIn("progress", con.list_tables(), "Table 'progress' should exist")
+            t = con.table("progress")
+            rows = t.execute()
+            self.assertEqual(len(rows), 1, "Should have 1 row for chunk 1")
+            # Verify data
+            # Assuming schema: file_name, chunk_index, decisions (as JSON string probably?)
+            self.assertEqual(rows.iloc[0]["chunks_processed_count"], 1)
+            # Decisions might be stored as struct or json string. Let's assume JSON string or DuckDB JSON type which maps to string in pandas usually?
+            # Or map/struct.
+            # I'll check column names first
+            self.assertIn("decisions", rows.columns)
+        finally:
+            con.disconnect() # disconnect usually not needed for DuckDB in Ibis but good practice
+            # Wait, con.disconnect() doesn't exist on all backends. con is just the backend.
+            pass
+
 
         # --- Run 2: Resume ---
 
@@ -77,28 +92,19 @@ class TestExtractorContinuity(unittest.TestCase):
         mock_model.generate_content.reset_mock()
         mock_model.generate_content.side_effect = None
 
-        # Setup success for both chunks (but we expect only chunk 2 to be called)
         response2 = MagicMock()
         response2.text = json.dumps([{"id": "2", "res": "ok"}])
 
-        # If it DOESN'T resume, it will ask for chunk 1 again, then chunk 2.
-        # If it DOES resume, it will only ask for chunk 2.
-        # We provide responses for both scenarios just in case, to see what happens.
         mock_model.generate_content.side_effect = [
-            response2, # Chunk 2 (if resumed) OR Chunk 1 (if not resumed)
-            response2  # Chunk 2 (if not resumed)
+            response2, # Chunk 2 (if resumed)
+            response2
         ]
 
         result_path_2 = extractor.extract_and_save_json(self.dummy_pdf_path, self.output_json_dir)
 
-        # In RED phase, this might succeed if we provide enough responses,
-        # but the assertion on call_count will fail.
-
         self.assertIsNotNone(result_path_2, "Second run should succeed")
 
         # CHECK: Did it resume?
-        # If resumed, call_count should be 1 (only chunk 2).
-        # If not resumed, call_count should be 2 (chunk 1 + chunk 2).
         self.assertEqual(mock_model.generate_content.call_count, 1, "Should resume and only process chunk 2")
 
         # Check final data
@@ -106,15 +112,13 @@ class TestExtractorContinuity(unittest.TestCase):
             data = json.load(f)
 
         decisions = data["decisions"]
-        # If resumed correctly, we should have id 1 (from progress) and id 2 (from run 2)
         ids = [d["id"] for d in decisions]
         self.assertIn("1", ids)
         self.assertIn("2", ids)
         self.assertEqual(len(decisions), 2)
 
         # Check that progress file is gone
-        progress_file = self.output_json_dir / f".{self.dummy_pdf_path.stem}_extraction_progress.json"
-        self.assertFalse(progress_file.exists(), "Progress file should be deleted after completion")
+        self.assertFalse(progress_db_path.exists(), "Progress DuckDB file should be deleted after completion")
 
 if __name__ == "__main__":
     unittest.main()

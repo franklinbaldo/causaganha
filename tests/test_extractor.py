@@ -225,8 +225,8 @@ class TestGeminiExtractor(unittest.TestCase):
 
         # With continuity implemented, we expect a progress file to be present
         files = list(self.output_json_dir.iterdir())
-        self.assertEqual(len(files), 1)
-        self.assertTrue(files[0].name.endswith("_progress.json"))
+        self.assertGreaterEqual(len(files), 1)
+        self.assertTrue(any(f.name.endswith("_progress.duckdb") for f in files))
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
