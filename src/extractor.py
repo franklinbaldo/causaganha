@@ -180,6 +180,29 @@ class GeminiExtractor:
                     return None
 
                 all_decisions = []
+                chunks_processed_count = 0
+
+                # Check for progress file (resume capability)
+                sanitized_stem = self._sanitize_filename(pdf_path.stem)
+                progress_file_path = output_json_dir / f".{sanitized_stem}_extraction_progress.json"
+
+                if progress_file_path.exists():
+                    try:
+                        with open(progress_file_path, "r", encoding="utf-8") as f:
+                            progress_data = json.load(f)
+                            # Basic validation: check if source file matches
+                            if progress_data.get("file_name_source") == pdf_path.name:
+                                chunks_processed_count = progress_data.get("chunks_processed_count", 0)
+                                all_decisions = progress_data.get("decisions", [])
+                                logging.info(
+                                    f"Resuming extraction from chunk {chunks_processed_count + 1}. "
+                                    f"Found {len(all_decisions)} decisions so far."
+                                )
+                            else:
+                                logging.warning("Progress file found but file name mismatch. Starting over.")
+                    except Exception as e:
+                        logging.warning(f"Failed to load progress file {progress_file_path}: {e}. Starting over.")
+
                 if genai is None:
                     logging.error("genai module is None, cannot proceed with API call.")
                     return None
@@ -218,6 +241,9 @@ REGRAS OBRIGATÓRIAS:
 - Se há texto de CONTINUAÇÃO DO TRECHO ANTERIOR, considere-o para contexto mas evite duplicar decisões"""
 
                 for chunk_index, chunk_text in enumerate(pdf_text_chunks):
+                    if chunk_index < chunks_processed_count:
+                        continue
+
                     if chunk_index > 0:
                         delay = 4 + random.uniform(0.5, 1.5)
                         logging.info(
@@ -281,6 +307,19 @@ REGRAS OBRIGATÓRIAS:
                         chunk_decisions = json.loads(clean_response)
                         if isinstance(chunk_decisions, list):
                             all_decisions.extend(chunk_decisions)
+
+                            # Save progress after successful chunk processing
+                            try:
+                                progress_data = {
+                                    "file_name_source": pdf_path.name,
+                                    "last_updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                                    "chunks_processed_count": chunk_index + 1,
+                                    "decisions": all_decisions
+                                }
+                                with open(progress_file_path, "w", encoding="utf-8") as f:
+                                    json.dump(progress_data, f, ensure_ascii=False, indent=4)
+                            except Exception as e_prog:
+                                logging.warning(f"Failed to save progress for chunk {chunk_index + 1}: {e_prog}")
                         else:
                             logging.warning(
                                 f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}"
@@ -290,6 +329,13 @@ REGRAS OBRIGATÓRIAS:
                             f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}..."
                         )  # type: ignore
                         return None
+
+                # Cleanup progress file on successful completion
+                try:
+                    if progress_file_path.exists():
+                        progress_file_path.unlink()
+                except Exception as e_clean:
+                    logging.warning(f"Failed to delete progress file {progress_file_path}: {e_clean}")
 
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,

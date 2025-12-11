@@ -222,7 +222,11 @@ class TestGeminiExtractor(unittest.TestCase):
 
         self.assertIsNone(result_path)
         self.assertEqual(mock_model_instance.generate_content.call_count, 2)
-        self.assertFalse(any(self.output_json_dir.iterdir()))
+
+        # With continuity implemented, we expect a progress file to be present
+        files = list(self.output_json_dir.iterdir())
+        self.assertEqual(len(files), 1)
+        self.assertTrue(files[0].name.endswith("_progress.json"))
 
     @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
