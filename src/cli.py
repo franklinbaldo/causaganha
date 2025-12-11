@@ -17,7 +17,10 @@ from config import load_config
 from database import CausaGanhaDB, DatabaseManager, run_db_migrations
 from simple_backup import backup_database_before_changes, export_and_upload_to_ia
 
-from async_diario_pipeline import main as async_pipeline_main
+try:
+    from .async_diario_pipeline import main as async_pipeline_main
+except ImportError:
+    from async_diario_pipeline import main as async_pipeline_main
 
 logger = logging.getLogger(__name__)
 

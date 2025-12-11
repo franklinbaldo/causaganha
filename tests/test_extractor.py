@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import pathlib
 import os
 import json
@@ -7,6 +7,7 @@ import sys
 import shutil
 import fitz
 import subprocess
+import asyncio
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -21,10 +22,6 @@ if str(SCRIPTS_PATH) not in sys.path:
 
 from extractor import GeminiExtractor  # noqa: E402
 import check_environment  # noqa: E402
-
-# Suppress logging output during tests for clarity, can be enabled for debugging
-# logging.disable(logging.CRITICAL)
-
 
 class TestGeminiExtractor(unittest.TestCase):
     def setUp(self):
@@ -61,52 +58,60 @@ class TestGeminiExtractor(unittest.TestCase):
         doc.save(str(path))
         doc.close()
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
+    @patch("extractor.Agent")
+    @patch("extractor.GeminiModel")
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
-    @patch("extractor.genai")
-    def test_extract_with_api_key_and_genai_success(
-        self, mock_genai, mock_extract_text_from_pdf
+    def test_extract_with_api_key_and_agent_success(
+        self, mock_extract_text, mock_gemini_model, mock_agent_class
     ):
-        mock_genai.configure = MagicMock()
-        mock_extract_text_from_pdf.return_value = ["dummy text chunk for success"]
-        mock_model_instance = MagicMock()
-        mock_gemini_response = MagicMock()
-        mock_gemini_response.text = json.dumps(
-            [
-                {
-                    "numero_processo": "0011223-45.2023.7.89.0000",
-                    "resultado": "procedente",
-                }
-            ]
-        )
-        mock_model_instance.generate_content.return_value = mock_gemini_response
-        mock_genai.GenerativeModel.return_value = mock_model_instance
+        mock_extract_text.return_value = ["dummy text chunk"]
 
-        extractor = GeminiExtractor()
+        # Mock Agent instance
+        mock_agent_instance = MagicMock()
+        mock_agent_class.return_value = mock_agent_instance
+
+        # Mock result
+        mock_result = MagicMock()
+        mock_decision = MagicMock()
+        mock_decision.model_dump.return_value = {
+            "numero_processo": "0011223-45.2023.7.89.0000",
+            "resultado": "procedente"
+        }
+        mock_result.data.decisoes = [mock_decision]
+
+        # Mock async run
+        mock_agent_instance.run = AsyncMock(return_value=mock_result)
+
+        extractor = GeminiExtractor(api_key="fake_key")
         self.assertTrue(extractor.gemini_configured)
+
         result_path = extractor.extract_and_save_json(
             self.dummy_pdf_path, self.output_json_dir
         )
 
         self.assertIsNotNone(result_path)
         self.assertTrue(pathlib.Path(result_path).exists())
-        mock_genai.configure.assert_called_once_with(api_key="fake_key_for_test")
-        mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
-        mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
-        self.assertEqual(mock_model_instance.generate_content.call_count, 1)
+        mock_extract_text.assert_called_once_with(self.dummy_pdf_path)
+        mock_agent_instance.run.assert_called_once()
 
+        with open(result_path, 'r') as f:
+            data = json.load(f)
+            self.assertEqual(len(data['decisions']), 1)
+            self.assertEqual(data['decisions'][0]['numero_processo'], "0011223-45.2023.7.89.0000")
 
-
-    @patch("extractor.genai", None)
+    @patch("extractor.PYDANTIC_AI_AVAILABLE", False)
     @patch("extractor.fitz")
-    def test_extract_when_genai_not_available(self, mock_fitz):
+    def test_extract_when_pydantic_ai_not_available(self, mock_fitz):
         if "GEMINI_API_KEY" in os.environ:
             del os.environ["GEMINI_API_KEY"]
+
         extractor = GeminiExtractor()
         self.assertFalse(extractor.gemini_configured)
+
         result_path = extractor.extract_and_save_json(
             self.dummy_pdf_path, self.output_json_dir
         )
+
         self.assertIsNotNone(result_path)
         with open(result_path, "r") as f:
             data = json.load(f)
@@ -115,41 +120,74 @@ class TestGeminiExtractor(unittest.TestCase):
 
     @patch.dict(os.environ, {}, clear=True)
     @patch("extractor.fitz")
-    @patch("extractor.genai")
-    def test_extract_when_api_key_not_available(self, mock_genai, mock_fitz):
-        mock_genai.configure = MagicMock()
+    @patch("extractor.Agent")
+    def test_extract_when_api_key_not_available(self, mock_agent, mock_fitz):
         extractor = GeminiExtractor(api_key=None)
         self.assertFalse(extractor.gemini_configured)
+
         result_path = extractor.extract_and_save_json(
             self.dummy_pdf_path, self.output_json_dir
         )
+
         self.assertIsNotNone(result_path)
         with open(result_path, "r") as f:
             data = json.load(f)
         self.assertEqual(data["status"], "dummy_data_gemini_not_configured")
-        mock_genai.configure.assert_not_called()
+        mock_agent.assert_not_called()
         mock_fitz.open.assert_not_called()
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
+    @patch("extractor.time.sleep")
+    @patch("extractor.Agent")
+    @patch("extractor.GeminiModel")
     @patch.object(GeminiExtractor, "_extract_text_from_pdf")
-    @patch("extractor.genai")
-    def test_api_call_failure_generate_content(
-        self, mock_genai, mock_extract_text_from_pdf
+    def test_agent_run_failure_retries(
+        self, mock_extract_text, mock_gemini_model, mock_agent_class, mock_sleep
     ):
-        mock_genai.configure = MagicMock()
-        mock_extract_text_from_pdf.return_value = ["dummy text chunk for api failure"]
-        mock_model_instance = MagicMock()
-        mock_model_instance.generate_content.side_effect = Exception("Gemini API Error")
-        mock_genai.GenerativeModel.return_value = mock_model_instance
-        extractor = GeminiExtractor()
+        mock_extract_text.return_value = ["dummy text chunk"]
+
+        mock_agent_instance = MagicMock()
+        mock_agent_class.return_value = mock_agent_instance
+
+        # Simulate exception during run (Rate Limit triggers retry)
+        mock_agent_instance.run = AsyncMock(side_effect=Exception("429 Too Many Requests"))
+
+        extractor = GeminiExtractor(api_key="fake")
         self.assertTrue(extractor.gemini_configured)
+
         result_path = extractor.extract_and_save_json(
             self.dummy_pdf_path, self.output_json_dir
         )
+
         self.assertIsNone(result_path)
-        mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
-        mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
-        self.assertEqual(mock_model_instance.generate_content.call_count, 1)
+        mock_extract_text.assert_called_once_with(self.dummy_pdf_path)
+        # Should be called multiple times due to retries in extract_and_save_json (max_retries=5)
+        self.assertEqual(mock_agent_instance.run.call_count, 5)
+
+    @patch("extractor.Agent")
+    @patch("extractor.GeminiModel")
+    @patch.object(GeminiExtractor, "_extract_text_from_pdf")
+    def test_agent_run_failure_no_retry(
+        self, mock_extract_text, mock_gemini_model, mock_agent_class
+    ):
+        mock_extract_text.return_value = ["dummy text chunk"]
+
+        mock_agent_instance = MagicMock()
+        mock_agent_class.return_value = mock_agent_instance
+
+        # Simulate exception during run (Generic error, no retry)
+        mock_agent_instance.run = AsyncMock(side_effect=Exception("Generic API Error"))
+
+        extractor = GeminiExtractor(api_key="fake")
+        self.assertTrue(extractor.gemini_configured)
+
+        result_path = extractor.extract_and_save_json(
+            self.dummy_pdf_path, self.output_json_dir
+        )
+
+        self.assertIsNone(result_path)
+        mock_extract_text.assert_called_once_with(self.dummy_pdf_path)
+        # Should be called only once
+        self.assertEqual(mock_agent_instance.run.call_count, 1)
 
     def test_extract_text_from_pdf_chunking(self):
         multi_pdf = self.dummy_pdf_dir / "multi_page.pdf"
@@ -166,31 +204,34 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertIn("PÁGINA 25 (OVERLAP)", chunks[1])
         self.assertIn("PÁGINA 30", chunks[1])
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch("extractor.genai")
-    def test_multi_page_json_parsing_success(self, mock_genai):
+    @patch("extractor.Agent")
+    @patch("extractor.GeminiModel")
+    def test_multi_page_extraction_success(self, mock_gemini_model, mock_agent_class):
         multi_pdf = self.dummy_pdf_dir / "multi_parse.pdf"
         self._create_pdf(multi_pdf, 30)
 
-        mock_genai.configure = MagicMock()
-        mock_model_instance = MagicMock()
-        response1 = MagicMock()
-        response1.text = json.dumps([
-            {"numero_processo": "111", "resultado": "procedente"}
-        ])
-        response2 = MagicMock()
-        response2.text = json.dumps([
-            {"numero_processo": "222", "resultado": "improcedente"}
-        ])
-        mock_model_instance.generate_content.side_effect = [response1, response2]
-        mock_genai.GenerativeModel.return_value = mock_model_instance
+        mock_agent_instance = MagicMock()
+        mock_agent_class.return_value = mock_agent_instance
 
-        extractor = GeminiExtractor()
+        # Responses for 2 chunks
+        mock_result1 = MagicMock()
+        d1 = MagicMock()
+        d1.model_dump.return_value = {"numero_processo": "111", "resultado": "procedente"}
+        mock_result1.data.decisoes = [d1]
+
+        mock_result2 = MagicMock()
+        d2 = MagicMock()
+        d2.model_dump.return_value = {"numero_processo": "222", "resultado": "improcedente"}
+        mock_result2.data.decisoes = [d2]
+
+        mock_agent_instance.run = AsyncMock(side_effect=[mock_result1, mock_result2])
+
+        extractor = GeminiExtractor(api_key="fake")
         result_path = extractor.extract_and_save_json(multi_pdf, self.output_json_dir)
 
         self.assertIsNotNone(result_path)
         self.assertTrue(pathlib.Path(result_path).exists())
-        self.assertEqual(mock_model_instance.generate_content.call_count, 2)
+        self.assertEqual(mock_agent_instance.run.call_count, 2)
 
         with open(result_path, "r") as f:
             data = json.load(f)
@@ -199,52 +240,6 @@ class TestGeminiExtractor(unittest.TestCase):
         self.assertEqual(data["total_decisions_found"], 2)
         numeros = [d["numero_processo"] for d in data["decisions"]]
         self.assertEqual(numeros, ["111", "222"])
-
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch("extractor.genai")
-    def test_multi_page_json_parsing_failure(self, mock_genai):
-        multi_pdf = self.dummy_pdf_dir / "multi_fail.pdf"
-        self._create_pdf(multi_pdf, 30)
-
-        mock_genai.configure = MagicMock()
-        mock_model_instance = MagicMock()
-        response1 = MagicMock()
-        response1.text = json.dumps([
-            {"numero_processo": "111", "resultado": "procedente"}
-        ])
-        response2 = MagicMock()
-        response2.text = "not json"
-        mock_model_instance.generate_content.side_effect = [response1, response2]
-        mock_genai.GenerativeModel.return_value = mock_model_instance
-
-        extractor = GeminiExtractor()
-        result_path = extractor.extract_and_save_json(multi_pdf, self.output_json_dir)
-
-        self.assertIsNone(result_path)
-        self.assertEqual(mock_model_instance.generate_content.call_count, 2)
-        self.assertFalse(any(self.output_json_dir.iterdir()))
-
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key_for_test"})
-    @patch.object(GeminiExtractor, "_extract_text_from_pdf")
-    @patch("extractor.genai")
-    def test_json_parsing_failure(self, mock_genai, mock_extract_text_from_pdf):
-        mock_genai.configure = MagicMock()
-        mock_extract_text_from_pdf.return_value = ["dummy text chunk for json failure"]
-        mock_model_instance = MagicMock()
-        mock_gemini_response = MagicMock()
-        mock_gemini_response.text = "This is not valid JSON { definitely not"
-        mock_model_instance.generate_content.return_value = mock_gemini_response
-        mock_genai.GenerativeModel.return_value = mock_model_instance
-        extractor = GeminiExtractor()
-        self.assertTrue(extractor.gemini_configured)
-        result_path = extractor.extract_and_save_json(
-            self.dummy_pdf_path, self.output_json_dir
-        )
-        self.assertIsNone(result_path)
-        mock_extract_text_from_pdf.assert_called_once_with(self.dummy_pdf_path)
-        mock_genai.GenerativeModel.assert_called_once_with(extractor.model_name)
-        self.assertEqual(mock_model_instance.generate_content.call_count, 1)
-
 
 class TestCheckEnvironment(unittest.TestCase):
     @patch.object(check_environment, "sys")
@@ -308,4 +303,3 @@ class TestCheckEnvironment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(argv=["first-arg-is-ignored"], exit=False)
-

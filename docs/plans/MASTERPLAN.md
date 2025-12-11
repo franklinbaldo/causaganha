@@ -64,6 +64,12 @@ Modern architecture and data management
 - Unified archive commands across tribunals
 - **Dependencies**: Diario dataclass, system integration complete
 
+#### **Priority 2D: Pydantic AI Integration** - `pydantic_ai_integration.md`
+
+- Robust LLM extraction with `pydantic-ai`
+- Type-safe data structures and validation
+- **Dependencies**: None (can be done in parallel)
+
 ### **Phase 3: EXPANSION** (Weeks 5-8)
 
 Scale and new capabilities

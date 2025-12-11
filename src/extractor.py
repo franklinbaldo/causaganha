@@ -8,14 +8,8 @@ import logging
 import time
 import random
 import tempfile
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    genai = None
-    logging.warning(
-        "Module google.generativeai could not be imported. Ensure it is installed correctly. GeminiExtractor will use dummy responses if API key is also missing."
-    )
+import asyncio
+from typing import List, Optional
 
 try:
     import fitz  # PyMuPDF
@@ -25,48 +19,81 @@ except ImportError:
         "Module fitz (PyMuPDF) could not be imported. PDF text extraction will not be available."
     )
 
+try:
+    from pydantic_ai import Agent
+    from pydantic_ai.models.gemini import GeminiModel
+    try:
+        from .schemas import ExtractionResult, Decisao
+    except ImportError:
+        from schemas import ExtractionResult, Decisao
+    PYDANTIC_AI_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"pydantic-ai or dependencies not available: {e}")
+    PYDANTIC_AI_AVAILABLE = False
+
+
+SYSTEM_PROMPT = """
+Você é um assistente jurídico especializado em analisar Diários da Justiça.
+Sua tarefa é extrair APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido.
+IGNORE despachos administrativos.
+
+Regras de Extração:
+- Processe decisões como "RECURSO PROVIDO", "SENTENÇA CONFIRMADA", "SENTENÇA PROCEDENTE", etc.
+- Ignore despachos que apenas movimentam processos.
+- Número CNJ: Use o número no formato NNNNNNN-NN.NNNN.N.NN.NNNN quando disponível.
+- Tipo de Decisão: Identifique se é Acórdão, Sentença, Decisão Monocrática, etc.
+- Partes e Advogados: Extraia nomes e OABs quando disponíveis.
+- Resultado: Classifique o resultado (Procedente, Improcedente, etc).
+- Resumo: Crie um resumo conciso (max 250 caracteres).
+- Se houver texto indicando "CONTINUAÇÃO DO TRECHO ANTERIOR", use-o para contexto mas evite duplicar decisões já extraídas.
+"""
 
 class GeminiExtractor:
     """
-    Extracts information from PDF files using the Gemini API.
+    Extracts information from PDF files using the Gemini API via pydantic-ai.
     """
 
     def __init__(
-        self, api_key: str | None = None, model_name: str = "gemini-1.5-flash-latest"
+        self, api_key: str | None = None, model_name: str = "gemini-1.5-flash"
     ):
         if api_key:
             self.api_key = api_key
+            # pydantic-ai/google-genai typically checks env var or explicit arg
+            os.environ["GEMINI_API_KEY"] = api_key
         else:
             self.api_key = os.getenv("GEMINI_API_KEY")
 
         self.model_name = model_name
+        self.gemini_configured = False
+        self.agent = None
 
-        if genai and self.api_key:
+        if PYDANTIC_AI_AVAILABLE and self.api_key:
             try:
-                genai.configure(api_key=self.api_key)
+                self.model = GeminiModel(self.model_name, api_key=self.api_key)
+                self.agent = Agent(
+                    self.model,
+                    result_type=ExtractionResult,
+                    system_prompt=SYSTEM_PROMPT,
+                    retries=3
+                )
                 logging.info(
-                    "GeminiExtractor initialized: google.generativeai configured with API key."
+                    "GeminiExtractor initialized: pydantic-ai configured with API key."
                 )
                 self.gemini_configured = True
-            except (ValueError, TypeError, ImportError) as e:
+            except Exception as e:
                 logging.error(
-                    "GeminiExtractor: Failed to configure google.generativeai: %s", e
+                    "GeminiExtractor: Failed to configure pydantic-ai agent: %s", e
                 )
                 self.gemini_configured = False
-        elif genai and not self.api_key:
-            logging.warning(
-                "GeminiExtractor initialized: google.generativeai imported, but API key missing. Real API calls will be skipped."
-            )
-            self.gemini_configured = False
         else:
-            logging.info(
-                "GeminiExtractor initialized: google.generativeai not imported. Real API calls will be skipped."
+            logging.warning(
+                "GeminiExtractor initialized: pydantic-ai not available or API key missing. Real API calls will be skipped."
             )
             self.gemini_configured = False
 
     def is_configured(self) -> bool:
         """Checks if Gemini is configured and an API key is available."""
-        return bool(genai and self.api_key and self.gemini_configured)
+        return bool(self.gemini_configured and self.agent)
 
     def _sanitize_filename(self, filename: str) -> str:
         sanitized = re.sub(r"[^\w\.\-_]", "", filename)
@@ -160,15 +187,19 @@ class GeminiExtractor:
                         datetime.timezone.utc
                     ).isoformat(),
                     "status": "dummy_data_gemini_not_configured",
-                    "numero_processo": "0000000-00.0000.0.00.0000",
-                    "tipo_decisao": "sentença",
-                    "partes": {"requerente": ["N/A"], "requerido": ["N/A"]},
-                    "advogados": {
-                        "requerente": ["N/A (OAB/UF)"],
-                        "requerido": ["N/A (OAB/UF)"],
-                    },
-                    "resultado": "procedente",
-                    "data_decisao": "1900-01-01",
+                    "decisions": [
+                        {
+                            "numero_processo": "0000000-00.0000.0.00.0000",
+                            "tipo_decisao": "sentença",
+                            "polo_ativo": ["N/A"],
+                            "advogados_polo_ativo": ["N/A (OAB/UF)"],
+                            "polo_passivo": ["N/A"],
+                            "advogados_polo_passivo": ["N/A (OAB/UF)"],
+                            "resultado": "procedente",
+                            "data": "1900-01-01",
+                            "resumo": "Decisão dummy."
+                        }
+                    ]
                 }
             else:
                 logging.info(
@@ -180,42 +211,6 @@ class GeminiExtractor:
                     return None
 
                 all_decisions = []
-                if genai is None:
-                    logging.error("genai module is None, cannot proceed with API call.")
-                    return None
-
-                model = genai.GenerativeModel(self.model_name)
-                prompt = """Este é o texto extraído do Diário da Justiça. Analise o conteúdo e extraia APENAS decisões de acórdãos e sentenças que tenham RESULTADO definido (procedente, improcedente, etc). IGNORE despachos administrativos.
-
-SEMPRE retorne um array JSON válido. Exemplos:
-
-Array vazio se não encontrar decisões:
-[]
-
-Array com decisões encontradas:
-[
-    {
-        "numero_processo": "1234567-89.2023.8.23.0001",
-        "tipo_decisao": "acórdão",
-        "polo_ativo": ["Nome Agravante", "Nome Autor"],
-        "advogados_polo_ativo": ["Nome Advogado (OAB/UF)"],
-        "polo_passivo": ["Nome Agravado", "Nome Réu"],
-        "advogados_polo_passivo": ["Nome Advogado (OAB/UF)"],
-        "resultado": "procedente|improcedente|parcialmente_procedente|extinto|provido|negado_provimento|confirmada|reformada",
-        "data": "YYYY-MM-DD",
-        "resumo": "Resumo da decisão em no máximo 250 caracteres"
-    }
-]
-
-REGRAS OBRIGATÓRIAS:
-- Retorne SEMPRE um array JSON válido, nunca texto explicativo
-- Se não encontrar decisões com resultado, retorne: []
-- Processe decisões como "RECURSO PROVIDO", "SENTENÇA CONFIRMADA", "SENTENÇA PROCEDENTE", etc.
-- Ignore despachos que apenas movimentam processos
-- Número CNJ quando disponível, senão use o número encontrado
-- Procure por textos como: "Decisão:", "Decisão Monocrática:", "À UNANIMIDADE", etc.
-- Resumo deve ter no máximo 250 caracteres e descrever brevemente a decisão
-- Se há texto de CONTINUAÇÃO DO TRECHO ANTERIOR, considere-o para contexto mas evite duplicar decisões"""
 
                 for chunk_index, chunk_text in enumerate(pdf_text_chunks):
                     if chunk_index > 0:
@@ -225,23 +220,31 @@ REGRAS OBRIGATÓRIAS:
                         )
                         time.sleep(delay)
 
-                    (
-                        retry_count,
-                        max_retries,
-                        base_delay,
-                        response_successful,
-                        response,
-                    ) = 0, 5, 30, False, None
+                    retry_count = 0
+                    max_retries = 5
+                    base_delay = 30
+                    response_successful = False
+
                     while retry_count < max_retries:
                         try:
                             logging.info(
                                 f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} (attempt {retry_count + 1})"
                             )
-                            full_prompt = f"{prompt}\n\nTexto (Chunk {chunk_index + 1}):\n{chunk_text}"
-                            response = model.generate_content(full_prompt)
+
+                            # Run async agent synchronously using asyncio.run
+                            # We create a new run for each chunk.
+                            result = asyncio.run(
+                                self.agent.run(f"Analise este trecho:\n{chunk_text}")
+                            )
+
+                            chunk_decisions = result.data.decisoes
+                            # Convert pydantic models to dicts for JSON serialization later
+                            all_decisions.extend([d.model_dump(mode='json') for d in chunk_decisions])
                             response_successful = True
                             break
+
                         except Exception as e_api:
+                            # Handle rate limits (429) or other API errors
                             if (
                                 "429" in str(e_api)
                                 or "quota" in str(e_api).lower()
@@ -262,33 +265,13 @@ REGRAS OBRIGATÓRIAS:
                                     )
                             else:
                                 logging.error(
-                                    f"Non-rate-limit error for chunk {chunk_index + 1}: {e_api}"
+                                    f"Error processing chunk {chunk_index + 1}: {e_api}"
                                 )
                                 response_successful = False
                                 break
 
                     if not response_successful:
-                        logging.error(f"Skipping chunk {chunk_index + 1}.")
-                        return None
-
-                    try:
-                        clean_response = (
-                            response.text.strip()
-                            .removeprefix("```json")
-                            .removesuffix("```")
-                            .strip()
-                        )  # type: ignore
-                        chunk_decisions = json.loads(clean_response)
-                        if isinstance(chunk_decisions, list):
-                            all_decisions.extend(chunk_decisions)
-                        else:
-                            logging.warning(
-                                f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}"
-                            )
-                    except json.JSONDecodeError as je:
-                        logging.error(
-                            f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}..."
-                        )  # type: ignore
+                        logging.error(f"Skipping chunk {chunk_index + 1} due to errors.")
                         return None
 
                 final_extracted_data = {
@@ -321,12 +304,10 @@ REGRAS OBRIGATÓRIAS:
             except IOError as e:
                 logging.error(f"Error saving JSON file {output_json_path}: {e}")
                 return None
-        # TemporaryDirectory is automatically cleaned up here via 'with' statement
-
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract structured data from a PDF document using Gemini."
+        description="Extract structured data from a PDF document using Gemini via pydantic-ai."
     )
     parser.add_argument(
         "--pdf_file",
@@ -340,11 +321,21 @@ def main():
         default=pathlib.Path(__file__).resolve().parent.parent.parent / "data",
         help="Directory to save the extracted JSON file. Defaults to data/",
     )
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="Gemini API Key (optional if GEMINI_API_KEY env var is set)",
+    )
     args = parser.parse_args()
+
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
     if not args.pdf_file.exists() or not args.pdf_file.is_file():
         logging.error(f"PDF file not found: {args.pdf_file}")
-        return  # Added return
-    extractor = GeminiExtractor()
+        return
+
+    extractor = GeminiExtractor(api_key=args.api_key)
     saved_path = extractor.extract_and_save_json(args.pdf_file, args.output_dir)
     if saved_path:
         logging.info(f"Extraction complete. JSON saved to {saved_path}")
@@ -364,7 +355,7 @@ if __name__ == "__main__":
             writer.add_blank_page(width=612, height=792)
             with open(cli_test_pdf, "wb") as f:
                 writer.write(f)
-        except Exception:  # Broad except for dummy creation
-            with open(cli_test_pdf, "w") as f:  # Fixed: multiple statements on one line
+        except Exception:
+            with open(cli_test_pdf, "w") as f:
                 f.write("Dummy PDF content.")
     main()
