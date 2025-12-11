@@ -309,12 +309,12 @@ class CausaGanhaDB:
             # For existing records, total_partidas is incremented.
             sql = """
             INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
-            VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, 1, now(), now())
             ON CONFLICT (advogado_id) DO UPDATE SET
                 mu = excluded.mu,
                 sigma = excluded.sigma,
                 total_partidas = ratings.total_partidas + 1,
-                updated_at = CURRENT_TIMESTAMP;
+                updated_at = now();
             """
         else:
             # For new records, total_partidas starts at 0 (or could be existing if not specified).
@@ -323,12 +323,12 @@ class CausaGanhaDB:
             # If an existing record is updated, its total_partidas remains unchanged by this SET.
             sql = """
             INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
-            VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, 0, now(), now())
             ON CONFLICT (advogado_id) DO UPDATE SET
                 mu = excluded.mu,
                 sigma = excluded.sigma,
                 -- total_partidas is NOT modified for existing records in this branch
-                updated_at = CURRENT_TIMESTAMP;
+                updated_at = now();
             """
         self.conn.execute(sql, [advogado_id, mu, sigma])
 
@@ -645,18 +645,18 @@ class CausaGanhaDB:
                         else None
                     )
 
-            query = f"UPDATE job_queue SET {', '.join(updates)} WHERE url = ?"
+            query = f"UPDATE job_queue SET {', '.join(updates)} WHERE url = ? RETURNING id"
             params.append(url_to_update)
 
-            result = self.conn.execute(query, params)
-            if result.rowcount is not None and result.rowcount > 0:
+            result = self.conn.execute(query, params).fetchone()
+            if result:
                 logger.info(
                     f"Updated diario {url_to_update} to status {new_status} with {kwargs}"
                 )
                 return True
             else:
                 logger.warning(
-                    f"No diario found for URL {url_to_update} to update (rowcount: {result.rowcount})."
+                    f"No diario found for URL {url_to_update} to update."
                 )
                 return False
         except Exception as e:

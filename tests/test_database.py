@@ -297,7 +297,7 @@ def mock_diario_obj():
 def test_causaganha_db_queue_diario_new(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
@@ -320,7 +320,7 @@ def test_causaganha_db_queue_diario_new(
 def test_causaganha_db_queue_diario_conflict_update_status(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
@@ -347,7 +347,7 @@ def test_causaganha_db_queue_diario_conflict_update_status(
 def test_causaganha_db_get_diarios_by_status(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
@@ -365,8 +365,51 @@ def test_causaganha_db_get_diarios_by_status(
         assert len(cg_db.get_diarios_by_status("downloaded")) == 0
 
 
-# Removed test_causaganha_db_update_diario_status - was marked as xfail with known UPDATE issue
-# that needs deeper investigation. Remove until fixed properly.
+def test_causaganha_db_update_diario_status(
+    cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
+):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
+        # Ensure job_queue table exists (should be created by fixture)
+        cg_db.conn.execute("""
+            CREATE TABLE IF NOT EXISTS job_queue (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL UNIQUE, date DATE,
+                tribunal TEXT, filename TEXT, metadata TEXT, status TEXT,
+                ia_identifier TEXT, arquivo_path TEXT,
+                created_at TIMESTAMP WITH TIME ZONE,
+                updated_at TIMESTAMP WITH TIME ZONE,
+                error_message TEXT, retry_count INTEGER
+            )
+        """)
+
+        # Initial insert
+        assert cg_db.queue_diario(mock_diario_obj)
+        assert len(cg_db.get_diarios_by_status("pending")) >= 1
+
+        # Test update status
+        update_result = cg_db.update_diario_status(
+            mock_diario_obj.url,
+            "downloaded",
+            error_message=None,
+            metadata={"processed": True},
+        )
+        assert update_result is True
+
+        # Verify update
+        diarios = cg_db.get_diarios_by_status("downloaded")
+        assert len(diarios) == 1
+        d = diarios[0]
+        assert d.url == mock_diario_obj.url
+        assert d.status == "downloaded"
+
+        # Check database directly for specific fields
+        r = cg_db.conn.execute(
+            "SELECT status, error_message, metadata FROM job_queue WHERE url=?",
+            [mock_diario_obj.url],
+        ).fetchone()
+        assert r[0] == "downloaded"
+        assert r[1] is None
+        assert json.loads(r[2]) == {"processed": True}
 
 
 def test_database_manager_connect_failure_nonexistent_path_parent(tmp_path: Path):
