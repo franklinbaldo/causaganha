@@ -1,14 +1,25 @@
 import uuid
 import json
 import logging
+import os
 from typing import List, Dict, Any, Optional
 
 # This namespace should be unique to this application and kept confidential
 # if the goal is to make it harder to regenerate UUIDs without it.
 # For development, we can use a fixed one. In production, this might come from a secure config.
-APPLICATION_NAMESPACE_UUID = uuid.UUID(
-    "0ab3b73f-71ac-45a0-9f08-381f7a3e62df"
-)  # Example UUID
+_fixed_uuid = uuid.UUID("0ab3b73f-71ac-45a0-9f08-381f7a3e62df")
+_env_uuid_str = os.getenv("PII_NAMESPACE_UUID")
+
+if _env_uuid_str:
+    try:
+        APPLICATION_NAMESPACE_UUID = uuid.UUID(_env_uuid_str)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            f"Invalid UUID in PII_NAMESPACE_UUID environment variable: {_env_uuid_str}. Using default."
+        )
+        APPLICATION_NAMESPACE_UUID = _fixed_uuid
+else:
+    APPLICATION_NAMESPACE_UUID = _fixed_uuid
 
 logger = logging.getLogger(__name__)
 
