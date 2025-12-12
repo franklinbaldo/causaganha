@@ -18,6 +18,10 @@
     - [x] Implement connection and schema initialization
     - [x] Create tests for storing intimations
     - [x] Implement storing intimations
+    - [x] Implement `store_lawyer_associations`
+    - [x] Implement `get_unanalyzed_intimations`
+    - [x] Implement `get_recent_analyses`
+    - [x] Implement `get_lawyer_stats`
 - [ ] Implement Pydantic AI Analyzer (TDD)
     - [ ] Create tests for analyzer
     - [ ] Implement analyzer
