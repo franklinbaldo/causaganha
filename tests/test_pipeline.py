@@ -1,14 +1,15 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
-from io import StringIO
-import logging
-from pathlib import Path
-import pandas as pd
-import json
 import argparse  # Added for Namespace
-import tempfile
+import json
+import logging
 import shutil
+import sys
+import tempfile
+import unittest
+from io import StringIO
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
 from src import pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

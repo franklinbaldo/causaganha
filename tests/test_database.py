@@ -1,11 +1,11 @@
-import pytest
-from pathlib import Path
-import duckdb
-from unittest.mock import patch, MagicMock
-import logging  # Import logging
 import json  # Import json
+import logging  # Import logging
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from src.database import DatabaseManager, run_db_migrations, CausaGanhaDB
+import duckdb
+import pytest
+from src.database import CausaGanhaDB, DatabaseManager, run_db_migrations
 
 logger = logging.getLogger(__name__)  # Define logger for the test module
 

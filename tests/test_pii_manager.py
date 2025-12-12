@@ -1,14 +1,14 @@
-import pytest
+# Add src to Python path if running tests directly and conftest isn't picked up the same way
+import sys
 import uuid
 from pathlib import Path
 
-# Add src to Python path if running tests directly and conftest isn't picked up the same way
-import sys
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.database import CausaGanhaDB, DatabaseManager, run_db_migrations
-from src.pii_manager import PiiManager, APPLICATION_NAMESPACE_UUID
+from src.pii_manager import APPLICATION_NAMESPACE_UUID, PiiManager
 
 # Test PII types
 LAWYER_ID_NORMALIZED = "LAWYER_ID_NORMALIZED"

@@ -1,12 +1,13 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import pathlib
-import os
 import json
-import sys
+import os
+import pathlib
 import shutil
-import fitz
 import subprocess
+import sys
+import unittest
+from unittest.mock import MagicMock, patch
+
+import fitz
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -19,8 +20,8 @@ SCRIPTS_PATH = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_PATH) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_PATH))
 
-from extractor import GeminiExtractor  # noqa: E402
 import check_environment  # noqa: E402
+from extractor import GeminiExtractor  # noqa: E402
 
 # Suppress logging output during tests for clarity, can be enabled for debugging
 # logging.disable(logging.CRITICAL)

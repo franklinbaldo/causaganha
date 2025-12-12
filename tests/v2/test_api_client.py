@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from causaganha.v2.api.client import PJeAPIClient
-from causaganha.v2.api.models import Intimation
+from causaganha_v2.api.client import PJeAPIClient
+from causaganha_v2.api.models import Intimation
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
-from typer.testing import CliRunner
 from unittest.mock import patch
 
 from src.cli import app
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

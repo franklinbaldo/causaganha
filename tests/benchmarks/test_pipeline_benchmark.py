@@ -1,9 +1,9 @@
+import sys
 import time
 from pathlib import Path
 from unittest.mock import patch
 
 from src import pipeline
-import sys
 
 
 def test_pipeline_run_time():

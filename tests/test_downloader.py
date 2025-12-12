@@ -1,11 +1,12 @@
-import unittest
-from unittest.mock import patch, MagicMock, call
-import pathlib
 import datetime
-import requests  # Required for requests.exceptions.RequestException
-import sys
-import shutil  # For tearDown
 import logging  # Added import (one instance)
+import pathlib
+import shutil  # For tearDown
+import sys
+import unittest
+from unittest.mock import MagicMock, call, patch
+
+import requests  # Required for requests.exceptions.RequestException
 
 # Ensure the src directory is in sys.path for imports
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -14,8 +15,8 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from tribunais.tjro.downloader import (  # noqa: E402
-    fetch_tjro_pdf,
     fetch_latest_tjro_pdf,
+    fetch_tjro_pdf,
 )
 
 # Suppress logging output during tests

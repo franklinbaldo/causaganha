@@ -1,6 +1,6 @@
 import duckdb
-from src.pii_manager import PiiManager
 from src.anonymization_hooks import anonymize_metadata
+from src.pii_manager import PiiManager
 
 
 def test_anonymize_metadata_replaces_fields():

@@ -1,15 +1,15 @@
-import pytest
 from datetime import date
 from unittest.mock import patch
 
-from tribunais import register_tribunal, get_adapter, list_supported_tribunals
+import pytest
 from models.diario import Diario
 from models.interfaces import (
+    DiarioAnalyzer,
     DiarioDiscovery,
     DiarioDownloader,
-    DiarioAnalyzer,
     TribunalAdapter,
 )
+from tribunais import get_adapter, list_supported_tribunals, register_tribunal
 
 
 def make_dummy_classes(code: str):

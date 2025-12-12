@@ -1,10 +1,11 @@
 """Pytest configuration for CausaGanha tests."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import sys
+import tempfile
 import uuid  # Required for new temp_db logic
+from pathlib import Path
+
+import pytest
 
 # Add src to Python path for development
 sys.path.insert(0, str(Path(__file__).parent.parent))

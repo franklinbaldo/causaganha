@@ -1,7 +1,7 @@
 import pytest
 import pytest_asyncio
 
-from causaganha.v2.api.client import PJeAPIClient
+from causaganha_v2.api.client import PJeAPIClient
 
 
 @pytest_asyncio.fixture

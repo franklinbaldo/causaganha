@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 print(f"Python Executable: {sys.executable}")
 print(f"Current Working Directory: {os.getcwd()}")

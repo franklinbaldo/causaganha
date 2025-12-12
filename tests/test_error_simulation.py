@@ -1,5 +1,5 @@
-import unittest
 import os
+import unittest
 from unittest.mock import patch
 
 # Tests here simulate failures across different tribunal collectors using

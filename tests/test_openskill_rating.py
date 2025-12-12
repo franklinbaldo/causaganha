@@ -9,11 +9,11 @@ from openskill.models.weng_lin.plackett_luce import (
 # from ..openskill_rating import get_openskill_model, create_rating, rate_teams
 # For now, let's assume it's findable via src path
 from openskill_rating import (
-    get_openskill_model,
-    create_rating,
-    rate_teams,
     DEFAULT_OS_MU,
     DEFAULT_OS_SIGMA,
+    create_rating,
+    get_openskill_model,
+    rate_teams,
 )
 
 

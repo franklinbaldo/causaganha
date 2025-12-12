@@ -2,11 +2,11 @@
 Tests for the Diario dataclass implementation.
 """
 
+import json
+import sys
 import unittest
 from datetime import date
 from pathlib import Path
-import json
-import sys
 
 from models.diario import Diario  # Moved to top
 from tribunais import (
@@ -14,6 +14,7 @@ from tribunais import (
     is_tribunal_supported,
     list_supported_tribunals,
 )  # Moved to top
+
 # Specific import for testing can remain if not causing E402, or also moved.
 # from tribunais.tjro.adapter import TJROAdapter
 

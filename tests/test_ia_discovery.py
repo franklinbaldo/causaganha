@@ -1,10 +1,10 @@
-import sys
 import json
+import sys
 import tempfile
+import unittest
 from io import StringIO
 from pathlib import Path
-import unittest
-from unittest.mock import patch, mock_open
+from unittest.mock import mock_open, patch
 
 from ia_discovery import main
 

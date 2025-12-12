@@ -1,8 +1,8 @@
-from datetime import date
+from datetime import date, datetime
+
 import pytest
-from pydantic import BaseModel, ValidationError, HttpUrl
-from datetime import datetime
 from models.llm_output import Decision, ExtractionResult
+from pydantic import BaseModel, HttpUrl, ValidationError
 
 
 class DiarioModel(BaseModel):
