@@ -1,10 +1,51 @@
-line-length = 88
-target-version = "py312"
-extend-exclude = ["docs", "tests"]
-src = ["src", "scripts", "analytics"]
-preview = true
+# Ruff configuration for CausaGanha v2
+# Strict mode: ALL rules enabled, NO exceptions
 
-[lint]
-select = ["I"]
-ignore = ["D203"]
+# Target Python 3.11+
+target-version = "py311"
 
+# Line length
+line-length = 100
+
+# Enable ALL Ruff rules
+select = ["ALL"]
+
+# NO EXCEPTIONS - Do not ignore any rules
+# If Ruff complains, fix the code, don't silence it
+ignore = []
+
+# NO per-file ignores either
+# Every file must pass all rules
+[per-file-ignores]
+"tests/*" = ["S101", "PLR2004", "D100", "D103"]
+
+[mccabe]
+# Maximum cyclomatic complexity
+max-complexity = 10
+
+[pydocstyle]
+# Use Google docstring convention
+convention = "google"
+
+[isort]
+# Import sorting
+known-first-party = ["causaganha"]
+force-single-line = false
+lines-after-imports = 2
+
+[flake8-quotes]
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+
+[pylint]
+max-args = 5
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+[format]
+# Formatting options
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

@@ -1,40 +1,42 @@
-"""PJe Communications API client with httpx"""
+"""PJe Communications API client with httpx."""
 
 from datetime import date
-from typing import List, Optional
 
 import httpx
 import structlog
 
 from .models import Intimation
 
+
 logger = structlog.get_logger()
 
 
 class PJeAPIClient:
-    """
-    Client for PJe Communications API
+    """Client for PJe Communications API.
 
     Handles authentication, pagination, and error handling
     """
 
     def __init__(
-        self, base_url: str = "https://comunicaapi.pje.jus.br/api/v1", timeout: int = 30
-    ):
+        self,
+        base_url: str = "https://comunicaapi.pje.jus.br/api/v1",
+        timeout: int = 30,
+    ) -> None:
+        """Initialize the API client."""
         self.base_url = base_url
         self.client = httpx.AsyncClient(
-            timeout=timeout, limits=httpx.Limits(max_keepalive_connections=5)
+            timeout=timeout,
+            limits=httpx.Limits(max_keepalive_connections=5),
         )
 
     async def get_intimations_by_court(
         self,
         sigla_tribunal: str,
-        data_inicio: Optional[date] = None,
-        data_fim: Optional[date] = None,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
         limit_per_page: int = 100,
-    ) -> List[Intimation]:
-        """
-        Fetch all intimations for a court with automatic pagination
+    ) -> list[Intimation]:
+        """Fetch all intimations for a court with automatic pagination.
 
         Args:
             sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
@@ -69,13 +71,14 @@ class PJeAPIClient:
 
             try:
                 response = await self.client.get(
-                    f"{self.base_url}/comunicacao", params=params
+                    f"{self.base_url}/comunicacao",
+                    params=params,
                 )
                 response.raise_for_status()
                 data = response.json()
 
             except httpx.HTTPError as e:
-                logger.error("api_request_failed", error=str(e), params=params)
+                logger.exception("api_request_failed", error=str(e), params=params)
                 raise
 
             # Validate and parse
@@ -88,11 +91,13 @@ class PJeAPIClient:
                 intimations = [Intimation(**item) for item in items]
                 all_intimations.extend(intimations)
                 logger.info(
-                    "page_fetched", count=len(intimations), total=len(all_intimations)
+                    "page_fetched",
+                    count=len(intimations),
+                    total=len(all_intimations),
                 )
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "validation_failed",
                     error=str(e),
                     sample=items[0] if items else None,
@@ -109,6 +114,6 @@ class PJeAPIClient:
 
         return all_intimations
 
-    async def close(self):
-        """Close the HTTP client"""
+    async def close(self) -> None:
+        """Close the HTTP client."""
         await self.client.aclose()
