@@ -46,7 +46,7 @@ dev = [
 ]
 
 [project.scripts]
-# causaganha = "cli:app" # V1 CLI disabled
+causaganha = "causaganha.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -64,7 +64,7 @@ asyncio_mode = "auto"
 addopts = """
     -v
     --strict-markers
-    --cov=causaganha_v2
+    --cov=causaganha
     --cov-report=html
     --cov-report=term-missing
 """

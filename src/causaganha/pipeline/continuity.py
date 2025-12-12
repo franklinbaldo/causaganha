@@ -1,17 +1,17 @@
 from datetime import datetime
+
 from ibis import BaseBackend
-import ibis
-from causaganha_v2.storage.connection import get_connection
-from causaganha_v2.storage.schema import create_schema
+
+from causaganha.storage.connection import get_connection
+from causaganha.storage.schema import create_schema
+
 
 class ContinuityManager:
-    """
-    Manages the continuity of the pipeline processing, allowing tasks to be resumed.
+    """Manages the continuity of the pipeline processing, allowing tasks to be resumed.
     """
 
     def __init__(self, con: BaseBackend = None):
-        """
-        Initialize the ContinuityManager.
+        """Initialize the ContinuityManager.
 
         Args:
             con: Ibis DuckDB connection backend. If None, creates a new connection using default config.
@@ -23,8 +23,7 @@ class ContinuityManager:
             self.con = con
 
     def is_done(self, task_id: str, step: str) -> bool:
-        """
-        Check if a task step has been completed.
+        """Check if a task step has been completed.
 
         Args:
             task_id: Unique identifier for the task (e.g., process number).
@@ -38,8 +37,7 @@ class ContinuityManager:
         return count > 0
 
     def mark_done(self, task_id: str, step: str):
-        """
-        Mark a task step as completed.
+        """Mark a task step as completed.
 
         Args:
             task_id: Unique identifier for the task.

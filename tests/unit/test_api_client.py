@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from causaganha_v2.api.client import PJeAPIClient
+from causaganha.api.client import PJeAPIClient
 
 
 @pytest.mark.asyncio

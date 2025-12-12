@@ -1,10 +1,11 @@
 import ibis
 from ibis import BaseBackend
-from causaganha_v2.config import DB_PATH
+
+from causaganha.config import DB_PATH
+
 
 def get_connection(path: str = DB_PATH) -> BaseBackend:
-    """
-    Get a connection to the DuckDB database.
+    """Get a connection to the DuckDB database.
 
     Args:
         path: Path to the DuckDB database file. Defaults to DB_PATH from config.
