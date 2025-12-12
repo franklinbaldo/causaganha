@@ -8,6 +8,51 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚀 v2 Transition in Progress
+
+**CausaGanha is preparing for a major v2 refactoring** to integrate PJe Communications API and replace web scraping with structured API-based metadata collection.
+
+### v2 Key Changes
+
+- **Metadata Collection**: Web scraping → PJe Communications API (JSON)
+- **Data Operations**: pandas → Ibis (10-100x faster)
+- **LLM Integration**: Direct Gemini SDK → Pydantic AI (provider-agnostic)
+- **Coverage**: TJRO only → 90+ courts with PJe support
+
+### v2 Development Status
+
+- ✅ **Phase 0 (Current)**: Repository preparation and v2 directory structure
+- 🔄 **Phase 1-3 (Weeks 1-3)**: TDD-based v2 implementation in parallel with v1
+- ⏳ **Phase 4-6 (Weeks 4-6)**: Integration, parallel production, switchover
+- ⏳ **Phase 7-9 (Weeks 7-9)**: Expansion to new courts, cleanup
+
+### v2 Directory Structure
+
+```
+src/causaganha/
+├── v2/                  # NEW: v2 implementation (in development)
+│   ├── api/            # PJe API client (httpx + Pydantic)
+│   ├── storage/        # Ibis + DuckDB data layer
+│   ├── analysis/       # Pydantic AI decision analyzer
+│   ├── pipeline/       # Orchestration (collect, analyze, score)
+│   └── utils/          # Structured logging
+├── (current v1 files)  # Existing implementation (active)
+└── scoring/            # OpenSkill (shared - unchanged)
+```
+
+### Development Guidelines for v2
+
+1. **Parallel Development**: v1 remains active while v2 is built
+2. **Test-Driven Development**: All v2 code must follow strict TDD
+3. **No Breaking Changes to v1**: v1 must continue working during transition
+4. **Comprehensive Documentation**: See `/causaganha-v2-plan-from-scratch.md`
+
+### Important Files
+
+- `/causaganha-v2-plan-from-scratch.md` - Complete v2 implementation plan
+- `/src/causaganha/v2/README.md` - v2 architecture overview
+- `/docs/plans/archive/` - v1 plans that are obsolete in v2
+
 ## Project Overview
 
 CausaGanha is an automated judicial decision analysis platform that applies the OpenSkill rating system to evaluate lawyer performance in legal proceedings. It extracts, analyzes, and scores judicial decisions from Brazilian tribunals using Google's Gemini LLM with local DuckDB storage and Internet Archive for PDF archiving.
@@ -82,12 +127,14 @@ CausaGanha follows a **plan-first development approach** to ensure thoughtful fe
 docs/
 ├── plans/                      # 📋 Future features (planning phase)
 │   ├── MASTERPLAN.md           # 🎯 LIVE COORDINATION DOCUMENT
-│   ├── diario-class.md         # Plan: Diario dataclass system
+│   ├── archive/                # 🗄️ v1 plans (obsolete for v2)
+│   │   ├── diario-class.md         # Archived: Diario dataclass system
+│   │   ├── fix-database-integration-issues.md  # Archived: Database fixes
+│   │   ├── refactor_archive_command.md         # Archived: Archive refactor
+│   │   └── refactor-downloader-module.md       # Archived: Downloader refactor
 │   ├── dtb.md                  # Plan: dbt-duckdb migration
-│   ├── fix-database-integration-issues.md  # Plan: Database integration fixes
 │   ├── multi_tribunal_collection.md        # Plan: Multi-tribunal support
-│   ├── prompt_versioning_strategy.md       # Plan: LLM prompt versioning
-│   └── refactor_archive_command.md         # Plan: Archive command refactor
+│   └── prompt_versioning_strategy.md       # Plan: LLM prompt versioning
 ├── implemented/                # 📚 Completed features (documentation)
 │   └── (empty - features will move here when complete)
 ├── cli_design.md              # Current: CLI architecture and commands

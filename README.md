@@ -10,6 +10,28 @@
 
 > ⚠️ **SOFTWARE ALPHA**: Este projeto está em desenvolvimento ativo com mudanças radicais frequentes. APIs, schemas de banco de dados e funcionalidades principais podem mudar sem aviso ou compatibilidade com versões anteriores. Use por sua conta e risco em ambientes de produção.
 
+## 🚀 Transição para v2 em Andamento
+
+**O CausaGanha está se preparando para uma grande refatoração v2** que integrará a API de Comunicações do PJe e substituirá web scraping por coleta de metadados estruturados via API.
+
+### Principais Mudanças da v2
+
+- **Coleta de Metadados**: Web scraping → API de Comunicações PJe (JSON estruturado)
+- **Operações de Dados**: pandas → Ibis (10-100x mais rápido)
+- **Integração LLM**: SDK direto Gemini → Pydantic AI (agnóstico de provedor)
+- **Cobertura**: Apenas TJRO → 90+ tribunais com suporte PJe
+
+### Status do Desenvolvimento v2
+
+- ✅ **Fase 0 (Atual)**: Preparação do repositório e estrutura de diretórios v2
+- 🔄 **Fase 1-3 (Semanas 1-3)**: Implementação v2 baseada em TDD em paralelo com v1
+- ⏳ **Fase 4-6 (Semanas 4-6)**: Integração, produção paralela, migração
+- ⏳ **Fase 7-9 (Semanas 7-9)**: Expansão para novos tribunais, limpeza
+
+📖 **Documentação Completa**: Consulte `/causaganha-v2-plan-from-scratch.md` para o plano completo de implementação.
+
+---
+
 **CausaGanha** é uma **plataforma de análise judicial distribuída em estágio alpha** que combina inteligência artificial, processamento assíncrono e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
 
 ## Características Principais
