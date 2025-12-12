@@ -1,14 +1,13 @@
 import argparse
+import json
 import logging
 import sys
-import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
-
-from src.database import CausaGanhaDB
-from src.pii_manager import PiiManager
-from src.utils import (
+from causaganha_v1.database import CausaGanhaDB
+from causaganha_v1.pii_manager import PiiManager
+from causaganha_v1.utils import (
     normalize_lawyer_name,
 )  # For consistency if needed, though PiiManager handles normalization internally based on type
 

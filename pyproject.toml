@@ -46,7 +46,7 @@ dev = [
 ]
 
 [project.scripts]
-causaganha = "cli:app"
+# causaganha = "cli:app" # V1 CLI disabled
 
 [tool.setuptools.packages.find]
 where = ["src"]

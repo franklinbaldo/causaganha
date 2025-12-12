@@ -11,13 +11,14 @@ Usage:
     python scripts/bulk_discovery.py --latest     # Latest only
 """
 
-import sys
 import argparse
 import json
+import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Set
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -25,8 +26,9 @@ from urllib3.util.retry import Retry
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from database import CausaGanhaDB
 import logging
+
+from causaganha_v1.database import CausaGanhaDB
 
 # Setup logging
 logging.basicConfig(
@@ -60,16 +62,14 @@ class TJROPDFDiscovery:
         session.mount("https://", adapter)
 
         # Headers to appear more like a browser
-        session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Connection": "keep-alive",
-                "Upgrade-Insecure-Requests": "1",
-            }
-        )
+        session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        })
 
         return session
 
@@ -248,7 +248,7 @@ class TJROPDFDiscovery:
             # Check if already in database
             existing = self.db.execute(
                 """
-                SELECT id FROM pdf_discovery_queue 
+                SELECT id FROM pdf_discovery_queue
                 WHERE url = ? OR (date = ? AND number = ?)
             """,
                 (pdf_url, date_str, number_str),
@@ -260,7 +260,7 @@ class TJROPDFDiscovery:
             # Add to queue
             self.db.execute(
                 """
-                INSERT INTO pdf_discovery_queue 
+                INSERT INTO pdf_discovery_queue
                 (url, date, number, year, priority, metadata, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
@@ -304,10 +304,10 @@ class TJROPDFDiscovery:
 
         # By year (top 10)
         year_stats = self.db.execute("""
-            SELECT year, COUNT(*) as count 
-            FROM pdf_discovery_queue 
-            GROUP BY year 
-            ORDER BY year DESC 
+            SELECT year, COUNT(*) as count
+            FROM pdf_discovery_queue
+            GROUP BY year
+            ORDER BY year DESC
             LIMIT 10
         """).fetchall()
         stats["by_year"] = {str(row[0]): row[1] for row in year_stats}

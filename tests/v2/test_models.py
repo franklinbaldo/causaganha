@@ -1,6 +1,6 @@
 import pytest
 
-from causaganha.v2.api.models import Intimation
+from causaganha_v2.api.models import Intimation
 
 
 def test_intimation_model_parsing():
