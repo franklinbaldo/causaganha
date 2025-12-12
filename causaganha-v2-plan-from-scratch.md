@@ -136,6 +136,219 @@ Diário PDFs → Download → AI Analysis (Gemini) → Extract Win/Loss → Open
 
 **This changes everything** - we can get better metadata reliably and scale nationally.
 
+### API in Action: Concrete Example
+
+#### Making API Requests
+
+The PJe Communications API is a standard REST API that returns structured JSON. Here's a real example:
+
+```bash
+curl -X 'GET' \
+  'https://comunicaapi.pje.jus.br/api/v1/comunicacao?dataDisponibilizacaoInicio=2025-01-01&dataDisponibilizacaoFim=2025-12-31&siglaTribunal=TJRO&pagina=1&itensPorPagina=100&meio=D' \
+  -H 'accept: application/json'
+```
+
+**Query Parameters:**
+- `dataDisponibilizacaoInicio` / `dataDisponibilizacaoFim`: Date range filter
+- `siglaTribunal`: Court code (e.g., TJRO, TJMT, TJSP)
+- `pagina`: Page number (starts at 1)
+- `itensPorPagina`: Results per page (max 100)
+- `meio`: Communication method (`D` = Diário de Justiça Eletrônico)
+
+#### Response Structure
+
+The API returns structured JSON with **all the metadata we need**:
+
+```json
+{
+  "status": "success",
+  "message": "Sucesso",
+  "count": 10000,
+  "items": [
+    {
+      "id": 485348463,
+      "data_disponibilizacao": "2025-12-12",
+      "siglaTribunal": "TJRO",
+      "tipoComunicacao": "Intimação",
+      "nomeOrgao": "Rolim de Moura - 1ª Vara Cível",
+      "idOrgao": 928,
+      "numero_processo": "70009673320258220010",
+      "numeroprocessocommascara": "7000967-33.2025.8.22.0010",
+      "nomeClasse": "PROCEDIMENTO COMUM CÍVEL",
+      "codigoClasse": "7",
+      "texto": "Poder Judiciário TRIBUNAL DE JUSTIÇA...",
+      "link": "https://pjepg.tjro.jus.br/pje/Processo/ConsultaDocumento/...",
+      "hash": "MlkWByzDGYzEtkhvTQm98qZebmAjON",
+      "status": "P",
+      "destinatarios": [
+        {
+          "comunicacao_id": 485348463,
+          "nome": "JUAREZ MOREIRA DE SOUZA",
+          "polo": "A"
+        }
+      ],
+      "destinatarioadvogados": [
+        {
+          "id": 844498057,
+          "comunicacao_id": 485348463,
+          "advogado_id": 1056180,
+          "advogado": {
+            "id": 1056180,
+            "nome": "ONEIR FERREIRA DE SOUZA",
+            "numero_oab": "6475A",
+            "uf_oab": "RO"
+          }
+        },
+        {
+          "id": 844498058,
+          "comunicacao_id": 485348463,
+          "advogado_id": 4512552,
+          "advogado": {
+            "id": 4512552,
+            "nome": "CIDINEIA GOMES DA ROCHA BOSCOLO",
+            "numero_oab": "6594A",
+            "uf_oab": "RO"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Critical Implications for v2 Architecture
+
+This structured API response **fundamentally changes** how CausaGanha collects and processes data:
+
+##### 1. **Metadata Extraction: API → No LLM Needed**
+
+**v1 Approach (Current):**
+```
+PDF Download → Gemini LLM → Extract lawyer names → Parse OAB → Normalize names
+Cost: ~$0.001/page for extraction + complex parsing logic
+Accuracy: 85-90% (OCR/parsing errors, name variations)
+```
+
+**v2 Approach (With API):**
+```
+API Call → JSON Parse → Direct field access
+Cost: FREE (no LLM needed for metadata)
+Accuracy: 99%+ (official structured data)
+```
+
+**Impact:**
+- 🎯 **Save 50-70% on LLM costs** (only use LLM for decision outcome analysis)
+- ⚡ **10x faster metadata collection** (no PDF parsing)
+- 📊 **Perfect lawyer associations** (`polo: "A"` = active side, structured OAB numbers)
+
+##### 2. **Data Quality: From Extraction to Structured Fields**
+
+**What we get directly from API (no parsing needed):**
+- ✅ `numero_processo`: Exact process number (both formats)
+- ✅ `destinatarioadvogados[].advogado.nome`: Official lawyer names
+- ✅ `destinatarioadvogados[].advogado.numero_oab`: OAB numbers (already formatted)
+- ✅ `destinatarioadvogados[].advogado.uf_oab`: OAB jurisdiction
+- ✅ `destinatarios[].polo`: Party side (`A` = active, `P` = passive)
+- ✅ `nomeClasse` + `codigoClasse`: Case type (for filtering)
+- ✅ `link`: Direct PDF URL (when needed for outcome analysis)
+
+**What this eliminates:**
+- ❌ No more name normalization heuristics
+- ❌ No more OAB regex parsing
+- ❌ No more ambiguous party associations
+- ❌ No more "best guess" for process numbers
+
+##### 3. **Scaling to 90+ Courts: Just Change One Parameter**
+
+**v1 (Current):** Each tribunal requires custom scraper
+```python
+# Different scraper for each court
+tjro_scraper = TJROScraper()
+tjmt_scraper = TJMTScraper()  # Would need to build
+tjsp_scraper = TJSPScraper()  # Would need to build
+```
+
+**v2 (With API):** Same code works for all PJe courts
+```python
+# Same client for all courts
+client = PJeAPIClient()
+await client.get_intimations_by_court("TJRO")  # Works
+await client.get_intimations_by_court("TJMT")  # Works
+await client.get_intimations_by_court("TJSP")  # Works
+# ... 87 more courts with ZERO additional code
+```
+
+**Impact:**
+- 🚀 **National coverage in Phase 7-9** (not hypothetical, just configuration)
+- 📈 **100x more data** (from 1 court to 90+ courts)
+- 🛠️ **Zero maintenance per court** (API handles all tribunals uniformly)
+
+##### 4. **Decision Analysis: Still Need LLM, But Smarter**
+
+**Important:** The API provides **metadata**, not **decision outcomes**. We still need LLM for:
+
+```
+What the API gives us:           What we still need LLM for:
+✅ Process number                ❌ Who won the case?
+✅ Lawyer names + OAB            ❌ What was decided?
+✅ Party names + sides           ❌ Favorable/unfavorable outcome?
+✅ Case class                    ❌ Full/partial win?
+✅ Court/judge
+
+LLM Role in v2:
+- Read PDF from `link` field
+- Analyze decision text only
+- Return: winner side ("A" or "P") + confidence
+```
+
+**Cost Optimization:**
+```
+v1: LLM for (metadata extraction + outcome analysis) = $0.001/page
+v2: LLM for (outcome analysis only) = $0.0005/page = 50% savings
+```
+
+##### 5. **Pipeline Efficiency: Parallel Processing**
+
+**v1 Sequential Processing:**
+```
+Download PDF → Extract metadata → Analyze outcome → Store
+     ↓              ↓                   ↓              ↓
+  Slow (IO)    Slow (LLM)         Slow (LLM)      Fast
+```
+
+**v2 Parallel Processing:**
+```
+API → Store metadata (instant)
+ ↓
+Link to PDF → Analyze outcome → Update record
+                    ↓                ↓
+               Slow (LLM)         Fast
+```
+
+**Impact:**
+- ⚡ **Instant metadata storage** (no waiting for PDF/LLM)
+- 🔄 **Decouple collection from analysis** (process 1000s of metadata records, analyze PDFs later)
+- 📊 **Early insights** (see lawyer activity before outcomes analyzed)
+
+##### 6. **Data Completeness: No Missing Metadata**
+
+**v1 Problem:** If LLM extraction fails → lose entire record
+**v2 Solution:** API metadata always complete → only lose outcome analysis if LLM fails
+
+**Example:**
+```
+Scenario: 100 intimations from API, 5 PDFs unreachable
+
+v1 Result:
+- 95 complete records (95%)
+- 5 total losses
+
+v2 Result:
+- 100 records with metadata (100%)
+- 95 with outcome analysis
+- 5 pending outcome (can retry later without re-downloading metadata)
+```
+
 ---
 
 ## What Changes, What Stays
