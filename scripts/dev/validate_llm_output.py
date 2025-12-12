@@ -7,8 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
-from src.models.llm_output import ExtractionResult
-from src.utils.logging_config import setup_logging, get_logger
+from causaganha_v1.models.llm_output import ExtractionResult
+from causaganha_v1.utils.logging_config import get_logger, setup_logging
 
 
 def validate_file(path: Path) -> bool:

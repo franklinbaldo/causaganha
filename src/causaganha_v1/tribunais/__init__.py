@@ -7,7 +7,7 @@ implementations through the new Diario dataclass system.
 
 from typing import Dict, List, Type
 
-from models.interfaces import (
+from causaganha_v1.models.interfaces import (
     DiarioAnalyzer,
     DiarioDiscovery,
     DiarioDownloader,

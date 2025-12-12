@@ -8,25 +8,28 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from src.extractor import GeminiExtractor as _RealGeminiExtractor
+
+from causaganha_v1.extractor import GeminiExtractor as _RealGeminiExtractor
 
 # Change to absolute imports from 'src' package
-from src.tribunais.tjro.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
+from causaganha_v1.tribunais.tjro.downloader import (
+    fetch_tjro_pdf as _real_fetch_tjro_pdf,
+)
 
 try:
     from enum import Enum
 
-    from src.config import load_config
-    from src.openskill_rating import (
+    from causaganha_v1.config import load_config
+    from causaganha_v1.openskill_rating import (
         create_rating as create_openskill_rating_object,
     )
-    from src.openskill_rating import (
+    from causaganha_v1.openskill_rating import (
         get_openskill_model,
     )
-    from src.openskill_rating import (
+    from causaganha_v1.openskill_rating import (
         rate_teams as update_openskill_ratings,
     )
-    from src.utils import validate_decision
+    from causaganha_v1.utils import validate_decision
 
     class MatchResult(Enum):
         WIN_A = "win_a"

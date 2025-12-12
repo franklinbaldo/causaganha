@@ -16,7 +16,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from database import CausaGanhaDB
+from causaganha_v1.database import CausaGanhaDB
 
 logger = logging.getLogger(__name__)
 
@@ -117,17 +117,15 @@ class DatabaseArchiver:
                 f"Total matches: {db_stats.get('total_partidas', 'N/A')}, "
                 f"Total decisions: {db_stats.get('total_decisoes', 'N/A')}."
             ),
-            "subject": ";".join(
-                [
-                    "legal-analytics",
-                    "openskill",
-                    "judicial-decisions",
-                    "rondonia",
-                    "lawyer-performance",
-                    "court-decisions",
-                    "legal-research",
-                ]
-            ),
+            "subject": ";".join([
+                "legal-analytics",
+                "openskill",
+                "judicial-decisions",
+                "rondonia",
+                "lawyer-performance",
+                "court-decisions",
+                "legal-research",
+            ]),
             "language": "por",
             "collection": "opensource_data",
             "mediatype": "data",

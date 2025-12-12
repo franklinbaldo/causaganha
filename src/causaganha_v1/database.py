@@ -8,8 +8,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import duckdb
 import pandas as pd
-from models.diario import Diario
-from src.config import load_config
+
+from causaganha_v1.config import load_config
+from causaganha_v1.models.diario import Diario
 
 # MigrationRunner will be imported in a dedicated migration function
 # from migration_runner import MigrationRunner
@@ -162,7 +163,9 @@ class DatabaseManager:
             )
 
 
-def run_db_migrations(db_path: Path, migrations_path_override: Optional[Path] = None) -> None:
+def run_db_migrations(
+    db_path: Path, migrations_path_override: Optional[Path] = None
+) -> None:
     """
     Runs database migrations using MigrationRunner.
 

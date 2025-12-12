@@ -8,7 +8,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
-from src.tribunais import list_supported_tribunals  # type: ignore
+from causaganha_v1.tribunais import list_supported_tribunals  # type: ignore
 
 
 def main() -> None:

@@ -175,22 +175,20 @@ def archive_pdf(
     )
 
     if not exists:
-        subprocess.check_call(
-            [
-                "ia",
-                "upload",
-                item_id,
-                str(pdf_path),
-                "--metadata",
-                "mediatype:texts",
-                "--metadata",
-                "subject:causa_ganha, trj:ro",
-                "--metadata",
-                f"sha256:{sha}",
-                "--retries",
-                "5",
-            ]
-        )
+        subprocess.check_call([
+            "ia",
+            "upload",
+            item_id,
+            str(pdf_path),
+            "--metadata",
+            "mediatype:texts",
+            "--metadata",
+            "subject:causa_ganha, trj:ro",
+            "--metadata",
+            f"sha256:{sha}",
+            "--retries",
+            "5",
+        ])
 
     archive_url = f"https://archive.org/download/{item_id}/{filename}"
 

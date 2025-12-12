@@ -10,8 +10,8 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from models.diario import Diario
-from models.interfaces import DiarioDownloader
+from causaganha_v1.models.diario import Diario
+from causaganha_v1.models.interfaces import DiarioDownloader
 
 from .downloader import archive_pdf, fetch_tjro_pdf
 

@@ -61,7 +61,10 @@ def setup_logging(
         formatter = jsonlogger.JsonFormatter(
             # More structured format:
             fmt="%(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(tribunal_code)s %(message)s",
-            rename_fields={"levelname": "level", "asctime": "timestamp"}, # Optional: rename for common conventions
+            rename_fields={
+                "levelname": "level",
+                "asctime": "timestamp",
+            },  # Optional: rename for common conventions
             # json_ensure_ascii=False # If non-ASCII characters are common and desired as-is
         )
         handler.setFormatter(formatter)

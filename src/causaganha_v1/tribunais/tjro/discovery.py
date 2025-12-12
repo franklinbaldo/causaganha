@@ -8,7 +8,8 @@ from datetime import date
 from typing import List, Optional
 
 import requests
-from models.interfaces import DiarioDiscovery
+
+from causaganha_v1.models.interfaces import DiarioDiscovery
 
 
 class TJRODiscovery(DiarioDiscovery):

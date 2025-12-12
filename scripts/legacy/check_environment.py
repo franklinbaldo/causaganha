@@ -50,9 +50,7 @@ def check_env_vars() -> bool:
     required = ["GEMINI_API_KEY", "IA_ACCESS_KEY", "IA_SECRET_KEY"]
     missing = [var for var in required if not os.getenv(var)]
     if missing:
-        logger.error(
-            "Missing environment variables: %s", ", ".join(missing)
-        )
+        logger.error("Missing environment variables: %s", ", ".join(missing))
         logger.error(
             "Create a .env file based on .env.example and set the required variables."
         )
@@ -64,9 +62,7 @@ def check_env_vars() -> bool:
 
 def run_uv_pip_check() -> bool:
     logger.info("Running 'uv pip check'...")
-    result = subprocess.run(
-        ["uv", "pip", "check"], capture_output=True, text=True
-    )
+    result = subprocess.run(["uv", "pip", "check"], capture_output=True, text=True)
     output = result.stdout + result.stderr
     if result.returncode != 0:
         logger.error(output.strip())

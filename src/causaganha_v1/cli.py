@@ -12,10 +12,14 @@ from urllib.parse import urlparse
 
 import duckdb
 import typer
-from async_diario_pipeline import main as async_pipeline_main
-from config import load_config
-from database import CausaGanhaDB, DatabaseManager, run_db_migrations
-from simple_backup import backup_database_before_changes, export_and_upload_to_ia
+
+from causaganha_v1.async_diario_pipeline import main as async_pipeline_main
+from causaganha_v1.config import load_config
+from causaganha_v1.database import CausaGanhaDB, DatabaseManager, run_db_migrations
+from causaganha_v1.simple_backup import (
+    backup_database_before_changes,
+    export_and_upload_to_ia,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -284,8 +288,6 @@ def show_config_cmd(ctx: typer.Context) -> None:
     typer.echo(json.dumps(cg_config, indent=2, default=str))
 
 
-
-
 @app.command("diario")
 def diario_cmd_group(ctx: typer.Context, action: str = typer.Argument(...)) -> None:
     typer.echo("Diario command (stub) NOT YET FULLY REFACTORED.", err=True)
@@ -418,7 +420,7 @@ def database_cmd_group(
 def backup_cmd(ctx: typer.Context) -> None:
     """Create a timestamped backup of the database."""
     db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
-    
+
     try:
         backup_path = backup_database_before_changes(db_path_cfg)
         typer.echo(f"✅ Database backed up to: {backup_path}")
@@ -431,7 +433,7 @@ def backup_cmd(ctx: typer.Context) -> None:
 def export_cmd(ctx: typer.Context) -> None:
     """Export database to parquet format and upload to Internet Archive."""
     db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
-    
+
     try:
         uploaded_urls = export_and_upload_to_ia(db_path_cfg)
         if uploaded_urls:

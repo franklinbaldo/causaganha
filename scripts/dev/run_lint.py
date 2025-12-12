@@ -6,7 +6,7 @@ from __future__ import annotations
 import subprocess
 from typing import List
 
-from src.utils.logging_config import setup_logging
+from causaganha_v1.utils.logging_config import setup_logging
 
 
 def run_format() -> int:

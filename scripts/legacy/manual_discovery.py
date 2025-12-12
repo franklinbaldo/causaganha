@@ -6,17 +6,18 @@ Since the TJRO website blocks automated access, this script helps you manually
 discover available PDFs by testing specific years and exporting results to CSV.
 """
 
-import sys
-import json
 import csv
+import json
+import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from database import CausaGanhaDB
 import logging
+
+from causaganha_v1.database import CausaGanhaDB
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -113,7 +114,7 @@ def add_sample_to_database(sample_data: List[Dict], db: CausaGanhaDB) -> int:
 
             db.execute(
                 """
-                INSERT INTO pdf_discovery_queue 
+                INSERT INTO pdf_discovery_queue
                 (url, date, number, year, priority, metadata, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
@@ -142,9 +143,9 @@ def export_to_csv(db: CausaGanhaDB, output_file: Path):
 
     # Get all items from discovery queue
     items = db.execute("""
-        SELECT 
-            id, url, date, number, year, status, priority, 
-            attempts, last_attempt, error_message, metadata, 
+        SELECT
+            id, url, date, number, year, status, priority,
+            attempts, last_attempt, error_message, metadata,
             created_at, updated_at
         FROM pdf_discovery_queue
         ORDER BY year DESC, date DESC, number
@@ -159,23 +160,21 @@ def export_to_csv(db: CausaGanhaDB, output_file: Path):
         writer = csv.writer(csvfile)
 
         # Header
-        writer.writerow(
-            [
-                "id",
-                "url",
-                "date",
-                "number",
-                "year",
-                "status",
-                "priority",
-                "attempts",
-                "last_attempt",
-                "error_message",
-                "metadata",
-                "created_at",
-                "updated_at",
-            ]
-        )
+        writer.writerow([
+            "id",
+            "url",
+            "date",
+            "number",
+            "year",
+            "status",
+            "priority",
+            "attempts",
+            "last_attempt",
+            "error_message",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ])
 
         # Data rows
         for item in items:

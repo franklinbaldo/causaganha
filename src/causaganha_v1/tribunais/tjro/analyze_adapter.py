@@ -8,9 +8,9 @@ with the new Diario dataclass interface.
 import logging
 from typing import Any, Dict, List
 
-from extractor import GeminiExtractor
-from models.diario import Diario
-from models.interfaces import DiarioAnalyzer
+from causaganha_v1.extractor import GeminiExtractor
+from causaganha_v1.models.diario import Diario
+from causaganha_v1.models.interfaces import DiarioAnalyzer
 
 
 class TJROAnalyzer(DiarioAnalyzer):

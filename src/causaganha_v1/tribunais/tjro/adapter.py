@@ -5,7 +5,7 @@ This provides a unified interface for all TJRO operations
 using the new Diario dataclass system.
 """
 
-from models.interfaces import (
+from causaganha_v1.models.interfaces import (
     DiarioAnalyzer,
     DiarioDiscovery,
     DiarioDownloader,
