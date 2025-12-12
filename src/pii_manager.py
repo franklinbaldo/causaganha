@@ -1,7 +1,7 @@
-import uuid
 import json
 import logging
-from typing import List, Dict, Any, Optional
+import uuid
+from typing import Any, Dict, List, Optional
 
 # This namespace should be unique to this application and kept confidential
 # if the goal is to make it harder to regenerate UUIDs without it.

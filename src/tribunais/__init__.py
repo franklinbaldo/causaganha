@@ -5,19 +5,21 @@ This module provides a unified interface for accessing tribunal-specific
 implementations through the new Diario dataclass system.
 """
 
-from typing import List, Dict, Type
+from typing import Dict, List, Type
+
 from models.interfaces import (
+    DiarioAnalyzer,
     DiarioDiscovery,
     DiarioDownloader,
-    DiarioAnalyzer,
     TribunalAdapter,
 )
+
+from .tjro.adapter import TJROAdapter
+from .tjro.analyze_adapter import TJROAnalyzer
 
 # Import tribunal-specific implementations
 from .tjro.discovery import TJRODiscovery
 from .tjro.download_adapter import TJRODownloader
-from .tjro.analyze_adapter import TJROAnalyzer
-from .tjro.adapter import TJROAdapter
 
 # Registry for tribunal-specific implementations
 _DISCOVERIES: Dict[str, Type[DiarioDiscovery]] = {

@@ -6,13 +6,12 @@ This script processes the todos_diarios_tjro.json file and converts it into
 a structured list of PDF URLs ready for download and Internet Archive submission.
 """
 
+import argparse
 import json
 import logging
-from pathlib import Path
-from typing import List, Dict, Optional
 from datetime import date
-import argparse
-
+from pathlib import Path
+from typing import Dict, List, Optional
 
 # TJRO base URL for constructing full PDF URLs
 TJRO_BASE_URL = "https://www.tjro.jus.br"

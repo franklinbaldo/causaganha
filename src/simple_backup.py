@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 import duckdb
 
+
 # Simple backup function
 def backup_database_before_changes(
     db_path: Path = Path("data/causaganha.duckdb"),
@@ -119,8 +120,9 @@ def upload_to_ia_simple(
         Dictionary mapping table names to IA URLs
     """
     try:
-        from internetarchive import upload
         import os
+
+        from internetarchive import upload
         
         # Check for IA credentials
         access_key = os.getenv("IA_ACCESS_KEY")

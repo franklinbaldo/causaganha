@@ -1,8 +1,9 @@
 """Simple configuration management for CausaGanha."""
 
-import toml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import toml
 
 DEFAULT_CONFIG = {
     "database": {"path": "data/causaganha.duckdb"},

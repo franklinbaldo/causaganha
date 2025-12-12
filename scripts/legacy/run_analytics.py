@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import subprocess
 
-from src.utils.logging_config import setup_logging, get_logger
+from src.utils.logging_config import get_logger, setup_logging
 
 
 def main() -> None:

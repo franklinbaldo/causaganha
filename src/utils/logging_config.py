@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
-import contextvars
 from typing import Optional
 
 from pythonjsonlogger import jsonlogger

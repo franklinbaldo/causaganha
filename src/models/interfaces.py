@@ -3,10 +3,10 @@ Abstract interfaces for tribunal-specific implementations.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
 from datetime import date, timedelta
-from datetime import timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from .diario import Diario
 
 

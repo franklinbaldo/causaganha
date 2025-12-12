@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Optional
 
 from .downloader import (
-    fetch_tjro_pdf,
-    fetch_latest_tjro_pdf,
     archive_pdf,
+    fetch_latest_tjro_pdf,
+    fetch_tjro_pdf,
 )
 
 

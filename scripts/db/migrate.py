@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from src.database import run_db_migrations
-from src.utils.logging_config import setup_logging, get_logger
+from src.utils.logging_config import get_logger, setup_logging
 
 
 def main() -> None:

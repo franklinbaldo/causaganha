@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-import duckdb
 from pathlib import Path
 
-from src.utils.logging_config import setup_logging, get_logger
+import duckdb
+from src.utils.logging_config import get_logger, setup_logging
 
 
 def migrate(db_path: Path = Path("data/analytics.duckdb")) -> None:

@@ -1,14 +1,16 @@
 # causaganha/core/database.py
-import duckdb
-import pandas as pd
-from pathlib import Path
-from src.config import load_config
-from typing import List, Dict, Optional, Any, Union
 import json  # Ensure json is imported
 import logging
-from datetime import datetime  # Ensure datetime is imported for now()
-from models.diario import Diario
 import uuid  # For generating IDs
+from datetime import datetime  # Ensure datetime is imported for now()
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import duckdb
+import pandas as pd
+
+from models.diario import Diario
+from src.config import load_config
 
 # MigrationRunner will be imported in a dedicated migration function
 # from migration_runner import MigrationRunner

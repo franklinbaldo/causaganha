@@ -11,13 +11,14 @@ Usage:
     python scripts/bulk_discovery.py --latest     # Latest only
 """
 
-import sys
 import argparse
 import json
+import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Set
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -25,8 +26,9 @@ from urllib3.util.retry import Retry
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from database import CausaGanhaDB
 import logging
+
+from database import CausaGanhaDB
 
 # Setup logging
 logging.basicConfig(

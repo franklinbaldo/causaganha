@@ -6,17 +6,18 @@ Since the TJRO website blocks automated access, this script helps you manually
 discover available PDFs by testing specific years and exporting results to CSV.
 """
 
-import sys
-import json
 import csv
+import json
+import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from database import CausaGanhaDB
 import logging
+
+from database import CausaGanhaDB
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

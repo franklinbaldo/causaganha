@@ -3,9 +3,9 @@ from datetime import date, timedelta
 
 # Assuming src is in PYTHONPATH. Adjust if necessary for your project structure.
 try:
-    from src.tribunais import list_supported_tribunals, get_discovery
     from src.models.interfaces import DiarioDiscovery
-    from src.utils.logging_config import setup_logging, get_logger
+    from src.tribunais import get_discovery, list_supported_tribunals
+    from src.utils.logging_config import get_logger, setup_logging
 except ImportError as e:
     print(f"Error importing CausaGanha modules: {e}. Make sure PYTHONPATH is set correctly or run from project root.")
     exit(1)

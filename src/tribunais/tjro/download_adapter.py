@@ -6,12 +6,14 @@ with the new Diario dataclass interface.
 """
 
 import logging
+from datetime import date
 from pathlib import Path
 from typing import Optional
-from models.interfaces import DiarioDownloader
+
 from models.diario import Diario
-from .downloader import fetch_tjro_pdf, archive_pdf
-from datetime import date
+from models.interfaces import DiarioDownloader
+
+from .downloader import archive_pdf, fetch_tjro_pdf
 
 
 class TJRODownloader(DiarioDownloader):

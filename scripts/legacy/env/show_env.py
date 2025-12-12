@@ -6,8 +6,7 @@ from __future__ import annotations
 import os
 from typing import List
 
-from src.utils.logging_config import setup_logging, get_logger
-
+from src.utils.logging_config import get_logger, setup_logging
 
 KEY_VARS: List[str] = [
     "GEMINI_API_KEY",

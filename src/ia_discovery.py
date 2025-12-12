@@ -6,13 +6,14 @@ This script provides various ways to discover and list TJRO diarios
 that have been uploaded to Internet Archive.
 """
 
-import requests
+import argparse
 import json
 import logging
-from typing import List, Dict, Optional
-from datetime import datetime, date
-import argparse
 import time
+from datetime import date, datetime
+from typing import Dict, List, Optional
+
+import requests
 
 
 class IADiscovery:

@@ -1,26 +1,33 @@
 import argparse
-import logging
-from pathlib import Path
-import sys
-import json
 import datetime
+import json
+import logging
 import shutil
-import pandas as pd
+import sys
+from pathlib import Path
 from typing import Optional
+
+import pandas as pd
+
+from src.extractor import GeminiExtractor as _RealGeminiExtractor
 
 # Change to absolute imports from 'src' package
 from src.tribunais.tjro.downloader import fetch_tjro_pdf as _real_fetch_tjro_pdf
-from src.extractor import GeminiExtractor as _RealGeminiExtractor
 
 try:
-    from src.utils import validate_decision
+    from enum import Enum
+
     from src.config import load_config
     from src.openskill_rating import (
-        get_openskill_model,
         create_rating as create_openskill_rating_object,
+    )
+    from src.openskill_rating import (
+        get_openskill_model,
+    )
+    from src.openskill_rating import (
         rate_teams as update_openskill_ratings,
     )
-    from enum import Enum
+    from src.utils import validate_decision
 
     class MatchResult(Enum):
         WIN_A = "win_a"

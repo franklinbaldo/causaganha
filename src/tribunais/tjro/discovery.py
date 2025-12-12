@@ -2,11 +2,13 @@
 TJRO-specific diario URL discovery implementation.
 """
 
-import requests
-import re
 import logging
+import re
 from datetime import date
-from typing import Optional, List
+from typing import List, Optional
+
+import requests
+
 from models.interfaces import DiarioDiscovery
 
 

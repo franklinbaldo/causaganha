@@ -1,12 +1,13 @@
+import argparse
 import datetime
+import hashlib
+import logging
 import pathlib
 import re
-import requests
-import argparse
-import logging
-import hashlib
 import subprocess
+
 import duckdb
+import requests
 
 # URL where the official diary page lists the PDF link
 TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"

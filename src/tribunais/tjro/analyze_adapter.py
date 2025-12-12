@@ -6,10 +6,11 @@ with the new Diario dataclass interface.
 """
 
 import logging
-from typing import List, Dict, Any
-from models.interfaces import DiarioAnalyzer
-from models.diario import Diario
+from typing import Any, Dict, List
+
 from extractor import GeminiExtractor
+from models.diario import Diario
+from models.interfaces import DiarioAnalyzer
 
 
 class TJROAnalyzer(DiarioAnalyzer):

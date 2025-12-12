@@ -1,10 +1,9 @@
 import argparse
+import json
 import logging
 import sys
-import json
 from pathlib import Path
-from typing import Dict, Any
-
+from typing import Any, Dict
 
 from src.database import CausaGanhaDB
 from src.pii_manager import PiiManager

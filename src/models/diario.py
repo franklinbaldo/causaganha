@@ -5,8 +5,8 @@ Diario dataclass for unified tribunal document representation.
 import json
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 @dataclass

@@ -6,14 +6,15 @@ using the new Diario dataclass system.
 """
 
 from models.interfaces import (
-    TribunalAdapter,
+    DiarioAnalyzer,
     DiarioDiscovery,
     DiarioDownloader,
-    DiarioAnalyzer,
+    TribunalAdapter,
 )
+
+from .analyze_adapter import TJROAnalyzer
 from .discovery import TJRODiscovery
 from .download_adapter import TJRODownloader
-from .analyze_adapter import TJROAnalyzer
 
 
 class TJROAdapter(TribunalAdapter):

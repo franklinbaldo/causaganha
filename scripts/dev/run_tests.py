@@ -7,7 +7,7 @@ import logging
 import subprocess
 from typing import List
 
-from src.utils.logging_config import setup_logging, get_logger
+from src.utils.logging_config import get_logger, setup_logging
 
 
 def run_pytest(extra_args: List[str] | None = None) -> int:

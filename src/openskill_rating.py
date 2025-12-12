@@ -1,4 +1,5 @@
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from openskill.models import PlackettLuce
 from openskill.models.weng_lin.plackett_luce import (
     PlackettLuceRating as OpenSkillRating,
