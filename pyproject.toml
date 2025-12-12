@@ -60,7 +60,14 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=src --cov-report=term-missing --cov-report=xml"
+asyncio_mode = "auto"
+addopts = """
+    -v
+    --strict-markers
+    --cov=causaganha_v2
+    --cov-report=html
+    --cov-report=term-missing
+"""
 
 [dependency-groups]
 dev = [
