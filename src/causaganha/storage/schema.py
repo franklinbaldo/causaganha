@@ -1,9 +1,9 @@
 import ibis
 from ibis import BaseBackend
 
+
 def create_schema(con: BaseBackend):
-    """
-    Create the database schema if it doesn't exist.
+    """Create the database schema if it doesn't exist.
 
     Args:
         con: Ibis DuckDB connection backend.
@@ -14,6 +14,6 @@ def create_schema(con: BaseBackend):
             schema=ibis.schema({
                 "task_id": "string",
                 "step": "string",
-                "timestamp": "timestamp"
-            })
+                "timestamp": "timestamp",
+            }),
         )

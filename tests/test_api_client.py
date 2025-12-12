@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from causaganha_v2.api.client import PJeAPIClient
-from causaganha_v2.api.models import Intimation
+from causaganha.api.client import PJeAPIClient
+from causaganha.api.models import Intimation
 
 
 @pytest.mark.asyncio
@@ -21,8 +21,7 @@ async def test_client_initializes_with_defaults():
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_success(api_client):
-    """
-    Test API fetch with mocked HTTP response
+    """Test API fetch with mocked HTTP response
     """
     mock_response = {
         "status": "success",
@@ -42,7 +41,7 @@ async def test_fetch_intimations_success(api_client):
                 "hash": "abc123hash",
                 "status": "A",
                 "destinatarioadvogados": [],
-            }
+            },
         ],
     }
 
@@ -56,7 +55,7 @@ async def test_fetch_intimations_success(api_client):
         mock_get.return_value = mock_response_obj
 
         intimations = await api_client.get_intimations_by_court(
-            sigla_tribunal="TJRO", data_inicio=date(2024, 12, 1)
+            sigla_tribunal="TJRO", data_inicio=date(2024, 12, 1),
         )
 
         assert len(intimations) == 1
@@ -91,7 +90,7 @@ async def test_fetch_handles_pagination(api_client):
                 "nomeClasse": "X",
                 "hash": "X",
                 "status": "X",
-            }
+            },
         ],
     }
     # Page 2
@@ -112,7 +111,7 @@ async def test_fetch_handles_pagination(api_client):
                 "nomeClasse": "X",
                 "hash": "X",
                 "status": "X",
-            }
+            },
         ],
     }
 
@@ -129,7 +128,7 @@ async def test_fetch_handles_pagination(api_client):
         mock_get.side_effect = [mock_resp_obj1, mock_resp_obj2]
 
         intimations = await api_client.get_intimations_by_court(
-            sigla_tribunal="TJRO", limit_per_page=1
+            sigla_tribunal="TJRO", limit_per_page=1,
         )
 
         assert len(intimations) == 2
@@ -161,7 +160,7 @@ async def test_fetch_raises_validation_error(api_client):
                 "numero_processo": "proc1",
                 "siglaTribunal": "TJRO",
                 # Missing required fields
-            }
+            },
         ],
     }
 

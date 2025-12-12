@@ -1,6 +1,5 @@
 """Pydantic models for API responses"""
 
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,20 +31,20 @@ class Intimation(BaseModel):
 
     id: int
     numero_processo: str
-    numeroprocessocommascara: Optional[str] = None
+    numeroprocessocommascara: str | None = None
     data_disponibilizacao: str
     siglaTribunal: str = Field(alias="siglaTribunal")
-    idOrgao: Optional[int] = Field(None, alias="idOrgao")
+    idOrgao: int | None = Field(None, alias="idOrgao")
     tipoComunicacao: str = Field(alias="tipoComunicacao")
     nomeOrgao: str = Field(alias="nomeOrgao")
     texto: str
     link: str
     tipoDocumento: str = Field(alias="tipoDocumento")
     nomeClasse: str = Field(alias="nomeClasse")
-    codigoClasse: Optional[str] = Field(None, alias="codigoClasse")
+    codigoClasse: str | None = Field(None, alias="codigoClasse")
     hash: str
     status: str
-    destinatarioadvogados: List[DestinatarioAdvogado] = []
-    destinatarios: List[Destinatario] = []
+    destinatarioadvogados: list[DestinatarioAdvogado] = []
+    destinatarios: list[Destinatario] = []
 
     model_config = ConfigDict(populate_by_name=True)

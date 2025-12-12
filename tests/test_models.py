@@ -1,6 +1,5 @@
-import pytest
 
-from causaganha_v2.api.models import Intimation
+from causaganha.api.models import Intimation
 
 
 def test_intimation_model_parsing():
@@ -25,8 +24,8 @@ def test_intimation_model_parsing():
                     "nome": "FRANKLIN SILVEIRA BALDO",
                     "numero_oab": "5733",
                     "uf_oab": "RO",
-                }
-            }
+                },
+            },
         ],
     }
 

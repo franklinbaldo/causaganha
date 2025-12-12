@@ -1,16 +1,18 @@
-import pytest
-import ibis
 from datetime import datetime
-from causaganha_v2.storage.connection import get_connection
-from causaganha_v2.storage.schema import create_schema
-from causaganha_v2.pipeline.continuity import ContinuityManager
+
+import pytest
+
+from causaganha.pipeline.continuity import ContinuityManager
+from causaganha.storage.connection import get_connection
+from causaganha.storage.schema import create_schema
+
 
 @pytest.fixture
 def db_connection():
     """Fixture to provide an in-memory database connection."""
     con = get_connection(":memory:")
     create_schema(con)
-    yield con
+    return con
     # No explicit close needed for Ibis/DuckDB in-memory but good practice if supported
     # con.disconnect() or similar if needed, but usually GC handles it for in-memory
 
