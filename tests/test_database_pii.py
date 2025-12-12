@@ -26,8 +26,9 @@ def db_instance(temp_db: Path):  # temp_db from conftest.py
             pii_type TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE SEQUENCE IF NOT EXISTS decisoes_id_seq;
         CREATE TABLE IF NOT EXISTS decisoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY DEFAULT nextval('decisoes_id_seq'),
             numero_processo TEXT,
             numero_processo_uuid TEXT,
             polo_ativo TEXT,
@@ -42,7 +43,7 @@ def db_instance(temp_db: Path):  # temp_db from conftest.py
             resultado_original TEXT,
             data_decisao DATE,
             data_decisao_original TEXT,
-            raw_json_pii_replaced TEXT,
+            raw_json_data TEXT,
             json_source_file TEXT,
             tipo_decisao TEXT,
             validation_status TEXT,

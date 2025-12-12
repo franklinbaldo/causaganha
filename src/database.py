@@ -260,25 +260,20 @@ class CausaGanhaDB:
         # including its creation, should be managed by the database migration system.
         # This inline CREATE TABLE IF NOT EXISTS has been removed.
         # Ensure migrations are run before this method is used.
-        # TODO: Implement a proper migration runner to replace 'migration_runner.py' stub.
 
-        # Compute new ID
+        # Insert record and return generated ID
+        # NOTE: Schema uses auto-increment ID (sequence)
         row = self.conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes"
-        ).fetchone()
-        new_id = row[0] if row else 1
-        # Insert record
-        self.conn.execute(
             """
             INSERT INTO decisoes (
-                id, numero_processo, polo_ativo, polo_passivo,
+                numero_processo, polo_ativo, polo_passivo,
                 advogados_polo_ativo, advogados_polo_passivo,
                 resultado, data_decisao, raw_json_data,
                 json_source_file, tipo_decisao, validation_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
             """,
             [
-                new_id,
                 numero_processo_uuid,
                 polo_ativo_uuids_json,
                 polo_passivo_uuids_json,
@@ -291,8 +286,8 @@ class CausaGanhaDB:
                 tipo_decisao,
                 validation_status,
             ],
-        )
-        return new_id
+        ).fetchone()
+        return row[0] if row else 0
 
     def update_rating(
         self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
@@ -309,12 +304,12 @@ class CausaGanhaDB:
             # For existing records, total_partidas is incremented.
             sql = """
             INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
-            VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, 1, now(), now())
             ON CONFLICT (advogado_id) DO UPDATE SET
                 mu = excluded.mu,
                 sigma = excluded.sigma,
                 total_partidas = ratings.total_partidas + 1,
-                updated_at = CURRENT_TIMESTAMP;
+                updated_at = now();
             """
         else:
             # For new records, total_partidas starts at 0 (or could be existing if not specified).
@@ -323,12 +318,12 @@ class CausaGanhaDB:
             # If an existing record is updated, its total_partidas remains unchanged by this SET.
             sql = """
             INSERT INTO ratings (advogado_id, mu, sigma, total_partidas, created_at, updated_at)
-            VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, 0, now(), now())
             ON CONFLICT (advogado_id) DO UPDATE SET
                 mu = excluded.mu,
                 sigma = excluded.sigma,
                 -- total_partidas is NOT modified for existing records in this branch
-                updated_at = CURRENT_TIMESTAMP;
+                updated_at = now();
             """
         self.conn.execute(sql, [advogado_id, mu, sigma])
 
@@ -359,21 +354,11 @@ class CausaGanhaDB:
         ratings_depois_b: Dict[str, Any],
     ) -> int:
         # NOTE (Bruno Silva - Code Quality):
-        # The 'partidas' table should use a database-native auto-incrementing primary key (e.g., IDENTITY or SERIAL).
-        # The current ID generation method (MAX(id) + 1) is not robust for concurrent access
-        # and should be replaced by schema features handled via migrations.
-        # TODO: Update schema in migrations and remove manual ID generation.
-        max_id_result = self.conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM partidas"
-        ).fetchone()
-        next_id: int = 1
-        if max_id_result and max_id_result[0] is not None:
-            next_id = int(max_id_result[0])
-        sql = """INSERT INTO partidas (id, data_partida, numero_processo, equipe_a_ids, equipe_b_ids, ratings_equipe_a_antes, ratings_equipe_b_antes, resultado_partida, ratings_equipe_a_depois, ratings_equipe_b_depois) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
-        self.conn.execute(
+        # The 'partidas' table uses a database-native auto-incrementing primary key (sequence).
+        sql = """INSERT INTO partidas (data_partida, numero_processo, equipe_a_ids, equipe_b_ids, ratings_equipe_a_antes, ratings_equipe_b_antes, resultado_partida, ratings_equipe_a_depois, ratings_equipe_b_depois) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"""
+        row = self.conn.execute(
             sql,
             [
-                next_id,
                 data_partida,
                 numero_processo,
                 json.dumps(equipe_a_ids),
@@ -384,8 +369,8 @@ class CausaGanhaDB:
                 json.dumps(ratings_depois_a),
                 json.dumps(ratings_depois_b),
             ],
-        )
-        return next_id
+        ).fetchone()
+        return row[0] if row else 0
 
     def get_partidas(self, limit: Optional[int] = None) -> pd.DataFrame:
         sql = "SELECT * FROM partidas ORDER BY data_partida DESC"

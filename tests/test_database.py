@@ -297,7 +297,7 @@ def mock_diario_obj():
 def test_causaganha_db_queue_diario_new(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
@@ -320,7 +320,7 @@ def test_causaganha_db_queue_diario_new(
 def test_causaganha_db_queue_diario_conflict_update_status(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
@@ -347,7 +347,7 @@ def test_causaganha_db_queue_diario_conflict_update_status(
 def test_causaganha_db_get_diarios_by_status(
     cg_db: CausaGanhaDB, mock_diario_obj: MockDiario
 ):
-    with cg_db.db_manager, patch("models.diario.Diario", MockDiario):
+    with cg_db.db_manager, patch("src.database.Diario", MockDiario):
         # Ensure job_queue table exists (should be created by fixture)
         cg_db.conn.execute("""
             CREATE TABLE IF NOT EXISTS job_queue (
