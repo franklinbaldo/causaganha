@@ -1,12 +1,11 @@
-"""
-TJRO-specific diario analyzer adapter.
+"""TJRO-specific diario analyzer adapter.
 
 This adapter integrates the existing Gemini extractor
 with the new Diario dataclass interface.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from causaganha_v1.extractor import GeminiExtractor
 from causaganha_v1.models.diario import Diario
@@ -20,9 +19,8 @@ class TJROAnalyzer(DiarioAnalyzer):
         """Initialize with the existing Gemini extractor."""
         self.extractor = GeminiExtractor()
 
-    def extract_decisions(self, diario: Diario) -> List[Dict[str, Any]]:
-        """
-        Extract judicial decisions from diario PDF.
+    def extract_decisions(self, diario: Diario) -> list[dict[str, Any]]:
+        """Extract judicial decisions from diario PDF.
 
         This uses the existing GeminiExtractor but adapts the output
         to the standardized format expected by the interface.
@@ -34,9 +32,7 @@ class TJROAnalyzer(DiarioAnalyzer):
 
         try:
             # Use the existing extractor
-            raw_decisions = self.extractor.extract_decisions_from_pdf(
-                str(diario.pdf_path)
-            )
+            raw_decisions = self.extractor.extract_decisions_from_pdf(str(diario.pdf_path))
 
             # Standardize the decision format
             standardized_decisions = []
@@ -46,20 +42,17 @@ class TJROAnalyzer(DiarioAnalyzer):
                 standardized_decisions.append(standardized_decision)
 
             logging.info(
-                f"Extracted {len(standardized_decisions)} decisions from {diario.display_name}"
+                f"Extracted {len(standardized_decisions)} decisions from {diario.display_name}",
             )
             return standardized_decisions
 
         except Exception as e:
-            logging.error(f"Error extracting decisions from {diario.display_name}: {e}")
+            logging.exception(f"Error extracting decisions from {diario.display_name}: {e}")
             # Return empty list instead of raising to allow processing to continue
             return []
 
-    def _standardize_decision(
-        self, raw_decision: Dict[str, Any], diario: Diario
-    ) -> Dict[str, Any]:
-        """
-        Convert raw extractor output to standardized decision format.
+    def _standardize_decision(self, raw_decision: dict[str, Any], diario: Diario) -> dict[str, Any]:
+        """Convert raw extractor output to standardized decision format.
 
         The existing extractor may return decisions in various formats.
         This method ensures consistency across all decisions.
@@ -88,7 +81,7 @@ class TJROAnalyzer(DiarioAnalyzer):
         }
 
         for raw_key, std_key in field_mappings.items():
-            if raw_key in raw_decision and raw_decision[raw_key]:
+            if raw_decision.get(raw_key):
                 standardized[std_key] = raw_decision[raw_key]
 
         # Ensure lawyer lists are properly formatted
@@ -103,8 +96,7 @@ class TJROAnalyzer(DiarioAnalyzer):
         return standardized
 
     def analyze_diario(self, diario: Diario) -> Diario:
-        """
-        Analyze diario and update with extracted decisions.
+        """Analyze diario and update with extracted decisions.
 
         This extends the base implementation to add TJRO-specific
         metadata and validation.
@@ -122,11 +114,7 @@ class TJROAnalyzer(DiarioAnalyzer):
         tjro_stats = {
             "total_processes": len(decisions),
             "unique_processes": len(
-                set(
-                    d.get("numero_processo", "")
-                    for d in decisions
-                    if d.get("numero_processo")
-                )
+                set(d.get("numero_processo", "") for d in decisions if d.get("numero_processo")),
             ),
             "results_breakdown": {},
             "lawyer_count": {"ativo": 0, "passivo": 0},
@@ -143,18 +131,10 @@ class TJROAnalyzer(DiarioAnalyzer):
             polo_passivo = decision.get("polo_passivo", [])
 
             tjro_stats["lawyer_count"]["ativo"] += (
-                len(polo_ativo)
-                if isinstance(polo_ativo, list)
-                else 1
-                if polo_ativo
-                else 0
+                len(polo_ativo) if isinstance(polo_ativo, list) else 1 if polo_ativo else 0
             )
             tjro_stats["lawyer_count"]["passivo"] += (
-                len(polo_passivo)
-                if isinstance(polo_passivo, list)
-                else 1
-                if polo_passivo
-                else 0
+                len(polo_passivo) if isinstance(polo_passivo, list) else 1 if polo_passivo else 0
             )
 
         diario.metadata["tjro_analysis"] = tjro_stats
@@ -162,7 +142,7 @@ class TJROAnalyzer(DiarioAnalyzer):
         logging.info(
             f"TJRO analysis complete for {diario.display_name}: "
             f"{tjro_stats['total_processes']} decisions, "
-            f"{tjro_stats['unique_processes']} unique processes"
+            f"{tjro_stats['unique_processes']} unique processes",
         )
 
         return diario

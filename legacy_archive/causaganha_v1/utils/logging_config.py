@@ -5,22 +5,20 @@ from __future__ import annotations
 import contextvars
 import logging
 import os
-from typing import Optional
 
 from pythonjsonlogger import jsonlogger
 from rich.logging import RichHandler
 
+
 _LOGGER_INITIALIZED = False
 # Context variable used to inject tribunal_code into log records
-_tribunal_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "tribunal_code", default=""
-)
+_tribunal_var: contextvars.ContextVar[str] = contextvars.ContextVar("tribunal_code", default="")
 
 
 class _TribunalFilter(logging.Filter):
     """Inject tribunal_code context variable into log records."""
 
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+    def filter(self, record: logging.LogRecord) -> bool:
         record.tribunal_code = _tribunal_var.get() or "-"
         return True
 
@@ -31,8 +29,8 @@ def set_tribunal_code(code: str) -> None:
 
 
 def setup_logging(
-    level: Optional[str] = None,
-    fmt: Optional[str] = None,
+    level: str | None = None,
+    fmt: str | None = None,
 ) -> logging.Logger:
     """Configure root logger.
 
@@ -46,7 +44,7 @@ def setup_logging(
         human readable output, or ``"simple"`` for basic formatting. Defaults to
         the ``LOG_FORMAT`` environment variable or ``"simple"``.
 
-    Returns
+    Returns:
     -------
     logging.Logger
         The configured root logger.
@@ -70,14 +68,12 @@ def setup_logging(
         handler.setFormatter(formatter)
     elif fmt == "rich":
         handler = RichHandler(rich_tracebacks=True)
-        formatter = logging.Formatter(
-            "%(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s"
-        )
+        formatter = logging.Formatter("%(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s")
         handler.setFormatter(formatter)
     else:
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - [%(tribunal_code)s] %(message)s",
         )
         handler.setFormatter(formatter)
 

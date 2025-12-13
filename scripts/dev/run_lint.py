@@ -4,23 +4,22 @@
 from __future__ import annotations
 
 import subprocess
-from typing import List
 
 from causaganha_v1.utils.logging_config import setup_logging
 
 
 def run_format() -> int:
     """Run ruff format."""
-    result = subprocess.run(["uv", "run", "ruff", "format"])
+    result = subprocess.run(["uv", "run", "ruff", "format"], check=False)
     return result.returncode
 
 
-def run_ruff(extra_args: List[str] | None = None) -> int:
+def run_ruff(extra_args: list[str] | None = None) -> int:
     """Run ruff check with optional extra arguments."""
     cmd = ["uv", "run", "ruff", "check"]
     if extra_args:
         cmd.extend(extra_args)
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd, check=False)
     return result.returncode
 
 

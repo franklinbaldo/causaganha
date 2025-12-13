@@ -14,8 +14,7 @@ def calculate_file_hash(filepath: Path) -> str:
 
 
 def update_prompt_hashes(prompts_dir: Path):
-    """
-    Iterates through prompt files, calculates their hash, and renames them
+    """Iterates through prompt files, calculates their hash, and renames them
     if the hash is not already part of the filename.
     """
     if not prompts_dir.is_dir():

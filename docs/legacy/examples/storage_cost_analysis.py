@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-BYTES_IN_TB = 1024 ** 4
+
+BYTES_IN_TB = 1024**4
 DEFAULT_PRICE_PER_TB = 6.0  # USD per month
 
 
@@ -18,7 +19,7 @@ def main() -> None:
         size = db_file.stat().st_size
     else:
         # Fallback to 1 GiB if the file is missing
-        size = 1 * 1024 ** 3
+        size = 1 * 1024**3
 
     cost = estimate_monthly_cost(size)
     print(f"Archive size: {size / 1_048_576:.2f} MB")

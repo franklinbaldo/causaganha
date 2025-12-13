@@ -1,5 +1,5 @@
-import logging
 from datetime import date, timedelta
+
 
 # Assuming src is in PYTHONPATH. Adjust if necessary for your project structure.
 try:
@@ -8,7 +8,7 @@ try:
     from causaganha_v1.utils.logging_config import get_logger, setup_logging
 except ImportError as e:
     print(
-        f"Error importing CausaGanha modules: {e}. Make sure PYTHONPATH is set correctly or run from project root."
+        f"Error importing CausaGanha modules: {e}. Make sure PYTHONPATH is set correctly or run from project root.",
     )
     exit(1)
 
@@ -18,8 +18,7 @@ logger = get_logger(__name__)
 
 
 def check_adapter_health(tribunal_code: str) -> bool:
-    """
-    Performs health checks on a specific tribunal adapter.
+    """Performs health checks on a specific tribunal adapter.
     """
     logger.info(f"--- Health Check for Adapter: {tribunal_code.upper()} ---")
     overall_success = True
@@ -27,17 +26,13 @@ def check_adapter_health(tribunal_code: str) -> bool:
     try:
         discovery_impl: DiarioDiscovery = get_discovery(tribunal_code)
         logger.info(
-            f"[{tribunal_code.upper()}] Successfully retrieved DiarioDiscovery implementation."
+            f"[{tribunal_code.upper()}] Successfully retrieved DiarioDiscovery implementation.",
         )
     except ValueError as e:
-        logger.error(
-            f"[{tribunal_code.upper()}] FAILED to get DiarioDiscovery implementation: {e}"
-        )
+        logger.error(f"[{tribunal_code.upper()}] FAILED to get DiarioDiscovery implementation: {e}")
         return False
     except Exception as e:
-        logger.error(
-            f"[{tribunal_code.upper()}] UNEXPECTED ERROR getting DiarioDiscovery: {e}"
-        )
+        logger.error(f"[{tribunal_code.upper()}] UNEXPECTED ERROR getting DiarioDiscovery: {e}")
         return False
 
     # Test get_latest_diario_url()
@@ -46,21 +41,21 @@ def check_adapter_health(tribunal_code: str) -> bool:
         latest_url = discovery_impl.get_latest_diario_url()
         if latest_url and latest_url.startswith("http"):
             logger.info(
-                f"[{tribunal_code.upper()}] SUCCESS: get_latest_diario_url() returned: {latest_url}"
+                f"[{tribunal_code.upper()}] SUCCESS: get_latest_diario_url() returned: {latest_url}",
             )
         elif latest_url is None:
             logger.warning(
-                f"[{tribunal_code.upper()}] WARNING: get_latest_diario_url() returned None. This might be expected if no recent diarios or if not implemented."
+                f"[{tribunal_code.upper()}] WARNING: get_latest_diario_url() returned None. This might be expected if no recent diarios or if not implemented.",
             )
             # Not necessarily a failure, depends on tribunal and implementation.
         else:
             logger.error(
-                f"[{tribunal_code.upper()}] FAILED: get_latest_diario_url() returned an invalid URL: {latest_url}"
+                f"[{tribunal_code.upper()}] FAILED: get_latest_diario_url() returned an invalid URL: {latest_url}",
             )
             overall_success = False
     except NotImplementedError:
         logger.warning(
-            f"[{tribunal_code.upper()}] WARNING: get_latest_diario_url() is not implemented."
+            f"[{tribunal_code.upper()}] WARNING: get_latest_diario_url() is not implemented.",
         )
     except Exception as e:
         logger.error(
@@ -73,26 +68,24 @@ def check_adapter_health(tribunal_code: str) -> bool:
     test_date = date.today() - timedelta(days=1)
     try:
         logger.info(
-            f"[{tribunal_code.upper()}] Testing get_diario_url() for date: {test_date.isoformat()}..."
+            f"[{tribunal_code.upper()}] Testing get_diario_url() for date: {test_date.isoformat()}...",
         )
         specific_date_url = discovery_impl.get_diario_url(test_date)
         if specific_date_url and specific_date_url.startswith("http"):
             logger.info(
-                f"[{tribunal_code.upper()}] SUCCESS: get_diario_url({test_date.isoformat()}) returned: {specific_date_url}"
+                f"[{tribunal_code.upper()}] SUCCESS: get_diario_url({test_date.isoformat()}) returned: {specific_date_url}",
             )
         elif specific_date_url is None:
             logger.info(
-                f"[{tribunal_code.upper()}] INFO: get_diario_url({test_date.isoformat()}) returned None. (This could be normal if no diario on this date)."
+                f"[{tribunal_code.upper()}] INFO: get_diario_url({test_date.isoformat()}) returned None. (This could be normal if no diario on this date).",
             )
         else:
             logger.error(
-                f"[{tribunal_code.upper()}] FAILED: get_diario_url({test_date.isoformat()}) returned an invalid URL: {specific_date_url}"
+                f"[{tribunal_code.upper()}] FAILED: get_diario_url({test_date.isoformat()}) returned an invalid URL: {specific_date_url}",
             )
             overall_success = False
     except NotImplementedError:
-        logger.warning(
-            f"[{tribunal_code.upper()}] WARNING: get_diario_url() is not implemented."
-        )
+        logger.warning(f"[{tribunal_code.upper()}] WARNING: get_diario_url() is not implemented.")
     except Exception as e:
         logger.error(
             f"[{tribunal_code.upper()}] FAILED: get_diario_url({test_date.isoformat()}) raised an exception: {e}",
@@ -101,7 +94,7 @@ def check_adapter_health(tribunal_code: str) -> bool:
         overall_success = False
 
     logger.info(
-        f"--- Health Check for {tribunal_code.upper()} COMPLETED. Overall Success: {overall_success} ---"
+        f"--- Health Check for {tribunal_code.upper()} COMPLETED. Overall Success: {overall_success} ---",
     )
     return overall_success
 
@@ -113,13 +106,13 @@ def main():
         supported_tribunals = list_supported_tribunals()
     except Exception as e:
         logger.error(
-            f"Failed to list supported tribunals: {e}. Ensure 'src.tribunais.__init__.py' is correctly configured."
+            f"Failed to list supported tribunals: {e}. Ensure 'src.tribunais.__init__.py' is correctly configured.",
         )
         return
 
     if not supported_tribunals:
         logger.warning(
-            "No supported tribunals found. Check the tribunal registry in 'src/tribunais/__init__.py'."
+            "No supported tribunals found. Check the tribunal registry in 'src/tribunais/__init__.py'.",
         )
         return
 
@@ -133,11 +126,11 @@ def main():
 
     if all_adapters_healthy:
         logger.info(
-            "✅✅✅ All checked tribunal adapters appear to be healthy (basic discovery checks passed)."
+            "✅✅✅ All checked tribunal adapters appear to be healthy (basic discovery checks passed).",
         )
     else:
         logger.error(
-            "❌❌❌ Some tribunal adapters failed health checks. See logs above for details."
+            "❌❌❌ Some tribunal adapters failed health checks. See logs above for details.",
         )
 
     logger.info("=== Tribunal Adapter Health Check Finished ===")

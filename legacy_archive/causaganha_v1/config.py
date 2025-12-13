@@ -1,9 +1,10 @@
 """Simple configuration management for CausaGanha."""
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import toml
+
 
 DEFAULT_CONFIG = {
     "database": {"path": "data/causaganha.duckdb"},
@@ -12,7 +13,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def load_config(config_path: Path = None) -> Dict[str, Any]:
+def load_config(config_path: Path = None) -> dict[str, Any]:
     """Load configuration from file or return defaults."""
     if config_path is None:
         config_path = Path("config.toml")

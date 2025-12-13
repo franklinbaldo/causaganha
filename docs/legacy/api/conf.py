@@ -9,6 +9,7 @@
 import os
 import sys
 
+
 project = "CausaGanha"
 copyright = "2025, CausaGanha Team"
 author = "CausaGanha Team"

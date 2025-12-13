@@ -1,4 +1,3 @@
-
 import structlog
 import typer
 
@@ -21,43 +20,44 @@ app = typer.Typer(
 
 logger = structlog.get_logger()
 
+
 @app.command()
 def archive():
-    """Download and archive diarios.
-    """
+    """Download and archive diarios."""
     logger.info("archive_start", version="v2")
     typer.echo("Archive command not yet implemented in V2.")
     # TODO: Connect to src.causaganha.pipeline.collect
 
+
 @app.command()
 def analyze():
-    """Analyze decisions using LLM.
-    """
+    """Analyze decisions using LLM."""
     logger.info("analyze_start", version="v2")
     typer.echo("Analyze command not yet implemented in V2.")
     # TODO: Connect to src.causaganha.pipeline.analyze
 
+
 @app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")):
-    """Database management commands.
-    """
+    """Database management commands."""
     logger.info("db_command", action=action)
     if action == "status":
-         typer.echo("Checking database status... (TODO)")
+        typer.echo("Checking database status... (TODO)")
     elif action == "init":
-         typer.echo("Initializing database... (TODO)")
+        typer.echo("Initializing database... (TODO)")
     else:
         typer.echo(f"Unknown action: {action}")
+
 
 @app.callback()
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ):
-    """CausaGanha V2 CLI Entry Point.
-    """
+    """CausaGanha V2 CLI Entry Point."""
     if verbose:
         # Reconfigure for verbose if needed, though dev renderer is already verbose-ish
         pass
+
 
 if __name__ == "__main__":
     app()

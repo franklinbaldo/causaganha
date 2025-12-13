@@ -9,12 +9,13 @@ import re
 import tempfile
 import time
 
+
 try:
     import google.generativeai as genai
 except ImportError:
     genai = None
     logging.warning(
-        "Module google.generativeai could not be imported. Ensure it is installed correctly. GeminiExtractor will use dummy responses if API key is also missing."
+        "Module google.generativeai could not be imported. Ensure it is installed correctly. GeminiExtractor will use dummy responses if API key is also missing.",
     )
 
 try:
@@ -22,18 +23,15 @@ try:
 except ImportError:
     fitz = None
     logging.warning(
-        "Module fitz (PyMuPDF) could not be imported. PDF text extraction will not be available."
+        "Module fitz (PyMuPDF) could not be imported. PDF text extraction will not be available.",
     )
 
 
 class GeminiExtractor:
-    """
-    Extracts information from PDF files using the Gemini API.
+    """Extracts information from PDF files using the Gemini API.
     """
 
-    def __init__(
-        self, api_key: str | None = None, model_name: str = "gemini-1.5-flash-latest"
-    ):
+    def __init__(self, api_key: str | None = None, model_name: str = "gemini-1.5-flash-latest"):
         if api_key:
             self.api_key = api_key
         else:
@@ -45,22 +43,20 @@ class GeminiExtractor:
             try:
                 genai.configure(api_key=self.api_key)
                 logging.info(
-                    "GeminiExtractor initialized: google.generativeai configured with API key."
+                    "GeminiExtractor initialized: google.generativeai configured with API key.",
                 )
                 self.gemini_configured = True
             except (ValueError, TypeError, ImportError) as e:
-                logging.error(
-                    "GeminiExtractor: Failed to configure google.generativeai: %s", e
-                )
+                logging.exception("GeminiExtractor: Failed to configure google.generativeai: %s", e)
                 self.gemini_configured = False
         elif genai and not self.api_key:
             logging.warning(
-                "GeminiExtractor initialized: google.generativeai imported, but API key missing. Real API calls will be skipped."
+                "GeminiExtractor initialized: google.generativeai imported, but API key missing. Real API calls will be skipped.",
             )
             self.gemini_configured = False
         else:
             logging.info(
-                "GeminiExtractor initialized: google.generativeai not imported. Real API calls will be skipped."
+                "GeminiExtractor initialized: google.generativeai not imported. Real API calls will be skipped.",
             )
             self.gemini_configured = False
 
@@ -94,45 +90,39 @@ class GeminiExtractor:
 
                 if chunk_start > 0:
                     overlap_start = max(0, chunk_start - overlap_size)
-                    chunk_text_parts.append(
-                        "\n=== CONTINUAÇÃO DO TRECHO ANTERIOR ===\n"
-                    )
+                    chunk_text_parts.append("\n=== CONTINUAÇÃO DO TRECHO ANTERIOR ===\n")
                     for page_num in range(overlap_start, chunk_start):
                         page = doc.load_page(page_num)
                         text = page.get_text()
                         chunk_text_parts.append(
-                            f"\n--- PÁGINA {page_num + 1} (OVERLAP) ---\n{text}\n"
+                            f"\n--- PÁGINA {page_num + 1} (OVERLAP) ---\n{text}\n",
                         )
                     chunk_text_parts.append("\n=== NOVO TRECHO ===\n")
 
                 for page_num in range(chunk_start, chunk_end):
                     page = doc.load_page(page_num)
                     text = page.get_text()
-                    chunk_text_parts.append(
-                        f"\n--- PÁGINA {page_num + 1} ---\n{text}\n"
-                    )
+                    chunk_text_parts.append(f"\n--- PÁGINA {page_num + 1} ---\n{text}\n")
 
                 chunks.append("".join(chunk_text_parts))
 
             logging.info(
-                f"Extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks"
+                f"Extracted text from {pdf_path.name} ({page_count} pages) into {len(chunks)} chunks",
             )
             return chunks
 
         except (RuntimeError, OSError) as e:
-            logging.error("Error extracting text from PDF %s: %s", pdf_path.name, e)
+            logging.exception("Error extracting text from PDF %s: %s", pdf_path.name, e)
             return []
         finally:
             if doc:
                 try:
                     doc.close()
                 except Exception as e_close:
-                    logging.warning(
-                        f"Error closing PDF document {pdf_path.name}: {e_close}"
-                    )
+                    logging.warning(f"Error closing PDF document {pdf_path.name}: {e_close}")
 
     def extract_and_save_json(
-        self, pdf_path: str | pathlib.Path, output_json_dir: str | pathlib.Path
+        self, pdf_path: str | pathlib.Path, output_json_dir: str | pathlib.Path,
     ) -> pathlib.Path | None:
         pdf_path = pathlib.Path(pdf_path)
         logging.info(f"Starting extraction for PDF: {pdf_path.name}")
@@ -152,12 +142,12 @@ class GeminiExtractor:
 
             if not self.is_configured():
                 logging.warning(
-                    f"Skipping real Gemini API call for {pdf_path.name} (Gemini not configured). Returning dummy data."
+                    f"Skipping real Gemini API call for {pdf_path.name} (Gemini not configured). Returning dummy data.",
                 )
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,
                     "extraction_timestamp": datetime.datetime.now(
-                        datetime.timezone.utc
+                        datetime.UTC,
                     ).isoformat(),
                     "status": "dummy_data_gemini_not_configured",
                     "numero_processo": "0000000-00.0000.0.00.0000",
@@ -172,7 +162,7 @@ class GeminiExtractor:
                 }
             else:
                 logging.info(
-                    f"Attempting real Gemini API call for {pdf_path.name} using model {self.model_name}"
+                    f"Attempting real Gemini API call for {pdf_path.name} using model {self.model_name}",
                 )
                 pdf_text_chunks = self._extract_text_from_pdf(pdf_path)
                 if not pdf_text_chunks:
@@ -221,7 +211,7 @@ REGRAS OBRIGATÓRIAS:
                     if chunk_index > 0:
                         delay = 4 + random.uniform(0.5, 1.5)
                         logging.info(
-                            f"Rate limiting: waiting {delay:.1f}s before chunk {chunk_index + 1}"
+                            f"Rate limiting: waiting {delay:.1f}s before chunk {chunk_index + 1}",
                         )
                         time.sleep(delay)
 
@@ -235,9 +225,11 @@ REGRAS OBRIGATÓRIAS:
                     while retry_count < max_retries:
                         try:
                             logging.info(
-                                f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} (attempt {retry_count + 1})"
+                                f"Processing chunk {chunk_index + 1}/{len(pdf_text_chunks)} (attempt {retry_count + 1})",
                             )
-                            full_prompt = f"{prompt}\n\nTexto (Chunk {chunk_index + 1}):\n{chunk_text}"
+                            full_prompt = (
+                                f"{prompt}\n\nTexto (Chunk {chunk_index + 1}):\n{chunk_text}"
+                            )
                             response = model.generate_content(full_prompt)
                             response_successful = True
                             break
@@ -253,16 +245,16 @@ REGRAS OBRIGATÓRIAS:
                                         2 ** (retry_count - 1)
                                     ) + random.uniform(0, 10)
                                     logging.warning(
-                                        f"Rate limit for chunk {chunk_index + 1}, attempt {retry_count}. Waiting {backoff:.1f}s..."
+                                        f"Rate limit for chunk {chunk_index + 1}, attempt {retry_count}. Waiting {backoff:.1f}s...",
                                     )
                                     time.sleep(backoff)
                                 else:
-                                    logging.error(
-                                        f"Max retries for rate limit exceeded for chunk {chunk_index + 1}: {e_api}"
+                                    logging.exception(
+                                        f"Max retries for rate limit exceeded for chunk {chunk_index + 1}: {e_api}",
                                     )
                             else:
-                                logging.error(
-                                    f"Non-rate-limit error for chunk {chunk_index + 1}: {e_api}"
+                                logging.exception(
+                                    f"Non-rate-limit error for chunk {chunk_index + 1}: {e_api}",
                                 )
                                 response_successful = False
                                 break
@@ -283,25 +275,25 @@ REGRAS OBRIGATÓRIAS:
                             all_decisions.extend(chunk_decisions)
                         else:
                             logging.warning(
-                                f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}"
+                                f"Chunk {chunk_index + 1}: Unexpected response type: {type(chunk_decisions)}",
                             )
                     except json.JSONDecodeError as je:
-                        logging.error(
-                            f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}..."
+                        logging.exception(
+                            f"Chunk {chunk_index + 1}: JSON parse error: {je}. Raw: {response.text[:300]}...",
                         )  # type: ignore
                         return None
 
                 final_extracted_data = {
                     "file_name_source": pdf_path.name,
                     "extraction_timestamp": datetime.datetime.now(
-                        datetime.timezone.utc
+                        datetime.UTC,
                     ).isoformat(),
                     "decisions": all_decisions,
                     "chunks_processed": len(pdf_text_chunks),
                     "total_decisions_found": len(all_decisions),
                 }
                 logging.info(
-                    f"Processed {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions: {len(all_decisions)}"
+                    f"Processed {len(pdf_text_chunks)} chunks for {pdf_path.name}. Total decisions: {len(all_decisions)}",
                 )
 
             if final_extracted_data is None:
@@ -314,19 +306,17 @@ REGRAS OBRIGATÓRIAS:
             try:
                 with open(output_json_path, "w", encoding="utf-8") as f:
                     json.dump(final_extracted_data, f, ensure_ascii=False, indent=4)
-                logging.info(
-                    f"Successfully saved extracted data to: {output_json_path}"
-                )
+                logging.info(f"Successfully saved extracted data to: {output_json_path}")
                 return output_json_path
-            except IOError as e:
-                logging.error(f"Error saving JSON file {output_json_path}: {e}")
+            except OSError as e:
+                logging.exception(f"Error saving JSON file {output_json_path}: {e}")
                 return None
         # TemporaryDirectory is automatically cleaned up here via 'with' statement
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract structured data from a PDF document using Gemini."
+        description="Extract structured data from a PDF document using Gemini.",
     )
     parser.add_argument(
         "--pdf_file",

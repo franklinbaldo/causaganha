@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,15 +11,15 @@ class Decision(BaseModel):
     """Structured representation of a judicial decision."""
 
     numero_processo: str
-    tipo_decisao: Optional[str] = None
-    polo_ativo: List[str] = Field(default_factory=list)
-    advogados_polo_ativo: List[str] = Field(default_factory=list)
-    polo_passivo: List[str] = Field(default_factory=list)
-    advogados_polo_passivo: List[str] = Field(default_factory=list)
+    tipo_decisao: str | None = None
+    polo_ativo: list[str] = Field(default_factory=list)
+    advogados_polo_ativo: list[str] = Field(default_factory=list)
+    polo_passivo: list[str] = Field(default_factory=list)
+    advogados_polo_passivo: list[str] = Field(default_factory=list)
     resultado: str
     data_decisao: date
-    resumo: Optional[str] = None
-    tribunal: Optional[str] = None
+    resumo: str | None = None
+    tribunal: str | None = None
 
 
 class ExtractionResult(BaseModel):
@@ -28,6 +27,6 @@ class ExtractionResult(BaseModel):
 
     file_name_source: str
     extraction_timestamp: datetime
-    decisions: List[Decision]
+    decisions: list[Decision]
     chunks_processed: int
     total_decisions_found: int

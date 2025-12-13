@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Diario Processor - Convert TJRO diario list to full PDF URLs for async pipeline
+"""Diario Processor - Convert TJRO diario list to full PDF URLs for async pipeline
 
 This script processes the todos_diarios_tjro.json file and converts it into
 a structured list of PDF URLs ready for download and Internet Archive submission.
@@ -11,7 +10,7 @@ import json
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional
+
 
 # TJRO base URL for constructing full PDF URLs
 TJRO_BASE_URL = "https://www.tjro.jus.br"
@@ -19,10 +18,10 @@ TJRO_BASE_URL = "https://www.tjro.jus.br"
 logger = logging.getLogger(__name__)
 
 
-def load_diarios_list(json_file_path: Path) -> List[Dict]:
+def load_diarios_list(json_file_path: Path) -> list[dict]:
     """Load the diarios list from JSON file."""
     try:
-        with open(json_file_path, "r", encoding="utf-8") as f:
+        with open(json_file_path, encoding="utf-8") as f:
             data = json.load(f)
         logger.info(f"Loaded {len(data)} diario entries from {json_file_path}")
         return data
@@ -31,7 +30,7 @@ def load_diarios_list(json_file_path: Path) -> List[Dict]:
         return []
 
 
-def convert_to_full_urls(diarios: List[Dict]) -> List[Dict]:
+def convert_to_full_urls(diarios: list[dict]) -> list[dict]:
     """Convert relative URLs to full PDF URLs with metadata."""
     full_urls = []
 
@@ -59,9 +58,7 @@ def convert_to_full_urls(diarios: List[Dict]) -> List[Dict]:
             # Create standardized filename for our system
             standard_filename = f"dj_{year}{month.zfill(2)}{day.zfill(2)}.pdf"
             if sufix:
-                standard_filename = (
-                    f"dj_{year}{month.zfill(2)}{day.zfill(2)}_{sufix}.pdf"
-                )
+                standard_filename = f"dj_{year}{month.zfill(2)}{day.zfill(2)}_{sufix}.pdf"
 
             # Create entry for async pipeline
             entry = {
@@ -103,10 +100,10 @@ def convert_to_full_urls(diarios: List[Dict]) -> List[Dict]:
 
 
 def filter_by_date_range(
-    diarios: List[Dict],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> List[Dict]:
+    diarios: list[dict],
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
     """Filter diarios by date range."""
     if not start_date and not end_date:
         return diarios
@@ -130,7 +127,7 @@ def filter_by_date_range(
     return filtered
 
 
-def filter_by_year(diarios: List[Dict], years: List[int]) -> List[Dict]:
+def filter_by_year(diarios: list[dict], years: list[int]) -> list[dict]:
     """Filter diarios by specific years."""
     if not years:
         return diarios
@@ -141,7 +138,7 @@ def filter_by_year(diarios: List[Dict], years: List[int]) -> List[Dict]:
 
 
 def save_pipeline_ready_list(
-    diarios: List[Dict], output_file: Path, format_type: str = "json"
+    diarios: list[dict], output_file: Path, format_type: str = "json",
 ) -> None:
     """Save the pipeline-ready list in specified format."""
     try:
@@ -150,8 +147,7 @@ def save_pipeline_ready_list(
                 json.dump(diarios, f, indent=2, ensure_ascii=False, default=str)
         elif format_type == "urls_only":
             with open(output_file, "w", encoding="utf-8") as f:
-                for diario in diarios:
-                    f.write(f"{diario['full_url']}\n")
+                f.writelines(f"{diario['full_url']}\n" for diario in diarios)
         elif format_type == "csv":
             import csv
 
@@ -166,14 +162,12 @@ def save_pipeline_ready_list(
                             row[f"metadata_{meta_key}"] = meta_val
                         writer.writerow(row)
 
-        logger.info(
-            f"Saved {len(diarios)} entries to {output_file} in {format_type} format"
-        )
+        logger.info(f"Saved {len(diarios)} entries to {output_file} in {format_type} format")
     except Exception as e:
         logger.error(f"Failed to save to {output_file}: {e}")
 
 
-def get_statistics(diarios: List[Dict]) -> Dict:
+def get_statistics(diarios: list[dict]) -> dict:
     """Get statistics about the diarios collection."""
     if not diarios:
         return {}
@@ -202,9 +196,7 @@ def get_statistics(diarios: List[Dict]) -> Dict:
 
 def main():
     """Main CLI interface for diario processing."""
-    parser = argparse.ArgumentParser(
-        description="Convert TJRO diarios list to pipeline-ready URLs"
-    )
+    parser = argparse.ArgumentParser(description="Convert TJRO diarios list to pipeline-ready URLs")
     parser.add_argument(
         "--input",
         "-i",
@@ -269,9 +261,7 @@ def main():
     stats = get_statistics(diarios)
     print("\n📊 TJRO Diarios Statistics:")
     print(f"   Total entries: {stats['total_count']:,}")
-    print(
-        f"   Date range: {stats['date_range']['earliest']} to {stats['date_range']['latest']}"
-    )
+    print(f"   Date range: {stats['date_range']['earliest']} to {stats['date_range']['latest']}")
     print(f"   Years covered: {stats['years_covered']}")
     print(f"   Entries with supplements: {stats['has_supplements']}")
     print(f"   Estimated total size: ~{stats['total_size_estimate_mb']:,} MB")

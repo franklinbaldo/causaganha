@@ -2,14 +2,14 @@ import logging  # Added for validate_decision
 import re
 import unicodedata
 
+
 # It's good practice for a library module to not configure logging directly.
 # Instead, it should get a logger and use it. Application configures logging.
 logger = logging.getLogger(__name__)
 
 
 def normalize_lawyer_name(name: str) -> str:
-    """
-    Normalizes a lawyer's name by uppercasing, removing titles,
+    """Normalizes a lawyer's name by uppercasing, removing titles,
     normalizing accents, and cleaning up whitespace.
     """
     if not isinstance(name, str):
@@ -55,9 +55,7 @@ def normalize_lawyer_name(name: str) -> str:
     previous_text_state = ""
     while previous_text_state != text:
         previous_text_state = text
-        current_text_temp = (
-            text.strip()
-        )  # Work on a stripped version for prefix checking
+        current_text_temp = text.strip()  # Work on a stripped version for prefix checking
 
         # First, try to remove titles that are followed by a space (more common)
         for title in titles_with_space:
@@ -86,9 +84,7 @@ def normalize_lawyer_name(name: str) -> str:
     stripped_chars = []
     last_base = ""
     for ch in decomposed:
-        if unicodedata.category(ch) == "Mn" and unicodedata.name(
-            last_base, ""
-        ).startswith("LATIN"):
+        if unicodedata.category(ch) == "Mn" and unicodedata.name(last_base, "").startswith("LATIN"):
             continue
         stripped_chars.append(ch)
         if unicodedata.category(ch)[0] != "M":
@@ -102,8 +98,7 @@ def normalize_lawyer_name(name: str) -> str:
 
 
 def validate_decision(decision: dict) -> bool:
-    """
-    Validates a decision dictionary based on specific criteria.
+    """Validates a decision dictionary based on specific criteria.
     Logs the reason for invalidity if any check fails.
     """
     if not isinstance(decision, dict):
@@ -117,14 +112,14 @@ def validate_decision(decision: dict) -> bool:
         return False
     if not isinstance(numero_processo, str):
         logger.warning(
-            f"Validation failed: 'numero_processo' is not a string (got {type(numero_processo)}). Value: {numero_processo}"
+            f"Validation failed: 'numero_processo' is not a string (got {type(numero_processo)}). Value: {numero_processo}",
         )
         return False
     # Using flexible regex: r"[\d.-]{15,25}"
     # For stricter CNJ: r"^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$"
     if not re.fullmatch(r"[\d.-]{15,25}", numero_processo):
         logger.warning(
-            f"Validation failed: 'numero_processo' ({numero_processo}) does not match pattern [\\d.-]{{15,25}}."
+            f"Validation failed: 'numero_processo' ({numero_processo}) does not match pattern [\\d.-]{{15,25}}.",
         )
         return False
 
@@ -140,36 +135,32 @@ def validate_decision(decision: dict) -> bool:
         requerido = decision.get("polo_passivo")
 
     if not requerente:  # Checks for None or empty list/string
-        logger.warning(
-            "Validation failed: 'requerente/polo_ativo' is missing or empty."
-        )
+        logger.warning("Validation failed: 'requerente/polo_ativo' is missing or empty.")
         return False
     if not (isinstance(requerente, list) or isinstance(requerente, str)):
         logger.warning(
-            f"Validation failed: 'requerente/polo_ativo' is not a list or string (got {type(requerente)})."
+            f"Validation failed: 'requerente/polo_ativo' is not a list or string (got {type(requerente)}).",
         )
         return False
     if isinstance(requerente, list) and not any(
-        requerente
+        requerente,
     ):  # handles list of empty strings if that's an issue
         logger.warning(
-            "Validation failed: 'requerente/polo_ativo' list contains no actual content."
+            "Validation failed: 'requerente/polo_ativo' list contains no actual content.",
         )
         return False
 
     if not requerido:  # Checks for None or empty list/string
-        logger.warning(
-            "Validation failed: 'requerido/polo_passivo' is missing or empty."
-        )
+        logger.warning("Validation failed: 'requerido/polo_passivo' is missing or empty.")
         return False
     if not (isinstance(requerido, list) or isinstance(requerido, str)):
         logger.warning(
-            f"Validation failed: 'requerido/polo_passivo' is not a list or string (got {type(requerido)})."
+            f"Validation failed: 'requerido/polo_passivo' is not a list or string (got {type(requerido)}).",
         )
         return False
     if isinstance(requerido, list) and not any(requerido):
         logger.warning(
-            "Validation failed: 'requerido/polo_passivo' list contains no actual content."
+            "Validation failed: 'requerido/polo_passivo' list contains no actual content.",
         )
         return False
 
@@ -179,9 +170,7 @@ def validate_decision(decision: dict) -> bool:
         logger.warning("Validation failed: 'resultado' is missing or empty.")
         return False
     if not isinstance(resultado, str):
-        logger.warning(
-            f"Validation failed: 'resultado' is not a string (got {type(resultado)})."
-        )
+        logger.warning(f"Validation failed: 'resultado' is not a string (got {type(resultado)}).")
         return False
 
     logger.info("Decision (processo: %s) passed validation.", numero_processo)
@@ -221,10 +210,7 @@ if __name__ == "__main__":
     for i, example in enumerate(examples_normalize):
         normalized = normalize_lawyer_name(example)
         print(f'Original: "{example}" -> Normalized: "{normalized}"')
-        if (
-            i < len(expected_normalize_outputs)
-            and normalized != expected_normalize_outputs[i]
-        ):
+        if i < len(expected_normalize_outputs) and normalized != expected_normalize_outputs[i]:
             print(f'  MISMATCH! Expected: "{expected_normalize_outputs[i]}"')
             all_normalize_passed = False
     print("-" * 30)
@@ -306,7 +292,7 @@ if __name__ == "__main__":
         print(f"Validating '{name}':")
         is_valid = validate_decision(decision_data)
         print(
-            f"Result: {'Valid' if is_valid else 'Invalid'}. Expected: {'Valid' if expected_validity else 'Invalid'}"
+            f"Result: {'Valid' if is_valid else 'Invalid'}. Expected: {'Valid' if expected_validity else 'Invalid'}",
         )
         assert is_valid == expected_validity, (
             f"Test '{name}' failed! Expected {expected_validity} but got {is_valid}"
@@ -326,11 +312,11 @@ if __name__ == "__main__":
         if unicodedata.category(c) != "Mn"
     )
     logger_main = logging.getLogger(
-        __name__ + ".main_demo"
+        __name__ + ".main_demo",
     )  # Use a specific logger for main demo if needed
     logger_main.info(
-        f"Robust accent removal demo (unicodedata): Original='{name_with_complex_accents}', Normalized='{text_normalized_robustly}'"
+        f"Robust accent removal demo (unicodedata): Original='{name_with_complex_accents}', Normalized='{text_normalized_robustly}'",
     )
     logger_main.info(
-        f"Using current normalize_lawyer_name for '{name_with_complex_accents}': '{normalize_lawyer_name(name_with_complex_accents)}'"
+        f"Using current normalize_lawyer_name for '{name_with_complex_accents}': '{normalize_lawyer_name(name_with_complex_accents)}'",
     )

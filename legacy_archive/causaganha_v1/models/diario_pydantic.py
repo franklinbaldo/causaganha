@@ -1,30 +1,25 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, HttpUrl
 
 
 class DiarioPydantic(BaseModel):
-    """
-    Pydantic model for a Diario, mirroring the Diario dataclass structure
+    """Pydantic model for a Diario, mirroring the Diario dataclass structure
     but with Pydantic validation and features.
     """
 
     tribunal: str
-    data_diario: date = Field(
-        alias="data"
-    )  # Alias to match dataclass field name 'data'
+    data_diario: date = Field(alias="data")  # Alias to match dataclass field name 'data'
     url: HttpUrl
-    filename: Optional[str] = None
-    hash_documento: Optional[str] = Field(
-        default=None, alias="hash"
-    )  # Alias for 'hash'
-    pdf_path_str: Optional[str] = Field(default=None, alias="pdf_path")
-    ia_identifier: Optional[str] = None
+    filename: str | None = None
+    hash_documento: str | None = Field(default=None, alias="hash")  # Alias for 'hash'
+    pdf_path_str: str | None = Field(default=None, alias="pdf_path")
+    ia_identifier: str | None = None
     status: str = "pending"
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         allow_population_by_field_name = True

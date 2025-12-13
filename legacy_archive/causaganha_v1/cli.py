@@ -7,7 +7,6 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import duckdb
@@ -20,6 +19,7 @@ from causaganha_v1.simple_backup import (
     backup_database_before_changes,
     export_and_upload_to_ia,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ app.add_typer(pipeline_app, name="pipeline")
 
 cg_config = load_config()
 
-db_manager_global: Optional[DatabaseManager] = None
-cg_db_global: Optional[CausaGanhaDB] = None
+db_manager_global: DatabaseManager | None = None
+cg_db_global: CausaGanhaDB | None = None
 
 CTX_DB_MANAGER = "db_manager"
 CTX_CG_DB = "cg_db"
@@ -58,9 +58,7 @@ def main_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand == "db":
         action_param = ctx.params.get("action", "").lower() if ctx.params else ""
         if action_param in ["migrate", "reset"]:
-            logger.info(
-                f"Delaying full DB objects initialization for 'db {action_param}'."
-            )
+            logger.info(f"Delaying full DB objects initialization for 'db {action_param}'.")
             return
 
     try:
@@ -70,9 +68,7 @@ def main_callback(ctx: typer.Context) -> None:
 
         ctx.obj[CTX_DB_MANAGER] = db_manager_global
         ctx.obj[CTX_CG_DB] = cg_db_global
-        logger.info(
-            f"Global DatabaseManager and CausaGanhaDB initialized for: {db_path}"
-        )
+        logger.info(f"Global DatabaseManager and CausaGanhaDB initialized for: {db_path}")
 
     except Exception as e:
         logger.critical(
@@ -84,15 +80,11 @@ def main_callback(ctx: typer.Context) -> None:
 
 
 def get_cg_db_from_ctx(ctx: typer.Context) -> CausaGanhaDB:
-    if (
-        hasattr(ctx, "obj")
-        and ctx.obj
-        and isinstance(ctx.obj.get(CTX_CG_DB), CausaGanhaDB)
-    ):
+    if hasattr(ctx, "obj") and ctx.obj and isinstance(ctx.obj.get(CTX_CG_DB), CausaGanhaDB):
         return ctx.obj[CTX_CG_DB]
 
     logger.warning(
-        f"CausaGanhaDB requested but not in Typer context. Attempting dynamic init. Command: {ctx.invoked_subcommand}"
+        f"CausaGanhaDB requested but not in Typer context. Attempting dynamic init. Command: {ctx.invoked_subcommand}",
     )
     db_path_cfg = (
         ctx.obj.get(CTX_DB_PATH_CFG)
@@ -119,34 +111,22 @@ def get_cg_db_from_ctx(ctx: typer.Context) -> CausaGanhaDB:
                 CTX_CG_DB: cg_db_instance,
                 CTX_DB_PATH_CFG: db_path_cfg,
             }
-        logger.info(
-            f"Dynamically initialized CausaGanhaDB for command {ctx.invoked_subcommand}"
-        )
+        logger.info(f"Dynamically initialized CausaGanhaDB for command {ctx.invoked_subcommand}")
         return cg_db_instance
     except Exception as e:
         logger.critical(
             f"Dynamic DB initialization failed for command {ctx.invoked_subcommand}: {e}",
             exc_info=True,
         )
-        typer.echo(
-            f"❌ Critical: Dynamic database initialization failed: {e}", err=True
-        )
+        typer.echo(f"❌ Critical: Dynamic database initialization failed: {e}", err=True)
         raise typer.Exit(101)
 
 
 def get_db_manager_from_ctx(ctx: typer.Context) -> DatabaseManager:
-    if (
-        hasattr(ctx, "obj")
-        and ctx.obj
-        and isinstance(ctx.obj.get(CTX_DB_MANAGER), DatabaseManager)
-    ):
+    if hasattr(ctx, "obj") and ctx.obj and isinstance(ctx.obj.get(CTX_DB_MANAGER), DatabaseManager):
         return ctx.obj[CTX_DB_MANAGER]
     get_cg_db_from_ctx(ctx)
-    if (
-        hasattr(ctx, "obj")
-        and ctx.obj
-        and isinstance(ctx.obj.get(CTX_DB_MANAGER), DatabaseManager)
-    ):
+    if hasattr(ctx, "obj") and ctx.obj and isinstance(ctx.obj.get(CTX_DB_MANAGER), DatabaseManager):
         return ctx.obj[CTX_DB_MANAGER]
     logger.error("DatabaseManager not found in context after dynamic init attempt.")
     typer.echo("❌ Critical: Database Manager could not be initialized.", err=True)
@@ -159,7 +139,7 @@ original_db_path_for_stub = Path(cg_config["database"]["path"])
 original_db_manager_for_stub = DatabaseManager(original_db_path_for_stub)
 db = CausaGanhaDB(original_db_manager_for_stub)  # Old global 'db' needs a manager too
 logger.warning(
-    "Old global 'db' instance created. Unrefactored commands using it might behave unexpectedly."
+    "Old global 'db' instance created. Unrefactored commands using it might behave unexpectedly.",
 )
 
 
@@ -171,7 +151,7 @@ def validate_tribunal_url(url: str) -> bool:
     return urlparse(url).netloc.lower().endswith(".jus.br")
 
 
-def extract_date_from_url(url: str) -> Optional[str]:
+def extract_date_from_url(url: str) -> str | None:
     date_patterns = [
         r"diario(?:jus)?(?:tj)?(\d{8})",
         r"(?:data=|date=|dt=)(\d{8})",
@@ -190,7 +170,7 @@ def extract_date_from_url(url: str) -> Optional[str]:
                         else (int(groups[2]), int(groups[1]), int(groups[0]))
                     )
                     return datetime(year, month, day).strftime("%Y-%m-%d")
-                elif len(groups) == 1 and len(groups[0]) == 8 and groups[0].isdigit():
+                if len(groups) == 1 and len(groups[0]) == 8 and groups[0].isdigit():
                     return datetime.strptime(groups[0], "%Y%m%d").strftime("%Y-%m-%d")
             except ValueError:
                 continue
@@ -199,7 +179,7 @@ def extract_date_from_url(url: str) -> Optional[str]:
 
 # --- Stubs for commands not yet refactored ---
 @app.command()
-def queue(url: Optional[str] = None, from_csv: Optional[Path] = None) -> None:
+def queue(url: str | None = None, from_csv: Path | None = None) -> None:
     typer.echo("Queue command (stub) NOT YET FULLY REFACTORED.", err=True)
     global db  # Uses old global db
     if not url and not from_csv:
@@ -208,7 +188,7 @@ def queue(url: Optional[str] = None, from_csv: Optional[Path] = None) -> None:
     try:
         with db.db_manager as mgr:  # Old db uses a manager
             mgr.get_connection().execute(
-                "CREATE TABLE IF NOT EXISTS job_queue (url TEXT UNIQUE, status TEXT)"
+                "CREATE TABLE IF NOT EXISTS job_queue (url TEXT UNIQUE, status TEXT)",
             )
             typer.echo("Simplified queue logic ran using old 'db' instance.")
     except Exception as e:
@@ -216,12 +196,12 @@ def queue(url: Optional[str] = None, from_csv: Optional[Path] = None) -> None:
 
 
 @app.command()
-def archive(limit: Optional[int] = None, force: bool = False) -> None:
+def archive(limit: int | None = None, force: bool = False) -> None:
     typer.echo("Archive command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
 @app.command()
-def analyze(limit: Optional[int] = None, force: bool = False) -> None:
+def analyze(limit: int | None = None, force: bool = False) -> None:
     typer.echo("Analyze command (stub) NOT YET FULLY REFACTORED.", err=True)
 
 
@@ -232,7 +212,7 @@ def score(force: bool = False) -> None:
 
 @app.command("get-urls")
 def get_urls_cmd(
-    date: Optional[str] = None,
+    date: str | None = None,
     latest: bool = False,
     tribunal: str = "tjro",
     to_queue: bool = False,
@@ -243,12 +223,8 @@ def get_urls_cmd(
 
 @pipeline_app.command("run")
 def pipeline_run(
-    date: Optional[str] = typer.Option(
-        None, help="Process only a specific YYYY-MM-DD date"
-    ),
-    max_items: Optional[int] = typer.Option(
-        None, help="Limit number of diarios processed"
-    ),
+    date: str | None = typer.Option(None, help="Process only a specific YYYY-MM-DD date"),
+    max_items: int | None = typer.Option(None, help="Limit number of diarios processed"),
     verbose: bool = typer.Option(False, help="Enable verbose logging"),
 ) -> None:
     """Execute the async pipeline."""
@@ -311,14 +287,10 @@ def _db_status(ctx: typer.Context) -> None:
             table_data = db_info.get("tables", {})
             if table_data:
                 for table_name, count_or_error in table_data.items():
-                    typer.echo(
-                        f"│   ├── {table_name.replace('_', ' ').title()}: {count_or_error}"
-                    )
+                    typer.echo(f"│   ├── {table_name.replace('_', ' ').title()}: {count_or_error}")
             else:
                 typer.echo("│   └── No table information available.")
-            typer.echo(
-                "\n--- For detailed content statistics, run 'causaganha stats' ---"
-            )
+            typer.echo("\n--- For detailed content statistics, run 'causaganha stats' ---")
     except (duckdb.Error, RuntimeError) as e:
         if (
             "no such table" in str(e).lower() or "catalog error" in str(e).lower()
@@ -336,9 +308,7 @@ def _db_status(ctx: typer.Context) -> None:
 @app.command("db")
 def database_cmd_group(
     ctx: typer.Context,
-    action: str = typer.Argument(
-        ..., help="Action: migrate, status, backup, reset, healthcheck"
-    ),
+    action: str = typer.Argument(..., help="Action: migrate, status, backup, reset, healthcheck"),
     force: bool = typer.Option(False, help="Force operation"),
 ) -> None:
     db_path_cfg = ctx.obj.get(CTX_DB_PATH_CFG, Path(cg_config["database"]["path"]))
@@ -351,9 +321,7 @@ def database_cmd_group(
                 current_manager.close()
             run_db_migrations(db_path_cfg)
             typer.echo("✅ Migrations completed.")
-            new_manager = DatabaseManager(
-                db_path_cfg
-            )  # Create new manager post-migration
+            new_manager = DatabaseManager(db_path_cfg)  # Create new manager post-migration
             ctx.obj[CTX_DB_MANAGER] = new_manager
             ctx.obj[CTX_CG_DB] = CausaGanhaDB(new_manager)
         except Exception as e:
@@ -389,7 +357,7 @@ def database_cmd_group(
             typer.echo(f"❌ Backup failed: {e}", err=True)
     elif action == "reset":
         if not force and not typer.confirm(
-            f"⚠️ DELETE DB at {db_path_cfg} & re-migrate? IRREVERSIBLE!", abort=True
+            f"⚠️ DELETE DB at {db_path_cfg} & re-migrate? IRREVERSIBLE!", abort=True,
         ):
             return
         typer.echo(f"🗑️ Resetting DB at {db_path_cfg}...")

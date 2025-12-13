@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Async Diario Pipeline - Bulk download and archive TJRO diarios to Internet Archive
+"""Async Diario Pipeline - Bulk download and archive TJRO diarios to Internet Archive
 
 This script processes the pipeline-ready diarios list and handles:
 - Concurrent PDF downloads from TJRO
@@ -20,9 +19,8 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiohttp
 
@@ -30,6 +28,7 @@ from .anonymization_hooks import anonymize_metadata
 from .config import load_config
 from .database import CausaGanhaDB, DatabaseManager, run_db_migrations
 from .pii_manager import PiiManager
+
 
 # Environment variables are loaded from system environment
 
@@ -70,10 +69,10 @@ def configure_ia() -> bool:
 
 # Configuration (with environment variable support)
 MAX_CONCURRENT_DOWNLOADS = int(
-    os.getenv("MAX_CONCURRENT_DOWNLOADS", "3")
+    os.getenv("MAX_CONCURRENT_DOWNLOADS", "3"),
 )  # Be respectful to TJRO servers
 MAX_CONCURRENT_IA_UPLOADS = int(
-    os.getenv("MAX_CONCURRENT_IA_UPLOADS", "2")
+    os.getenv("MAX_CONCURRENT_IA_UPLOADS", "2"),
 )  # Internet Archive rate limiting
 DOWNLOAD_TIMEOUT = 300  # 5 minutes per PDF
 RETRY_ATTEMPTS = 3
@@ -89,16 +88,14 @@ class ProcessingStatus:
     original_filename: str
     full_url: str
     date: str
-    status: str = (
-        "pending"  # pending, downloading, downloaded, uploading, completed, failed
-    )
-    local_path: Optional[str] = None
-    ia_url: Optional[str] = None
-    error_message: Optional[str] = None
+    status: str = "pending"  # pending, downloading, downloaded, uploading, completed, failed
+    local_path: str | None = None
+    ia_url: str | None = None
+    error_message: str | None = None
     attempts: int = 0
-    sha256_hash: Optional[str] = None
-    file_size: Optional[int] = None
-    processing_time: Optional[float] = None
+    sha256_hash: str | None = None
+    file_size: int | None = None
+    processing_time: float | None = None
 
 
 class AsyncDiarioPipeline:
@@ -140,12 +137,12 @@ class AsyncDiarioPipeline:
         (self.data_dir / "diarios").mkdir(exist_ok=True)
 
         # Processing tracking
-        self.status_tracker: Dict[str, ProcessingStatus] = {}
+        self.status_tracker: dict[str, ProcessingStatus] = {}
         self.download_semaphore = asyncio.Semaphore(max_concurrent_downloads)
         self.upload_semaphore = asyncio.Semaphore(max_concurrent_uploads)
 
         # Session for HTTP requests
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -153,7 +150,7 @@ class AsyncDiarioPipeline:
         self.session = aiohttp.ClientSession(
             timeout=timeout,
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             },
         )
         return self
@@ -167,16 +164,16 @@ class AsyncDiarioPipeline:
         """Load existing progress from file."""
         if self.progress_file.exists():
             try:
-                with open(self.progress_file, "r") as f:
+                with open(self.progress_file) as f:
                     progress_data = json.load(f)
 
                 self.status_tracker = {
                     key: ProcessingStatus(**data) for key, data in progress_data.items()
                 }
 
-                completed = len([
-                    s for s in self.status_tracker.values() if s.status == "completed"
-                ])
+                completed = len(
+                    [s for s in self.status_tracker.values() if s.status == "completed"],
+                )
                 total = len(self.status_tracker)
                 self.logger.info(f"Loaded progress: {completed}/{total} completed")
 
@@ -187,9 +184,7 @@ class AsyncDiarioPipeline:
     def save_progress(self) -> None:
         """Save current progress to file."""
         try:
-            progress_data = {
-                key: asdict(status) for key, status in self.status_tracker.items()
-            }
+            progress_data = {key: asdict(status) for key, status in self.status_tracker.items()}
 
             with open(self.progress_file, "w") as f:
                 json.dump(progress_data, f, indent=2, default=str)
@@ -197,7 +192,7 @@ class AsyncDiarioPipeline:
         except Exception as e:
             self.logger.error(f"Failed to save progress: {e}")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get current processing statistics."""
         statuses = [s.status for s in self.status_tracker.values()]
 
@@ -209,12 +204,10 @@ class AsyncDiarioPipeline:
             "uploading": statuses.count("uploading"),
             "completed": statuses.count("completed"),
             "failed": statuses.count("failed"),
-            "completion_rate": statuses.count("completed") / len(statuses) * 100
-            if statuses
-            else 0,
+            "completion_rate": statuses.count("completed") / len(statuses) * 100 if statuses else 0,
         }
 
-    async def download_pdf(self, diario_data: Dict, status: ProcessingStatus) -> bool:
+    async def download_pdf(self, diario_data: dict, status: ProcessingStatus) -> bool:
         """Download a single PDF with retries."""
         async with self.download_semaphore:
             status.status = "downloading"
@@ -222,14 +215,10 @@ class AsyncDiarioPipeline:
             start_time = time.time()
 
             try:
-                local_path = (
-                    self.data_dir / "diarios" / diario_data["original_filename"]
-                )
+                local_path = self.data_dir / "diarios" / diario_data["original_filename"]
 
                 # Skip if already exists and has valid size
-                if (
-                    local_path.exists() and local_path.stat().st_size > 1000
-                ):  # At least 1KB
+                if local_path.exists() and local_path.stat().st_size > 1000:  # At least 1KB
                     status.local_path = str(local_path)
                     status.status = "downloaded"
                     status.file_size = local_path.stat().st_size
@@ -258,37 +247,29 @@ class AsyncDiarioPipeline:
                         status.sha256_hash = hashlib.sha256(content).hexdigest()
                         status.processing_time = time.time() - start_time
 
-                        self.logger.info(
-                            f"Downloaded: {local_path.name} ({len(content):,} bytes)"
-                        )
+                        self.logger.info(f"Downloaded: {local_path.name} ({len(content):,} bytes)")
 
                         # Respectful delay
                         await asyncio.sleep(DELAY_BETWEEN_DOWNLOADS)
                         return True
 
-                    else:
-                        raise aiohttp.ClientResponseError(
-                            request_info=response.request_info,
-                            history=response.history,
-                            status=response.status,
-                            message=f"HTTP {response.status}",
-                        )
+                    raise aiohttp.ClientResponseError(
+                        request_info=response.request_info,
+                        history=response.history,
+                        status=response.status,
+                        message=f"HTTP {response.status}",
+                    )
 
             except Exception as e:
                 status.error_message = str(e)
-                self.logger.error(
-                    f"Download failed for {diario_data['original_filename']}: {e}"
-                )
+                self.logger.error(f"Download failed for {diario_data['original_filename']}: {e}")
 
                 if status.attempts >= RETRY_ATTEMPTS:
                     status.status = "failed"
                     return False
-                else:
-                    status.status = "pending"  # Will retry
-                    await asyncio.sleep(
-                        min(status.attempts * 2, 10)
-                    )  # Exponential backoff
-                    return False
+                status.status = "pending"  # Will retry
+                await asyncio.sleep(min(status.attempts * 2, 10))  # Exponential backoff
+                return False
 
     async def _calculate_sha256(self, file_path: Path) -> str:
         """Calculate SHA256 hash of file asynchronously."""
@@ -313,7 +294,7 @@ class AsyncDiarioPipeline:
         except Exception:
             return False
 
-    def upload_to_ia_local(self, diario_data: Dict, status: ProcessingStatus) -> bool:
+    def upload_to_ia_local(self, diario_data: dict, status: ProcessingStatus) -> bool:
         """Upload PDF to Internet Archive from local file."""
         if not status.local_path or not Path(status.local_path).exists():
             self.logger.error(f"Local file not available for {status.ia_identifier}")
@@ -326,9 +307,7 @@ class AsyncDiarioPipeline:
             metadata = diario_data["metadata"].copy()
             metadata["sha256"] = status.sha256_hash
             metadata["originalurl"] = diario_data["full_url"]
-            metadata["addeddate"] = datetime.now(timezone.utc).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            metadata["addeddate"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
             metadata["upload_method"] = "local_download_first"
             if self.pii_manager:
                 metadata = anonymize_metadata(metadata, self.pii_manager)
@@ -350,7 +329,7 @@ class AsyncDiarioPipeline:
             self.logger.info(f"Uploading local file to IA: {status.ia_identifier}")
             result = subprocess.run(
                 ia_cmd,
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
                 timeout=600,  # 10 minutes timeout
             )
@@ -365,19 +344,16 @@ class AsyncDiarioPipeline:
                     Path(status.local_path).unlink()
                     self.logger.info(f"Cleaned up local file: {status.local_path}")
                 except Exception as cleanup_error:
-                    self.logger.warning(
-                        f"Failed to cleanup local file: {cleanup_error}"
-                    )
+                    self.logger.warning(f"Failed to cleanup local file: {cleanup_error}")
 
                 return True
-            else:
-                error_details = f"stdout: {result.stdout}, stderr: {result.stderr}"
-                self.logger.error(
-                    f"IA upload command failed with return code {result.returncode}: {error_details}"
-                )
-                raise subprocess.CalledProcessError(
-                    result.returncode, ia_cmd, result.stdout, result.stderr
-                )
+            error_details = f"stdout: {result.stdout}, stderr: {result.stderr}"
+            self.logger.error(
+                f"IA upload command failed with return code {result.returncode}: {error_details}",
+            )
+            raise subprocess.CalledProcessError(
+                result.returncode, ia_cmd, result.stdout, result.stderr,
+            )
 
         except Exception as e:
             status.error_message = str(e)
@@ -385,20 +361,16 @@ class AsyncDiarioPipeline:
             self.logger.error(f"Local IA upload failed for {status.ia_identifier}: {e}")
             return False
 
-    async def upload_to_ia_async(
-        self, diario_data: Dict, status: ProcessingStatus
-    ) -> bool:
+    async def upload_to_ia_async(self, diario_data: dict, status: ProcessingStatus) -> bool:
         """Async wrapper for IA upload."""
         async with self.upload_semaphore:
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 return await loop.run_in_executor(
-                    executor, self.upload_to_ia_local, diario_data, status
+                    executor, self.upload_to_ia_local, diario_data, status,
                 )
 
-    async def process_diario(
-        self, diario_data: Dict, skip_existing: bool = True
-    ) -> bool:
+    async def process_diario(self, diario_data: dict, skip_existing: bool = True) -> bool:
         """Process a single diario: check if exists, download, then upload to IA."""
         ia_identifier = diario_data["ia_identifier"]
 
@@ -450,14 +422,13 @@ class AsyncDiarioPipeline:
 
     async def run_pipeline(
         self,
-        diarios_data: List[Dict],
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        max_items: Optional[int] = None,
+        diarios_data: list[dict],
+        start_date: str | None = None,
+        end_date: str | None = None,
+        max_items: int | None = None,
         skip_existing: bool = True,
     ) -> None:
         """Run the complete async pipeline."""
-
         # Filter by date range if specified
         if start_date or end_date:
             filtered_diarios = []
@@ -488,9 +459,7 @@ class AsyncDiarioPipeline:
 
         async def process_with_semaphore(diario_data):
             async with semaphore:
-                return await self.process_diario(
-                    diario_data, skip_existing=skip_existing
-                )
+                return await self.process_diario(diario_data, skip_existing=skip_existing)
 
         # Create tasks
         tasks = [process_with_semaphore(diario) for diario in diarios_data]
@@ -509,7 +478,7 @@ class AsyncDiarioPipeline:
                     self.logger.info(
                         f"Progress: {completed}/{total} processed "
                         f"({stats['completion_rate']:.1f}% complete, "
-                        f"{stats['failed']} failed)"
+                        f"{stats['failed']} failed)",
                     )
 
             except Exception as e:
@@ -525,7 +494,7 @@ class AsyncDiarioPipeline:
 async def main():
     """Main CLI interface."""
     parser = argparse.ArgumentParser(
-        description="Async pipeline for TJRO diarios download and IA upload"
+        description="Async pipeline for TJRO diarios download and IA upload",
     )
     parser.add_argument(
         "--input",
@@ -541,7 +510,7 @@ async def main():
         help="Data directory for downloads",
     )
     parser.add_argument(
-        "--max-items", type=int, help="Maximum number of items to process (for testing)"
+        "--max-items", type=int, help="Maximum number of items to process (for testing)",
     )
     parser.add_argument("--start-date", type=str, help="Start date filter (YYYY-MM-DD)")
     parser.add_argument("--end-date", type=str, help="End date filter (YYYY-MM-DD)")
@@ -557,12 +526,8 @@ async def main():
         default=MAX_CONCURRENT_IA_UPLOADS,
         help="Max concurrent IA uploads",
     )
-    parser.add_argument(
-        "--resume", action="store_true", help="Resume from previous progress"
-    )
-    parser.add_argument(
-        "--stats-only", action="store_true", help="Show statistics only"
-    )
+    parser.add_argument("--resume", action="store_true", help="Resume from previous progress")
+    parser.add_argument("--stats-only", action="store_true", help="Show statistics only")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
     parser.add_argument(
         "--force-reprocess",
@@ -586,16 +551,16 @@ async def main():
     # Configure Internet Archive
     if not configure_ia():
         logging.error(
-            "Failed to configure Internet Archive. Please check IA_ACCESS_KEY and IA_SECRET_KEY environment variables."
+            "Failed to configure Internet Archive. Please check IA_ACCESS_KEY and IA_SECRET_KEY environment variables.",
         )
         return 1
 
     # Load diarios data
     try:
-        with open(args.input, "r") as f:
+        with open(args.input) as f:
             diarios_data = json.load(f)
     except Exception as e:
-        logging.error(f"Failed to load {args.input}: {e}")
+        logging.exception(f"Failed to load {args.input}: {e}")
         return 1
 
     # Initialize pipeline
@@ -618,9 +583,7 @@ async def main():
                 stats = pipeline.get_statistics()
                 print("📊 Pipeline Statistics:")
                 print(f"   Total: {stats['total']}")
-                print(
-                    f"   Completed: {stats['completed']} ({stats['completion_rate']:.1f}%)"
-                )
+                print(f"   Completed: {stats['completed']} ({stats['completion_rate']:.1f}%)")
                 print(f"   Failed: {stats['failed']}")
                 print(f"   Pending: {stats['pending']}")
                 print(f"   In Progress: {stats['downloading'] + stats['uploading']}")

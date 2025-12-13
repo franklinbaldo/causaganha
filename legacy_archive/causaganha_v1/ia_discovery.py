@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Internet Archive Discovery - List and query uploaded TJRO diarios
+"""Internet Archive Discovery - List and query uploaded TJRO diarios
 
 This script provides various ways to discover and list TJRO diarios
 that have been uploaded to Internet Archive.
@@ -11,7 +10,6 @@ import json
 import logging
 import time
 from datetime import date, datetime
-from typing import Dict, List, Optional
 
 import requests
 
@@ -26,13 +24,12 @@ class IADiscovery:
 
     def search_tjro_diarios(
         self,
-        year: Optional[int] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        year: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         rows: int = 1000,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Search for TJRO diarios in Internet Archive."""
-
         # Build search query
         query_parts = [
             'creator:"Tribunal de Justiça de Rondônia"',
@@ -71,7 +68,7 @@ class IADiscovery:
             self.logger.error(f"IA search failed: {e}")
             return []
 
-    def get_detailed_item_info(self, identifier: str) -> Optional[Dict]:
+    def get_detailed_item_info(self, identifier: str) -> dict | None:
         """Get detailed information about a specific IA item."""
         try:
             metadata_url = f"https://archive.org/metadata/{identifier}"
@@ -84,7 +81,7 @@ class IADiscovery:
             self.logger.error(f"Failed to get details for {identifier}: {e}")
             return None
 
-    def list_by_identifier_pattern(self, year: Optional[int] = None) -> List[str]:
+    def list_by_identifier_pattern(self, year: int | None = None) -> list[str]:
         """List diarios by checking identifier patterns directly."""
         identifiers = []
 
@@ -118,7 +115,7 @@ class IADiscovery:
         except Exception:
             return False
 
-    def get_collection_items(self, collection: str = "opensource") -> List[Dict]:
+    def get_collection_items(self, collection: str = "opensource") -> list[dict]:
         """Get all items from a specific collection that match our criteria."""
         query = f'collection:{collection} AND creator:"Tribunal de Justiça de Rondônia"'
 
@@ -143,9 +140,8 @@ class IADiscovery:
             self.logger.error(f"Collection search failed: {e}")
             return []
 
-    def generate_coverage_report(self, year: Optional[int] = None) -> Dict:
+    def generate_coverage_report(self, year: int | None = None) -> dict:
         """Generate a coverage report showing what's available vs what should exist."""
-
         # Get what's actually in IA
         ia_items = self.search_tjro_diarios(year=year)
         ia_dates = set()
@@ -165,7 +161,7 @@ class IADiscovery:
         expected_dates = set()
         try:
             pipeline_file = "data/diarios_pipeline_ready.json"
-            with open(pipeline_file, "r") as f:
+            with open(pipeline_file) as f:
                 pipeline_data = json.load(f)
 
             for item in pipeline_data:
@@ -178,9 +174,7 @@ class IADiscovery:
 
         # Calculate coverage
         if expected_dates:
-            coverage_percentage = (
-                len(ia_dates & expected_dates) / len(expected_dates) * 100
-            )
+            coverage_percentage = len(ia_dates & expected_dates) / len(expected_dates) * 100
             missing_dates = expected_dates - ia_dates
             extra_dates = ia_dates - expected_dates
         else:
@@ -200,7 +194,7 @@ class IADiscovery:
             "ia_dates": sorted(list(ia_dates)),
         }
 
-    def export_ia_inventory(self, output_file: str, year: Optional[int] = None) -> None:
+    def export_ia_inventory(self, output_file: str, year: int | None = None) -> None:
         """Export complete inventory of TJRO diarios in IA."""
         items = self.search_tjro_diarios(year=year)
 
@@ -234,7 +228,7 @@ class IADiscovery:
 def main():
     """CLI interface for IA discovery."""
     parser = argparse.ArgumentParser(
-        description="Discover and list TJRO diarios in Internet Archive"
+        description="Discover and list TJRO diarios in Internet Archive",
     )
     parser.add_argument("--year", "-y", type=int, help="Filter by specific year")
     parser.add_argument("--start-date", type=str, help="Start date filter (YYYY-MM-DD)")
@@ -245,12 +239,8 @@ def main():
         action="store_true",
         help="Generate coverage report (what's missing vs expected)",
     )
-    parser.add_argument(
-        "--export", "-e", type=str, help="Export inventory to JSON file"
-    )
-    parser.add_argument(
-        "--check-identifier", type=str, help="Check if specific identifier exists"
-    )
+    parser.add_argument("--export", "-e", type=str, help="Export inventory to JSON file")
+    parser.add_argument("--check-identifier", type=str, help="Check if specific identifier exists")
     parser.add_argument(
         "--collection",
         type=str,
@@ -272,9 +262,7 @@ def main():
     # Check single identifier
     if args.check_identifier:
         exists = discovery.check_identifier_exists(args.check_identifier)
-        print(
-            f"Identifier '{args.check_identifier}': {'EXISTS' if exists else 'NOT FOUND'}"
-        )
+        print(f"Identifier '{args.check_identifier}': {'EXISTS' if exists else 'NOT FOUND'}")
         if exists:
             details = discovery.get_detailed_item_info(args.check_identifier)
             if details:
@@ -289,10 +277,7 @@ def main():
         print("🔍 Generating coverage report...")
         report = discovery.generate_coverage_report(year=args.year)
 
-        print(
-            "\n📊 Coverage Report"
-            + (f" for {report['year']}" if report["year"] else "")
-        )
+        print("\n📊 Coverage Report" + (f" for {report['year']}" if report["year"] else ""))
         print(f"   Items in IA: {report['total_in_ia']:,}")
         print(f"   Expected items: {report['total_expected']:,}")
         print(f"   Coverage: {report['coverage_percentage']:.1f}%")
@@ -310,7 +295,7 @@ def main():
 
     # Search and list items
     items = discovery.search_tjro_diarios(
-        year=args.year, start_date=args.start_date, end_date=args.end_date
+        year=args.year, start_date=args.start_date, end_date=args.end_date,
     )
 
     if not items:

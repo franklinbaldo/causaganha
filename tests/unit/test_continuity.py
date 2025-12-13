@@ -1,31 +1,31 @@
 from datetime import datetime
-
 import pytest
+from ibis import BaseBackend
 
 from causaganha.pipeline.continuity import ContinuityManager
 from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
 
 
 @pytest.fixture
-def db_connection():
+def db_connection() -> BaseBackend:
     """Fixture to provide an in-memory database connection."""
-    con = get_connection(":memory:")
-    create_schema(con)
-    return con
-    # No explicit close needed for Ibis/DuckDB in-memory but good practice if supported
-    # con.disconnect() or similar if needed, but usually GC handles it for in-memory
+    return get_connection(":memory:")
+
 
 @pytest.fixture
-def continuity_manager(db_connection):
+def continuity_manager(db_connection: BaseBackend) -> ContinuityManager:
     """Fixture to provide a ContinuityManager instance."""
     return ContinuityManager(con=db_connection)
 
-def test_is_done_initially_false(continuity_manager):
+
+def test_is_done_initially_false(continuity_manager: ContinuityManager) -> None:
     """Test that is_done returns False for a new task."""
     assert continuity_manager.is_done("task_123", "collection") is False
 
-def test_mark_done(continuity_manager, db_connection):
+
+def test_mark_done(
+    continuity_manager: ContinuityManager, db_connection: BaseBackend
+) -> None:
     """Test that mark_done correctly records the task completion."""
     task_id = "task_123"
     step = "collection"
@@ -43,7 +43,8 @@ def test_mark_done(continuity_manager, db_connection):
     assert rows.iloc[0]["step"] == step
     assert isinstance(rows.iloc[0]["timestamp"], datetime)
 
-def test_is_done_specific(continuity_manager):
+
+def test_is_done_specific(continuity_manager: ContinuityManager) -> None:
     """Test that is_done is specific to task_id and step."""
     continuity_manager.mark_done("task_A", "step_1")
 
@@ -51,14 +52,17 @@ def test_is_done_specific(continuity_manager):
     assert continuity_manager.is_done("task_A", "step_2") is False
     assert continuity_manager.is_done("task_B", "step_1") is False
 
-def test_mark_done_idempotent(continuity_manager, db_connection):
-    """Test that mark_done can be called multiple times without error (maybe update timestamp or ignore)."""
+
+def test_mark_done_idempotent(
+    continuity_manager: ContinuityManager, db_connection: BaseBackend
+) -> None:
+    """Test that mark_done can be called multiple times without error."""
     task_id = "task_idem"
     step = "test"
 
     continuity_manager.mark_done(task_id, step)
-    t = db_connection.table("pipeline_state")
-    first_timestamp = t.filter((t.task_id == task_id) & (t.step == step)).execute().iloc[0]["timestamp"]
+
+    # Check timestamp logic later if needed, but unused variable removed.
 
     # Wait a tiny bit or just call again
     continuity_manager.mark_done(task_id, step)
@@ -66,16 +70,6 @@ def test_mark_done_idempotent(continuity_manager, db_connection):
     t = db_connection.table("pipeline_state")
     rows = t.filter((t.task_id == task_id) & (t.step == step)).execute()
 
-    # Depending on implementation, we might want to update the timestamp or just keep the original.
-    # For continuity, usually "once done is done", but re-running might imply re-done.
-    # Let's assume for now we just insert or update. If we use simple insert, we might get duplicates.
-    # Ideally, we should handle duplicates. Let's assume we want the latest timestamp or just one record.
-    # If we want to avoid duplicates, the implementation should handle it.
-    # Let's Assert that we have at least one record, or exactly one if we enforce uniqueness.
-    # For now, let's just assert is_done is True.
-    # But to be robust, let's check count. If implementation does INSERT without check, count increases.
-    # If it does UPSERT or check-before-insert, count stays 1.
-    # Let's decide on desired behavior: Only one record per task+step is needed.
-
+    # Assert that we have at least one record.
     assert len(rows) >= 1
     assert continuity_manager.is_done(task_id, step) is True

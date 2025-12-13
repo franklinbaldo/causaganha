@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+
 """Utility functions for anonymizing metadata before upload or storage."""
 
-from typing import Dict, Optional
 
 from .pii_manager import PiiManager
 
 
 def anonymize_metadata(
-    metadata: Dict[str, str], pii_manager: Optional[PiiManager] = None
-) -> Dict[str, str]:
+    metadata: dict[str, str], pii_manager: PiiManager | None = None,
+) -> dict[str, str]:
     """Replace PII fields in a metadata dictionary using ``PiiManager``.
 
     Only ``creator`` and ``title`` fields are anonymized for now. When
@@ -23,6 +23,6 @@ def anonymize_metadata(
         value = sanitized.get(field)
         if value:
             sanitized[field] = pii_manager.get_or_create_pii_mapping(
-                value, f"METADATA_{field.upper()}"
+                value, f"METADATA_{field.upper()}",
             )
     return sanitized

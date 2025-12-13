@@ -7,8 +7,7 @@ from causaganha.storage.schema import create_schema
 
 
 class ContinuityManager:
-    """Manages the continuity of the pipeline processing, allowing tasks to be resumed.
-    """
+    """Manages the continuity of the pipeline processing, allowing tasks to be resumed."""
 
     def __init__(self, con: BaseBackend = None):
         """Initialize the ContinuityManager.

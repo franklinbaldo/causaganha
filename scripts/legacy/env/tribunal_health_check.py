@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
-from typing import List, Type
 
 from causaganha_v1.tribunais.tjro.discovery import TJRODiscovery
 from causaganha_v1.utils.logging_config import get_logger, set_tribunal_code, setup_logging
 
-TRIBUNAL_DISCOVERY_MAP: dict[str, Type[TJRODiscovery]] = {
+
+TRIBUNAL_DISCOVERY_MAP: dict[str, type[TJRODiscovery]] = {
     "tjro": TJRODiscovery,
 }
 
@@ -41,7 +41,7 @@ def main() -> None:
 
     setup_logging()
 
-    codes: List[str] = args.codes if args.codes else list(TRIBUNAL_DISCOVERY_MAP)
+    codes: list[str] = args.codes if args.codes else list(TRIBUNAL_DISCOVERY_MAP)
     success = True
     for code in codes:
         if not check_tribunal(code):

@@ -7,6 +7,7 @@ from causaganha_v1.config import load_config  # For potential future config like
 from causaganha_v1.database import CausaGanhaDB
 from causaganha_v1.pii_manager import PiiManager
 
+
 # Add project root to sys.path to allow importing from src
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
@@ -48,10 +49,10 @@ def main():
     # --- Configuration Check for PII Decoding ---
     config = load_config()
     if not config.get("security", {}).get(
-        "allow_pii_decoding", False
+        "allow_pii_decoding", False,
     ):  # Default to False if not set
         logger.error(
-            "PII decoding is disabled in the application configuration (security.allow_pii_decoding = false)."
+            "PII decoding is disabled in the application configuration (security.allow_pii_decoding = false).",
         )
         print(
             "ERROR: PII decoding is disabled in the application configuration. To enable, set security.allow_pii_decoding = true in your config.toml.",
@@ -73,12 +74,10 @@ def main():
         pii_manager = PiiManager(db.conn)
 
         logger.info(
-            f"Attempting to decode PII UUID: {args.pii_uuid} by requester: {args.requester}"
+            f"Attempting to decode PII UUID: {args.pii_uuid} by requester: {args.requester}",
         )
 
-        decoded_info = pii_manager.get_original_pii(
-            args.pii_uuid, requester_info=args.requester
-        )
+        decoded_info = pii_manager.get_original_pii(args.pii_uuid, requester_info=args.requester)
 
         if decoded_info:
             print("\n--- PII DECODING SUCCESSFUL ---")
@@ -86,20 +85,14 @@ def main():
             print(f"  Type: {decoded_info['pii_type']}")
             print(f"  Original Value: {decoded_info['original_value']}")
             print("---------------------------------")
-            logger.info(
-                f"Successfully decoded and displayed PII for UUID: {args.pii_uuid}"
-            )
+            logger.info(f"Successfully decoded and displayed PII for UUID: {args.pii_uuid}")
         else:
-            print(
-                f"\nERROR: PII UUID '{args.pii_uuid}' not found or could not be decoded."
-            )
+            print(f"\nERROR: PII UUID '{args.pii_uuid}' not found or could not be decoded.")
             logger.warning(f"Failed to decode PII UUID: {args.pii_uuid} - Not found.")
             sys.exit(1)
 
     except Exception as e:
-        logger.error(
-            f"An error occurred during the decoding process: {e}", exc_info=True
-        )
+        logger.error(f"An error occurred during the decoding process: {e}", exc_info=True)
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
     finally:
@@ -110,7 +103,7 @@ def main():
 
 if __name__ == "__main__":
     print(
-        "WARNING: You are about to run a tool that can expose Personally Identifiable Information (PII)."
+        "WARNING: You are about to run a tool that can expose Personally Identifiable Information (PII).",
     )
     print("Ensure you are authorized and are following all data handling policies.\n")
     # Brief pause or confirmation could be added here if desired

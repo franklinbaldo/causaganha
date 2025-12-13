@@ -1,15 +1,12 @@
-"""
-Simple backup and export functions to replace the complex sync system.
+"""Simple backup and export functions to replace the complex sync system.
 
 This module provides straightforward database backup and export functionality
 without the complexity of distributed locking and sync protocols.
 """
 
 import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import duckdb
 
@@ -19,8 +16,7 @@ def backup_database_before_changes(
     db_path: Path = Path("data/causaganha.duckdb"),
     backup_dir: Path = Path("data/backups"),
 ) -> Path:
-    """
-    Create timestamped backup before modifications.
+    """Create timestamped backup before modifications.
 
     Args:
         db_path: Path to the database file
@@ -47,9 +43,8 @@ def backup_database_before_changes(
 def export_to_parquet(
     db_path: Path = Path("data/causaganha.duckdb"),
     export_dir: Path = Path("data/exports"),
-) -> Dict[str, Path]:
-    """
-    Export database tables to parquet format.
+) -> dict[str, Path]:
+    """Export database tables to parquet format.
 
     Args:
         db_path: Path to the database file
@@ -106,10 +101,9 @@ def export_to_parquet(
 
 
 def upload_to_ia_simple(
-    parquet_files: Dict[str, Path], collection_prefix: str = "causaganha"
-) -> Dict[str, str]:
-    """
-    Simple upload to Internet Archive (no locking complexity).
+    parquet_files: dict[str, Path], collection_prefix: str = "causaganha",
+) -> dict[str, str]:
+    """Simple upload to Internet Archive (no locking complexity).
 
     Args:
         parquet_files: Dictionary of table_name -> parquet_path
@@ -183,9 +177,8 @@ def export_and_upload_to_ia(
     db_path: Path = Path("data/causaganha.duckdb"),
     export_dir: Path = Path("data/exports"),
     collection_prefix: str = "causaganha",
-) -> Dict[str, str]:
-    """
-    Export database to parquet and upload to Internet Archive.
+) -> dict[str, str]:
+    """Export database to parquet and upload to Internet Archive.
 
     This is a simple, one-step function that replaces the complex sync system.
 
@@ -209,10 +202,8 @@ def export_and_upload_to_ia(
     # Step 2: Upload to IA
     uploaded_urls = upload_to_ia_simple(exported_files, collection_prefix)
 
-    print(f"✅ Simple export and upload completed!")
-    print(
-        f"📊 Exported {len(exported_files)} tables, uploaded {len(uploaded_urls)} successfully"
-    )
+    print("✅ Simple export and upload completed!")
+    print(f"📊 Exported {len(exported_files)} tables, uploaded {len(uploaded_urls)} successfully")
 
     return uploaded_urls
 
@@ -222,12 +213,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Simple backup and export tools")
-    parser.add_argument(
-        "action", choices=["backup", "export", "upload"], help="Action to perform"
-    )
-    parser.add_argument(
-        "--db-path", default="data/causaganha.duckdb", help="Database path"
-    )
+    parser.add_argument("action", choices=["backup", "export", "upload"], help="Action to perform")
+    parser.add_argument("--db-path", default="data/causaganha.duckdb", help="Database path")
 
     args = parser.parse_args()
 

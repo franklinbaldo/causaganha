@@ -1,5 +1,4 @@
-"""
-Package marker for the source root.
+"""Package marker for the source root.
 """
 
 __all__ = []

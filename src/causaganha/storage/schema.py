@@ -11,9 +11,11 @@ def create_schema(con: BaseBackend):
     if "pipeline_state" not in con.list_tables():
         con.create_table(
             "pipeline_state",
-            schema=ibis.schema({
-                "task_id": "string",
-                "step": "string",
-                "timestamp": "timestamp",
-            }),
+            schema=ibis.schema(
+                {
+                    "task_id": "string",
+                    "step": "string",
+                    "timestamp": "timestamp",
+                },
+            ),
         )

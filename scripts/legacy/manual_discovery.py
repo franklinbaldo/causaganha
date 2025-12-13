@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Manual PDF Discovery - Get sample data and create CSV export
+"""Manual PDF Discovery - Get sample data and create CSV export
 
 Since the TJRO website blocks automated access, this script helps you manually
 discover available PDFs by testing specific years and exporting results to CSV.
@@ -10,7 +9,7 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List
+
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -19,13 +18,12 @@ import logging
 
 from causaganha_v1.database import CausaGanhaDB
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def create_sample_data() -> List[Dict]:
+def create_sample_data() -> list[dict]:
     """Create sample PDF data for demonstration."""
     sample_pdfs = []
 
@@ -89,7 +87,7 @@ def create_sample_data() -> List[Dict]:
     return sample_pdfs
 
 
-def add_sample_to_database(sample_data: List[Dict], db: CausaGanhaDB) -> int:
+def add_sample_to_database(sample_data: list[dict], db: CausaGanhaDB) -> int:
     """Add sample data to the discovery queue."""
     added_count = 0
 
@@ -108,9 +106,7 @@ def add_sample_to_database(sample_data: List[Dict], db: CausaGanhaDB) -> int:
                 continue
 
             # Add to queue
-            date_str = (
-                f"{pdf_info['year']}-{pdf_info['month']:0>2}-{pdf_info['day']:0>2}"
-            )
+            date_str = f"{pdf_info['year']}-{pdf_info['month']:0>2}-{pdf_info['day']:0>2}"
 
             db.execute(
                 """
@@ -160,21 +156,23 @@ def export_to_csv(db: CausaGanhaDB, output_file: Path):
         writer = csv.writer(csvfile)
 
         # Header
-        writer.writerow([
-            "id",
-            "url",
-            "date",
-            "number",
-            "year",
-            "status",
-            "priority",
-            "attempts",
-            "last_attempt",
-            "error_message",
-            "metadata",
-            "created_at",
-            "updated_at",
-        ])
+        writer.writerow(
+            [
+                "id",
+                "url",
+                "date",
+                "number",
+                "year",
+                "status",
+                "priority",
+                "attempts",
+                "last_attempt",
+                "error_message",
+                "metadata",
+                "created_at",
+                "updated_at",
+            ],
+        )
 
         # Data rows
         for item in items:
