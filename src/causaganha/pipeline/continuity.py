@@ -7,10 +7,9 @@ from causaganha.storage.schema import create_schema
 
 
 class ContinuityManager:
-    """Manages the continuity of the pipeline processing, allowing tasks to be resumed.
-    """
+    """Manages the continuity of the pipeline processing, allowing tasks to be resumed."""
 
-    def __init__(self, con: BaseBackend = None):
+    def __init__(self, con: BaseBackend | None = None):
         """Initialize the ContinuityManager.
 
         Args:
@@ -34,9 +33,9 @@ class ContinuityManager:
         """
         t = self.con.table("pipeline_state")
         count = t.filter((t.task_id == task_id) & (t.step == step)).count().execute()
-        return count > 0
+        return int(count) > 0
 
-    def mark_done(self, task_id: str, step: str):
+    def mark_done(self, task_id: str, step: str) -> None:
         """Mark a task step as completed.
 
         Args:

@@ -47,11 +47,11 @@ class PJeAPIClient:
         Returns:
             List of validated Intimation objects
         """
-        all_intimations = []
+        all_intimations: list[Intimation] = []
         offset = 0
 
         while True:
-            params = {
+            params: dict[str, str | int] = {
                 "siglaTribunal": sigla_tribunal,
                 "offset": offset,
                 "limit": limit_per_page,

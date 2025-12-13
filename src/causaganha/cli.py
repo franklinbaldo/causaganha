@@ -22,7 +22,7 @@ app = typer.Typer(
 logger = structlog.get_logger()
 
 @app.command()
-def archive():
+def archive() -> None:
     """Download and archive diarios.
     """
     logger.info("archive_start", version="v2")
@@ -30,7 +30,7 @@ def archive():
     # TODO: Connect to src.causaganha.pipeline.collect
 
 @app.command()
-def analyze():
+def analyze() -> None:
     """Analyze decisions using LLM.
     """
     logger.info("analyze_start", version="v2")
@@ -38,7 +38,7 @@ def analyze():
     # TODO: Connect to src.causaganha.pipeline.analyze
 
 @app.command()
-def db(action: str = typer.Argument(..., help="Action: init, status")):
+def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """Database management commands.
     """
     logger.info("db_command", action=action)
@@ -52,7 +52,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status")):
 @app.callback()
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
-):
+) -> None:
     """CausaGanha V2 CLI Entry Point.
     """
     if verbose:

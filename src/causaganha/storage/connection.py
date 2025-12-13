@@ -1,3 +1,5 @@
+"""Database connection management."""
+
 import ibis
 from ibis import BaseBackend
 
