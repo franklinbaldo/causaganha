@@ -1,9 +1,9 @@
 
-from causaganha.api.models import Intimation
+from causaganha.api.schemas import Intimation
 
 
-def test_intimation_model_parsing():
-    """Test that Intimation model parses expected JSON"""
+def test_intimation_schema_parsing():
+    """Test that Intimation schema parses expected JSON"""
     data = {
         "id": 123456,
         "numero_processo": "0001234-56.2024.8.22.0001",

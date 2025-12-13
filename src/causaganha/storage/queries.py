@@ -5,7 +5,7 @@ import asyncio
 import ibis
 from ibis import BaseBackend
 
-from causaganha.api.models import Intimation
+from causaganha.domain.models import Intimation
 
 
 def _intimation_to_db(intimation: Intimation) -> dict[str, object]:
@@ -13,15 +13,15 @@ def _intimation_to_db(intimation: Intimation) -> dict[str, object]:
     return {
         "id": intimation.id,
         "numero_processo": intimation.numero_processo,
-        "data_disponibilizacao": intimation.data_disponibilizacao,
-        "sigla_tribunal": intimation.siglaTribunal,
-        "tipo_comunicacao": intimation.tipoComunicacao,
-        "nome_orgao": intimation.nomeOrgao,
+        "data_disponibilizacao": intimation.data_disponibilizacao.isoformat(),
+        "sigla_tribunal": intimation.sigla_tribunal,
+        "tipo_comunicacao": intimation.tipo_comunicacao,
+        "nome_orgao": intimation.nome_orgao,
         "texto": intimation.texto,
         "link": intimation.link,
-        "tipo_documento": intimation.tipoDocumento,
-        "nome_classe": intimation.nomeClasse,
-        "codigo_classe": intimation.codigoClasse,
+        "tipo_documento": intimation.tipo_documento,
+        "nome_classe": intimation.nome_classe,
+        "codigo_classe": intimation.codigo_classe,
         "hash": intimation.hash,
         "status": intimation.status,
     }
