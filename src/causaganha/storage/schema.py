@@ -39,3 +39,17 @@ def create_schema(con: BaseBackend) -> None:
                 "status": "string",
             }),
         )
+
+    if "analysis_results" not in con.list_tables():
+        con.create_table(
+            "analysis_results",
+            schema=ibis.schema({
+                "id": "int64", # Auto-increment usually handled by DuckDB sequence, but for now int64
+                "intimation_id": "int64",
+                "outcome": "string",
+                "summary": "string",
+                "judge_name": "string",
+                "confidence_score": "float64",
+                "analyzed_at": "timestamp",
+            }),
+        )
