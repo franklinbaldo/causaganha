@@ -14,10 +14,10 @@
     - [x] Implement pagination logic
     - [x] Implement error handling
 
-- [ ] **Implement Ibis Storage Layer (TDD)**
-    - [ ] Create `tests/v2/unit/test_storage.py`
-    - [ ] Implement `get_connection` and schema initialization
-    - [ ] Implement `store_intimations` and other queries
+- [x] **Implement Ibis Storage Layer (TDD)**
+    - [x] Create `tests/unit/test_storage.py`
+    - [x] Implement `get_connection` and schema initialization
+    - [x] Implement `store_intimations` and other queries
 
 - [ ] **Implement Pydantic AI Analyzer (TDD)**
     - [ ] Create `tests/v2/unit/test_analyzer.py`
