@@ -1,9 +1,10 @@
+from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from causaganha.api.models import Intimation
+from causaganha.domain.models import Intimation
 from causaganha.pipeline.collect import run_collection
 
 
@@ -19,21 +20,23 @@ async def test_run_collection_success(tmp_path: Path) -> None:
     # Mock API Client
     mock_api_client = AsyncMock()
 
-    # Create sample data
+    # Create sample data using Domain Model
     intimations = [
         Intimation(
             id=1,
             numero_processo="1234567-89.2024.8.00.0000",
-            data_disponibilizacao="2024-01-01",
-            siglaTribunal="TJRO",
-            tipoComunicacao="INTIMAÇÃO",
-            nomeOrgao="Vara Cível",
+            data_disponibilizacao=date(2024, 1, 1),
+            sigla_tribunal="TJRO",
+            tipo_comunicacao="INTIMAÇÃO",
+            nome_orgao="Vara Cível",
             texto="Decisão favorável.",
             link="http://example.com/decision.pdf",
-            tipoDocumento="Decisão",
-            nomeClasse="Procedimento Comum",
+            tipo_documento="Decisão",
+            nome_classe="Procedimento Comum",
             hash="abc123hash",
             status="ATIVO",
+            advogados=[],
+            partes=[]
         ),
     ]
 

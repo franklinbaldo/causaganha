@@ -94,7 +94,15 @@ async def run_analysis(db_path: str, limit: int = 10, batch_size: int = 5) -> No
                     "summary": analysis.summary,
                     "judge_name": analysis.judge_name,
                     "confidence_score": analysis.confidence_score,
-                    "analyzed_at": datetime.now(timezone.utc)
+                    "analyzed_at": datetime.now(timezone.utc),
+                    "winner_lawyer_oab": analysis.winner_lawyer_oab,
+                    "winner_lawyer_state": analysis.winner_lawyer_state,
+                    "winner_party_name": analysis.winner_party_name,
+                    "loser_lawyer_oab": analysis.loser_lawyer_oab,
+                    "loser_lawyer_state": analysis.loser_lawyer_state,
+                    "loser_party_name": analysis.loser_party_name,
+                    "decision_type": analysis.decision_type,
+                    "decision_reasoning": analysis.decision_reasoning,
                 })
                 logger.info("analysis_success", id=intimation_id, outcome=analysis.outcome)
 

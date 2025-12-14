@@ -17,6 +17,14 @@ async def test_analyze_decision_success():
         summary="The court ruled in favor of the plaintiff.",
         judge_name="Judge Dredd",
         confidence_score=0.95,
+        winner_lawyer_oab="12345",
+        winner_lawyer_state="RO",
+        winner_party_name="Winner Inc",
+        loser_lawyer_oab="67890",
+        loser_lawyer_state="RO",
+        loser_party_name="Loser Ltd",
+        decision_type="Sentença",
+        decision_reasoning="Reasoning...",
     )
 
     analyzer = DecisionAnalyzer(model="google-gla:gemini-2.5-flash")
