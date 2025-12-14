@@ -37,5 +37,5 @@
 
 ## Phase 2: Integration & Validation
 
-- [ ] Validation scripts
+- [x] Validation scripts
 - [ ] Comparison with v1 data

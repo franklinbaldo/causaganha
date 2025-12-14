@@ -1,6 +1,8 @@
 
 import structlog
 import typer
+from causaganha.storage.connection import get_connection
+from causaganha.storage.schema import create_schema
 
 
 # Configure basic logging (can be enhanced later)
@@ -42,10 +44,20 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """Database management commands.
     """
     logger.info("db_command", action=action)
+    con = get_connection()
+
     if action == "status":
-         typer.echo("Checking database status... (TODO)")
+         tables = con.list_tables()
+         typer.echo(f"Connected to DuckDB. Found tables: {tables}")
     elif action == "init":
-         typer.echo("Initializing database... (TODO)")
+         typer.echo("Initializing database schema...")
+         try:
+             create_schema(con)
+             typer.echo("Schema created successfully.")
+         except Exception as e:
+             logger.exception("init_failed")
+             typer.echo(f"Initialization failed: {e}")
+             raise typer.Exit(code=1)
     else:
         typer.echo(f"Unknown action: {action}")
 

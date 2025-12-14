@@ -1,15 +1,16 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+from datetime import date
 
 import pytest
 
 from causaganha.analysis.models import DecisionAnalysis, Outcome
 from causaganha.pipeline.analyze import run_analysis
+from causaganha.domain.models import Intimation
 
 
 @pytest.mark.asyncio
 async def test_run_analysis_success(tmp_path: Path) -> None:
-    from causaganha.api.models import Intimation
     from causaganha.storage.connection import get_connection
     from causaganha.storage.queries import store_intimations
     from causaganha.storage.schema import create_schema
@@ -22,14 +23,14 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     intimation = Intimation(
         id=100,
         numero_processo="1234567-89.2024.8.00.0000",
-        data_disponibilizacao="2024-01-01",
-        siglaTribunal="TJRO",
-        tipoComunicacao="INTIMAÇÃO",
-        nomeOrgao="Vara Cível",
+        data_disponibilizacao=date(2024, 1, 1),
+        sigla_tribunal="TJRO",
+        tipo_comunicacao="INTIMAÇÃO",
+        nome_orgao="Vara Cível",
         texto="Decisão.",
         link="http://example.com/decision.pdf",
-        tipoDocumento="Decisão",
-        nomeClasse="Procedimento Comum",
+        tipo_documento="Decisão",
+        nome_classe="Procedimento Comum",
         hash="abc123hash",
         status="ATIVO",
     )
