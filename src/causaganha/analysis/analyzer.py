@@ -24,7 +24,9 @@ class DecisionAnalyzer:
             output_type=DecisionAnalysis,
             system_prompt=(
                 "You are a legal expert analyzing judicial decisions from Brazil. "
-                "Analyze the provided PDF document and extract the outcome, summary, and judge's name."
+                "Analyze the provided PDF document and extract structured information about the case outcome. "
+                "Identify the winning and losing parties and their lawyers (OAB number and state). "
+                "Determine the decision type and outcome. Provide a brief summary and the judge's name."
             ),
         )
 

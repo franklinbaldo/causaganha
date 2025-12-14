@@ -51,5 +51,32 @@ def create_schema(con: BaseBackend) -> None:
                 "judge_name": "string",
                 "confidence_score": "float64",
                 "analyzed_at": "timestamp",
+                # Additional fields from DecisionAnalysis model
+                "winner_lawyer_oab": "string",
+                "winner_lawyer_state": "string",
+                "winner_party_name": "string",
+                "loser_lawyer_oab": "string",
+                "loser_lawyer_state": "string",
+                "loser_party_name": "string",
+                "decision_type": "string",
+                "decision_reasoning": "string",
+                "scored": "boolean",
             }),
         )
+
+    if "lawyer_ratings" not in con.list_tables():
+        con.create_table(
+            "lawyer_ratings",
+            schema=ibis.schema({
+                "oab_number": "string",
+                "oab_state": "string",
+                "lawyer_name": "string",
+                "mu": "float64",
+                "sigma": "float64",
+                "last_updated": "timestamp",
+                "total_cases": "int64",
+                "wins": "int64",
+                "losses": "int64",
+            }),
+        )
+        con.raw_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_lawyer_ratings_unique ON lawyer_ratings (oab_number, oab_state)")
