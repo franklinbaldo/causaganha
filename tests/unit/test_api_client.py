@@ -158,6 +158,6 @@ async def test_fetch_intimations_success() -> None:
 
         assert len(intimations) == 1
         assert intimations[0].id == 123
-        assert intimations[0].siglaTribunal == "TJRO"
+        assert intimations[0].sigla_tribunal == "TJRO"  # Changed from siglaTribunal
 
     await client.close()

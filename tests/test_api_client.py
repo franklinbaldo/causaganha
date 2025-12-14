@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from causaganha.api.client import PJeAPIClient
-from causaganha.api.models import Intimation
+from causaganha.domain.models import Intimation
 
 
 @pytest.mark.asyncio
@@ -41,6 +41,7 @@ async def test_fetch_intimations_success(api_client):
                 "hash": "abc123hash",
                 "status": "A",
                 "destinatarioadvogados": [],
+                "destinatarios": [],
             },
         ],
     }
@@ -61,6 +62,7 @@ async def test_fetch_intimations_success(api_client):
         assert len(intimations) == 1
         assert isinstance(intimations[0], Intimation)
         assert intimations[0].id == 123456
+        assert intimations[0].sigla_tribunal == "TJRO" # Domain uses snake_case
 
         # Verify query params
         args, kwargs = mock_get.call_args
@@ -90,6 +92,8 @@ async def test_fetch_handles_pagination(api_client):
                 "nomeClasse": "X",
                 "hash": "X",
                 "status": "X",
+                "destinatarioadvogados": [],
+                "destinatarios": [],
             },
         ],
     }
@@ -111,6 +115,8 @@ async def test_fetch_handles_pagination(api_client):
                 "nomeClasse": "X",
                 "hash": "X",
                 "status": "X",
+                "destinatarioadvogados": [],
+                "destinatarios": [],
             },
         ],
     }

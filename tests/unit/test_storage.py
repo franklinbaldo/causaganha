@@ -1,9 +1,10 @@
 from pathlib import Path
+from datetime import date
 
 import pytest
 from ibis import BaseBackend
 
-from causaganha.api.models import Intimation
+from causaganha.domain.models import Intimation
 from causaganha.storage.connection import get_connection
 from causaganha.storage.queries import store_intimations
 from causaganha.storage.schema import create_schema
@@ -28,14 +29,14 @@ async def test_store_intimations(mem_conn: BaseBackend) -> None:
     intimation = Intimation(
         id=12345,
         numero_processo="1234567-89.2024.8.00.0000",
-        data_disponibilizacao="2024-05-23",
-        siglaTribunal="TJSP",
-        tipoComunicacao="Intimação",
-        nomeOrgao="Vara Cível",
+        data_disponibilizacao=date(2024, 5, 23),
+        sigla_tribunal="TJSP",
+        tipo_comunicacao="Intimação",
+        nome_orgao="Vara Cível",
         texto="Texto da intimação",
         link="http://example.com",
-        tipoDocumento="Despacho",
-        nomeClasse="Procedimento Comum",
+        tipo_documento="Despacho",
+        nome_classe="Procedimento Comum",
         hash="abc123hash",
         status="PENDING",
     )
