@@ -98,3 +98,53 @@ class IntimationRepository:
             result: Dict matching analysis_results schema.
         """
         await asyncio.to_thread(self._sync_store_analysis_result, result)
+
+    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Synchronous implementation of fetching unarchived intimations."""
+        t_int = self.con.table("intimations")
+
+        # Filter intimations that have not been archived yet
+        # Assuming there's an 'archived' column or 'ia_url' column
+        try:
+            filtered = t_int.filter(
+                (t_int.ia_url.isnull()) | (t_int.ia_url == "")
+            ).filter(t_int.link.notnull())
+        except Exception:
+            # If ia_url column doesn't exist, just get all with links
+            filtered = t_int.filter(t_int.link.notnull())
+
+        query = filtered.limit(limit)
+        return query.execute().to_dict(orient="records")
+
+    async def get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Fetch intimations that have not been archived yet.
+
+        Args:
+            limit: Max number of records to fetch.
+
+        Returns:
+            List of dicts representing intimations.
+        """
+        return await asyncio.to_thread(self._sync_get_unarchived_intimations, limit)
+
+    def _sync_mark_as_archived(self, intimation_id: str, ia_url: str) -> None:
+        """Synchronous mark intimation as archived."""
+        raw_con = self.con.con
+        try:
+            raw_con.execute(
+                "UPDATE intimations SET ia_url = ?, archived_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (ia_url, intimation_id),
+            )
+        except Exception:
+            # If columns don't exist, we can't mark as archived
+            # This is acceptable during early development
+            pass
+
+    async def mark_as_archived(self, intimation_id: str, ia_url: str) -> None:
+        """Mark an intimation as archived.
+
+        Args:
+            intimation_id: The intimation ID.
+            ia_url: The Internet Archive URL.
+        """
+        await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)

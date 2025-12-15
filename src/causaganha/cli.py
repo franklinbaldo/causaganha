@@ -11,8 +11,11 @@ from causaganha.storage.repository import IntimationRepository
 from causaganha.api.client import PJeAPIClient
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.analyze import run_analysis
+from causaganha.pipeline.archive import run_archive
+from causaganha.pipeline.score import run_scoring
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
+from causaganha.services.archive import InternetArchiveService
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -83,12 +86,103 @@ def analyze(
     asyncio.run(_run())
 
 @app.command()
-def archive() -> None:
-    """Download and archive diarios.
-    """
-    logger.info("archive_start", version="v2")
-    typer.echo("Archive command not yet implemented in V2.")
-    # TODO: Connect to src.causaganha.pipeline.collect
+def archive(
+    limit: int = typer.Option(10, help="Number of items to archive"),
+    dry_run: bool = typer.Option(False, help="Perform a dry run without uploading"),
+) -> None:
+    """Download and archive diarios to Internet Archive."""
+    logger.info("archive_start", limit=limit, dry_run=dry_run)
+
+    async def _run():
+        repository = _get_repository()
+        doc_service = DocumentService()
+        ia_service = InternetArchiveService()
+
+        await run_archive(repository, doc_service, ia_service, limit=limit, dry_run=dry_run)
+
+    asyncio.run(_run())
+
+@app.command()
+def score(
+    limit: int = typer.Option(100, help="Number of items to score"),
+) -> None:
+    """Calculate OpenSkill ratings for analyzed decisions."""
+    logger.info("score_start", limit=limit)
+
+    async def _run():
+        await run_scoring(DB_PATH, limit=limit)
+
+    asyncio.run(_run())
+
+@app.command()
+def pipeline(
+    start_date: str = typer.Option(
+        (date.today() - timedelta(days=1)).isoformat(),
+        help="Start date (YYYY-MM-DD)",
+    ),
+    end_date: str = typer.Option(
+        date.today().isoformat(),
+        help="End date (YYYY-MM-DD)",
+    ),
+    courts: str = typer.Option("TJRO", help="Comma-separated list of courts"),
+    analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
+    archive_limit: int = typer.Option(10, help="Number of items to archive"),
+    score_limit: int = typer.Option(100, help="Number of items to score"),
+    skip_collect: bool = typer.Option(False, help="Skip collection step"),
+    skip_archive: bool = typer.Option(False, help="Skip archive step"),
+    skip_analyze: bool = typer.Option(False, help="Skip analysis step"),
+    skip_score: bool = typer.Option(False, help="Skip scoring step"),
+) -> None:
+    """Run the complete pipeline: collect → archive → analyze → score."""
+    logger.info("pipeline_start")
+
+    async def _run():
+        repository = _get_repository()
+        client = PJeAPIClient()
+        doc_service = DocumentService()
+        ia_service = InternetArchiveService()
+        analyzer = DecisionAnalyzer()
+        court_list = [c.strip() for c in courts.split(",")]
+
+        try:
+            # Step 1: Collect
+            if not skip_collect:
+                typer.echo("Step 1/4: Collecting intimations...")
+                await run_collection(repository, client, start_date, end_date, court_list)
+                typer.echo("✓ Collection complete")
+            else:
+                typer.echo("⊘ Skipping collection")
+
+            # Step 2: Archive
+            if not skip_archive:
+                typer.echo("Step 2/4: Archiving to Internet Archive...")
+                await run_archive(repository, doc_service, ia_service, limit=archive_limit, dry_run=False)
+                typer.echo("✓ Archive complete")
+            else:
+                typer.echo("⊘ Skipping archive")
+
+            # Step 3: Analyze
+            if not skip_analyze:
+                typer.echo("Step 3/4: Analyzing decisions...")
+                await run_analysis(repository, doc_service, analyzer, limit=analyze_limit)
+                typer.echo("✓ Analysis complete")
+            else:
+                typer.echo("⊘ Skipping analysis")
+
+            # Step 4: Score
+            if not skip_score:
+                typer.echo("Step 4/4: Calculating ratings...")
+                await run_scoring(DB_PATH, limit=score_limit)
+                typer.echo("✓ Scoring complete")
+            else:
+                typer.echo("⊘ Skipping scoring")
+
+            typer.echo("\n✓ Pipeline complete!")
+
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
 
 @app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
