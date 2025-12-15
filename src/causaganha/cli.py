@@ -96,11 +96,18 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """
     logger.info("db_command", action=action)
     if action == "status":
-         typer.echo("Checking database status... (TODO)")
-    elif action == "init":
          con = get_connection(DB_PATH)
-         create_schema(con)
-         typer.echo("Database initialized.")
+         tables = con.list_tables()
+         typer.echo(f"Connected to DuckDB. Found tables: {tables}")
+    elif action == "init":
+         try:
+             typer.echo("Initializing database schema...")
+             con = get_connection(DB_PATH)
+             create_schema(con)
+             typer.echo("Schema created successfully.")
+         except Exception as e:
+             typer.echo(f"Initialization failed: {e}")
+             raise typer.Exit(code=1)
     else:
         typer.echo(f"Unknown action: {action}")
 
