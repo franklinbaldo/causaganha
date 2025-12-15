@@ -77,7 +77,11 @@ async def _process_intimation(
         dry_run: If True, skip actual upload.
     """
     intimation_id = intimation.get("id")
-    document_url = intimation.get("url_documento")
+    # Field name is 'link' in the schema (TDD integration test found this)
+    document_url = intimation.get("link")
+
+    # Convert intimation_id to string for validation (TDD found this bug)
+    intimation_id_str = str(intimation_id)
 
     if not document_url:
         logger.warning("no_document_url", intimation_id=intimation_id)
@@ -111,7 +115,7 @@ async def _process_intimation(
         return
 
     # Upload to Internet Archive
-    item_id = f"causaganha-tjro-{intimation_id}"
+    item_id = f"causaganha-tjro-{intimation_id_str}"
 
     # Generate metadata from intimation data (refactored)
     metadata = ia_service.generate_metadata(intimation)
@@ -124,8 +128,8 @@ async def _process_intimation(
             intimation_id=intimation_id,
             ia_url=ia_url,
         )
-        # Update repository to mark as archived
-        await repository.mark_as_archived(intimation_id, ia_url)
+        # Update repository to mark as archived (TDD: use string ID)
+        await repository.mark_as_archived(intimation_id_str, ia_url)
     else:
         logger.error("upload_failed", intimation_id=intimation_id)
 
