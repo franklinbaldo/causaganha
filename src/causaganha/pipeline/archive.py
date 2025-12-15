@@ -112,15 +112,9 @@ async def _process_intimation(
 
     # Upload to Internet Archive
     item_id = f"causaganha-tjro-{intimation_id}"
-    metadata = {
-        "collection": "opensource",
-        "title": f"TJRO Intimation {intimation_id}",
-        "mediatype": "texts",
-        "creator": "CausaGanha",
-        "subject": ["judicial", "tjro", "brazil"],
-        "description": f"Judicial intimation from TJRO",
-        "date": date.today().isoformat(),
-    }
+
+    # Generate metadata from intimation data (refactored)
+    metadata = ia_service.generate_metadata(intimation)
 
     ia_url = await ia_service.upload_file(temp_path, item_id, metadata)
 

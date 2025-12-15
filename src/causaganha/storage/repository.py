@@ -140,11 +140,33 @@ class IntimationRepository:
             # This is acceptable during early development
             pass
 
+    def _validate_archive_params(self, intimation_id: str, ia_url: str) -> None:
+        """Validate parameters for archiving (refactored validation logic).
+
+        Args:
+            intimation_id: The intimation ID.
+            ia_url: The Internet Archive URL.
+
+        Raises:
+            ValueError: If parameters are invalid.
+        """
+        if not intimation_id or intimation_id.strip() == "":
+            raise ValueError("Intimation ID cannot be empty")
+
+        if not ia_url or not (ia_url.startswith("http://") or ia_url.startswith("https://")):
+            raise ValueError("Invalid IA URL")
+
     async def mark_as_archived(self, intimation_id: str, ia_url: str) -> None:
         """Mark an intimation as archived.
 
         Args:
             intimation_id: The intimation ID.
             ia_url: The Internet Archive URL.
+
+        Raises:
+            ValueError: If intimation_id is empty or ia_url is invalid.
         """
+        # Validate inputs (TDD-driven improvement, refactored)
+        self._validate_archive_params(intimation_id, ia_url)
+
         await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)
