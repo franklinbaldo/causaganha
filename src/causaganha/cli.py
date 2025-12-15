@@ -1,7 +1,18 @@
 
+import asyncio
 import structlog
 import typer
+from datetime import date, timedelta
 
+from causaganha.config import DB_PATH
+from causaganha.storage.connection import get_connection
+from causaganha.storage.schema import create_schema
+from causaganha.storage.repository import IntimationRepository
+from causaganha.api.client import PJeAPIClient
+from causaganha.pipeline.collect import run_collection
+from causaganha.pipeline.analyze import run_analysis
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.services.document import DocumentService
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -21,6 +32,56 @@ app = typer.Typer(
 
 logger = structlog.get_logger()
 
+def _get_repository() -> IntimationRepository:
+    """Helper to initialize repository and schema."""
+    con = get_connection(DB_PATH)
+    create_schema(con)
+    return IntimationRepository(con)
+
+@app.command()
+def collect(
+    start_date: str = typer.Option(
+        (date.today() - timedelta(days=1)).isoformat(),
+        help="Start date (YYYY-MM-DD)",
+    ),
+    end_date: str = typer.Option(
+        date.today().isoformat(),
+        help="End date (YYYY-MM-DD)",
+    ),
+    courts: str = typer.Option("TJRO", help="Comma-separated list of courts"),
+) -> None:
+    """Collect intimations from PJe."""
+    logger.info("collect_command_start")
+
+    async def _run():
+        repository = _get_repository()
+        client = PJeAPIClient()
+        court_list = [c.strip() for c in courts.split(",")]
+
+        try:
+            await run_collection(repository, client, start_date, end_date, court_list)
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+@app.command()
+def analyze(
+    limit: int = typer.Option(10, help="Number of items to analyze"),
+) -> None:
+    """Analyze decisions using LLM."""
+    logger.info("analyze_command_start")
+
+    async def _run():
+        repository = _get_repository()
+        doc_service = DocumentService()
+        analyzer = DecisionAnalyzer()
+
+        await run_analysis(repository, doc_service, analyzer, limit=limit)
+
+    asyncio.run(_run())
+
 @app.command()
 def archive() -> None:
     """Download and archive diarios.
@@ -30,14 +91,6 @@ def archive() -> None:
     # TODO: Connect to src.causaganha.pipeline.collect
 
 @app.command()
-def analyze() -> None:
-    """Analyze decisions using LLM.
-    """
-    logger.info("analyze_start", version="v2")
-    typer.echo("Analyze command not yet implemented in V2.")
-    # TODO: Connect to src.causaganha.pipeline.analyze
-
-@app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """Database management commands.
     """
@@ -45,7 +98,9 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     if action == "status":
          typer.echo("Checking database status... (TODO)")
     elif action == "init":
-         typer.echo("Initializing database... (TODO)")
+         con = get_connection(DB_PATH)
+         create_schema(con)
+         typer.echo("Database initialized.")
     else:
         typer.echo(f"Unknown action: {action}")
 
