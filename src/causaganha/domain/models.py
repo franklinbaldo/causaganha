@@ -34,7 +34,7 @@ class Intimation(BaseModel):
     tipo_comunicacao: str
     nome_orgao: str
     texto: str
-    link: str
+    link: Optional[str] = None  # TDD: Some intimations may not have download links
     tipo_documento: str
     nome_classe: str
     codigo_classe: Optional[str] = None
