@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
-
+from urllib.parse import urlparse
 from causaganha.storage.connection import get_connection
 from causaganha.storage.schema import create_schema
 from causaganha.storage.repository import IntimationRepository
@@ -184,7 +184,7 @@ class TestFullPipelineSimulation:
         ).execute()
 
         assert len(archived) == 2, "Should have archived both intimations"
-        assert all("archive.org" in url for url in archived["ia_url"].tolist())
+        assert all(urlparse(url).hostname == "archive.org" for url in archived["ia_url"].tolist())
         assert archived["archived_at"].notnull().all(), "All should have archive timestamp"
 
         # Verify they don't appear in unarchived anymore
