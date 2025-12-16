@@ -37,5 +37,6 @@
 
 ## Phase 2: Integration & Validation
 
-- [ ] Validation scripts
-- [ ] Comparison with v1 data
+- [x] Validation scripts (`src/causaganha/validation/` and `scripts/validate_data_quality.py`)
+- [x] Comparison with v1 data (`scripts/compare_v1_v2.py`)
+- [ ] Improve Test Coverage (CLI, DocumentService)
