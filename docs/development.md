@@ -58,3 +58,12 @@ The documentation is built with MkDocs and the Material for MkDocs theme.
     ```
 
     The `--strict` flag is used in the CI to treat warnings as errors, ensuring the documentation is always in a a clean state.
+
+## Vendoring the PJe Swagger (DJEN)
+
+We vendor the PJe Comunica API Swagger used by the `PJeAPIClient` to make development and future contract tests easier:
+
+- Source: `https://comunicaapi.pje.jus.br/swagger/djen.yml`
+- Vendored: `openapi/pje-comunicaapi-djen.swagger.yml`
+
+To refresh it, run `Vendor PJe Swagger` in GitHub Actions (it will fetch and commit updates to `main`).

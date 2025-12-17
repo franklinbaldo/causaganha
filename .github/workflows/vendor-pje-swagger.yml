@@ -1,0 +1,33 @@
+name: Vendor PJe Swagger
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/setup
+
+      - name: Fetch swagger spec
+        run: uv run python scripts/vendor_pje_swagger.py
+
+      - name: Commit changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git add openapi/pje-comunicaapi-djen.swagger.yml
+            git commit -m "chore(openapi): vendor PJe DJEN swagger"
+            git push
+          else
+            echo "No changes."
+          fi
+
