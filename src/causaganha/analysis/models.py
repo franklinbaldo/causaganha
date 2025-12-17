@@ -1,5 +1,5 @@
 from enum import Enum
-
+from datetime import date
 from pydantic import BaseModel, Field
 
 
@@ -26,3 +26,6 @@ class DecisionAnalysis(BaseModel):
 
     decision_type: str | None = Field(None, description="Type of decision (e.g., Sentença, Acórdão).")
     decision_reasoning: str | None = Field(None, description="Brief reasoning for the decision.")
+    acordao: str | None = Field(None, description="The full text of the decision (e.g., 'Acórdão' or 'Sentença').")
+    tribunal: str | None = Field(None, description="The court that issued the decision (e.g., 'TJRO').")
+    decision_date: date | None = Field(None, description="The date of the decision.")
