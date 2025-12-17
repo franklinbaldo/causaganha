@@ -469,9 +469,9 @@ uv run causaganha db status
 
 ## 📚 References
 
-- [MASTERPLAN.md](./plans/MASTERPLAN.md) - Overall project coordination
-- [System Integration Resolution](./plans/system-integration-resolution.md) - Integration plan
-- [CLAUDE.md](../CLAUDE.md) - Development guidelines
+- Overall project coordination
+- Integration plan
+- Development guidelines
 
 ---
 
