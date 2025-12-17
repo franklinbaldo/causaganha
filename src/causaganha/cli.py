@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 import structlog
 import typer
 from datetime import date, timedelta
@@ -122,6 +123,7 @@ def score(
 
 @app.command()
 def pipeline(
+    ctx: typer.Context,
     start_date: str = typer.Option(
         (date.today() - timedelta(days=1)).isoformat(),
         help="Start date (YYYY-MM-DD)",
@@ -141,6 +143,15 @@ def pipeline(
 ) -> None:
     """Run the complete pipeline: collect → archive → analyze → score."""
     logger.info("pipeline_start")
+    opts = ctx.obj
+
+    def echo(message: str) -> None:
+        if not opts.get("quiet") and not opts.get("json"):
+            typer.echo(message)
+
+    def echo_json(data: dict) -> None:
+        if opts.get("json"):
+            typer.echo(json.dumps(data))
 
     async def _run():
         repository = _get_repository()
@@ -153,15 +164,16 @@ def pipeline(
         try:
             # Step 1: Collect
             if not skip_collect:
-                typer.echo("Step 1/4: Collecting intimations...")
+                echo("Step 1/4: Collecting intimations...")
                 await run_collection(repository, client, start_date, end_date, court_list)
-                typer.echo("✓ Collection complete")
+                echo("✓ Collection complete")
+                echo_json({"step": 1, "name": "collect", "status": "complete"})
             else:
-                typer.echo("⊘ Skipping collection")
+                echo("⊘ Skipping collection")
 
             # Step 2: Archive
             if not skip_archive:
-                typer.echo("Step 2/4: Archiving to Internet Archive...")
+                echo("Step 2/4: Archiving to Internet Archive...")
                 await run_archive(
                     repository,
                     doc_service,
@@ -169,27 +181,31 @@ def pipeline(
                     limit=archive_limit,
                     dry_run=False,
                 )
-                typer.echo("✓ Archive complete")
+                echo("✓ Archive complete")
+                echo_json({"step": 2, "name": "archive", "status": "complete"})
             else:
-                typer.echo("⊘ Skipping archive")
+                echo("⊘ Skipping archive")
 
             # Step 3: Analyze
             if not skip_analyze:
-                typer.echo("Step 3/4: Analyzing decisions...")
+                echo("Step 3/4: Analyzing decisions...")
                 await run_analysis(repository, doc_service, analyzer, limit=analyze_limit)
-                typer.echo("✓ Analysis complete")
+                echo("✓ Analysis complete")
+                echo_json({"step": 3, "name": "analyze", "status": "complete"})
             else:
-                typer.echo("⊘ Skipping analysis")
+                echo("⊘ Skipping analysis")
 
             # Step 4: Score
             if not skip_score:
-                typer.echo("Step 4/4: Calculating ratings...")
+                echo("Step 4/4: Calculating ratings...")
                 await run_scoring(DB_PATH, limit=score_limit)
-                typer.echo("✓ Scoring complete")
+                echo("✓ Scoring complete")
+                echo_json({"step": 4, "name": "score", "status": "complete"})
             else:
-                typer.echo("⊘ Skipping scoring")
+                echo("⊘ Skipping scoring")
 
-            typer.echo("\n✓ Pipeline complete!")
+            echo("\n✓ Pipeline complete!")
+            echo_json({"status": "complete", "final": True})
 
         finally:
             await client.close()
@@ -197,33 +213,63 @@ def pipeline(
     asyncio.run(_run())
 
 @app.command()
-def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
-    """Database management commands.
-    """
+def db(
+    ctx: typer.Context,
+    action: str = typer.Argument(..., help="Action: init, status"),
+) -> None:
+    """Database management commands."""
     logger.info("db_command", action=action)
+    opts = ctx.obj
+
     if action == "status":
-         con = get_connection(DB_PATH)
-         tables = con.list_tables()
-         typer.echo(f"Connected to DuckDB. Found tables: {tables}")
+        con = get_connection(DB_PATH)
+        tables = con.list_tables()
+        if opts.get("json"):
+            typer.echo(json.dumps({"status": "connected", "tables": tables}))
+        elif not opts.get("quiet"):
+            typer.echo(f"Connected to DuckDB. Found tables: {tables}")
+
     elif action == "init":
-         try:
-             typer.echo("Initializing database schema...")
-             con = get_connection(DB_PATH)
-             create_schema(con)
-             typer.echo("Schema created successfully.")
-         except Exception as e:
-             typer.echo(f"Initialization failed: {e}")
-             raise typer.Exit(code=1)
+        try:
+            if not opts.get("quiet"):
+                typer.echo("Initializing database schema...")
+            con = get_connection(DB_PATH)
+            create_schema(con)
+            if not opts.get("quiet"):
+                typer.echo("Schema created successfully.")
+        except Exception as e:
+            if not opts.get("quiet"):
+                typer.echo(f"Initialization failed: {e}")
+            raise typer.Exit(code=1)
     else:
-        typer.echo(f"Unknown action: {action}")
+        if not opts.get("quiet"):
+            typer.echo(f"Unknown action: {action}")
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON for scripting"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Minimal output for CI/CD"),
 ) -> None:
     """CausaGanha V2 CLI Entry Point.
     """
-    if verbose:
+    ctx.obj = {"json": json_output, "quiet": quiet, "verbose": verbose}
+
+    if quiet or json_output:
+        # Define a logger that does nothing
+        class NoOpLogger:
+            def msg(self, *args, **kwargs): pass
+            info = debug = warning = error = exception = critical = msg
+
+        # Define a factory for it
+        class NoOpLoggerFactory:
+            def __call__(self, *args):
+                return NoOpLogger()
+
+        # Reconfigure structlog to use the no-op logger
+        structlog.configure(logger_factory=NoOpLoggerFactory(), processors=[])
+    elif verbose:
         # Reconfigure for verbose if needed, though dev renderer is already verbose-ish
         pass
 

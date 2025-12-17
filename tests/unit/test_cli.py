@@ -142,3 +142,64 @@ def test_pipeline(
         mock_run_analysis.assert_called_once()
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
+
+
+def test_db_status_json_output(mock_db_connection: MagicMock) -> None:
+    """Verify JSON output for db status."""
+    mock_db_connection.list_tables.return_value = ["table1", "table2"]
+    result = runner.invoke(app, ["--json", "db", "status"])
+    assert result.exit_code == 0
+    import json
+    data = json.loads(result.stdout)
+    assert data == {"status": "connected", "tables": ["table1", "table2"]}
+
+
+def test_db_init_quiet_output(
+    mock_db_connection: MagicMock, mock_create_schema: MagicMock
+) -> None:
+    """Verify quiet output for db init."""
+    result = runner.invoke(app, ["--quiet", "db", "init"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == ""
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_pipeline_quiet_output(
+    mock_run_collection: MagicMock,
+    mock_run_archive: MagicMock,
+    mock_run_analysis: MagicMock,
+    mock_run_scoring: MagicMock,
+    mock_pje_client: MagicMock,
+) -> None:
+    """Verify that --quiet suppresses pipeline output."""
+    with patch("causaganha.cli.create_archive_service"), \
+         patch("causaganha.cli.DocumentService"), \
+         patch("causaganha.cli.DecisionAnalyzer"):
+
+        result = runner.invoke(app, ["--quiet", "pipeline"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == ""
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_pipeline_json_output(
+    mock_run_collection: MagicMock,
+    mock_run_archive: MagicMock,
+    mock_run_analysis: MagicMock,
+    mock_run_scoring: MagicMock,
+    mock_pje_client: MagicMock,
+) -> None:
+    """Verify that --json produces structured output."""
+    with patch("causaganha.cli.create_archive_service"), \
+         patch("causaganha.cli.DocumentService"), \
+         patch("causaganha.cli.DecisionAnalyzer"):
+
+        result = runner.invoke(app, ["--json", "pipeline"])
+        assert result.exit_code == 0
+        import json
+        lines = result.stdout.strip().split('\n')
+        # Check that we have one JSON object per pipeline step + final
+        assert len(lines) == 5
+        last_line = json.loads(lines[-1])
+        assert last_line["status"] == "complete"
+        assert last_line["final"] is True
