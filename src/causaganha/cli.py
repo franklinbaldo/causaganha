@@ -35,10 +35,32 @@ app = typer.Typer(
 
 logger = structlog.get_logger()
 
+
+def _handle_error(e: Exception, message: str) -> None:
+    """Formats and prints a standardized error message."""
+    typer.secho(f"❌ {message}", fg=typer.colors.RED, bold=True)
+
+    # Indent the error details for readability
+    error_details = f"{type(e).__name__}: {e}"
+    # handle multiline errors
+    lines = error_details.splitlines()
+    max_line_length = max(len(line) for line in lines) if lines else 0
+
+    typer.echo("\n" + "┌" + "─" * (max_line_length + 4) + "┐")
+    for line in lines:
+        typer.echo(f"│  {line.ljust(max_line_length)}  │")
+    typer.echo("└" + "─" * (max_line_length + 4) + "┘" + "\n")
+
+    typer.secho("💡 Actionable Suggestions:", fg=typer.colors.YELLOW)
+    typer.echo("- Check that you have write permissions for the 'data/' directory.")
+    typer.echo("- Ensure all dependencies are correctly installed with 'uv sync --dev'.")
+    typer.echo("- For more detailed logs, run the command with the --verbose flag.")
+    raise typer.Exit(code=1)
+
+
 def _get_repository() -> IntimationRepository:
     """Helper to initialize repository and schema."""
     con = get_connection(DB_PATH)
-    create_schema(con)
     return IntimationRepository(con)
 
 @app.command()
@@ -63,6 +85,8 @@ def collect(
 
         try:
             await run_collection(repository, client, start_date, end_date, court_list)
+        except Exception as e:
+            _handle_error(e, "Collection failed")
         finally:
             await client.close()
 
@@ -77,11 +101,13 @@ def analyze(
     logger.info("analyze_command_start")
 
     async def _run():
-        repository = _get_repository()
-        doc_service = DocumentService()
-        analyzer = DecisionAnalyzer()
-
-        await run_analysis(repository, doc_service, analyzer, limit=limit)
+        try:
+            repository = _get_repository()
+            doc_service = DocumentService()
+            analyzer = DecisionAnalyzer()
+            await run_analysis(repository, doc_service, analyzer, limit=limit)
+        except Exception as e:
+            _handle_error(e, "Analysis failed")
 
     asyncio.run(_run())
 
@@ -94,17 +120,20 @@ def archive(
     logger.info("archive_start", limit=limit, dry_run=dry_run)
 
     async def _run():
-        repository = _get_repository()
-        doc_service = DocumentService()
-        archive_service = create_archive_service()
+        try:
+            repository = _get_repository()
+            doc_service = DocumentService()
+            archive_service = create_archive_service()
 
-        await run_archive(
-            repository,
-            doc_service,
-            archive_service,
-            limit=limit,
-            dry_run=dry_run,
-        )
+            await run_archive(
+                repository,
+                doc_service,
+                archive_service,
+                limit=limit,
+                dry_run=dry_run,
+            )
+        except Exception as e:
+            _handle_error(e, "Archive failed")
 
     asyncio.run(_run())
 
@@ -116,7 +145,10 @@ def score(
     logger.info("score_start", limit=limit)
 
     async def _run():
-        await run_scoring(DB_PATH, limit=limit)
+        try:
+            await run_scoring(DB_PATH, limit=limit)
+        except Exception as e:
+            _handle_error(e, "Scoring failed")
 
     asyncio.run(_run())
 
@@ -190,7 +222,8 @@ def pipeline(
                 typer.echo("⊘ Skipping scoring")
 
             typer.echo("\n✓ Pipeline complete!")
-
+        except Exception as e:
+            _handle_error(e, "Pipeline failed")
         finally:
             await client.close()
 
@@ -210,10 +243,9 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
              typer.echo("Initializing database schema...")
              con = get_connection(DB_PATH)
              create_schema(con)
-             typer.echo("Schema created successfully.")
+             typer.echo("✅ Schema created successfully.")
          except Exception as e:
-             typer.echo(f"Initialization failed: {e}")
-             raise typer.Exit(code=1)
+             _handle_error(e, "Initialization failed")
     else:
         typer.echo(f"Unknown action: {action}")
 
