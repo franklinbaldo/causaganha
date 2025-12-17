@@ -142,3 +142,54 @@ def test_pipeline(
         mock_run_analysis.assert_called_once()
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
+
+
+@pytest.fixture
+def mock_rich_progress() -> Generator[MagicMock, None, None]:
+    """Fixture to mock rich.progress.Progress."""
+    # We patch it where it's used, which will be in the cli module.
+    # This will fail with an AttributeError until the import is added.
+    with patch("causaganha.cli.Progress", create=True) as mock_progress:
+        yield mock_progress
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_collect_shows_progress(
+    mock_run_collection: MagicMock,
+    mock_pje_client: MagicMock,
+    mock_rich_progress: MagicMock,
+) -> None:
+    """Tests that the collect command shows a progress indicator."""
+    result = runner.invoke(app, ["collect"])
+    assert result.exit_code == 0
+    mock_run_collection.assert_called_once()
+    mock_pje_client.close.assert_called_once()
+    mock_rich_progress.assert_called_once()
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_analyze_shows_progress(
+    mock_run_analysis: MagicMock, mock_rich_progress: MagicMock
+) -> None:
+    """Tests that the analyze command shows a progress indicator."""
+    with patch("causaganha.cli.DecisionAnalyzer"), patch(
+        "causaganha.cli.DocumentService"
+    ):
+        result = runner.invoke(app, ["analyze"])
+        assert result.exit_code == 0
+        mock_run_analysis.assert_called_once()
+        mock_rich_progress.assert_called_once()
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_archive_shows_progress(
+    mock_run_archive: MagicMock, mock_rich_progress: MagicMock
+) -> None:
+    """Tests that the archive command shows a progress indicator."""
+    with patch("causaganha.cli.create_archive_service"), patch(
+        "causaganha.cli.DocumentService"
+    ):
+        result = runner.invoke(app, ["archive"])
+        assert result.exit_code == 0
+        mock_run_archive.assert_called_once()
+        mock_rich_progress.assert_called_once()
