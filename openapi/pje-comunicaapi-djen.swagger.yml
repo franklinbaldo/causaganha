@@ -1,0 +1,633 @@
+openapi: 3.0.1
+info:
+  title: Diário de Justiça Eletrônico Nacional e Plataforma de Editais
+  description: "Última atualização em 29/05/2025.<br>- Atualizado informações sobre parâmetros do endpoint GET /comunicacao.<br>- incluído informações sobre o controle de taxa de requisições (ratelimit) do endpoint GET /comunicacao."
+  version: 1.0.3
+# servers:
+#   - url: https://comunicaapi.pje.jus.br/
+#     description: Produção
+#   - url: https://hcomunicaapi.cnj.jus.br/
+#     description: Homologação
+paths:
+  /api/v1/login:
+    post:
+      description: "Método de autenticação, para operações de inclusão e remoção de comunicações processuais. Método a ser utilizado pelos Tribunais."
+      requestBody:
+        description: Login do usuário cadastrado no sistema de controle de acesso do CNJ (SCA)
+        content:
+          'application/json':
+            schema:
+              required:
+                - login
+                - senha
+              type: object
+              properties:
+                login:
+                  type: string
+                senha:
+                  type: string
+        required: false
+      responses:
+        "200":
+          description: OK
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: Id do usuário
+                      nome:
+                        type: string
+                      email:
+                        type: string
+                      cpf:
+                        type: string
+                  access_token:
+                    type: string
+                    description: Token de autenticação a ser utilizado nas próximas requisições
+        "403":
+          description: Credenciais inválidas
+          content: {}
+        "422":
+          description: Erro negocial
+          content: {}
+
+  /api/v1/comunicacao:
+    get:
+      description: "Método de consulta de comunicações.<br><br><b>Atenção: as seguintes consultas são limitadas em 10000 resultados:</b><br>- pesquisas com campos textuais ou OAB (texto, nome de advogado, OAB e nome de parte)<br>- pesquisas com 5 ou menos itensPorPagina<br>- pesquisas com data de início e data de fim diferentes<br>- pesquisas com número de processo.<br><br>A pesquisa deve conter pelo menos um dos seguintes parâmetros: siglaTribunal, texto, nomeParte, nomeAdvogado, numeroOab, numeroProcesso ou ser limitada a 5 itensPorPagina.<br><br>As consultas estão sujeitas a controle de taxa de requisições por IP que pode ser controlado com os seguintes cabeçalhos retornados:<br>- x-ratelimit-limit: janela de quantidade de requisições<br>- x-ratelimit-remaining: quantidade de requisições restantes na atual janela.<br>Ao receber um erro 429 orienta-se aguardar 1 minuto para retomar as requisições para evitar um loop de erros.<br>A utilização de múltiplos IPs por um mesmo cliente para contornar o controle da taxa de requisições é considerado uso abusivo e poderá resultar em bloqueios."
+      parameters:
+        - name: numeroOab
+          in: query
+          schema:
+            type: string
+        - name: ufOab
+          in: query
+          schema:
+            type: string
+        - name: nomeAdvogado
+          in: query
+          schema:
+            type: string
+        - name: nomeParte
+          in: query
+          schema:
+            type: string
+        - name: numeroProcesso
+          in: query
+          schema:
+            type: string
+        - name: dataDisponibilizacaoInicio
+          in: query
+          description: "Data inicial de disponibilização da comunicação no diário, no formato yyyy-mm-dd"
+          schema:
+            type: string
+        - name: dataDisponibilizacaoFim
+          in: query
+          description: "Data fim de disponibilização da comunicação no diário, no formato yyyy-mm-dd"
+          schema:
+            type: string
+        - name: siglaTribunal
+          in: query
+          description: "Sigla do Tribunal para filtrar as comunicações"
+          schema:
+            type: string
+        - name: numeroComunicacao
+          in: query
+          description: "Número de identificação da comunicação"
+          schema:
+            type: number
+        - name: pagina
+          in: query
+          description: "Número da página"
+          schema:
+            type: number
+        - name: itensPorPagina
+          in: query
+          description: "Número de itens por página para paginação (valores válidos: 5 e 100)"
+          schema:
+            type: number
+        - name: orgaoId
+          in: query
+          description: "Identificador interno do órgão requisitante"
+          schema:
+            type: number
+        - name: meio
+          in: query
+          description: '"E" para Edital e "D" para Diário Eletrônico'
+          schema:
+            type: string
+            enum:
+              - "E"
+              - "D"
+      responses:
+        "200":
+          description: OK
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status da operação
+                  message:
+                    type: string
+                  count:
+                    type: number
+                    description: Quantidade de comunicações retornadas
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                          description: Id da comunicação
+                        data_disponibilizacao:
+                          type: string
+                          description: Data em que a comunicação foi disponibilizada
+                        siglaTribunal:
+                          type: string
+                        tipoComunicacao:
+                          type: string
+                          description: Citação, intimação, edital, pauta de julgamento, lista de distribuição ou ata de sessão
+                        nomeOrgao:
+                          type: string
+                        texto:
+                          type: string
+                          description: Teor da Comunicação
+                        numero_processo:
+                          type: string
+                        meio:
+                          type: string
+                          description: Plataforma de Editais ou Diário de Justiça Eletrônico
+                        link:
+                          type: string
+                          description: Link para o inteiro teor da comunicação
+                        tipoDocumento:
+                          type: string
+                        nomeClasse:
+                          type: string
+                          description: Classe do processo
+                        codigoClasse:
+                          type: string
+                        numeroComunicacao:
+                          type: number
+                          description: Número de identificação da comunicação
+                        ativo:
+                          type: boolean
+                        hash:
+                          type: string
+                        datadisponibilizacao:
+                          type: string
+                        meiocompleto:
+                          type: string
+                        numeroprocessocommascara:
+                          type: string
+                        destinatarios:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              nome:
+                                type: string
+                              polo:
+                                type: string
+                                description: "A para Ativo, P para Passivo, T para Terceiro interessado e D para Outros Destinatários"
+                              comunicacao_id:
+                                type: number
+                        destinatarioadvogados:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: number
+                              comunicacao_id:
+                                type: number
+                              advogado_id:
+                                type: number
+                              created_at:
+                                type: string
+                              updated_at:
+                                type: string
+                              advogado:
+                                required:
+                                  - id
+                                  - nome
+                                  - numero_oab
+                                  - uf_oab
+                                type: object
+                                properties:
+                                  id:
+                                    type: number
+                                  nome:
+                                    type: string
+                                  numero_oab:
+                                    type: string
+                                  uf_oab:
+                                    type: string
+        "422":
+          description: Erro negocial
+          content: {}
+        "429":
+          description: Erro por taxa de requisições elevado
+          content: {}
+
+    post:
+      description: "Método de inserção de novas comunicações, a ser utilizado pelos Tribunais"
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              required:
+                - codigo_classe
+                - data_disponibilizacao
+                - destinatarios
+                - meio
+                - numero_processo
+                - orgao
+                - sigla_tribunal
+                - tipo_comunicacao
+                - tipo_documento
+              type: object
+              properties:
+                codigo_classe:
+                  type: string
+                  description: "Código da classe, conforme o SGT"
+                numero_processo:
+                  type: string
+                  description: "Número do processo, conforme a numeração única do CNJ. Somente números."
+                sigla_tribunal:
+                  type: string
+                meio:
+                  type: string
+                  description: "\"E\" para Edital e \"D\" para Diário Eletrônico"
+                  enum:
+                    - '"E"'
+                    - '"D"'
+                link:
+                  type: string
+                  description: Link para o inteiro teor da comunicação
+                texto:
+                  type: string
+                  description: Teor da comunicação
+                tipo_documento:
+                  type: string
+                orgao:
+                  type: string
+                  description: Órgão gerador da comunicação
+                data_disponibilizacao:
+                  type: string
+                  description: "Data em que a comunicação será disponibilizada, no formato aaaa-mm-dd. Deverá ser maior que a data de hoje. Não será aceita comunicação disponibilizada em finais de semana."
+                tipo_comunicacao:
+                  type: string
+                  description: "\"C\" para Citação, \"E\" para Edital, \"I\" para Intimação, \"P\" para Pauta de julgamento, \"L\" para Lista de distribuição e \"A\" para Ata de sessão"
+                  enum:
+                    - '"C"'
+                    - '"I"'
+                    - '"E"'
+                    - '"P"'
+                    - '"L"'
+                    - '"A"'
+                destinatarios:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      nome:
+                        type: string
+                        description: Nome da parte
+                      cpf_cnpj:
+                        type: string
+                        description: CPF ou CNPJ da parte
+                      polo:
+                        type: string
+                        description: "\"A\" para polo Ativo, \"P\" para polo Passivo, \"T\" para Terceiro interessado e \"D\" para Outros Destinatários."
+                        enum:
+                          - '"A"'
+                          - '"P"'
+                advogados:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      nome:
+                        type: string
+                      numero_oab:
+                        type: string
+                      uf_oab:
+                        type: string
+        required: false
+      responses:
+        "200":
+          description: OK
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Status da operação
+                  message:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tribunal_id:
+                          type: number
+                          description: Identificador interno do tribunal para a requisição
+                        classe_id:
+                          type: number
+                          description: Identificador interno da classe processual para a requisição
+                        tipo_documento_id:
+                          type: number
+                          description: Identificador interno do tipo de documento para a requisição
+                        orgao_id:
+                          type: number
+                          description: Identificador interno do orgao requisitante
+                        tipo_id:
+                          type: number
+                          description: "Identificador interno do tipo da comunicação "
+                        id:
+                          type: number
+                          description: Id da comunicação
+                        data_publicacao:
+                          type: string
+                          description: "Data em que a comunicação foi disponibilizada, no formato yyyy-mm-dd"
+                        texto:
+                          type: string
+                          description: Teor da Comunicação
+                        numero_processo:
+                          type: string
+                        meio:
+                          type: string
+                          description: Plataforma de Editais ou Diário de Justiça Eletrônico
+                        link:
+                          type: string
+                          description: Link para o inteiro teor da comunicação
+                        numero_comunicacao:
+                          type: number
+                          description: Número de identificação da comunicação
+                        ativo:
+                          type: boolean
+                        hash:
+                          type: string
+                        meiocompleto:
+                          type: string
+                        numeroprocessocommascara:
+                          type: string
+                        destinatarios:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              nome:
+                                type: string
+                              polo:
+                                type: string
+                                description: "A para Ativo, P para Passivo, T para Terceiro interessado e D para Outros Destinatários"
+                              cpf_cnpj:
+                                type: string
+                                description: CPF ou CNPJ do destinatário
+                              comunicacao_id:
+                                type: number
+                        destinatarioadvogados:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: number
+                              comunicacao_id:
+                                type: number
+                              advogado_id:
+                                type: number
+                              created_at:
+                                type: string
+                              updated_at:
+                                type: string
+                              advogado:
+                                required:
+                                  - id
+                                  - nome
+                                  - numero_oab
+                                  - uf_oab
+                                type: object
+                                properties:
+                                  id:
+                                    type: number
+                                  nome:
+                                    type: string
+                                  numero_oab:
+                                    type: string
+                                  uf_oab:
+                                    type: string
+                                  tipo_inscricao:
+                                    type: string
+                                  email:
+                                    type: string
+        "422":
+          description: Erro negocial
+          content: {}
+      security:
+        - Bearer: []
+
+  /api/v1/comunicacao/{hash}/certidao:
+    get:
+      description: "GET /api/v1/comunicacao/{hash}/certidao"
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content: {}
+
+  /api/v1/comunicacao/tribunal:
+    get:
+      description: Este endpoint retorna lista de tribunais por UF de atuação com as datas de último envio disponibilizado pelo tribunal.
+      responses:
+        "200":
+          description: Sucesso ao retornar as informações dos Tribunais
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      description: Identificador único do Tribunal
+                    nome:
+                      type: string
+                      description: Nome completo do Tribunal
+                    sigla:
+                      type: string
+                      description: Sigla do Tribunal
+                    jurisdicao:
+                      type: string
+                      description: Descrição da jurisdição do Tribunal
+                    endereco:
+                      type: string
+                      description: Endereço completo do Tribunal
+                    telefone:
+                      type: string
+                      description: Telefone de contato do Tribunal
+        "404":
+          description: Nenhum Tribunal encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Nenhum Tribunal encontrado."
+        "500":
+          description: Erro interno no servidor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Erro interno ao buscar as informações dos Tribunais."
+
+  /api/v1/comunicacao/{id}:
+    delete:
+      description: "Cancela comunicações. Caso a comunicação não tenha sido disponibilizada, não aparecerá em qualquer forma nas consultas. Caso a comunicação já tenha sido disponibilizada, o conteúdo será substituído pelo motivo de cancelamento. Pode levar algumas horas para refletir em todas as pesquisas do sistema."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Request body opcional caso a comunicação seja cancelada antes da disponibilização e obrigatória após a disponibilização.
+        content:
+          'application/json':
+            schema:
+              required:
+                - motivo_cancelamento
+              type: object
+              properties:
+                motivo_cancelamento:
+                  type: string
+        required: false
+      responses:
+        "200":
+          description: OK
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: Indica status da requisição. Ex. success
+                  message:
+                    type: string
+                    description: Mensagem de confirmação.
+        "403":
+          description: Credenciais inválidas
+          content: {}
+        "422":
+          description: Erro negocial
+          content: {}
+      security:
+        - Bearer: []
+
+  /api/v1/caderno/{sigla_tribunal}/{data}/{meio}:
+    get:
+      description: "Método para download dos cadernos compactados de comunicações de cada tribunal.<br>O endpoint retorna metadados sobre o caderno e URL temporária (5 minutos) para download.<br>Os cadernos do dia atual são disponibilizados a partir das 02:00."
+      parameters:
+        - name: sigla_tribunal
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: data
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: meio
+          in: path
+          description: '"E" para Edital e "D" para Diário Eletrônico'
+          required: true
+          schema:
+            type: string
+            enum:
+              - "E"
+              - "D"
+      responses:
+        "200":
+          description: OK
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  tribunal:
+                    type: string
+                    description: Nome completo do tribunal
+                  sigla_tribunal:
+                    type: string
+                    description: Sigla do tribunal
+                  meio:
+                    type: string
+                    description: D ou E
+                  status:
+                    type: string
+                    description: Status do processamento. Não Processado, Em processamento, Processado, Sem comunicações ou Cancelado.
+                  versao:
+                    type: string
+                    description: Número da versão do diário. A versão é incrementada quando o diário precisa ser reprocessado, como no caso de cancelamento de comunicações.
+                  data:
+                    type: string
+                    description: Data referência no formado YYYY-MM-DD
+                  total_comunicacoes:
+                    type: number
+                    description: Número de comunicações
+                  numero_paginas:
+                    type: number
+                    description: Número de arquivos dentro do pacote compactado
+                  hash:
+                    type: string
+                    description: Hash SHA256 do arquivo
+                  url:
+                    type: string
+                    description: URL temporária de download
+        "422":
+          description: Erro negocial
+          content: {}
+      security:
+        - Bearer: []
+
+components:
+  securitySchemes:
+    Bearer:
+      type: apiKey
+      name: Authorization
+      in: header
