@@ -26,11 +26,26 @@ INTIMATIONS_SCHEMA = ibis.schema({
     "hash": "string",
     "status": "string",
 
+    # Analysis tracking
+    "analyzed": "boolean",
+    "analysis_attempted_at": "timestamp",
+    "analysis_error": "string",
+    "analyzed_at": "timestamp",
+
     # Archive tracking (added via TDD)
     "ia_url": "string",
     "archived_at": "timestamp",
 })
 
+
+# Intimation lawyers table schema (extracted from API)
+INTIMATION_LAWYERS_SCHEMA = ibis.schema({
+    "intimation_id": "int64",
+    "oab_number": "string",
+    "oab_state": "string",
+    "lawyer_name": "string",
+    "polo": "string",
+})
 
 # Pipeline state table schema
 PIPELINE_STATE_SCHEMA = ibis.schema({

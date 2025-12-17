@@ -49,6 +49,22 @@ class IntimationRepository:
         t = ibis.memtable(data)
         self.con.insert("intimations", t)
 
+        # Also store lawyers if present
+        lawyers_data = []
+        for intimation in intimations:
+            for lawyer in intimation.advogados:
+                lawyers_data.append({
+                    "intimation_id": intimation.id,
+                    "oab_number": lawyer.numero_oab,
+                    "oab_state": lawyer.uf_oab,
+                    "lawyer_name": lawyer.nome,
+                    "polo": "A" # Default for now, should extract if available
+                })
+
+        if lawyers_data:
+            t_lawyers = ibis.memtable(lawyers_data)
+            self.con.insert("intimation_lawyers", t_lawyers)
+
     async def store_intimations(self, intimations: list[Intimation]) -> None:
         """Store a list of intimations in the database asynchronously.
 
@@ -60,18 +76,26 @@ class IntimationRepository:
     def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
-        t_res = self.con.table("analysis_results")
 
-        # Left join to find intimations without analysis
-        joined = t_int.left_join(t_res, t_int.id == t_res.intimation_id)
+        # Check if 'analysis_results' table exists and has data to join, or if we should rely on 'analyzed' flag in 'intimations'
+        # The test case set 'analyzed' flag to TRUE for id=1.
+        # But here we are joining with 'analysis_results'.
+        # If 'analysis_results' is empty, LEFT JOIN ... WHERE right.id IS NULL returns ALL rows.
+        # This explains why id=1 is returned (it's not in analysis_results, so it's considered unanalyzed by this logic).
 
-        # Filter where analysis result is missing
-        filtered = joined.filter(t_res["id"].isnull())
+        # We should also check the 'analyzed' flag in 'intimations' table if it exists.
+        # The schema definition has 'analyzed' boolean field.
+
+        # Let's use the 'analyzed' flag as primary filter if possible, or combine both.
+        # If the 'analyzed' column exists and is populated, it's faster.
+
+        # Assuming 'analyzed' column is trustworthy:
+        filtered = t_int.filter(t_int.analyzed == False)
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
 
-        query = filtered.select(t_int).limit(limit)
+        query = filtered.limit(limit)
 
         return query.execute().to_dict(orient="records")
 
