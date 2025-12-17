@@ -12,7 +12,9 @@ This folder contains **vendored** API specifications used by CausaGanha to make 
 The upstream host may be **geo-blocked** in some environments (including GitHub-hosted runners). We provide a GitHub Actions workflow that can fetch the spec and commit the updated file.
 
 1. Run: **Actions → Vendor PJe Swagger → Run workflow**
-2. If the origin is blocked, first mirror the YAML somewhere reachable and run the workflow with the mirror URL.
+2. If the origin is blocked, either:
+   - provide a reachable mirror URL as the workflow input `url`, or
+   - provide a Brazil Tailscale exit node as the workflow input `exit_node` and configure the secret `TS_AUTHKEY` (ephemeral recommended).
 
 Alternatively, you can download it manually and update locally:
 
