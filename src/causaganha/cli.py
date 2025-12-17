@@ -197,6 +197,16 @@ def pipeline(
     asyncio.run(_run())
 
 @app.command()
+def version() -> None:
+    """Show version information."""
+    import importlib.metadata
+    try:
+        ver = importlib.metadata.version('causaganha')
+    except importlib.metadata.PackageNotFoundError:
+        ver = '1.0.0'
+    typer.echo(f'causaganha v{ver}')
+
+@app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """Database management commands.
     """

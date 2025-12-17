@@ -142,3 +142,9 @@ def test_pipeline(
         mock_run_analysis.assert_called_once()
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
+
+def test_version_command():
+    result = runner.invoke(app, ['version'])
+    assert result.exit_code == 0
+    assert 'causaganha' in result.stdout
+    assert '1.0.0' in result.stdout
