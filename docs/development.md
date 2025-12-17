@@ -66,4 +66,4 @@ We vendor the PJe Comunica API Swagger used by the `PJeAPIClient` to make develo
 - Source: `https://comunicaapi.pje.jus.br/swagger/djen.yml`
 - Vendored: `openapi/pje-comunicaapi-djen.swagger.yml`
 
-To refresh it, run `Vendor PJe Swagger` in GitHub Actions (it will fetch and commit updates to `main`).
+To refresh it, run `Vendor PJe Swagger` in GitHub Actions. If the origin is geo-blocked, mirror the YAML somewhere reachable and run the workflow passing the mirror URL.

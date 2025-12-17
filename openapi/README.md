@@ -9,8 +9,16 @@ This folder contains **vendored** API specifications used by CausaGanha to make 
 
 ### Updating the spec
 
-The upstream host may be **geo-blocked** in some environments. We provide a GitHub Actions workflow that fetches the spec from a GitHub runner and commits the updated file:
+The upstream host may be **geo-blocked** in some environments (including GitHub-hosted runners). We provide a GitHub Actions workflow that can fetch the spec and commit the updated file.
 
 1. Run: **Actions → Vendor PJe Swagger → Run workflow**
-2. The workflow will update `openapi/pje-comunicaapi-djen.swagger.yml` and commit to `main` if it changed.
+2. If the origin is blocked, first mirror the YAML somewhere reachable and run the workflow with the mirror URL.
 
+Alternatively, you can download it manually and update locally:
+
+```bash
+uv run python scripts/vendor_pje_swagger.py --input-file /path/to/djen.yml
+git add openapi/pje-comunicaapi-djen.swagger.yml
+git commit -m "chore(openapi): vendor PJe DJEN swagger"
+git push
+```
