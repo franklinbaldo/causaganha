@@ -143,6 +143,41 @@ def test_pipeline(
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
 
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_pipeline_skips(
+    mock_run_collection: MagicMock,
+    mock_run_archive: MagicMock,
+    mock_run_analysis: MagicMock,
+    mock_run_scoring: MagicMock,
+    mock_pje_client: MagicMock
+) -> None:
+    # We need to mock services instantiated in pipeline
+    with patch("causaganha.cli.create_archive_service"), \
+         patch("causaganha.cli.DocumentService"), \
+         patch("causaganha.cli.DecisionAnalyzer"):
+
+        # Skip all steps
+        result = runner.invoke(app, [
+            "pipeline",
+            "--skip-collect",
+            "--skip-archive",
+            "--skip-analyze",
+            "--skip-score"
+        ])
+
+        assert result.exit_code == 0
+        assert "Pipeline complete!" in result.stdout
+        assert "Skipping collection" in result.stdout
+        assert "Skipping archive" in result.stdout
+        assert "Skipping analysis" in result.stdout
+        assert "Skipping scoring" in result.stdout
+
+        mock_run_collection.assert_not_called()
+        mock_run_archive.assert_not_called()
+        mock_run_analysis.assert_not_called()
+        mock_run_scoring.assert_not_called()
+        mock_pje_client.close.assert_called_once()
+
 
 @pytest.fixture
 def mock_rich_progress() -> Generator[MagicMock, None, None]:
@@ -193,3 +228,8 @@ def test_archive_shows_progress(
         assert result.exit_code == 0
         mock_run_archive.assert_called_once()
         mock_rich_progress.assert_called_once()
+
+def test_main_verbose() -> None:
+    """Test the main callback with verbose flag."""
+    result = runner.invoke(app, ["--verbose", "db", "status"])
+    assert result.exit_code == 0
