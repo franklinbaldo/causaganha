@@ -59,18 +59,17 @@ class PJeAPIClient:
             id=api_obj.id,
             numero_processo=api_obj.numero_processo,
             numero_processo_formatado=api_obj.numeroprocessocommascara,
-            data_disponibilizacao=api_obj.data_disponibilizacao, # type: ignore (Pydantic will parse)
-            sigla_tribunal=api_obj.siglaTribunal,
-            id_orgao=api_obj.idOrgao,
-            tipo_comunicacao=api_obj.tipoComunicacao,
-            nome_orgao=api_obj.nomeOrgao,
+            data_disponibilizacao=api_obj.data_disponibilizacao,  # type: ignore
+            sigla_tribunal=api_obj.sigla_tribunal,
+            tipo_comunicacao=api_obj.tipo_comunicacao,
+            nome_orgao=api_obj.nome_orgao,
             texto=api_obj.texto,
             link=api_obj.link,
-            tipo_documento=api_obj.tipoDocumento,
-            nome_classe=api_obj.nomeClasse,
-            codigo_classe=api_obj.codigoClasse,
+            tipo_documento=api_obj.tipo_documento,
+            nome_classe=api_obj.nome_classe,
+            codigo_classe=api_obj.codigo_classe,
             hash=api_obj.hash,
-            status=api_obj.status,
+            status=None,  # 'status' is not in the item schema
             advogados=advogados,
             partes=partes
         )
@@ -78,41 +77,43 @@ class PJeAPIClient:
     async def get_intimations_by_court(
         self,
         sigla_tribunal: str,
-        data_inicio: date | None = None,
-        data_fim: date | None = None,
-        limit_per_page: int = 100,
+        data_disponibilizacao_inicio: date | None = None,
+        data_disponibilizacao_fim: date | None = None,
+        pagina: int = 1,
+        itens_por_pagina: int = 100,
     ) -> List[DomainIntimation]:
         """Fetch all intimations for a court with automatic pagination.
 
         Args:
             sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
-            data_inicio: Start date filter
-            data_fim: End date filter
-            limit_per_page: Results per page (max 100)
+            data_disponibilizacao_inicio: Start date filter
+            data_disponibilizacao_fim: End date filter
+            pagina: Page number to fetch
+            itens_por_pagina: Results per page (max 100)
 
         Returns:
             List of validated DomainIntimation objects
         """
         all_domain_intimations: List[DomainIntimation] = []
-        offset = 0
+        current_page = pagina
 
         while True:
             params: dict[str, str | int] = {
                 "siglaTribunal": sigla_tribunal,
-                "offset": offset,
-                "limit": limit_per_page,
+                "pagina": current_page,
+                "itensPorPagina": itens_por_pagina,
             }
 
-            if data_inicio:
-                params["dataInicio"] = data_inicio.strftime("%Y-%m-%d")
-            if data_fim:
-                params["dataFim"] = data_fim.strftime("%Y-%m-%d")
+            if data_disponibilizacao_inicio:
+                params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime("%Y-%m-%d")
+            if data_disponibilizacao_fim:
+                params["dataDisponibilizacaoFim"] = data_disponibilizacao_fim.strftime("%Y-%m-%d")
 
             logger.info(
                 "fetching_page",
                 tribunal=sigla_tribunal,
-                offset=offset,
-                limit=limit_per_page,
+                pagina=current_page,
+                itens_por_pagina=itens_por_pagina,
             )
 
             try:
@@ -156,13 +157,13 @@ class PJeAPIClient:
                 )
                 raise
 
-            # Check if more pages
-            total_count = data.get("count", 0)
-            if len(all_domain_intimations) >= total_count:
-                logger.info("all_pages_fetched", total=len(all_domain_intimations))
-                break
+            # Check if more pages based on items returned
+            # If the API returns fewer items than requested, we're on the last page.
+            if len(items) < itens_por_pagina:
+                 logger.info("last_page_fetched", total=len(all_domain_intimations))
+                 break
 
-            offset += limit_per_page
+            current_page += 1
 
         return all_domain_intimations
 
