@@ -19,11 +19,9 @@ uv run pytest -q
 uv run ruff check .
 ```
 
-## API docs (Sphinx)
-
-API docs são opcionais e vivem em `docs/api/`.
+## Docs (MkDocs)
 
 ```bash
-uv run sphinx-build -b html docs/api docs/api/_build
+uv run mkdocs serve
+uv run mkdocs build
 ```
-

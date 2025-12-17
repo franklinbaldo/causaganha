@@ -1,0 +1,45 @@
+site_name: CausaGanha (v2)
+repo_url: https://github.com/franklinbaldo/causaganha
+repo_name: franklinbaldo/causaganha
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.highlight
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_signature_annotations: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - CLI: cli.md
+  - Architecture: architecture.md
+  - API Reference: reference/api.md
+  - OpenSkill: openskill.md
+  - FAQ: faq.md
+  - Development: development.md
+  - Roadmap:
+      - v2 Plan: causaganha-v2-plan-from-scratch.md
+      - Masterplan: plans/MASTERPLAN.md
+
+exclude_docs: |
+  legacy/**
+  tutorials/**
+  plans/archive/**
