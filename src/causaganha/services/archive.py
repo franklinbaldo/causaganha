@@ -1,13 +1,17 @@
 """Internet Archive service for uploading documents."""
 
 import asyncio
+import os
+import shutil
 from datetime import date
 from pathlib import Path
 from typing import Any
+from typing import Protocol
 
 import internetarchive as ia
 import structlog
 
+from causaganha.config import DATA_DIR
 from causaganha.services.constants import (
     IA_DEFAULT_COLLECTION,
     IA_DEFAULT_CREATOR,
@@ -19,6 +23,62 @@ from causaganha.services.constants import (
 )
 
 logger = structlog.get_logger()
+
+
+class ArchiveService(Protocol):
+    """Abstract interface for archiving PDFs (Internet Archive or local fallback)."""
+
+    async def upload_file(
+        self,
+        file_path: Path,
+        item_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None: ...
+
+    async def check_item_exists(self, item_id: str) -> bool: ...
+
+    def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]: ...
+
+
+class LocalArchiveService:
+    """Local filesystem archive fallback (no API keys required)."""
+
+    def __init__(self, archive_root: Path | None = None):
+        self.archive_root = archive_root or (DATA_DIR / "pdf_archive")
+        self.archive_root.mkdir(parents=True, exist_ok=True)
+
+    async def upload_file(
+        self,
+        file_path: Path,
+        item_id: str,
+        metadata: dict[str, Any] | None = None,  # metadata is ignored for local storage
+    ) -> str | None:
+        if not file_path.exists():
+            logger.error("file_not_found", path=str(file_path))
+            return None
+
+        dest_dir = self.archive_root / item_id
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = dest_dir / file_path.name
+
+        await asyncio.to_thread(shutil.copy2, file_path, dest_path)
+        logger.info("local_archive_saved", item_id=item_id, path=str(dest_path))
+        return str(dest_path)
+
+    async def check_item_exists(self, item_id: str) -> bool:
+        return (self.archive_root / item_id).exists()
+
+    def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+
+def create_archive_service() -> ArchiveService:
+    """Create the best available archive service based on environment configuration."""
+    access_key = os.getenv("IA_ACCESS_KEY")
+    secret_key = os.getenv("IA_SECRET_KEY")
+    if access_key and secret_key:
+        return InternetArchiveService()
+    return LocalArchiveService()
 
 
 class InternetArchiveService:

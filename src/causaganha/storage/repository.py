@@ -1,6 +1,7 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
+from datetime import datetime, timezone
 from typing import Any
 
 import ibis
@@ -36,6 +37,13 @@ class IntimationRepository:
             "codigo_classe": intimation.codigo_classe,
             "hash": intimation.hash,
             "status": intimation.status,
+            # Pipeline tracking defaults
+            "analyzed": False,
+            "analysis_attempted_at": None,
+            "analysis_error": None,
+            "analyzed_at": None,
+            "ia_url": None,
+            "archived_at": None,
         }
 
     def _sync_store_intimations(self, intimations: list[Intimation]) -> None:
@@ -89,8 +97,8 @@ class IntimationRepository:
         # Let's use the 'analyzed' flag as primary filter if possible, or combine both.
         # If the 'analyzed' column exists and is populated, it's faster.
 
-        # Assuming 'analyzed' column is trustworthy:
-        filtered = t_int.filter(t_int.analyzed == False)
+        # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
+        filtered = t_int.filter(t_int.analyzed.isnull() | (t_int.analyzed == False))
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
@@ -114,6 +122,25 @@ class IntimationRepository:
         """Synchronous store analysis result."""
         t = ibis.memtable([result])
         self.con.insert("analysis_results", t)
+
+        # Mark intimation as analyzed so it won't be reprocessed.
+        intimation_id = result.get("intimation_id")
+        analyzed_at = result.get("analyzed_at")
+        if intimation_id is None:
+            return
+
+        if analyzed_at is None:
+            analyzed_at = datetime.now(timezone.utc)
+
+        try:
+            raw_con = self.con.con
+            raw_con.execute(
+                "UPDATE intimations SET analyzed = TRUE, analyzed_at = ?, analysis_attempted_at = ? WHERE id = ?",
+                (analyzed_at, analyzed_at, intimation_id),
+            )
+        except Exception:
+            # Best-effort: schema may be evolving in early development.
+            return
 
     async def store_analysis_result(self, result: dict[str, Any]) -> None:
         """Store analysis result.
