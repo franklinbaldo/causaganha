@@ -15,7 +15,7 @@ from causaganha.pipeline.archive import run_archive
 from causaganha.pipeline.score import run_scoring
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
-from causaganha.services.archive import InternetArchiveService
+from causaganha.services.archive import create_archive_service
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -96,9 +96,15 @@ def archive(
     async def _run():
         repository = _get_repository()
         doc_service = DocumentService()
-        ia_service = InternetArchiveService()
+        archive_service = create_archive_service()
 
-        await run_archive(repository, doc_service, ia_service, limit=limit, dry_run=dry_run)
+        await run_archive(
+            repository,
+            doc_service,
+            archive_service,
+            limit=limit,
+            dry_run=dry_run,
+        )
 
     asyncio.run(_run())
 
@@ -140,7 +146,7 @@ def pipeline(
         repository = _get_repository()
         client = PJeAPIClient()
         doc_service = DocumentService()
-        ia_service = InternetArchiveService()
+        archive_service = create_archive_service()
         analyzer = DecisionAnalyzer()
         court_list = [c.strip() for c in courts.split(",")]
 
@@ -156,7 +162,13 @@ def pipeline(
             # Step 2: Archive
             if not skip_archive:
                 typer.echo("Step 2/4: Archiving to Internet Archive...")
-                await run_archive(repository, doc_service, ia_service, limit=archive_limit, dry_run=False)
+                await run_archive(
+                    repository,
+                    doc_service,
+                    archive_service,
+                    limit=archive_limit,
+                    dry_run=False,
+                )
                 typer.echo("✓ Archive complete")
             else:
                 typer.echo("⊘ Skipping archive")

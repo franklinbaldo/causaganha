@@ -7,7 +7,7 @@ from typing import Any
 
 import structlog
 
-from causaganha.services.archive import InternetArchiveService
+from causaganha.services.archive import ArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
 
@@ -17,7 +17,7 @@ logger = structlog.get_logger()
 async def run_archive(
     repository: IntimationRepository,
     doc_service: DocumentService,
-    ia_service: InternetArchiveService,
+    archive_service: ArchiveService,
     limit: int = 10,
     dry_run: bool = False,
 ) -> None:
@@ -28,7 +28,7 @@ async def run_archive(
     Args:
         repository: Repository for accessing intimations.
         doc_service: Service for downloading documents.
-        ia_service: Service for uploading to Internet Archive.
+        archive_service: Service for uploading/archiving PDFs.
         limit: Maximum number of documents to process.
         dry_run: If True, don't actually upload to IA.
     """
@@ -48,7 +48,7 @@ async def run_archive(
     for intimation in intimations:
         try:
             await _process_intimation(
-                intimation, doc_service, ia_service, repository, dry_run
+                intimation, doc_service, archive_service, repository, dry_run
             )
         except Exception:
             logger.exception(
@@ -63,7 +63,7 @@ async def run_archive(
 async def _process_intimation(
     intimation: dict[str, Any],
     doc_service: DocumentService,
-    ia_service: InternetArchiveService,
+    archive_service: ArchiveService,
     repository: IntimationRepository,
     dry_run: bool,
 ) -> None:
@@ -118,9 +118,9 @@ async def _process_intimation(
     item_id = f"causaganha-tjro-{intimation_id_str}"
 
     # Generate metadata from intimation data (refactored)
-    metadata = ia_service.generate_metadata(intimation)
+    metadata = archive_service.generate_metadata(intimation)
 
-    ia_url = await ia_service.upload_file(temp_path, item_id, metadata)
+    ia_url = await archive_service.upload_file(temp_path, item_id, metadata)
 
     if ia_url:
         logger.info(

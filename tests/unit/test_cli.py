@@ -102,7 +102,7 @@ def test_analyze(mock_run_analysis: MagicMock) -> None:
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_archive(mock_run_archive: MagicMock) -> None:
-    with patch("causaganha.cli.InternetArchiveService"):
+    with patch("causaganha.cli.create_archive_service"):
         with patch("causaganha.cli.DocumentService"):
             result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
             assert result.exit_code == 0
@@ -128,7 +128,7 @@ def test_pipeline(
     mock_pje_client: MagicMock
 ) -> None:
     # We need to mock services instantiated in pipeline
-    with patch("causaganha.cli.InternetArchiveService"), \
+    with patch("causaganha.cli.create_archive_service"), \
          patch("causaganha.cli.DocumentService"), \
          patch("causaganha.cli.DecisionAnalyzer"):
 
