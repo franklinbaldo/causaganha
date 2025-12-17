@@ -18,6 +18,7 @@ coverage.xml
 .coverage
 htmlcov/
 docs/_build/
+docs/api/_build/
 
 # Cache
 .pytest_cache/

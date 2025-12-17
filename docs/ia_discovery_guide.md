@@ -1,8 +1,10 @@
-# Internet Archive Discovery Guide
+# Internet Archive Discovery Guide (optional)
 
 ## 🔍 **How to List and Discover Uploaded TJRO Diarios**
 
-Once your TJRO diarios are uploaded to Internet Archive, there are multiple ways to discover, list, and access them systematically.
+If you configure `IA_ACCESS_KEY` and `IA_SECRET_KEY`, CausaGanha can upload PDFs to Internet Archive. This guide shows ways to discover, list, and access those uploads systematically.
+
+If you don’t configure IA keys, CausaGanha will use local storage for PDFs instead; in that mode, this guide does not apply.
 
 ---
 

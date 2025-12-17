@@ -1,6 +1,6 @@
-# CausaGanha v2 - Architecture
+# CausaGanha v2 (package)
 
-This directory contains the v2 implementation of CausaGanha with PJe API integration.
+Este diretório contém a implementação do pacote `causaganha` (v2).
 
 ## Directory Structure
 
@@ -24,7 +24,7 @@ v2/
     └── logging.py       # Structured logging with structlog
 ```
 
-## Technology Stack
+## Stack
 
 ### New Dependencies (v2)
 - **Pydantic AI**: LLM provider abstraction with structured outputs
@@ -32,11 +32,8 @@ v2/
 - **httpx**: Async HTTP client for PJe API
 - **structlog**: Structured logging
 
-### Preserved from v1
-- **DuckDB**: Analytical database
-- **google-generativeai**: Gemini LLM (via Pydantic AI)
-- **OpenSkill**: Rating algorithm (unchanged)
-- **Internet Archive**: Distribution platform
+### Observações
+- Internet Archive é opcional (fallback local existe para PDFs).
 
 ## Development Approach
 
@@ -80,9 +77,10 @@ OpenSkill → Calculate ratings
 Internet Archive → Publish rankings
 ```
 
-## Getting Started
+## Docs
 
-See `/docs/causaganha-v2-plan-from-scratch.md` for the complete implementation plan.
+- Docs: `docs/index.md`
+- Plano v2: `docs/causaganha-v2-plan-from-scratch.md`
 
 ## Status
 
