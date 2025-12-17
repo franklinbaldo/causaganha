@@ -3,6 +3,7 @@ import asyncio
 import structlog
 import typer
 from datetime import date, timedelta
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from causaganha.config import DB_PATH
 from causaganha.storage.connection import get_connection
@@ -62,7 +63,15 @@ def collect(
         court_list = [c.strip() for c in courts.split(",")]
 
         try:
-            await run_collection(repository, client, start_date, end_date, court_list)
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Coletando intimações...", total=None)
+                await run_collection(
+                    repository, client, start_date, end_date, court_list
+                )
         finally:
             await client.close()
 
@@ -81,7 +90,13 @@ def analyze(
         doc_service = DocumentService()
         analyzer = DecisionAnalyzer()
 
-        await run_analysis(repository, doc_service, analyzer, limit=limit)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Analisando intimações...", total=None)
+            await run_analysis(repository, doc_service, analyzer, limit=limit)
 
     asyncio.run(_run())
 
@@ -98,13 +113,19 @@ def archive(
         doc_service = DocumentService()
         archive_service = create_archive_service()
 
-        await run_archive(
-            repository,
-            doc_service,
-            archive_service,
-            limit=limit,
-            dry_run=dry_run,
-        )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Arquivando decisões...", total=None)
+            await run_archive(
+                repository,
+                doc_service,
+                archive_service,
+                limit=limit,
+                dry_run=dry_run,
+            )
 
     asyncio.run(_run())
 
