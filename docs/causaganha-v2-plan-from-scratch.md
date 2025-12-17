@@ -471,7 +471,7 @@ uv run causaganha db status
 
 - [MASTERPLAN.md](./plans/MASTERPLAN.md) - Overall project coordination
 - [System Integration Resolution](./plans/system-integration-resolution.md) - Integration plan
-- [CLAUDE.md](../CLAUDE.md) - Development guidelines
+- [CLAUDE.md](https://github.com/franklinbaldo/causaganha/blob/main/CLAUDE.md) - Development guidelines
 
 ---
 
