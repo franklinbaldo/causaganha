@@ -35,8 +35,8 @@ async def run_collection(
             try:
                 intimations = await client.get_intimations_by_court(
                     sigla_tribunal=court,
-                    data_inicio=date.fromisoformat(start_date),
-                    data_fim=date.fromisoformat(end_date),
+                    data_disponibilizacao_inicio=date.fromisoformat(start_date),
+                    data_disponibilizacao_fim=date.fromisoformat(end_date),
                 )
 
                 if intimations:

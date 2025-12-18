@@ -61,5 +61,15 @@ async def test_run_collection_success(tmp_path: Path) -> None:
 
     # Verify API was called correctly
     mock_api_client.get_intimations_by_court.assert_called_once()
+
+    # Verify arguments - this catches interface mismatches
+    call_kwargs = mock_api_client.get_intimations_by_court.call_args.kwargs
+    assert call_kwargs["sigla_tribunal"] == "TJRO"
+    # Ensure usage matches api definition (data_disponibilizacao_inicio)
+    assert "data_disponibilizacao_inicio" in call_kwargs
+    assert call_kwargs["data_disponibilizacao_inicio"] == date(2024, 1, 1)
+    assert "data_disponibilizacao_fim" in call_kwargs
+    assert call_kwargs["data_disponibilizacao_fim"] == date(2024, 1, 2)
+
     # Note: run_collection no longer closes the client, the caller does.
     # So we don't assert close called here unless we mock the context manager if used.
