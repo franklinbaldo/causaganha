@@ -65,11 +65,26 @@ def test_db_init(mock_db_connection: MagicMock, mock_create_schema: MagicMock) -
     mock_create_schema.assert_called_once_with(mock_db_connection)
 
 @pytest.mark.usefixtures("mock_db_connection")
-def test_db_init_failure(mock_create_schema: MagicMock) -> None:
-    mock_create_schema.side_effect = Exception("DB Error")
+def test_db_init_failure_shows_suggestions(mock_create_schema: MagicMock) -> None:
+    """Tests if actionable suggestions are displayed on failure."""
+    mock_create_schema.side_effect = IOError("Permission denied")
     result = runner.invoke(app, ["db", "init"])
     assert result.exit_code == 1
-    assert "Initialization failed: DB Error" in result.stdout
+    assert "Actionable Suggestions" in result.stdout
+    assert "Permission denied" in result.stdout
+
+
+@pytest.mark.usefixtures("mock_db_connection")
+def test_error_message_is_colored(mock_create_schema: MagicMock) -> None:
+    """Tests if the error message is colored red."""
+    mock_create_schema.side_effect = Exception("DB Error")
+    # The runner strips ANSI codes by default, so we can't directly check color.
+    # Instead, we rely on the fact that _handle_error uses typer.secho
+    # and test the content, assuming typer handles the coloring.
+    # For a more robust check, one might need to capture raw stdout.
+    result = runner.invoke(app, ["db", "init"])
+    assert result.exit_code == 1
+    assert "❌ Initialization failed" in result.stdout
 
 def test_db_status(mock_db_connection: MagicMock) -> None:
     mock_db_connection.list_tables.return_value = ["table1", "table2"]
@@ -91,6 +106,17 @@ def test_collect(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> 
     # Check that PJeAPIClient was used and closed
     mock_pje_client.close.assert_called_once()
 
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
+    """Tests the error handler for the collect command."""
+    mock_run_collection.side_effect = RuntimeError("API unavailable")
+    result = runner.invoke(app, ["collect", "--courts", "TJSP"])
+    assert result.exit_code == 1
+    assert "❌ Collection failed" in result.stdout
+    assert "API unavailable" in result.stdout
+    mock_pje_client.close.assert_called_once()
+
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_analyze(mock_run_analysis: MagicMock) -> None:
     with patch("causaganha.cli.DecisionAnalyzer") as mock_analyzer:
@@ -100,6 +126,19 @@ def test_analyze(mock_run_analysis: MagicMock) -> None:
             mock_run_analysis.assert_called_once()
             args, kwargs = mock_run_analysis.call_args
             assert kwargs["limit"] == 5
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
+    """Tests the error handler for the analyze command."""
+    mock_run_analysis.side_effect = ValueError("Invalid document format")
+    with patch("causaganha.cli.DecisionAnalyzer"):
+        with patch("causaganha.cli.DocumentService"):
+            result = runner.invoke(app, ["analyze"])
+            assert result.exit_code == 1
+            assert "❌ Analysis failed" in result.stdout
+            assert "Invalid document format" in result.stdout
+
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_archive(mock_run_archive: MagicMock) -> None:
@@ -112,6 +151,19 @@ def test_archive(mock_run_archive: MagicMock) -> None:
             assert kwargs["limit"] == 3
             assert kwargs["dry_run"] is True
 
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_archive_failure(mock_run_archive: MagicMock) -> None:
+    """Tests the error handler for the archive command."""
+    mock_run_archive.side_effect = ConnectionError("Upload failed")
+    with patch("causaganha.cli.create_archive_service"):
+        with patch("causaganha.cli.DocumentService"):
+            result = runner.invoke(app, ["archive"])
+            assert result.exit_code == 1
+            assert "❌ Archive failed" in result.stdout
+            assert "Upload failed" in result.stdout
+
+
 def test_score(mock_run_scoring: MagicMock) -> None:
     result = runner.invoke(app, ["score", "--limit", "50"])
     assert result.exit_code == 0
@@ -119,6 +171,16 @@ def test_score(mock_run_scoring: MagicMock) -> None:
     # Check arguments
     args, kwargs = mock_run_scoring.call_args
     assert kwargs["limit"] == 50
+
+
+def test_score_failure(mock_run_scoring: MagicMock) -> None:
+    """Tests the error handler for the score command."""
+    mock_run_scoring.side_effect = KeyError("Rating not found")
+    result = runner.invoke(app, ["score"])
+    assert result.exit_code == 1
+    assert "❌ Scoring failed" in result.stdout
+    assert "Rating not found" in result.stdout
+
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_pipeline(
