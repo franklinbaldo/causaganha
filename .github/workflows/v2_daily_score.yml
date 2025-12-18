@@ -1,4 +1,6 @@
 name: V2 Daily Scoring
+permissions:
+  contents: read
 
 on:
   schedule:
