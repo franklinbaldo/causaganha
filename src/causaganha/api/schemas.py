@@ -27,24 +27,29 @@ class Destinatario(BaseModel):
 
 
 class Intimation(BaseModel):
-    """Complete intimation from API"""
+    """Complete intimation from API, aligned with OpenAPI spec."""
 
     id: int
-    numero_processo: str
-    numeroprocessocommascara: str | None = None
     data_disponibilizacao: str
-    siglaTribunal: str = Field(alias="siglaTribunal")
-    idOrgao: int | None = Field(None, alias="idOrgao")
-    tipoComunicacao: str = Field(alias="tipoComunicacao")
-    nomeOrgao: str = Field(alias="nomeOrgao")
+    sigla_tribunal: str = Field(alias="siglaTribunal")
+    tipo_comunicacao: str = Field(alias="tipoComunicacao")
+    nome_orgao: str = Field(alias="nomeOrgao")
     texto: str
+    numero_processo: str
+    meio: str
     link: str
-    tipoDocumento: str = Field(alias="tipoDocumento")
-    nomeClasse: str = Field(alias="nomeClasse")
-    codigoClasse: str | None = Field(None, alias="codigoClasse")
+    tipo_documento: str = Field(alias="tipoDocumento")
+    nome_classe: str = Field(alias="nomeClasse")
+    codigo_classe: str | None = Field(None, alias="codigoClasse")
+    numero_comunicacao: int | None = Field(None, alias="numeroComunicacao")
+    ativo: bool
     hash: str
-    status: str
-    destinatarioadvogados: list[DestinatarioAdvogado] = []
+    datadisponibilizacao: str  # This is a datetime string
+    meiocompleto: str
+    numeroprocessocommascara: str | None = None
     destinatarios: list[Destinatario] = []
+    destinatarioadvogados: list[DestinatarioAdvogado] = []
+    # Note: 'status' is in the top-level response, not in each 'item'
+    # According to the spec. Removing from here.
 
     model_config = ConfigDict(populate_by_name=True)

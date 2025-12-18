@@ -3,6 +3,7 @@ import asyncio
 import structlog
 import typer
 from datetime import date, timedelta
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from causaganha.config import DB_PATH
 from causaganha.storage.connection import get_connection
@@ -12,10 +13,12 @@ from causaganha.api.client import PJeAPIClient
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
+import json
 from causaganha.pipeline.score import run_scoring
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
 from causaganha.services.archive import create_archive_service
+from causaganha.ia.schemas import ParquetSchema
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -84,9 +87,15 @@ def collect(
         court_list = [c.strip() for c in courts.split(",")]
 
         try:
-            await run_collection(repository, client, start_date, end_date, court_list)
-        except Exception as e:
-            _handle_error(e, "Collection failed")
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Coletando intimações...", total=None)
+                await run_collection(
+                    repository, client, start_date, end_date, court_list
+                )
         finally:
             await client.close()
 
@@ -101,13 +110,17 @@ def analyze(
     logger.info("analyze_command_start")
 
     async def _run():
-        try:
-            repository = _get_repository()
-            doc_service = DocumentService()
-            analyzer = DecisionAnalyzer()
+        repository = _get_repository()
+        doc_service = DocumentService()
+        analyzer = DecisionAnalyzer()
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Analisando intimações...", total=None)
             await run_analysis(repository, doc_service, analyzer, limit=limit)
-        except Exception as e:
-            _handle_error(e, "Analysis failed")
 
     asyncio.run(_run())
 
@@ -120,11 +133,16 @@ def archive(
     logger.info("archive_start", limit=limit, dry_run=dry_run)
 
     async def _run():
-        try:
-            repository = _get_repository()
-            doc_service = DocumentService()
-            archive_service = create_archive_service()
+        repository = _get_repository()
+        doc_service = DocumentService()
+        archive_service = create_archive_service()
 
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Arquivando decisões...", total=None)
             await run_archive(
                 repository,
                 doc_service,
@@ -132,8 +150,6 @@ def archive(
                 limit=limit,
                 dry_run=dry_run,
             )
-        except Exception as e:
-            _handle_error(e, "Archive failed")
 
     asyncio.run(_run())
 
@@ -248,6 +264,47 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
              _handle_error(e, "Initialization failed")
     else:
         typer.echo(f"Unknown action: {action}")
+
+
+manifest_app = typer.Typer(name="manifest", help="Manage and export data manifests.")
+
+@manifest_app.command("export")
+def manifest_export(
+    limit: int = typer.Option(100, help="Number of items to export"),
+) -> None:
+    """Export intimations metadata as a JSON manifest."""
+    logger.info("manifest_export_start", limit=limit)
+    repository = _get_repository()
+
+    async def _export():
+        items = await repository.get_all_intimations(limit=limit)
+        output_items = []
+        for item in items:
+            # Convert date string to date object if it exists
+            decision_date = None
+            if item.get("data_disponibilizacao"):
+                try:
+                    decision_date = date.fromisoformat(item["data_disponibilizacao"])
+                except (ValueError, TypeError):
+                    pass  # Keep as None if parsing fails
+
+            schema = ParquetSchema(
+                intimation_id=item.get("id"),
+                process_number=item.get("numero_processo"),
+                tribunal=item.get("sigla_tribunal"),
+                decision_date=decision_date,
+                download_url=item.get("link"),
+                needs_download=item.get("needs_download", True),
+                ia_url=item.get("ia_url"),
+            )
+            output_items.append(schema.model_dump(mode="json"))
+
+        print(json.dumps(output_items, indent=2))
+
+    asyncio.run(_export())
+
+app.add_typer(manifest_app)
+
 
 @app.callback()
 def main(

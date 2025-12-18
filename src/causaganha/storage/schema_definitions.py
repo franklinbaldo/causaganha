@@ -35,6 +35,9 @@ INTIMATIONS_SCHEMA = ibis.schema({
     # Archive tracking (added via TDD)
     "ia_url": "string",
     "archived_at": "timestamp",
+
+    # ML pipeline flags
+    "needs_download": "boolean",
 })
 
 

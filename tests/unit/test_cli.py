@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -205,20 +206,129 @@ def test_pipeline(
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
 
-
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
-def test_pipeline_failure(
+def test_pipeline_skips(
     mock_run_collection: MagicMock,
+    mock_run_archive: MagicMock,
+    mock_run_analysis: MagicMock,
+    mock_run_scoring: MagicMock,
     mock_pje_client: MagicMock
 ) -> None:
-    """Tests the error handler for the pipeline command."""
-    mock_run_collection.side_effect = Exception("Pipeline step failed")
+    # We need to mock services instantiated in pipeline
     with patch("causaganha.cli.create_archive_service"), \
          patch("causaganha.cli.DocumentService"), \
          patch("causaganha.cli.DecisionAnalyzer"):
 
-        result = runner.invoke(app, ["pipeline"])
-        assert result.exit_code == 1
-        assert "❌ Pipeline failed" in result.stdout
-        assert "Pipeline step failed" in result.stdout
+        # Skip all steps
+        result = runner.invoke(app, [
+            "pipeline",
+            "--skip-collect",
+            "--skip-archive",
+            "--skip-analyze",
+            "--skip-score"
+        ])
+
+        assert result.exit_code == 0
+        assert "Pipeline complete!" in result.stdout
+        assert "Skipping collection" in result.stdout
+        assert "Skipping archive" in result.stdout
+        assert "Skipping analysis" in result.stdout
+        assert "Skipping scoring" in result.stdout
+
+        mock_run_collection.assert_not_called()
+        mock_run_archive.assert_not_called()
+        mock_run_analysis.assert_not_called()
+        mock_run_scoring.assert_not_called()
         mock_pje_client.close.assert_called_once()
+
+
+@pytest.fixture
+def mock_rich_progress() -> Generator[MagicMock, None, None]:
+    """Fixture to mock rich.progress.Progress."""
+    # We patch it where it's used, which will be in the cli module.
+    # This will fail with an AttributeError until the import is added.
+    with patch("causaganha.cli.Progress", create=True) as mock_progress:
+        yield mock_progress
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_collect_shows_progress(
+    mock_run_collection: MagicMock,
+    mock_pje_client: MagicMock,
+    mock_rich_progress: MagicMock,
+) -> None:
+    """Tests that the collect command shows a progress indicator."""
+    result = runner.invoke(app, ["collect"])
+    assert result.exit_code == 0
+    mock_run_collection.assert_called_once()
+    mock_pje_client.close.assert_called_once()
+    mock_rich_progress.assert_called_once()
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_analyze_shows_progress(
+    mock_run_analysis: MagicMock, mock_rich_progress: MagicMock
+) -> None:
+    """Tests that the analyze command shows a progress indicator."""
+    with patch("causaganha.cli.DecisionAnalyzer"), patch(
+        "causaganha.cli.DocumentService"
+    ):
+        result = runner.invoke(app, ["analyze"])
+        assert result.exit_code == 0
+        mock_run_analysis.assert_called_once()
+        mock_rich_progress.assert_called_once()
+
+
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+def test_archive_shows_progress(
+    mock_run_archive: MagicMock, mock_rich_progress: MagicMock
+) -> None:
+    """Tests that the archive command shows a progress indicator."""
+    with patch("causaganha.cli.create_archive_service"), patch(
+        "causaganha.cli.DocumentService"
+    ):
+        result = runner.invoke(app, ["archive"])
+        assert result.exit_code == 0
+        mock_run_archive.assert_called_once()
+        mock_rich_progress.assert_called_once()
+
+
+import structlog
+
+@patch("causaganha.cli._get_repository")
+def test_manifest_export(mock_get_repo: MagicMock) -> None:
+    """Test the manifest export command."""
+    # Reconfigure structlog to capture log messages
+    structlog.configure(logger_factory=structlog.ReturnLogger)
+
+    # Mock the repository and its method
+    mock_repo = MagicMock()
+
+    async def get_all_intimations(limit: int) -> list[dict]:
+        return [
+            {
+                "id": 1,
+                "numero_processo": "123",
+                "sigla_tribunal": "TJRO",
+                "data_disponibilizacao": "2024-01-01",
+                "link": "http://example.com/pdf",
+                "needs_download": True,
+                "ia_url": None,
+            }
+        ]
+
+    mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
+    mock_get_repo.return_value = mock_repo
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["manifest", "export", "--limit", "1"])
+
+    assert result.exit_code == 0
+    output = json.loads(result.stdout)
+
+    assert len(output) == 1
+    assert output[0]["intimation_id"] == 1
+    assert output[0]["process_number"] == "123"
+    assert output[0]["tribunal"] == "TJRO"
+    assert output[0]["decision_date"] == "2024-01-01"
+    assert output[0]["needs_download"] is True

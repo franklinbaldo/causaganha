@@ -39,7 +39,7 @@ class Intimation(BaseModel):
     nome_classe: str
     codigo_classe: Optional[str] = None
     hash: str
-    status: str
+    status: Optional[str] = None
 
     # Relationships
     advogados: List[Lawyer] = Field(default_factory=list)

@@ -44,6 +44,7 @@ class IntimationRepository:
             "analyzed_at": None,
             "ia_url": None,
             "archived_at": None,
+            "needs_download": True,
         }
 
     def _sync_store_intimations(self, intimations: list[Intimation]) -> None:
@@ -221,3 +222,20 @@ class IntimationRepository:
         self._validate_archive_params(intimation_id, ia_url)
 
         await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)
+
+    def _sync_get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Synchronous implementation of fetching all intimations."""
+        t_int = self.con.table("intimations")
+        query = t_int.limit(limit)
+        return query.execute().to_dict(orient="records")
+
+    async def get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Fetch all intimations.
+
+        Args:
+            limit: Max number of records to fetch.
+
+        Returns:
+            List of dicts representing intimations.
+        """
+        return await asyncio.to_thread(self._sync_get_all_intimations, limit)
