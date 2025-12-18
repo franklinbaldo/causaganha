@@ -1,13 +1,15 @@
 import json
 import base64
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, ANY
 import pytest
 from datetime import datetime
+import causaganha.cloud.db # Ensure this is imported for patching
 
 # Mocks for GCP services
 @pytest.fixture
 def mock_firestore():
+    # Patching firestore.AsyncClient inside causaganha.cloud.db
     with patch("causaganha.cloud.db.firestore.AsyncClient") as mock:
         yield mock
 
@@ -136,8 +138,6 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
         mock_doc_ref.update.assert_called_with({
             "status": "pdf_uploaded",
             "ia_identifier": f"causaganha-{doc_key[:16]}",
-            "updated_at": unittest.mock.ANY
+            "updated_at": ANY
         })
         mock_pubsub_ingest.return_value.publish.assert_called_once()
-
-import unittest.mock
