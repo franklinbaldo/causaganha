@@ -99,7 +99,10 @@ def collect(
         finally:
             await client.close()
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        _handle_error(e, "Collection failed")
 
 
 @app.command()
@@ -122,7 +125,11 @@ def analyze(
             progress.add_task(description="Analisando intimações...", total=None)
             await run_analysis(repository, doc_service, analyzer, limit=limit)
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        _handle_error(e, "Analysis failed")
+
 
 @app.command()
 def archive(
@@ -151,7 +158,11 @@ def archive(
                 dry_run=dry_run,
             )
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        _handle_error(e, "Archive failed")
+
 
 @app.command()
 def score(
