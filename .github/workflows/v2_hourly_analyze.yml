@@ -1,4 +1,6 @@
 name: V2 Hourly Analysis
+permissions:
+  contents: read
 
 on:
   schedule:
