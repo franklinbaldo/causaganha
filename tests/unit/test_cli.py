@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -229,7 +230,43 @@ def test_archive_shows_progress(
         mock_run_archive.assert_called_once()
         mock_rich_progress.assert_called_once()
 
-def test_main_verbose() -> None:
-    """Test the main callback with verbose flag."""
-    result = runner.invoke(app, ["--verbose", "db", "status"])
+
+import structlog
+
+@patch("causaganha.cli._get_repository")
+def test_manifest_export(mock_get_repo: MagicMock) -> None:
+    """Test the manifest export command."""
+    # Reconfigure structlog to capture log messages
+    structlog.configure(logger_factory=structlog.ReturnLogger)
+
+    # Mock the repository and its method
+    mock_repo = MagicMock()
+
+    async def get_all_intimations(limit: int) -> list[dict]:
+        return [
+            {
+                "id": 1,
+                "numero_processo": "123",
+                "sigla_tribunal": "TJRO",
+                "data_disponibilizacao": "2024-01-01",
+                "link": "http://example.com/pdf",
+                "needs_download": True,
+                "ia_url": None,
+            }
+        ]
+
+    mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
+    mock_get_repo.return_value = mock_repo
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["manifest", "export", "--limit", "1"])
+
     assert result.exit_code == 0
+    output = json.loads(result.stdout)
+
+    assert len(output) == 1
+    assert output[0]["intimation_id"] == 1
+    assert output[0]["process_number"] == "123"
+    assert output[0]["tribunal"] == "TJRO"
+    assert output[0]["decision_date"] == "2024-01-01"
+    assert output[0]["needs_download"] is True

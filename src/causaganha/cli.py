@@ -13,10 +13,12 @@ from causaganha.api.client import PJeAPIClient
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
+import json
 from causaganha.pipeline.score import run_scoring
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
 from causaganha.services.archive import create_archive_service
+from causaganha.ia.schemas import ParquetSchema
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -237,6 +239,47 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
              raise typer.Exit(code=1)
     else:
         typer.echo(f"Unknown action: {action}")
+
+
+manifest_app = typer.Typer(name="manifest", help="Manage and export data manifests.")
+
+@manifest_app.command("export")
+def manifest_export(
+    limit: int = typer.Option(100, help="Number of items to export"),
+) -> None:
+    """Export intimations metadata as a JSON manifest."""
+    logger.info("manifest_export_start", limit=limit)
+    repository = _get_repository()
+
+    async def _export():
+        items = await repository.get_all_intimations(limit=limit)
+        output_items = []
+        for item in items:
+            # Convert date string to date object if it exists
+            decision_date = None
+            if item.get("data_disponibilizacao"):
+                try:
+                    decision_date = date.fromisoformat(item["data_disponibilizacao"])
+                except (ValueError, TypeError):
+                    pass  # Keep as None if parsing fails
+
+            schema = ParquetSchema(
+                intimation_id=item.get("id"),
+                process_number=item.get("numero_processo"),
+                tribunal=item.get("sigla_tribunal"),
+                decision_date=decision_date,
+                download_url=item.get("link"),
+                needs_download=item.get("needs_download", True),
+                ia_url=item.get("ia_url"),
+            )
+            output_items.append(schema.model_dump(mode="json"))
+
+        print(json.dumps(output_items, indent=2))
+
+    asyncio.run(_export())
+
+app.add_typer(manifest_app)
+
 
 @app.callback()
 def main(

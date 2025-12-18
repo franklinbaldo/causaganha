@@ -4,6 +4,7 @@ Unit tests for Storage Layer
 
 import pytest
 import ibis
+import pandas as pd
 from unittest.mock import MagicMock, patch
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
@@ -185,3 +186,38 @@ async def test_repository_get_unanalyzed(memory_db):
     assert 1 not in ids
     # If logic skips null links:
     # assert 3 not in ids
+
+@pytest.mark.asyncio
+async def test_repository_save_intimation_sets_defaults(memory_db):
+    """Test that saving an intimation sets the correct default values."""
+    repo = IntimationRepository(memory_db)
+
+    intimation = Intimation(
+        id=1,
+        numero_processo="0001-01.2024.8.22.0001",
+        sigla_tribunal="TJRO",
+        data_disponibilizacao=date(2024, 12, 1),
+        tipo_comunicacao="Intimação",
+        nome_orgao="Vara 1",
+        texto="Texto",
+        link="http://pdf",
+        tipo_documento="Doc",
+        nome_classe="Classe",
+        hash="abc",
+        status="P",
+        advogados=[],
+        partes=[]
+    )
+
+    await repo.store_intimations([intimation])
+
+    t = memory_db.table("intimations")
+    result = t.filter(t.id == 1).execute()
+
+    assert len(result) == 1
+    record = result.iloc[0]
+
+    assert record["analyzed"] == False
+    assert record["ia_url"] is None
+    assert pd.isna(record["archived_at"])
+    assert record["needs_download"] == True
