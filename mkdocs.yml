@@ -66,12 +66,11 @@ markdown_extensions:
 
 nav:
   - 'Home': index.md
-  - 'Getting Started': getting-started.md
-  - 'Configuration': configuration.md
-  - 'CLI Reference': cli.md
-  - 'Architecture': architecture.md
-  - 'API Reference': api-reference.md
-  - 'Development': development.md
+  - 'Product Requirements': product-requirements.md
+  - 'Technical Design': technical-design.md
+  - 'Roadmap': roadmap.md
+  - 'Launch Plan': launch-plan.md
+  - 'Backlog': backlog.md
 
 extra:
   social:

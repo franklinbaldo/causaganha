@@ -1,17 +1,13 @@
-# Welcome to CausaGanha V2
+# CausaGanha Project Reboot Documentation
 
-**CausaGanha** is a distributed judicial analysis platform designed to collect, analyze, and score legal decisions at scale. It leverages modern technologies to provide insights into legal proceedings and lawyer performance.
+Welcome to the CausaGanha Project Reboot Documentation. This suite outlines the requirements, design, roadmap, and plans for the next version of CausaGanha.
 
-This documentation covers the V2 architecture, which is a complete rewrite focused on scalability, modularity, and a modern CLI interface.
+## Documentation Suite
 
-## Key Features
+*   [Product Requirements Document (PRD)](product-requirements.md): Problem statement, solution, scope, and user stories.
+*   [Technical Design Document (TDD)](technical-design.md): Architecture, system layers, data flow, and technical decisions.
+*   [Roadmap & Milestones](roadmap.md): Phased development plan from foundation to advanced features.
+*   [Launch Plan](launch-plan.md): Testing strategy, rollout steps, and communication plan.
+*   [Backlog Summary](backlog.md): Future development items and improvements.
 
-- **CLI-First Design**: A powerful and intuitive command-line interface for running the entire pipeline.
-- **Modular Architecture**: A clear separation of concerns between data collection, analysis, storage, and scoring.
-- **Asynchronous Processing**: Built with `asyncio` for high-performance I/O operations.
-- **AI-Powered Analysis**: Integrates with large language models (LLMs) via Pydantic-AI to extract structured data from unstructured legal documents.
-- **Pluggable Storage**: Uses the Ibis framework to abstract database interactions, with DuckDB as the default backend.
-
-## Getting Started
-
-Ready to dive in? Head over to the **[Getting Started](getting-started.md)** guide to install CausaGanha and run your first analysis.
+Please navigate through the sections to understand the vision and implementation details of the CausaGanha Reboot.
