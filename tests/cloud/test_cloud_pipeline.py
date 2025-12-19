@@ -30,12 +30,18 @@ def mock_pje_client():
 
 @pytest.fixture
 def mock_doc_service():
-    with patch("causaganha.services.document.DocumentService") as mock:
+    # Patch where it is used: causaganha.cloud.functions.ingest
+    with patch("causaganha.cloud.functions.ingest.DocumentService") as mock:
         yield mock
 
 @pytest.fixture
 def mock_ia_service():
-    with patch("causaganha.services.archive.InternetArchiveService") as mock:
+    # Patch where it is used: causaganha.cloud.functions.ingest
+    # But since we use patch("causaganha.cloud.functions.ingest.InternetArchiveService") in the test function below via environment,
+    # we should check if we need to patch it here for local service too?
+    # The test uses IA_ACCESS_KEY, so it uses InternetArchiveService.
+    # We should patch it in ingest.
+    with patch("causaganha.cloud.functions.ingest.InternetArchiveService") as mock:
         yield mock
 
 @pytest.mark.asyncio
@@ -129,15 +135,18 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
             "status": "new"
         }
 
-        # Run
-        await ingest_worker(event, None)
+        # Also need to mock TOPIC_LLM if it's used
+        with patch("causaganha.cloud.functions.ingest.TOPIC_LLM", "projects/test/topics/llm"):
 
-        # Verify
-        mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
-        mock_ia_instance.upload_file.assert_called_once()
-        mock_doc_ref.update.assert_called_with({
-            "status": "pdf_uploaded",
-            "ia_identifier": f"causaganha-{doc_key[:16]}",
-            "updated_at": ANY
-        })
-        mock_pubsub_ingest.return_value.publish.assert_called_once()
+            # Run
+            await ingest_worker(event, None)
+
+            # Verify
+            mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
+            mock_ia_instance.upload_file.assert_called_once()
+            mock_doc_ref.update.assert_called_with({
+                "status": "pdf_uploaded",
+                "ia_identifier": f"causaganha-{doc_key[:16]}",
+                "updated_at": ANY
+            })
+            mock_pubsub_ingest.return_value.publish.assert_called_once()

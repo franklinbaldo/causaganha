@@ -4,12 +4,14 @@ import os
 import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import structlog
 from google.cloud import pubsub_v1
 # Optional: Cloud Tasks
 from google.cloud import tasks_v2
 from google.protobuf import timestamp_pb2
+from google.cloud import firestore
 
 from causaganha.cloud.db import (
     acquire_lock,
@@ -17,9 +19,6 @@ from causaganha.cloud.db import (
     COLLECTION_NAME,
 )
 from causaganha.services.archive import InternetArchiveService, LocalArchiveService
-# We need to download FROM IA. The existing service uploads.
-# We can use 'internetarchive' lib directly or add download capability.
-# For simplicity, we'll assume we can use `ia.download` or just HTTP fetch the IA URL.
 import httpx
 from causaganha.analysis.analyzer import DecisionAnalyzer
 
@@ -31,37 +30,32 @@ REGION = os.getenv("GCP_REGION", "us-central1")
 QUEUE_NAME = os.getenv("TASKS_QUEUE", "llm-retry-queue")
 FUNCTION_URL = os.getenv("FUNCTION_URL", "https://region-project.cloudfunctions.net/llm_worker")
 
-async def llm_worker(event: dict, context: Any) -> None:
-    """
-    Pub/Sub trigger (or HTTP if called by Cloud Tasks).
-    Analyzes PDF with Gemini and uploads result.
-    """
-    # Handle both Pub/Sub event and HTTP request (if adapted)
-    # Since this function signature is for Pub/Sub (event, context),
-    # if using Cloud Tasks targeting HTTP, the signature would be (request).
-    # For this implementation, I'll assume Pub/Sub trigger pattern as primary,
-    # but include logic for the "Cloud Tasks" retry which would likely trigger
-    # a separate HTTP entry point or this same one if we wrap it.
+async def schedule_retry(doc_key: str, attempt: int):
+    """Schedules a retry using Cloud Tasks."""
+    client = tasks_v2.CloudTasksClient()
+    parent = client.queue_path(PROJECT_ID, REGION, QUEUE_NAME)
 
-    # Let's stick to the Pub/Sub signature for the "worker".
-    # If Cloud Tasks calls this, it should be an HTTP function.
-    # I'll implement the logic in a helper `process_llm` and verify signature later.
+    # Backoff: 5m, 15m, 60m...
+    delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
+    if delay_seconds > 86400: # Max 24h
+        delay_seconds = 86400
 
-    if "data" in event:
-        message_data = base64.b64decode(event["data"]).decode("utf-8")
-        message = json.loads(message_data)
-    else:
-        # If this is an HTTP request (Cloud Tasks), event might be the request object
-        # This part depends on the specific Cloud Function generation (1st vs 2nd).
-        # I'll assume Pub/Sub for now.
-        logger.error("no_data_in_event")
-        return
+    run_at = timestamp_pb2.Timestamp()
+    run_at.FromDatetime(datetime.now(timezone.utc) + timedelta(seconds=delay_seconds))
 
-    doc_key = message.get("docKey")
-    if not doc_key:
-        return
+    task = {
+        "http_request": {
+            "http_method": tasks_v2.HttpMethod.POST,
+            "url": FUNCTION_URL, # The HTTP trigger for this worker
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"docKey": doc_key, "retry": True}).encode()
+        },
+        "schedule_time": run_at
+    }
 
-    await process_llm(doc_key)
+    # Let exceptions propagate so caller can handle
+    client.create_task(request={"parent": parent, "task": task})
+    logger.info("retry_scheduled", doc_key=doc_key, delay=delay_seconds)
 
 async def process_llm(doc_key: str):
     logger.info("llm_worker_start", doc_key=doc_key)
@@ -88,24 +82,11 @@ async def process_llm(doc_key: str):
 
     try:
         # 2. Ensure PDF exists (Download from IA)
-        # Construct IA URL.
-        # Standard: https://archive.org/download/{identifier}/{filename}
-        # We stored filename as "document.pdf" (implicit in previous step? we uploaded file path.name)
-        # ingest_worker used temp file suffix .pdf. We didn't enforce name "document.pdf".
-        # But IA item usually contains the file.
-        # We can list files or guess.
-
         pdf_url = f"https://archive.org/download/{ia_identifier}/document.pdf"
-        # Or use original PDF URL if IA is slow to index? No, strictly use IA to ensure it's there.
-        # Ideally ingest_worker sets the filename explicitly.
-        # For now, let's try to fetch from IA.
 
         async with httpx.AsyncClient() as client:
             resp = await client.get(pdf_url, follow_redirects=True, timeout=60.0)
             if resp.status_code != 200:
-                # Fallback: try to find the PDF in the item metadata or just use original URL?
-                # Plan says: "Ensure PDF exists... call Gemini".
-                # If IA fetch fails, maybe not ready?
                 raise RuntimeError(f"Could not fetch PDF from IA: {pdf_url}")
             pdf_bytes = resp.content
 
@@ -154,29 +135,42 @@ async def process_llm(doc_key: str):
              logger.error("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
              raise e # Raise original error to NACK
 
-async def schedule_retry(doc_key: str, attempt: int):
-    """Schedules a retry using Cloud Tasks."""
-    client = tasks_v2.CloudTasksClient()
-    parent = client.queue_path(PROJECT_ID, REGION, QUEUE_NAME)
+async def llm_worker(event: dict | Any, context: Any = None) -> None:
+    """
+    Pub/Sub trigger (or HTTP if called by Cloud Tasks).
+    Analyzes PDF with Gemini and uploads result.
 
-    # Backoff: 5m, 15m, 60m...
-    delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
-    if delay_seconds > 86400: # Max 24h
-        delay_seconds = 86400
+    Handles both:
+    1. Pub/Sub Event (Background Function): event is dict with 'data'
+    2. HTTP Request (Cloud Tasks): event is flask.Request object
+    """
+    doc_key = None
 
-    run_at = timestamp_pb2.Timestamp()
-    run_at.FromDatetime(datetime.now(timezone.utc) + timedelta(seconds=delay_seconds))
+    # Check if event is likely a Flask Request object (has get_json)
+    if hasattr(event, "get_json"):
+        # HTTP Trigger
+        try:
+            request_json = event.get_json(silent=True)
+            if request_json and "docKey" in request_json:
+                doc_key = request_json["docKey"]
+        except Exception as e:
+            logger.error("invalid_http_request", error=str(e))
+            return
+    elif isinstance(event, dict) and "data" in event:
+        # Pub/Sub Trigger
+        try:
+            message_data = base64.b64decode(event["data"]).decode("utf-8")
+            message = json.loads(message_data)
+            doc_key = message.get("docKey")
+        except Exception as e:
+            logger.error("invalid_pubsub_message", error=str(e))
+            return
+    else:
+        logger.error("unknown_event_type", event_type=type(event).__name__)
+        return
 
-    task = {
-        "http_request": {
-            "http_method": tasks_v2.HttpMethod.POST,
-            "url": FUNCTION_URL, # The HTTP trigger for this worker
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"docKey": doc_key, "retry": True}).encode()
-        },
-        "schedule_time": run_at
-    }
+    if not doc_key:
+        logger.error("missing_doc_key")
+        return
 
-    # Let exceptions propagate so caller can handle
-    client.create_task(request={"parent": parent, "task": task})
-    logger.info("retry_scheduled", doc_key=doc_key, delay=delay_seconds)
+    await process_llm(doc_key)
