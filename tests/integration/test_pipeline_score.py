@@ -6,6 +6,7 @@ import ibis
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
 from causaganha.storage.schema import create_schema
+from causaganha.storage.repository import IntimationRepository
 
 @pytest.mark.asyncio
 async def test_run_scoring(tmp_path: Path) -> None:
@@ -40,7 +41,8 @@ async def test_run_scoring(tmp_path: Path) -> None:
     await store_analysis_result(con, analysis_data)
 
     # Run scoring
-    await run_scoring(str(db_path))
+    repository = IntimationRepository(con)
+    await run_scoring(repository)
 
     # Verify lawyer ratings
     t = con.table("lawyer_ratings")

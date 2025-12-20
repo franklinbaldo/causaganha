@@ -151,6 +151,43 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_analysis_result, result)
 
+    def _sync_store_analysis_results_batch(self, results: list[dict[str, Any]]) -> None:
+        """Synchronous store analysis results in batch."""
+        if not results:
+            return
+
+        t = ibis.memtable(results)
+        self.con.insert("analysis_results", t)
+
+        # Update intimations
+        intimation_ids = [r.get("intimation_id") for r in results if r.get("intimation_id")]
+        if not intimation_ids:
+            return
+
+        analyzed_at = datetime.now(timezone.utc)
+
+        # Batch update using IN clause
+        raw_con = self.con.con
+
+        # Generate placeholders
+        placeholders = ", ".join(["?"] * len(intimation_ids))
+        query = f"UPDATE intimations SET analyzed = TRUE, analyzed_at = ?, analysis_attempted_at = ? WHERE id IN ({placeholders})"
+
+        params = [analyzed_at, analyzed_at] + intimation_ids
+
+        try:
+            raw_con.execute(query, params)
+        except Exception:
+            pass
+
+    async def store_analysis_results_batch(self, results: list[dict[str, Any]]) -> None:
+        """Store analysis results in batch.
+
+        Args:
+            results: List of Dicts matching analysis_results schema.
+        """
+        await asyncio.to_thread(self._sync_store_analysis_results_batch, results)
+
     def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Synchronous implementation of fetching unarchived intimations."""
         t_int = self.con.table("intimations")
@@ -239,3 +276,91 @@ class IntimationRepository:
             List of dicts representing intimations.
         """
         return await asyncio.to_thread(self._sync_get_all_intimations, limit)
+
+    def _sync_get_unscored_analyses(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Synchronous fetch unscored analyses."""
+        t_analysis = self.con.table("analysis_results")
+
+        try:
+            # Filter where scored is null or false, AND lawyers are identified
+            unscored = t_analysis.filter(
+                (t_analysis.scored.isnull()) | (t_analysis.scored == False)
+            ).filter(
+                t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull()
+            ).limit(limit)
+            return unscored.execute().to_dict(orient="records")
+        except Exception:
+            return []
+
+    async def get_unscored_analyses(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Fetch unscored analyses."""
+        return await asyncio.to_thread(self._sync_get_unscored_analyses, limit)
+
+    def _sync_get_lawyer_ratings(self, oabs: list[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Fetch ratings for a list of lawyers (oab, state)."""
+        if not oabs:
+            return []
+
+        t_ratings = self.con.table("lawyer_ratings")
+        numbers = [x[0] for x in oabs]
+        states = [x[1] for x in oabs]
+
+        try:
+            candidates = t_ratings.filter(
+                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states)
+            ).execute().to_dict(orient="records")
+        except Exception:
+            return []
+
+        target_set = set(oabs)
+        return [r for r in candidates if (r["oab_number"], r["oab_state"]) in target_set]
+
+    async def get_lawyer_ratings(self, oabs: list[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Fetch ratings for a list of lawyers."""
+        return await asyncio.to_thread(self._sync_get_lawyer_ratings, oabs)
+
+    def _sync_save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
+        """Save updated lawyer ratings."""
+        if not ratings:
+            return
+
+        raw_con = self.con.con
+        for r in ratings:
+            raw_con.execute("""
+                INSERT INTO lawyer_ratings (
+                    oab_number, oab_state, lawyer_name,
+                    mu, sigma, last_updated,
+                    total_cases, wins, losses
+                ) VALUES (
+                    ?, ?, ?,
+                    ?, ?, now(),
+                    ?, ?, ?
+                )
+                ON CONFLICT (oab_number, oab_state) DO UPDATE SET
+                    mu = EXCLUDED.mu,
+                    sigma = EXCLUDED.sigma,
+                    last_updated = now(),
+                    total_cases = EXCLUDED.total_cases,
+                    wins = EXCLUDED.wins,
+                    losses = EXCLUDED.losses
+            """, [
+                r["oab_number"], r["oab_state"], r.get("lawyer_name"),
+                r["mu"], r["sigma"],
+                r["total_cases"], r["wins"], r["losses"]
+            ])
+
+    async def save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
+        """Save updated lawyer ratings."""
+        await asyncio.to_thread(self._sync_save_lawyer_ratings, ratings)
+
+    def _sync_mark_analyses_scored(self, ids: list[Any]) -> None:
+        """Mark analyses as scored."""
+        if not ids:
+            return
+        raw_con = self.con.con
+        placeholders = ", ".join(["?"] * len(ids))
+        raw_con.execute(f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})", ids)
+
+    async def mark_analyses_scored(self, ids: list[Any]) -> None:
+        """Mark analyses as scored."""
+        await asyncio.to_thread(self._sync_mark_analyses_scored, ids)

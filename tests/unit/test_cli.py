@@ -164,6 +164,7 @@ def test_archive_failure(mock_run_archive: MagicMock) -> None:
             assert "Upload failed" in result.stdout
 
 
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_score(mock_run_scoring: MagicMock) -> None:
     result = runner.invoke(app, ["score", "--limit", "50"])
     assert result.exit_code == 0
@@ -173,6 +174,7 @@ def test_score(mock_run_scoring: MagicMock) -> None:
     assert kwargs["limit"] == 50
 
 
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_score_failure(mock_run_scoring: MagicMock) -> None:
     """Tests the error handler for the score command."""
     mock_run_scoring.side_effect = KeyError("Rating not found")

@@ -224,7 +224,7 @@ class TestFullPipelineSimulation:
         # STEP 4: SCORE - Calculate Ratings
         # ==========================================
         # Run scoring
-        await run_scoring(db_path, limit=100)
+        await run_scoring(repository, limit=100)
 
         # Verify ratings were calculated
         ratings = con.table("lawyer_ratings").execute()
