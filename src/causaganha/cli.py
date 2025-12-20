@@ -173,7 +173,8 @@ def score(
 
     async def _run():
         try:
-            await run_scoring(DB_PATH, limit=limit)
+            repository = _get_repository()
+            await run_scoring(repository, limit=limit)
         except Exception as e:
             _handle_error(e, "Scoring failed")
 
@@ -243,7 +244,7 @@ def pipeline(
             # Step 4: Score
             if not skip_score:
                 typer.echo("Step 4/4: Calculating ratings...")
-                await run_scoring(DB_PATH, limit=score_limit)
+                await run_scoring(repository, limit=score_limit)
                 typer.echo("✓ Scoring complete")
             else:
                 typer.echo("⊘ Skipping scoring")
