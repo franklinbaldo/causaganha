@@ -11,14 +11,10 @@ from causaganha.cloud.functions import ingest
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Sets environment variables for all tests in this module."""
-    with patch.dict(os.environ, {
-        "GCP_PROJECT": "test-project",
-        "TOPIC_LLM": "projects/test-project/topics/llm",
-        "IA_ACCESS_KEY": "fake-ia-key"
-    }):
-        # Patch the module-level constant that was already loaded
-        with patch("causaganha.cloud.functions.ingest.TOPIC_LLM", "projects/test-project/topics/llm"):
-            yield
+    with patch("causaganha.config.settings.GCP_PROJECT", "test-project"), \
+         patch("causaganha.config.settings.TOPIC_LLM", "projects/test-project/topics/llm"), \
+         patch("causaganha.config.settings.IA_ACCESS_KEY", "fake-ia-key"):
+        yield
 
 @pytest.fixture
 def mock_firestore():

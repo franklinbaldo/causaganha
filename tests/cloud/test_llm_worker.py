@@ -11,14 +11,12 @@ from causaganha.cloud.functions import llm
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Sets environment variables for all tests in this module."""
-    with patch.dict(os.environ, {
-        "GCP_PROJECT": "test-project",
-        "GCP_REGION": "us-central1",
-        "TASKS_QUEUE": "test-queue",
-        "FUNCTION_URL": "http://test-url",
-        "GOOGLE_API_KEY": "fake-key",
-        "IA_ACCESS_KEY": "fake-ia-key" # Force usage of InternetArchiveService
-    }):
+    with patch("causaganha.config.settings.GCP_PROJECT", "test-project"), \
+         patch("causaganha.config.settings.GCP_REGION", "us-central1"), \
+         patch("causaganha.config.settings.TASKS_QUEUE", "test-queue"), \
+         patch("causaganha.config.settings.FUNCTION_URL", "http://test-url"), \
+         patch("causaganha.config.settings.IA_ACCESS_KEY", "fake-ia-key"), \
+         patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-key"}):
         yield
 
 @pytest.fixture

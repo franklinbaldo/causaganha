@@ -1,10 +1,12 @@
 import json
 import base64
 import os
+from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch, ANY
 import pytest
 from datetime import datetime
 import causaganha.cloud.db # Ensure this is imported for patching
+from causaganha.domain.models import Intimation
 
 # Mocks for GCP services
 @pytest.fixture
@@ -36,11 +38,6 @@ def mock_doc_service():
 
 @pytest.fixture
 def mock_ia_service():
-    # Patch where it is used: causaganha.cloud.functions.ingest
-    # But since we use patch("causaganha.cloud.functions.ingest.InternetArchiveService") in the test function below via environment,
-    # we should check if we need to patch it here for local service too?
-    # The test uses IA_ACCESS_KEY, so it uses InternetArchiveService.
-    # We should patch it in ingest.
     with patch("causaganha.cloud.functions.ingest.InternetArchiveService") as mock:
         yield mock
 
@@ -52,7 +49,19 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
     mock_client_instance = mock_pje_client.return_value
     # Make get_intimations_by_court awaitable
     mock_client_instance.get_intimations_by_court = AsyncMock(return_value=[
-        MagicMock(link="http://example.com/doc.pdf")
+         Intimation(
+                id=123,
+                numero_processo="1234567-89.2024.8.22.0001",
+                link="http://example.com/doc.pdf",
+                data_disponibilizacao=datetime.now().date(),
+                sigla_tribunal="TJRO",
+                tipo_comunicacao="INTIMACAO",
+                nome_orgao="Vara Civel",
+                texto="Content",
+                tipo_documento="DESPACHO",
+                nome_classe="Procedimento Comum",
+                hash="abc123hash"
+            )
     ])
 
     # Setup Firestore mock
@@ -73,10 +82,11 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
     mock_publisher.publish.return_value = mock_future
 
     # Run
-    result = await scheduler_tick(None)
+    # Patching settings if needed, but defaults are fine for this test
+    res = await scheduler_tick(None)
 
     # Verify
-    assert "Processed 1 items" in result
+    assert "Processed 1 items" in res
     mock_doc_ref.set.assert_called_once()
     mock_publisher.publish.assert_called_once()
 
@@ -112,11 +122,10 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
     # Setup get to be awaitable
     mock_doc_ref.get = AsyncMock(return_value=mock_snapshot)
 
-    # Transactional get needs to work via the callback, which is hard to mock perfectly with the decorator.
-    # So we mock `acquire_lock` directly.
-
     with patch("causaganha.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock) as mock_lock, \
-         patch.dict(os.environ, {"IA_ACCESS_KEY": "test"}) as mock_env:
+         patch("causaganha.config.settings.IA_ACCESS_KEY", "test"), \
+         patch("causaganha.config.settings.TOPIC_LLM", "projects/test/topics/llm"):
+
         mock_lock.return_value = True
 
         # Setup DocService
@@ -135,18 +144,15 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
             "status": "new"
         }
 
-        # Also need to mock TOPIC_LLM if it's used
-        with patch("causaganha.cloud.functions.ingest.TOPIC_LLM", "projects/test/topics/llm"):
+        # Run
+        await ingest_worker(event, None)
 
-            # Run
-            await ingest_worker(event, None)
-
-            # Verify
-            mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
-            mock_ia_instance.upload_file.assert_called_once()
-            mock_doc_ref.update.assert_called_with({
-                "status": "pdf_uploaded",
-                "ia_identifier": f"causaganha-{doc_key[:16]}",
-                "updated_at": ANY
-            })
-            mock_pubsub_ingest.return_value.publish.assert_called_once()
+        # Verify
+        mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
+        mock_ia_instance.upload_file.assert_called_once()
+        mock_doc_ref.update.assert_called_with({
+            "status": "pdf_uploaded",
+            "ia_identifier": f"causaganha-{doc_key[:16]}",
+            "updated_at": ANY
+        })
+        mock_pubsub_ingest.return_value.publish.assert_called_once()

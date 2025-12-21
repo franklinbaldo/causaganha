@@ -25,15 +25,12 @@ from causaganha.analysis.analyzer import DecisionAnalyzer
 logger = structlog.get_logger()
 
 # Config
-PROJECT_ID = os.getenv("GCP_PROJECT", "my-project")
-REGION = os.getenv("GCP_REGION", "us-central1")
-QUEUE_NAME = os.getenv("TASKS_QUEUE", "llm-retry-queue")
-FUNCTION_URL = os.getenv("FUNCTION_URL", "https://region-project.cloudfunctions.net/llm_worker")
+from causaganha.config import settings
 
 async def schedule_retry(doc_key: str, attempt: int):
     """Schedules a retry using Cloud Tasks."""
     client = tasks_v2.CloudTasksClient()
-    parent = client.queue_path(PROJECT_ID, REGION, QUEUE_NAME)
+    parent = client.queue_path(settings.GCP_PROJECT, settings.GCP_REGION, settings.TASKS_QUEUE)
 
     # Backoff: 5m, 15m, 60m...
     delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
@@ -46,7 +43,7 @@ async def schedule_retry(doc_key: str, attempt: int):
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
-            "url": FUNCTION_URL, # The HTTP trigger for this worker
+            "url": settings.FUNCTION_URL, # The HTTP trigger for this worker
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"docKey": doc_key, "retry": True}).encode()
         },
@@ -103,7 +100,7 @@ async def process_llm(doc_key: str):
 
         try:
             # Upload to IA
-            if os.getenv("IA_ACCESS_KEY"):
+            if settings.IA_ACCESS_KEY:
                 archive_service = InternetArchiveService()
             else:
                 archive_service = LocalArchiveService(archive_root=Path("/tmp/archive"))

@@ -15,9 +15,7 @@ from causaganha.cloud.db import (
 
 logger = structlog.get_logger()
 
-# Config
-TOPIC_INGEST = os.getenv("TOPIC_INGEST", "projects/my-project/topics/ingest")
-LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "1"))
+from causaganha.config import settings
 
 async def scheduler_tick(request: Any) -> str:
     """
@@ -31,14 +29,14 @@ async def scheduler_tick(request: Any) -> str:
 
     # Initialize PJe Client
     # Note: Using a dummy URL if not set, assuming client defaults are sane or overridden
-    api_url = os.getenv("PJE_API_URL", "https://comunicaapi.pje.jus.br/api/v1")
+    api_url = settings.PJE_API_URL
     client = PJeAPIClient(base_url=api_url)
 
     today = date.today()
-    start_date = today - timedelta(days=LOOKBACK_DAYS)
+    start_date = today - timedelta(days=settings.LOOKBACK_DAYS)
 
     # Example courts - could be env var
-    courts = os.getenv("COURTS", "TJRO").split(",")
+    courts = settings.COURTS
 
     processed_count = 0
     for court in courts:
@@ -86,7 +84,7 @@ async def scheduler_tick(request: Any) -> str:
                     "force": False
                 }).encode("utf-8")
 
-                future = publisher.publish(TOPIC_INGEST, message_json)
+                future = publisher.publish(settings.TOPIC_INGEST, message_json)
                 future.result() # Wait for publish
                 processed_count += 1
 

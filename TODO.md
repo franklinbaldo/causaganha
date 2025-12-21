@@ -51,8 +51,8 @@
     - [x] Fix missing imports and potential bugs in `src/causaganha/cloud/functions/llm.py`.
     - [x] Create `tests/cloud/test_ingest_worker.py` (Unit tests for `ingest_worker`).
     - [x] Achieve >80% coverage for `src/causaganha/cloud/`.
-- [ ] **Refactor Cloud Config**
-    - [ ] Use `pydantic-settings` or `src/causaganha/config.py` for cloud env vars instead of `os.getenv` scattered around.
+- [x] **Refactor Cloud Config**
+    - [x] Use `pydantic-settings` or `src/causaganha/config.py` for cloud env vars instead of `os.getenv` scattered around.
 
 ## Phase 3: Multi-Tribunal Expansion
 
