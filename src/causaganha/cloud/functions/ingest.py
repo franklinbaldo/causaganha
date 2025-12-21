@@ -15,10 +15,9 @@ from causaganha.cloud.db import (
 from causaganha.services.document import DocumentService
 from causaganha.services.archive import InternetArchiveService, LocalArchiveService
 
-logger = structlog.get_logger()
+from causaganha.config import settings
 
-# Config
-TOPIC_LLM = os.getenv("TOPIC_LLM", "projects/my-project/topics/llm")
+logger = structlog.get_logger()
 
 async def ingest_worker(event: dict, context: Any) -> None:
     """
@@ -97,7 +96,7 @@ async def ingest_worker(event: dict, context: Any) -> None:
             try:
                 # Determine Archive Service (Local or IA)
                 # For cloud, we prefer IA if keys are present
-                if os.getenv("IA_ACCESS_KEY"):
+                if settings.IA_ACCESS_KEY:
                     archive_service = InternetArchiveService()
                 else:
                     # Fallback or error? For "Cloud Functions only" usually we want real IA.
@@ -147,4 +146,4 @@ def _publish_next_stage(publisher, doc_key):
         "stage": "llm",
         "force": False
     }).encode("utf-8")
-    publisher.publish(TOPIC_LLM, message_json)
+    publisher.publish(settings.TOPIC_LLM, message_json)
