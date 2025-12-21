@@ -5,22 +5,22 @@ import os
 import shutil
 from datetime import date
 from pathlib import Path
-from typing import Any
-from typing import Protocol
+from typing import Any, Protocol
 
 import internetarchive as ia
 import structlog
 
 from causaganha.config import DATA_DIR
 from causaganha.services.constants import (
+    DEFAULT_RETRY_SLEEP_SECONDS,
+    DEFAULT_UPLOAD_RETRIES,
+    DEFAULT_UPLOAD_TIMEOUT_SECONDS,
     IA_DEFAULT_COLLECTION,
     IA_DEFAULT_CREATOR,
     IA_DEFAULT_MEDIATYPE,
     IA_DEFAULT_SUBJECTS,
-    DEFAULT_UPLOAD_RETRIES,
-    DEFAULT_RETRY_SLEEP_SECONDS,
-    DEFAULT_UPLOAD_TIMEOUT_SECONDS,
 )
+
 
 logger = structlog.get_logger()
 
@@ -129,7 +129,7 @@ class InternetArchiveService:
 
                 # Run the blocking IA upload in a thread pool
                 result = await asyncio.to_thread(
-                    self._sync_upload, file_path, item_id, metadata or {}
+                    self._sync_upload, file_path, item_id, metadata or {},
                 )
 
                 logger.info("upload_success", item_id=item_id, url=result)
@@ -151,14 +151,14 @@ class InternetArchiveService:
 
             except Exception as e:
                 # Non-transient errors - don't retry
-                logger.exception("upload_failed", item_id=item_id, path=str(file_path), error=str(e))
+                logger.exception(
+                    "upload_failed", item_id=item_id, path=str(file_path), error=str(e),
+                )
                 return None
 
         return None
 
-    def _sync_upload(
-        self, file_path: Path, item_id: str, metadata: dict[str, Any]
-    ) -> str:
+    def _sync_upload(self, file_path: Path, item_id: str, metadata: dict[str, Any]) -> str:
         """Synchronous upload to IA.
 
         Args:
@@ -184,8 +184,7 @@ class InternetArchiveService:
             url = f"https://archive.org/details/{item_id}"
             logger.info("upload_success", url=url)
             return url
-        else:
-            raise RuntimeError(f"Upload failed for {item_id}")
+        raise RuntimeError(f"Upload failed for {item_id}")
 
     async def check_item_exists(self, item_id: str) -> bool:
         """Check if an item exists on Internet Archive.

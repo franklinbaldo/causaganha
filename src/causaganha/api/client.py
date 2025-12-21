@@ -1,13 +1,13 @@
 """PJe Communications API client with httpx."""
 
 from datetime import date
-from typing import List
 
 import httpx
 import structlog
 
 from causaganha.domain.models import Intimation as DomainIntimation
 from causaganha.domain.models import Lawyer, Party
+
 from .schemas import Intimation as APIIntimation
 
 
@@ -45,15 +45,12 @@ class PJeAPIClient:
                 id=d.advogado.id,
                 nome=d.advogado.nome,
                 numero_oab=d.advogado.numero_oab,
-                uf_oab=d.advogado.uf_oab
+                uf_oab=d.advogado.uf_oab,
             )
             for d in api_obj.destinatarioadvogados
         ]
 
-        partes = [
-            Party(nome=p.nome, polo=p.polo)
-            for p in api_obj.destinatarios
-        ]
+        partes = [Party(nome=p.nome, polo=p.polo) for p in api_obj.destinatarios]
 
         return DomainIntimation(
             id=api_obj.id,
@@ -71,7 +68,7 @@ class PJeAPIClient:
             hash=api_obj.hash,
             status=None,  # 'status' is not in the item schema
             advogados=advogados,
-            partes=partes
+            partes=partes,
         )
 
     async def get_intimations_by_court(
@@ -81,7 +78,7 @@ class PJeAPIClient:
         data_disponibilizacao_fim: date | None = None,
         pagina: int = 1,
         itens_por_pagina: int = 100,
-    ) -> List[DomainIntimation]:
+    ) -> list[DomainIntimation]:
         """Fetch all intimations for a court with automatic pagination.
 
         Args:
@@ -94,7 +91,7 @@ class PJeAPIClient:
         Returns:
             List of validated DomainIntimation objects
         """
-        all_domain_intimations: List[DomainIntimation] = []
+        all_domain_intimations: list[DomainIntimation] = []
         current_page = pagina
 
         while True:
@@ -105,7 +102,9 @@ class PJeAPIClient:
             }
 
             if data_disponibilizacao_inicio:
-                params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime("%Y-%m-%d")
+                params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime(
+                    "%Y-%m-%d",
+                )
             if data_disponibilizacao_fim:
                 params["dataDisponibilizacaoFim"] = data_disponibilizacao_fim.strftime("%Y-%m-%d")
 
@@ -160,8 +159,8 @@ class PJeAPIClient:
             # Check if more pages based on items returned
             # If the API returns fewer items than requested, we're on the last page.
             if len(items) < itens_por_pagina:
-                 logger.info("last_page_fetched", total=len(all_domain_intimations))
-                 break
+                logger.info("last_page_fetched", total=len(all_domain_intimations))
+                break
 
             current_page += 1
 

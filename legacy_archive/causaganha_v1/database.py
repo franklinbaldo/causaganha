@@ -4,13 +4,14 @@ import logging
 import uuid  # For generating IDs
 from datetime import datetime  # Ensure datetime is imported for now()
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import duckdb
 import pandas as pd
 
 from causaganha_v1.config import load_config
 from causaganha_v1.models.diario import Diario
+
 
 # MigrationRunner will be imported in a dedicated migration function
 # from migration_runner import MigrationRunner
@@ -19,8 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    """
-    Manages database connections for DuckDB.
+    """Manages database connections for DuckDB.
 
     This class is responsible for establishing, providing, and closing database connections.
     It ensures that parent directories for the database file are created if they don't exist.
@@ -35,27 +35,23 @@ class DatabaseManager:
     """
 
     def __init__(self, db_path: Path, read_only: bool = False):
-        """
-        Initializes the DatabaseManager.
+        """Initializes the DatabaseManager.
 
         Args:
             db_path: The path to the DuckDB database file.
             read_only: If True, connections will be read-only. Defaults to False.
         """
         self.db_path = db_path
-        self._connection: Optional[duckdb.DuckDBPyConnection] = None
+        self._connection: duckdb.DuckDBPyConnection | None = None
         self.read_only = read_only
         self.is_testing_mode = False
 
         if not self.db_path.parent.exists():
-            logger.info(
-                f"Database directory {self.db_path.parent} does not exist. Creating it."
-            )
+            logger.info(f"Database directory {self.db_path.parent} does not exist. Creating it.")
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def connect(self) -> duckdb.DuckDBPyConnection:
-        """
-        Establishes and returns a database connection.
+        """Establishes and returns a database connection.
 
         If a connection object already exists, it's returned. Otherwise, a new
         connection is established.
@@ -72,11 +68,9 @@ class DatabaseManager:
 
         try:
             logger.debug(
-                f"Attempting to connect to database: {self.db_path}{' (read-only)' if self.read_only else ''}"
+                f"Attempting to connect to database: {self.db_path}{' (read-only)' if self.read_only else ''}",
             )
-            self._connection = duckdb.connect(
-                database=str(self.db_path), read_only=self.read_only
-            )
+            self._connection = duckdb.connect(database=str(self.db_path), read_only=self.read_only)
             logger.info(f"Successfully connected to database: {self.db_path}")
             return self._connection
         except Exception as e:
@@ -100,8 +94,7 @@ class DatabaseManager:
             logger.debug("No active database connection object to close.")
 
     def get_connection(self) -> duckdb.DuckDBPyConnection:
-        """
-        Returns an active database connection. Connects if no active connection exists.
+        """Returns an active database connection. Connects if no active connection exists.
 
         Returns:
             A DuckDBPyConnection object.
@@ -114,7 +107,7 @@ class DatabaseManager:
 
         if self._connection is None:
             logger.error(
-                "Database connection is None after connect() call sequence in get_connection."
+                "Database connection is None after connect() call sequence in get_connection.",
             )
             raise RuntimeError("Failed to establish a database connection.")
         return self._connection
@@ -124,8 +117,7 @@ class DatabaseManager:
         return self.get_connection()
 
     def health_check(self) -> bool:
-        """
-        Performs a simple query (SELECT 1) to check database health.
+        """Performs a simple query (SELECT 1) to check database health.
         Attempts to establish a connection if one is not active.
 
         Returns:
@@ -150,8 +142,7 @@ class DatabaseManager:
         self.close()
 
     def set_testing_mode(self, is_testing: bool) -> None:
-        """
-        Sets a flag for testing mode.
+        """Sets a flag for testing mode.
         Note: This flag is for use by other parts of the system and does not alter
         DatabaseManager's own connection behavior beyond logging a warning if changed
         while connected.
@@ -159,15 +150,12 @@ class DatabaseManager:
         self.is_testing_mode = is_testing
         if self._connection:
             logger.warning(
-                "Testing mode changed while a connection object exists. Reconnection may be needed for changes to take full effect if connection parameters depend on this mode."
+                "Testing mode changed while a connection object exists. Reconnection may be needed for changes to take full effect if connection parameters depend on this mode.",
             )
 
 
-def run_db_migrations(
-    db_path: Path, migrations_path_override: Optional[Path] = None
-) -> None:
-    """
-    Runs database migrations using MigrationRunner.
+def run_db_migrations(db_path: Path, migrations_path_override: Path | None = None) -> None:
+    """Runs database migrations using MigrationRunner.
 
     Args:
         db_path: Path to the DuckDB database file.
@@ -206,14 +194,13 @@ def run_db_migrations(
 
 
 class CausaGanhaDB:
-    """
-    Provides an API for interacting with the CausaGanha application database.
+    """Provides an API for interacting with the CausaGanha application database.
     """
 
     def __init__(
         self,
         db_manager: DatabaseManager = None,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
     ) -> None:
         # Allow passing a db_path directly for testing convenience
         if db_path is not None:
@@ -267,9 +254,7 @@ class CausaGanhaDB:
         # TODO: Implement a proper migration runner to replace 'migration_runner.py' stub.
 
         # Compute new ID
-        row = self.conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes"
-        ).fetchone()
+        row = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM decisoes").fetchone()
         new_id = row[0] if row else 1
         # Insert record
         self.conn.execute(
@@ -299,7 +284,7 @@ class CausaGanhaDB:
         return new_id
 
     def update_rating(
-        self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True
+        self, advogado_id: str, mu: float, sigma: float, increment_partidas: bool = True,
     ) -> None:
         """Updates an advogado's rating or inserts a new one if it doesn't exist."""
         # NOTE (Bruno Silva - Code Quality):
@@ -336,7 +321,7 @@ class CausaGanhaDB:
             """
         self.conn.execute(sql, [advogado_id, mu, sigma])
 
-    def get_rating(self, advogado_id: str) -> Optional[Dict[str, Any]]:
+    def get_rating(self, advogado_id: str) -> dict[str, Any] | None:
         result = self.conn.execute(
             "SELECT advogado_id, mu, sigma, total_partidas FROM ratings WHERE advogado_id = ?",
             [advogado_id],
@@ -354,13 +339,13 @@ class CausaGanhaDB:
         self,
         data_partida: str,
         numero_processo: str,
-        equipe_a_ids: List[str],
-        equipe_b_ids: List[str],
-        ratings_antes_a: Dict[str, Any],
-        ratings_antes_b: Dict[str, Any],
+        equipe_a_ids: list[str],
+        equipe_b_ids: list[str],
+        ratings_antes_a: dict[str, Any],
+        ratings_antes_b: dict[str, Any],
         resultado: str,
-        ratings_depois_a: Dict[str, Any],
-        ratings_depois_b: Dict[str, Any],
+        ratings_depois_a: dict[str, Any],
+        ratings_depois_b: dict[str, Any],
     ) -> int:
         # NOTE (Bruno Silva - Code Quality):
         # The 'partidas' table should use a database-native auto-incrementing primary key (e.g., IDENTITY or SERIAL).
@@ -368,7 +353,7 @@ class CausaGanhaDB:
         # and should be replaced by schema features handled via migrations.
         # TODO: Update schema in migrations and remove manual ID generation.
         max_id_result = self.conn.execute(
-            "SELECT COALESCE(MAX(id), 0) + 1 FROM partidas"
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM partidas",
         ).fetchone()
         next_id: int = 1
         if max_id_result and max_id_result[0] is not None:
@@ -391,7 +376,7 @@ class CausaGanhaDB:
         )
         return next_id
 
-    def get_partidas(self, limit: Optional[int] = None) -> pd.DataFrame:
+    def get_partidas(self, limit: int | None = None) -> pd.DataFrame:
         sql = "SELECT * FROM partidas ORDER BY data_partida DESC"
         if limit is not None:
             sql += f" LIMIT {limit}"
@@ -404,7 +389,7 @@ class CausaGanhaDB:
             logger.error(f"View 'ranking_atual' not found: {e}")
             return pd.DataFrame()
 
-    def get_statistics(self) -> Optional[Dict[str, Any]]:
+    def get_statistics(self) -> dict[str, Any] | None:
         try:
             result = self.conn.execute("SELECT * FROM estatisticas_gerais").fetchone()
             if not result:
@@ -446,15 +431,14 @@ class CausaGanhaDB:
             if output_path.is_dir() and list(output_path.glob("*.duckdb")):
                 logger.info(f"Snapshot exported to: {output_path}")
                 return True
-            else:
-                logger.error(f"Export to {output_path} failed or dir empty.")
-                return False
+            logger.error(f"Export to {output_path} failed or dir empty.")
+            return False
         except (duckdb.Error, OSError) as e:
             logger.error(f"Snapshot export failed for {output_path}: {e}")
             return False
 
-    def get_archive_statistics(self) -> Dict[str, Any]:
-        stats: Dict[str, Any] = self.get_statistics() or {}
+    def get_archive_statistics(self) -> dict[str, Any]:
+        stats: dict[str, Any] = self.get_statistics() or {}
         # ... (implementation as before) ...
         return stats
 
@@ -465,7 +449,7 @@ class CausaGanhaDB:
         except duckdb.Error as e:
             logger.error(f"Vacuum failed: {e}")
 
-    def get_db_info(self) -> Dict[str, Any]:
+    def get_db_info(self) -> dict[str, Any]:
         db_p = self.db_manager.db_path
         size_b = 0
         if db_p.exists():
@@ -480,8 +464,8 @@ class CausaGanhaDB:
             "tables": self._get_table_info(),
         }
 
-    def _get_table_info(self) -> Dict[str, Any]:
-        tbl_info: Dict[str, Any] = {}
+    def _get_table_info(self) -> dict[str, Any]:
+        tbl_info: dict[str, Any] = {}
         for tbl_n in [
             "ratings",
             "partidas",
@@ -505,20 +489,13 @@ class CausaGanhaDB:
 
             queue_item = diario_obj.queue_item
             required = ["url", "date", "tribunal", "status"]
-            if any(
-                field not in queue_item or queue_item[field] is None
-                for field in required
-            ):
+            if any(field not in queue_item or queue_item[field] is None for field in required):
                 logger.error(f"Missing critical field for {diario_obj.display_name}")
                 return False
 
             meta_str = json.dumps(queue_item.get("metadata", {}))
             date_val = queue_item.get("date")
-            date_str = (
-                date_val.isoformat()
-                if hasattr(date_val, "isoformat")
-                else str(date_val)
-            )
+            date_str = date_val.isoformat() if hasattr(date_val, "isoformat") else str(date_val)
 
             item_id = queue_item.get("id", uuid.uuid4().hex)
             current_time = datetime.now()
@@ -560,16 +537,14 @@ class CausaGanhaDB:
             return True
         except Exception as e:
             diario_name = (
-                diario_obj.display_name
-                if hasattr(diario_obj, "display_name")
-                else "unknown diario"
+                diario_obj.display_name if hasattr(diario_obj, "display_name") else "unknown diario"
             )
             logger.error(f"Error queuing diario {diario_name}: {e}", exc_info=True)
             if isinstance(e, duckdb.Error):
                 self.db_manager.close()
             return False
 
-    def get_diarios_by_status(self, status: str) -> List[Diario]:
+    def get_diarios_by_status(self, status: str) -> list[Diario]:
         try:
             rows = self.conn.execute(
                 """
@@ -579,7 +554,7 @@ class CausaGanhaDB:
                 FROM job_queue WHERE status = ? ORDER BY created_at ASC""",
                 [status],
             ).fetchall()
-            diarios_list: List[Any] = []
+            diarios_list: list[Any] = []
             for row_data in rows:
                 meta_dict = json.loads(row_data[5]) if row_data[5] else {}
                 # Pass all fields to from_queue_item, assuming it can handle them
@@ -607,28 +582,24 @@ class CausaGanhaDB:
             logger.info(f"Retrieved {len(diarios_list)} diarios with status '{status}'")
             return diarios_list
         except Exception as e:
-            logger.error(
-                f"Error retrieving diarios by status '{status}': {e}", exc_info=True
-            )
+            logger.error(f"Error retrieving diarios by status '{status}': {e}", exc_info=True)
             return []
 
     def update_diario_status(
-        self, diario_identifier: Union[Diario, str], new_status: str, **kwargs: Any
+        self, diario_identifier: Diario | str, new_status: str, **kwargs: Any,
     ) -> bool:
         try:
-            url_to_update: Optional[str] = None
+            url_to_update: str | None = None
             if hasattr(diario_identifier, "url") and diario_identifier.url:
                 url_to_update = diario_identifier.url
             elif isinstance(diario_identifier, str) and diario_identifier:
                 url_to_update = diario_identifier
             else:
-                logger.error(
-                    f"Invalid diario_identifier for status update: {diario_identifier}"
-                )
+                logger.error(f"Invalid diario_identifier for status update: {diario_identifier}")
                 return False
 
-            updates: List[str] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"]
-            params: List[Any] = [new_status]
+            updates: list[str] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"]
+            params: list[Any] = [new_status]
 
             mappings = {
                 "ia_identifier": "ia_identifier",
@@ -646,7 +617,7 @@ class CausaGanhaDB:
                         if key == "metadata"
                         else str(val)
                         if val is not None
-                        else None
+                        else None,
                     )
 
             query = f"UPDATE job_queue SET {', '.join(updates)} WHERE url = ?"
@@ -654,15 +625,12 @@ class CausaGanhaDB:
 
             result = self.conn.execute(query, params)
             if result.rowcount is not None and result.rowcount > 0:
-                logger.info(
-                    f"Updated diario {url_to_update} to status {new_status} with {kwargs}"
-                )
+                logger.info(f"Updated diario {url_to_update} to status {new_status} with {kwargs}")
                 return True
-            else:
-                logger.warning(
-                    f"No diario found for URL {url_to_update} to update (rowcount: {result.rowcount})."
-                )
-                return False
+            logger.warning(
+                f"No diario found for URL {url_to_update} to update (rowcount: {result.rowcount}).",
+            )
+            return False
         except Exception as e:
             logger.error(
                 f"Error updating diario status for {diario_identifier}: {e}",
@@ -670,13 +638,13 @@ class CausaGanhaDB:
             )
             return False
 
-    def get_diarios_by_tribunal(self, tribunal_code: str) -> List[Diario]:
+    def get_diarios_by_tribunal(self, tribunal_code: str) -> list[Diario]:
         try:
             rows = self.conn.execute(
                 "SELECT * FROM job_queue WHERE tribunal = ? ORDER BY date DESC, created_at DESC",
                 [tribunal_code],
             ).fetchall()
-            diarios_list: List[Any] = []
+            diarios_list: list[Any] = []
             for row_data in rows:
                 meta_dict = json.loads(row_data[5]) if row_data[5] else {}
                 q_data = {
@@ -699,9 +667,7 @@ class CausaGanhaDB:
                         f"Failed to create Diario from data for URL {row_data[1]} (tribunal {tribunal_code}): {e_diario}",
                         exc_info=True,
                     )
-            logger.info(
-                f"Retrieved {len(diarios_list)} diarios for tribunal '{tribunal_code}'"
-            )
+            logger.info(f"Retrieved {len(diarios_list)} diarios for tribunal '{tribunal_code}'")
             return diarios_list
         except Exception as e:
             logger.error(
@@ -710,8 +676,8 @@ class CausaGanhaDB:
             )
             return []
 
-    def get_diario_statistics(self) -> Dict[str, Any]:
-        stats: Dict[str, Any] = {
+    def get_diario_statistics(self) -> dict[str, Any]:
+        stats: dict[str, Any] = {
             "total_diarios": 0,
             "by_status": {},
             "by_tribunal": {},
@@ -722,15 +688,15 @@ class CausaGanhaDB:
             if res and res[0] is not None:
                 stats["total_diarios"] = int(res[0])
             res_status = self.conn.execute(
-                "SELECT status, COUNT(*) FROM job_queue GROUP BY status"
+                "SELECT status, COUNT(*) FROM job_queue GROUP BY status",
             ).fetchall()
             stats["by_status"] = {str(s): int(c) for s, c in res_status}
             res_trib = self.conn.execute(
-                "SELECT tribunal, COUNT(*) FROM job_queue GROUP BY tribunal"
+                "SELECT tribunal, COUNT(*) FROM job_queue GROUP BY tribunal",
             ).fetchall()
             stats["by_tribunal"] = {str(t): int(c) for t, c in res_trib}
             res_recent = self.conn.execute(
-                "SELECT COUNT(*) FROM job_queue WHERE created_at >= (CURRENT_DATE - INTERVAL '7 days')"
+                "SELECT COUNT(*) FROM job_queue WHERE created_at >= (CURRENT_DATE - INTERVAL '7 days')",
             ).fetchone()
             if res_recent and res_recent[0] is not None:
                 stats["recent_activity_7_days"] = int(res_recent[0])

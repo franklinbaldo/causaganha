@@ -1,6 +1,5 @@
 """Pydantic models for API responses"""
 
-
 from pydantic import BaseModel, ConfigDict, Field
 
 

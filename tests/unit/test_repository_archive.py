@@ -1,11 +1,11 @@
 """Comprehensive tests for repository archive functionality."""
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
+
 import ibis
+import pytest
 
 from causaganha.storage.repository import IntimationRepository
-from causaganha.domain.models import Intimation
 
 
 @pytest.fixture
@@ -109,10 +109,12 @@ class TestGetUnarchivedIntimations:
 
         # Fallback should work
         mock_filtered = MagicMock()
-        mock_table.filter = MagicMock(side_effect=[
-            AttributeError("ia_url"),
-            mock_filtered  # Second call succeeds (fallback)
-        ])
+        mock_table.filter = MagicMock(
+            side_effect=[
+                AttributeError("ia_url"),
+                mock_filtered,  # Second call succeeds (fallback)
+            ],
+        )
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 

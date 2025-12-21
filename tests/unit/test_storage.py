@@ -1,15 +1,15 @@
-"""
-Unit tests for Storage Layer
+"""Unit tests for Storage Layer
 """
 
-import pytest
-import ibis
+from datetime import date
+
 import pandas as pd
-from unittest.mock import MagicMock, patch
+import pytest
+
+from causaganha.domain.models import Intimation, Lawyer, Party
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
-from causaganha.domain.models import Intimation, Lawyer, Party
-from datetime import date
+
 
 @pytest.fixture
 def memory_db():
@@ -50,21 +50,22 @@ def memory_db():
     # just rely on `get_connection` behavior.
 
     # To properly test singleton, I need to check if multiple calls return the same object.
-    pass
 
     # For the fixture:
     con = get_connection(":memory:")
     # We need to initialize schema for tests
     from causaganha.storage.schema import create_schema
+
     create_schema(con)
 
-    yield con
+    return con
     # No teardown needed for :memory: as it's isolated per connection if not singleton?
     # If it becomes singleton, :memory: might be shared.
     # But `get_connection(":memory:")` usually returns a new DB unless cached.
     # If I implement singleton, it will cache based on path.
 
     # Let's fix the test code first to remove the attribute access that fails.
+
 
 def test_connection_singleton_behavior():
     """Test that get_connection returns the same instance for same path"""
@@ -93,8 +94,10 @@ def test_connection_singleton_behavior():
 
     # Clean up
     import os
+
     if os.path.exists("test_db.duckdb"):
         os.remove("test_db.duckdb")
+
 
 def test_schema_initialization(memory_db):
     """Test that tables are created on initialization"""
@@ -103,6 +106,7 @@ def test_schema_initialization(memory_db):
     assert "intimation_lawyers" in tables
     # The table name defined in schema_definitions.py is "analysis_results", not "decision_analysis"
     assert "analysis_results" in tables
+
 
 @pytest.mark.asyncio
 async def test_repository_save_intimation(memory_db):
@@ -122,12 +126,8 @@ async def test_repository_save_intimation(memory_db):
         nome_classe="Classe",
         hash="abc",
         status="P",
-        advogados=[
-            Lawyer(id=10, nome="Adv 1", numero_oab="123", uf_oab="RO")
-        ],
-        partes=[
-            Party(nome="Parte 1", polo="A")
-        ]
+        advogados=[Lawyer(id=10, nome="Adv 1", numero_oab="123", uf_oab="RO")],
+        partes=[Party(nome="Parte 1", polo="A")],
     )
 
     # The repository method might be async or sync.
@@ -161,6 +161,7 @@ async def test_repository_save_intimation(memory_db):
     assert len(result_l) == 1
     assert result_l.iloc[0]["oab_number"] == "123"
 
+
 @pytest.mark.asyncio
 async def test_repository_get_unanalyzed(memory_db):
     """Test retrieving unanalyzed intimations"""
@@ -181,11 +182,12 @@ async def test_repository_get_unanalyzed(memory_db):
     results = await repo.get_unanalyzed_intimations(limit=10)
 
     assert len(results) >= 1
-    ids = [i['id'] for i in results]
+    ids = [i["id"] for i in results]
     assert 2 in ids
     assert 1 not in ids
     # If logic skips null links:
     # assert 3 not in ids
+
 
 @pytest.mark.asyncio
 async def test_repository_save_intimation_sets_defaults(memory_db):
@@ -206,7 +208,7 @@ async def test_repository_save_intimation_sets_defaults(memory_db):
         hash="abc",
         status="P",
         advogados=[],
-        partes=[]
+        partes=[],
     )
 
     await repo.store_intimations([intimation])

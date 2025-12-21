@@ -2,25 +2,25 @@ import base64
 import json
 import os
 import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 import structlog
-from google.cloud import pubsub_v1
-# Optional: Cloud Tasks
-from google.cloud import tasks_v2
-from google.protobuf import timestamp_pb2
-from google.cloud import firestore
 
+# Optional: Cloud Tasks
+from google.cloud import firestore, tasks_v2
+from google.protobuf import timestamp_pb2
+
+from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.cloud.db import (
+    COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
-    COLLECTION_NAME,
 )
 from causaganha.services.archive import InternetArchiveService, LocalArchiveService
-import httpx
-from causaganha.analysis.analyzer import DecisionAnalyzer
+
 
 logger = structlog.get_logger()
 
@@ -30,32 +30,34 @@ REGION = os.getenv("GCP_REGION", "us-central1")
 QUEUE_NAME = os.getenv("TASKS_QUEUE", "llm-retry-queue")
 FUNCTION_URL = os.getenv("FUNCTION_URL", "https://region-project.cloudfunctions.net/llm_worker")
 
+
 async def schedule_retry(doc_key: str, attempt: int):
     """Schedules a retry using Cloud Tasks."""
     client = tasks_v2.CloudTasksClient()
     parent = client.queue_path(PROJECT_ID, REGION, QUEUE_NAME)
 
     # Backoff: 5m, 15m, 60m...
-    delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
-    if delay_seconds > 86400: # Max 24h
+    delay_seconds = 300 * (3 ** (attempt - 1))  # 5m, 15m, 45m
+    if delay_seconds > 86400:  # Max 24h
         delay_seconds = 86400
 
     run_at = timestamp_pb2.Timestamp()
-    run_at.FromDatetime(datetime.now(timezone.utc) + timedelta(seconds=delay_seconds))
+    run_at.FromDatetime(datetime.now(UTC) + timedelta(seconds=delay_seconds))
 
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
-            "url": FUNCTION_URL, # The HTTP trigger for this worker
+            "url": FUNCTION_URL,  # The HTTP trigger for this worker
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"docKey": doc_key, "retry": True}).encode()
+            "body": json.dumps({"docKey": doc_key, "retry": True}).encode(),
         },
-        "schedule_time": run_at
+        "schedule_time": run_at,
     }
 
     # Let exceptions propagate so caller can handle
     client.create_task(request={"parent": parent, "task": task})
     logger.info("retry_scheduled", doc_key=doc_key, delay=delay_seconds)
+
 
 async def process_llm(doc_key: str):
     logger.info("llm_worker_start", doc_key=doc_key)
@@ -91,13 +93,13 @@ async def process_llm(doc_key: str):
             pdf_bytes = resp.content
 
         # 3. Call Gemini
-        analyzer = DecisionAnalyzer() # Picks up env vars
+        analyzer = DecisionAnalyzer()  # Picks up env vars
         result = await analyzer.analyze_decision(pdf_bytes)
 
         # 4. Save LLM output
         # To /tmp
         result_json = result.model_dump_json(indent=2)
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".json", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             tmp.write(result_json)
             tmp_path = Path(tmp.name)
 
@@ -111,17 +113,14 @@ async def process_llm(doc_key: str):
             await archive_service.upload_file(
                 file_path=tmp_path,
                 item_id=ia_identifier,
-                metadata={"docKey": doc_key, "type": "llm_result"}
+                metadata={"docKey": doc_key, "type": "llm_result"},
             )
         finally:
-             if tmp_path.exists():
+            if tmp_path.exists():
                 os.unlink(tmp_path)
 
         # 5. Mark Done
-        await doc_ref.update({
-            "status": "llm_done",
-            "updated_at": firestore.SERVER_TIMESTAMP
-        })
+        await doc_ref.update({"status": "llm_done", "updated_at": firestore.SERVER_TIMESTAMP})
         logger.info("llm_complete", doc_key=doc_key)
 
     except Exception as e:
@@ -132,12 +131,12 @@ async def process_llm(doc_key: str):
         try:
             await schedule_retry(doc_key, data.get("attempts", {}).get("llm", 0) + 1)
         except Exception as retry_err:
-             logger.error("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
-             raise e # Raise original error to NACK
+            logger.error("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
+            raise e  # Raise original error to NACK
+
 
 async def llm_worker(event: dict | Any, context: Any = None) -> None:
-    """
-    Pub/Sub trigger (or HTTP if called by Cloud Tasks).
+    """Pub/Sub trigger (or HTTP if called by Cloud Tasks).
     Analyzes PDF with Gemini and uploads result.
 
     Handles both:

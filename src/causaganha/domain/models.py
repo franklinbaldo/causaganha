@@ -1,7 +1,6 @@
 """Domain entities for CausaGanha."""
 
 from datetime import date
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -27,20 +26,20 @@ class Intimation(BaseModel):
 
     id: int
     numero_processo: str
-    numero_processo_formatado: Optional[str] = None
+    numero_processo_formatado: str | None = None
     data_disponibilizacao: date
     sigla_tribunal: str
-    id_orgao: Optional[int] = None
+    id_orgao: int | None = None
     tipo_comunicacao: str
     nome_orgao: str
     texto: str
-    link: Optional[str] = None  # TDD: Some intimations may not have download links
+    link: str | None = None  # TDD: Some intimations may not have download links
     tipo_documento: str
     nome_classe: str
-    codigo_classe: Optional[str] = None
+    codigo_classe: str | None = None
     hash: str
-    status: Optional[str] = None
+    status: str | None = None
 
     # Relationships
-    advogados: List[Lawyer] = Field(default_factory=list)
-    partes: List[Party] = Field(default_factory=list)
+    advogados: list[Lawyer] = Field(default_factory=list)
+    partes: list[Party] = Field(default_factory=list)

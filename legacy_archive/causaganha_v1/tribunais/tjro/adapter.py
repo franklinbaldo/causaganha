@@ -1,5 +1,4 @@
-"""
-Complete TJRO tribunal adapter.
+"""Complete TJRO tribunal adapter.
 
 This provides a unified interface for all TJRO operations
 using the new Diario dataclass system.

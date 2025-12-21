@@ -1,14 +1,16 @@
 import sys
 from pathlib import Path
+
 import duckdb
-import pytest
+
 
 # Ensure scripts is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
 from causaganha.storage.connection import get_connection
 from causaganha.storage.schema import create_schema
+from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
+
 
 def test_parse_lawyer_id():
     name, oab, state = parse_v1_lawyer_id("FRANKLIN SILVEIRA BALDO (OAB/RO 5733)")
@@ -24,11 +26,14 @@ def test_parse_lawyer_id():
     name, oab, state = parse_v1_lawyer_id("INVALID ID")
     assert name is None
 
+
 def test_migrate_ratings(tmp_path: Path):
     # Setup V1 DB
     v1_db_path = tmp_path / "v1_test.duckdb"
     v1_con = duckdb.connect(str(v1_db_path))
-    v1_con.execute("CREATE TABLE ratings (advogado_id VARCHAR, mu DOUBLE, sigma DOUBLE, total_partidas INTEGER, created_at TIMESTAMP, updated_at TIMESTAMP)")
+    v1_con.execute(
+        "CREATE TABLE ratings (advogado_id VARCHAR, mu DOUBLE, sigma DOUBLE, total_partidas INTEGER, created_at TIMESTAMP, updated_at TIMESTAMP)",
+    )
 
     # Insert sample V1 data
     # Include NULL values to test robustness
@@ -71,4 +76,5 @@ def test_migrate_ratings(tmp_path: Path):
     assert l3["lawyer_name"] == "LAWYER THREE"
     # DuckDB/Pandas handles NULL as NaN for floats
     import math
+
     assert math.isnan(l3["mu"])

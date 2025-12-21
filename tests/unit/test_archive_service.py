@@ -1,7 +1,7 @@
 """Tests for Internet Archive service."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -28,11 +28,7 @@ class TestUploadFileValidation:
     @pytest.mark.asyncio
     async def test_validates_file_exists(self, ia_service):
         """Should raise/return None if file doesn't exist."""
-        result = await ia_service.upload_file(
-            Path("/nonexistent/file.pdf"),
-            "test-item",
-            {}
-        )
+        result = await ia_service.upload_file(Path("/nonexistent/file.pdf"), "test-item", {})
         assert result is None
 
     @pytest.mark.asyncio
@@ -46,11 +42,7 @@ class TestUploadFileValidation:
         # No, upload_file catches Exception and logs it.
 
         with patch.object(ia_service, "_sync_upload", side_effect=ValueError("Invalid item ID")):
-            result = await ia_service.upload_file(
-                temp_file,
-                "invalid item id with spaces",
-                {}
-            )
+            result = await ia_service.upload_file(temp_file, "invalid item id with spaces", {})
             assert result is None
 
     @pytest.mark.asyncio
@@ -60,12 +52,10 @@ class TestUploadFileValidation:
         large_file = tmp_path / "large.pdf"
         large_file.write_bytes(b"x" * (1024 * 1024))  # 1MB just for speed, TDD had 100MB
 
-        with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
-            result = await ia_service.upload_file(
-                large_file,
-                "test-item",
-                {}
-            )
+        with patch.object(
+            ia_service, "_sync_upload", return_value="https://archive.org/details/test",
+        ):
+            result = await ia_service.upload_file(large_file, "test-item", {})
             # Should handle large files
             assert result is not None
 
@@ -76,15 +66,13 @@ class TestUploadFileValidation:
         required_metadata = {
             "collection": "opensource",
             "mediatype": "texts",
-            "title": "Test Document"
+            "title": "Test Document",
         }
 
-        with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
-            result = await ia_service.upload_file(
-                temp_file,
-                "test-item",
-                required_metadata
-            )
+        with patch.object(
+            ia_service, "_sync_upload", return_value="https://archive.org/details/test",
+        ):
+            result = await ia_service.upload_file(temp_file, "test-item", required_metadata)
             assert result is not None
 
 
@@ -100,14 +88,10 @@ class TestUploadResilience:
             side_effect=[
                 ConnectionError("Network error"),
                 ConnectionError("Network error"),
-                "https://archive.org/details/test"  # Success on 3rd try
-            ]
+                "https://archive.org/details/test",  # Success on 3rd try
+            ],
         ):
-            result = await ia_service.upload_file(
-                temp_file,
-                "test-item",
-                {}
-            )
+            result = await ia_service.upload_file(temp_file, "test-item", {})
             # Should eventually succeed after retries
             assert result == "https://archive.org/details/test"
 
@@ -116,29 +100,20 @@ class TestUploadResilience:
         """Should give up after maximum retry attempts."""
         # Default retries is 3
         with patch.object(
-            ia_service,
-            "_sync_upload",
-            side_effect=ConnectionError("Persistent error")
+            ia_service, "_sync_upload", side_effect=ConnectionError("Persistent error"),
         ):
-            result = await ia_service.upload_file(
-                temp_file,
-                "test-item",
-                {}
-            )
+            result = await ia_service.upload_file(temp_file, "test-item", {})
             # Should return None after exhausting retries
             assert result is None
 
     @pytest.mark.asyncio
     async def test_logs_upload_progress(self, ia_service, temp_file):
         """Should log upload progress for monitoring."""
-        with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
-            with patch("causaganha.services.archive.logger") as mock_logger:
-                await ia_service.upload_file(
-                    temp_file,
-                    "test-item",
-                    {"title": "Test"}
-                )
-                assert mock_logger.info.called or mock_logger.debug.called
+        with patch.object(
+            ia_service, "_sync_upload", return_value="https://archive.org/details/test",
+        ), patch("causaganha.services.archive.logger") as mock_logger:
+            await ia_service.upload_file(temp_file, "test-item", {"title": "Test"})
+            assert mock_logger.info.called or mock_logger.debug.called
 
     @pytest.mark.asyncio
     async def test_upload_no_retry_on_fatal_error(self, ia_service, temp_file):
@@ -147,11 +122,7 @@ class TestUploadResilience:
         mock_sync_upload = MagicMock(side_effect=ValueError("Invalid data"))
 
         with patch.object(ia_service, "_sync_upload", side_effect=mock_sync_upload) as mock_method:
-            result = await ia_service.upload_file(
-                temp_file,
-                "test-item",
-                {"title": "Test"}
-            )
+            result = await ia_service.upload_file(temp_file, "test-item", {"title": "Test"})
 
             assert result is None
             assert mock_method.call_count == 1  # Should stop after first error
@@ -181,7 +152,6 @@ class TestCheckItemExists:
         # So we expect this to call API twice if we don't mock it differently.
         # If we want to clean tests, we should remove this test or mark it as expected failure/skipped until caching is added.
         # I'll remove it for now as it tests non-existent functionality.
-        pass
 
 
 class TestMetadataGeneration:
@@ -193,7 +163,7 @@ class TestMetadataGeneration:
             "id": "test-123",
             "numero_processo": "1234567-89.2024.8.22.0001",
             "data_disponibilizacao": "2024-01-15",
-            "sigla_tribunal": "TJRO"
+            "sigla_tribunal": "TJRO",
         }
 
         expected_metadata = {
@@ -203,7 +173,7 @@ class TestMetadataGeneration:
             "date": "2024-01-15",
             "creator": "CausaGanha",
             "subject": ["judicial", "tjro", "brazil"],
-            "description": "Intimação judicial do processo 1234567-89.2024.8.22.0001"
+            "description": "Intimação judicial do processo 1234567-89.2024.8.22.0001",
         }
 
         metadata = ia_service.generate_metadata(intimation_data)
@@ -222,11 +192,7 @@ class TestServiceConfiguration:
 
     def test_respects_custom_upload_settings(self):
         """Should allow custom upload settings."""
-        custom_settings = {
-            "retries": 5,
-            "retries_sleep": 10,
-            "timeout": 300
-        }
+        custom_settings = {"retries": 5, "retries_sleep": 10, "timeout": 300}
 
         service = InternetArchiveService(upload_settings=custom_settings)
         assert service.upload_settings["retries"] == 5

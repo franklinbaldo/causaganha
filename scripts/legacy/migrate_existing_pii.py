@@ -3,13 +3,14 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from causaganha_v1.database import CausaGanhaDB
 from causaganha_v1.pii_manager import PiiManager
 from causaganha_v1.utils import (
     normalize_lawyer_name,
 )  # For consistency if needed, though PiiManager handles normalization internally based on type
+
 
 # Add project root to sys.path
 project_root = Path(__file__).resolve().parent.parent
@@ -27,15 +28,13 @@ logger = logging.getLogger(__name__)
 # --- Helper Functions ---
 
 
-def migrate_ratings_table(
-    db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False
-):
+def migrate_ratings_table(db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False):
     logger.info("Starting migration for 'ratings' table...")
     try:
         # Fetch all existing ratings. Assuming advogado_id is currently the normalized name.
         # Using a direct query to get all rows as tuples/lists
         current_ratings_data = db.conn.execute(
-            "SELECT advogado_id, mu, sigma, total_partidas FROM ratings"
+            "SELECT advogado_id, mu, sigma, total_partidas FROM ratings",
         ).fetchall()
         logger.info(f"Found {len(current_ratings_data)} records in 'ratings' table.")
 
@@ -46,14 +45,12 @@ def migrate_ratings_table(
         new_ratings_to_insert = []
         processed_original_ids = set()
 
-        for i, (original_adv_id, mu, sigma, total_partidas) in enumerate(
-            current_ratings_data
-        ):
+        for i, (original_adv_id, mu, sigma, total_partidas) in enumerate(current_ratings_data):
             if (
                 original_adv_id in processed_original_ids
             ):  # Should not happen if adv_id is PK, but good check
                 logger.warning(
-                    f"Duplicate original_adv_id '{original_adv_id}' found in ratings. Skipping subsequent entry."
+                    f"Duplicate original_adv_id '{original_adv_id}' found in ratings. Skipping subsequent entry.",
                 )
                 continue
 
@@ -69,18 +66,18 @@ def migrate_ratings_table(
             processed_original_ids.add(original_adv_id)
             if (i + 1) % 100 == 0:
                 logger.info(
-                    f"Processed {i + 1}/{len(current_ratings_data)} ratings for UUID mapping..."
+                    f"Processed {i + 1}/{len(current_ratings_data)} ratings for UUID mapping...",
                 )
 
         if not dry_run:
             logger.info(
-                "Deleting all existing records from 'ratings' table before re-inserting with UUIDs..."
+                "Deleting all existing records from 'ratings' table before re-inserting with UUIDs...",
             )
             db.conn.execute("DELETE FROM ratings")
             logger.info("All records deleted from 'ratings'.")
 
             logger.info(
-                f"Re-inserting {len(new_ratings_to_insert)} records into 'ratings' with UUIDs as advogado_id..."
+                f"Re-inserting {len(new_ratings_to_insert)} records into 'ratings' with UUIDs as advogado_id...",
             )
             # Batch insert if possible, or one by one
             # The `update_rating` method in CausaGanhaDB handles insert if not exists.
@@ -95,10 +92,10 @@ def migrate_ratings_table(
             logger.info("Successfully re-inserted records into 'ratings' with UUIDs.")
         else:
             logger.info(
-                f"DRY-RUN: Would delete {len(current_ratings_data)} records from 'ratings'."
+                f"DRY-RUN: Would delete {len(current_ratings_data)} records from 'ratings'.",
             )
             logger.info(
-                f"DRY-RUN: Would re-insert {len(new_ratings_to_insert)} records into 'ratings' with UUIDs."
+                f"DRY-RUN: Would re-insert {len(new_ratings_to_insert)} records into 'ratings' with UUIDs.",
             )
 
         logger.info("Migration for 'ratings' table completed.")
@@ -108,54 +105,44 @@ def migrate_ratings_table(
         raise
 
 
-def migrate_decisoes_table(
-    db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False
-):
+def migrate_decisoes_table(db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False):
     logger.info("Starting migration for 'decisoes' table...")
     # Fetch all decisions row by row to manage memory, get 'id' for updates
     # This assumes 'id' is the primary key of 'decisoes'
     try:
         decision_ids = [
-            row[0]
-            for row in db.conn.execute("SELECT id FROM decisoes ORDER BY id").fetchall()
+            row[0] for row in db.conn.execute("SELECT id FROM decisoes ORDER BY id").fetchall()
         ]
         total_decisions = len(decision_ids)
         logger.info(f"Found {total_decisions} records in 'decisoes' table to migrate.")
 
         if not total_decisions:
-            logger.info(
-                "'decisoes' table is empty or no IDs found. No migration needed."
-            )
+            logger.info("'decisoes' table is empty or no IDs found. No migration needed.")
             return
 
         for i, record_id in enumerate(decision_ids):
             row_data_tuple = db.conn.execute(
-                "SELECT * FROM decisoes WHERE id = ?", (record_id,)
+                "SELECT * FROM decisoes WHERE id = ?", (record_id,),
             ).fetchone()
             if not row_data_tuple:
-                logger.warning(
-                    f"Could not fetch data for decisoes.id = {record_id}. Skipping."
-                )
+                logger.warning(f"Could not fetch data for decisoes.id = {record_id}. Skipping.")
                 continue
 
             # Get column names to map tuple to dict
             colnames = [desc[0] for desc in db.conn.description]
             row = dict(zip(colnames, row_data_tuple))
 
-            logger.info(
-                f"Migrating decisoes.id = {row['id']} ({i + 1}/{total_decisions}) ..."
-            )
+            logger.info(f"Migrating decisoes.id = {row['id']} ({i + 1}/{total_decisions}) ...")
 
-            updates: Dict[str, Any] = {}
+            updates: dict[str, Any] = {}
 
             # 1. numero_processo
             if (
-                row.get("numero_processo")
-                and "uuid" not in str(row.get("numero_processo")).lower()
+                row.get("numero_processo") and "uuid" not in str(row.get("numero_processo")).lower()
             ):  # Avoid re-processing if it looks like a UUID already
                 original_np = str(row["numero_processo"])
                 updates["numero_processo"] = pii_manager.get_or_create_pii_mapping(
-                    original_np, "CASE_NUMBER", original_np
+                    original_np, "CASE_NUMBER", original_np,
                 )
 
             # 2. JSON fields: polo_ativo, polo_passivo, advogados_polo_ativo, advogados_polo_passivo
@@ -179,7 +166,7 @@ def migrate_decisoes_table(
                         original_list = json.loads(json_str)
                         if not isinstance(original_list, list):
                             logger.warning(
-                                f"Field {key} in decisoes.id {row['id']} is not a JSON list. Skipping PII replacement for it. Value: {json_str[:100]}"
+                                f"Field {key} in decisoes.id {row['id']} is not a JSON list. Skipping PII replacement for it. Value: {json_str[:100]}",
                             )
                             continue
 
@@ -191,9 +178,7 @@ def migrate_decisoes_table(
 
                             # For lawyers, we also ensure their normalized ID is in pii_decode_map
                             if id_type == "LAWYER_ID_NORMALIZED":
-                                normalized_lawyer_id = normalize_lawyer_name(
-                                    item_str_clean
-                                )
+                                normalized_lawyer_id = normalize_lawyer_name(item_str_clean)
                                 if normalized_lawyer_id:
                                     pii_manager.get_or_create_pii_mapping(
                                         normalized_lawyer_id,
@@ -204,13 +189,13 @@ def migrate_decisoes_table(
                             # All items are mapped using their respective PII type
                             uuid_list.append(
                                 pii_manager.get_or_create_pii_mapping(
-                                    item_str_clean, pii_type, item_str_clean
-                                )
+                                    item_str_clean, pii_type, item_str_clean,
+                                ),
                             )
                         updates[key] = json.dumps(uuid_list)
                     except json.JSONDecodeError:
                         logger.warning(
-                            f"Failed to parse JSON for field {key} in decisoes.id {row['id']}. Value: {json_str[:100]}"
+                            f"Failed to parse JSON for field {key} in decisoes.id {row['id']}. Value: {json_str[:100]}",
                         )
                     except Exception as e_json:
                         logger.error(
@@ -226,12 +211,10 @@ def migrate_decisoes_table(
                     raw_data = json.loads(raw_json_str)
                     # This is a simplified replacement. A more robust solution would use json path based replacement.
                     if raw_data.get("numero_processo"):
-                        raw_data["numero_processo"] = (
-                            pii_manager.get_or_create_pii_mapping(
-                                str(raw_data["numero_processo"]),
-                                "CASE_NUMBER",
-                                str(raw_data["numero_processo"]),
-                            )
+                        raw_data["numero_processo"] = pii_manager.get_or_create_pii_mapping(
+                            str(raw_data["numero_processo"]),
+                            "CASE_NUMBER",
+                            str(raw_data["numero_processo"]),
                         )
 
                     for polo_key in ["polo_ativo", "polo_passivo"]:
@@ -242,7 +225,7 @@ def migrate_decisoes_table(
                             if isinstance(polo_list, list):
                                 raw_data[polo_key] = [
                                     pii_manager.get_or_create_pii_mapping(
-                                        str(name), "PARTY_NAME", str(name)
+                                        str(name), "PARTY_NAME", str(name),
                                     )
                                     for name in polo_list
                                     if name and str(name).strip()
@@ -263,7 +246,7 @@ def migrate_decisoes_table(
                                     norm_id = normalize_lawyer_name(adv_name_str_clean)
                                     if norm_id:
                                         pii_manager.get_or_create_pii_mapping(
-                                            norm_id, "LAWYER_ID_NORMALIZED", norm_id
+                                            norm_id, "LAWYER_ID_NORMALIZED", norm_id,
                                         )
                                     # Store full string UUID in raw_json_data
                                     temp_adv_uuids.append(
@@ -271,13 +254,13 @@ def migrate_decisoes_table(
                                             adv_name_str_clean,
                                             "LAWYER_FULL_STRING",
                                             adv_name_str_clean,
-                                        )
+                                        ),
                                     )
                                 raw_data[adv_key] = temp_adv_uuids
                     updates["raw_json_data"] = json.dumps(raw_data)
                 except json.JSONDecodeError:
                     logger.warning(
-                        f"Failed to parse JSON for raw_json_data in decisoes.id {row['id']}. Value: {raw_json_str[:100]}"
+                        f"Failed to parse JSON for raw_json_data in decisoes.id {row['id']}. Value: {raw_json_str[:100]}",
                     )
                 except Exception as e_rawjson:
                     logger.error(
@@ -286,12 +269,10 @@ def migrate_decisoes_table(
                     )
 
             if updates and not dry_run:
-                set_clauses = ", ".join([f"{k} = ?" for k in updates.keys()])
+                set_clauses = ", ".join([f"{k} = ?" for k in updates])
                 params = list(updates.values()) + [row["id"]]
                 try:
-                    db.conn.execute(
-                        f"UPDATE decisoes SET {set_clauses} WHERE id = ?", params
-                    )
+                    db.conn.execute(f"UPDATE decisoes SET {set_clauses} WHERE id = ?", params)
                 except Exception as e_update:
                     logger.error(
                         f"Failed to update decisoes.id {row['id']}: {e_update}",
@@ -300,7 +281,7 @@ def migrate_decisoes_table(
 
             elif updates and dry_run:
                 logger.info(
-                    f"DRY-RUN: Would update decisoes.id {row['id']} with {len(updates)} changes."
+                    f"DRY-RUN: Would update decisoes.id {row['id']} with {len(updates)} changes.",
                 )
 
         if not dry_run:
@@ -311,15 +292,12 @@ def migrate_decisoes_table(
         raise
 
 
-def migrate_partidas_table(
-    db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False
-):
+def migrate_partidas_table(db: CausaGanhaDB, pii_manager: PiiManager, dry_run: bool = False):
     logger.info("Starting migration for 'partidas' table...")
     try:
         # Fetch all partidas, identified by 'id'
         partida_ids = [
-            row[0]
-            for row in db.conn.execute("SELECT id FROM partidas ORDER BY id").fetchall()
+            row[0] for row in db.conn.execute("SELECT id FROM partidas ORDER BY id").fetchall()
         ]
         total_partidas = len(partida_ids)
         logger.info(f"Found {total_partidas} records in 'partidas' table to migrate.")
@@ -330,30 +308,23 @@ def migrate_partidas_table(
 
         for i, record_id in enumerate(partida_ids):
             row_data_tuple = db.conn.execute(
-                "SELECT * FROM partidas WHERE id = ?", (record_id,)
+                "SELECT * FROM partidas WHERE id = ?", (record_id,),
             ).fetchone()
             if not row_data_tuple:
-                logger.warning(
-                    f"Could not fetch data for partidas.id = {record_id}. Skipping."
-                )
+                logger.warning(f"Could not fetch data for partidas.id = {record_id}. Skipping.")
                 continue
 
             colnames = [desc[0] for desc in db.conn.description]
             row = dict(zip(colnames, row_data_tuple))
 
-            logger.info(
-                f"Migrating partidas.id = {row['id']} ({i + 1}/{total_partidas}) ..."
-            )
-            updates: Dict[str, Any] = {}
+            logger.info(f"Migrating partidas.id = {row['id']} ({i + 1}/{total_partidas}) ...")
+            updates: dict[str, Any] = {}
 
             # 1. numero_processo
-            if (
-                row.get("numero_processo")
-                and "uuid" not in str(row.get("numero_processo")).lower()
-            ):
+            if row.get("numero_processo") and "uuid" not in str(row.get("numero_processo")).lower():
                 original_np = str(row["numero_processo"])
                 updates["numero_processo"] = pii_manager.get_or_create_pii_mapping(
-                    original_np, "CASE_NUMBER", original_np
+                    original_np, "CASE_NUMBER", original_np,
                 )
 
             # 2. equipe_a_ids, equipe_b_ids (JSON list of normalized lawyer names)
@@ -364,13 +335,13 @@ def migrate_partidas_table(
                         original_list = json.loads(json_str)
                         if not isinstance(original_list, list):
                             logger.warning(
-                                f"Field {key} in partidas.id {row['id']} is not a JSON list. Skipping PII replacement. Value: {json_str[:100]}"
+                                f"Field {key} in partidas.id {row['id']} is not a JSON list. Skipping PII replacement. Value: {json_str[:100]}",
                             )
                             continue
                         # These are normalized lawyer names, map them to LAWYER_ID_NORMALIZED UUIDs
                         uuid_list = [
                             pii_manager.get_or_create_pii_mapping(
-                                str(norm_name), "LAWYER_ID_NORMALIZED", str(norm_name)
+                                str(norm_name), "LAWYER_ID_NORMALIZED", str(norm_name),
                             )
                             for norm_name in original_list
                             if norm_name and str(norm_name).strip()
@@ -378,7 +349,7 @@ def migrate_partidas_table(
                         updates[key] = json.dumps(uuid_list)
                     except json.JSONDecodeError:
                         logger.warning(
-                            f"Failed to parse JSON for field {key} in partidas.id {row['id']}. Value: {json_str[:100]}"
+                            f"Failed to parse JSON for field {key} in partidas.id {row['id']}. Value: {json_str[:100]}",
                         )
                     except Exception as e_json_eq:
                         logger.error(
@@ -399,7 +370,7 @@ def migrate_partidas_table(
                         original_dict = json.loads(json_str)
                         if not isinstance(original_dict, dict):
                             logger.warning(
-                                f"Field {key} in partidas.id {row['id']} is not a JSON dict. Skipping PII replacement. Value: {json_str[:100]}"
+                                f"Field {key} in partidas.id {row['id']} is not a JSON dict. Skipping PII replacement. Value: {json_str[:100]}",
                             )
                             continue
 
@@ -415,7 +386,7 @@ def migrate_partidas_table(
                         updates[key] = json.dumps(uuid_keyed_dict)
                     except json.JSONDecodeError:
                         logger.warning(
-                            f"Failed to parse JSON for field {key} in partidas.id {row['id']}. Value: {json_str[:100]}"
+                            f"Failed to parse JSON for field {key} in partidas.id {row['id']}. Value: {json_str[:100]}",
                         )
                     except Exception as e_json_ratings:
                         logger.error(
@@ -424,12 +395,10 @@ def migrate_partidas_table(
                         )
 
             if updates and not dry_run:
-                set_clauses = ", ".join([f"{k} = ?" for k in updates.keys()])
+                set_clauses = ", ".join([f"{k} = ?" for k in updates])
                 params = list(updates.values()) + [row["id"]]
                 try:
-                    db.conn.execute(
-                        f"UPDATE partidas SET {set_clauses} WHERE id = ?", params
-                    )
+                    db.conn.execute(f"UPDATE partidas SET {set_clauses} WHERE id = ?", params)
                 except Exception as e_update_partida:
                     logger.error(
                         f"Failed to update partidas.id {row['id']}: {e_update_partida}",
@@ -438,7 +407,7 @@ def migrate_partidas_table(
 
             elif updates and dry_run:
                 logger.info(
-                    f"DRY-RUN: Would update partidas.id {row['id']} with {len(updates)} changes."
+                    f"DRY-RUN: Would update partidas.id {row['id']} with {len(updates)} changes.",
                 )
 
         if not dry_run:
@@ -484,7 +453,7 @@ def main():
         confirm = input(
             f"WARNING: This script will modify the database '{args.db_path}' in place.\n"
             "It is STRONGLY recommended to backup your database before proceeding.\n"
-            "Type 'YES_MIGRATE_PII' to continue: "
+            "Type 'YES_MIGRATE_PII' to continue: ",
         )
         if confirm != "YES_MIGRATE_PII":
             logger.info("Migration aborted by user.")
@@ -505,9 +474,11 @@ def main():
             logger.info("Beginning database transaction for PII migration.")
             try:
                 db.conn.begin()  # Explicit transaction start
-            except Exception as e_tx_begin:  # DuckDB might autocommit or handle transactions differently
+            except (
+                Exception
+            ) as e_tx_begin:  # DuckDB might autocommit or handle transactions differently
                 logger.warning(
-                    f"Could not explicitly begin transaction (may be normal for DuckDB): {e_tx_begin}"
+                    f"Could not explicitly begin transaction (may be normal for DuckDB): {e_tx_begin}",
                 )
 
         tables_to_migrate = args.tables

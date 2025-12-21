@@ -7,7 +7,7 @@ import sys
 def run_security_audit() -> int:
     """Execute pip-audit and return the exit code."""
     try:
-        result = subprocess.run(["pip-audit"], capture_output=True, text=True)
+        result = subprocess.run(["pip-audit"], check=False, capture_output=True, text=True)
         print(result.stdout)
         if result.stderr:
             print(result.stderr, file=sys.stderr)

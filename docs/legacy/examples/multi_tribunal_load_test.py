@@ -2,6 +2,7 @@
 
 import subprocess
 
+
 TRIBUNALS = ["TJRO", "TJSP", "TJMG"]
 
 

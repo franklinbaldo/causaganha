@@ -5,13 +5,10 @@ from typing import Any
 
 import structlog
 from google.cloud import pubsub_v1
+
 from causaganha.api.client import PJeAPIClient
-from causaganha.cloud.db import (
-    DocState,
-    compute_doc_key,
-    get_firestore_client,
-    COLLECTION_NAME
-)
+from causaganha.cloud.db import COLLECTION_NAME, DocState, compute_doc_key, get_firestore_client
+
 
 logger = structlog.get_logger()
 
@@ -19,9 +16,9 @@ logger = structlog.get_logger()
 TOPIC_INGEST = os.getenv("TOPIC_INGEST", "projects/my-project/topics/ingest")
 LOOKBACK_DAYS = int(os.getenv("LOOKBACK_DAYS", "1"))
 
+
 async def scheduler_tick(request: Any) -> str:
-    """
-    Cloud Scheduler trigger.
+    """Cloud Scheduler trigger.
     Fetches new intimations and queues them for ingestion.
     """
     logger.info("scheduler_tick_start")
@@ -45,9 +42,7 @@ async def scheduler_tick(request: Any) -> str:
         try:
             logger.info("fetching_court", court=court)
             intimations = await client.get_intimations_by_court(
-                sigla_tribunal=court,
-                data_inicio=start_date,
-                data_fim=today
+                sigla_tribunal=court, data_inicio=start_date, data_fim=today,
             )
 
             for intimation in intimations:
@@ -80,14 +75,12 @@ async def scheduler_tick(request: Any) -> str:
                     logger.debug("doc_done_skipping_publish", doc_key=doc_key)
                     continue
 
-                message_json = json.dumps({
-                    "docKey": doc_key,
-                    "stage": "ingest",
-                    "force": False
-                }).encode("utf-8")
+                message_json = json.dumps(
+                    {"docKey": doc_key, "stage": "ingest", "force": False},
+                ).encode("utf-8")
 
                 future = publisher.publish(TOPIC_INGEST, message_json)
-                future.result() # Wait for publish
+                future.result()  # Wait for publish
                 processed_count += 1
 
         except Exception as e:

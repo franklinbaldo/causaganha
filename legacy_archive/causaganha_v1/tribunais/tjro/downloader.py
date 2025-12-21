@@ -9,14 +9,14 @@ import subprocess
 import duckdb
 import requests
 
+
 # URL where the official diary page lists the PDF link
 TJRO_DIARIO_OFICIAL_URL = "https://www.tjro.jus.br/diario_oficial/"
 TJRO_LATEST_PAGE_URL = "https://www.tjro.jus.br/diario_oficial/ultimo-diario.php"
 
 
 def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
-    """
-    Gets the PDF URL for the given date from TJRO without downloading.
+    """Gets the PDF URL for the given date from TJRO without downloading.
 
     Args:
         date_obj: A datetime.date object representing the desired date.
@@ -27,7 +27,7 @@ def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
     date_str = date_obj.strftime("%Y%m%d")
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     }
 
     try:
@@ -44,7 +44,7 @@ def get_tjro_pdf_url(date_obj: datetime.date) -> str | None:
         logging.info(f"Found diary link: {download_url}")
         return download_url
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error finding PDF URL for {date_obj.strftime('%Y-%m-%d')}: {e}")
+        logging.exception(f"Error finding PDF URL for {date_obj.strftime('%Y-%m-%d')}: {e}")
         return None
 
 
@@ -52,8 +52,7 @@ def fetch_tjro_pdf(
     date_obj: datetime.date,
     output_dir: pathlib.Path | None = None,
 ) -> pathlib.Path | None:
-    """
-    Downloads the Diário da Justiça PDF for the given date from TJRO.
+    """Downloads the Diário da Justiça PDF for the given date from TJRO.
 
     Args:
         date_obj: A datetime.date object representing the desired date.
@@ -70,13 +69,13 @@ def fetch_tjro_pdf(
     output_path = output_dir / file_name
 
     logging.info(
-        f"Attempting to locate PDF for {date_obj.strftime('%Y-%m-%d')} from {TJRO_DIARIO_OFICIAL_URL}"
+        f"Attempting to locate PDF for {date_obj.strftime('%Y-%m-%d')} from {TJRO_DIARIO_OFICIAL_URL}",
     )
 
     date_obj.strftime("%Y%m%d")
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     }
 
     # Get the PDF URL first
@@ -93,7 +92,7 @@ def fetch_tjro_pdf(
         logging.info(f"Successfully downloaded {output_path}")
         return output_path
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error downloading PDF for {date_obj.strftime('%Y-%m-%d')}: {e}")
+        logging.exception(f"Error downloading PDF for {date_obj.strftime('%Y-%m-%d')}: {e}")
         return None
 
 
@@ -102,7 +101,7 @@ def fetch_latest_tjro_pdf(
 ) -> pathlib.Path | None:
     logging.info(f"Fetching latest diary from {TJRO_LATEST_PAGE_URL}")
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     }
 
     # The ultimo-diario.php URL directly redirects to the PDF file
@@ -113,7 +112,7 @@ def fetch_latest_tjro_pdf(
     try:
         # First request to get the redirect URL
         response = requests.get(
-            TJRO_LATEST_PAGE_URL, headers=headers, timeout=30, allow_redirects=False
+            TJRO_LATEST_PAGE_URL, headers=headers, timeout=30, allow_redirects=False,
         )
 
         if response.status_code == 302 and "Location" in response.headers:
@@ -148,12 +147,11 @@ def fetch_latest_tjro_pdf(
 
             logging.info(f"Successfully downloaded {output_path}")
             return output_path
-        else:
-            logging.error(f"Expected redirect but got status {response.status_code}")
-            return None
+        logging.error(f"Expected redirect but got status {response.status_code}")
+        return None
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error fetching latest diary: {e}")
+        logging.exception(f"Error fetching latest diary: {e}")
         return None
 
 
@@ -162,33 +160,34 @@ def archive_pdf(
     db_path: pathlib.Path = pathlib.Path("data/causaganha.duckdb"),
 ) -> str | None:
     """Upload a PDF to the Internet Archive and record the link in DuckDB."""
-
     sha = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
     item_id = f"cg-{sha[:12]}"
     filename = pdf_path.name
 
     exists = (
         subprocess.run(
-            ["ia", "metadata", item_id, "--raw"], capture_output=True, text=True
+            ["ia", "metadata", item_id, "--raw"], check=False, capture_output=True, text=True,
         ).returncode
         == 0
     )
 
     if not exists:
-        subprocess.check_call([
-            "ia",
-            "upload",
-            item_id,
-            str(pdf_path),
-            "--metadata",
-            "mediatype:texts",
-            "--metadata",
-            "subject:causa_ganha, trj:ro",
-            "--metadata",
-            f"sha256:{sha}",
-            "--retries",
-            "5",
-        ])
+        subprocess.check_call(
+            [
+                "ia",
+                "upload",
+                item_id,
+                str(pdf_path),
+                "--metadata",
+                "mediatype:texts",
+                "--metadata",
+                "subject:causa_ganha, trj:ro",
+                "--metadata",
+                f"sha256:{sha}",
+                "--retries",
+                "5",
+            ],
+        )
 
     archive_url = f"https://archive.org/download/{item_id}/{filename}"
 
@@ -200,7 +199,7 @@ def archive_pdf(
             item_id TEXT,
             ia_url TEXT
         );
-        """
+        """,
     )
     con.execute(
         "INSERT OR IGNORE INTO pdfs VALUES (?, ?, ?)",
@@ -212,9 +211,7 @@ def archive_pdf(
 
 
 def main():  # Added main function for CLI
-    parser = argparse.ArgumentParser(
-        description="Download Diário da Justiça PDF from TJRO."
-    )
+    parser = argparse.ArgumentParser(description="Download Diário da Justiça PDF from TJRO.")
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
@@ -237,23 +234,18 @@ def main():  # Added main function for CLI
         try:
             selected_date = datetime.datetime.strptime(args.date, "%Y-%m-%d").date()
         except ValueError:
-            logging.error("Invalid date format. Please use YYYY-MM-DD.")
+            logging.exception("Invalid date format. Please use YYYY-MM-DD.")
             return
 
-        logging.info(
-            f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}"
-        )
+        logging.info(f"Running downloader for date: {selected_date.strftime('%Y-%m-%d')}")
         file_path = fetch_tjro_pdf(selected_date)
 
     if file_path:
         logging.info(f"PDF downloaded to: {file_path}")
+    elif args.latest:
+        logging.warning("Failed to download latest Diário")
     else:
-        if args.latest:
-            logging.warning("Failed to download latest Diário")
-        else:
-            logging.warning(
-                f"Failed to download PDF for {selected_date.strftime('%Y-%m-%d')}"
-            )
+        logging.warning(f"Failed to download PDF for {selected_date.strftime('%Y-%m-%d')}")
 
 
 if __name__ == "__main__":

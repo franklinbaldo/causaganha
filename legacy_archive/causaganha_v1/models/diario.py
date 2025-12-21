@@ -1,18 +1,16 @@
-"""
-Diario dataclass for unified tribunal document representation.
+"""Diario dataclass for unified tribunal document representation.
 """
 
 import json
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
 class Diario:
-    """
-    Unified representation of a judicial diary from any tribunal.
+    """Unified representation of a judicial diary from any tribunal.
 
     This dataclass provides a common interface for handling judicial documents
     across different tribunals while maintaining compatibility with the existing
@@ -22,12 +20,12 @@ class Diario:
     tribunal: str  # 'tjro', 'tjsp', etc.
     data: date
     url: str
-    filename: Optional[str] = None
-    hash: Optional[str] = None
-    pdf_path: Optional[Path] = None
-    ia_identifier: Optional[str] = None
+    filename: str | None = None
+    hash: str | None = None
+    pdf_path: Path | None = None
+    ia_identifier: str | None = None
     status: str = "pending"  # pending, downloaded, analyzed, scored
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:
@@ -35,7 +33,7 @@ class Diario:
         return f"{self.tribunal.upper()} - {self.data.isoformat()}"
 
     @property
-    def queue_item(self) -> Dict[str, Any]:
+    def queue_item(self) -> dict[str, Any]:
         """Convert to job_queue table format for existing database."""
         return {
             "url": self.url,
@@ -49,7 +47,7 @@ class Diario:
         }
 
     @classmethod
-    def from_queue_item(cls, queue_row: Dict[str, Any]) -> "Diario":
+    def from_queue_item(cls, queue_row: dict[str, Any]) -> "Diario":
         """Create Diario from existing job_queue database row."""
         # Handle metadata field - could be JSON string or dict
         metadata = queue_row.get("metadata", {})
@@ -67,14 +65,11 @@ class Diario:
             ia_identifier=queue_row.get("ia_identifier"),
             status=queue_row.get("status", "pending"),
             metadata=metadata,
-            pdf_path=Path(queue_row["arquivo_path"])
-            if queue_row.get("arquivo_path")
-            else None,
+            pdf_path=Path(queue_row["arquivo_path"]) if queue_row.get("arquivo_path") else None,
         )
 
     def update_status(self, new_status: str, **kwargs) -> None:
-        """
-        Update diario status and optionally other direct attributes.
+        """Update diario status and optionally other direct attributes.
 
         Direct attributes that can be updated via kwargs include:
         'filename', 'hash', 'pdf_path', 'ia_identifier'.
@@ -92,7 +87,7 @@ class Diario:
             else:
                 self.metadata[key] = value
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "tribunal": self.tribunal,
@@ -107,7 +102,7 @@ class Diario:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Diario":
+    def from_dict(cls, data: dict[str, Any]) -> "Diario":
         """Create Diario from dictionary."""
         data_copy = data.copy()
         data_copy["data"] = date.fromisoformat(data_copy["data"])

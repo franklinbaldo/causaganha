@@ -5,7 +5,6 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -15,6 +14,7 @@ from causaganha_v1.extractor import GeminiExtractor as _RealGeminiExtractor
 from causaganha_v1.tribunais.tjro.downloader import (
     fetch_tjro_pdf as _real_fetch_tjro_pdf,
 )
+
 
 try:
     from enum import Enum
@@ -47,7 +47,7 @@ try:
 
     def CREATE_RATING_FROM_MU_SIGMA_FUNC(mu, sigma):
         return create_openskill_rating_object(
-            RATING_MODEL_INSTANCE, mu=float(mu), sigma=float(sigma)
+            RATING_MODEL_INSTANCE, mu=float(mu), sigma=float(sigma),
         )
 
     def CREATE_NEW_RATING_FUNC():
@@ -64,13 +64,12 @@ except ImportError as e:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s (pipeline_import_error)",
     )
     logging.critical(
-        f"Failed to import critical modules in pipeline.py: {e}. Pipeline functions will be no-ops."
+        f"Failed to import critical modules in pipeline.py: {e}. Pipeline functions will be no-ops.",
     )
     CRITICAL_IMPORTS_FAILED = True
 
     def _no_op_func_for_pipeline_stub(*args, **kwargs):
-        logging.error("Pipeline dependency missing, function is no-op.")
-        return None
+        logging.exception("Pipeline dependency missing, function is no-op.")
 
     fetch_tjro_pdf = _no_op_func_for_pipeline_stub
     GeminiExtractor = type(
@@ -88,16 +87,14 @@ except ImportError as e:
     archive_command = _no_op_func_for_pipeline_stub
 
     def main():
-        return logging.critical(
-            "Pipeline main() cannot run due to missing critical imports."
-        )
+        return logging.critical("Pipeline main() cannot run due to missing critical imports.")
 
 
 if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succeeded
 
     def fetch_tjro_pdf(
-        date_str: str, dry_run: bool = False, verbose: bool = False
-    ) -> Optional[Path]:
+        date_str: str, dry_run: bool = False, verbose: bool = False,
+    ) -> Path | None:
         logger_func = logging.getLogger(__name__)
         if dry_run:
             logger_func.info(f"DRY-RUN: Would fetch TJRO PDF for date: {date_str}")
@@ -126,22 +123,18 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         def extract_and_save_json(
             self,
             pdf_path: Path,
-            output_json_dir: Optional[Path] = None,
+            output_json_dir: Path | None = None,
             dry_run: bool = False,
-        ) -> Optional[Path]:
+        ) -> Path | None:
             self.logger.debug(f"Attempting to extract text from PDF: {pdf_path}")
             final_output_json_dir = (
-                Path(output_json_dir)
-                if output_json_dir
-                else pdf_path.parent / "json_extracted"
+                Path(output_json_dir) if output_json_dir else pdf_path.parent / "json_extracted"
             )
             final_output_json_dir.mkdir(parents=True, exist_ok=True)
 
             output_json_path = final_output_json_dir / f"{pdf_path.stem}_extracted.json"
             if dry_run:
-                self.logger.info(
-                    f"DRY-RUN: Would extract from {pdf_path} to {output_json_path}"
-                )
+                self.logger.info(f"DRY-RUN: Would extract from {pdf_path} to {output_json_path}")
                 with open(output_json_path, "w", encoding="utf-8") as f:
                     json.dump(
                         {
@@ -169,9 +162,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
     def collect_command(args: argparse.Namespace):
         logger_cmd = logging.getLogger(__name__)
         logger_cmd.debug(f"Collect command called with: {args}")
-        pdf_path = fetch_tjro_pdf(
-            date_str=args.date, dry_run=args.dry_run, verbose=args.verbose
-        )
+        pdf_path = fetch_tjro_pdf(date_str=args.date, dry_run=args.dry_run, verbose=args.verbose)
         if pdf_path:
             logger_cmd.info(f"Collect successful. PDF available at: {pdf_path}")
         else:
@@ -182,13 +173,11 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         logger_cmd = logging.getLogger(__name__)
         logger_cmd.debug(f"Extract command called with: {args}")
         pdf_file_path = Path(args.pdf_file)
-        output_dir = (
-            Path(args.output_json_dir) if args.output_json_dir else pdf_file_path.parent
-        )
+        output_dir = Path(args.output_json_dir) if args.output_json_dir else pdf_file_path.parent
 
         extractor = GeminiExtractor(verbose=args.verbose)
         json_path = extractor.extract_and_save_json(
-            pdf_path=pdf_file_path, output_json_dir=output_dir, dry_run=args.dry_run
+            pdf_path=pdf_file_path, output_json_dir=output_dir, dry_run=args.dry_run,
         )
         if json_path:
             logger_cmd.info(f"Extract successful. JSON saved to: {json_path}")
@@ -199,9 +188,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
     def _update_ratings_logic(logger_func: logging.Logger, dry_run: bool):
         logger_func.info("Starting OpenSkill ratings update process.")
         if dry_run:
-            logger_func.info(
-                "DRY-RUN: OpenSkill update process simulation, no files changed."
-            )
+            logger_func.info("DRY-RUN: OpenSkill update process simulation, no files changed.")
 
         base_data_path = Path(CONFIG.get("data_dir", "data"))
         json_input_dir = base_data_path / "json"
@@ -216,9 +203,9 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         try:
             ratings_df = pd.read_csv(ratings_csv_path, index_col="advogado_id")
         except FileNotFoundError:
-            ratings_df = pd.DataFrame(
-                columns=["mu", "sigma", "total_partidas"]
-            ).set_index(pd.Index([], name="advogado_id"))
+            ratings_df = pd.DataFrame(columns=["mu", "sigma", "total_partidas"]).set_index(
+                pd.Index([], name="advogado_id"),
+            )
 
         # Process JSON files
         json_files = list(json_input_dir.glob("*.json"))
@@ -226,7 +213,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
 
         for json_file in json_files:
             try:
-                with open(json_file, "r", encoding="utf-8") as f:
+                with open(json_file, encoding="utf-8") as f:
                     data = json.load(f)
                     decisions = data.get("decisions", [])
 
@@ -237,9 +224,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
 
                 # Move processed file if not dry run
                 if not dry_run and valid_decisions_processed > 0:
-                    shutil.move(
-                        str(json_file), str(processed_json_dir / json_file.name)
-                    )
+                    shutil.move(str(json_file), str(processed_json_dir / json_file.name))
 
             except Exception as e:
                 logger_func.error(f"Error processing {json_file}: {e}")
@@ -248,9 +233,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         if not dry_run:
             ratings_df.to_csv(ratings_csv_path)
             # Create empty partidas file for test compatibility
-            partidas_df = pd.DataFrame(
-                columns=["partida_id", "advogado_id", "resultado"]
-            )
+            partidas_df = pd.DataFrame(columns=["partida_id", "advogado_id", "resultado"])
             partidas_df.to_csv(partidas_csv_path, index=False)
 
         logger_func.info(f"Processed {valid_decisions_processed} valid decisions.")
@@ -265,15 +248,11 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         logger_cmd.debug(f"Run command called with args: {args}")
         logger_cmd.info(f"Starting 'collect' step for date {args.date}...")
         pdf_path = collect_command(
-            argparse.Namespace(
-                date=args.date, dry_run=args.dry_run, verbose=args.verbose
-            )
+            argparse.Namespace(date=args.date, dry_run=args.dry_run, verbose=args.verbose),
         )
 
         if not pdf_path:
-            logger_cmd.error(
-                f"'collect' failed for {args.date}. Aborting 'run' command."
-            )
+            logger_cmd.error(f"'collect' failed for {args.date}. Aborting 'run' command.")
             return
         logger_cmd.info(f"'collect' successful. PDF is at: {pdf_path}")
         logger_cmd.info(f"Starting 'extract' for PDF {pdf_path}...")
@@ -289,13 +268,11 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
                 output_json_dir=extract_output_dir_val,
                 dry_run=args.dry_run,
                 verbose=args.verbose,
-            )
+            ),
         )
 
         if not json_output_path:
-            logger_cmd.error(
-                f"'extract' failed for {pdf_path}. 'run' command partially completed."
-            )
+            logger_cmd.error(f"'extract' failed for {pdf_path}. 'run' command partially completed.")
             return
         logger_cmd.info(f"'extract' successful. JSON output at: {json_output_path}")
         logger_cmd.info("Starting 'update' ratings step as part of 'run' command...")
@@ -307,15 +284,9 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         logger_cmd.info(f"Archive command (stub) called with: {args}")  # Stub for now
 
     def main():
-        parser = argparse.ArgumentParser(
-            description="CausaGanha Legal Rating ETL Pipeline."
-        )
-        parser.add_argument(
-            "--verbose", action="store_true", help="Enable DEBUG logging."
-        )
-        subparsers = parser.add_subparsers(
-            dest="command", required=True, help="Command to execute"
-        )
+        parser = argparse.ArgumentParser(description="CausaGanha Legal Rating ETL Pipeline.")
+        parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging.")
+        subparsers = parser.add_subparsers(dest="command", required=True, help="Command to execute")
 
         cmd_defs = [
             (
@@ -357,8 +328,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
                         "--db-path",
                         {
                             "type": Path,
-                            "default": Path(CONFIG.get("data_dir", "data"))
-                            / "causaganha.duckdb",
+                            "default": Path(CONFIG.get("data_dir", "data")) / "causaganha.duckdb",
                         },
                     ),
                     ("--dry-run", {"action": "store_true"}),
@@ -386,9 +356,7 @@ if not CRITICAL_IMPORTS_FAILED:  # Define actual functions only if imports succe
         setup_logging(args.verbose if hasattr(args, "verbose") else False)
 
         logger_main = logging.getLogger(__name__)
-        logger_main.debug(
-            f"Executing command: {args.command} with arguments: {vars(args)}"
-        )
+        logger_main.debug(f"Executing command: {args.command} with arguments: {vars(args)}")
 
         if hasattr(args, "func"):
             args.func(args)

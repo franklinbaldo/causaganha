@@ -1,5 +1,4 @@
-"""
-Collect and archive TJRO judicial documents.
+"""Collect and archive TJRO judicial documents.
 
 This module provides functionality to download TJRO PDFs for specific dates
 or the latest available documents, then archive them to Internet Archive.
@@ -9,7 +8,6 @@ import datetime
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 from .downloader import (
     archive_pdf,
@@ -19,12 +17,11 @@ from .downloader import (
 
 
 def collect_and_archive_diario(
-    date: Optional[str] = None,
+    date: str | None = None,
     latest: bool = False,
     db_path: Path = Path("data/causaganha.duckdb"),
-) -> Optional[str]:
-    """
-    Download and archive a TJRO diario for a specific date or latest available.
+) -> str | None:
+    """Download and archive a TJRO diario for a specific date or latest available.
 
     Args:
         date: Date in YYYY-MM-DD format to collect
@@ -34,9 +31,9 @@ def collect_and_archive_diario(
     Returns:
         Internet Archive URL if successful, None if failed
     """
-    pdf_filepath: Optional[Path] = None
-    origem_url: Optional[str] = None
-    data_publicacao: Optional[datetime.date] = None
+    pdf_filepath: Path | None = None
+    origem_url: str | None = None
+    data_publicacao: datetime.date | None = None
 
     if latest:
         logging.info("Fetching the latest TJRO PDF.")
@@ -44,23 +41,21 @@ def collect_and_archive_diario(
         if pdf_filepath:
             try:
                 # Attempt to parse date from filename like dj_YYYYMMDD.pdf
-                parsed_date_match = re.search(
-                    r"dj_(\d{4})(\d{2})(\d{2})", pdf_filepath.name
-                )
+                parsed_date_match = re.search(r"dj_(\d{4})(\d{2})(\d{2})", pdf_filepath.name)
                 if parsed_date_match:
                     year, month, day = map(int, parsed_date_match.groups())
                     data_publicacao = datetime.date(year, month, day)
                     logging.info(
-                        f"Determined publication date from filename for latest PDF: {data_publicacao}"
+                        f"Determined publication date from filename for latest PDF: {data_publicacao}",
                     )
                 else:
                     data_publicacao = datetime.date.today()  # Fallback for latest
                     logging.warning(
-                        f"Could not determine exact publication date for latest PDF from filename {pdf_filepath.name}. Using today: {data_publicacao}"
+                        f"Could not determine exact publication date for latest PDF from filename {pdf_filepath.name}. Using today: {data_publicacao}",
                     )
             except Exception as e:
                 logging.warning(
-                    f"Error parsing date from latest PDF filename {pdf_filepath.name if pdf_filepath else 'N/A'}: {e}. Using today."
+                    f"Error parsing date from latest PDF filename {pdf_filepath.name if pdf_filepath else 'N/A'}: {e}. Using today.",
                 )
                 data_publicacao = datetime.date.today()
         else:
@@ -76,13 +71,13 @@ def collect_and_archive_diario(
                 logging.error(f"Failed to download PDF for {data_publicacao}.")
                 return None
         except ValueError:
-            logging.error(f"Invalid date format: '{date}'. Please use YYYY-MM-DD.")
+            logging.exception(f"Invalid date format: '{date}'. Please use YYYY-MM-DD.")
             return None
     else:
         # Default to fetching yesterday's PDF if no specific date or latest is given
         data_publicacao = datetime.date.today() - datetime.timedelta(days=1)
         logging.info(
-            f"No date or latest flag specified. Fetching PDF for yesterday: {data_publicacao}."
+            f"No date or latest flag specified. Fetching PDF for yesterday: {data_publicacao}.",
         )
         pdf_filepath, origem_url = fetch_tjro_pdf(data_publicacao)
         if not pdf_filepath:
@@ -91,13 +86,13 @@ def collect_and_archive_diario(
 
     if not pdf_filepath or not pdf_filepath.exists():
         logging.error(
-            f"PDF file path is invalid or file does not exist: {pdf_filepath}. Cannot archive."
+            f"PDF file path is invalid or file does not exist: {pdf_filepath}. Cannot archive.",
         )
         return None
 
     if not data_publicacao:
         logging.error(
-            "Publication date could not be determined. Cannot archive without publication date."
+            "Publication date could not be determined. Cannot archive without publication date.",
         )
         return None
 
@@ -118,9 +113,8 @@ def collect_and_archive_diario(
 
     if archive_ia_url:
         logging.info(
-            f"Successfully archived {pdf_filepath.name} to Internet Archive: {archive_ia_url}"
+            f"Successfully archived {pdf_filepath.name} to Internet Archive: {archive_ia_url}",
         )
         return archive_ia_url
-    else:
-        logging.error(f"Failed to archive {pdf_filepath.name} to Internet Archive.")
-        return None
+    logging.error(f"Failed to archive {pdf_filepath.name} to Internet Archive.")
+    return None

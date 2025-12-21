@@ -1,5 +1,4 @@
-"""
-Internet Archive Helper Functions and Configuration
+"""Internet Archive Helper Functions and Configuration
 """
 
 import asyncio
@@ -8,9 +7,10 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import typer  # For typer.echo, consider passing a logger or callback for messages
+
 
 # Assuming config_data is loaded similarly to how it's done in cli.py
 # This might need adjustment if ia_helpers.py cannot directly access cli.py's config_data
@@ -33,15 +33,15 @@ except ImportError:
         "database": {"path": "data/causaganha_fallback.duckdb"},  # Example
     }
     print(
-        "Warning: Could not load from config.py, using fallback IA/DB config values in ia_helpers."
+        "Warning: Could not load from config.py, using fallback IA/DB config values in ia_helpers.",
     )
 
 
 MASTER_IA_ITEM_ID = config_data.get("internet_archive", {}).get(
-    "master_item_id", "causaganha_diarios_collection"
+    "master_item_id", "causaganha_diarios_collection",
 )
 IA_METADATA_FILENAME = config_data.get("internet_archive", {}).get(
-    "metadata_filename", "file_level_metadata.json"
+    "metadata_filename", "file_level_metadata.json",
 )
 IA_DEFAULT_ITEM_METADATA = {
     "collection": "opensource",
@@ -51,16 +51,13 @@ IA_DEFAULT_ITEM_METADATA = {
 }
 
 ia_executor = ThreadPoolExecutor(
-    max_workers=config_data.get("internet_archive", {}).get("max_concurrent_uploads", 2)
+    max_workers=config_data.get("internet_archive", {}).get("max_concurrent_uploads", 2),
 )
 log_main_ops = True  # Global toggle for high-level logging, can be made configurable
 
 
-async def execute_ia_command_async(
-    ia_command_args: List[str], log_output: bool = True
-) -> bool:
-    """
-    Executes an 'ia' command asynchronously.
+async def execute_ia_command_async(ia_command_args: list[str], log_output: bool = True) -> bool:
+    """Executes an 'ia' command asynchronously.
     Prepends 'ia' to the command_args.
     """
     loop = asyncio.get_event_loop()
@@ -74,31 +71,30 @@ async def execute_ia_command_async(
         result = await loop.run_in_executor(
             ia_executor,
             lambda: subprocess.run(
-                full_command, capture_output=True, text=True, check=False, timeout=900
+                full_command, capture_output=True, text=True, check=False, timeout=900,
             ),
         )
 
         if result.returncode == 0:
             if log_output and log_main_ops:
                 typer.echo(
-                    f"✅ IA OK: {command_str_for_logging.split(' ')[1] if len(command_str_for_logging.split(' ')) > 1 else ''}"
+                    f"✅ IA OK: {command_str_for_logging.split(' ')[1] if len(command_str_for_logging.split(' ')) > 1 else ''}",
                 )
                 if (
                     result.stdout and log_output
                 ):  # Only show if verbose logging for this command is on
                     typer.echo(f"   Output: {result.stdout[:150].strip()}...")
             return True
-        else:
-            if log_output and log_main_ops:  # Always log errors if main logging is on
-                typer.echo(
-                    f"❌ IA FAIL (code {result.returncode}): {command_str_for_logging}",
-                    err=True,
-                )
-                if result.stderr:
-                    typer.echo(f"   Stderr: {result.stderr.strip()}", err=True)
-                if result.stdout:
-                    typer.echo(f"   Stdout: {result.stdout.strip()}", err=True)
-            return False
+        if log_output and log_main_ops:  # Always log errors if main logging is on
+            typer.echo(
+                f"❌ IA FAIL (code {result.returncode}): {command_str_for_logging}",
+                err=True,
+            )
+            if result.stderr:
+                typer.echo(f"   Stderr: {result.stderr.strip()}", err=True)
+            if result.stdout:
+                typer.echo(f"   Stdout: {result.stdout.strip()}", err=True)
+        return False
     except subprocess.TimeoutExpired:
         if log_main_ops:
             typer.echo(f"❌ IA TIMEOUT: {command_str_for_logging}", err=True)
@@ -116,7 +112,7 @@ async def execute_ia_upload_async(
     target_ia_id: str,
     local_filepath: Path,
     remote_filename: str,
-    item_metadata: Optional[Dict[str, str]] = None,
+    item_metadata: dict[str, str] | None = None,
     log_output: bool = True,
 ) -> bool:
     if not local_filepath.exists():
@@ -142,14 +138,14 @@ async def execute_ia_upload_async(
 
 
 async def archive_diario_to_master_item(
-    local_pdf_path: Path, tribunal_code: str, pdf_filename_on_ia: str
-) -> Tuple[Optional[str], Optional[str]]:
+    local_pdf_path: Path, tribunal_code: str, pdf_filename_on_ia: str,
+) -> tuple[str | None, str | None]:
     master_id = MASTER_IA_ITEM_ID
     remote_ia_full_path = f"{tribunal_code}/{pdf_filename_on_ia}"
 
     if log_main_ops:
         typer.echo(
-            f"📦 Archiving '{local_pdf_path.name}' to IA master '{master_id}' as '{remote_ia_full_path}'"
+            f"📦 Archiving '{local_pdf_path.name}' to IA master '{master_id}' as '{remote_ia_full_path}'",
         )
 
     upload_successful = await execute_ia_upload_async(
@@ -162,12 +158,9 @@ async def archive_diario_to_master_item(
         if log_main_ops:
             typer.echo(f"✅ Archived OK: '{master_id}/{remote_ia_full_path}'")
         return master_id, remote_ia_full_path
-    else:
-        if log_main_ops:
-            typer.echo(
-                f"❌ ArchiveFAIL: '{local_pdf_path.name}' to master item.", err=True
-            )
-        return None, None
+    if log_main_ops:
+        typer.echo(f"❌ ArchiveFAIL: '{local_pdf_path.name}' to master item.", err=True)
+    return None, None
 
 
 async def download_ia_file_async(
@@ -175,7 +168,7 @@ async def download_ia_file_async(
     remote_filename_on_ia: str,
     destination_dir: Path,
     log_output: bool = True,
-) -> Optional[Path]:
+) -> Path | None:
     destination_dir.mkdir(parents=True, exist_ok=True)
     local_filename = Path(remote_filename_on_ia).name
     local_filepath = destination_dir / local_filename
@@ -190,7 +183,7 @@ async def download_ia_file_async(
 
     if log_output and log_main_ops:
         typer.echo(
-            f"⬇️  Downloading '{remote_filename_on_ia}' from IA '{item_id}' to '{local_filepath}'"
+            f"⬇️  Downloading '{remote_filename_on_ia}' from IA '{item_id}' to '{local_filepath}'",
         )
 
     success = await execute_ia_command_async(ia_args, log_output=log_output)
@@ -199,39 +192,38 @@ async def download_ia_file_async(
         if log_output and log_main_ops:
             typer.echo(f"✅ Download OK: '{local_filepath}'")
         return local_filepath
-    else:
-        if log_output and log_main_ops:
-            typer.echo(
-                f"❌ DownloadFAIL: '{remote_filename_on_ia}' from IA '{item_id}'. Target '{local_filepath}' not found/not file.",
-                err=True,
-            )
-        if local_filepath.exists():
-            try:
-                local_filepath.unlink()
-            except OSError:
-                pass
-        return None
+    if log_output and log_main_ops:
+        typer.echo(
+            f"❌ DownloadFAIL: '{remote_filename_on_ia}' from IA '{item_id}'. Target '{local_filepath}' not found/not file.",
+            err=True,
+        )
+    if local_filepath.exists():
+        try:
+            local_filepath.unlink()
+        except OSError:
+            pass
+    return None
 
 
 async def update_ia_file_level_metadata_summary(
-    master_ia_id: str, file_remote_path: str, new_file_metadata_entry: Dict[str, Any]
+    master_ia_id: str, file_remote_path: str, new_file_metadata_entry: dict[str, Any],
 ) -> bool:
     summary_json_filename = IA_METADATA_FILENAME
-    current_summary_data: Dict[str, Any] = {}
+    current_summary_data: dict[str, Any] = {}
 
     if log_main_ops:
         typer.echo(
-            f"🔄 MetaUPDATE: For '{file_remote_path}' in '{master_ia_id}/{summary_json_filename}'"
+            f"🔄 MetaUPDATE: For '{file_remote_path}' in '{master_ia_id}/{summary_json_filename}'",
         )
 
     with tempfile.TemporaryDirectory() as tmp_dir_name:
         tmp_dir = Path(tmp_dir_name)
         downloaded_summary_filepath = await download_ia_file_async(
-            master_ia_id, summary_json_filename, tmp_dir, log_output=False
+            master_ia_id, summary_json_filename, tmp_dir, log_output=False,
         )
         if downloaded_summary_filepath and downloaded_summary_filepath.exists():
             try:
-                with open(downloaded_summary_filepath, "r", encoding="utf-8") as f:
+                with open(downloaded_summary_filepath, encoding="utf-8") as f:
                     current_summary_data = json.load(f)
                 if log_main_ops:
                     typer.echo(f"📄 MetaDL OK: Parsed '{summary_json_filename}'.")
@@ -241,18 +233,17 @@ async def update_ia_file_level_metadata_summary(
                         f"⚠️ MetaDL WARN: Corrupt/unreadable '{summary_json_filename}': {e}. Creating new.",
                         err=True,
                     )
-        else:
-            if log_main_ops:
-                typer.echo(
-                    f"📄 MetaDL INFO: '{summary_json_filename}' not found on IA. Creating new."
-                )
+        elif log_main_ops:
+            typer.echo(
+                f"📄 MetaDL INFO: '{summary_json_filename}' not found on IA. Creating new.",
+            )
 
     current_summary_data[file_remote_path] = new_file_metadata_entry
     if log_main_ops:
         typer.echo(f"📊 MetaLocalUPDATE: Entry for '{file_remote_path}'.")
 
     with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".json", encoding="utf-8"
+        mode="w", delete=False, suffix=".json", encoding="utf-8",
     ) as tmp_upload_file:
         json.dump(current_summary_data, tmp_upload_file, ensure_ascii=False, indent=2)
         temp_upload_filepath = Path(tmp_upload_file.name)
@@ -261,7 +252,7 @@ async def update_ia_file_level_metadata_summary(
         typer.echo(f"📝 MetaLocalSAVE: Updated summary at '{temp_upload_filepath}'")
 
     upload_successful = await execute_ia_upload_async(
-        master_ia_id, temp_upload_filepath, summary_json_filename, log_output=False
+        master_ia_id, temp_upload_filepath, summary_json_filename, log_output=False,
     )
     try:
         temp_upload_filepath.unlink()
@@ -274,14 +265,11 @@ async def update_ia_file_level_metadata_summary(
 
     if upload_successful:
         if log_main_ops:
-            typer.echo(
-                f"✅ MetaUpload OK: '{summary_json_filename}' to '{master_ia_id}'."
-            )
+            typer.echo(f"✅ MetaUpload OK: '{summary_json_filename}' to '{master_ia_id}'.")
         return True
-    else:
-        if log_main_ops:
-            typer.echo(
-                f"❌ MetaUploadFAIL: '{summary_json_filename}' to '{master_ia_id}'.",
-                err=True,
-            )
-        return False
+    if log_main_ops:
+        typer.echo(
+            f"❌ MetaUploadFAIL: '{summary_json_filename}' to '{master_ia_id}'.",
+            err=True,
+        )
+    return False

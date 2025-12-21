@@ -1,11 +1,9 @@
-"""
-TJRO-specific diario URL discovery implementation.
+"""TJRO-specific diario URL discovery implementation.
 """
 
 import logging
 import re
 from datetime import date
-from typing import List, Optional
 
 import requests
 
@@ -20,7 +18,7 @@ class TJRODiscovery(DiarioDiscovery):
 
     def __init__(self):
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         }
 
     @property
@@ -28,9 +26,8 @@ class TJRODiscovery(DiarioDiscovery):
         """Return the tribunal code."""
         return "tjro"
 
-    def get_diario_url(self, target_date: date) -> Optional[str]:
-        """
-        Get diario URL for specific date.
+    def get_diario_url(self, target_date: date) -> str | None:
+        """Get diario URL for specific date.
 
         This implementation reuses the existing logic from downloader.py
         get_tjro_pdf_url function.
@@ -38,9 +35,7 @@ class TJRODiscovery(DiarioDiscovery):
         date_str = target_date.strftime("%Y%m%d")
 
         try:
-            response = requests.get(
-                self.TJRO_BASE_URL, headers=self.headers, timeout=30
-            )
+            response = requests.get(self.TJRO_BASE_URL, headers=self.headers, timeout=30)
             response.raise_for_status()
 
             # Use the same regex pattern as the existing downloader
@@ -53,24 +48,20 @@ class TJRODiscovery(DiarioDiscovery):
                 url = pdf_match.group(0)
                 logging.info(f"Found TJRO diario URL for {target_date}: {url}")
                 return url
-            else:
-                logging.warning(f"No TJRO diario found for date {target_date}")
-                return None
-
-        except requests.RequestException as e:
-            logging.error(f"Error finding TJRO diario URL for {target_date}: {e}")
+            logging.warning(f"No TJRO diario found for date {target_date}")
             return None
 
-    def get_latest_diario_url(self) -> Optional[str]:
-        """
-        Get URL for the most recent available diario.
+        except requests.RequestException as e:
+            logging.exception(f"Error finding TJRO diario URL for {target_date}: {e}")
+            return None
+
+    def get_latest_diario_url(self) -> str | None:
+        """Get URL for the most recent available diario.
 
         This implementation is based on the existing fetch_latest_tjro_pdf logic.
         """
         try:
-            response = requests.get(
-                self.TJRO_LATEST_URL, headers=self.headers, timeout=30
-            )
+            response = requests.get(self.TJRO_LATEST_URL, headers=self.headers, timeout=30)
             response.raise_for_status()
 
             # Look for PDF links in the latest page
@@ -83,17 +74,15 @@ class TJRODiscovery(DiarioDiscovery):
                 url = pdf_match.group(0)
                 logging.info(f"Found latest TJRO diario URL: {url}")
                 return url
-            else:
-                logging.warning("No latest TJRO diario found")
-                return None
-
-        except requests.RequestException as e:
-            logging.error(f"Error finding latest TJRO diario URL: {e}")
+            logging.warning("No latest TJRO diario found")
             return None
 
-    def list_diarios_in_range(self, start_date: date, end_date: date) -> List[str]:
-        """
-        Get URLs for all diarios in date range.
+        except requests.RequestException as e:
+            logging.exception(f"Error finding latest TJRO diario URL: {e}")
+            return None
+
+    def list_diarios_in_range(self, start_date: date, end_date: date) -> list[str]:
+        """Get URLs for all diarios in date range.
 
         For TJRO, we use the default implementation that checks each date
         individually, but we could optimize this in the future by scraping
@@ -108,8 +97,7 @@ class TJRODiscovery(DiarioDiscovery):
         return urls
 
     def get_diario_metadata(self, url: str) -> dict:
-        """
-        Extract additional metadata from TJRO diario URL.
+        """Extract additional metadata from TJRO diario URL.
 
         TJRO URLs contain useful information like year and edition number.
         """

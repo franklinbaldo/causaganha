@@ -1,5 +1,4 @@
-"""
-TJRO-specific diario downloader adapter.
+"""TJRO-specific diario downloader adapter.
 
 This adapter integrates the existing TJRO downloader functions
 with the new Diario dataclass interface.
@@ -8,7 +7,6 @@ with the new Diario dataclass interface.
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 from causaganha_v1.models.diario import Diario
 from causaganha_v1.models.interfaces import DiarioDownloader
@@ -20,16 +18,13 @@ class TJRODownloader(DiarioDownloader):
     """TJRO-specific diario downloader using existing implementation."""
 
     def download_diario(self, diario: Diario) -> Diario:
-        """
-        Download PDF and update diario with local path.
+        """Download PDF and update diario with local path.
 
         This uses the existing fetch_tjro_pdf function but adapts it
         to work with the Diario dataclass.
         """
         if diario.tribunal != "tjro":
-            raise ValueError(
-                f"TJRODownloader cannot handle tribunal: {diario.tribunal}"
-            )
+            raise ValueError(f"TJRODownloader cannot handle tribunal: {diario.tribunal}")
 
         logging.info(f"Downloading {diario.display_name} from {diario.url}")
 
@@ -41,9 +36,7 @@ class TJRODownloader(DiarioDownloader):
                 diario.pdf_path = pdf_path
                 diario.update_status("downloaded")
                 diario.metadata["download_success"] = True
-                logging.info(
-                    f"Successfully downloaded {diario.display_name} to {pdf_path}"
-                )
+                logging.info(f"Successfully downloaded {diario.display_name} to {pdf_path}")
             else:
                 diario.metadata["download_success"] = False
                 diario.metadata["error"] = "Download failed - no file created"
@@ -52,13 +45,12 @@ class TJRODownloader(DiarioDownloader):
         except Exception as e:
             diario.metadata["download_success"] = False
             diario.metadata["error"] = str(e)
-            logging.error(f"Error downloading {diario.display_name}: {e}")
+            logging.exception(f"Error downloading {diario.display_name}: {e}")
 
         return diario
 
     def archive_to_ia(self, diario: Diario) -> Diario:
-        """
-        Archive to Internet Archive and update IA identifier.
+        """Archive to Internet Archive and update IA identifier.
 
         This uses the existing archive_pdf function.
         """
@@ -99,18 +91,17 @@ class TJRODownloader(DiarioDownloader):
         except Exception as e:
             diario.metadata["archive_success"] = False
             diario.metadata["error"] = str(e)
-            logging.error(f"Error archiving {diario.display_name}: {e}")
+            logging.exception(f"Error archiving {diario.display_name}: {e}")
 
         return diario
 
-    def download_by_url(self, url: str, target_date: date) -> Optional[Path]:
-        """
-        Direct download by URL without using Diario object.
+    def download_by_url(self, url: str, target_date: date) -> Path | None:
+        """Direct download by URL without using Diario object.
 
         This is a convenience method that wraps the existing functionality.
         """
         try:
             return fetch_tjro_pdf(target_date)
         except Exception as e:
-            logging.error(f"Failed to download TJRO PDF for {target_date}: {e}")
+            logging.exception(f"Failed to download TJRO PDF for {target_date}: {e}")
             return None

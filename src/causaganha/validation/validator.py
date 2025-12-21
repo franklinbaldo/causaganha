@@ -1,8 +1,7 @@
 """Data validation logic using Ibis."""
 
-from typing import Any, Dict, List
+from typing import Any
 
-import ibis
 from ibis import BaseBackend
 
 
@@ -17,7 +16,7 @@ class DataValidator:
         """
         self.con = con
 
-    def check_intimations(self) -> Dict[str, Any]:
+    def check_intimations(self) -> dict[str, Any]:
         """Check intimations table for data issues.
 
         Returns:
@@ -30,9 +29,7 @@ class DataValidator:
 
         # Check invalid links (simple check: must start with http)
         # Handle nulls safely
-        invalid_links = t.filter(
-            ~(t.link.startswith("http")) | t.link.isnull()
-        ).count().execute()
+        invalid_links = t.filter(~(t.link.startswith("http")) | t.link.isnull()).count().execute()
 
         # Check missing tribunal
         missing_tribunal = t.filter(t.sigla_tribunal.isnull()).count().execute()
@@ -43,7 +40,7 @@ class DataValidator:
             "missing_tribunal": missing_tribunal,
         }
 
-    def check_orphaned_analysis(self) -> List[int]:
+    def check_orphaned_analysis(self) -> list[int]:
         """Check for analysis results that reference non-existent intimations.
 
         Returns:
@@ -53,9 +50,7 @@ class DataValidator:
         intimations = self.con.table("intimations")
 
         # Left join analysis -> intimations
-        joined = analysis.left_join(
-            intimations, analysis.intimation_id == intimations.id
-        )
+        joined = analysis.left_join(intimations, analysis.intimation_id == intimations.id)
 
         # Filter where intimation id is null (meaning no match found)
         orphans = joined.filter(intimations.id.isnull()).select(analysis.id)
@@ -69,7 +64,7 @@ class DataValidator:
         df = orphans.execute()
         return df["id"].tolist()
 
-    def check_ratings(self) -> Dict[str, Any]:
+    def check_ratings(self) -> dict[str, Any]:
         """Check lawyer ratings table for invalid values.
 
         Returns:

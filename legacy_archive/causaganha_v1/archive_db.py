@@ -1,6 +1,5 @@
 # causaganha/core/archive_db.py
-"""
-Internet Archive integration for CausaGanha database snapshots.
+"""Internet Archive integration for CausaGanha database snapshots.
 
 Provides functionality to archive DuckDB snapshots to Internet Archive
 for public access, research, and long-term preservation.
@@ -14,9 +13,10 @@ import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from causaganha_v1.database import CausaGanhaDB
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +39,14 @@ class IAConfig:
 
         if not access_key or not secret_key:
             raise ValueError(
-                "Missing required IA environment variables: IA_ACCESS_KEY, IA_SECRET_KEY"
+                "Missing required IA environment variables: IA_ACCESS_KEY, IA_SECRET_KEY",
             )
 
         return cls(access_key=access_key, secret_key=secret_key)
 
 
 class DatabaseArchiver:
-    """
-    Handles archiving of CausaGanha database snapshots to Internet Archive.
+    """Handles archiving of CausaGanha database snapshots to Internet Archive.
 
     Features:
     - Weekly and monthly database snapshots
@@ -67,17 +66,17 @@ class DatabaseArchiver:
         os.environ["IA_SECRET"] = self.ia_config.secret_key
         logger.info("Internet Archive authentication configured")
 
-    def _load_versions(self) -> Dict[str, int]:
+    def _load_versions(self) -> dict[str, int]:
         """Load archive version information."""
         if VERSION_FILE_PATH.exists():
             try:
-                with open(VERSION_FILE_PATH, "r", encoding="utf-8") as f:
+                with open(VERSION_FILE_PATH, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 return {}
         return {}
 
-    def _save_versions(self, data: Dict[str, int]) -> None:
+    def _save_versions(self, data: dict[str, int]) -> None:
         """Persist archive version information."""
         VERSION_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(VERSION_FILE_PATH, "w", encoding="utf-8") as f:
@@ -91,16 +90,14 @@ class DatabaseArchiver:
         self._save_versions(versions)
         return next_version
 
-    def create_database_item_id(
-        self, snapshot_date: date, archive_type: str = "weekly"
-    ) -> str:
+    def create_database_item_id(self, snapshot_date: date, archive_type: str = "weekly") -> str:
         """Create IA item identifier for database snapshot."""
         date_str = snapshot_date.strftime("%Y-%m-%d")
         return f"causaganha-database-{date_str}-{archive_type}"
 
     def create_archive_metadata(
-        self, snapshot_date: date, archive_type: str, db_stats: Dict[str, Any]
-    ) -> Dict[str, str]:
+        self, snapshot_date: date, archive_type: str, db_stats: dict[str, Any],
+    ) -> dict[str, str]:
         """Generate Internet Archive metadata for database snapshot."""
         date_str = snapshot_date.strftime("%Y-%m-%d")
 
@@ -117,15 +114,17 @@ class DatabaseArchiver:
                 f"Total matches: {db_stats.get('total_partidas', 'N/A')}, "
                 f"Total decisions: {db_stats.get('total_decisoes', 'N/A')}."
             ),
-            "subject": ";".join([
-                "legal-analytics",
-                "openskill",
-                "judicial-decisions",
-                "rondonia",
-                "lawyer-performance",
-                "court-decisions",
-                "legal-research",
-            ]),
+            "subject": ";".join(
+                [
+                    "legal-analytics",
+                    "openskill",
+                    "judicial-decisions",
+                    "rondonia",
+                    "lawyer-performance",
+                    "court-decisions",
+                    "legal-research",
+                ],
+            ),
             "language": "por",
             "collection": "opensource_data",
             "mediatype": "data",
@@ -144,10 +143,9 @@ class DatabaseArchiver:
         return metadata
 
     def export_database_snapshot(
-        self, db_path: Path, export_dir: Path, snapshot_date: date
-    ) -> Dict[str, Path]:
-        """
-        Export database snapshot with multiple formats.
+        self, db_path: Path, export_dir: Path, snapshot_date: date,
+    ) -> dict[str, Path]:
+        """Export database snapshot with multiple formats.
 
         Returns:
             Dict mapping format names to file paths
@@ -181,9 +179,7 @@ class DatabaseArchiver:
                     csv_path = csv_dir / f"{table}_{date_str}.csv"
                     df.to_csv(csv_path, index=False)
                     exports[f"csv_{table}"] = csv_path
-                    logger.info(
-                        "Exported %s: %d records to %s", table, len(df), csv_path
-                    )
+                    logger.info("Exported %s: %d records to %s", table, len(df), csv_path)
                 except Exception as e:
                     logger.warning("Failed to export table %s: %s", table, e)
 
@@ -208,7 +204,7 @@ class DatabaseArchiver:
 
         return exports
 
-    def compress_exports(self, exports: Dict[str, Path], output_dir: Path) -> Path:
+    def compress_exports(self, exports: dict[str, Path], output_dir: Path) -> Path:
         """Compress all exports into a single archive."""
         date_str = datetime.now().strftime("%Y%m%d")
         archive_path = output_dir / f"causaganha_database_{date_str}.tar.gz"
@@ -240,7 +236,7 @@ class DatabaseArchiver:
         return archive_path
 
     def upload_to_internet_archive(
-        self, archive_path: Path, item_id: str, metadata: Dict[str, str]
+        self, archive_path: Path, item_id: str, metadata: dict[str, str],
     ) -> bool:
         """Upload compressed archive to Internet Archive."""
         try:
@@ -259,7 +255,7 @@ class DatabaseArchiver:
             # Execute upload
             result = subprocess.run(
                 cmd,
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
                 timeout=1800,  # 30 minutes timeout
             )
@@ -268,11 +264,10 @@ class DatabaseArchiver:
                 logger.info("Successfully uploaded to Internet Archive: %s", item_id)
                 logger.info("Archive URL: https://archive.org/details/%s", item_id)
                 return True
-            else:
-                logger.error("Upload failed. Return code: %d", result.returncode)
-                logger.error("STDOUT: %s", result.stdout)
-                logger.error("STDERR: %s", result.stderr)
-                return False
+            logger.error("Upload failed. Return code: %d", result.returncode)
+            logger.error("STDOUT: %s", result.stdout)
+            logger.error("STDERR: %s", result.stderr)
+            return False
 
         except subprocess.TimeoutExpired:
             logger.error("Upload timed out after 30 minutes")
@@ -288,7 +283,7 @@ class DatabaseArchiver:
         archive_type: str,
         item_id: str,
         archive_path: Path,
-        db_stats: Dict[str, Any],
+        db_stats: dict[str, Any],
     ) -> bool:
         """Record successful archive in the database."""
         try:
@@ -335,11 +330,10 @@ class DatabaseArchiver:
     def archive_database(
         self,
         db_path: Path = Path("data/causaganha.duckdb"),
-        snapshot_date: Optional[date] = None,
+        snapshot_date: date | None = None,
         archive_type: str = "weekly",
     ) -> bool:
-        """
-        Complete database archive workflow.
+        """Complete database archive workflow.
 
         Args:
             db_path: Path to DuckDB database
@@ -368,25 +362,19 @@ class DatabaseArchiver:
                     db_stats = db.get_statistics()
 
                 # Export database in multiple formats
-                exports = self.export_database_snapshot(
-                    db_path, export_dir, snapshot_date
-                )
+                exports = self.export_database_snapshot(db_path, export_dir, snapshot_date)
 
                 # Compress exports
                 archive_path = self.compress_exports(exports, Path(temp_dir))
 
                 # Create IA metadata with versioning
                 item_id = self.create_database_item_id(snapshot_date, archive_type)
-                metadata = self.create_archive_metadata(
-                    snapshot_date, archive_type, db_stats
-                )
+                metadata = self.create_archive_metadata(snapshot_date, archive_type, db_stats)
                 version = self.get_next_version(archive_type)
                 metadata["version"] = str(version)
 
                 # Upload to Internet Archive
-                upload_success = self.upload_to_internet_archive(
-                    archive_path, item_id, metadata
-                )
+                upload_success = self.upload_to_internet_archive(archive_path, item_id, metadata)
 
                 if upload_success:
                     # Record success in database
@@ -400,9 +388,8 @@ class DatabaseArchiver:
                     )
                     logger.info("Database archive completed successfully")
                     return True
-                else:
-                    logger.error("Database archive failed during upload")
-                    return False
+                logger.error("Database archive failed during upload")
+                return False
 
             except Exception as e:
                 logger.error("Database archive failed: %s", e)
@@ -413,18 +400,14 @@ def main() -> None:
     """CLI interface for database archiving."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Archive CausaGanha database to Internet Archive"
-    )
+    parser = argparse.ArgumentParser(description="Archive CausaGanha database to Internet Archive")
     parser.add_argument(
         "--db-path",
         type=Path,
         default=Path("data/causaganha.duckdb"),
         help="Path to DuckDB database",
     )
-    parser.add_argument(
-        "--date", type=str, help="Snapshot date (YYYY-MM-DD, defaults to today)"
-    )
+    parser.add_argument("--date", type=str, help="Snapshot date (YYYY-MM-DD, defaults to today)")
     parser.add_argument(
         "--archive-type",
         choices=["weekly", "monthly", "quarterly"],

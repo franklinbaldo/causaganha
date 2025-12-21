@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-System Health Validation Script for CausaGanha V2.
+"""System Health Validation Script for CausaGanha V2.
 
 Checks:
 1. Database connectivity.
@@ -12,15 +11,19 @@ Checks:
 import asyncio
 import sys
 from pathlib import Path
+
 import structlog
+
 
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.storage.connection import get_connection
 from causaganha.config import DB_PATH
+from causaganha.storage.connection import get_connection
+
 
 logger = structlog.get_logger()
+
 
 async def validate_health():
     logger.info("Starting system health check", db_path=DB_PATH)
@@ -32,7 +35,13 @@ async def validate_health():
 
         # 2. Table Checks
         tables = con.list_tables()
-        required_tables = {"intimations", "analysis_results", "lawyer_ratings", "pipeline_state", "schema_version"}
+        required_tables = {
+            "intimations",
+            "analysis_results",
+            "lawyer_ratings",
+            "pipeline_state",
+            "schema_version",
+        }
         missing_tables = required_tables - set(tables)
 
         if missing_tables:
@@ -47,7 +56,7 @@ async def validate_health():
             try:
                 count = con.table(table).count().execute()
                 stats[table] = count
-                logger.info(f"Table stats", table=table, count=count)
+                logger.info("Table stats", table=table, count=count)
             except Exception as e:
                 logger.error(f"Failed to count table {table}", error=str(e))
 
@@ -67,9 +76,10 @@ async def validate_health():
 
         logger.info("Health check complete - SYSTEM OK")
 
-    except Exception as e:
+    except Exception:
         logger.exception("Health check failed")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(validate_health())

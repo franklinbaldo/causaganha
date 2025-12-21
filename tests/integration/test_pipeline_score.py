@@ -1,12 +1,13 @@
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
+
 import pytest
-import ibis
 
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
+
 
 @pytest.mark.asyncio
 async def test_run_scoring(tmp_path: Path) -> None:
@@ -18,7 +19,7 @@ async def test_run_scoring(tmp_path: Path) -> None:
     # We need to use raw SQL or Ibis memtable to insert because there is no helper for just inserting analysis results
     # except store_analysis_result which is async and internal to analyze.py (well, exposed in queries.py)
 
-    from causaganha.storage.queries import store_analysis_result
+    repository = IntimationRepository(con)
 
     analysis_data = {
         "id": 1,
@@ -27,7 +28,7 @@ async def test_run_scoring(tmp_path: Path) -> None:
         "summary": "Summary",
         "judge_name": "Judge",
         "confidence_score": 0.9,
-        "analyzed_at": datetime.now(timezone.utc),
+        "analyzed_at": datetime.now(UTC),
         "winner_lawyer_oab": "123",
         "winner_lawyer_state": "RO",
         "winner_party_name": "Winner",
@@ -38,10 +39,9 @@ async def test_run_scoring(tmp_path: Path) -> None:
         "decision_reasoning": "Reason",
     }
 
-    await store_analysis_result(con, analysis_data)
+    await repository.store_analysis_result(analysis_data)
 
     # Run scoring
-    repository = IntimationRepository(con)
     await run_scoring(repository)
 
     # Verify lawyer ratings

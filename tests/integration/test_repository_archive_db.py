@@ -1,12 +1,13 @@
 """TDD tests for archive functionality with repository abstractions (RED phase)."""
 
-import pytest
 from datetime import datetime
 
-from causaganha.storage.schema import create_schema
+import pytest
+
+from causaganha.domain.models import Intimation
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
-from causaganha.domain.models import Intimation
+from causaganha.storage.schema import create_schema
 
 
 @pytest.fixture

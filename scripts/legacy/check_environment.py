@@ -17,6 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def check_virtualenv() -> bool:
     venv_path = Path(".venv")
     if not venv_path.exists():
         logger.error(
-            "Virtual environment '.venv' not found. Run 'uv venv && uv sync --dev && uv pip install -e .'"
+            "Virtual environment '.venv' not found. Run 'uv venv && uv sync --dev && uv pip install -e .'",
         )
         return False
 
@@ -51,9 +52,7 @@ def check_env_vars() -> bool:
     missing = [var for var in required if not os.getenv(var)]
     if missing:
         logger.error("Missing environment variables: %s", ", ".join(missing))
-        logger.error(
-            "Create a .env file based on .env.example and set the required variables."
-        )
+        logger.error("Create a .env file based on .env.example and set the required variables.")
         return False
 
     logger.info("✅ Required environment variables are set")
@@ -62,12 +61,12 @@ def check_env_vars() -> bool:
 
 def run_uv_pip_check() -> bool:
     logger.info("Running 'uv pip check'...")
-    result = subprocess.run(["uv", "pip", "check"], capture_output=True, text=True)
+    result = subprocess.run(["uv", "pip", "check"], check=False, capture_output=True, text=True)
     output = result.stdout + result.stderr
     if result.returncode != 0:
         logger.error(output.strip())
         logger.error(
-            "Dependency issues detected. Run 'uv sync --dev' to install or update packages."
+            "Dependency issues detected. Run 'uv sync --dev' to install or update packages.",
         )
         return False
 

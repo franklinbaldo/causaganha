@@ -1,11 +1,10 @@
-"""
-Abstract interfaces for tribunal-specific implementations.
+"""Abstract interfaces for tribunal-specific implementations.
 """
 
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .diario import Diario
 
@@ -14,9 +13,8 @@ class DiarioDiscovery(ABC):
     """Abstract interface for discovering diario URLs from tribunal websites."""
 
     @abstractmethod
-    def get_diario_url(self, target_date: date) -> Optional[str]:
-        """
-        Get diario URL for specific date.
+    def get_diario_url(self, target_date: date) -> str | None:
+        """Get diario URL for specific date.
 
         Args:
             target_date: The date to search for
@@ -24,21 +22,17 @@ class DiarioDiscovery(ABC):
         Returns:
             URL string if found, None otherwise
         """
-        pass
 
     @abstractmethod
-    def get_latest_diario_url(self) -> Optional[str]:
-        """
-        Get URL for the most recent available diario.
+    def get_latest_diario_url(self) -> str | None:
+        """Get URL for the most recent available diario.
 
         Returns:
             URL string if found, None otherwise
         """
-        pass
 
-    def list_diarios_in_range(self, start_date: date, end_date: date) -> List[str]:
-        """
-        Get URLs for all diarios in date range.
+    def list_diarios_in_range(self, start_date: date, end_date: date) -> list[str]:
+        """Get URLs for all diarios in date range.
 
         Default implementation calls get_diario_url for each date.
         Tribunals can override for more efficient batch discovery.
@@ -57,7 +51,6 @@ class DiarioDiscovery(ABC):
             if url:
                 urls.append(url)
             # Move to next day
-            from datetime import timedelta
 
             current = current + timedelta(days=1)
         return urls
@@ -66,7 +59,6 @@ class DiarioDiscovery(ABC):
     @abstractmethod
     def tribunal_code(self) -> str:
         """Return the tribunal code (e.g., 'tjro', 'tjsp')."""
-        pass
 
 
 class DiarioDownloader(ABC):
@@ -74,8 +66,7 @@ class DiarioDownloader(ABC):
 
     @abstractmethod
     def download_diario(self, diario: Diario) -> Diario:
-        """
-        Download PDF and update diario with local path.
+        """Download PDF and update diario with local path.
 
         Args:
             diario: Diario object with URL to download
@@ -83,12 +74,10 @@ class DiarioDownloader(ABC):
         Returns:
             Updated Diario with pdf_path set and status updated
         """
-        pass
 
     @abstractmethod
     def archive_to_ia(self, diario: Diario) -> Diario:
-        """
-        Archive to Internet Archive and update IA identifier.
+        """Archive to Internet Archive and update IA identifier.
 
         Args:
             diario: Diario object with local PDF file
@@ -96,11 +85,9 @@ class DiarioDownloader(ABC):
         Returns:
             Updated Diario with ia_identifier set
         """
-        pass
 
     def download_and_archive(self, diario: Diario) -> Diario:
-        """
-        Convenience method to download and archive in one step.
+        """Convenience method to download and archive in one step.
 
         Args:
             diario: Diario object to process
@@ -118,9 +105,8 @@ class DiarioAnalyzer(ABC):
     """Abstract interface for analyzing diario content."""
 
     @abstractmethod
-    def extract_decisions(self, diario: Diario) -> List[Dict[str, Any]]:
-        """
-        Extract judicial decisions from diario PDF.
+    def extract_decisions(self, diario: Diario) -> list[dict[str, Any]]:
+        """Extract judicial decisions from diario PDF.
 
         Args:
             diario: Diario object with pdf_path set
@@ -134,11 +120,9 @@ class DiarioAnalyzer(ABC):
             - data_decisao: Decision date
             - tribunal: Source tribunal
         """
-        pass
 
     def analyze_diario(self, diario: Diario) -> Diario:
-        """
-        Analyze diario and update with extracted decisions.
+        """Analyze diario and update with extracted decisions.
 
         Args:
             diario: Diario object to analyze
@@ -158,8 +142,7 @@ class DiarioAnalyzer(ABC):
 
 
 class TribunalAdapter(ABC):
-    """
-    Combined interface for a complete tribunal implementation.
+    """Combined interface for a complete tribunal implementation.
 
     This provides a unified interface that combines discovery, download,
     and analysis capabilities for a specific tribunal.
@@ -169,29 +152,24 @@ class TribunalAdapter(ABC):
     @abstractmethod
     def discovery(self) -> DiarioDiscovery:
         """Get the discovery implementation for this tribunal."""
-        pass
 
     @property
     @abstractmethod
     def downloader(self) -> DiarioDownloader:
         """Get the downloader implementation for this tribunal."""
-        pass
 
     @property
     @abstractmethod
     def analyzer(self) -> DiarioAnalyzer:
         """Get the analyzer implementation for this tribunal."""
-        pass
 
     @property
     @abstractmethod
     def tribunal_code(self) -> str:
         """Return the tribunal code."""
-        pass
 
-    def create_diario(self, target_date: date) -> Optional[Diario]:
-        """
-        Create a Diario object for the given date.
+    def create_diario(self, target_date: date) -> Diario | None:
+        """Create a Diario object for the given date.
 
         Args:
             target_date: Date to create diario for
@@ -203,13 +181,10 @@ class TribunalAdapter(ABC):
         if not url:
             return None
 
-        from pathlib import Path
 
         filename = Path(url).name
 
-        return Diario(
-            tribunal=self.tribunal_code, data=target_date, url=url, filename=filename
-        )
+        return Diario(tribunal=self.tribunal_code, data=target_date, url=url, filename=filename)
 
     def process_diario(
         self,
@@ -218,8 +193,7 @@ class TribunalAdapter(ABC):
         archive: bool = True,
         analyze: bool = True,
     ) -> Diario:
-        """
-        Complete processing pipeline for a diario.
+        """Complete processing pipeline for a diario.
 
         Args:
             diario: Diario to process

@@ -1,10 +1,10 @@
-import json
 import base64
+import json
 import os
-from unittest.mock import AsyncMock, MagicMock, patch, ANY
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
+
 import pytest
-from datetime import datetime
-import causaganha.cloud.db # Ensure this is imported for patching
+
 
 # Mocks for GCP services
 @pytest.fixture
@@ -13,26 +13,31 @@ def mock_firestore():
     with patch("causaganha.cloud.db.firestore.AsyncClient") as mock:
         yield mock
 
+
 @pytest.fixture
 def mock_pubsub():
     with patch("google.cloud.pubsub_v1.PublisherClient") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_pubsub_ingest():
     with patch("google.cloud.pubsub_v1.PublisherClient") as mock:
         yield mock
 
+
 @pytest.fixture
 def mock_pje_client():
     with patch("causaganha.api.client.PJeAPIClient") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_doc_service():
     # Patch where it is used: causaganha.cloud.functions.ingest
     with patch("causaganha.cloud.functions.ingest.DocumentService") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_ia_service():
@@ -44,6 +49,7 @@ def mock_ia_service():
     with patch("causaganha.cloud.functions.ingest.InternetArchiveService") as mock:
         yield mock
 
+
 @pytest.mark.asyncio
 async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
     from causaganha.cloud.functions.scheduler import scheduler_tick
@@ -51,9 +57,9 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
     # Setup PJe mock
     mock_client_instance = mock_pje_client.return_value
     # Make get_intimations_by_court awaitable
-    mock_client_instance.get_intimations_by_court = AsyncMock(return_value=[
-        MagicMock(link="http://example.com/doc.pdf")
-    ])
+    mock_client_instance.get_intimations_by_court = AsyncMock(
+        return_value=[MagicMock(link="http://example.com/doc.pdf")],
+    )
 
     # Setup Firestore mock
     mock_db = mock_firestore.return_value
@@ -82,8 +88,9 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
 
     # Verify docKey generation
     args, _ = mock_doc_ref.set.call_args
-    assert args[0]['pdf_url'] == "http://example.com/doc.pdf"
-    assert args[0]['status'] == "new"
+    assert args[0]["pdf_url"] == "http://example.com/doc.pdf"
+    assert args[0]["status"] == "new"
+
 
 @pytest.mark.asyncio
 async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service):
@@ -115,8 +122,12 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
     # Transactional get needs to work via the callback, which is hard to mock perfectly with the decorator.
     # So we mock `acquire_lock` directly.
 
-    with patch("causaganha.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock) as mock_lock, \
-         patch.dict(os.environ, {"IA_ACCESS_KEY": "test"}) as mock_env:
+    with (
+        patch(
+            "causaganha.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock,
+        ) as mock_lock,
+        patch.dict(os.environ, {"IA_ACCESS_KEY": "test"}) as mock_env,
+    ):
         mock_lock.return_value = True
 
         # Setup DocService
@@ -132,21 +143,22 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
         # Setup doc data
         mock_snapshot.to_dict.return_value = {
             "pdf_url": "http://example.com/doc.pdf",
-            "status": "new"
+            "status": "new",
         }
 
         # Also need to mock TOPIC_LLM if it's used
         with patch("causaganha.cloud.functions.ingest.TOPIC_LLM", "projects/test/topics/llm"):
-
             # Run
             await ingest_worker(event, None)
 
             # Verify
             mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
             mock_ia_instance.upload_file.assert_called_once()
-            mock_doc_ref.update.assert_called_with({
-                "status": "pdf_uploaded",
-                "ia_identifier": f"causaganha-{doc_key[:16]}",
-                "updated_at": ANY
-            })
+            mock_doc_ref.update.assert_called_with(
+                {
+                    "status": "pdf_uploaded",
+                    "ia_identifier": f"causaganha-{doc_key[:16]}",
+                    "updated_at": ANY,
+                },
+            )
             mock_pubsub_ingest.return_value.publish.assert_called_once()

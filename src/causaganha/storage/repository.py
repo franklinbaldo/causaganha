@@ -1,7 +1,7 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import ibis
@@ -47,6 +47,33 @@ class IntimationRepository:
             "needs_download": True,
         }
 
+    def _db_to_intimation(self, row: dict[str, Any]) -> Intimation:
+        """Convert database row to Intimation entity."""
+        # Handle date parsing
+        d_disp = row.get("data_disponibilizacao")
+        if isinstance(d_disp, str):
+            d_disp = date.fromisoformat(d_disp)
+        elif isinstance(d_disp, datetime):
+            d_disp = d_disp.date()
+
+        return Intimation(
+            id=row["id"],
+            numero_processo=row["numero_processo"],
+            data_disponibilizacao=d_disp,
+            sigla_tribunal=row["sigla_tribunal"],
+            tipo_comunicacao=row["tipo_comunicacao"],
+            nome_orgao=row["nome_orgao"],
+            texto=row["texto"],
+            link=row["link"],
+            tipo_documento=row["tipo_documento"],
+            nome_classe=row["nome_classe"],
+            codigo_classe=row["codigo_classe"],
+            hash=row["hash"],
+            status=row["status"],
+            advogados=[],  # Not fetched for analysis optimization
+            partes=[],  # Not fetched for analysis optimization
+        )
+
     def _sync_store_intimations(self, intimations: list[Intimation]) -> None:
         """Synchronous implementation of storing intimations."""
         if not intimations:
@@ -62,13 +89,15 @@ class IntimationRepository:
         lawyers_data = []
         for intimation in intimations:
             for lawyer in intimation.advogados:
-                lawyers_data.append({
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A" # Default for now, should extract if available
-                })
+                lawyers_data.append(
+                    {
+                        "intimation_id": intimation.id,
+                        "oab_number": lawyer.numero_oab,
+                        "oab_state": lawyer.uf_oab,
+                        "lawyer_name": lawyer.nome,
+                        "polo": "A",  # Default for now, should extract if available
+                    },
+                )
 
         if lawyers_data:
             t_lawyers = ibis.memtable(lawyers_data)
@@ -82,40 +111,34 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_intimations, intimations)
 
-    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
-        # Check if 'analysis_results' table exists and has data to join, or if we should rely on 'analyzed' flag in 'intimations'
-        # The test case set 'analyzed' flag to TRUE for id=1.
-        # But here we are joining with 'analysis_results'.
-        # If 'analysis_results' is empty, LEFT JOIN ... WHERE right.id IS NULL returns ALL rows.
-        # This explains why id=1 is returned (it's not in analysis_results, so it's considered unanalyzed by this logic).
-
-        # We should also check the 'analyzed' flag in 'intimations' table if it exists.
-        # The schema definition has 'analyzed' boolean field.
-
-        # Let's use the 'analyzed' flag as primary filter if possible, or combine both.
-        # If the 'analyzed' column exists and is populated, it's faster.
-
+        # Filter intimations that have not been analyzed yet
         # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
-        filtered = t_int.filter(t_int.analyzed.isnull() | (t_int.analyzed == False))
+        try:
+            filtered = t_int.filter(t_int.analyzed.isnull() | (t_int.analyzed == False))
+        except Exception:
+            # Fallback if column doesn't exist (schema evolution)
+            filtered = t_int
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
 
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._db_to_intimation(row) for row in rows]
 
-    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been analyzed yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation entities.
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 
@@ -131,7 +154,7 @@ class IntimationRepository:
             return
 
         if analyzed_at is None:
-            analyzed_at = datetime.now(timezone.utc)
+            analyzed_at = datetime.now(UTC)
 
         try:
             raw_con = self.con.con
@@ -164,7 +187,7 @@ class IntimationRepository:
         if not intimation_ids:
             return
 
-        analyzed_at = datetime.now(timezone.utc)
+        analyzed_at = datetime.now(UTC)
 
         # Batch update using IN clause
         raw_con = self.con.con
@@ -195,9 +218,9 @@ class IntimationRepository:
         # Filter intimations that have not been archived yet
         # Assuming there's an 'archived' column or 'ia_url' column
         try:
-            filtered = t_int.filter(
-                (t_int.ia_url.isnull()) | (t_int.ia_url == "")
-            ).filter(t_int.link.notnull())
+            filtered = t_int.filter((t_int.ia_url.isnull()) | (t_int.ia_url == "")).filter(
+                t_int.link.notnull(),
+            )
         except Exception:
             # If ia_url column doesn't exist, just get all with links
             filtered = t_int.filter(t_int.link.notnull())
@@ -283,11 +306,13 @@ class IntimationRepository:
 
         try:
             # Filter where scored is null or false, AND lawyers are identified
-            unscored = t_analysis.filter(
-                (t_analysis.scored.isnull()) | (t_analysis.scored == False)
-            ).filter(
-                t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull()
-            ).limit(limit)
+            unscored = (
+                t_analysis.filter((t_analysis.scored.isnull()) | (t_analysis.scored == False))
+                .filter(
+                    t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
+                )
+                .limit(limit)
+            )
             return unscored.execute().to_dict(orient="records")
         except Exception:
             return []
@@ -306,9 +331,13 @@ class IntimationRepository:
         states = [x[1] for x in oabs]
 
         try:
-            candidates = t_ratings.filter(
-                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states)
-            ).execute().to_dict(orient="records")
+            candidates = (
+                t_ratings.filter(
+                    t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
+                )
+                .execute()
+                .to_dict(orient="records")
+            )
         except Exception:
             return []
 
@@ -326,7 +355,8 @@ class IntimationRepository:
 
         raw_con = self.con.con
         for r in ratings:
-            raw_con.execute("""
+            raw_con.execute(
+                """
                 INSERT INTO lawyer_ratings (
                     oab_number, oab_state, lawyer_name,
                     mu, sigma, last_updated,
@@ -343,11 +373,18 @@ class IntimationRepository:
                     total_cases = EXCLUDED.total_cases,
                     wins = EXCLUDED.wins,
                     losses = EXCLUDED.losses
-            """, [
-                r["oab_number"], r["oab_state"], r.get("lawyer_name"),
-                r["mu"], r["sigma"],
-                r["total_cases"], r["wins"], r["losses"]
-            ])
+            """,
+                [
+                    r["oab_number"],
+                    r["oab_state"],
+                    r.get("lawyer_name"),
+                    r["mu"],
+                    r["sigma"],
+                    r["total_cases"],
+                    r["wins"],
+                    r["losses"],
+                ],
+            )
 
     async def save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
         """Save updated lawyer ratings."""
@@ -359,7 +396,10 @@ class IntimationRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        raw_con.execute(f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})", ids)
+        raw_con.execute(
+            f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})",
+            ids,
+        )
 
     async def mark_analyses_scored(self, ids: list[Any]) -> None:
         """Mark analyses as scored."""

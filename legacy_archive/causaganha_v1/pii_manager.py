@@ -1,22 +1,21 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 # This namespace should be unique to this application and kept confidential
 # if the goal is to make it harder to regenerate UUIDs without it.
 # For development, we can use a fixed one. In production, this might come from a secure config.
-APPLICATION_NAMESPACE_UUID = uuid.UUID(
-    "0ab3b73f-71ac-45a0-9f08-381f7a3e62df"
-)  # Example UUID
+APPLICATION_NAMESPACE_UUID = uuid.UUID("0ab3b73f-71ac-45a0-9f08-381f7a3e62df")  # Example UUID
 
 logger = logging.getLogger(__name__)
 
 
 class PiiManager:
     def __init__(self, db_connection):
-        """
-        Initializes the PiiManager with a database connection.
+        """Initializes the PiiManager with a database connection.
+
         Args:
             db_connection: An active DuckDB connection object.
         """
@@ -24,8 +23,7 @@ class PiiManager:
         self._ensure_decode_map_table_exists()  # Ensure table exists on init (idempotent)
 
     def _ensure_decode_map_table_exists(self):
-        """
-        Ensures the pii_decode_map table exists.
+        """Ensures the pii_decode_map table exists.
         This is more of a safeguard; migrations should handle table creation.
         """
         # This method will be more relevant once migrations are set up.
@@ -41,13 +39,12 @@ class PiiManager:
                 value_for_uuid_ref TEXT NOT NULL,
                 pii_type TEXT NOT NULL
             )
-            """
+            """,
         )
         self.conn.commit()
 
     def _generate_uuidv5(self, value: str, pii_type: str) -> str:
-        """
-        Generates a UUIDv5 for a given string value and PII type.
+        """Generates a UUIDv5 for a given string value and PII type.
         Incorporating pii_type ensures that the same value string used for different
         PII types will result in different UUIDs.
         """
@@ -61,10 +58,9 @@ class PiiManager:
         return str(uuid.uuid5(APPLICATION_NAMESPACE_UUID, value_to_hash))
 
     def get_or_create_pii_mapping(
-        self, original_value: str, pii_type: str, normalized_value: Optional[str] = None
+        self, original_value: str, pii_type: str, normalized_value: str | None = None,
     ) -> str:
-        """
-        Gets the UUID for an original PII value, creating a mapping if it doesn't exist.
+        """Gets the UUID for an original PII value, creating a mapping if it doesn't exist.
         The value used for UUID generation is `normalized_value` if provided, otherwise `original_value`.
 
         Args:
@@ -82,17 +78,13 @@ class PiiManager:
             raise ValueError("Original value cannot be empty for PII mapping.")
 
         # The value used for generating the UUID and for unique lookup of the PII entity
-        value_for_uuid = (
-            normalized_value if normalized_value is not None else original_value
-        )
+        value_for_uuid = normalized_value if normalized_value is not None else original_value
         if not value_for_uuid.strip():  # Ensure not just whitespace
             raise ValueError(
-                f"Value for UUID generation cannot be empty or whitespace. Original: '{original_value}', Normalized: '{normalized_value}'"
+                f"Value for UUID generation cannot be empty or whitespace. Original: '{original_value}', Normalized: '{normalized_value}'",
             )
 
-        generated_uuid = self._generate_uuidv5(
-            value_for_uuid, pii_type
-        )  # Pass pii_type
+        generated_uuid = self._generate_uuidv5(value_for_uuid, pii_type)  # Pass pii_type
 
         # Check if this UUID already exists
         # Using pii_uuid for lookup is faster due to unique index.
@@ -123,54 +115,51 @@ class PiiManager:
             # if row[0] != original_value or row[1] != pii_type:
             #     logger.warning(f"UUID collision or inconsistency for {generated_uuid}. Existing: ({row[0]}, {row[1]}), New: ({original_value}, {pii_type})")
             return generated_uuid
-        else:
-            # UUID does not exist, create new mapping
-            try:
-                insert_sql = """
+        # UUID does not exist, create new mapping
+        try:
+            insert_sql = """
                     INSERT INTO pii_decode_map (pii_uuid, original_value, value_for_uuid_ref, pii_type)
                     VALUES (?, ?, ?, ?)
                 """
-                # value_for_uuid_ref stores the value that generated the UUID
-                cursor.execute(
-                    insert_sql,
-                    (generated_uuid, original_value, value_for_uuid, pii_type),
-                )
-                self.conn.commit()
-                logger.debug(
-                    f"Created PII mapping: {pii_type} '{original_value}' (ref: '{value_for_uuid}') -> {generated_uuid}"
-                )
-                return generated_uuid
-            except Exception as e:  # Catch specific DuckDB exception if possible
-                # Could be a race condition if another process inserted it. Try selecting again.
-                logger.error(
-                    f"Error inserting PII mapping for '{original_value}': {e}. Trying to fetch again."
-                )
-                cursor.execute(
-                    "SELECT pii_uuid FROM pii_decode_map WHERE pii_uuid = ?",
-                    (generated_uuid,),
-                )
-                row_after_error = cursor.fetchone()
-                if row_after_error:
-                    return row_after_error[0]
-                else:
-                    # If it's still not there, the error was genuine
-                    raise
+            # value_for_uuid_ref stores the value that generated the UUID
+            cursor.execute(
+                insert_sql,
+                (generated_uuid, original_value, value_for_uuid, pii_type),
+            )
+            self.conn.commit()
+            logger.debug(
+                f"Created PII mapping: {pii_type} '{original_value}' (ref: '{value_for_uuid}') -> {generated_uuid}",
+            )
+            return generated_uuid
+        except Exception as e:  # Catch specific DuckDB exception if possible
+            # Could be a race condition if another process inserted it. Try selecting again.
+            logger.error(
+                f"Error inserting PII mapping for '{original_value}': {e}. Trying to fetch again.",
+            )
+            cursor.execute(
+                "SELECT pii_uuid FROM pii_decode_map WHERE pii_uuid = ?",
+                (generated_uuid,),
+            )
+            row_after_error = cursor.fetchone()
+            if row_after_error:
+                return row_after_error[0]
+            # If it's still not there, the error was genuine
+            raise
 
     def get_original_pii(
-        self, pii_uuid: str, requester_info: str = "UNKNOWN_REQUESTER"
-    ) -> Optional[Dict[str, str]]:
-        """
-        Retrieves the original PII value and its type for a given UUID.
+        self, pii_uuid: str, requester_info: str = "UNKNOWN_REQUESTER",
+    ) -> dict[str, str] | None:
+        """Retrieves the original PII value and its type for a given UUID.
         Logs the access attempt.
+
         Args:
             pii_uuid: The UUID to decode.
             requester_info: Information about who or what is requesting the decode.
+
         Returns:
             A dictionary with 'original_value' and 'pii_type' or None if not found.
         """
-        logger.info(
-            f"PII DECODE ATTEMPT: UUID='{pii_uuid}', Requester='{requester_info}'"
-        )
+        logger.info(f"PII DECODE ATTEMPT: UUID='{pii_uuid}', Requester='{requester_info}'")
 
         query = "SELECT original_value, pii_type FROM pii_decode_map WHERE pii_uuid = ?"
         cursor = self.conn.cursor()
@@ -178,22 +167,17 @@ class PiiManager:
         row = cursor.fetchone()
 
         if row:
-            logger.info(
-                f"PII DECODE SUCCESS: UUID='{pii_uuid}' retrieved type '{row[1]}'."
-            )
+            logger.info(f"PII DECODE SUCCESS: UUID='{pii_uuid}' retrieved type '{row[1]}'.")
             return {"original_value": row[0], "pii_type": row[1]}
-        else:
-            logger.warning(
-                f"PII DECODE FAILED: UUID='{pii_uuid}' not found in pii_decode_map."
-            )
-            return None
+        logger.warning(f"PII DECODE FAILED: UUID='{pii_uuid}' not found in pii_decode_map.")
+        return None
 
     def replace_pii_in_text(
         self,
-        text: Optional[str],
+        text: str | None,
         pii_type: str,
-        normalize_func: Optional[callable] = None,
-    ) -> Optional[str]:
+        normalize_func: callable | None = None,
+    ) -> str | None:
         """Replaces a single PII string with its UUID."""
         if text is None:
             return None
@@ -201,16 +185,14 @@ class PiiManager:
             return text  # Return as is, or None/empty string, based on desired behavior
 
         normalized_text = normalize_func(text) if normalize_func else text
-        return self.get_or_create_pii_mapping(
-            text, pii_type, normalized_value=normalized_text
-        )
+        return self.get_or_create_pii_mapping(text, pii_type, normalized_value=normalized_text)
 
     def replace_pii_in_list(
         self,
-        data_list: Optional[List[str]],
+        data_list: list[str] | None,
         pii_type: str,
-        normalize_func: Optional[callable] = None,
-    ) -> Optional[List[str]]:
+        normalize_func: callable | None = None,
+    ) -> list[str] | None:
         """Replaces PII strings in a list with their UUIDs."""
         if data_list is None:
             return None
@@ -222,10 +204,10 @@ class PiiManager:
 
     def replace_pii_in_dict_keys(
         self,
-        data_dict: Optional[Dict[str, Any]],
+        data_dict: dict[str, Any] | None,
         pii_type: str,
-        normalize_func: Optional[callable] = None,
-    ) -> Optional[Dict[str, Any]]:
+        normalize_func: callable | None = None,
+    ) -> dict[str, Any] | None:
         """Replaces PII strings used as keys in a dictionary with their UUIDs."""
         if data_dict is None:
             return None
@@ -237,10 +219,10 @@ class PiiManager:
         return new_dict
 
     def replace_pii_in_json_string(
-        self, json_string: Optional[str], pii_field_specs: Dict[str, Dict[str, Any]]
-    ) -> Optional[str]:
-        """
-        Replaces PII in a JSON string based on field specifications.
+        self, json_string: str | None, pii_field_specs: dict[str, dict[str, Any]],
+    ) -> str | None:
+        """Replaces PII in a JSON string based on field specifications.
+
         Args:
             json_string: The JSON string to process.
             pii_field_specs: A dictionary where keys are JSON field paths (e.g., 'user.name', 'details[].email')
@@ -250,6 +232,7 @@ class PiiManager:
                                  "advogados_polo_ativo[]": {"pii_type": "LAWYER_FULL_STRING"}, // '[]' indicates list items
                                  "details.person.name": {"pii_type": "PARTY_NAME"}
                              }
+
         Returns:
             A JSON string with PII replaced, or the original if input is None.
         """
@@ -269,13 +252,9 @@ class PiiManager:
                 pii_type = spec["pii_type"]
                 normalize_func = spec.get("normalize_func")
                 if isinstance(data[key], str):
-                    data[key] = self.replace_pii_in_text(
-                        data[key], pii_type, normalize_func
-                    )
+                    data[key] = self.replace_pii_in_text(data[key], pii_type, normalize_func)
                 elif isinstance(data[key], list):
-                    data[key] = self.replace_pii_in_list(
-                        data[key], pii_type, normalize_func
-                    )
+                    data[key] = self.replace_pii_in_list(data[key], pii_type, normalize_func)
                 # Add more type handling as needed (e.g., dicts)
 
         return json.dumps(data)

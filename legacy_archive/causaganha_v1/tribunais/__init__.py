@@ -1,5 +1,4 @@
-"""
-Tribunal registry and factory functions.
+"""Tribunal registry and factory functions.
 
 This module provides a unified interface for accessing tribunal-specific
 implementations through the new Diario dataclass system.
@@ -21,27 +20,27 @@ from .tjro.analyze_adapter import TJROAnalyzer
 from .tjro.discovery import TJRODiscovery
 from .tjro.download_adapter import TJRODownloader
 
+
 # Registry for tribunal-specific implementations
-_DISCOVERIES: Dict[str, Type[DiarioDiscovery]] = {
+_DISCOVERIES: dict[str, type[DiarioDiscovery]] = {
     "tjro": TJRODiscovery,
 }
 
-_DOWNLOADERS: Dict[str, Type[DiarioDownloader]] = {
+_DOWNLOADERS: dict[str, type[DiarioDownloader]] = {
     "tjro": TJRODownloader,
 }
 
-_ANALYZERS: Dict[str, Type[DiarioAnalyzer]] = {
+_ANALYZERS: dict[str, type[DiarioAnalyzer]] = {
     "tjro": TJROAnalyzer,
 }
 
-_ADAPTERS: Dict[str, Type[TribunalAdapter]] = {
+_ADAPTERS: dict[str, type[TribunalAdapter]] = {
     "tjro": TJROAdapter,
 }
 
 
 def get_discovery(tribunal: str) -> DiarioDiscovery:
-    """
-    Get discovery implementation for tribunal.
+    """Get discovery implementation for tribunal.
 
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
@@ -59,8 +58,7 @@ def get_discovery(tribunal: str) -> DiarioDiscovery:
 
 
 def get_downloader(tribunal: str) -> DiarioDownloader:
-    """
-    Get downloader implementation for tribunal.
+    """Get downloader implementation for tribunal.
 
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
@@ -78,8 +76,7 @@ def get_downloader(tribunal: str) -> DiarioDownloader:
 
 
 def get_analyzer(tribunal: str) -> DiarioAnalyzer:
-    """
-    Get analyzer implementation for tribunal.
+    """Get analyzer implementation for tribunal.
 
     Args:
         tribunal: Tribunal code (e.g., 'tjro', 'tjsp')
@@ -97,8 +94,7 @@ def get_analyzer(tribunal: str) -> DiarioAnalyzer:
 
 
 def get_adapter(tribunal: str) -> TribunalAdapter:
-    """
-    Get complete tribunal adapter.
+    """Get complete tribunal adapter.
 
     This is the recommended way to get a tribunal implementation
     as it provides all functionality in one object.
@@ -118,9 +114,8 @@ def get_adapter(tribunal: str) -> TribunalAdapter:
     return _ADAPTERS[tribunal]()
 
 
-def list_supported_tribunals() -> List[str]:
-    """
-    Get list of supported tribunals.
+def list_supported_tribunals() -> list[str]:
+    """Get list of supported tribunals.
 
     Returns:
         List of tribunal codes
@@ -129,8 +124,7 @@ def list_supported_tribunals() -> List[str]:
 
 
 def is_tribunal_supported(tribunal: str) -> bool:
-    """
-    Check if a tribunal is supported.
+    """Check if a tribunal is supported.
 
     Args:
         tribunal: Tribunal code to check
@@ -143,13 +137,12 @@ def is_tribunal_supported(tribunal: str) -> bool:
 
 def register_tribunal(
     tribunal_code: str,
-    discovery_class: Type[DiarioDiscovery],
-    downloader_class: Type[DiarioDownloader],
-    analyzer_class: Type[DiarioAnalyzer],
-    adapter_class: Type[TribunalAdapter],
+    discovery_class: type[DiarioDiscovery],
+    downloader_class: type[DiarioDownloader],
+    analyzer_class: type[DiarioAnalyzer],
+    adapter_class: type[TribunalAdapter],
 ) -> None:
-    """
-    Register a new tribunal implementation.
+    """Register a new tribunal implementation.
 
     This allows for dynamic registration of new tribunals at runtime.
 

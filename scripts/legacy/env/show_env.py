@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import os
-from typing import List
 
 from causaganha_v1.utils.logging_config import get_logger, setup_logging
 
-KEY_VARS: List[str] = [
+
+KEY_VARS: list[str] = [
     "GEMINI_API_KEY",
     "IA_ACCESS_KEY",
     "IA_SECRET_KEY",

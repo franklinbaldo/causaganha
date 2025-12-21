@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Bulk PDF Discovery Script - Populate queue with all available PDFs from TJRO (1970-2025)
+"""Bulk PDF Discovery Script - Populate queue with all available PDFs from TJRO (1970-2025)
 
 This script discovers all available PDFs from the TJRO website and populates
 the discovery queue for processing through the pipeline.
@@ -17,11 +16,11 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Set
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -30,9 +29,10 @@ import logging
 
 from causaganha_v1.database import CausaGanhaDB
 
+
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class TJROPDFDiscovery:
         self.db = db
         self.session = self._setup_session()
         self.base_url = "https://www.tjro.jus.br/diario_oficial"
-        self.discovered_urls: Set[str] = set()
+        self.discovered_urls: set[str] = set()
 
     def _setup_session(self) -> requests.Session:
         """Setup requests session with retry strategy."""
@@ -62,20 +62,21 @@ class TJROPDFDiscovery:
         session.mount("https://", adapter)
 
         # Headers to appear more like a browser
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        })
+        session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            },
+        )
 
         return session
 
-    def discover_year(self, year: int) -> Dict[str, int]:
-        """
-        Discover all PDFs for a specific year.
+    def discover_year(self, year: int) -> dict[str, int]:
+        """Discover all PDFs for a specific year.
 
         Returns:
             Dict with 'total', 'new', 'existing' counts
@@ -93,9 +94,7 @@ class TJROPDFDiscovery:
             pdfs_data = response.json()
 
             if not isinstance(pdfs_data, list):
-                logger.warning(
-                    f"Unexpected response format for year {year}: {type(pdfs_data)}"
-                )
+                logger.warning(f"Unexpected response format for year {year}: {type(pdfs_data)}")
                 return {"total": 0, "new": 0, "existing": 0}
 
             total_count = len(pdfs_data)
@@ -113,7 +112,7 @@ class TJROPDFDiscovery:
 
                 except Exception as e:
                     logger.error(
-                        f"Failed to process PDF info for year {year}: {pdf_info}, error: {e}"
+                        f"Failed to process PDF info for year {year}: {pdf_info}, error: {e}",
                     )
                     continue
 
@@ -124,7 +123,7 @@ class TJROPDFDiscovery:
             logger.error(f"Failed to discover PDFs for year {year}: {e}")
             return {"total": 0, "new": 0, "existing": 0}
 
-    def discover_latest(self) -> Dict[str, int]:
+    def discover_latest(self) -> dict[str, int]:
         """Discover latest PDFs."""
         logger.info("🔍 Discovering latest PDFs")
 
@@ -138,9 +137,7 @@ class TJROPDFDiscovery:
             latest_pdfs = response.json()
 
             if not isinstance(latest_pdfs, list):
-                logger.warning(
-                    f"Unexpected response format for latest PDFs: {type(latest_pdfs)}"
-                )
+                logger.warning(f"Unexpected response format for latest PDFs: {type(latest_pdfs)}")
                 return {"total": 0, "new": 0, "existing": 0}
 
             total_count = len(latest_pdfs)
@@ -156,9 +153,7 @@ class TJROPDFDiscovery:
                         existing_count += 1
 
                 except Exception as e:
-                    logger.error(
-                        f"Failed to process latest PDF info: {pdf_info}, error: {e}"
-                    )
+                    logger.error(f"Failed to process latest PDF info: {pdf_info}, error: {e}")
                     continue
 
             logger.info(f"✅ Latest: {new_count} new, {existing_count} existing")
@@ -168,7 +163,7 @@ class TJROPDFDiscovery:
             logger.error(f"Failed to discover latest PDFs: {e}")
             return {"total": 0, "new": 0, "existing": 0}
 
-    def discover_range(self, start_year: int, end_year: int) -> Dict[str, Dict]:
+    def discover_range(self, start_year: int, end_year: int) -> dict[str, dict]:
         """Discover PDFs for a range of years."""
         logger.info(f"🎯 Starting bulk discovery: {start_year} to {end_year}")
 
@@ -213,11 +208,8 @@ class TJROPDFDiscovery:
             logger.error(f"Request failed for {url}: {e}")
             return None
 
-    def _add_to_discovery_queue(
-        self, pdf_info: Dict, year: int = None, priority: int = 0
-    ) -> bool:
-        """
-        Add PDF info to discovery queue.
+    def _add_to_discovery_queue(self, pdf_info: dict, year: int = None, priority: int = 0) -> bool:
+        """Add PDF info to discovery queue.
 
         Returns:
             True if new item was added, False if already exists
@@ -284,14 +276,12 @@ class TJROPDFDiscovery:
             logger.error(f"Failed to add PDF to queue: {pdf_info}, error: {e}")
             return False
 
-    def get_statistics(self) -> Dict[str, int]:
+    def get_statistics(self) -> dict[str, int]:
         """Get current queue statistics."""
         stats = {}
 
         # Total items in discovery queue
-        result = self.db.execute(
-            "SELECT COUNT(*) as count FROM pdf_discovery_queue"
-        ).fetchone()
+        result = self.db.execute("SELECT COUNT(*) as count FROM pdf_discovery_queue").fetchone()
         stats["total_queued"] = result[0] if result else 0
 
         # By status
@@ -332,9 +322,7 @@ Examples:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--start-year", type=int, help="Start year for range discovery")
     group.add_argument("--year", type=int, help="Single year to discover")
-    group.add_argument(
-        "--latest", action="store_true", help="Discover latest PDFs only"
-    )
+    group.add_argument("--latest", action="store_true", help="Discover latest PDFs only")
     group.add_argument("--stats", action="store_true", help="Show queue statistics")
 
     parser.add_argument(
@@ -342,9 +330,7 @@ Examples:
         type=int,
         help="End year for range discovery (required with --start-year)",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -377,7 +363,7 @@ Examples:
             print("\n📅 By Year (Top 10):")
             for year, count in stats["by_year"].items():
                 print(f"  {year}: {count:,}")
-            return
+            return None
 
         if args.dry_run:
             logger.info("🧪 DRY RUN MODE - No changes will be made")

@@ -1,24 +1,25 @@
-
 import asyncio
+import json
+from datetime import date, timedelta
+
 import structlog
 import typer
-from datetime import date, timedelta
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.config import DB_PATH
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
-from causaganha.storage.repository import IntimationRepository
+from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.api.client import PJeAPIClient
-from causaganha.pipeline.collect import run_collection
+from causaganha.config import DB_PATH
+from causaganha.ia.schemas import ParquetSchema
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
-import json
+from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.services.document import DocumentService
 from causaganha.services.archive import create_archive_service
-from causaganha.ia.schemas import ParquetSchema
+from causaganha.services.document import DocumentService
+from causaganha.storage.connection import get_connection
+from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
+
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -66,6 +67,7 @@ def _get_repository() -> IntimationRepository:
     con = get_connection(DB_PATH)
     return IntimationRepository(con)
 
+
 @app.command()
 def collect(
     start_date: str = typer.Option(
@@ -93,9 +95,7 @@ def collect(
                 transient=True,
             ) as progress:
                 progress.add_task(description="Coletando intimações...", total=None)
-                await run_collection(
-                    repository, client, start_date, end_date, court_list
-                )
+                await run_collection(repository, client, start_date, end_date, court_list)
         finally:
             await client.close()
 
@@ -180,6 +180,7 @@ def score(
 
     asyncio.run(_run())
 
+
 @app.command()
 def pipeline(
     start_date: str = typer.Option(
@@ -257,28 +258,29 @@ def pipeline(
 
     asyncio.run(_run())
 
+
 @app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
-    """Database management commands.
-    """
+    """Database management commands."""
     logger.info("db_command", action=action)
     if action == "status":
-         con = get_connection(DB_PATH)
-         tables = con.list_tables()
-         typer.echo(f"Connected to DuckDB. Found tables: {tables}")
+        con = get_connection(DB_PATH)
+        tables = con.list_tables()
+        typer.echo(f"Connected to DuckDB. Found tables: {tables}")
     elif action == "init":
-         try:
-             typer.echo("Initializing database schema...")
-             con = get_connection(DB_PATH)
-             create_schema(con)
-             typer.echo("✅ Schema created successfully.")
-         except Exception as e:
-             _handle_error(e, "Initialization failed")
+        try:
+            typer.echo("Initializing database schema...")
+            con = get_connection(DB_PATH)
+            create_schema(con)
+            typer.echo("✅ Schema created successfully.")
+        except Exception as e:
+            _handle_error(e, "Initialization failed")
     else:
         typer.echo(f"Unknown action: {action}")
 
 
 manifest_app = typer.Typer(name="manifest", help="Manage and export data manifests.")
+
 
 @manifest_app.command("export")
 def manifest_export(
@@ -315,6 +317,7 @@ def manifest_export(
 
     asyncio.run(_export())
 
+
 app.add_typer(manifest_app)
 
 
@@ -322,11 +325,11 @@ app.add_typer(manifest_app)
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
-    """CausaGanha V2 CLI Entry Point.
-    """
+    """CausaGanha V2 CLI Entry Point."""
     if verbose:
         # Reconfigure for verbose if needed, though dev renderer is already verbose-ish
         pass
+
 
 if __name__ == "__main__":
     app()

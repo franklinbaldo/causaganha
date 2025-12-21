@@ -1,9 +1,11 @@
+from datetime import date
 
 import pytest
-from datetime import date
 from pydantic import ValidationError
-from causaganha.ia.schemas import ParquetSchema, LawyerInfo
+
 from causaganha.analysis.models import Outcome
+from causaganha.ia.schemas import LawyerInfo, ParquetSchema
+
 
 def test_parquet_schema_creation():
     """Test successful creation of a ParquetSchema model."""
@@ -33,6 +35,7 @@ def test_parquet_schema_missing_required_fields():
             intimation_id=1,
             # Missing process_number, tribunal, download_url, needs_download
         )
+
 
 def test_parquet_schema_optional_fields():
     """Test that optional fields can be None or have default values."""

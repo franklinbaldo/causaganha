@@ -7,22 +7,24 @@ from typing import Any
 
 import structlog
 from google.cloud import pubsub_v1
+
 from causaganha.cloud.db import (
+    COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
-    COLLECTION_NAME,
 )
-from causaganha.services.document import DocumentService
 from causaganha.services.archive import InternetArchiveService, LocalArchiveService
+from causaganha.services.document import DocumentService
+
 
 logger = structlog.get_logger()
 
 # Config
 TOPIC_LLM = os.getenv("TOPIC_LLM", "projects/my-project/topics/llm")
 
+
 async def ingest_worker(event: dict, context: Any) -> None:
-    """
-    Pub/Sub trigger.
+    """Pub/Sub trigger.
     Downloads PDF and uploads to Internet Archive.
     """
     if "data" in event:
@@ -113,25 +115,28 @@ async def ingest_worker(event: dict, context: Any) -> None:
                 result_url = await archive_service.upload_file(
                     file_path=upload_path,
                     item_id=ia_identifier,
-                    metadata={"url": pdf_url, "docKey": doc_key}
+                    metadata={"url": pdf_url, "docKey": doc_key},
                 )
 
                 if not result_url:
-                     raise RuntimeError("IA upload failed")
+                    raise RuntimeError("IA upload failed")
             finally:
                 pass
 
         # Cleanup original tmp if we didn't use the with block fully for it (we did)
         if tmp_path.exists():
-             os.unlink(tmp_path)
+            os.unlink(tmp_path)
 
         # 4. Update status
         from google.cloud import firestore
-        await doc_ref.update({
-            "status": "pdf_uploaded",
-            "ia_identifier": ia_identifier,
-            "updated_at": firestore.SERVER_TIMESTAMP
-        })
+
+        await doc_ref.update(
+            {
+                "status": "pdf_uploaded",
+                "ia_identifier": ia_identifier,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            },
+        )
 
         # 5. Emit next stage
         _publish_next_stage(publisher, doc_key)
@@ -141,10 +146,7 @@ async def ingest_worker(event: dict, context: Any) -> None:
         # Here we could NACK (raise) to retry via Pub/Sub
         raise e
 
+
 def _publish_next_stage(publisher, doc_key):
-    message_json = json.dumps({
-        "docKey": doc_key,
-        "stage": "llm",
-        "force": False
-    }).encode("utf-8")
+    message_json = json.dumps({"docKey": doc_key, "stage": "llm", "force": False}).encode("utf-8")
     publisher.publish(TOPIC_LLM, message_json)

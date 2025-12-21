@@ -38,7 +38,7 @@ async def test_run_collection_success(tmp_path: Path) -> None:
             hash="abc123hash",
             status="ATIVO",
             advogados=[],
-            partes=[]
+            partes=[],
         ),
     ]
 
@@ -50,7 +50,7 @@ async def test_run_collection_success(tmp_path: Path) -> None:
         client=mock_api_client,
         start_date="2024-01-01",
         end_date="2024-01-02",
-        courts=["TJRO"]
+        courts=["TJRO"],
     )
 
     # Verify data is stored

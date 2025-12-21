@@ -1,4 +1,3 @@
-
 from causaganha.api.schemas import Intimation
 
 

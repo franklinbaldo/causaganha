@@ -4,8 +4,9 @@ This module defines the data structures that will be used to create Parquet file
 for upload to the Internet Archive (IA). The orchestrator function will consume
 these Parquet files to perform batch analysis with Gemini.
 """
+
 from datetime import date
-from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 from causaganha.analysis.models import Outcome
@@ -13,9 +14,10 @@ from causaganha.analysis.models import Outcome
 
 class LawyerInfo(BaseModel):
     """Represents a lawyer involved in a case."""
-    oab_number: Optional[str] = Field(None, description="OAB number of the lawyer.")
-    oab_state: Optional[str] = Field(None, description="State of the lawyer's OAB.")
-    name: Optional[str] = Field(None, description="Name of the lawyer.")
+
+    oab_number: str | None = Field(None, description="OAB number of the lawyer.")
+    oab_state: str | None = Field(None, description="State of the lawyer's OAB.")
+    name: str | None = Field(None, description="Name of the lawyer.")
 
 
 class ParquetSchema(BaseModel):
@@ -44,22 +46,32 @@ class ParquetSchema(BaseModel):
                 loser_lawyers=[LawyerInfo(oab_number="456", oab_state="RO")],
             )
     """
+
     # Core Intimation Metadata
     intimation_id: int = Field(..., description="Unique ID for the intimation.")
     process_number: str = Field(..., description="The case number.")
     tribunal: str = Field(..., description="The court that issued the decision (e.g., 'TJRO').")
-    decision_date: Optional[date] = Field(None, description="The date of the decision.")
+    decision_date: date | None = Field(None, description="The date of the decision.")
     download_url: str = Field(..., description="URL to the original PDF document.")
-    needs_download: bool = Field(..., description="Flag indicating if the PDF needs to be downloaded.")
-    ia_url: Optional[str] = Field(None, description="URL of the document on the Internet Archive.")
+    needs_download: bool = Field(
+        ..., description="Flag indicating if the PDF needs to be downloaded.",
+    )
+    ia_url: str | None = Field(None, description="URL of the document on the Internet Archive.")
 
     # Gemini Analysis Results
-    gemini_summary: Optional[str] = Field(None, description="Summary of the decision from Gemini.")
-    full_decision_text: Optional[str] = Field(None, description="The full text of the decision (acórdão).")
-    outcome: Optional[Outcome] = Field(None, description="The outcome of the case (WIN, LOSS, etc.).")
-    winner_lawyers: List[LawyerInfo] = Field(default_factory=list, description="List of winning lawyers.")
-    loser_lawyers: List[LawyerInfo] = Field(default_factory=list, description="List of losing lawyers.")
-
+    gemini_summary: str | None = Field(None, description="Summary of the decision from Gemini.")
+    full_decision_text: str | None = Field(
+        None, description="The full text of the decision (acórdão).",
+    )
+    outcome: Outcome | None = Field(
+        None, description="The outcome of the case (WIN, LOSS, etc.).",
+    )
+    winner_lawyers: list[LawyerInfo] = Field(
+        default_factory=list, description="List of winning lawyers.",
+    )
+    loser_lawyers: list[LawyerInfo] = Field(
+        default_factory=list, description="List of losing lawyers.",
+    )
 
     class Config:
         json_schema_extra = {
@@ -74,7 +86,11 @@ class ParquetSchema(BaseModel):
                 "gemini_summary": "The court denied the appeal.",
                 "full_decision_text": "Full text of the acordão...",
                 "outcome": "LOSS",
-                "winner_lawyers": [{"oab_number": "123", "oab_state": "RO", "name": "Winning Lawyer"}],
-                "loser_lawyers": [{"oab_number": "456", "oab_state": "RO", "name": "Losing Lawyer"}],
-            }
+                "winner_lawyers": [
+                    {"oab_number": "123", "oab_state": "RO", "name": "Winning Lawyer"},
+                ],
+                "loser_lawyers": [
+                    {"oab_number": "456", "oab_state": "RO", "name": "Losing Lawyer"},
+                ],
+            },
         }

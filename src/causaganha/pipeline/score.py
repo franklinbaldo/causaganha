@@ -2,8 +2,9 @@
 
 import structlog
 
-from causaganha.scoring.openskill import get_openskill_model, create_rating, rate_teams
+from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
 from causaganha.storage.repository import IntimationRepository
+
 
 logger = structlog.get_logger()
 
@@ -115,15 +116,17 @@ async def run_scoring(repository: IntimationRepository, limit: int = 100) -> Non
     ratings_to_save = []
     for (oab, state), rating in ratings_cache.items():
         stats = getattr(rating, "stats", {"total_cases": 0, "wins": 0, "losses": 0})
-        ratings_to_save.append({
-            "oab_number": oab,
-            "oab_state": state,
-            "mu": rating.mu,
-            "sigma": rating.sigma,
-            "total_cases": stats["total_cases"],
-            "wins": stats["wins"],
-            "losses": stats["losses"],
-        })
+        ratings_to_save.append(
+            {
+                "oab_number": oab,
+                "oab_state": state,
+                "mu": rating.mu,
+                "sigma": rating.sigma,
+                "total_cases": stats["total_cases"],
+                "wins": stats["wins"],
+                "losses": stats["losses"],
+            },
+        )
 
     if ratings_to_save:
         await repository.save_lawyer_ratings(ratings_to_save)

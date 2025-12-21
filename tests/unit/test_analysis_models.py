@@ -1,8 +1,10 @@
+from datetime import date
 
 import pytest
-from datetime import date
 from pydantic import ValidationError
+
 from causaganha.analysis.models import DecisionAnalysis, Outcome
+
 
 def test_decision_analysis_model_creation():
     """Test successful creation of a DecisionAnalysis model."""
@@ -36,6 +38,7 @@ def test_decision_analysis_missing_required_fields():
             # Missing summary and confidence_score
         )
 
+
 def test_decision_analysis_optional_fields():
     """Test that optional fields can be None."""
     analysis = DecisionAnalysis(
@@ -48,6 +51,7 @@ def test_decision_analysis_optional_fields():
     assert analysis.acordao is None
     assert analysis.tribunal is None
     assert analysis.decision_date is None
+
 
 def test_decision_analysis_invalid_confidence_score():
     """Test that confidence_score outside the valid range raises an error."""

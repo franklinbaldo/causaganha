@@ -1,12 +1,15 @@
-import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock
 import asyncio
 from datetime import date
+from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
+
+from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.domain.models import Intimation
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.storage.repository import IntimationRepository
-from causaganha.domain.models import Intimation
-from causaganha.analysis.models import DecisionAnalysis, Outcome
+
 
 @pytest.mark.asyncio
 async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
@@ -21,22 +24,24 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     # 1. Seed DB with multiple unanalyzed intimations
     intimations = []
     for i in range(5):
-        intimations.append(Intimation(
-            id=100 + i,
-            numero_processo=f"proc-{i}",
-            data_disponibilizacao=date(2024, 1, 1),
-            sigla_tribunal="TJRO",
-            tipo_comunicacao="INTIMAÇÃO",
-            nome_orgao="Vara Cível",
-            texto="Decisão.",
-            link=f"http://example.com/doc-{i}.pdf",
-            tipo_documento="Decisão",
-            nome_classe="Procedimento Comum",
-            hash=f"hash-{i}",
-            status="ATIVO",
-            advogados=[],
-            partes=[]
-        ))
+        intimations.append(
+            Intimation(
+                id=100 + i,
+                numero_processo=f"proc-{i}",
+                data_disponibilizacao=date(2024, 1, 1),
+                sigla_tribunal="TJRO",
+                tipo_comunicacao="INTIMAÇÃO",
+                nome_orgao="Vara Cível",
+                texto="Decisão.",
+                link=f"http://example.com/doc-{i}.pdf",
+                tipo_documento="Decisão",
+                nome_classe="Procedimento Comum",
+                hash=f"hash-{i}",
+                status="ATIVO",
+                advogados=[],
+                partes=[],
+            ),
+        )
     await repository.store_intimations(intimations)
 
     # 2. Mock DocumentService with delay to test concurrency
@@ -66,7 +71,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=5,
-        batch_size=5
+        batch_size=5,
     )
 
     # Verify all were processed

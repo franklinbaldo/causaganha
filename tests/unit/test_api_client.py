@@ -1,12 +1,14 @@
-"""
-Unit tests for PJe API Client
+"""Unit tests for PJe API Client
 """
 
-import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
-from unittest.mock import AsyncMock, patch, MagicMock
+import pytest
+
 from causaganha.api.client import PJeAPIClient
 from tests.conftest import create_mock_intimation_item
+
 
 @pytest.mark.asyncio
 async def test_client_initialization() -> None:
@@ -19,18 +21,14 @@ async def test_client_initialization() -> None:
 
     await client.close()
 
+
 @pytest.mark.asyncio
 async def test_fetch_intimations_returns_list(api_client: PJeAPIClient) -> None:
     """Test that fetching returns a list of intimations"""
-
-    mock_response = {
-        "status": "success",
-        "count": 0,
-        "items": []
-    }
+    mock_response = {"status": "success", "count": 0, "items": []}
 
     # Mock the request
-    with patch.object(api_client.client, 'request', new_callable=AsyncMock) as mock_request:
+    with patch.object(api_client.client, "request", new_callable=AsyncMock) as mock_request:
         mock_resp = MagicMock()
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
@@ -51,7 +49,7 @@ async def test_fetch_intimations_success(api_client: PJeAPIClient) -> None:
         "items": [create_mock_intimation_item(123456)],
     }
 
-    with patch.object(api_client.client, 'get', new_callable=AsyncMock) as mock_get:
+    with patch.object(api_client.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp = MagicMock()
         mock_resp.json.return_value = mock_response
         mock_resp.raise_for_status.return_value = None
@@ -71,7 +69,7 @@ async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
     page2_response = {"status": "success", "count": 2, "items": [create_mock_intimation_item(2)]}
     empty_response = {"status": "success", "count": 2, "items": []}
 
-    with patch.object(api_client.client, 'get', new_callable=AsyncMock) as mock_get:
+    with patch.object(api_client.client, "get", new_callable=AsyncMock) as mock_get:
         mock_resp1 = MagicMock()
         mock_resp1.json.return_value = page1_response
         mock_resp1.raise_for_status.return_value = None
@@ -93,11 +91,11 @@ async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
         assert intimations[1].id == 2
         assert mock_get.call_count == 3
 
+
 @pytest.mark.asyncio
 async def test_fetch_raises_on_http_error(api_client: PJeAPIClient) -> None:
     """Test error handling"""
-
-    with patch.object(api_client.client, 'request', new_callable=AsyncMock) as mock_request:
+    with patch.object(api_client.client, "request", new_callable=AsyncMock) as mock_request:
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = httpx.HTTPError("Network error")
         mock_request.return_value = mock_resp
