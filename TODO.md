@@ -56,8 +56,8 @@
 
 ## Phase 3: Multi-Tribunal Expansion
 
-- [ ] **Configuration for Multiple Courts**
-    - [ ] Update `config.py` to support a list of courts/API endpoints.
-- [ ] **Refactor Pipeline for Multi-Court**
-    - [ ] Update `collect.py` to iterate over configured courts.
-    - [ ] Update `archive.py` to organize files by court (e.g., `TJRO/YYYY/MM/...`).
+- [x] **Configuration for Multiple Courts**
+    - [x] Update `config.py` to support a list of courts/API endpoints.
+- [x] **Refactor Pipeline for Multi-Court**
+    - [x] Update `collect.py` to iterate over configured courts.
+    - [x] Update `archive.py` to organize files by court (via dynamic IA Item ID).
