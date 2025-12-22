@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
 from causaganha.pipeline.score import run_scoring
 
 structlog.configure(
@@ -31,7 +32,7 @@ async def main():
     logger.info("setup", db=str(db_path))
 
     con = get_connection(str(db_path))
-    # Schema should already exist
+    create_schema(con)
     repository = IntimationRepository(con)
 
     try:

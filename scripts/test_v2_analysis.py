@@ -13,6 +13,7 @@ from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
 from causaganha.pipeline.analyze import run_analysis
 
 structlog.configure(
@@ -34,7 +35,7 @@ async def main():
     logger.info("setup", db=str(db_path))
 
     con = get_connection(str(db_path))
-    # Schema should already exist from collection step
+    create_schema(con)
     repository = IntimationRepository(con)
     doc_service = DocumentService()
 
