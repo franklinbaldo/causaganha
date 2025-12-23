@@ -3,6 +3,7 @@ from datetime import date
 import structlog
 
 from causaganha.api.client import PJeAPIClient
+from causaganha.config import settings
 from causaganha.storage.repository import IntimationRepository
 
 
@@ -22,10 +23,10 @@ async def run_collection(
         client: PJe API client.
         start_date: Start date for filtering (YYYY-MM-DD).
         end_date: End date for filtering (YYYY-MM-DD).
-        courts: List of court acronyms to collect from (e.g. ['TJRO', 'TJMT']). Defaults to ['TJRO'].
+        courts: List of court acronyms to collect from (e.g. ['TJRO', 'TJMT']). Defaults to configured courts.
     """
     if courts is None:
-        courts = ["TJRO"]
+        courts = settings.COURTS
 
     logger.info("starting_collection", start_date=start_date, end_date=end_date, courts=courts)
 

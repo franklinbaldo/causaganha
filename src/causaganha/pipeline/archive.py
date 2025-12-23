@@ -115,7 +115,8 @@ async def _process_intimation(
         return
 
     # Upload to Internet Archive
-    item_id = f"causaganha-tjro-{intimation_id_str}"
+    tribunal = intimation.get("sigla_tribunal", "tjro").lower()
+    item_id = f"causaganha-{tribunal}-{intimation_id_str}"
 
     # Generate metadata from intimation data (refactored)
     metadata = archive_service.generate_metadata(intimation)
