@@ -1,0 +1,136 @@
+name: Auto-merge Jules and bot updates
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge for Jules and bot PRs
+    runs-on: ubuntu-latest
+    # Run for Jules bot or common dependency bots
+    if: |
+      github.actor == 'google-labs-jules[bot]' ||
+      github.actor == 'dependabot[bot]' ||
+      github.actor == 'renovate[bot]'
+
+    steps:
+      - name: Convert draft to ready for review
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const isDraft = context.payload.pull_request.draft;
+
+            if (isDraft) {
+              console.log('📝 PR is a draft, converting to ready for review...');
+
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number,
+                draft: false
+              });
+
+              console.log('✅ PR converted to ready for review');
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                pull_number,
+                body: '🤖 **Draft converted to ready for review**\n\nThis PR has been automatically marked as ready for review and will be auto-merged when CI passes.'
+              });
+            } else {
+              console.log('✅ PR is already ready for review');
+            }
+
+      - name: Get PR metadata
+        if: github.actor == 'dependabot[bot]'
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const actor = context.actor;
+
+            let approvalMessage = '✅ Auto-approved by CI workflow';
+            if (actor === 'google-labs-jules[bot]') {
+              approvalMessage = '✅ Auto-approved by CI workflow - Jules bot update';
+            } else {
+              approvalMessage = '✅ Auto-approved by CI workflow - bot update';
+            }
+
+            try {
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number,
+                event: 'APPROVE',
+                body: approvalMessage
+              });
+              console.log('✅ PR approved');
+            } catch (error) {
+              console.log(`ℹ️ Could not approve PR: ${error.message} (might already be approved or author is same as token owner)`);
+            }
+
+      - name: Enable auto-merge
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const actor = context.actor;
+            const updateType = '${{ steps.metadata.outputs.update-type }}';
+
+            console.log(`Actor: ${actor}`);
+
+            try {
+              // Enable GitHub's native auto-merge feature
+              await github.graphql(`
+                mutation($pullRequestId: ID!) {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: $pullRequestId,
+                    mergeMethod: SQUASH
+                  }) {
+                    pullRequest {
+                      autoMergeRequest {
+                        enabledAt
+                      }
+                    }
+                  }
+                }
+              `,
+              {
+                pullRequestId: context.payload.pull_request.node_id
+              });
+
+              console.log('✅ Auto-merge enabled - PR will merge when all checks pass');
+
+              let mergeReason = 'Jules bot update';
+              if (actor !== 'google-labs-jules[bot]') {
+                 mergeReason = updateType ? `dependency update (${updateType})` : 'bot update';
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pull_number,
+                body: `🤖 **Auto-merge enabled**\n\nThis PR will automatically merge when all required checks pass.\n\n_Reason: ${mergeReason}_`
+              });
+
+            } catch (error) {
+              console.log(`⚠️ Could not enable auto-merge: ${error.message}`);
+              console.log('Note: Auto-merge requires branch protection rules to be enabled');
+            }
