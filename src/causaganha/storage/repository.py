@@ -1,7 +1,7 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import ibis
@@ -67,7 +67,7 @@ class IntimationRepository:
                     "oab_number": lawyer.numero_oab,
                     "oab_state": lawyer.uf_oab,
                     "lawyer_name": lawyer.nome,
-                    "polo": "A" # Default for now, should extract if available
+                    "polo": "A", # Default for now, should extract if available
                 })
 
         if lawyers_data:
@@ -82,7 +82,28 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_intimations, intimations)
 
-    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _db_to_intimation(self, data: dict[str, Any]) -> Intimation:
+        """Convert database dictionary to Intimation model.
+
+        Handles date parsing and type conversion.
+        """
+        # Parse date if it's a string
+        if isinstance(data.get("data_disponibilizacao"), str):
+            try:
+                # Handle potential ISO format with time, or just YYYY-MM-DD
+                dt_str = data["data_disponibilizacao"]
+                if "T" in dt_str:
+                    data["data_disponibilizacao"] = datetime.fromisoformat(dt_str).date()
+                else:
+                    data["data_disponibilizacao"] = date.fromisoformat(dt_str)
+            except (ValueError, TypeError):
+                # If parsing fails, we might leave it or raise.
+                # Pydantic validation will likely catch it if we pass bad data.
+                pass
+
+        return Intimation(**data)
+
+    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
@@ -106,16 +127,17 @@ class IntimationRepository:
 
         query = filtered.limit(limit)
 
-        return query.execute().to_dict(orient="records")
+        results = query.execute().to_dict(orient="records")
+        return [self._db_to_intimation(r) for r in results]
 
-    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been analyzed yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 
@@ -131,7 +153,7 @@ class IntimationRepository:
             return
 
         if analyzed_at is None:
-            analyzed_at = datetime.now(timezone.utc)
+            analyzed_at = datetime.now(UTC)
 
         try:
             raw_con = self.con.con
@@ -164,7 +186,7 @@ class IntimationRepository:
         if not intimation_ids:
             return
 
-        analyzed_at = datetime.now(timezone.utc)
+        analyzed_at = datetime.now(UTC)
 
         # Batch update using IN clause
         raw_con = self.con.con
@@ -196,7 +218,7 @@ class IntimationRepository:
         # Assuming there's an 'archived' column or 'ia_url' column
         try:
             filtered = t_int.filter(
-                (t_int.ia_url.isnull()) | (t_int.ia_url == "")
+                (t_int.ia_url.isnull()) | (t_int.ia_url == ""),
             ).filter(t_int.link.notnull())
         except Exception:
             # If ia_url column doesn't exist, just get all with links
@@ -284,9 +306,9 @@ class IntimationRepository:
         try:
             # Filter where scored is null or false, AND lawyers are identified
             unscored = t_analysis.filter(
-                (t_analysis.scored.isnull()) | (t_analysis.scored == False)
+                (t_analysis.scored.isnull()) | (t_analysis.scored == False),
             ).filter(
-                t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull()
+                t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
             ).limit(limit)
             return unscored.execute().to_dict(orient="records")
         except Exception:
@@ -307,7 +329,7 @@ class IntimationRepository:
 
         try:
             candidates = t_ratings.filter(
-                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states)
+                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
             ).execute().to_dict(orient="records")
         except Exception:
             return []
@@ -346,7 +368,7 @@ class IntimationRepository:
             """, [
                 r["oab_number"], r["oab_state"], r.get("lawyer_name"),
                 r["mu"], r["sigma"],
-                r["total_cases"], r["wins"], r["losses"]
+                r["total_cases"], r["wins"], r["losses"],
             ])
 
     async def save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
