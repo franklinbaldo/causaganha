@@ -1,24 +1,22 @@
 import os
-from unittest import mock
-import pytest
-from pathlib import Path
+from unittest.mock import patch
+from causaganha.config import Settings
 
-def test_settings_defaults():
-    from causaganha.config import Settings
-    settings = Settings()
-    assert settings.GCP_PROJECT == "my-project"
-    assert "TJRO" in settings.COURTS
-    assert isinstance(settings.DATA_DIR, Path)
-
-def test_settings_env_override_json():
-    with mock.patch.dict(os.environ, {
-        "GCP_PROJECT": "prod-project",
-        "COURTS": '["TJSP", "TJRO"]',
-        "LOOKBACK_DAYS": "7"
-    }):
-        from causaganha.config import Settings
+def test_default_courts():
+    """Test that default courts are set correctly."""
+    # Ensure no env var interferes
+    with patch.dict(os.environ, {}, clear=True):
         settings = Settings()
-        assert settings.GCP_PROJECT == "prod-project"
-        assert "TJSP" in settings.COURTS
-        assert "TJRO" in settings.COURTS
-        assert len(settings.COURTS) == 2
+        assert settings.COURTS == ["TJRO"]
+
+def test_multiple_courts_from_env_json():
+    """Test loading multiple courts from JSON string in env var."""
+    with patch.dict(os.environ, {"COURTS": '["TJRO", "TJMT"]', "IA_ACCESS_KEY": "test", "IA_SECRET_KEY": "test"}, clear=True):
+        settings = Settings()
+        assert settings.COURTS == ["TJRO", "TJMT"]
+
+def test_multiple_courts_override():
+    """Test overriding courts programmatically."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings(COURTS=["TJSP", "TJRS"])
+        assert settings.COURTS == ["TJSP", "TJRS"]

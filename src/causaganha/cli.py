@@ -4,8 +4,9 @@ import structlog
 import typer
 from datetime import date, timedelta
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from typing import Optional
 
-from causaganha.config import DB_PATH
+from causaganha.config import DB_PATH, settings
 from causaganha.storage.connection import get_connection
 from causaganha.storage.schema import create_schema
 from causaganha.storage.repository import IntimationRepository
@@ -76,7 +77,7 @@ def collect(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: str = typer.Option("TJRO", help="Comma-separated list of courts"),
+    courts: Optional[str] = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
 ) -> None:
     """Collect intimations from PJe."""
     logger.info("collect_command_start")
@@ -84,7 +85,10 @@ def collect(
     async def _run():
         repository = _get_repository()
         client = PJeAPIClient()
-        court_list = [c.strip() for c in courts.split(",")]
+        if courts:
+             court_list = [c.strip() for c in courts.split(",")]
+        else:
+             court_list = settings.COURTS
 
         try:
             with Progress(
@@ -190,7 +194,7 @@ def pipeline(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: str = typer.Option("TJRO", help="Comma-separated list of courts"),
+    courts: Optional[str] = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
     analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
     archive_limit: int = typer.Option(10, help="Number of items to archive"),
     score_limit: int = typer.Option(100, help="Number of items to score"),
@@ -208,7 +212,11 @@ def pipeline(
         doc_service = DocumentService()
         archive_service = create_archive_service()
         analyzer = DecisionAnalyzer()
-        court_list = [c.strip() for c in courts.split(",")]
+
+        if courts:
+             court_list = [c.strip() for c in courts.split(",")]
+        else:
+             court_list = settings.COURTS
 
         try:
             # Step 1: Collect
