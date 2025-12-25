@@ -6,10 +6,11 @@
 
 import json
 
+
 def load_mock_data(file_path):
     """Loads mock data from a JSON file."""
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             data = json.load(f)
         return data
     except FileNotFoundError:
@@ -68,7 +69,7 @@ def main():
     all_keywords = count_keywords(decisions_data)
     print("Keyword counts across all loaded decisions:")
     for keyword, count in all_keywords.items():
-        print(f"  - \"{keyword}\": {count}")
+        print(f'  - "{keyword}": {count}')
 
 if __name__ == "__main__":
     main()

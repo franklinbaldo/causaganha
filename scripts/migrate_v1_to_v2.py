@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""
-Migration script from CausaGanha V1 (DuckDB) to V2 (DuckDB/Ibis).
+"""Migration script from CausaGanha V1 (DuckDB) to V2 (DuckDB/Ibis).
 
 This script migrates lawyer ratings from V1 to V2.
 It assumes V1 uses DuckDB and lawyer IDs are strings in format "Name (OAB/UF Number)".
 """
 
-import sys
 import re
+import sys
+from pathlib import Path
+
 import duckdb
 import structlog
-from pathlib import Path
-from typing import Optional, Tuple
+
 
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.storage.connection import get_connection
 from causaganha.config import DB_PATH as V2_DB_PATH
+from causaganha.storage.connection import get_connection
+
 
 logger = structlog.get_logger()
 
-def parse_v1_lawyer_id(lawyer_id: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """
-    Parses V1 lawyer ID string to extract Name, OAB, State.
+def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | None]:
+    """Parses V1 lawyer ID string to extract Name, OAB, State.
     Expected format: "NAME (OAB/UF NUMBER)" or similar.
     Returns: (Name, OAB Number, OAB State)
     """
@@ -49,7 +49,7 @@ def migrate_ratings(v1_path: str, v2_con):
 
         # Check if ratings table exists
         tables = [t[0] for t in v1_con.execute("SHOW TABLES").fetchall()]
-        if 'ratings' not in tables:
+        if "ratings" not in tables:
             logger.warning("V1 'ratings' table not found. Skipping ratings migration.")
             return
 
@@ -70,7 +70,7 @@ def migrate_ratings(v1_path: str, v2_con):
                 try:
                     # Using backend.con for parameterized query to handle escaping and NULLs safely
                     # Note: We assume v2_con is an Ibis backend wrapping a DuckDB connection
-                    if hasattr(v2_con, 'con'):
+                    if hasattr(v2_con, "con"):
                         con = v2_con.con
                     else:
                         # Fallback or direct DuckDB connection
@@ -105,7 +105,7 @@ def migrate_ratings(v1_path: str, v2_con):
     except Exception as e:
         logger.exception("Migration failed", error=str(e))
     finally:
-        if 'v1_con' in locals():
+        if "v1_con" in locals():
             v1_con.close()
 
 def main():

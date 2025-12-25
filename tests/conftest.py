@@ -1,6 +1,7 @@
 """Shared fixtures for tests."""
 
 import pytest
+
 from causaganha.api.client import PJeAPIClient
 
 
@@ -34,5 +35,5 @@ def create_mock_intimation_item(item_id: int) -> dict:
 def api_client():
     """Fixture for PJeAPIClient."""
     client = PJeAPIClient()
-    yield client
+    return client
     # No async teardown needed if client is not used in a context manager

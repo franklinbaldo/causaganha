@@ -1,7 +1,9 @@
 """Analyzer for judicial decisions."""
 import structlog
 from pydantic_ai import Agent, BinaryContent
+
 from causaganha.analysis.models import DecisionAnalysis
+
 
 logger = structlog.get_logger()
 
@@ -11,8 +13,7 @@ class DecisionAnalyzer:
     agent: Agent
 
     def __init__(self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash") -> None:
-        """
-        Initialize the DecisionAnalyzer.
+        """Initialize the DecisionAnalyzer.
 
         Args:
             api_key: Optional API key (deprecated/unused if env var set).
@@ -31,8 +32,7 @@ class DecisionAnalyzer:
         )
 
     async def analyze_decision(self, pdf_bytes: bytes) -> DecisionAnalysis:
-        """
-        Analyze a PDF decision and extract structured data.
+        """Analyze a PDF decision and extract structured data.
 
         Args:
             pdf_bytes: The PDF content as bytes.
@@ -46,6 +46,6 @@ class DecisionAnalyzer:
             [
                 "Analyze this PDF decision.",
                 BinaryContent(data=pdf_bytes, media_type="application/pdf"),
-            ]
+            ],
         )
         return result.data

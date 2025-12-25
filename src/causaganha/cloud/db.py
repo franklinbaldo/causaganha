@@ -1,11 +1,11 @@
-import asyncio
 import hashlib
-from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 import structlog
 from google.cloud import firestore
 from pydantic import BaseModel, Field
+
 
 logger = structlog.get_logger()
 
@@ -27,8 +27,8 @@ class DocState(BaseModel):
     attempts: dict[str, int] = Field(default_factory=dict)
     next_retry_at: datetime | None = None
     lock_until: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 def get_firestore_client() -> firestore.AsyncClient:
     """Returns an async Firestore client."""
@@ -55,17 +55,17 @@ async def acquire_lock(db: firestore.AsyncClient, doc_key: str, stage: str) -> b
         if lock_until:
             # Convert to aware datetime if naive (Firestore sometimes returns naive UTC)
             if lock_until.tzinfo is None:
-                lock_until = lock_until.replace(tzinfo=timezone.utc)
+                lock_until = lock_until.replace(tzinfo=UTC)
 
-            if lock_until > datetime.now(timezone.utc):
+            if lock_until > datetime.now(UTC):
                 logger.warning("doc_locked", doc_key=doc_key, until=lock_until)
                 return False
 
         # Lock it
-        new_lock_until = datetime.now(timezone.utc) + timedelta(seconds=LOCK_DURATION_SECONDS)
+        new_lock_until = datetime.now(UTC) + timedelta(seconds=LOCK_DURATION_SECONDS)
         transaction.update(ref, {
             "lock_until": new_lock_until,
-            "updated_at": datetime.now(timezone.utc)
+            "updated_at": datetime.now(UTC),
         })
         return True
 

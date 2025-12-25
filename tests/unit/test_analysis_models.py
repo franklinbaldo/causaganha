@@ -1,8 +1,11 @@
 
-import pytest
 from datetime import date
+
+import pytest
 from pydantic import ValidationError
+
 from causaganha.analysis.models import DecisionAnalysis, Outcome
+
 
 def test_decision_analysis_model_creation():
     """Test successful creation of a DecisionAnalysis model."""

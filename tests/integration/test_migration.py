@@ -1,14 +1,16 @@
 import sys
 from pathlib import Path
+
 import duckdb
-import pytest
+
 
 # Ensure scripts is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
 from causaganha.storage.connection import get_connection
 from causaganha.storage.schema import create_schema
+from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
+
 
 def test_parse_lawyer_id():
     name, oab, state = parse_v1_lawyer_id("FRANKLIN SILVEIRA BALDO (OAB/RO 5733)")

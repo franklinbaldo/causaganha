@@ -7,6 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
+
 TEMPLATES = {
     "__init__.py": "",
     "adapter.py": "class {name}Adapter:\n    tribunal_code = '{code}'\n",

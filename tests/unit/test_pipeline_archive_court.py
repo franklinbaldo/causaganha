@@ -1,10 +1,13 @@
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+
 from causaganha.pipeline.archive import run_archive
-from causaganha.storage.repository import IntimationRepository
-from causaganha.services.document import DocumentService
 from causaganha.services.archive import ArchiveService
+from causaganha.services.document import DocumentService
+from causaganha.storage.repository import IntimationRepository
+
 
 @pytest.fixture
 def mock_repository():
@@ -25,17 +28,16 @@ def mock_archive_service():
 
 @pytest.mark.asyncio
 async def test_archive_uses_correct_court_in_id(
-    mock_repository, mock_doc_service, mock_archive_service
+    mock_repository, mock_doc_service, mock_archive_service,
 ):
     """Test that the archive pipeline uses the correct tribunal in the item ID."""
-
     # Setup data
     intimation = {
         "id": 12345,
         "sigla_tribunal": "TJMT",
         "link": "http://example.com/doc.pdf",
         "numero_processo": "123",
-        "data_disponibilizacao": "2023-01-01"
+        "data_disponibilizacao": "2023-01-01",
     }
 
     mock_repository.get_unarchived_intimations.return_value = [intimation]
@@ -45,7 +47,7 @@ async def test_archive_uses_correct_court_in_id(
         mock_repository,
         mock_doc_service,
         mock_archive_service,
-        limit=1
+        limit=1,
     )
 
     # Verify

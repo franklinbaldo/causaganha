@@ -2,8 +2,9 @@
 
 import structlog
 
-from causaganha.scoring.openskill import get_openskill_model, create_rating, rate_teams
+from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
 from causaganha.storage.repository import IntimationRepository
+
 
 logger = structlog.get_logger()
 

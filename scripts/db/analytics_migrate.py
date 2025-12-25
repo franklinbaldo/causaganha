@@ -23,7 +23,7 @@ def migrate(db_path: Path = Path("data/analytics.duckdb")) -> None:
             event_type TEXT,
             metadata TEXT
         )
-        """
+        """,
     )
     conn.execute(
         """
@@ -33,7 +33,7 @@ def migrate(db_path: Path = Path("data/analytics.duckdb")) -> None:
             metric_name TEXT,
             metric_value DOUBLE
         )
-        """
+        """,
     )
     conn.close()
     logger.info("Analytics migrations completed")

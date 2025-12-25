@@ -9,7 +9,7 @@ data/*
 
 
 
-# Processing artifacts  
+# Processing artifacts
 
 *.egg-info/
 
@@ -25,3 +25,6 @@ docs/_build/
 .ruff_cache/
 .jules/
 site/
+
+# Test artifacts
+tests/mock_data/

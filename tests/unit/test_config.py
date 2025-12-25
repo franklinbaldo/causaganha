@@ -1,6 +1,8 @@
 import os
 from unittest.mock import patch
+
 from causaganha.config import Settings
+
 
 def test_default_courts():
     """Test that default courts are set correctly."""

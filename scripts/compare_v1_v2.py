@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""
-Comparison Script V1 vs V2.
+"""Comparison Script V1 vs V2.
 
 Compares data counts and distributions between V1 (legacy) and V2 tables.
 """
 
 import sys
-import structlog
 from pathlib import Path
+
+import structlog
+
 
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.storage.connection import get_connection
 from causaganha.config import DB_PATH
+from causaganha.storage.connection import get_connection
+
 
 logger = structlog.get_logger()
 
@@ -61,7 +63,7 @@ def compare_data():
         else:
             logger.info("Insufficient data for ratings distribution comparison")
 
-    except Exception as e:
+    except Exception:
         logger.exception("Comparison failed")
         sys.exit(1)
 

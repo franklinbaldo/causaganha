@@ -1,25 +1,21 @@
 import json
-import os
 from datetime import date, timedelta
 from typing import Any
 
 import structlog
 from google.cloud import pubsub_v1
+
 from causaganha.api.client import PJeAPIClient
-from causaganha.cloud.db import (
-    DocState,
-    compute_doc_key,
-    get_firestore_client,
-    COLLECTION_NAME
-)
+from causaganha.cloud.db import COLLECTION_NAME, DocState, compute_doc_key, get_firestore_client
+
 
 logger = structlog.get_logger()
 
 from causaganha.config import settings
 
+
 async def scheduler_tick(request: Any) -> str:
-    """
-    Cloud Scheduler trigger.
+    """Cloud Scheduler trigger.
     Fetches new intimations and queues them for ingestion.
     """
     logger.info("scheduler_tick_start")
@@ -45,7 +41,7 @@ async def scheduler_tick(request: Any) -> str:
             intimations = await client.get_intimations_by_court(
                 sigla_tribunal=court,
                 data_inicio=start_date,
-                data_fim=today
+                data_fim=today,
             )
 
             for intimation in intimations:
@@ -81,7 +77,7 @@ async def scheduler_tick(request: Any) -> str:
                 message_json = json.dumps({
                     "docKey": doc_key,
                     "stage": "ingest",
-                    "force": False
+                    "force": False,
                 }).encode("utf-8")
 
                 future = publisher.publish(settings.TOPIC_INGEST, message_json)

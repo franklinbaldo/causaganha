@@ -1,12 +1,12 @@
-import json
 import base64
-import os
-from unittest import mock
-from unittest.mock import AsyncMock, MagicMock, patch, ANY
-import pytest
+import json
 from datetime import datetime
-import causaganha.cloud.db # Ensure this is imported for patching
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
+
+import pytest
+
 from causaganha.domain.models import Intimation
+
 
 # Mocks for GCP services
 @pytest.fixture
@@ -60,8 +60,8 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
                 texto="Content",
                 tipo_documento="DESPACHO",
                 nome_classe="Procedimento Comum",
-                hash="abc123hash"
-            )
+                hash="abc123hash",
+            ),
     ])
 
     # Setup Firestore mock
@@ -92,8 +92,8 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
 
     # Verify docKey generation
     args, _ = mock_doc_ref.set.call_args
-    assert args[0]['pdf_url'] == "http://example.com/doc.pdf"
-    assert args[0]['status'] == "new"
+    assert args[0]["pdf_url"] == "http://example.com/doc.pdf"
+    assert args[0]["status"] == "new"
 
 @pytest.mark.asyncio
 async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service):
@@ -141,7 +141,7 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
         # Setup doc data
         mock_snapshot.to_dict.return_value = {
             "pdf_url": "http://example.com/doc.pdf",
-            "status": "new"
+            "status": "new",
         }
 
         # Run
@@ -153,6 +153,6 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
         mock_doc_ref.update.assert_called_with({
             "status": "pdf_uploaded",
             "ia_identifier": f"causaganha-{doc_key[:16]}",
-            "updated_at": ANY
+            "updated_at": ANY,
         })
         mock_pubsub_ingest.return_value.publish.assert_called_once()

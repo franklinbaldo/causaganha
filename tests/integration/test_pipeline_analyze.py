@@ -36,7 +36,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
         hash="abc123hash",
         status="ATIVO",
         advogados=[],
-        partes=[]
+        partes=[],
     )
     await repository.store_intimations([intimation])
 
@@ -59,7 +59,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
         repository=repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
-        limit=1
+        limit=1,
     )
 
     # Verify

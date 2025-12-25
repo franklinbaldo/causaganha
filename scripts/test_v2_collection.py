@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-import asyncio
 import argparse
+import asyncio
 import sys
-from pathlib import Path
 from datetime import date, timedelta
+from pathlib import Path
+
 import structlog
+
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.api.client import PJeAPIClient
+from causaganha.pipeline.collect import run_collection
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
 from causaganha.storage.schema import create_schema
-from causaganha.pipeline.collect import run_collection
+
 
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()
-    ]
+        structlog.processors.JSONRenderer(),
+    ],
 )
 
 logger = structlog.get_logger()
@@ -50,7 +53,7 @@ async def main():
             client=client,
             start_date=start_date,
             end_date=end_date,
-            courts=["TJRO"]
+            courts=["TJRO"],
         )
     finally:
         await client.close()

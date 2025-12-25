@@ -13,7 +13,7 @@ async def run_collection(
     client: PJeAPIClient,
     start_date: str,
     end_date: str,
-    courts: list[str] | None = None
+    courts: list[str] | None = None,
 ) -> None:
     """Collects intimations from the PJe API and stores them in DuckDB.
 

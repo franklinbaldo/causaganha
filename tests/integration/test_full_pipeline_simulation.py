@@ -1,23 +1,22 @@
 """Integration test simulating full pipeline with realistic data (TDD)."""
 
-import asyncio
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
 from urllib.parse import urlparse
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
-from causaganha.storage.repository import IntimationRepository
+
+import pytest
+
 from causaganha.api.client import PJeAPIClient
-from causaganha.services.document import DocumentService
-from causaganha.services.archive import InternetArchiveService
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.pipeline.collect import run_collection
-from causaganha.pipeline.archive import run_archive
-from causaganha.pipeline.analyze import run_analysis
-from causaganha.pipeline.score import run_scoring
 from causaganha.domain.models import Intimation
+from causaganha.pipeline.analyze import run_analysis
+from causaganha.pipeline.archive import run_archive
+from causaganha.pipeline.collect import run_collection
+from causaganha.pipeline.score import run_scoring
+from causaganha.services.archive import InternetArchiveService
+from causaganha.services.document import DocumentService
+from causaganha.storage.connection import get_connection
+from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
 
 
 @pytest.fixture
@@ -114,8 +113,7 @@ class TestFullPipelineSimulation:
         mock_llm_analysis,
         tmp_path,
     ):
-        """
-        Simulate complete real-world workflow:
+        """Simulate complete real-world workflow:
         1. Collect intimations from PJe API
         2. Archive PDFs to Internet Archive
         3. Analyze decisions with LLM
@@ -128,7 +126,7 @@ class TestFullPipelineSimulation:
         # ==========================================
         # STEP 1: COLLECT - Simulate PJe API
         # ==========================================
-        with patch.object(PJeAPIClient, 'get_intimations_by_court', new_callable=AsyncMock) as mock_api:
+        with patch.object(PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = realistic_intimation_data
 
             client = PJeAPIClient()
@@ -139,7 +137,7 @@ class TestFullPipelineSimulation:
                 client,
                 start_date="2024-12-15",
                 end_date="2024-12-15",
-                courts=["TJRO"]
+                courts=["TJRO"],
             )
 
             await client.close()
@@ -149,14 +147,14 @@ class TestFullPipelineSimulation:
         assert len(all_intimations) == 2, "Should have stored 2 intimations"
         assert all_intimations["numero_processo"].tolist() == [
             "1234567-89.2024.8.22.0001",
-            "9876543-21.2024.8.22.0002"
+            "9876543-21.2024.8.22.0002",
         ]
 
         # ==========================================
         # STEP 2: ARCHIVE - Simulate IA Upload
         # ==========================================
-        with patch.object(DocumentService, 'download_pdf', new_callable=AsyncMock) as mock_download, \
-             patch.object(InternetArchiveService, 'upload_file', new_callable=AsyncMock) as mock_upload:
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
 
             # Mock PDF download
             mock_download.return_value = mock_pdf_content
@@ -175,12 +173,12 @@ class TestFullPipelineSimulation:
                 doc_service,
                 ia_service,
                 limit=10,
-                dry_run=False
+                dry_run=False,
             )
 
         # Verify intimations were archived
         archived = con.table("intimations").filter(
-            con.table("intimations").ia_url.notnull()
+            con.table("intimations").ia_url.notnull(),
         ).execute()
 
         assert len(archived) == 2, "Should have archived both intimations"
@@ -195,12 +193,12 @@ class TestFullPipelineSimulation:
         # STEP 3: ANALYZE - Simulate LLM Analysis
         # ==========================================
         # Mock the entire analysis call to avoid needing API keys
-        with patch('causaganha.pipeline.analyze.DecisionAnalyzer') as MockAnalyzer:
+        with patch("causaganha.pipeline.analyze.DecisionAnalyzer") as MockAnalyzer:
             mock_analyzer_instance = AsyncMock()
             mock_analyzer_instance.analyze_decision.return_value = mock_llm_analysis
             MockAnalyzer.return_value = mock_analyzer_instance
 
-            with patch.object(DocumentService, 'download_pdf', new_callable=AsyncMock) as mock_download:
+            with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download:
                 mock_download.return_value = mock_pdf_content
 
                 doc_service = DocumentService()
@@ -211,7 +209,7 @@ class TestFullPipelineSimulation:
                     repository,
                     doc_service,
                     analyzer,
-                    limit=10
+                    limit=10,
                 )
 
         # Verify analyses were stored
@@ -241,7 +239,7 @@ class TestFullPipelineSimulation:
 
         # Verify analyses marked as scored
         scored_analyses = con.table("analysis_results").filter(
-            con.table("analysis_results").scored == True
+            con.table("analysis_results").scored == True,
         ).execute()
         assert len(scored_analyses) == 2, "Both analyses should be marked as scored"
 
@@ -276,8 +274,8 @@ class TestFullPipelineSimulation:
         await repository.store_intimations([intimation_no_link])
 
         # Try to archive - should skip this one
-        with patch.object(DocumentService, 'download_pdf', new_callable=AsyncMock) as mock_download, \
-             patch.object(InternetArchiveService, 'upload_file', new_callable=AsyncMock) as mock_upload:
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
 
             mock_download.return_value = mock_pdf_content
             mock_upload.return_value = "https://archive.org/details/test"
@@ -290,7 +288,7 @@ class TestFullPipelineSimulation:
 
         # Verify it wasn't archived (no link to download)
         result = con.table("intimations").filter(
-            con.table("intimations").id == 2001
+            con.table("intimations").id == 2001,
         ).execute()
 
         assert result["ia_url"].iloc[0] is None or result["ia_url"].isna().iloc[0], \
@@ -307,8 +305,8 @@ class TestFullPipelineSimulation:
         # Store intimations
         await repository.store_intimations(realistic_intimation_data)
 
-        with patch.object(DocumentService, 'download_pdf', new_callable=AsyncMock) as mock_download, \
-             patch.object(InternetArchiveService, 'upload_file', new_callable=AsyncMock) as mock_upload:
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
 
             mock_download.return_value = mock_pdf_content
 
@@ -361,8 +359,8 @@ class TestFullPipelineSimulation:
         assert len(unarchived) == 3, "Should respect limit of 3"
 
         # Archive only 5
-        with patch.object(DocumentService, 'download_pdf', new_callable=AsyncMock) as mock_download, \
-             patch.object(InternetArchiveService, 'upload_file', new_callable=AsyncMock) as mock_upload:
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
 
             mock_download.return_value = b"fake pdf"
             mock_upload.return_value = "https://archive.org/details/test"
@@ -374,7 +372,7 @@ class TestFullPipelineSimulation:
 
         # Verify only 5 were archived
         archived = con.table("intimations").filter(
-            con.table("intimations").ia_url.notnull()
+            con.table("intimations").ia_url.notnull(),
         ).execute()
         assert len(archived) == 5, "Should have archived exactly 5"
 

@@ -1,25 +1,26 @@
 
 import asyncio
+import json
+from datetime import date, timedelta
+
 import structlog
 import typer
-from datetime import date, timedelta
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from typing import Optional
 
-from causaganha.config import DB_PATH, settings
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
-from causaganha.storage.repository import IntimationRepository
+from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.api.client import PJeAPIClient
-from causaganha.pipeline.collect import run_collection
+from causaganha.config import DB_PATH, settings
+from causaganha.ia.schemas import ParquetSchema
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
-import json
+from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.services.document import DocumentService
 from causaganha.services.archive import create_archive_service
-from causaganha.ia.schemas import ParquetSchema
+from causaganha.services.document import DocumentService
+from causaganha.storage.connection import get_connection
+from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
+
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -77,7 +78,7 @@ def collect(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: Optional[str] = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
+    courts: str | None = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
 ) -> None:
     """Collect intimations from PJe."""
     logger.info("collect_command_start")
@@ -98,7 +99,7 @@ def collect(
             ) as progress:
                 progress.add_task(description="Coletando intimações...", total=None)
                 await run_collection(
-                    repository, client, start_date, end_date, court_list
+                    repository, client, start_date, end_date, court_list,
                 )
         finally:
             await client.close()
@@ -194,7 +195,7 @@ def pipeline(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: Optional[str] = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
+    courts: str | None = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
     analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
     archive_limit: int = typer.Option(10, help="Number of items to archive"),
     score_limit: int = typer.Option(100, help="Number of items to score"),

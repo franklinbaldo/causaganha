@@ -1,7 +1,9 @@
 import functions_framework
-from causaganha.cloud.functions.scheduler import scheduler_tick
+
 from causaganha.cloud.functions.ingest import ingest_worker
 from causaganha.cloud.functions.llm import llm_worker, process_llm
+from causaganha.cloud.functions.scheduler import scheduler_tick
+
 
 # Expose functions for Cloud Functions runtime
 
@@ -18,7 +20,7 @@ def ingest_pubsub(cloud_event):
     # CloudEvent to dict
     event_data = {
         "data": cloud_event.data,
-        "attributes": cloud_event.attributes
+        "attributes": cloud_event.attributes,
     }
     asyncio.run(ingest_worker(event_data, None))
 
@@ -28,7 +30,7 @@ def llm_pubsub(cloud_event):
     import asyncio
     event_data = {
         "data": cloud_event.data,
-        "attributes": cloud_event.attributes
+        "attributes": cloud_event.attributes,
     }
     asyncio.run(llm_worker(event_data, None))
 

@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""
-Data Quality Validation Script for CausaGanha V2.
+"""Data Quality Validation Script for CausaGanha V2.
 
 Runs comprehensive checks on the database content using DataValidator.
 """
 
 import sys
-import structlog
 from pathlib import Path
+
+import structlog
+
 
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+from causaganha.config import DB_PATH
 from causaganha.storage.connection import get_connection
 from causaganha.validation.validator import DataValidator
-from causaganha.config import DB_PATH
+
 
 logger = structlog.get_logger()
 
@@ -56,7 +58,7 @@ def validate_data():
 
         logger.info("Validation passed - DATA OK")
 
-    except Exception as e:
+    except Exception:
         logger.exception("Validation script failed")
         sys.exit(1)
 

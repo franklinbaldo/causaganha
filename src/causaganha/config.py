@@ -1,9 +1,8 @@
-import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 # Base paths calculation
 _BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -42,7 +41,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        case_sensitive=True
+        case_sensitive=True,
     )
 
     def model_post_init(self, __context: Any) -> None:

@@ -1,12 +1,12 @@
-import json
 import base64
-import os
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, ANY
-from causaganha.cloud.db import COLLECTION_NAME
 
 # Import module under test
 from causaganha.cloud.functions import ingest
+
 
 @pytest.fixture(autouse=True)
 def mock_env_vars():
@@ -58,7 +58,7 @@ async def test_ingest_worker_success(
     mock_publisher,
     mock_acquire_lock,
     mock_doc_service,
-    mock_archive_service
+    mock_archive_service,
 ):
     # Setup Firestore
     doc_ref = MagicMock()
@@ -68,7 +68,7 @@ async def test_ingest_worker_success(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "pdf_url": "http://court.gov.br/doc.pdf",
-        "status": "new"
+        "status": "new",
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
     doc_ref.update = AsyncMock()
@@ -114,7 +114,7 @@ async def test_ingest_worker_already_done(
     mock_firestore,
     mock_publisher,
     mock_acquire_lock,
-    mock_doc_service
+    mock_doc_service,
 ):
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -123,7 +123,7 @@ async def test_ingest_worker_already_done(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "pdf_url": "http://court.gov.br/doc.pdf",
-        "status": "pdf_uploaded" # Already done
+        "status": "pdf_uploaded", # Already done
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
 
@@ -142,7 +142,7 @@ async def test_ingest_worker_failure(
     mock_firestore,
     mock_publisher,
     mock_acquire_lock,
-    mock_doc_service
+    mock_doc_service,
 ):
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -151,7 +151,7 @@ async def test_ingest_worker_failure(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "pdf_url": "http://court.gov.br/doc.pdf",
-        "status": "new"
+        "status": "new",
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
 
