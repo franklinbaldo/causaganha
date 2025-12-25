@@ -40,6 +40,15 @@ class Intimation(BaseModel):
     hash: str
     status: str | None = None
 
+    # Pipeline tracking fields (optional)
+    analyzed: bool = False
+    analysis_attempted_at: date | None = None  # Using date for now, could be datetime
+    analysis_error: str | None = None
+    analyzed_at: date | None = None
+    ia_url: str | None = None
+    archived_at: date | None = None
+    needs_download: bool = True
+
     # Relationships
     advogados: list[Lawyer] = Field(default_factory=list)
     partes: list[Party] = Field(default_factory=list)

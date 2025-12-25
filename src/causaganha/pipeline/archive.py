@@ -5,6 +5,7 @@ from typing import Any
 
 import structlog
 
+from causaganha.domain.models import Intimation
 from causaganha.services.archive import ArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
@@ -52,7 +53,7 @@ async def run_archive(
         except Exception:
             logger.exception(
                 "intimation_processing_failed",
-                intimation_id=intimation.get("id"),
+                intimation_id=intimation.id,
             )
             continue
 
@@ -60,7 +61,7 @@ async def run_archive(
 
 
 async def _process_intimation(
-    intimation: dict[str, Any],
+    intimation: Intimation,
     doc_service: DocumentService,
     archive_service: ArchiveService,
     repository: IntimationRepository,
@@ -75,9 +76,9 @@ async def _process_intimation(
         repository: Repository for updates.
         dry_run: If True, skip actual upload.
     """
-    intimation_id = intimation.get("id")
+    intimation_id = intimation.id
     # Field name is 'link' in the schema (TDD integration test found this)
-    document_url = intimation.get("link")
+    document_url = intimation.link
 
     # Convert intimation_id to string for validation (TDD found this bug)
     intimation_id_str = str(intimation_id)
@@ -114,11 +115,12 @@ async def _process_intimation(
         return
 
     # Upload to Internet Archive
-    tribunal = intimation.get("sigla_tribunal", "unknown").lower()
+    tribunal = intimation.sigla_tribunal.lower() if intimation.sigla_tribunal else "unknown"
     item_id = f"causaganha-{tribunal}-{intimation_id_str}"
 
     # Generate metadata from intimation data (refactored)
-    metadata = archive_service.generate_metadata(intimation)
+    # Convert Intimation object to dict for now, as generate_metadata likely expects dict
+    metadata = archive_service.generate_metadata(intimation.model_dump())
 
     ia_url = await archive_service.upload_file(temp_path, item_id, metadata)
 

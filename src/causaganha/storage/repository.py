@@ -1,7 +1,7 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import ibis
@@ -20,6 +20,36 @@ class IntimationRepository:
             con: Ibis DuckDB connection backend.
         """
         self.con = con
+
+    def _db_to_intimation(self, row: dict[str, Any]) -> Intimation:
+        """Convert database row to Intimation domain model."""
+        import pandas as pd
+
+        # Handle date conversion if necessary (DuckDB driver might return str or date)
+        if isinstance(row.get("data_disponibilizacao"), str):
+            row["data_disponibilizacao"] = date.fromisoformat(row["data_disponibilizacao"])
+        elif isinstance(row.get("data_disponibilizacao"), datetime):
+            row["data_disponibilizacao"] = row["data_disponibilizacao"].date()
+
+        # Handle NaT values which Pydantic cannot handle for Date/Datetime fields
+        for key, value in row.items():
+            if pd.isna(value):
+                row[key] = None
+            # Handle pandas Timestamp passed to date fields (Pydantic exact date check)
+            elif isinstance(value, pd.Timestamp):
+                # Check if the field expects a date
+                if key in ["data_disponibilizacao", "analysis_attempted_at", "analyzed_at", "archived_at"]:
+                     row[key] = value.date()
+
+        # Handle defaults for required boolean fields if missing or None
+        if row.get("needs_download") is None:
+            row["needs_download"] = True
+
+        if row.get("analyzed") is None:
+            row["analyzed"] = False
+
+        # Handle other potential type mismatches or defaults
+        return Intimation(**row)
 
     def _intimation_to_db(self, intimation: Intimation) -> dict[str, object]:
         """Convert Intimation model to database schema dict."""
@@ -82,7 +112,7 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_intimations, intimations)
 
-    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
@@ -106,16 +136,17 @@ class IntimationRepository:
 
         query = filtered.limit(limit)
 
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._db_to_intimation(row) for row in rows]
 
-    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been analyzed yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 
@@ -188,7 +219,7 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_analysis_results_batch, results)
 
-    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unarchived intimations."""
         t_int = self.con.table("intimations")
 
@@ -203,16 +234,17 @@ class IntimationRepository:
             filtered = t_int.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._db_to_intimation(row) for row in rows]
 
-    async def get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been archived yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unarchived_intimations, limit)
 
@@ -260,20 +292,21 @@ class IntimationRepository:
 
         await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)
 
-    def _sync_get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching all intimations."""
         t_int = self.con.table("intimations")
         query = t_int.limit(limit)
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._db_to_intimation(row) for row in rows]
 
-    async def get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch all intimations.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_all_intimations, limit)
 

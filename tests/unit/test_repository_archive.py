@@ -44,11 +44,31 @@ class TestGetUnarchivedIntimations:
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
+        # NOTE: repository now converts dict to Intimation object.
+        # This requires mocked data to be complete enough for Intimation Pydantic model.
+        # Intimation model requires many fields (numero_processo, data_disponibilizacao, etc).
+        # We need to update expected_data in mocks.
+        complete_data = []
+        for d in expected_data:
+             d.update({
+                 "id": int(d["id"]), # Intimation id is int
+                 "numero_processo": "001",
+                 "data_disponibilizacao": "2024-01-01",
+                 "sigla_tribunal": "TJRO",
+                 "tipo_comunicacao": "Int",
+                 "nome_orgao": "Vara",
+                 "texto": "txt",
+                 "tipo_documento": "Doc",
+                 "nome_classe": "Classe",
+                 "hash": "hash"
+             })
+        mock_filtered.execute.return_value.to_dict.return_value = expected_data
+
         result = await repository.get_unarchived_intimations(limit=10)
 
         # Assert
         assert len(result) == 2
-        assert result[0]["id"] == "1"
+        assert result[0].id == 1
         mock_connection.table.assert_called_once_with("intimations")
 
     @pytest.mark.asyncio
@@ -65,15 +85,28 @@ class TestGetUnarchivedIntimations:
 
         # Only return intimations with links
         expected_data = [
-            {"id": "1", "link": "http://example.com/1.pdf", "ia_url": None},
+            {"id": 1, "link": "http://example.com/1.pdf", "ia_url": None},
         ]
+        # Make valid Intimation objects
+        for d in expected_data:
+             d.update({
+                 "numero_processo": "001",
+                 "data_disponibilizacao": "2024-01-01",
+                 "sigla_tribunal": "TJRO",
+                 "tipo_comunicacao": "Int",
+                 "nome_orgao": "Vara",
+                 "texto": "txt",
+                 "tipo_documento": "Doc",
+                 "nome_classe": "Classe",
+                 "hash": "hash"
+             })
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
         result = await repository.get_unarchived_intimations(limit=10)
 
         # Assert
-        assert all(item.get("link") for item in result)
+        assert all(item.link for item in result)
 
     @pytest.mark.asyncio
     async def test_respects_limit_parameter(self, repository, mock_connection):
@@ -87,7 +120,19 @@ class TestGetUnarchivedIntimations:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        expected_data = [{"id": f"{i}", "link": f"http://example.com/{i}.pdf"} for i in range(5)]
+        expected_data = [{"id": i, "link": f"http://example.com/{i}.pdf"} for i in range(5)]
+        for d in expected_data:
+             d.update({
+                 "numero_processo": "001",
+                 "data_disponibilizacao": "2024-01-01",
+                 "sigla_tribunal": "TJRO",
+                 "tipo_comunicacao": "Int",
+                 "nome_orgao": "Vara",
+                 "texto": "txt",
+                 "tipo_documento": "Doc",
+                 "nome_classe": "Classe",
+                 "hash": "hash"
+             })
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
@@ -116,7 +161,19 @@ class TestGetUnarchivedIntimations:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        expected_data = [{"id": "1", "link": "http://example.com/1.pdf"}]
+        expected_data = [{"id": 1, "link": "http://example.com/1.pdf"}]
+        for d in expected_data:
+             d.update({
+                 "numero_processo": "001",
+                 "data_disponibilizacao": "2024-01-01",
+                 "sigla_tribunal": "TJRO",
+                 "tipo_comunicacao": "Int",
+                 "nome_orgao": "Vara",
+                 "texto": "txt",
+                 "tipo_documento": "Doc",
+                 "nome_classe": "Classe",
+                 "hash": "hash"
+             })
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
@@ -193,8 +250,20 @@ class TestRepositoryIntegration:
         mock_filtered.limit.return_value = mock_filtered
 
         unarchived_data = [
-            {"id": "1", "link": "http://example.com/1.pdf", "ia_url": None},
+            {"id": 1, "link": "http://example.com/1.pdf", "ia_url": None},
         ]
+        for d in unarchived_data:
+             d.update({
+                 "numero_processo": "001",
+                 "data_disponibilizacao": "2024-01-01",
+                 "sigla_tribunal": "TJRO",
+                 "tipo_comunicacao": "Int",
+                 "nome_orgao": "Vara",
+                 "texto": "txt",
+                 "tipo_documento": "Doc",
+                 "nome_classe": "Classe",
+                 "hash": "hash"
+             })
         mock_filtered.execute.return_value.to_dict.return_value = unarchived_data
 
         mock_raw_con = MagicMock()
@@ -204,7 +273,8 @@ class TestRepositoryIntegration:
         intimations = await repository.get_unarchived_intimations(limit=1)
         assert len(intimations) == 1
 
-        await repository.mark_as_archived(intimations[0]["id"], "https://archive.org/details/1")
+        # Use string id for mark_as_archived as expected by the method
+        await repository.mark_as_archived(str(intimations[0].id), "https://archive.org/details/1")
 
         # Assert
         mock_raw_con.execute.assert_called_once()

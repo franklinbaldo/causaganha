@@ -1,13 +1,14 @@
 """Tests for archive pipeline."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
-
+from datetime import date
 import pytest
 
 from causaganha.pipeline.archive import _process_intimation, run_archive
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
+from causaganha.domain.models import Intimation
 
 
 @pytest.fixture
@@ -15,16 +16,32 @@ def mock_repository():
     """Create a mock repository."""
     repo = MagicMock(spec=IntimationRepository)
     repo.get_unarchived_intimations = AsyncMock(return_value=[
-        {
-            "id": "test-id-1",
-            "url_documento": "https://example.com/doc1.pdf",
-            "link": "https://example.com/doc1.pdf",
-        },
-        {
-            "id": "test-id-2",
-            "url_documento": "https://example.com/doc2.pdf",
-            "link": "https://example.com/doc2.pdf",
-        },
+        Intimation(
+            id=1,
+            link="https://example.com/doc1.pdf",
+            numero_processo="123",
+            data_disponibilizacao=date(2024, 1, 1),
+            sigla_tribunal="TJRO",
+            tipo_comunicacao="Int",
+            nome_orgao="Vara",
+            texto="txt",
+            tipo_documento="Doc",
+            nome_classe="Class",
+            hash="h1",
+        ),
+        Intimation(
+            id=2,
+            link="https://example.com/doc2.pdf",
+            numero_processo="123",
+            data_disponibilizacao=date(2024, 1, 1),
+            sigla_tribunal="TJRO",
+            tipo_comunicacao="Int",
+            nome_orgao="Vara",
+            texto="txt",
+            tipo_documento="Doc",
+            nome_classe="Class",
+            hash="h2",
+        ),
     ])
     repo.mark_as_archived = AsyncMock()
     return repo
@@ -102,7 +119,19 @@ async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_se
 @pytest.mark.asyncio
 async def test_process_intimation_no_url(mock_doc_service, mock_ia_service, mock_repository):
     """Test processing intimation without document URL."""
-    intimation = {"id": "test-id", "url_documento": None}
+    intimation = Intimation(
+        id=1,
+        link=None,
+        numero_processo="123",
+        data_disponibilizacao=date(2024, 1, 1),
+        sigla_tribunal="TJRO",
+        tipo_comunicacao="Int",
+        nome_orgao="Vara",
+        texto="txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="h",
+    )
 
     await _process_intimation(
         intimation,
@@ -119,10 +148,19 @@ async def test_process_intimation_no_url(mock_doc_service, mock_ia_service, mock
 @pytest.mark.asyncio
 async def test_process_intimation_download_failure(mock_doc_service, mock_ia_service, mock_repository):
     """Test processing intimation with download failure."""
-    intimation = {
-        "id": "test-id",
-        "url_documento": "https://example.com/doc.pdf",
-    }
+    intimation = Intimation(
+        id=1,
+        link="https://example.com/doc.pdf",
+        numero_processo="123",
+        data_disponibilizacao=date(2024, 1, 1),
+        sigla_tribunal="TJRO",
+        tipo_comunicacao="Int",
+        nome_orgao="Vara",
+        texto="txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="h",
+    )
     mock_doc_service.download_pdf.return_value = None
 
     await _process_intimation(

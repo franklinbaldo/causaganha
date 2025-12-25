@@ -1,5 +1,6 @@
 
 import json
+from datetime import date
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from causaganha.cli import app
+from causaganha.domain.models import Intimation
 
 
 runner = CliRunner()
@@ -305,17 +307,25 @@ def test_manifest_export(mock_get_repo: MagicMock) -> None:
     # Mock the repository and its method
     mock_repo = MagicMock()
 
-    async def get_all_intimations(limit: int) -> list[dict]:
+    async def get_all_intimations(limit: int) -> list[Intimation]:
+        # Return proper Intimation objects
         return [
-            {
-                "id": 1,
-                "numero_processo": "123",
-                "sigla_tribunal": "TJRO",
-                "data_disponibilizacao": "2024-01-01",
-                "link": "http://example.com/pdf",
-                "needs_download": True,
-                "ia_url": None,
-            },
+            Intimation(
+                id=1,
+                numero_processo="123",
+                sigla_tribunal="TJRO",
+                data_disponibilizacao=date(2024, 1, 1),
+                link="http://example.com/pdf",
+                needs_download=True,
+                ia_url=None,
+                # Required fields
+                tipo_comunicacao="Int",
+                nome_orgao="Vara",
+                texto="txt",
+                tipo_documento="Doc",
+                nome_classe="Class",
+                hash="h",
+            ),
         ]
 
     mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import structlog
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.domain.models import Intimation
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
 
@@ -35,9 +36,9 @@ async def run_analysis(
     """
     logger.info("starting_analysis", limit=limit)
 
-    async def process_item(item: dict) -> dict | None:
-        intimation_id = item["id"]
-        link = item["link"]
+    async def process_item(item: Intimation) -> dict | None:
+        intimation_id = item.id
+        link = item.link
 
         logger.info("processing_intimation", id=intimation_id, link=link)
 

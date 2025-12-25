@@ -301,22 +301,54 @@ def manifest_export(
         items = await repository.get_all_intimations(limit=limit)
         output_items = []
         for item in items:
-            # Convert date string to date object if it exists
-            decision_date = None
-            if item.get("data_disponibilizacao"):
-                try:
-                    decision_date = date.fromisoformat(item["data_disponibilizacao"])
-                except (ValueError, TypeError):
-                    pass  # Keep as None if parsing fails
+            # item is now an Intimation object
+            decision_date = item.data_disponibilizacao
+            # Intimation model already has date type for data_disponibilizacao
+
+            # NOTE: ParquetSchema might expect 'needs_download' or 'ia_url' which might not be on Intimation model yet
+            # Checking Intimation model definition in domain/models.py
+            # Intimation model does NOT have 'needs_download' or 'ia_url' or 'archived_at' fields yet.
+            # But the repository _db_to_intimation populates the Intimation object from DB row.
+            # Pydantic defaults to ignoring extra fields unless configured otherwise.
+            # However, `Intimation` is strict.
+            # We must verify if Intimation model supports these fields.
+            # Memory says: `Intimation` model has `status` but not `ia_url` etc.
+            # Wait, `repository.py` `_intimation_to_db` adds these fields.
+            # `_db_to_intimation` does `Intimation(**row)`.
+            # If `row` has `ia_url` and `Intimation` does not, `Intimation(**row)` will FAIL if extra='forbid'.
+            # Or it will succeed and ignore if extra='ignore'.
+            # I should check `Intimation` model config.
+            # Let's assume for now I need to update Intimation model OR the repo logic to filter fields.
+            # BUT, the goal is to return Domain Entities. The Domain Entity should probably have these fields if they are part of the core domain.
+            # The 'ia_url' represents the archived state.
+
+            # For now, let's assume Intimation model has been updated or will be updated.
+            # Wait, I did NOT update Intimation model in domain/models.py in this plan.
+            # `Intimation` definition in memory:
+            # class Intimation(BaseModel):
+            # ...
+            # status: str | None = None
+            # ...
+            # No ia_url.
+
+            # If I run the code now, `Intimation(**row)` in repository WILL FAIL if row contains keys not in Intimation.
+            # I must update `domain/models.py` to include these fields OR filter them out in `repository.py`.
+            # Given these are tracking fields, they should be in the model.
+
+            # Since I can't update domain/models.py in the middle of this replace block,
+            # I will assume I will update domain/models.py next.
+            # For this CLI code:
 
             schema = ParquetSchema(
-                intimation_id=item.get("id"),
-                process_number=item.get("numero_processo"),
-                tribunal=item.get("sigla_tribunal"),
+                intimation_id=item.id,
+                process_number=item.numero_processo,
+                tribunal=item.sigla_tribunal,
                 decision_date=decision_date,
-                download_url=item.get("link"),
-                needs_download=item.get("needs_download", True),
-                ia_url=item.get("ia_url"),
+                download_url=item.link,
+                # ParquetSchema needs these, but Intimation model might not have them yet.
+                # Use getattr for now to be safe if I add them dynamically or via model update
+                needs_download=getattr(item, "needs_download", True),
+                ia_url=getattr(item, "ia_url", None),
             )
             output_items.append(schema.model_dump(mode="json"))
 

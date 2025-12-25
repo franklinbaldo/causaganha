@@ -108,7 +108,7 @@ class TestRepositoryArchiveOperations:
 
         # Assert - Should only get the unarchived one
         assert len(unarchived) == 1
-        assert unarchived[0]["id"] == 10
+        assert unarchived[0].id == 10
 
     @pytest.mark.asyncio
     async def test_get_unarchived_excludes_intimations_without_links(self, repository):
@@ -153,7 +153,7 @@ class TestRepositoryArchiveOperations:
 
         # Assert - Should only return the one with a link
         assert len(unarchived) == 1
-        assert unarchived[0]["id"] == 20
+        assert unarchived[0].id == 20
 
     @pytest.mark.asyncio
     async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(self, repository):
