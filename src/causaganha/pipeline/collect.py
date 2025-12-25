@@ -22,10 +22,11 @@ async def run_collection(
         client: PJe API client.
         start_date: Start date for filtering (YYYY-MM-DD).
         end_date: End date for filtering (YYYY-MM-DD).
-        courts: List of court acronyms to collect from (e.g. ['TJRO', 'TJMT']). Defaults to ['TJRO'].
+        courts: List of court acronyms to collect from. If None, defaults to configured courts.
     """
     if courts is None:
-        courts = ["TJRO"]
+        from causaganha.config import settings
+        courts = settings.COURTS
 
     logger.info("starting_collection", start_date=start_date, end_date=end_date, courts=courts)
 
