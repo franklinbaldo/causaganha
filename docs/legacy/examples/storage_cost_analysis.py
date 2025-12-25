@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 BYTES_IN_TB = 1024 ** 4
 DEFAULT_PRICE_PER_TB = 6.0  # USD per month
 

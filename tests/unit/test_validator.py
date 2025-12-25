@@ -1,7 +1,9 @@
-import pytest
 import ibis
-from causaganha.validation.validator import DataValidator
+import pytest
+
 from causaganha.storage.schema import create_schema
+from causaganha.validation.validator import DataValidator
+
 
 @pytest.fixture
 def con():
@@ -33,7 +35,7 @@ def test_check_intimations_valid(con):
         "hash": "abc",
         "status": "pending",
         "ia_url": None,
-        "archived_at": None
+        "archived_at": None,
     }]
     con.insert("intimations", data)
 
@@ -61,8 +63,8 @@ def test_check_intimations_invalid(con):
             "hash": "abc",
             "status": "pending",
             "ia_url": None,
-            "archived_at": None
-        }
+            "archived_at": None,
+        },
     ]
     con.insert("intimations", data)
 
@@ -91,7 +93,7 @@ def test_check_orphaned_analysis(con):
         "loser_party_name": None,
         "decision_type": None,
         "decision_reasoning": None,
-        "scored": False
+        "scored": False,
     }]
     con.insert("analysis_results", analysis_data)
 
@@ -112,8 +114,8 @@ def test_check_ratings_integrity(con):
             "last_updated": None,
             "total_cases": 1,
             "wins": 1,
-            "losses": 0
-        }
+            "losses": 0,
+        },
     ]
     con.insert("lawyer_ratings", data)
 

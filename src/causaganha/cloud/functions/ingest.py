@@ -7,21 +7,21 @@ from typing import Any
 
 import structlog
 from google.cloud import pubsub_v1
+
 from causaganha.cloud.db import (
+    COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
-    COLLECTION_NAME,
 )
-from causaganha.services.document import DocumentService
-from causaganha.services.archive import InternetArchiveService, LocalArchiveService
-
 from causaganha.config import settings
+from causaganha.services.archive import InternetArchiveService, LocalArchiveService
+from causaganha.services.document import DocumentService
+
 
 logger = structlog.get_logger()
 
 async def ingest_worker(event: dict, context: Any) -> None:
-    """
-    Pub/Sub trigger.
+    """Pub/Sub trigger.
     Downloads PDF and uploads to Internet Archive.
     """
     if "data" in event:
@@ -112,7 +112,7 @@ async def ingest_worker(event: dict, context: Any) -> None:
                 result_url = await archive_service.upload_file(
                     file_path=upload_path,
                     item_id=ia_identifier,
-                    metadata={"url": pdf_url, "docKey": doc_key}
+                    metadata={"url": pdf_url, "docKey": doc_key},
                 )
 
                 if not result_url:
@@ -129,7 +129,7 @@ async def ingest_worker(event: dict, context: Any) -> None:
         await doc_ref.update({
             "status": "pdf_uploaded",
             "ia_identifier": ia_identifier,
-            "updated_at": firestore.SERVER_TIMESTAMP
+            "updated_at": firestore.SERVER_TIMESTAMP,
         })
 
         # 5. Emit next stage
@@ -144,6 +144,6 @@ def _publish_next_stage(publisher, doc_key):
     message_json = json.dumps({
         "docKey": doc_key,
         "stage": "llm",
-        "force": False
+        "force": False,
     }).encode("utf-8")
     publisher.publish(settings.TOPIC_LLM, message_json)

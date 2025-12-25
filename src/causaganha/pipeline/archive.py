@@ -1,7 +1,5 @@
 """Archive pipeline for downloading and uploading judicial documents."""
 
-import asyncio
-from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +8,7 @@ import structlog
 from causaganha.services.archive import ArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
+
 
 logger = structlog.get_logger()
 
@@ -33,7 +32,7 @@ async def run_archive(
         dry_run: If True, don't actually upload to IA.
     """
     logger.info(
-        "starting_archive_pipeline", limit=limit, dry_run=dry_run
+        "starting_archive_pipeline", limit=limit, dry_run=dry_run,
     )
 
     # Get unarchived intimations
@@ -48,7 +47,7 @@ async def run_archive(
     for intimation in intimations:
         try:
             await _process_intimation(
-                intimation, doc_service, archive_service, repository, dry_run
+                intimation, doc_service, archive_service, repository, dry_run,
             )
         except Exception:
             logger.exception(

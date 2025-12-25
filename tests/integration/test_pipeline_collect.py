@@ -6,14 +6,13 @@ import pytest
 
 from causaganha.domain.models import Intimation
 from causaganha.pipeline.collect import run_collection
+from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.schema import create_schema
 
 
 @pytest.mark.asyncio
 async def test_run_collection_success(tmp_path: Path) -> None:
-    from causaganha.storage.connection import get_connection
-    from causaganha.storage.schema import create_schema
-
     db_path = tmp_path / "test.duckdb"
     con = get_connection(str(db_path))
     create_schema(con)
@@ -38,7 +37,7 @@ async def test_run_collection_success(tmp_path: Path) -> None:
             hash="abc123hash",
             status="ATIVO",
             advogados=[],
-            partes=[]
+            partes=[],
         ),
     ]
 
@@ -50,7 +49,7 @@ async def test_run_collection_success(tmp_path: Path) -> None:
         client=mock_api_client,
         start_date="2024-01-01",
         end_date="2024-01-02",
-        courts=["TJRO"]
+        courts=["TJRO"],
     )
 
     # Verify data is stored

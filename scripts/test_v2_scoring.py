@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-import asyncio
 import argparse
+import asyncio
 import sys
 from pathlib import Path
+
 import structlog
+
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
-from causaganha.pipeline.score import run_scoring
+
 
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()
-    ]
+        structlog.processors.JSONRenderer(),
+    ],
 )
 
 logger = structlog.get_logger()
@@ -37,7 +40,7 @@ async def main():
     try:
         await run_scoring(
             repository=repository,
-            limit=args.limit
+            limit=args.limit,
         )
     except Exception as e:
         logger.exception("scoring_failed_toplevel", error=str(e))

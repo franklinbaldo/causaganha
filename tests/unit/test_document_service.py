@@ -1,8 +1,11 @@
 """Tests for DocumentService."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from causaganha.services.document import DocumentService
+
 
 @pytest.fixture
 def doc_service():

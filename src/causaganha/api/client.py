@@ -1,13 +1,13 @@
 """PJe Communications API client with httpx."""
 
 from datetime import date
-from typing import List
 
 import httpx
 import structlog
 
 from causaganha.domain.models import Intimation as DomainIntimation
 from causaganha.domain.models import Lawyer, Party
+
 from .schemas import Intimation as APIIntimation
 
 
@@ -45,7 +45,7 @@ class PJeAPIClient:
                 id=d.advogado.id,
                 nome=d.advogado.nome,
                 numero_oab=d.advogado.numero_oab,
-                uf_oab=d.advogado.uf_oab
+                uf_oab=d.advogado.uf_oab,
             )
             for d in api_obj.destinatarioadvogados
         ]
@@ -71,7 +71,7 @@ class PJeAPIClient:
             hash=api_obj.hash,
             status=None,  # 'status' is not in the item schema
             advogados=advogados,
-            partes=partes
+            partes=partes,
         )
 
     async def get_intimations_by_court(
@@ -81,7 +81,7 @@ class PJeAPIClient:
         data_disponibilizacao_fim: date | None = None,
         pagina: int = 1,
         itens_por_pagina: int = 100,
-    ) -> List[DomainIntimation]:
+    ) -> list[DomainIntimation]:
         """Fetch all intimations for a court with automatic pagination.
 
         Args:
@@ -94,7 +94,7 @@ class PJeAPIClient:
         Returns:
             List of validated DomainIntimation objects
         """
-        all_domain_intimations: List[DomainIntimation] = []
+        all_domain_intimations: list[DomainIntimation] = []
         current_page = pagina
 
         while True:

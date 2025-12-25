@@ -101,7 +101,7 @@ def rate_teams(
         new_ratings = os_model.rate(teams, ranks=ranks, tau=partial_play_tau)
     else:
         raise ValueError(
-            f"Unknown match result: {result}. Expected 'win_a', 'win_b', 'draw', 'partial_a', or 'partial_b'."
+            f"Unknown match result: {result}. Expected 'win_a', 'win_b', 'draw', 'partial_a', or 'partial_b'.",
         )
 
     return new_ratings[0], new_ratings[1]

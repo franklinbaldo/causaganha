@@ -1,5 +1,4 @@
 
-import asyncio
 import json
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -67,7 +66,7 @@ def test_db_init(mock_db_connection: MagicMock, mock_create_schema: MagicMock) -
 @pytest.mark.usefixtures("mock_db_connection")
 def test_db_init_failure_shows_suggestions(mock_create_schema: MagicMock) -> None:
     """Tests if actionable suggestions are displayed on failure."""
-    mock_create_schema.side_effect = IOError("Permission denied")
+    mock_create_schema.side_effect = OSError("Permission denied")
     result = runner.invoke(app, ["db", "init"])
     assert result.exit_code == 1
     assert "Actionable Suggestions" in result.stdout
@@ -132,12 +131,11 @@ def test_analyze(mock_run_analysis: MagicMock) -> None:
 def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
     """Tests the error handler for the analyze command."""
     mock_run_analysis.side_effect = ValueError("Invalid document format")
-    with patch("causaganha.cli.DecisionAnalyzer"):
-        with patch("causaganha.cli.DocumentService"):
-            result = runner.invoke(app, ["analyze"])
-            assert result.exit_code == 1
-            assert "❌ Analysis failed" in result.stdout
-            assert "Invalid document format" in result.stdout
+    with patch("causaganha.cli.DecisionAnalyzer"), patch("causaganha.cli.DocumentService"):
+        result = runner.invoke(app, ["analyze"])
+        assert result.exit_code == 1
+        assert "❌ Analysis failed" in result.stdout
+        assert "Invalid document format" in result.stdout
 
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
@@ -190,7 +188,7 @@ def test_pipeline(
     mock_run_archive: MagicMock,
     mock_run_analysis: MagicMock,
     mock_run_scoring: MagicMock,
-    mock_pje_client: MagicMock
+    mock_pje_client: MagicMock,
 ) -> None:
     # We need to mock services instantiated in pipeline
     with patch("causaganha.cli.create_archive_service"), \
@@ -214,7 +212,7 @@ def test_pipeline_skips(
     mock_run_archive: MagicMock,
     mock_run_analysis: MagicMock,
     mock_run_scoring: MagicMock,
-    mock_pje_client: MagicMock
+    mock_pje_client: MagicMock,
 ) -> None:
     # We need to mock services instantiated in pipeline
     with patch("causaganha.cli.create_archive_service"), \
@@ -227,7 +225,7 @@ def test_pipeline_skips(
             "--skip-collect",
             "--skip-archive",
             "--skip-analyze",
-            "--skip-score"
+            "--skip-score",
         ])
 
         assert result.exit_code == 0
@@ -269,11 +267,11 @@ def test_collect_shows_progress(
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_analyze_shows_progress(
-    mock_run_analysis: MagicMock, mock_rich_progress: MagicMock
+    mock_run_analysis: MagicMock, mock_rich_progress: MagicMock,
 ) -> None:
     """Tests that the analyze command shows a progress indicator."""
     with patch("causaganha.cli.DecisionAnalyzer"), patch(
-        "causaganha.cli.DocumentService"
+        "causaganha.cli.DocumentService",
     ):
         result = runner.invoke(app, ["analyze"])
         assert result.exit_code == 0
@@ -283,11 +281,11 @@ def test_analyze_shows_progress(
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_archive_shows_progress(
-    mock_run_archive: MagicMock, mock_rich_progress: MagicMock
+    mock_run_archive: MagicMock, mock_rich_progress: MagicMock,
 ) -> None:
     """Tests that the archive command shows a progress indicator."""
     with patch("causaganha.cli.create_archive_service"), patch(
-        "causaganha.cli.DocumentService"
+        "causaganha.cli.DocumentService",
     ):
         result = runner.invoke(app, ["archive"])
         assert result.exit_code == 0
@@ -296,6 +294,7 @@ def test_archive_shows_progress(
 
 
 import structlog
+
 
 @patch("causaganha.cli._get_repository")
 def test_manifest_export(mock_get_repo: MagicMock) -> None:
@@ -316,7 +315,7 @@ def test_manifest_export(mock_get_repo: MagicMock) -> None:
                 "link": "http://example.com/pdf",
                 "needs_download": True,
                 "ia_url": None,
-            }
+            },
         ]
 
     mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)

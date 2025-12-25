@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Script to validate PJe API coverage across different Brazilian courts.
+"""Script to validate PJe API coverage across different Brazilian courts.
 
 This script attempts to fetch intimations from a list of courts to determine
 which ones are accessible via the API.
@@ -10,14 +9,16 @@ import asyncio
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 import structlog
+
 
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.api.client import PJeAPIClient
+
 
 logger = structlog.get_logger()
 
@@ -30,10 +31,10 @@ COURTS = [
     "TJPR", "TJSC", "TJRS",
     "TJMS", "TJMT", "TJGO", "TJDFT",
     # Federal Courts (TRF)
-    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6"
+    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
 ]
 
-async def check_court(client: PJeAPIClient, tribunal: str) -> Dict[str, Any]:
+async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
     """Check if a specific court API is accessible."""
     try:
         # Try to fetch data from the last 7 days
@@ -46,7 +47,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> Dict[str, Any]:
             sigla_tribunal=tribunal,
             data_inicio=start_date,
             data_fim=today,
-            limit_per_page=1  # We only need to check if it returns something or no error
+            limit_per_page=1,  # We only need to check if it returns something or no error
         )
 
         count = len(intimations)
@@ -56,7 +57,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> Dict[str, Any]:
             "tribunal": tribunal,
             "status": "OK",
             "count": count,
-            "error": None
+            "error": None,
         }
 
     except Exception as e:
@@ -65,7 +66,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> Dict[str, Any]:
             "tribunal": tribunal,
             "status": "ERROR",
             "count": 0,
-            "error": str(e)
+            "error": str(e),
         }
 
 async def validate_coverage():

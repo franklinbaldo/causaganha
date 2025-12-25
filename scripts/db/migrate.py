@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 from pathlib import Path
 
 from causaganha_v1.database import run_db_migrations

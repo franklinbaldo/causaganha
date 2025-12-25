@@ -4,27 +4,27 @@ import logging
 from collections import Counter
 from pathlib import Path
 
+
 # Configure basic logging for the monitor script itself
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 def parse_run_results(results_path: Path) -> None:
-    """
-    Parses a dbt run_results.json file and logs a summary of the run.
+    """Parses a dbt run_results.json file and logs a summary of the run.
     """
     if not results_path.exists():
         logger.error(f"dbt run_results.json not found at: {results_path}")
         return
 
     try:
-        with open(results_path, "r") as f:
+        with open(results_path) as f:
             data = json.load(f)
     except json.JSONDecodeError:
         logger.error(
-            f"Failed to parse JSON from {results_path}. File might be corrupted or not valid JSON."
+            f"Failed to parse JSON from {results_path}. File might be corrupted or not valid JSON.",
         )
         return
     except Exception as e:
@@ -75,7 +75,7 @@ def parse_run_results(results_path: Path) -> None:
                 # For test failures, unique_id is like test.my_project.not_null_my_model_id.hash
                 # We might want to extract the model it applies to if possible, or just log the test name.
                 error_messages.append(
-                    f"{status.upper()} in TEST {node_name}: {message}"
+                    f"{status.upper()} in TEST {node_name}: {message}",
                 )
 
     logger.info("\n--- Model/Seed/Snapshot Summary ---")
@@ -105,7 +105,7 @@ def parse_run_results(results_path: Path) -> None:
         logger.info("\n--- Top 5 Slowest Nodes ---")
         for i, node_info in enumerate(slowest_nodes[:5]):
             logger.info(
-                f"  {i + 1}. {node_info['name']}: {node_info['time']:.2f}s (Status: {node_info['status']})"
+                f"  {i + 1}. {node_info['name']}: {node_info['time']:.2f}s (Status: {node_info['status']})",
             )
 
     logger.info("\n--- End of dbt Run Monitoring ---")
@@ -113,14 +113,14 @@ def parse_run_results(results_path: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Monitor a dbt run by parsing run_results.json."
+        description="Monitor a dbt run by parsing run_results.json.",
     )
     parser.add_argument(
         "run_results_path",
         type=Path,
         help="Path to the dbt run_results.json file (usually target/run_results.json)",
         default=Path(
-            "dbt/target/run_results.json"
+            "dbt/target/run_results.json",
         ),  # Default path assuming dbt project is in 'dbt/'
         nargs="?",  # Makes the argument optional, using default if not provided
     )
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         effective_run_results_path = args.run_results_path
 
     logger.info(
-        f"Attempting to monitor dbt run from: {effective_run_results_path.resolve()}"
+        f"Attempting to monitor dbt run from: {effective_run_results_path.resolve()}",
     )
     parse_run_results(effective_run_results_path)
 

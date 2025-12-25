@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-import asyncio
 import argparse
+import asyncio
+import os
 import sys
 from pathlib import Path
+
 import structlog
-import os
+
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.pipeline.analyze import run_analysis
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
-from causaganha.pipeline.analyze import run_analysis
+
 
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()
-    ]
+        structlog.processors.JSONRenderer(),
+    ],
 )
 
 logger = structlog.get_logger()
@@ -49,7 +52,7 @@ async def main():
             repository=repository,
             doc_service=doc_service,
             analyzer=analyzer,
-            limit=args.limit
+            limit=args.limit,
         )
     except Exception as e:
         logger.exception("analysis_failed_toplevel", error=str(e))

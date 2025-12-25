@@ -9,9 +9,8 @@ def attempt_network_operation(succeed=False):
     if succeed:
         print("Network operation successful.")
         return "Data from network"
-    else:
-        # Simulating a common network error
-        raise ConnectionError("Simulated: Failed to connect to the server.")
+    # Simulating a common network error
+    raise ConnectionError("Simulated: Failed to connect to the server.")
 
 def access_api_service(calls_made, limit=3):
     """Simulates accessing an API service with a rate limit."""
@@ -19,9 +18,8 @@ def access_api_service(calls_made, limit=3):
     if calls_made >= limit:
         # Simulating hitting an API rate limit
         raise Exception("Simulated: API rate limit exceeded.")
-    else:
-        print("API call successful.")
-        return f"Data from API call {calls_made + 1}"
+    print("API call successful.")
+    return f"Data from API call {calls_made + 1}"
 
 def process_file(file_exists=True, file_is_valid=True):
     """Simulates processing a file that might be missing or corrupted."""
@@ -29,7 +27,7 @@ def process_file(file_exists=True, file_is_valid=True):
     if not file_exists:
         raise FileNotFoundError("Simulated: The specified file does not exist.")
     if not file_is_valid:
-        raise IOError("Simulated: Error reading corrupted file.")
+        raise OSError("Simulated: Error reading corrupted file.")
     print("File processed successfully.")
     return "File content"
 
@@ -73,7 +71,7 @@ def main():
     try:
         result = process_file(file_exists=True, file_is_valid=False)
         print(f"Result: {result}")
-    except IOError as e:
+    except OSError as e:
         print(f"Caught a file error: {e}")
         print("Recovery: Quarantine file, log error, attempt repair if possible.\n")
 

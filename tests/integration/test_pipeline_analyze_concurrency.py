@@ -1,12 +1,15 @@
-import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock
 import asyncio
 from datetime import date
+from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
+
+from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.domain.models import Intimation
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.storage.repository import IntimationRepository
-from causaganha.domain.models import Intimation
-from causaganha.analysis.models import DecisionAnalysis, Outcome
+
 
 @pytest.mark.asyncio
 async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
@@ -35,7 +38,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
             hash=f"hash-{i}",
             status="ATIVO",
             advogados=[],
-            partes=[]
+            partes=[],
         ))
     await repository.store_intimations(intimations)
 
@@ -66,7 +69,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=5,
-        batch_size=5
+        batch_size=5,
     )
 
     # Verify all were processed

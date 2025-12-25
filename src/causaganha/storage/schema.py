@@ -3,11 +3,11 @@
 from ibis import BaseBackend
 
 from causaganha.storage.schema_definitions import (
-    INTIMATIONS_SCHEMA,
-    INTIMATION_LAWYERS_SCHEMA,
-    PIPELINE_STATE_SCHEMA,
     ANALYSIS_RESULTS_SCHEMA,
+    INTIMATION_LAWYERS_SCHEMA,
+    INTIMATIONS_SCHEMA,
     LAWYER_RATINGS_SCHEMA,
+    PIPELINE_STATE_SCHEMA,
 )
 
 
@@ -28,14 +28,14 @@ def create_schema(con: BaseBackend) -> None:
         con.create_table("intimations", schema=INTIMATIONS_SCHEMA)
         # Create index on ia_url for faster unarchived queries
         con.raw_sql(
-            "CREATE INDEX IF NOT EXISTS idx_intimations_ia_url ON intimations (ia_url)"
+            "CREATE INDEX IF NOT EXISTS idx_intimations_ia_url ON intimations (ia_url)",
         )
 
     if "intimation_lawyers" not in con.list_tables():
         con.create_table("intimation_lawyers", schema=INTIMATION_LAWYERS_SCHEMA)
         con.raw_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_intimation_lawyers_unique "
-            "ON intimation_lawyers (intimation_id, oab_number, oab_state)"
+            "ON intimation_lawyers (intimation_id, oab_number, oab_state)",
         )
 
     if "analysis_results" not in con.list_tables():
@@ -45,5 +45,5 @@ def create_schema(con: BaseBackend) -> None:
         con.create_table("lawyer_ratings", schema=LAWYER_RATINGS_SCHEMA)
         con.raw_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_lawyer_ratings_unique "
-            "ON lawyer_ratings (oab_number, oab_state)"
+            "ON lawyer_ratings (oab_number, oab_state)",
         )

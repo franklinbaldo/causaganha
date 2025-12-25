@@ -1,12 +1,15 @@
-import json
 import base64
+import json
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch, ANY
+
 from causaganha.cloud.db import COLLECTION_NAME
 
 # Import the module to test.
 from causaganha.cloud.functions import llm
+
 
 @pytest.fixture(autouse=True)
 def mock_env_vars():
@@ -81,7 +84,7 @@ async def test_llm_worker_success(
     mock_acquire_lock,
     mock_httpx,
     mock_analyzer,
-    mock_archive_service
+    mock_archive_service,
 ):
     # Setup Firestore data
     doc_ref = MagicMock()
@@ -91,7 +94,7 @@ async def test_llm_worker_success(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "ia_identifier": "test_ia_id",
-        "status": "ingested"
+        "status": "ingested",
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
     doc_ref.update = AsyncMock()
@@ -112,7 +115,7 @@ async def test_llm_worker_success(
     mock_httpx.get.assert_called_with(
         "https://archive.org/download/test_ia_id/document.pdf",
         follow_redirects=True,
-        timeout=60.0
+        timeout=60.0,
     )
 
     # Verify Analysis
@@ -134,7 +137,7 @@ async def test_llm_worker_http_trigger(
     mock_acquire_lock,
     mock_httpx,
     mock_analyzer,
-    mock_archive_service
+    mock_archive_service,
 ):
     # Setup Firestore data
     doc_ref = MagicMock()
@@ -144,7 +147,7 @@ async def test_llm_worker_http_trigger(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "ia_identifier": "test_ia_id",
-        "status": "ingested"
+        "status": "ingested",
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
     doc_ref.update = AsyncMock()
@@ -170,7 +173,7 @@ async def test_llm_worker_already_done(mock_firestore, mock_acquire_lock, mock_h
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "ia_identifier": "test_ia_id",
-        "status": "llm_done" # Already done
+        "status": "llm_done", # Already done
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
 
@@ -188,7 +191,7 @@ async def test_llm_worker_retry_on_failure(
     mock_firestore,
     mock_acquire_lock,
     mock_httpx,
-    mock_tasks_client
+    mock_tasks_client,
 ):
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -198,7 +201,7 @@ async def test_llm_worker_retry_on_failure(
     doc_snap.to_dict.return_value = {
         "ia_identifier": "test_ia_id",
         "status": "ingested",
-        "attempts": {"llm": 0}
+        "attempts": {"llm": 0},
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
 

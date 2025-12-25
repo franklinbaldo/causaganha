@@ -5,7 +5,6 @@ import httpx
 import pytest
 
 from causaganha.api.client import PJeAPIClient
-from causaganha.domain.models import Intimation
 from tests.conftest import create_mock_intimation_item
 
 
@@ -76,7 +75,7 @@ async def test_fetch_handles_pagination_with_spec_params(api_client):
         mock_get.side_effect = [mock_resp1, mock_resp2, mock_resp3]
 
         intimations = await api_client.get_intimations_by_court(
-            sigla_tribunal="TJRO", itens_por_pagina=1
+            sigla_tribunal="TJRO", itens_por_pagina=1,
         )
 
         assert len(intimations) == 2

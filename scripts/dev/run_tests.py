@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import logging
 import subprocess
-from typing import List
 
 from causaganha_v1.utils.logging_config import get_logger, setup_logging
 
 
-def run_pytest(extra_args: List[str] | None = None) -> int:
+def run_pytest(extra_args: list[str] | None = None) -> int:
     """Run pytest via uv.
 
     Parameters
@@ -18,7 +17,7 @@ def run_pytest(extra_args: List[str] | None = None) -> int:
     extra_args:
         Additional command line arguments for pytest.
 
-    Returns
+    Returns:
     -------
     int
         Exit code from pytest.
@@ -31,7 +30,7 @@ def run_pytest(extra_args: List[str] | None = None) -> int:
         subprocess.run(cmd, check=True)
         return 0
     except subprocess.CalledProcessError as exc:
-        logging.error("Tests failed with exit code %s", exc.returncode)
+        logging.exception("Tests failed with exit code %s", exc.returncode)
         return exc.returncode
 
 
