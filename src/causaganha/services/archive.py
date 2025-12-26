@@ -43,7 +43,7 @@ class ArchiveService(Protocol):
 class LocalArchiveService:
     """Local filesystem archive fallback (no API keys required)."""
 
-    def __init__(self, archive_root: Path | None = None):
+    def __init__(self, archive_root: Path | None = None) -> None:
         self.archive_root = archive_root or (DATA_DIR / "pdf_archive")
         self.archive_root.mkdir(parents=True, exist_ok=True)
 
@@ -51,13 +51,45 @@ class LocalArchiveService:
         self,
         file_path: Path,
         item_id: str,
-        metadata: dict[str, Any] | None = None,  # metadata is ignored for local storage
+        metadata: dict[str, Any] | None = None,
     ) -> str | None:
         if not file_path.exists():
             logger.error("file_not_found", path=str(file_path))
             return None
 
+        # Determine destination directory
         dest_dir = self.archive_root / item_id
+
+        if metadata:
+            # Try to organize by Tribunal/Year/Month
+            try:
+                # Extract tribunal: prefer explicit key, fallback to subject
+                tribunal = metadata.get("tribunal")
+                if not tribunal:
+                    if "subject" in metadata and metadata["subject"]:
+                        tribunal = metadata["subject"][-1]
+                    else:
+                        tribunal = "unknown"
+
+                # Extract date
+                doc_date = metadata.get("date")
+                if isinstance(doc_date, date):
+                    year = str(doc_date.year)
+                    month = f"{doc_date.month:02d}"
+                elif isinstance(doc_date, str):
+                    # Simple parsing if ISO format
+                    parsed = date.fromisoformat(doc_date)
+                    year = str(parsed.year)
+                    month = f"{parsed.month:02d}"
+                else:
+                    year = "unknown"
+                    month = "unknown"
+
+                dest_dir = self.archive_root / tribunal / year / month
+            except Exception:
+                # Fallback to item_id on error
+                dest_dir = self.archive_root / item_id
+
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest_path = dest_dir / file_path.name
 
@@ -69,7 +101,16 @@ class LocalArchiveService:
         return (self.archive_root / item_id).exists()
 
     def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
-        return {}
+        """Generate metadata for local archive consistent with IA service."""
+        processo = intimation_data.get("numero_processo", "unknown")
+        tribunal = intimation_data.get("sigla_tribunal", "unknown")
+        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+
+        return {
+            "title": f"{tribunal} - Processo {processo}",
+            "subject": [tribunal.lower()],
+            "date": data_pub,
+        }
 
 
 def create_archive_service() -> ArchiveService:
@@ -84,7 +125,7 @@ def create_archive_service() -> ArchiveService:
 class InternetArchiveService:
     """Service for uploading documents to Internet Archive."""
 
-    def __init__(self, upload_settings: dict[str, Any] | None = None):
+    def __init__(self, upload_settings: dict[str, Any] | None = None) -> None:
         """Initialize the Internet Archive service.
 
         Args:
@@ -146,7 +187,7 @@ class InternetArchiveService:
                     )
                     await asyncio.sleep(retry_sleep)
                 else:
-                    logger.error("upload_failed_max_retries", item_id=item_id, error=str(e))
+                    logger.exception("upload_failed_max_retries", item_id=item_id, error=str(e))
                     return None
 
             except Exception as e:
@@ -184,7 +225,8 @@ class InternetArchiveService:
             url = f"https://archive.org/details/{item_id}"
             logger.info("upload_success", url=url)
             return url
-        raise RuntimeError(f"Upload failed for {item_id}")
+        msg = f"Upload failed for {item_id}"
+        raise RuntimeError(msg)
 
     async def check_item_exists(self, item_id: str) -> bool:
         """Check if an item exists on Internet Archive.
@@ -196,8 +238,7 @@ class InternetArchiveService:
             True if the item exists, False otherwise.
         """
         try:
-            result = await asyncio.to_thread(self._sync_check_item, item_id)
-            return result
+            return await asyncio.to_thread(self._sync_check_item, item_id)
         except Exception:
             logger.exception("check_failed", item_id=item_id)
             return False
@@ -212,7 +253,8 @@ class InternetArchiveService:
             True if exists, False otherwise.
         """
         item = self.session.get_item(item_id)
-        return item.exists
+        # internetarchive returns Any for item.exists, force cast to bool
+        return bool(item.exists)
 
     def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
         """Generate Internet Archive metadata from intimation data.
@@ -227,14 +269,13 @@ class InternetArchiveService:
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
         data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
 
-        metadata = {
+        return {
             "collection": IA_DEFAULT_COLLECTION,
             "mediatype": IA_DEFAULT_MEDIATYPE,
             "title": f"{tribunal} - Processo {processo}",
             "creator": IA_DEFAULT_CREATOR,
-            "subject": IA_DEFAULT_SUBJECTS + [tribunal.lower()],
+            "subject": [*IA_DEFAULT_SUBJECTS, tribunal.lower()],
             "description": f"Intimação judicial do processo {processo}",
             "date": data_pub,
         }
 
-        return metadata
