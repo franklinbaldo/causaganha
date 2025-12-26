@@ -85,7 +85,7 @@ async def test_llm_worker_success(
     mock_httpx,
     mock_analyzer,
     mock_archive_service,
-):
+) -> None:
     # Setup Firestore data
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -123,7 +123,7 @@ async def test_llm_worker_success(
 
     # Verify Upload
     mock_archive_service.upload_file.assert_called_once()
-    args, kwargs = mock_archive_service.upload_file.call_args
+    _args, kwargs = mock_archive_service.upload_file.call_args
     assert kwargs["item_id"] == "test_ia_id"
     assert kwargs["metadata"]["type"] == "llm_result"
 
@@ -138,7 +138,7 @@ async def test_llm_worker_http_trigger(
     mock_httpx,
     mock_analyzer,
     mock_archive_service,
-):
+) -> None:
     # Setup Firestore data
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -165,7 +165,7 @@ async def test_llm_worker_http_trigger(
     mock_httpx.get.assert_called()
 
 @pytest.mark.asyncio
-async def test_llm_worker_already_done(mock_firestore, mock_acquire_lock, mock_httpx):
+async def test_llm_worker_already_done(mock_firestore, mock_acquire_lock, mock_httpx) -> None:
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
 
@@ -192,7 +192,7 @@ async def test_llm_worker_retry_on_failure(
     mock_acquire_lock,
     mock_httpx,
     mock_tasks_client,
-):
+) -> None:
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
 

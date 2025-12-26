@@ -45,7 +45,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     # 2. Mock DocumentService with delay to test concurrency
     mock_doc_service = AsyncMock()
 
-    async def download_with_delay(url):
+    async def download_with_delay(url) -> bytes:
         await asyncio.sleep(0.01)
         return b"%PDF-1.5 fake content"
 

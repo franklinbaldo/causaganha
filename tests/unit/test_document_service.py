@@ -13,7 +13,7 @@ def doc_service():
     return DocumentService()
 
 @pytest.mark.asyncio
-async def test_download_pdf_success(doc_service):
+async def test_download_pdf_success(doc_service) -> None:
     """Test successful PDF download."""
     url = "http://example.com/doc.pdf"
     content = b"%PDF-1.4..."
@@ -35,7 +35,7 @@ async def test_download_pdf_success(doc_service):
         assert result == content
 
 @pytest.mark.asyncio
-async def test_download_pdf_not_pdf_warning(doc_service):
+async def test_download_pdf_not_pdf_warning(doc_service) -> None:
     """Test warning when content type is not PDF."""
     url = "http://example.com/doc.html"
     content = b"<html>...</html>"
@@ -57,7 +57,7 @@ async def test_download_pdf_not_pdf_warning(doc_service):
         assert result == content
 
 @pytest.mark.asyncio
-async def test_download_pdf_failure(doc_service):
+async def test_download_pdf_failure(doc_service) -> None:
     """Test failed download."""
     url = "http://example.com/error"
 

@@ -40,8 +40,8 @@ async def scheduler_tick(request: Any) -> str:
             logger.info("fetching_court", court=court)
             intimations = await client.get_intimations_by_court(
                 sigla_tribunal=court,
-                data_inicio=start_date,
-                data_fim=today,
+                data_disponibilizacao_inicio=start_date,
+                data_disponibilizacao_fim=today,
             )
 
             for intimation in intimations:

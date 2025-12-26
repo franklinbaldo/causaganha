@@ -19,7 +19,7 @@ from causaganha.storage.connection import get_connection
 
 logger = structlog.get_logger()
 
-def compare_data():
+def compare_data() -> None:
     logger.info("Starting V1 vs V2 comparison", db_path=DB_PATH)
 
     try:

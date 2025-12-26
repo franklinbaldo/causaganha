@@ -23,7 +23,5 @@ def process_diario(date: str, tribunal: str = "TJRO") -> None:
 
 
 if __name__ == "__main__":
-    print("Processando diário do TJRO...")
     process_diario("2025-06-24")
-    print("Processando diário do TJSP...")
     process_diario("2025-06-24", tribunal="TJSP")

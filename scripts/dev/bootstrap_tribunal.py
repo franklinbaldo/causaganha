@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 
@@ -25,7 +24,6 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     target = repo_root / "src" / "tribunais" / args.code
     if target.exists():
-        print(f"Directory {target} already exists", file=sys.stderr)
         raise SystemExit(1)
 
     target.mkdir(parents=True)
@@ -33,7 +31,6 @@ def main() -> None:
     for fname, template in TEMPLATES.items():
         (target / fname).write_text(template.format(name=class_name, code=args.code))
 
-    print(f"Created tribunal adapter skeleton in {target}")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ def validate_file(path: Path) -> bool:
         logger.info("%s validated successfully", path)
         return True
     except Exception as exc:  # broad catch to report any validation error
-        logger.error("Validation failed for %s: %s", path, exc)
+        logger.exception("Validation failed for %s: %s", path, exc)
         return False
 
 

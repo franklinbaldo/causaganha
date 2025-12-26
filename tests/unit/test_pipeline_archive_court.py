@@ -29,7 +29,7 @@ def mock_archive_service():
 @pytest.mark.asyncio
 async def test_archive_uses_correct_court_in_id(
     mock_repository, mock_doc_service, mock_archive_service,
-):
+) -> None:
     """Test that the archive pipeline uses the correct tribunal in the item ID."""
     # Setup data
     intimation = {

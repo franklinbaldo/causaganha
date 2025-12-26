@@ -2,8 +2,8 @@
 from causaganha.api.schemas import Intimation
 
 
-def test_intimation_schema_parsing():
-    """Test that Intimation schema parses expected JSON"""
+def test_intimation_schema_parsing() -> None:
+    """Test that Intimation schema parses expected JSON."""
     data = {
         "id": 123456,
         "data_disponibilizacao": "2024-12-01",

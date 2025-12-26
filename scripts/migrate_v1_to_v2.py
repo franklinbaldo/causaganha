@@ -25,7 +25,7 @@ logger = structlog.get_logger()
 def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | None]:
     """Parses V1 lawyer ID string to extract Name, OAB, State.
     Expected format: "NAME (OAB/UF NUMBER)" or similar.
-    Returns: (Name, OAB Number, OAB State)
+    Returns: (Name, OAB Number, OAB State).
     """
     # Regex for "Name (OAB/UF 12345)" or "Name (OAB/UF 12345A)"
     # Handles cases with/without space after OAB/
@@ -40,7 +40,7 @@ def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | No
 
     return None, None, None
 
-def migrate_ratings(v1_path: str, v2_con):
+def migrate_ratings(v1_path: str, v2_con) -> None:
     """Migrate ratings from V1 to V2."""
     logger.info("Migrating ratings from V1", v1_path=v1_path)
 
@@ -94,7 +94,7 @@ def migrate_ratings(v1_path: str, v2_con):
 
                     migrated_count += 1
                 except Exception as e:
-                    logger.error("Failed to insert rating", adv_id=adv_id, error=str(e))
+                    logger.exception("Failed to insert rating", adv_id=adv_id, error=str(e))
                     skipped_count += 1
             else:
                 logger.warning("Could not parse lawyer ID", adv_id=adv_id)
@@ -108,7 +108,7 @@ def migrate_ratings(v1_path: str, v2_con):
         if "v1_con" in locals():
             v1_con.close()
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Migrate CausaGanha V1 data to V2")
     parser.add_argument("v1_db_path", help="Path to V1 DuckDB file")

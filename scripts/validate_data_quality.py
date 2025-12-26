@@ -20,7 +20,7 @@ from causaganha.validation.validator import DataValidator
 
 logger = structlog.get_logger()
 
-def validate_data():
+def validate_data() -> None:
     logger.info("Starting data quality validation", db_path=DB_PATH)
 
     try:

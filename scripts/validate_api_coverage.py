@@ -69,7 +69,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
             "error": str(e),
         }
 
-async def validate_coverage():
+async def validate_coverage() -> None:
     """Validate API coverage for all defined courts."""
     logger.info("Starting API coverage validation", total_courts=len(COURTS))
 
@@ -81,22 +81,16 @@ async def validate_coverage():
     await client.close()
 
     # Report results
-    print("\n" + "="*50)
-    print("API COVERAGE REPORT")
-    print("="*50)
 
     accessible = [r for r in results if r["status"] == "OK"]
     failed = [r for r in results if r["status"] == "ERROR"]
 
-    print(f"\nAccessible Courts: {len(accessible)}")
-    for r in sorted(accessible, key=lambda x: x["tribunal"]):
-        print(f"  [OK] {r['tribunal']}: {r['count']} items found (last 7 days)")
+    for _r in sorted(accessible, key=lambda x: x["tribunal"]):
+        pass
 
-    print(f"\nInaccessible Courts: {len(failed)}")
-    for r in sorted(failed, key=lambda x: x["tribunal"]):
-        print(f"  [FAIL] {r['tribunal']}: {r['error']}")
+    for _r in sorted(failed, key=lambda x: x["tribunal"]):
+        pass
 
-    print("\n" + "="*50)
 
 if __name__ == "__main__":
     asyncio.run(validate_coverage())

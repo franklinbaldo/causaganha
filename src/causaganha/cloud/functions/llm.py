@@ -28,15 +28,14 @@ logger = structlog.get_logger()
 from causaganha.config import settings
 
 
-async def schedule_retry(doc_key: str, attempt: int):
+async def schedule_retry(doc_key: str, attempt: int) -> None:
     """Schedules a retry using Cloud Tasks."""
     client = tasks_v2.CloudTasksClient()
     parent = client.queue_path(settings.GCP_PROJECT, settings.GCP_REGION, settings.TASKS_QUEUE)
 
     # Backoff: 5m, 15m, 60m...
     delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
-    if delay_seconds > 86400: # Max 24h
-        delay_seconds = 86400
+    delay_seconds = min(delay_seconds, 86400)
 
     run_at = timestamp_pb2.Timestamp()
     run_at.FromDatetime(datetime.now(UTC) + timedelta(seconds=delay_seconds))
@@ -55,7 +54,7 @@ async def schedule_retry(doc_key: str, attempt: int):
     client.create_task(request={"parent": parent, "task": task})
     logger.info("retry_scheduled", doc_key=doc_key, delay=delay_seconds)
 
-async def process_llm(doc_key: str):
+async def process_llm(doc_key: str) -> None:
     logger.info("llm_worker_start", doc_key=doc_key)
 
     db = get_firestore_client()
@@ -85,7 +84,8 @@ async def process_llm(doc_key: str):
         async with httpx.AsyncClient() as client:
             resp = await client.get(pdf_url, follow_redirects=True, timeout=60.0)
             if resp.status_code != 200:
-                raise RuntimeError(f"Could not fetch PDF from IA: {pdf_url}")
+                msg = f"Could not fetch PDF from IA: {pdf_url}"
+                raise RuntimeError(msg)
             pdf_bytes = resp.content
 
         # 3. Call Gemini
@@ -130,7 +130,7 @@ async def process_llm(doc_key: str):
         try:
             await schedule_retry(doc_key, data.get("attempts", {}).get("llm", 0) + 1)
         except Exception as retry_err:
-             logger.error("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
+             logger.exception("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
              raise e # Raise original error to NACK
 
 async def llm_worker(event: dict | Any, context: Any = None) -> None:
@@ -151,7 +151,7 @@ async def llm_worker(event: dict | Any, context: Any = None) -> None:
             if request_json and "docKey" in request_json:
                 doc_key = request_json["docKey"]
         except Exception as e:
-            logger.error("invalid_http_request", error=str(e))
+            logger.exception("invalid_http_request", error=str(e))
             return
     elif isinstance(event, dict) and "data" in event:
         # Pub/Sub Trigger
@@ -160,7 +160,7 @@ async def llm_worker(event: dict | Any, context: Any = None) -> None:
             message = json.loads(message_data)
             doc_key = message.get("docKey")
         except Exception as e:
-            logger.error("invalid_pubsub_message", error=str(e))
+            logger.exception("invalid_pubsub_message", error=str(e))
             return
     else:
         logger.error("unknown_event_type", event_type=type(event).__name__)

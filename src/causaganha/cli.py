@@ -83,13 +83,10 @@ def collect(
     """Collect intimations from PJe."""
     logger.info("collect_command_start")
 
-    async def _run():
+    async def _run() -> None:
         repository = _get_repository()
         client = PJeAPIClient()
-        if courts:
-             court_list = [c.strip() for c in courts.split(",")]
-        else:
-             court_list = settings.COURTS
+        court_list = [c.strip() for c in courts.split(",")] if courts else settings.COURTS
 
         try:
             with Progress(
@@ -117,7 +114,7 @@ def analyze(
     """Analyze decisions using LLM."""
     logger.info("analyze_command_start")
 
-    async def _run():
+    async def _run() -> None:
         repository = _get_repository()
         doc_service = DocumentService()
         analyzer = DecisionAnalyzer()
@@ -144,7 +141,7 @@ def archive(
     """Download and archive diarios to Internet Archive."""
     logger.info("archive_start", limit=limit, dry_run=dry_run)
 
-    async def _run():
+    async def _run() -> None:
         repository = _get_repository()
         doc_service = DocumentService()
         archive_service = create_archive_service()
@@ -176,7 +173,7 @@ def score(
     """Calculate OpenSkill ratings for analyzed decisions."""
     logger.info("score_start", limit=limit)
 
-    async def _run():
+    async def _run() -> None:
         try:
             repository = _get_repository()
             await run_scoring(repository, limit=limit)
@@ -207,17 +204,14 @@ def pipeline(
     """Run the complete pipeline: collect → archive → analyze → score."""
     logger.info("pipeline_start")
 
-    async def _run():
+    async def _run() -> None:
         repository = _get_repository()
         client = PJeAPIClient()
         doc_service = DocumentService()
         archive_service = create_archive_service()
         analyzer = DecisionAnalyzer()
 
-        if courts:
-             court_list = [c.strip() for c in courts.split(",")]
-        else:
-             court_list = settings.COURTS
+        court_list = [c.strip() for c in courts.split(",")] if courts else settings.COURTS
 
         try:
             # Step 1: Collect
@@ -268,8 +262,7 @@ def pipeline(
 
 @app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
-    """Database management commands.
-    """
+    """Database management commands."""
     logger.info("db_command", action=action)
     if action == "status":
          con = get_connection(DB_PATH)
@@ -297,7 +290,7 @@ def manifest_export(
     logger.info("manifest_export_start", limit=limit)
     repository = _get_repository()
 
-    async def _export():
+    async def _export() -> None:
         items = await repository.get_all_intimations(limit=limit)
         output_items = []
         for item in items:
@@ -317,10 +310,15 @@ def manifest_export(
                 download_url=item.get("link"),
                 needs_download=item.get("needs_download", True),
                 ia_url=item.get("ia_url"),
+                gemini_summary=item.get("gemini_summary"),
+                full_decision_text=item.get("full_decision_text"),
+                outcome=item.get("outcome"),
             )
             output_items.append(schema.model_dump(mode="json"))
 
-        print(json.dumps(output_items, indent=2))
+        # Print the JSON output to stdout
+        typer.echo(json.dumps(output_items))
+
 
     asyncio.run(_export())
 
@@ -331,8 +329,7 @@ app.add_typer(manifest_app)
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
-    """CausaGanha V2 CLI Entry Point.
-    """
+    """CausaGanha V2 CLI Entry Point."""
     if verbose:
         # Reconfigure for verbose if needed, though dev renderer is already verbose-ish
         pass

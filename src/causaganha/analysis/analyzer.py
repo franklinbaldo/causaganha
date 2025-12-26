@@ -10,7 +10,7 @@ logger = structlog.get_logger()
 class DecisionAnalyzer:
     """Analyzer for judicial decisions using Pydantic AI."""
 
-    agent: Agent
+    agent: Agent[None, DecisionAnalysis]
 
     def __init__(self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash") -> None:
         """Initialize the DecisionAnalyzer.

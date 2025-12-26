@@ -9,8 +9,8 @@ from tests.conftest import create_mock_intimation_item
 
 
 @pytest.mark.asyncio
-async def test_client_initializes_with_defaults():
-    """Test client initialization"""
+async def test_client_initializes_with_defaults() -> None:
+    """Test client initialization."""
     client = PJeAPIClient()
     assert client.base_url == "https://comunicaapi.pje.jus.br/api/v1"
     assert client.client is not None
@@ -18,7 +18,7 @@ async def test_client_initializes_with_defaults():
 
 
 @pytest.mark.asyncio
-async def test_fetch_intimations_sends_correct_spec_params(api_client):
+async def test_fetch_intimations_sends_correct_spec_params(api_client) -> None:
     """Test that query parameters sent match the OpenAPI spec."""
     mock_response = {
         "status": "success",
@@ -43,7 +43,7 @@ async def test_fetch_intimations_sends_correct_spec_params(api_client):
         assert len(intimations) == 1
         assert intimations[0].id == 123456
 
-        args, kwargs = mock_get.call_args
+        _args, kwargs = mock_get.call_args
         params = kwargs["params"]
         assert params["siglaTribunal"] == "TJRO"
         assert params["dataDisponibilizacaoInicio"] == "2024-12-01"
@@ -53,7 +53,7 @@ async def test_fetch_intimations_sends_correct_spec_params(api_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_handles_pagination_with_spec_params(api_client):
+async def test_fetch_handles_pagination_with_spec_params(api_client) -> None:
     """Test pagination works using spec-compliant parameters."""
     mock_response_p1 = {"status": "success", "count": 2, "items": [create_mock_intimation_item(1)]}
     mock_response_p2 = {"status": "success", "count": 2, "items": [create_mock_intimation_item(2)]}
@@ -88,8 +88,8 @@ async def test_fetch_handles_pagination_with_spec_params(api_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_raises_on_http_error(api_client):
-    """Test error handling"""
+async def test_fetch_raises_on_http_error(api_client) -> None:
+    """Test error handling."""
     with patch.object(api_client.client, "get") as mock_get:
         mock_get.side_effect = httpx.HTTPError("Network error")
 
@@ -98,8 +98,8 @@ async def test_fetch_raises_on_http_error(api_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_raises_validation_error(api_client):
-    """Test validation error handling"""
+async def test_fetch_raises_validation_error(api_client) -> None:
+    """Test validation error handling."""
     mock_response = {
         "status": "success",
         "count": 1,

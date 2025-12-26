@@ -34,6 +34,5 @@ def create_mock_intimation_item(item_id: int) -> dict:
 @pytest.fixture
 def api_client():
     """Fixture for PJeAPIClient."""
-    client = PJeAPIClient()
-    return client
+    return PJeAPIClient()
     # No async teardown needed if client is not used in a context manager

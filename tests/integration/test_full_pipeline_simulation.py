@@ -74,7 +74,7 @@ def realistic_intimation_data():
 
 
 @pytest.fixture
-def mock_pdf_content():
+def mock_pdf_content() -> bytes:
     """Realistic PDF content (as bytes)."""
     return b"%PDF-1.4\n%Mock PDF content for testing\nSentenca: Julgo procedente o pedido.\nAdvogado: Dr. Joao Silva, OAB/RO 12345"
 
@@ -112,16 +112,16 @@ class TestFullPipelineSimulation:
         mock_pdf_content,
         mock_llm_analysis,
         tmp_path,
-    ):
+    ) -> None:
         """Simulate complete real-world workflow:
         1. Collect intimations from PJe API
         2. Archive PDFs to Internet Archive
         3. Analyze decisions with LLM
-        4. Calculate lawyer ratings
+        4. Calculate lawyer ratings.
 
         This test verifies all components work together end-to-end.
         """
-        db_path, con = test_db
+        _db_path, con = test_db
 
         # ==========================================
         # STEP 1: COLLECT - Simulate PJe API
@@ -160,7 +160,7 @@ class TestFullPipelineSimulation:
             mock_download.return_value = mock_pdf_content
 
             # Mock IA upload (return realistic IA URL)
-            def mock_ia_upload(file_path, item_id, metadata):
+            def mock_ia_upload(file_path, item_id, metadata) -> str:
                 return f"https://archive.org/details/{item_id}"
             mock_upload.side_effect = mock_ia_upload
 
@@ -239,7 +239,7 @@ class TestFullPipelineSimulation:
 
         # Verify analyses marked as scored
         scored_analyses = con.table("analysis_results").filter(
-            con.table("analysis_results").scored == True,
+            con.table("analysis_results").scored,
         ).execute()
         assert len(scored_analyses) == 2, "Both analyses should be marked as scored"
 
@@ -249,9 +249,9 @@ class TestFullPipelineSimulation:
         repository,
         test_db,
         mock_pdf_content,
-    ):
+    ) -> None:
         """Test that pipeline gracefully handles intimations without download links."""
-        db_path, con = test_db
+        _db_path, con = test_db
 
         # Create intimation without link
         intimation_no_link = Intimation(
@@ -300,7 +300,7 @@ class TestFullPipelineSimulation:
         repository,
         realistic_intimation_data,
         mock_pdf_content,
-    ):
+    ) -> None:
         """Test that dry-run mode doesn't actually archive anything."""
         # Store intimations
         await repository.store_intimations(realistic_intimation_data)
@@ -328,7 +328,7 @@ class TestFullPipelineSimulation:
         self,
         repository,
         test_db,
-    ):
+    ) -> None:
         """Test that pipeline operations respect limit parameters."""
         _, con = test_db
 

@@ -26,7 +26,7 @@ class TestUploadFileValidation:
     """Test upload validation."""
 
     @pytest.mark.asyncio
-    async def test_validates_file_exists(self, ia_service):
+    async def test_validates_file_exists(self, ia_service) -> None:
         """Should raise/return None if file doesn't exist."""
         result = await ia_service.upload_file(
             Path("/nonexistent/file.pdf"),
@@ -36,7 +36,7 @@ class TestUploadFileValidation:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_validates_item_id_format(self, ia_service, temp_file):
+    async def test_validates_item_id_format(self, ia_service, temp_file) -> None:
         """Should validate item_id follows IA naming conventions."""
         # Not strictly implemented in current code, but let's see if the test passes or if we need to remove it
         # archive.py doesn't seem to validate item_id format explicitly, but let's assume the mock behavior implies it or update the test
@@ -54,7 +54,7 @@ class TestUploadFileValidation:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_validates_file_size_reasonable(self, ia_service, tmp_path):
+    async def test_validates_file_size_reasonable(self, ia_service, tmp_path) -> None:
         """Should handle very large files appropriately."""
         # Create a test for max file size
         large_file = tmp_path / "large.pdf"
@@ -70,7 +70,7 @@ class TestUploadFileValidation:
             assert result is not None
 
     @pytest.mark.asyncio
-    async def test_validates_metadata_structure(self, ia_service, temp_file):
+    async def test_validates_metadata_structure(self, ia_service, temp_file) -> None:
         """Should validate metadata has required fields."""
         # Define what required metadata fields should be
         required_metadata = {
@@ -92,7 +92,7 @@ class TestUploadResilience:
     """Test upload error handling and retries."""
 
     @pytest.mark.asyncio
-    async def test_retries_on_transient_errors(self, ia_service, temp_file):
+    async def test_retries_on_transient_errors(self, ia_service, temp_file) -> None:
         """Should retry on network errors."""
         with patch.object(
             ia_service,
@@ -112,7 +112,7 @@ class TestUploadResilience:
             assert result == "https://archive.org/details/test"
 
     @pytest.mark.asyncio
-    async def test_gives_up_after_max_retries(self, ia_service, temp_file):
+    async def test_gives_up_after_max_retries(self, ia_service, temp_file) -> None:
         """Should give up after maximum retry attempts."""
         # Default retries is 3
         with patch.object(
@@ -129,7 +129,7 @@ class TestUploadResilience:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_logs_upload_progress(self, ia_service, temp_file):
+    async def test_logs_upload_progress(self, ia_service, temp_file) -> None:
         """Should log upload progress for monitoring."""
         with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
             with patch("causaganha.services.archive.logger") as mock_logger:
@@ -141,7 +141,7 @@ class TestUploadResilience:
                 assert mock_logger.info.called or mock_logger.debug.called
 
     @pytest.mark.asyncio
-    async def test_upload_no_retry_on_fatal_error(self, ia_service, temp_file):
+    async def test_upload_no_retry_on_fatal_error(self, ia_service, temp_file) -> None:
         """Test that upload does NOT retry on non-transient errors."""
         # Mock _sync_upload to fail with a generic Exception (treated as fatal)
         mock_sync_upload = MagicMock(side_effect=ValueError("Invalid data"))
@@ -161,21 +161,21 @@ class TestCheckItemExists:
     """Test item existence checking."""
 
     @pytest.mark.asyncio
-    async def test_returns_true_for_existing_item(self, ia_service):
+    async def test_returns_true_for_existing_item(self, ia_service) -> None:
         """Should return True if item exists on IA."""
         with patch.object(ia_service, "_sync_check_item", return_value=True):
             result = await ia_service.check_item_exists("existing-item")
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_returns_false_for_nonexistent_item(self, ia_service):
+    async def test_returns_false_for_nonexistent_item(self, ia_service) -> None:
         """Should return False if item doesn't exist."""
         with patch.object(ia_service, "_sync_check_item", return_value=False):
             result = await ia_service.check_item_exists("nonexistent-item")
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_caches_existence_checks(self, ia_service):
+    async def test_caches_existence_checks(self, ia_service) -> None:
         """Should cache existence checks to avoid repeated API calls."""
         # Caching is NOT implemented in archive.py yet.
         # So we expect this to call API twice if we don't mock it differently.
@@ -186,7 +186,7 @@ class TestCheckItemExists:
 class TestMetadataGeneration:
     """Test metadata generation."""
 
-    def test_generates_valid_metadata_from_intimation(self, ia_service):
+    def test_generates_valid_metadata_from_intimation(self, ia_service) -> None:
         """Should generate proper IA metadata from intimation data."""
         intimation_data = {
             "id": "test-123",
@@ -214,12 +214,12 @@ class TestMetadataGeneration:
 class TestServiceConfiguration:
     """Test service configuration."""
 
-    def test_initializes_with_credentials(self):
+    def test_initializes_with_credentials(self) -> None:
         """Should initialize with IA credentials from config."""
         service = InternetArchiveService()
         assert service.session is not None
 
-    def test_respects_custom_upload_settings(self):
+    def test_respects_custom_upload_settings(self) -> None:
         """Should allow custom upload settings."""
         custom_settings = {
             "retries": 5,

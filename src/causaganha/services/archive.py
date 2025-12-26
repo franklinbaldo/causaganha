@@ -43,7 +43,7 @@ class ArchiveService(Protocol):
 class LocalArchiveService:
     """Local filesystem archive fallback (no API keys required)."""
 
-    def __init__(self, archive_root: Path | None = None):
+    def __init__(self, archive_root: Path | None = None) -> None:
         self.archive_root = archive_root or (DATA_DIR / "pdf_archive")
         self.archive_root.mkdir(parents=True, exist_ok=True)
 
@@ -84,7 +84,7 @@ def create_archive_service() -> ArchiveService:
 class InternetArchiveService:
     """Service for uploading documents to Internet Archive."""
 
-    def __init__(self, upload_settings: dict[str, Any] | None = None):
+    def __init__(self, upload_settings: dict[str, Any] | None = None) -> None:
         """Initialize the Internet Archive service.
 
         Args:
@@ -146,7 +146,7 @@ class InternetArchiveService:
                     )
                     await asyncio.sleep(retry_sleep)
                 else:
-                    logger.error("upload_failed_max_retries", item_id=item_id, error=str(e))
+                    logger.exception("upload_failed_max_retries", item_id=item_id, error=str(e))
                     return None
 
             except Exception as e:
@@ -184,7 +184,8 @@ class InternetArchiveService:
             url = f"https://archive.org/details/{item_id}"
             logger.info("upload_success", url=url)
             return url
-        raise RuntimeError(f"Upload failed for {item_id}")
+        msg = f"Upload failed for {item_id}"
+        raise RuntimeError(msg)
 
     async def check_item_exists(self, item_id: str) -> bool:
         """Check if an item exists on Internet Archive.
@@ -196,8 +197,7 @@ class InternetArchiveService:
             True if the item exists, False otherwise.
         """
         try:
-            result = await asyncio.to_thread(self._sync_check_item, item_id)
-            return result
+            return await asyncio.to_thread(self._sync_check_item, item_id)
         except Exception:
             logger.exception("check_failed", item_id=item_id)
             return False
@@ -227,14 +227,13 @@ class InternetArchiveService:
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
         data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
 
-        metadata = {
+        return {
             "collection": IA_DEFAULT_COLLECTION,
             "mediatype": IA_DEFAULT_MEDIATYPE,
             "title": f"{tribunal} - Processo {processo}",
             "creator": IA_DEFAULT_CREATOR,
-            "subject": IA_DEFAULT_SUBJECTS + [tribunal.lower()],
+            "subject": [*IA_DEFAULT_SUBJECTS, tribunal.lower()],
             "description": f"Intimação judicial do processo {processo}",
             "date": data_pub,
         }
 
-        return metadata

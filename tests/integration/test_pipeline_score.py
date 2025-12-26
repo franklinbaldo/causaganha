@@ -37,6 +37,7 @@ async def test_run_scoring(tmp_path: Path) -> None:
         "loser_party_name": "Loser",
         "decision_type": "SENTENCE",
         "decision_reasoning": "Reason",
+        "scored": False,
     }
 
     await store_analysis_result(con, analysis_data)

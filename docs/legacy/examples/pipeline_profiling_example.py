@@ -21,11 +21,9 @@ def profile_pipeline(max_items: int = 1) -> None:
     tracemalloc.start()
     start = time.perf_counter()
     asyncio.run(pipeline_main())
-    duration = time.perf_counter() - start
-    current, peak = tracemalloc.get_traced_memory()
+    time.perf_counter() - start
+    _current, _peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    print(f"Duration: {duration:.2f}s")
-    print(f"Peak memory: {peak / 1_048_576:.2f} MB")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
-"""Unit tests for PJe API Client
-"""
+"""Unit tests for PJe API Client."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,7 +11,7 @@ from tests.conftest import create_mock_intimation_item
 
 @pytest.mark.asyncio
 async def test_client_initialization() -> None:
-    """Test that client initializes with correct defaults"""
+    """Test that client initializes with correct defaults."""
     client = PJeAPIClient()
 
     assert client.base_url == "https://comunicaapi.pje.jus.br/api/v1"
@@ -23,7 +22,7 @@ async def test_client_initialization() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_returns_list(api_client: PJeAPIClient) -> None:
-    """Test that fetching returns a list of intimations"""
+    """Test that fetching returns a list of intimations."""
     mock_response = {
         "status": "success",
         "count": 0,
@@ -45,7 +44,7 @@ async def test_fetch_intimations_returns_list(api_client: PJeAPIClient) -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_success(api_client: PJeAPIClient) -> None:
-    """Test API fetch with mocked HTTP response"""
+    """Test API fetch with mocked HTTP response."""
     mock_response = {
         "status": "success",
         "count": 1,
@@ -67,7 +66,7 @@ async def test_fetch_intimations_success(api_client: PJeAPIClient) -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
-    """Test pagination"""
+    """Test pagination."""
     page1_response = {"status": "success", "count": 2, "items": [create_mock_intimation_item(1)]}
     page2_response = {"status": "success", "count": 2, "items": [create_mock_intimation_item(2)]}
     empty_response = {"status": "success", "count": 2, "items": []}
@@ -96,7 +95,7 @@ async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_raises_on_http_error(api_client: PJeAPIClient) -> None:
-    """Test error handling"""
+    """Test error handling."""
     with patch.object(api_client.client, "request", new_callable=AsyncMock) as mock_request:
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = httpx.HTTPError("Network error")
