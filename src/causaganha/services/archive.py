@@ -51,13 +51,34 @@ class LocalArchiveService:
         self,
         file_path: Path,
         item_id: str,
-        metadata: dict[str, Any] | None = None,  # metadata is ignored for local storage
+        metadata: dict[str, Any] | None = None,
     ) -> str | None:
         if not file_path.exists():
             logger.error("file_not_found", path=str(file_path))
             return None
 
-        dest_dir = self.archive_root / item_id
+        # Determine destination directory
+        dest_dir = self.archive_root
+
+        if metadata and "sigla_tribunal" in metadata and "data_disponibilizacao" in metadata:
+            tribunal = metadata["sigla_tribunal"]
+            # Try to parse date, assume YYYY-MM-DD or date object
+            date_val = metadata["data_disponibilizacao"]
+            if isinstance(date_val, str):
+                try:
+                    # simplistic parse or just slice if ISO
+                    # PJe API returns YYYY-MM-DD
+                    year, month = date_val.split("-")[:2]
+                except ValueError:
+                    year, month = "unknown", "unknown"
+            elif isinstance(date_val, date):
+                year, month = str(date_val.year), f"{date_val.month:02d}"
+            else:
+                 year, month = "unknown", "unknown"
+
+            dest_dir = dest_dir / tribunal / year / month
+
+        dest_dir = dest_dir / item_id
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest_path = dest_dir / file_path.name
 
