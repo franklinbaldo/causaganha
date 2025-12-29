@@ -18,4 +18,4 @@ def test_settings_courts_env_var_json() -> None:
     courts = ["TJMT", "TJAC"]
     with patch.dict(os.environ, {"COURTS": json.dumps(courts)}):
         settings = Settings()
-        assert settings.COURTS == courts
+        assert courts == settings.COURTS
