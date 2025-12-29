@@ -18,7 +18,7 @@ async def test_run_collection_default_courts() -> None:
             client=mock_client,
             start_date="2024-01-01",
             end_date="2024-01-01",
-            courts=None
+            courts=None,
         )
 
     # Verify API was called twice (once for each court)
