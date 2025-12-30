@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import ibis
 from ibis import BaseBackend
@@ -56,6 +56,8 @@ class IntimationRepository:
 
         # Using memtable to insert data
         t = ibis.memtable(data)
+
+        # When inserting into DuckDB from Ibis memtable, bools are handled correctly.
         self.con.insert("intimations", t)
 
         # Also store lawyers if present
@@ -106,7 +108,7 @@ class IntimationRepository:
 
         query = filtered.limit(limit)
 
-        return query.execute().to_dict(orient="records")
+        return cast("list[dict[str, Any]]", query.execute().to_dict(orient="records"))
 
     async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Fetch intimations that have not been analyzed yet.
@@ -203,7 +205,7 @@ class IntimationRepository:
             filtered = t_int.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
-        return query.execute().to_dict(orient="records")
+        return cast("list[dict[str, Any]]", query.execute().to_dict(orient="records"))
 
     async def get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Fetch intimations that have not been archived yet.
@@ -220,6 +222,7 @@ class IntimationRepository:
         """Synchronous mark intimation as archived."""
         raw_con = self.con.con
         try:
+            # Fix: Ensure types are correct for DuckDB
             raw_con.execute(
                 "UPDATE intimations SET ia_url = ?, archived_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (ia_url, intimation_id),
@@ -264,7 +267,7 @@ class IntimationRepository:
         """Synchronous implementation of fetching all intimations."""
         t_int = self.con.table("intimations")
         query = t_int.limit(limit)
-        return query.execute().to_dict(orient="records")
+        return cast("list[dict[str, Any]]", query.execute().to_dict(orient="records"))
 
     async def get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
         """Fetch all intimations.
@@ -288,7 +291,7 @@ class IntimationRepository:
             ).filter(
                 t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
             ).limit(limit)
-            return unscored.execute().to_dict(orient="records")
+            return cast("list[dict[str, Any]]", unscored.execute().to_dict(orient="records"))
         except Exception:
             return []
 
@@ -313,7 +316,8 @@ class IntimationRepository:
             return []
 
         target_set = set(oabs)
-        return [r for r in candidates if (r["oab_number"], r["oab_state"]) in target_set]
+        filtered = [r for r in candidates if (r["oab_number"], r["oab_state"]) in target_set]
+        return cast("list[dict[str, Any]]", filtered)
 
     async def get_lawyer_ratings(self, oabs: list[tuple[str, str]]) -> list[dict[str, Any]]:
         """Fetch ratings for a list of lawyers."""
