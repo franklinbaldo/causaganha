@@ -45,9 +45,9 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
 
         intimations = await client.get_intimations_by_court(
             sigla_tribunal=tribunal,
-            data_inicio=start_date,
-            data_fim=today,
-            limit_per_page=1,  # We only need to check if it returns something or no error
+            data_disponibilizacao_inicio=start_date,
+            data_disponibilizacao_fim=today,
+            itens_por_pagina=1,  # We only need to check if it returns something or no error
         )
 
         count = len(intimations)
