@@ -1,12 +1,9 @@
 """Tests for Internet Archive service."""
 
-import asyncio
 from pathlib import Path
-from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import structlog
 
 from causaganha.services.archive import ArchiveService, InternetArchiveService, LocalArchiveService
 from causaganha.services.document import DocumentService
@@ -176,7 +173,6 @@ class TestCheckItemExists:
     async def test_caches_existence_checks(self, ia_service: InternetArchiveService) -> None:
         """Should cache existence checks to avoid repeated API calls."""
         # Caching is NOT implemented in archive.py yet.
-        pass
 
 
 class TestMetadataGeneration:
@@ -245,10 +241,9 @@ class TestLocalArchiveHierarchicalStorage:
     @pytest.mark.asyncio
     async def test_uses_hierarchical_path_with_metadata(self, local_service: LocalArchiveService, temp_file: Path) -> None:
         """Should organize files as tribunal/year/month/item_id/file.pdf when metadata is present."""
-
         metadata = {
             "date": "2024-05-24",
-            "tribunal_code": "TJRO"
+            "tribunal_code": "TJRO",
         }
 
         item_id = "causaganha-tjro-123"
@@ -272,7 +267,7 @@ class TestLocalArchiveHierarchicalStorage:
         result = await local_service.upload_file(
             temp_file,
             item_id,
-            None
+            None,
         )
 
         expected_path = local_service.archive_root / item_id / temp_file.name

@@ -1,6 +1,7 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 from typing import Any
 
@@ -99,7 +100,8 @@ class IntimationRepository:
         # If the 'analyzed' column exists and is populated, it's faster.
 
         # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
-        filtered = t_int.filter(t_int.analyzed.isnull() | (t_int.analyzed == False))
+        # Use ~ for logical NOT in ibis expressions instead of python 'not'
+        filtered = t_int.filter(t_int.analyzed.isnull() | (~t_int.analyzed))
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
@@ -173,12 +175,10 @@ class IntimationRepository:
         placeholders = ", ".join(["?"] * len(intimation_ids))
         query = f"UPDATE intimations SET analyzed = TRUE, analyzed_at = ?, analysis_attempted_at = ? WHERE id IN ({placeholders})"
 
-        params = [analyzed_at, analyzed_at] + intimation_ids
+        params = [analyzed_at, analyzed_at, *intimation_ids]
 
-        try:
+        with contextlib.suppress(Exception):
             raw_con.execute(query, params)
-        except Exception:
-            pass
 
     async def store_analysis_results_batch(self, results: list[dict[str, Any]]) -> None:
         """Store analysis results in batch.
@@ -240,10 +240,12 @@ class IntimationRepository:
             ValueError: If parameters are invalid.
         """
         if not intimation_id or intimation_id.strip() == "":
-            raise ValueError("Intimation ID cannot be empty")
+            msg = "Intimation ID cannot be empty"
+            raise ValueError(msg)
 
-        if not ia_url or not (ia_url.startswith("http://") or ia_url.startswith("https://")):
-            raise ValueError("Invalid IA URL")
+        if not ia_url or not (ia_url.startswith(("http://", "https://"))):
+            msg = "Invalid IA URL"
+            raise ValueError(msg)
 
     async def mark_as_archived(self, intimation_id: str, ia_url: str) -> None:
         """Mark an intimation as archived.
@@ -283,8 +285,9 @@ class IntimationRepository:
 
         try:
             # Filter where scored is null or false, AND lawyers are identified
+            # Use ~ for logical NOT in ibis expressions
             unscored = t_analysis.filter(
-                (t_analysis.scored.isnull()) | (t_analysis.scored == False),
+                (t_analysis.scored.isnull()) | (~t_analysis.scored),
             ).filter(
                 t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
             ).limit(limit)

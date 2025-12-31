@@ -1,197 +1,105 @@
-# CausaGanha
+# CausaGanha V2 🚀
 
-> 🤖 **Para Assistentes de IA**: Consulte **`CLAUDE.md`** para instruções completas de desenvolvimento, incluindo abordagem plan-first, coordenação MASTERPLAN, e guidelines específicas para agentes de código.
+> 🤖 **For AI Assistants**: See **`AGENTS.md`** for complete development instructions, including TDD workflow and architectural guidelines.
 
 ![Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
-![Breaking Changes](https://img.shields.io/badge/breaking_changes-expected-red?style=for-the-badge)
-![No Backwards Compatibility](https://img.shields.io/badge/backwards_compatibility-none-critical?style=for-the-badge)
+![V2](https://img.shields.io/badge/architecture-v2-blue?style=for-the-badge)
+![Coverage](https://img.shields.io/badge/coverage-80%25%2B-green?style=for-the-badge)
 
-[![Update OpenSkill Ratings](https://img.shields.io/github/actions/workflow/status/franklinbaldo/causa_ganha/03_update.yml?label=update-openskill)](https://github.com/franklinbaldo/causa_ganha/actions/workflows/03_update.yml)
+**CausaGanha V2** is a distributed judicial analytics platform designed to bring transparency to the Brazilian legal system. It automates the collection, analysis, and scoring of lawyer performance based on case outcomes.
 
-> ⚠️ **SOFTWARE ALPHA**: Este projeto está em desenvolvimento ativo com mudanças radicais frequentes. APIs, schemas de banco de dados e funcionalidades principais podem mudar sem aviso ou compatibilidade com versões anteriores. Use por sua conta e risco em ambientes de produção.
+## 🏛️ V2 Architecture
 
-## 🚀 Transição para v2 em Andamento
+The new V2 architecture replaces web scraping with API-first data collection and introduces a modern, scalable stack:
 
-**O CausaGanha está se preparando para uma grande refatoração v2** que integrará a API de Comunicações do PJe e substituirá web scraping por coleta de metadados estruturados via API.
+1.  **Collection**: Fetches structured metadata from **PJe Communications API** (replacing V1 scraping).
+2.  **Storage**: Uses **Ibis** and **DuckDB** for high-performance analytical queries.
+3.  **Analysis**: Uses **Pydantic AI** (wrapping Google Gemini) to extract structured outcomes from PDF decisions.
+4.  **Scoring**: Applies the **OpenSkill** algorithm to generate rankings.
+5.  **Distribution**: Syncs the DuckDB database via **Internet Archive** for decentralized access.
 
-### Principais Mudanças da v2
+## ⚡ Quick Start
 
-- **Coleta de Metadados**: Web scraping → API de Comunicações PJe (JSON estruturado)
-- **Operações de Dados**: pandas → Ibis (10-100x mais rápido)
-- **Integração LLM**: SDK direto Gemini → Pydantic AI (agnóstico de provedor)
-- **Cobertura**: Apenas TJRO → 90+ tribunais com suporte PJe
+### Prerequisites
 
-### Status do Desenvolvimento v2
+- Python 3.10+
+- `uv` (Fast Python package installer)
 
-- ✅ **Fase 0 (Atual)**: Preparação do repositório e estrutura de diretórios v2
-- 🔄 **Fase 1-3 (Semanas 1-3)**: Implementação v2 baseada em TDD em paralelo com v1
-- ⏳ **Fase 4-6 (Semanas 4-6)**: Integração, produção paralela, migração
-- ⏳ **Fase 7-9 (Semanas 7-9)**: Expansão para novos tribunais, limpeza
-
-📖 **Documentação Completa**: Consulte `/causaganha-v2-plan-from-scratch.md` para o plano completo de implementação.
-
----
-
-**CausaGanha** é uma **plataforma de análise judicial distribuída em estágio alpha** que combina inteligência artificial, processamento assíncrono e algoritmos de avaliação de habilidades para criar um sistema automatizado de avaliação de desempenho jurídico. Utilizando o sistema **OpenSkill**, uma alternativa de código aberto, a plataforma analisa decisões judiciais do Tribunal de Justiça de Rondônia (TJRO) para gerar rankings dinâmicos e transparentes de advogados.
-
-## Características Principais
-
-- **🤖 Análise por IA**: Extração automatizada via Google Gemini
-- **📊 Sistema OpenSkill**: Avaliação dinâmica de performance jurídica
-- **🌐 Distribuído**: DuckDB compartilhado via Internet Archive
-- **⚡ Assíncrono**: Processamento concorrente de milhares de diários
-- **🔄 Automatizado**: Workflows GitHub Actions para operação autônoma
-
-## Instalação Rápida
+### Installation
 
 ```bash
-# Instalar uv (gerenciador de dependências)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clonar e configurar
+# Clone the repository
 git clone https://github.com/franklinbaldo/causaganha.git
 cd causaganha
-uv venv && source .venv/bin/activate
-uv sync --dev && uv pip install -e .
 
-# Configurar variáveis de ambiente
+# Install dependencies
+uv sync --dev
+uv pip install -e .
+
+# Configure environment variables
 cp .env.example .env
-# Editar .env com suas chaves API
+# Edit .env with your Google Gemini API Key and IA Credentials
 ```
 
-## Uso Básico
+### Usage (CLI)
+
+The `causaganha` CLI is the main entry point for all operations.
 
 ```bash
-# Configurar banco de dados
-uv run --env-file .env causaganha db migrate
+# 1. Initialize Database
+uv run causaganha db init
 
-# Adicionar URLs para processamento
-uv run --env-file .env causaganha queue --from-csv diarios.csv
+# 2. Collect Intimations (defaults to yesterday)
+uv run causaganha collect --courts TJRO
 
-# Sincronizar banco de dados com a IA
-uv run --env-file .env causaganha db sync
+# 3. Analyze Decisions (requires GEMINI_API_KEY)
+uv run causaganha analyze --limit 10
 
-# Executar pipeline completo
-uv run --env-file .env causaganha pipeline run --date 2025-06-24
+# 4. Score Lawyers
+uv run causaganha score
 
-# Monitorar progresso
-uv run --env-file .env causaganha stats
+# 5. Archive Documents (requires IA credentials)
+uv run causaganha archive --limit 10
 
-# Comandos individuais
-uv run --env-file .env causaganha archive --limit 10
-uv run --env-file .env causaganha analyze --limit 5
-uv run --env-file .env causaganha score
+# OR Run the Full Pipeline
+uv run causaganha pipeline --courts TJRO
 ```
 
-## Comandos Principais
+## 🧪 Testing
 
-| Comando        | Descrição                                    |
-| -------------- | -------------------------------------------- |
-| `queue`        | Adiciona documentos à fila de processamento  |
-| `archive`      | Download e armazenamento no Internet Archive |
-| `analyze`      | Extração de informações via LLM              |
-| `score`        | Geração de rankings OpenSkill                |
-| `pipeline run` | Executa pipeline assíncrono                  |
-| `stats`        | Estatísticas e progresso                     |
-| `db sync`      | Sincroniza banco de dados                    |
-| `db`           | Operações de banco de dados                  |
-
-### Exemplos de CLI
+We strictly follow TDD. To run tests:
 
 ```bash
-causaganha db sync
-causaganha pipeline run --date 2025-06-24
+# Run all tests
+uv run pytest
+
+# Run specific suite
+uv run pytest tests/e2e/
 ```
 
-### Ajuda da CLI
+## 📚 Documentation
+
+Detailed documentation is available in the `docs/` directory and can be served locally:
 
 ```bash
-causaganha --help             # visão geral dos comandos
-causaganha db --help          # opções do grupo de banco
-causaganha pipeline run --help # parâmetros do pipeline
+uv run mkdocs serve
 ```
 
-## Variáveis de Ambiente
+## 🏗️ Project Structure
 
-```bash
-GEMINI_API_KEY=sua_chave_gemini    # Obrigatório para extração
-IA_ACCESS_KEY=sua_chave_ia         # Obrigatório para Internet Archive
-IA_SECRET_KEY=sua_chave_secreta_ia # Obrigatório para Internet Archive
+```
+src/causaganha/
+├── api/          # PJe API Client
+├── analysis/     # Pydantic AI Analyzer
+├── cloud/        # Google Cloud Functions
+├── domain/       # Pydantic Domain Models
+├── pipeline/     # Orchestration Logic (Collect, Analyze, Score)
+├── scoring/      # OpenSkill Rating System
+├── services/     # Document & Archive Services
+├── storage/      # Ibis/DuckDB Repository
+└── cli.py        # CLI Entry Point
 ```
 
-## Testes
+## License
 
-```bash
-uv run pytest -q
-```
-
-### Uso opcional no VSCode
-
-Para quem utiliza o VSCode, o diretório `.vscode/` contém configurações que:
-
-- Definem `.venv/bin/python` como interpretador padrão;
-- Ativam o linter **Ruff**;
-- Configuram a descoberta de testes em `tests/`.
-
-### Ambiente de desenvolvimento com Docker Compose
-
-Para quem prefere um ambiente isolado em contêiner:
-
-```bash
-./scripts/setup_dev.sh          # cria `.venv` e instala dependências
-./scripts/dev/install_precommit_hooks.sh  # configura hooks do pre-commit (Ruff)
-./scripts/dev/docker_shell.sh   # abre um shell dentro do contêiner
-```
-
-O serviço `analytics` pode ser executado via Docker Compose, e um painel Grafana
-é disponibilizado em `http://localhost:3000` ao rodar:
-
-```bash
-docker compose up grafana
-```
-
-## Documentação
-
-Para gerar a documentação HTML localmente utilize o Sphinx:
-
-```bash
-sphinx-build -b html docs/api docs/_build
-```
-
-Para conveniência, você também pode rodar:
-
-```bash
-make -C docs/api html
-```
-
-Consulte os notebooks em `docs/tutorials/` para exemplos de uso do pipeline.
-Documentação das rotinas de analytics está disponível em `docs/api/analytics.rst`.
-O tutorial `tribunal_adapter.ipynb` detalha a criação de adaptadores.
-
-## Status do Projeto
-
-**Status: 🔶 ALPHA DISTRIBUÍDO** - Sistema experimental operando com automação avançada, mudanças radicais esperadas.
-
-### ⚠️ Aviso de Status Alpha
-
-**CausaGanha é SOFTWARE ALPHA** com as seguintes implicações:
-
-- **Mudanças Radicais**: APIs principais, comandos CLI e schemas de banco podem mudar sem aviso
-- **Sem Compatibilidade**: Atualizações podem exigir migração completa de dados ou reinstalação
-- **Recursos Experimentais**: Novas funcionalidades podem ser adicionadas, modificadas ou removidas rapidamente
-
-**Use em produção por sua conta e risco.** Considere este software experimental e espere adaptar-se a mudanças radicais.
-
-## Licença
-
-Este projeto é licenciado sob os termos da MIT License.
-
----
-
-O projeto está aberto à colaboração e feedback da comunidade jurídica, técnica e acadêmica.
-
-## Exemplos
-
-Veja scripts de exemplo em [docs/examples](docs/examples) para demonstrações de processamento de dados e tratamento de erros.
-O script [diario_processing_example.py](docs/examples/diario_processing_example.py) mostra como executar o pipeline para diferentes tribunais usando a opção `--tribunal`.
-Esses exemplos utilizam os dados fictícios em `tests/mock_data` para facilitar testes locais.
+MIT License.

@@ -8,7 +8,7 @@ from ibis import BaseBackend
 class DataValidator:
     """Validates data integrity and quality in the database."""
 
-    def __init__(self, con: BaseBackend):
+    def __init__(self, con: BaseBackend) -> None:
         """Initialize the validator.
 
         Args:
