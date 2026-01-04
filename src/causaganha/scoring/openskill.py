@@ -7,6 +7,8 @@ from openskill.models.weng_lin.plackett_luce import (
     PlackettLuceRating as OpenSkillRating,
 )
 
+# Alias for external use
+Rating = OpenSkillRating
 
 # Default model parameters
 DEFAULT_OS_MU = 25.0

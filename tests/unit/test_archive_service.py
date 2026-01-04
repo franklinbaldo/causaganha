@@ -4,10 +4,12 @@ import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import date
 
 import pytest
 import structlog
 
+from causaganha.domain.models import Intimation
 from causaganha.services.archive import ArchiveService, InternetArchiveService, LocalArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.repository import IntimationRepository
@@ -305,13 +307,19 @@ async def test_archive_uses_correct_court_in_id(
     from causaganha.pipeline.archive import run_archive
 
     # Setup data
-    intimation = {
-        "id": 12345,
-        "sigla_tribunal": "TJMT",
-        "link": "http://example.com/doc.pdf",
-        "numero_processo": "123",
-        "data_disponibilizacao": "2023-01-01",
-    }
+    intimation = Intimation(
+        id=12345,
+        sigla_tribunal="TJMT",
+        link="http://example.com/doc.pdf",
+        numero_processo="123",
+        data_disponibilizacao=date(2023, 1, 1),
+        tipo_comunicacao="Int",
+        nome_orgao="Org",
+        texto="Txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="abc"
+    )
 
     mock_repository.get_unarchived_intimations.return_value = [intimation]
 

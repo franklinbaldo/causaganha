@@ -1,13 +1,13 @@
 """Database repository for intimations and analysis results."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, date
 from typing import Any
 
 import ibis
 from ibis import BaseBackend
 
-from causaganha.domain.models import Intimation
+from causaganha.domain.models import Intimation, Lawyer
 
 
 class IntimationRepository:
@@ -38,14 +38,55 @@ class IntimationRepository:
             "hash": intimation.hash,
             "status": intimation.status,
             # Pipeline tracking defaults
-            "analyzed": False,
-            "analysis_attempted_at": None,
-            "analysis_error": None,
-            "analyzed_at": None,
-            "ia_url": None,
-            "archived_at": None,
-            "needs_download": True,
+            "analyzed": intimation.analyzed,
+            "analysis_attempted_at": intimation.analysis_attempted_at,
+            "analysis_error": intimation.analysis_error,
+            "analyzed_at": intimation.analyzed_at,
+            "ia_url": intimation.ia_url,
+            "archived_at": intimation.archived_at,
+            "needs_download": intimation.needs_download,
         }
+
+    def _row_to_intimation(self, row: dict[str, Any]) -> Intimation:
+        """Convert database row to Intimation model."""
+        # Handle date parsing
+        data_disp = row.get("data_disponibilizacao")
+        if isinstance(data_disp, str):
+            try:
+                data_disp = date.fromisoformat(data_disp)
+            except ValueError:
+                data_disp = date.today() # Fallback? Or raise?
+        elif not isinstance(data_disp, date):
+            # If it's None or something else, we need a default or handle error
+            # For now, let's assume valid data or default to today if missing (unlikely if DB enforces)
+            data_disp = date.today()
+
+        return Intimation(
+            id=row["id"],
+            numero_processo=row["numero_processo"],
+            data_disponibilizacao=data_disp,
+            sigla_tribunal=row["sigla_tribunal"],
+            tipo_comunicacao=row.get("tipo_comunicacao", ""),
+            nome_orgao=row.get("nome_orgao", ""),
+            texto=row.get("texto", ""),
+            link=row.get("link"),
+            tipo_documento=row.get("tipo_documento", ""),
+            nome_classe=row.get("nome_classe", ""),
+            codigo_classe=row.get("codigo_classe"),
+            hash=row.get("hash", ""),
+            status=row.get("status"),
+            # Pipeline tracking
+            analyzed=bool(row.get("analyzed", False)),
+            analysis_attempted_at=row.get("analysis_attempted_at"),
+            analysis_error=row.get("analysis_error"),
+            analyzed_at=row.get("analyzed_at"),
+            ia_url=row.get("ia_url"),
+            archived_at=row.get("archived_at"),
+            needs_download=bool(row.get("needs_download", True)),
+            # Relationships are loaded separately if needed
+            advogados=[],
+            partes=[]
+        )
 
     def _sync_store_intimations(self, intimations: list[Intimation]) -> None:
         """Synchronous implementation of storing intimations."""
@@ -82,40 +123,28 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_intimations, intimations)
 
-    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
-        # Check if 'analysis_results' table exists and has data to join, or if we should rely on 'analyzed' flag in 'intimations'
-        # The test case set 'analyzed' flag to TRUE for id=1.
-        # But here we are joining with 'analysis_results'.
-        # If 'analysis_results' is empty, LEFT JOIN ... WHERE right.id IS NULL returns ALL rows.
-        # This explains why id=1 is returned (it's not in analysis_results, so it's considered unanalyzed by this logic).
-
-        # We should also check the 'analyzed' flag in 'intimations' table if it exists.
-        # The schema definition has 'analyzed' boolean field.
-
-        # Let's use the 'analyzed' flag as primary filter if possible, or combine both.
-        # If the 'analyzed' column exists and is populated, it's faster.
-
-        # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
         filtered = t_int.filter(t_int.analyzed.isnull() | (t_int.analyzed == False))
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
+        rows = query.execute().to_dict(orient="records")
 
-        return query.execute().to_dict(orient="records")
+        return [self._row_to_intimation(row) for row in rows]
 
-    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been analyzed yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 
@@ -188,12 +217,11 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_analysis_results_batch, results)
 
-    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unarchived intimations."""
         t_int = self.con.table("intimations")
 
         # Filter intimations that have not been archived yet
-        # Assuming there's an 'archived' column or 'ia_url' column
         try:
             filtered = t_int.filter(
                 (t_int.ia_url.isnull()) | (t_int.ia_url == ""),
@@ -203,16 +231,17 @@ class IntimationRepository:
             filtered = t_int.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._row_to_intimation(row) for row in rows]
 
-    async def get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been archived yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unarchived_intimations, limit)
 
@@ -260,20 +289,21 @@ class IntimationRepository:
 
         await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)
 
-    def _sync_get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching all intimations."""
         t_int = self.con.table("intimations")
         query = t_int.limit(limit)
-        return query.execute().to_dict(orient="records")
+        rows = query.execute().to_dict(orient="records")
+        return [self._row_to_intimation(row) for row in rows]
 
-    async def get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch all intimations.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_all_intimations, limit)
 
@@ -295,63 +325,6 @@ class IntimationRepository:
     async def get_unscored_analyses(self, limit: int = 100) -> list[dict[str, Any]]:
         """Fetch unscored analyses."""
         return await asyncio.to_thread(self._sync_get_unscored_analyses, limit)
-
-    def _sync_get_lawyer_ratings(self, oabs: list[tuple[str, str]]) -> list[dict[str, Any]]:
-        """Fetch ratings for a list of lawyers (oab, state)."""
-        if not oabs:
-            return []
-
-        t_ratings = self.con.table("lawyer_ratings")
-        numbers = [x[0] for x in oabs]
-        states = [x[1] for x in oabs]
-
-        try:
-            candidates = t_ratings.filter(
-                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
-            ).execute().to_dict(orient="records")
-        except Exception:
-            return []
-
-        target_set = set(oabs)
-        return [r for r in candidates if (r["oab_number"], r["oab_state"]) in target_set]
-
-    async def get_lawyer_ratings(self, oabs: list[tuple[str, str]]) -> list[dict[str, Any]]:
-        """Fetch ratings for a list of lawyers."""
-        return await asyncio.to_thread(self._sync_get_lawyer_ratings, oabs)
-
-    def _sync_save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
-        """Save updated lawyer ratings."""
-        if not ratings:
-            return
-
-        raw_con = self.con.con
-        for r in ratings:
-            raw_con.execute("""
-                INSERT INTO lawyer_ratings (
-                    oab_number, oab_state, lawyer_name,
-                    mu, sigma, last_updated,
-                    total_cases, wins, losses
-                ) VALUES (
-                    ?, ?, ?,
-                    ?, ?, now(),
-                    ?, ?, ?
-                )
-                ON CONFLICT (oab_number, oab_state) DO UPDATE SET
-                    mu = EXCLUDED.mu,
-                    sigma = EXCLUDED.sigma,
-                    last_updated = now(),
-                    total_cases = EXCLUDED.total_cases,
-                    wins = EXCLUDED.wins,
-                    losses = EXCLUDED.losses
-            """, [
-                r["oab_number"], r["oab_state"], r.get("lawyer_name"),
-                r["mu"], r["sigma"],
-                r["total_cases"], r["wins"], r["losses"],
-            ])
-
-    async def save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
-        """Save updated lawyer ratings."""
-        await asyncio.to_thread(self._sync_save_lawyer_ratings, ratings)
 
     def _sync_mark_analyses_scored(self, ids: list[Any]) -> None:
         """Mark analyses as scored."""

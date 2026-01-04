@@ -1,6 +1,6 @@
 """TDD tests for archive functionality with repository abstractions (RED phase)."""
 
-from datetime import datetime
+from datetime import datetime, date
 
 import pytest
 
@@ -32,7 +32,7 @@ def sample_intimation():
     return Intimation(
         id=1,
         numero_processo="1234567-89.2024.8.22.0001",
-        data_disponibilizacao=datetime(2024, 1, 15),
+        data_disponibilizacao=date(2024, 1, 15),
         sigla_tribunal="TJRO",
         tipo_comunicacao="Intimação",
         nome_orgao="1ª Vara Cível",
@@ -69,7 +69,7 @@ class TestRepositoryArchiveOperations:
         intimation1 = Intimation(
             id=10,
             numero_processo="1111111-89.2024.8.22.0001",
-            data_disponibilizacao=datetime(2024, 1, 15),
+            data_disponibilizacao=date(2024, 1, 15),
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
             nome_orgao="Vara",
@@ -85,7 +85,7 @@ class TestRepositoryArchiveOperations:
         intimation2 = Intimation(
             id=11,
             numero_processo="2222222-89.2024.8.22.0002",
-            data_disponibilizacao=datetime(2024, 1, 16),
+            data_disponibilizacao=date(2024, 1, 16),
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
             nome_orgao="Vara",
@@ -108,7 +108,7 @@ class TestRepositoryArchiveOperations:
 
         # Assert - Should only get the unarchived one
         assert len(unarchived) == 1
-        assert unarchived[0]["id"] == 10
+        assert unarchived[0].id == 10
 
     @pytest.mark.asyncio
     async def test_get_unarchived_excludes_intimations_without_links(self, repository):
@@ -117,7 +117,7 @@ class TestRepositoryArchiveOperations:
         intimation_with_link = Intimation(
             id=20,
             numero_processo="3333333-89.2024.8.22.0020",
-            data_disponibilizacao=datetime(2024, 1, 15),
+            data_disponibilizacao=date(2024, 1, 15),
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
             nome_orgao="Vara",
@@ -133,7 +133,7 @@ class TestRepositoryArchiveOperations:
         intimation_without_link = Intimation(
             id=21,
             numero_processo="4444444-89.2024.8.22.0021",
-            data_disponibilizacao=datetime(2024, 1, 16),
+            data_disponibilizacao=date(2024, 1, 16),
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
             nome_orgao="Vara",
@@ -153,7 +153,7 @@ class TestRepositoryArchiveOperations:
 
         # Assert - Should only return the one with a link
         assert len(unarchived) == 1
-        assert unarchived[0]["id"] == 20
+        assert unarchived[0].id == 20
 
     @pytest.mark.asyncio
     async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(self, repository):
@@ -162,7 +162,7 @@ class TestRepositoryArchiveOperations:
         intimation = Intimation(
             id=30,
             numero_processo="5555555-89.2024.8.22.0030",
-            data_disponibilizacao=datetime(2024, 1, 15),
+            data_disponibilizacao=date(2024, 1, 15),
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
             nome_orgao="Vara",
@@ -196,7 +196,7 @@ class TestRepositoryArchiveOperations:
             Intimation(
                 id=40 + i,
                 numero_processo=f"{6000000 + i}-89.2024.8.22.0001",
-                data_disponibilizacao=datetime(2024, 1, 15),
+                data_disponibilizacao=date(2024, 1, 15),
                 sigla_tribunal="TJRO",
                 tipo_comunicacao="Intimação",
                 nome_orgao="Vara",

@@ -1,137 +1,141 @@
-"""Tests for archive pipeline."""
+"""Integration tests for archive pipeline (RED phase)."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from causaganha.pipeline.archive import _process_intimation, run_archive
-from causaganha.services.archive import InternetArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.domain.models import Intimation
+from causaganha.pipeline.archive import run_archive
+from datetime import date
 
 
 @pytest.fixture
 def mock_repository():
-    """Create a mock repository."""
-    repo = MagicMock(spec=IntimationRepository)
-    repo.get_unarchived_intimations = AsyncMock(return_value=[
-        {
-            "id": "test-id-1",
-            "url_documento": "https://example.com/doc1.pdf",
-            "link": "https://example.com/doc1.pdf",
-        },
-        {
-            "id": "test-id-2",
-            "url_documento": "https://example.com/doc2.pdf",
-            "link": "https://example.com/doc2.pdf",
-        },
-    ])
-    repo.mark_as_archived = AsyncMock()
-    return repo
+    return AsyncMock()
 
 
 @pytest.fixture
 def mock_doc_service():
-    """Create a mock document service."""
-    service = MagicMock(spec=DocumentService)
-    service.download_pdf = AsyncMock(return_value=b"fake pdf content")
+    service = AsyncMock()
+    service.download_pdf.return_value = b"PDF CONTENT"
     return service
 
 
 @pytest.fixture
-def mock_ia_service():
-    """Create a mock IA service."""
-    service = MagicMock(spec=InternetArchiveService)
-    service.upload_file = AsyncMock(return_value="https://archive.org/details/test-item")
+def mock_archive_service():
+    service = AsyncMock()
+    service.upload_file.return_value = "https://archive.org/details/test"
+    service.generate_metadata.return_value = {}
     return service
 
 
 @pytest.mark.asyncio
-async def test_run_archive_success(mock_repository, mock_doc_service, mock_ia_service):
-    """Test successful archive pipeline run."""
-    await run_archive(
-        mock_repository,
-        mock_doc_service,
-        mock_ia_service,
-        limit=2,
-        dry_run=False,
+async def test_run_archive_success(mock_repository, mock_doc_service, mock_archive_service):
+    """Pipeline should fetch unarchived, download, and upload."""
+    # Arrange
+    intimation = Intimation(
+        id=1,
+        numero_processo="123",
+        sigla_tribunal="TJRO",
+        data_disponibilizacao=date(2024, 1, 1),
+        link="http://example.com/1.pdf",
+        tipo_comunicacao="Int",
+        nome_orgao="Org",
+        texto="Txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="abc"
     )
+    mock_repository.get_unarchived_intimations.return_value = [intimation]
 
-    # Verify repository was called
-    mock_repository.get_unarchived_intimations.assert_called_once_with(limit=2)
+    # Act
+    await run_archive(mock_repository, mock_doc_service, mock_archive_service, limit=1)
+
+    # Assert
+    mock_repository.get_unarchived_intimations.assert_called_once_with(limit=1)
+    mock_doc_service.download_pdf.assert_called_once_with("http://example.com/1.pdf")
+    mock_archive_service.upload_file.assert_called_once()
+    mock_repository.mark_as_archived.assert_called_once_with("1", "https://archive.org/details/test")
 
 
 @pytest.mark.asyncio
-async def test_run_archive_no_intimations(mock_repository, mock_doc_service, mock_ia_service):
-    """Test archive pipeline with no intimations."""
-    mock_repository.get_unarchived_intimations.return_value = []
-
-    await run_archive(
-        mock_repository,
-        mock_doc_service,
-        mock_ia_service,
-        limit=10,
-        dry_run=False,
+async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_archive_service):
+    """Dry run should download but NOT upload or mark archived."""
+    # Arrange
+    intimation = Intimation(
+        id=1,
+        numero_processo="123",
+        sigla_tribunal="TJRO",
+        data_disponibilizacao=date(2024, 1, 1),
+        link="http://example.com/1.pdf",
+        tipo_comunicacao="Int",
+        nome_orgao="Org",
+        texto="Txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="abc"
     )
+    mock_repository.get_unarchived_intimations.return_value = [intimation]
 
-    # Verify no downloads occurred
+    # Act
+    await run_archive(mock_repository, mock_doc_service, mock_archive_service, limit=1, dry_run=True)
+
+    # Assert
+    mock_doc_service.download_pdf.assert_called_once()
+    mock_archive_service.upload_file.assert_not_called()
+    mock_repository.mark_as_archived.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_intimation_no_url(mock_repository, mock_doc_service, mock_archive_service):
+    """Should skip intimations without URL."""
+    # Arrange
+    intimation = Intimation(
+        id=1,
+        numero_processo="123",
+        sigla_tribunal="TJRO",
+        data_disponibilizacao=date(2024, 1, 1),
+        link=None,
+        tipo_comunicacao="Int",
+        nome_orgao="Org",
+        texto="Txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="abc"
+    )
+    mock_repository.get_unarchived_intimations.return_value = [intimation]
+
+    # Act
+    await run_archive(mock_repository, mock_doc_service, mock_archive_service, limit=1)
+
+    # Assert
     mock_doc_service.download_pdf.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_service, tmp_path):
-    """Test archive pipeline in dry run mode."""
-    # Set up temp directory
-    with patch("causaganha.pipeline.archive.Path") as mock_path:
-        temp_dir = tmp_path / "temp"
-        temp_dir.mkdir()
-        mock_path.return_value = temp_dir
-
-        await run_archive(
-            mock_repository,
-            mock_doc_service,
-            mock_ia_service,
-            limit=2,
-            dry_run=True,
-        )
-
-        # In dry run, files should not be uploaded
-        # We can't easily verify this without refactoring, but the test runs
-
-
-@pytest.mark.asyncio
-async def test_process_intimation_no_url(mock_doc_service, mock_ia_service, mock_repository):
-    """Test processing intimation without document URL."""
-    intimation = {"id": "test-id", "url_documento": None}
-
-    await _process_intimation(
-        intimation,
-        mock_doc_service,
-        mock_ia_service,
-        mock_repository,
-        False,
+async def test_process_intimation_download_failure(mock_repository, mock_doc_service, mock_archive_service):
+    """Should handle download failure gracefully."""
+    # Arrange
+    intimation = Intimation(
+        id=1,
+        numero_processo="123",
+        sigla_tribunal="TJRO",
+        data_disponibilizacao=date(2024, 1, 1),
+        link="http://example.com/fail.pdf",
+        tipo_comunicacao="Int",
+        nome_orgao="Org",
+        texto="Txt",
+        tipo_documento="Doc",
+        nome_classe="Class",
+        hash="abc"
     )
-
-    # Should not attempt download
-    mock_doc_service.download_pdf.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_process_intimation_download_failure(mock_doc_service, mock_ia_service, mock_repository):
-    """Test processing intimation with download failure."""
-    intimation = {
-        "id": "test-id",
-        "url_documento": "https://example.com/doc.pdf",
-    }
+    mock_repository.get_unarchived_intimations.return_value = [intimation]
     mock_doc_service.download_pdf.return_value = None
 
-    await _process_intimation(
-        intimation,
-        mock_doc_service,
-        mock_ia_service,
-        mock_repository,
-        False,
-    )
+    # Act
+    await run_archive(mock_repository, mock_doc_service, mock_archive_service, limit=1)
 
-    # Should not attempt upload
-    mock_ia_service.upload_file.assert_not_called()
+    # Assert
+    mock_doc_service.download_pdf.assert_called_once()
+    mock_archive_service.upload_file.assert_not_called()
+    mock_repository.mark_as_archived.assert_not_called()

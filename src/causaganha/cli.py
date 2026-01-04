@@ -19,6 +19,7 @@ from causaganha.services.archive import create_archive_service
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -67,6 +68,11 @@ def _get_repository() -> IntimationRepository:
     """Helper to initialize repository and schema."""
     con = get_connection(DB_PATH)
     return IntimationRepository(con)
+
+def _get_lawyer_repository() -> LawyerRatingRepository:
+    """Helper to initialize lawyer repository."""
+    con = get_connection(DB_PATH)
+    return LawyerRatingRepository(con)
 
 @app.command()
 def collect(
@@ -179,7 +185,8 @@ def score(
     async def _run():
         try:
             repository = _get_repository()
-            await run_scoring(repository, limit=limit)
+            lawyer_repo = _get_lawyer_repository()
+            await run_scoring(repository, lawyer_repo, limit=limit)
         except Exception as e:
             _handle_error(e, "Scoring failed")
 
@@ -209,6 +216,7 @@ def pipeline(
 
     async def _run():
         repository = _get_repository()
+        lawyer_repo = _get_lawyer_repository()
         client = PJeAPIClient()
         doc_service = DocumentService()
         archive_service = create_archive_service()
@@ -253,7 +261,7 @@ def pipeline(
             # Step 4: Score
             if not skip_score:
                 typer.echo("Step 4/4: Calculating ratings...")
-                await run_scoring(repository, limit=score_limit)
+                await run_scoring(repository, lawyer_repo, limit=score_limit)
                 typer.echo("✓ Scoring complete")
             else:
                 typer.echo("⊘ Skipping scoring")
@@ -301,22 +309,15 @@ def manifest_export(
         items = await repository.get_all_intimations(limit=limit)
         output_items = []
         for item in items:
-            # Convert date string to date object if it exists
-            decision_date = None
-            if item.get("data_disponibilizacao"):
-                try:
-                    decision_date = date.fromisoformat(item["data_disponibilizacao"])
-                except (ValueError, TypeError):
-                    pass  # Keep as None if parsing fails
-
+            # Use object attributes
             schema = ParquetSchema(
-                intimation_id=item.get("id"),
-                process_number=item.get("numero_processo"),
-                tribunal=item.get("sigla_tribunal"),
-                decision_date=decision_date,
-                download_url=item.get("link"),
-                needs_download=item.get("needs_download", True),
-                ia_url=item.get("ia_url"),
+                intimation_id=item.id,
+                process_number=item.numero_processo,
+                tribunal=item.sigla_tribunal,
+                decision_date=item.data_disponibilizacao,
+                download_url=item.link,
+                needs_download=item.needs_download,
+                ia_url=item.ia_url,
             )
             output_items.append(schema.model_dump(mode="json"))
 

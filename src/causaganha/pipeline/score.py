@@ -2,18 +2,24 @@
 
 import structlog
 
-from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
+from causaganha.domain.scoring import calculate_batch_ratings
 from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 
 
 logger = structlog.get_logger()
 
 
-async def run_scoring(repository: IntimationRepository, limit: int = 100) -> None:
+async def run_scoring(
+    repository: IntimationRepository,
+    lawyer_repo: LawyerRatingRepository,
+    limit: int = 100
+) -> None:
     """Run the scoring pipeline.
 
     Args:
-        repository: Storage repository.
+        repository: Intimation repository (for analysis results).
+        lawyer_repo: Lawyer rating repository.
         limit: Max number of cases to process.
     """
     logger.info("starting_scoring")
@@ -27,8 +33,6 @@ async def run_scoring(repository: IntimationRepository, limit: int = 100) -> Non
 
     logger.info("processing_scoring_batch", count=len(unscored))
 
-    model = get_openskill_model()
-
     # Collect all needed lawyers
     needed_lawyers = set()
     for row in unscored:
@@ -37,84 +41,21 @@ async def run_scoring(repository: IntimationRepository, limit: int = 100) -> Non
         if row.get("loser_lawyer_oab") and row.get("loser_lawyer_state"):
             needed_lawyers.add((row["loser_lawyer_oab"], row["loser_lawyer_state"]))
 
-    # Fetch existing ratings
-    existing_ratings_data = await repository.get_lawyer_ratings(list(needed_lawyers))
+    # Fetch existing ratings using new repository
+    existing_ratings_data = await lawyer_repo.get_lawyer_ratings(list(needed_lawyers))
 
-    # Map (oab, state) -> Rating object
-    ratings_cache = {}
+    # Calculate new ratings using pure domain logic
+    try:
+        updated_ratings_map = calculate_batch_ratings(unscored, existing_ratings_data)
+    except Exception as e:
+        logger.exception("scoring_calculation_failed", error=str(e))
+        return
 
-    # Initialize cache from DB results
-    for r in existing_ratings_data:
-        key = (r["oab_number"], r["oab_state"])
-        rating = create_rating(model, mu=r["mu"], sigma=r["sigma"], name=f"{key[0]}-{key[1]}")
-        rating.stats = {
-            "total_cases": r["total_cases"],
-            "wins": r["wins"],
-            "losses": r["losses"],
-        }
-        ratings_cache[key] = rating
-
-    # Ensure all needed lawyers are in cache (create new if missing)
-    for oab, state in needed_lawyers:
-        if (oab, state) not in ratings_cache:
-            rating = create_rating(model, name=f"{oab}-{state}")
-            rating.stats = {"total_cases": 0, "wins": 0, "losses": 0}
-            ratings_cache[(oab, state)] = rating
-
-    processed_ids = []
-
-    for row in unscored:
-        try:
-            winner_oab = row.get("winner_lawyer_oab")
-            winner_state = row.get("winner_lawyer_state")
-            loser_oab = row.get("loser_lawyer_oab")
-            loser_state = row.get("loser_lawyer_state")
-
-            if not (winner_oab and winner_state and loser_oab and loser_state):
-                continue
-
-            r_winner = ratings_cache.get((winner_oab, winner_state))
-            r_loser = ratings_cache.get((loser_oab, loser_state))
-
-            if not r_winner or not r_loser:
-                continue
-
-            # Determine result for OpenSkill
-            result_code = "win_a"  # Winner (A) vs Loser (B)
-
-            # Update ratings
-            new_winner, new_loser = rate_teams(model, [r_winner], [r_loser], result_code)
-
-            # Update cache objects
-            r_winner_updated = new_winner[0]
-            if not hasattr(r_winner, "stats"):
-                r_winner.stats = {"total_cases": 0, "wins": 0, "losses": 0}
-
-            # Copy stats and increment
-            r_winner_updated.stats = r_winner.stats.copy()
-            r_winner_updated.stats["total_cases"] += 1
-            r_winner_updated.stats["wins"] += 1
-            ratings_cache[(winner_oab, winner_state)] = r_winner_updated
-
-            r_loser_updated = new_loser[0]
-            if not hasattr(r_loser, "stats"):
-                r_loser.stats = {"total_cases": 0, "wins": 0, "losses": 0}
-
-            r_loser_updated.stats = r_loser.stats.copy()
-            r_loser_updated.stats["total_cases"] += 1
-            r_loser_updated.stats["losses"] += 1
-            ratings_cache[(loser_oab, loser_state)] = r_loser_updated
-
-            processed_ids.append(row["id"])
-
-        except Exception as e:
-            logger.exception("scoring_failed_for_case", id=row["id"], error=str(e))
-
-    # Persist ratings to DB
-    logger.info("persisting_ratings", count=len(ratings_cache))
+    # Persist ratings to DB using new repository
+    logger.info("persisting_ratings", count=len(updated_ratings_map))
 
     ratings_to_save = []
-    for (oab, state), rating in ratings_cache.items():
+    for (oab, state), rating in updated_ratings_map.items():
         stats = getattr(rating, "stats", {"total_cases": 0, "wins": 0, "losses": 0})
         ratings_to_save.append({
             "oab_number": oab,
@@ -127,9 +68,19 @@ async def run_scoring(repository: IntimationRepository, limit: int = 100) -> Non
         })
 
     if ratings_to_save:
-        await repository.save_lawyer_ratings(ratings_to_save)
+        await lawyer_repo.save_lawyer_ratings(ratings_to_save)
 
-    # Mark analysis as scored
+    # Mark analysis as scored (this stays in IntimationRepository as it relates to AnalysisResults)
+    # We mark all rows that were passed to the calculation as processed
+    # Ideally calculate_batch_ratings would return processed IDs too, but strict domain separation suggests
+    # we just mark the inputs as processed if no exception was raised.
+    # However, to be safe, we should collect IDs from unscored list that were valid (had winner/loser info)
+    processed_ids = []
+    for row in unscored:
+         if (row.get("winner_lawyer_oab") and row.get("winner_lawyer_state") and
+             row.get("loser_lawyer_oab") and row.get("loser_lawyer_state")):
+             processed_ids.append(row["id"])
+
     if processed_ids:
         await repository.mark_analyses_scored(processed_ids)
 
