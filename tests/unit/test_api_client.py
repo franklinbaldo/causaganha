@@ -2,7 +2,7 @@
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-
+from datetime import date
 import httpx
 import pytest
 
@@ -97,10 +97,65 @@ async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
 @pytest.mark.asyncio
 async def test_fetch_raises_on_http_error(api_client: PJeAPIClient) -> None:
     """Test error handling"""
-    with patch.object(api_client.client, "request", new_callable=AsyncMock) as mock_request:
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status.side_effect = httpx.HTTPError("Network error")
-        mock_request.return_value = mock_resp
+    # For client.request used in get_intimations_by_court if using .get
+    # If using .get, we mock .get. If using .request, we mock .request.
+    # The current implementation uses self.client.get
+
+    with patch.object(api_client.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = httpx.HTTPError("Network error")
 
         with pytest.raises(httpx.HTTPError):
+            await api_client.get_intimations_by_court("TJRO")
+
+@pytest.mark.asyncio
+async def test_fetch_intimations_with_dates(api_client: PJeAPIClient) -> None:
+    """Test fetching with date parameters"""
+    mock_response = {
+        "status": "success",
+        "count": 0,
+        "items": [],
+    }
+
+    start_date = date(2024, 1, 1)
+    end_date = date(2024, 1, 31)
+
+    with patch.object(api_client.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_response
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
+
+        await api_client.get_intimations_by_court(
+            "TJRO",
+            data_disponibilizacao_inicio=start_date,
+            data_disponibilizacao_fim=end_date
+        )
+
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs["params"]
+        assert params["dataDisponibilizacaoInicio"] == "2024-01-01"
+        assert params["dataDisponibilizacaoFim"] == "2024-01-31"
+
+@pytest.mark.asyncio
+async def test_fetch_intimations_validation_error(api_client: PJeAPIClient) -> None:
+    """Test handling of validation errors"""
+    # Item with missing required field (id)
+    invalid_item = create_mock_intimation_item(1)
+    del invalid_item["id"]
+
+    mock_response = {
+        "status": "success",
+        "count": 1,
+        "items": [invalid_item],
+    }
+
+    with patch.object(api_client.client, "get", new_callable=AsyncMock) as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_response
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
+
+        # Should raise validation error (which propagates as Exception or ValidationError from pydantic)
+        with pytest.raises(Exception): # Pydantic ValidationError
             await api_client.get_intimations_by_court("TJRO")
