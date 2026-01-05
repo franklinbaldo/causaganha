@@ -43,7 +43,7 @@ async def acquire_lock(db: firestore.AsyncClient, doc_key: str, stage: str) -> b
     doc_ref = db.collection(COLLECTION_NAME).document(doc_key)
 
     @firestore.async_transactional
-    async def _update_in_transaction(transaction, ref):
+    async def _update_in_transaction(transaction, ref) -> bool:
         snapshot = await ref.get(transaction=transaction)
         if not snapshot.exists:
             return False

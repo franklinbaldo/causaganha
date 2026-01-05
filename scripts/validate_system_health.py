@@ -24,7 +24,7 @@ from causaganha.storage.connection import get_connection
 
 logger = structlog.get_logger()
 
-async def validate_health():
+async def validate_health() -> None:
     logger.info("Starting system health check", db_path=DB_PATH)
 
     try:
@@ -51,12 +51,12 @@ async def validate_health():
                 stats[table] = count
                 logger.info("Table stats", table=table, count=count)
             except Exception as e:
-                logger.error(f"Failed to count table {table}", error=str(e))
+                logger.exception(f"Failed to count table {table}", error=str(e))
 
         # 4. Integrity Checks
         # Check for orphaned analysis results
-        t_intimations = con.table("intimations")
-        t_analysis = con.table("analysis_results")
+        con.table("intimations")
+        con.table("analysis_results")
 
         # Count analysis results where intimation_id is not in intimations
         # joined = t_analysis.left_join(t_intimations, t_analysis.intimation_id == t_intimations.id)

@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_run_results(results_path: Path) -> None:
-    """Parses a dbt run_results.json file and logs a summary of the run.
-    """
+    """Parses a dbt run_results.json file and logs a summary of the run."""
     if not results_path.exists():
         logger.error(f"dbt run_results.json not found at: {results_path}")
         return
@@ -23,12 +22,12 @@ def parse_run_results(results_path: Path) -> None:
         with open(results_path) as f:
             data = json.load(f)
     except json.JSONDecodeError:
-        logger.error(
+        logger.exception(
             f"Failed to parse JSON from {results_path}. File might be corrupted or not valid JSON.",
         )
         return
     except Exception as e:
-        logger.error(f"An error occurred while reading {results_path}: {e}")
+        logger.exception(f"An error occurred while reading {results_path}: {e}")
         return
 
     logger.info(f"--- Monitoring dbt Run Results from: {results_path} ---")
@@ -62,15 +61,15 @@ def parse_run_results(results_path: Path) -> None:
                 "status": status,
             })
 
-        if node_type == "model" or node_type == "snapshot" or node_type == "seed":
+        if node_type in {"model", "snapshot", "seed"}:
             model_statuses[status] += 1
-            if status == "error" or status == "fail":  # dbt uses 'error' for models
+            if status in {"error", "fail"}:  # dbt uses 'error' for models
                 message = result.get("message", "No error message provided.")
                 error_messages.append(f"ERROR in {node_name}: {message}")
         elif node_type == "test":
             # dbt test statuses: pass, fail, warn, error (for compilation/runtime errors)
             test_statuses[status] += 1
-            if status == "fail" or status == "error":
+            if status in {"fail", "error"}:
                 message = result.get("message", "No failure/error message provided.")
                 # For test failures, unique_id is like test.my_project.not_null_my_model_id.hash
                 # We might want to extract the model it applies to if possible, or just log the test name.

@@ -72,7 +72,8 @@ async def ingest_worker(event: dict, context: Any) -> None:
         pdf_bytes = await doc_service.download_pdf(pdf_url)
 
         if not pdf_bytes:
-            raise RuntimeError(f"Failed to download PDF from {pdf_url}")
+            msg = f"Failed to download PDF from {pdf_url}"
+            raise RuntimeError(msg)
 
         # 3. Upload to IA
         # Using temp file as IA service expects path
@@ -116,7 +117,8 @@ async def ingest_worker(event: dict, context: Any) -> None:
                 )
 
                 if not result_url:
-                     raise RuntimeError("IA upload failed")
+                     msg = "IA upload failed"
+                     raise RuntimeError(msg)
             finally:
                 pass
 
@@ -138,9 +140,9 @@ async def ingest_worker(event: dict, context: Any) -> None:
     except Exception as e:
         logger.exception("ingest_worker_failed", doc_key=doc_key, error=str(e))
         # Here we could NACK (raise) to retry via Pub/Sub
-        raise e
+        raise
 
-def _publish_next_stage(publisher, doc_key):
+def _publish_next_stage(publisher, doc_key) -> None:
     message_json = json.dumps({
         "docKey": doc_key,
         "stage": "llm",

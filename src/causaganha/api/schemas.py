@@ -1,11 +1,11 @@
-"""Pydantic models for API responses"""
+"""Pydantic models for API responses."""
 
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class LawyerInfo(BaseModel):
-    """Lawyer information from API"""
+    """Lawyer information from API."""
 
     id: int
     nome: str
@@ -14,13 +14,13 @@ class LawyerInfo(BaseModel):
 
 
 class DestinatarioAdvogado(BaseModel):
-    """Lawyer association"""
+    """Lawyer association."""
 
     advogado: LawyerInfo
 
 
 class Destinatario(BaseModel):
-    """Party information"""
+    """Party information."""
 
     nome: str
     polo: str  # 'A', 'P', etc.

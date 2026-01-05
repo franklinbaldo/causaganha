@@ -1,20 +1,21 @@
 """Integration test using realistic JSON data to simulate the full pipeline."""
 
 import json
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.models import DecisionAnalysis
 from causaganha.api.client import PJeAPIClient
-from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.analyze import run_analysis
+from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
+from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository
 from causaganha.storage.schema import create_schema
-from causaganha.services.document import DocumentService
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.analysis.models import DecisionAnalysis
 
 
 @pytest.fixture
@@ -41,19 +42,17 @@ def repository(db_connection):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_with_realistic_data(db_connection, repository, realistic_data):
-    """
-    Test the full pipeline (Collect -> Analyze -> Score) using realistic JSON data.
+async def test_pipeline_with_realistic_data(db_connection, repository, realistic_data) -> None:
+    """Test the full pipeline (Collect -> Analyze -> Score) using realistic JSON data.
     Mocking:
       - API Client: returns the JSON data.
       - Document Service: returns dummy PDF bytes.
       - Analyzer: returns a dummy DecisionAnalysis object.
     """
-
     # --- STAGE 1: COLLECTION ---
 
     # Mock API Client to return realistic data
-    mock_client = MagicMock(spec=PJeAPIClient)
+    MagicMock(spec=PJeAPIClient)
 
     # We need to structure the return value of get_intimations_by_court to return Domain Models
     # Since PJeAPIClient._map_to_domain is internal, we can rely on PJeAPIClient behavior if we mock the HTTP layer,
@@ -73,16 +72,16 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     mock_response = {
         "status": "success",
         "count": len(realistic_data),
-        "items": realistic_data
+        "items": realistic_data,
     }
 
-    with patch.object(real_client.client, 'get') as mock_get:
+    with patch.object(real_client.client, "get") as mock_get:
         mock_get.return_value.json.return_value = mock_response
         mock_get.return_value.raise_for_status = lambda: None
         # Mock getting an empty list for the second page to stop pagination
         mock_get.side_effect = [
              MagicMock(json=lambda: mock_response, raise_for_status=lambda: None),
-             MagicMock(json=lambda: {"items": []}, raise_for_status=lambda: None)
+             MagicMock(json=lambda: {"items": []}, raise_for_status=lambda: None),
         ]
 
         await run_collection(
@@ -90,14 +89,14 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             client=real_client,
             start_date="2025-01-01",
             end_date="2025-01-07",
-            courts=["TJRO"]
+            courts=["TJRO"],
         )
 
     # Verify Collection
     intimations = await repository.get_unanalyzed_intimations(limit=100)
     assert len(intimations) == 2
     # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i['numero_processo'] for i in intimations]
+    process_numbers = [i["numero_processo"] for i in intimations]
     assert "70009673320258220010" in process_numbers
 
     # Verify Lawyer Association
@@ -131,7 +130,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
                 summary="Summary 1",
             judge_name="Dr. Judge",
             decision_reasoning="Reasoning...",
-            confidence_score=0.95
+            confidence_score=0.95,
         ),
         DecisionAnalysis(
             winner_lawyer_oab="1234",
@@ -145,8 +144,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
                 summary="Summary 2",
             judge_name="Dr. Judge 2",
             decision_reasoning="Reasoning 2...",
-            confidence_score=0.90
-        )
+            confidence_score=0.90,
+        ),
     ]
 
     # The pipeline calls analyze_decision (via process_item)
@@ -156,7 +155,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         repository=repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
-        limit=10
+        limit=10,
     )
 
     # Verify Analysis Storage
@@ -168,7 +167,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     await run_scoring(
         repository=repository,
-        limit=100
+        limit=100,
     )
 
     # Verify Ratings

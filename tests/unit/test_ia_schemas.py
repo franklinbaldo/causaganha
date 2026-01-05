@@ -8,7 +8,7 @@ from causaganha.analysis.models import Outcome
 from causaganha.ia.schemas import LawyerInfo, ParquetSchema
 
 
-def test_parquet_schema_creation():
+def test_parquet_schema_creation() -> None:
     """Test successful creation of a ParquetSchema model."""
     schema = ParquetSchema(
         intimation_id=1,
@@ -29,7 +29,7 @@ def test_parquet_schema_creation():
     assert len(schema.winner_lawyers) == 1
 
 
-def test_parquet_schema_missing_required_fields():
+def test_parquet_schema_missing_required_fields() -> None:
     """Test that missing required fields raise a validation error."""
     with pytest.raises(ValidationError):
         ParquetSchema(
@@ -37,7 +37,7 @@ def test_parquet_schema_missing_required_fields():
             # Missing process_number, tribunal, download_url, needs_download
         )
 
-def test_parquet_schema_optional_fields():
+def test_parquet_schema_optional_fields() -> None:
     """Test that optional fields can be None or have default values."""
     schema = ParquetSchema(
         intimation_id=1,
@@ -53,7 +53,7 @@ def test_parquet_schema_optional_fields():
     assert schema.loser_lawyers == []
 
 
-def test_lawyer_info_creation():
+def test_lawyer_info_creation() -> None:
     """Test the LawyerInfo model."""
     lawyer = LawyerInfo(oab_number="987", oab_state="MG", name="Test Lawyer")
     assert lawyer.name == "Test Lawyer"

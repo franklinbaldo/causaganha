@@ -62,10 +62,10 @@
     - [x] Update `collect.py` to iterate over configured courts.
     - [x] Update `archive.py` to organize files by court (e.g., `TJRO/YYYY/MM/...`).
 
-## Phase 4: System Hardening (Next)
-- [ ] **End-to-End Testing**
-    - [ ] Create `tests/e2e/test_full_lifecycle.py`.
-    - [ ] Verify full flow: Collect -> DB -> Analyze -> Score -> Archive.
-- [ ] **Documentation**
-    - [ ] Update `README.md` with new architecture diagrams.
-    - [ ] Generate API docs with `mkdocs`.
+## Phase 4: System Hardening (✅ Completed)
+- [x] **End-to-End Testing**
+    - [x] Create `tests/e2e/test_full_lifecycle.py`.
+    - [x] Verify full flow: Collect -> DB -> Analyze -> Score -> Archive.
+- [x] **Documentation**
+    - [x] Update `README.md` with new architecture diagrams.
+    - [x] Generate API docs with `mkdocs`.

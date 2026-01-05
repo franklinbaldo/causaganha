@@ -25,7 +25,6 @@ def run_pipeline(tribunal: str) -> None:
 
 def main() -> None:
     for trib in TRIBUNALS:
-        print(f"\nRunning pipeline for {trib} (stats only)...")
         run_pipeline(trib)
 
 

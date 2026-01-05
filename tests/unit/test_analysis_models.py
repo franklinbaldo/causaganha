@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from causaganha.analysis.models import DecisionAnalysis, Outcome
 
 
-def test_decision_analysis_model_creation():
+def test_decision_analysis_model_creation() -> None:
     """Test successful creation of a DecisionAnalysis model."""
     analysis = DecisionAnalysis(
         outcome=Outcome.WIN,
@@ -31,7 +31,7 @@ def test_decision_analysis_model_creation():
     assert analysis.acordao is not None
 
 
-def test_decision_analysis_missing_required_fields():
+def test_decision_analysis_missing_required_fields() -> None:
     """Test that missing required fields raise a validation error."""
     with pytest.raises(ValidationError):
         DecisionAnalysis(
@@ -39,7 +39,7 @@ def test_decision_analysis_missing_required_fields():
             # Missing summary and confidence_score
         )
 
-def test_decision_analysis_optional_fields():
+def test_decision_analysis_optional_fields() -> None:
     """Test that optional fields can be None."""
     analysis = DecisionAnalysis(
         outcome=Outcome.UNKNOWN,
@@ -52,7 +52,7 @@ def test_decision_analysis_optional_fields():
     assert analysis.tribunal is None
     assert analysis.decision_date is None
 
-def test_decision_analysis_invalid_confidence_score():
+def test_decision_analysis_invalid_confidence_score() -> None:
     """Test that confidence_score outside the valid range raises an error."""
     with pytest.raises(ValidationError):
         DecisionAnalysis(

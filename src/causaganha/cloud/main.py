@@ -14,7 +14,7 @@ def scheduler_http(request):
     return asyncio.run(scheduler_tick(request))
 
 @functions_framework.cloud_event
-def ingest_pubsub(cloud_event):
+def ingest_pubsub(cloud_event) -> None:
     """Pub/Sub entry point for Ingest."""
     import asyncio
     # CloudEvent to dict
@@ -25,7 +25,7 @@ def ingest_pubsub(cloud_event):
     asyncio.run(ingest_worker(event_data, None))
 
 @functions_framework.cloud_event
-def llm_pubsub(cloud_event):
+def llm_pubsub(cloud_event) -> None:
     """Pub/Sub entry point for LLM."""
     import asyncio
     event_data = {

@@ -24,8 +24,6 @@ def show_rating_trend(lawyer_id: str) -> None:
 
 
 if __name__ == "__main__":
-    print("Resumo de tendências de decisões:")
     show_outcome_trend(limit=10)
-    print("\nTendência de rating para advogado 123:")
     show_rating_trend("123")
 

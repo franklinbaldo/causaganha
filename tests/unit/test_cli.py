@@ -118,13 +118,12 @@ def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicM
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_analyze(mock_run_analysis: MagicMock) -> None:
-    with patch("causaganha.cli.DecisionAnalyzer") as mock_analyzer:
-        with patch("causaganha.cli.DocumentService"):
-            result = runner.invoke(app, ["analyze", "--limit", "5"])
-            assert result.exit_code == 0
-            mock_run_analysis.assert_called_once()
-            args, kwargs = mock_run_analysis.call_args
-            assert kwargs["limit"] == 5
+    with patch("causaganha.cli.DecisionAnalyzer"), patch("causaganha.cli.DocumentService"):
+        result = runner.invoke(app, ["analyze", "--limit", "5"])
+        assert result.exit_code == 0
+        mock_run_analysis.assert_called_once()
+        _args, kwargs = mock_run_analysis.call_args
+        assert kwargs["limit"] == 5
 
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
@@ -145,7 +144,7 @@ def test_archive(mock_run_archive: MagicMock) -> None:
             result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
             assert result.exit_code == 0
             mock_run_archive.assert_called_once()
-            args, kwargs = mock_run_archive.call_args
+            _args, kwargs = mock_run_archive.call_args
             assert kwargs["limit"] == 3
             assert kwargs["dry_run"] is True
 
@@ -168,7 +167,7 @@ def test_score(mock_run_scoring: MagicMock) -> None:
     assert result.exit_code == 0
     mock_run_scoring.assert_called_once()
     # Check arguments
-    args, kwargs = mock_run_scoring.call_args
+    _args, kwargs = mock_run_scoring.call_args
     assert kwargs["limit"] == 50
 
 
