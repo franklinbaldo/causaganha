@@ -1,4 +1,5 @@
 """Analyzer for judicial decisions."""
+import asyncio
 import structlog
 from pydantic_ai import Agent, BinaryContent
 
@@ -49,3 +50,20 @@ class DecisionAnalyzer:
             ],
         )
         return result.data
+
+    async def analyze_batch(self, pdf_contents: list[bytes]) -> list[DecisionAnalysis | Exception]:
+        """Analyze multiple PDFs concurrently.
+
+        Args:
+            pdf_contents: List of PDF contents as bytes.
+
+        Returns:
+            List containing either DecisionAnalysis result or Exception for each input,
+            preserving the input order.
+        """
+        logger.info("starting_batch_analysis", count=len(pdf_contents))
+
+        tasks = [self.analyze_decision(pdf) for pdf in pdf_contents]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return list(results)
