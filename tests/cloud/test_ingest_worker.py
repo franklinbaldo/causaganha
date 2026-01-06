@@ -59,7 +59,7 @@ async def test_ingest_worker_success(
     mock_acquire_lock,
     mock_doc_service,
     mock_archive_service,
-):
+) -> None:
     # Setup Firestore
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
@@ -88,7 +88,7 @@ async def test_ingest_worker_success(
 
     # Verify Upload
     mock_archive_service.upload_file.assert_called_once()
-    args, kwargs = mock_archive_service.upload_file.call_args
+    _args, kwargs = mock_archive_service.upload_file.call_args
     assert kwargs["item_id"] == "causaganha-test_doc_key" # truncated key
     assert kwargs["metadata"]["url"] == "http://court.gov.br/doc.pdf"
 
@@ -115,7 +115,7 @@ async def test_ingest_worker_already_done(
     mock_publisher,
     mock_acquire_lock,
     mock_doc_service,
-):
+) -> None:
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
 
@@ -143,7 +143,7 @@ async def test_ingest_worker_failure(
     mock_publisher,
     mock_acquire_lock,
     mock_doc_service,
-):
+) -> None:
     doc_ref = MagicMock()
     mock_firestore.collection.return_value.document.return_value = doc_ref
 

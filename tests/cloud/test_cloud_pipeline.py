@@ -42,7 +42,7 @@ def mock_ia_service():
         yield mock
 
 @pytest.mark.asyncio
-async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
+async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> None:
     from causaganha.cloud.functions.scheduler import scheduler_tick
 
     # Setup PJe mock
@@ -96,7 +96,7 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client):
     assert args[0]["status"] == "new"
 
 @pytest.mark.asyncio
-async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service):
+async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service) -> None:
     from causaganha.cloud.functions.ingest import ingest_worker
 
     # Input event

@@ -12,10 +12,10 @@ def con():
     create_schema(conn)
     return conn
 
-def test_check_intimations_valid(con):
+def test_check_intimations_valid(con) -> None:
     """Test that valid intimations pass validation."""
     # Insert valid intimation
-    t = con.table("intimations")
+    con.table("intimations")
     # Need to match schema exactly or use helper.
     # Using raw sql for setup simplicity in tests is sometimes easier, but Ibis insert is preferred if possible.
     # However, Ibis insert from memtable is clean.
@@ -45,7 +45,7 @@ def test_check_intimations_valid(con):
     assert report["invalid_links"] == 0
     assert report["missing_tribunal"] == 0
 
-def test_check_intimations_invalid(con):
+def test_check_intimations_invalid(con) -> None:
     """Test that invalid intimations are detected."""
     data = [
         {
@@ -74,7 +74,7 @@ def test_check_intimations_invalid(con):
     assert report["invalid_links"] == 1
     assert report["missing_tribunal"] == 1
 
-def test_check_orphaned_analysis(con):
+def test_check_orphaned_analysis(con) -> None:
     """Test detection of orphaned analysis results."""
     # Insert analysis without corresponding intimation
     analysis_data = [{
@@ -102,7 +102,7 @@ def test_check_orphaned_analysis(con):
     assert len(orphans) == 1
     assert orphans[0] == 1 # Analysis ID
 
-def test_check_ratings_integrity(con):
+def test_check_ratings_integrity(con) -> None:
     """Test validation of ratings values."""
     data = [
         {

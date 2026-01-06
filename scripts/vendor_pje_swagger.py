@@ -70,7 +70,6 @@ def main() -> int:
         content += b"\n"
 
     output_path.write_bytes(content)
-    print(f"Wrote {output_path} (source: {source})")
     return 0
 
 

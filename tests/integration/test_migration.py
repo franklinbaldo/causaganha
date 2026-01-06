@@ -12,7 +12,7 @@ from causaganha.storage.schema import create_schema
 from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
 
 
-def test_parse_lawyer_id():
+def test_parse_lawyer_id() -> None:
     name, oab, state = parse_v1_lawyer_id("FRANKLIN SILVEIRA BALDO (OAB/RO 5733)")
     assert name == "FRANKLIN SILVEIRA BALDO"
     assert oab == "5733"
@@ -26,7 +26,7 @@ def test_parse_lawyer_id():
     name, oab, state = parse_v1_lawyer_id("INVALID ID")
     assert name is None
 
-def test_migrate_ratings(tmp_path: Path):
+def test_migrate_ratings(tmp_path: Path) -> None:
     # Setup V1 DB
     v1_db_path = tmp_path / "v1_test.duckdb"
     v1_con = duckdb.connect(str(v1_db_path))

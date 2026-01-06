@@ -21,9 +21,7 @@ def main() -> None:
         # Fallback to 1 GiB if the file is missing
         size = 1 * 1024 ** 3
 
-    cost = estimate_monthly_cost(size)
-    print(f"Archive size: {size / 1_048_576:.2f} MB")
-    print(f"Estimated monthly cost: ${cost:.2f} at $6/TB")
+    estimate_monthly_cost(size)
 
 
 if __name__ == "__main__":

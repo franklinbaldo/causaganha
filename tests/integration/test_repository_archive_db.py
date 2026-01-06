@@ -50,7 +50,7 @@ class TestRepositoryArchiveOperations:
     """Test that repository can perform archive operations (TDD)."""
 
     @pytest.mark.asyncio
-    async def test_can_mark_intimation_as_archived(self, repository, sample_intimation):
+    async def test_can_mark_intimation_as_archived(self, repository, sample_intimation) -> None:
         """Repository should be able to mark an intimation as archived."""
         # Arrange - Store an intimation
         await repository.store_intimations([sample_intimation])
@@ -63,7 +63,7 @@ class TestRepositoryArchiveOperations:
         # Behavior: marking as archived succeeds
 
     @pytest.mark.asyncio
-    async def test_get_unarchived_intimations_returns_only_unarchived(self, repository):
+    async def test_get_unarchived_intimations_returns_only_unarchived(self, repository) -> None:
         """get_unarchived_intimations should return only intimations not yet archived."""
         # Arrange - Store mix of archived and unarchived
         intimation1 = Intimation(
@@ -111,7 +111,7 @@ class TestRepositoryArchiveOperations:
         assert unarchived[0]["id"] == 10
 
     @pytest.mark.asyncio
-    async def test_get_unarchived_excludes_intimations_without_links(self, repository):
+    async def test_get_unarchived_excludes_intimations_without_links(self, repository) -> None:
         """get_unarchived_intimations should exclude intimations without download links."""
         # Arrange
         intimation_with_link = Intimation(
@@ -156,7 +156,7 @@ class TestRepositoryArchiveOperations:
         assert unarchived[0]["id"] == 20
 
     @pytest.mark.asyncio
-    async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(self, repository):
+    async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(self, repository) -> None:
         """After marking as archived, intimation should not appear in get_unarchived_intimations."""
         # Arrange
         intimation = Intimation(
@@ -189,7 +189,7 @@ class TestRepositoryArchiveOperations:
         assert len(unarchived_after) == 0
 
     @pytest.mark.asyncio
-    async def test_respects_limit_parameter(self, repository):
+    async def test_respects_limit_parameter(self, repository) -> None:
         """get_unarchived_intimations should respect the limit parameter."""
         # Arrange - Create 5 unarchived intimations
         intimations = [

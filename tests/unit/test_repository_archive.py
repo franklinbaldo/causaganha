@@ -26,7 +26,7 @@ class TestGetUnarchivedIntimations:
     """Test suite for get_unarchived_intimations."""
 
     @pytest.mark.asyncio
-    async def test_returns_only_intimations_with_null_ia_url(self, repository, mock_connection):
+    async def test_returns_only_intimations_with_null_ia_url(self, repository, mock_connection) -> None:
         """Should return only intimations where ia_url is NULL."""
         # Arrange
         mock_table = MagicMock()
@@ -52,7 +52,7 @@ class TestGetUnarchivedIntimations:
         mock_connection.table.assert_called_once_with("intimations")
 
     @pytest.mark.asyncio
-    async def test_excludes_intimations_without_links(self, repository, mock_connection):
+    async def test_excludes_intimations_without_links(self, repository, mock_connection) -> None:
         """Should exclude intimations that have no link."""
         # Arrange
         mock_table = MagicMock()
@@ -76,7 +76,7 @@ class TestGetUnarchivedIntimations:
         assert all(item.get("link") for item in result)
 
     @pytest.mark.asyncio
-    async def test_respects_limit_parameter(self, repository, mock_connection):
+    async def test_respects_limit_parameter(self, repository, mock_connection) -> None:
         """Should respect the limit parameter."""
         # Arrange
         mock_table = MagicMock()
@@ -98,7 +98,7 @@ class TestGetUnarchivedIntimations:
         assert len(result) <= 5
 
     @pytest.mark.asyncio
-    async def test_handles_missing_ia_url_column_gracefully(self, repository, mock_connection):
+    async def test_handles_missing_ia_url_column_gracefully(self, repository, mock_connection) -> None:
         """Should handle case where ia_url column doesn't exist."""
         # Arrange
         mock_table = MagicMock()
@@ -130,7 +130,7 @@ class TestMarkAsArchived:
     """Test suite for mark_as_archived."""
 
     @pytest.mark.asyncio
-    async def test_updates_ia_url_and_timestamp(self, repository, mock_connection):
+    async def test_updates_ia_url_and_timestamp(self, repository, mock_connection) -> None:
         """Should update both ia_url and archived_at timestamp."""
         # Arrange
         intimation_id = "test-123"
@@ -152,7 +152,7 @@ class TestMarkAsArchived:
         assert intimation_id in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_handles_missing_columns_gracefully(self, repository, mock_connection):
+    async def test_handles_missing_columns_gracefully(self, repository, mock_connection) -> None:
         """Should not raise exception if columns don't exist."""
         # Arrange
         mock_raw_con = MagicMock()
@@ -163,14 +163,14 @@ class TestMarkAsArchived:
         await repository.mark_as_archived("test-id", "http://example.com")
 
     @pytest.mark.asyncio
-    async def test_validates_ia_url_format(self, repository, mock_connection):
+    async def test_validates_ia_url_format(self, repository, mock_connection) -> None:
         """Should validate that ia_url is a valid URL."""
         # Act & Assert
         with pytest.raises(ValueError, match="Invalid IA URL"):
             await repository.mark_as_archived("test-id", "not-a-url")
 
     @pytest.mark.asyncio
-    async def test_validates_intimation_id_not_empty(self, repository, mock_connection):
+    async def test_validates_intimation_id_not_empty(self, repository, mock_connection) -> None:
         """Should validate that intimation_id is not empty."""
         # Act & Assert
         with pytest.raises(ValueError, match="Intimation ID cannot be empty"):
@@ -181,7 +181,7 @@ class TestRepositoryIntegration:
     """Integration tests for repository operations."""
 
     @pytest.mark.asyncio
-    async def test_archive_workflow_end_to_end(self, repository, mock_connection):
+    async def test_archive_workflow_end_to_end(self, repository, mock_connection) -> None:
         """Test complete workflow: get unarchived → mark as archived."""
         # Arrange
         mock_table = MagicMock()

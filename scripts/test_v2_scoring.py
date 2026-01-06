@@ -24,7 +24,7 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Scoring Pipeline")
     parser.add_argument("--limit", type=int, default=100, help="Number of cases to score")
     parser.add_argument("--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file")
