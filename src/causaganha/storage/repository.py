@@ -100,7 +100,7 @@ class IntimationRepository:
         # If the 'analyzed' column exists and is populated, it's faster.
 
         # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
-        filtered = t_int.filter(t_int.analyzed.isnull() | (not t_int.analyzed))
+        filtered = t_int.filter(t_int.analyzed.isnull() | (~t_int.analyzed))
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
