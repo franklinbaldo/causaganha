@@ -312,6 +312,9 @@ def manifest_export(
             )
             output_items.append(schema.model_dump(mode="json"))
 
+        # Print JSON to stdout for consumption by other tools
+        import json
+        typer.echo(json.dumps(output_items, indent=2))
 
     asyncio.run(_export())
 

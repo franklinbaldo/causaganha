@@ -69,3 +69,16 @@
 - [x] **Documentation**
     - [x] Update `README.md` with new architecture diagrams.
     - [x] Generate API docs with `mkdocs`.
+
+## Phase 5: Repair & Hardening (🚧 In Progress)
+- [x] **Fix Storage Layer Bugs**
+    - [x] Fix Ibis `ValueError` in `IntimationRepository.get_unanalyzed_intimations` (use `~` instead of `not`).
+    - [x] Verify fix with `tests/unit/test_storage.py`.
+- [x] **Fix CLI Tests**
+    - [x] Fix `JSONDecodeError` in `test_manifest_export` by silencing logs.
+- [ ] **Fix Logger Compatibility Issues**
+    - [ ] Fix `TypeError: Logger.error() missing ...` in `test_document_service.py` and `test_pipeline_collect_defaults.py`.
+    - [ ] Ensure `structlog` configuration in tests is compatible with standard logging mocks.
+- [ ] **Stabilize Integration Pipeline**
+    - [ ] Investigate and fix `test_pipeline_with_realistic_data` error.
+    - [ ] Re-run `test_full_lifecycle.py` and verify all tests pass.

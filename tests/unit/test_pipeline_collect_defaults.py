@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,13 +13,15 @@ async def test_run_collection_default_courts() -> None:
 
     # Mock the Settings instance, not the class
     with patch("causaganha.config.settings.COURTS", ["TJAC", "TJRR"]):
-        await run_collection(
-            repository=mock_repo,
-            client=mock_client,
-            start_date="2024-01-01",
-            end_date="2024-01-01",
-            courts=None,
-        )
+        # Patch logger to avoid structlog TypeError
+        with patch("causaganha.pipeline.collect.logger", new=MagicMock()):
+            await run_collection(
+                repository=mock_repo,
+                client=mock_client,
+                start_date="2024-01-01",
+                end_date="2024-01-01",
+                courts=None,
+            )
 
     # Verify API was called twice (once for each court)
     assert mock_client.get_intimations_by_court.call_count == 2

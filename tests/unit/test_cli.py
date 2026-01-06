@@ -298,37 +298,44 @@ import structlog
 @patch("causaganha.cli._get_repository")
 def test_manifest_export(mock_get_repo: MagicMock) -> None:
     """Test the manifest export command."""
-    # Reconfigure structlog to capture log messages
-    structlog.configure(logger_factory=structlog.ReturnLogger)
+    # Reconfigure structlog to suppress output, effectively silencing it
+    structlog.configure(
+        processors=[],
+        logger_factory=structlog.stdlib.LoggerFactory(),  # Use standard logging which we can capture/silence
+    )
+    # Further ensure logs don't hit stdout during the test by disabling handlers if possible,
+    # or rely on CliRunner capturing stdout. The issue is likely mixed content.
+    # A cleaner way: Mock structlog.get_logger in the cli module.
 
-    # Mock the repository and its method
-    mock_repo = MagicMock()
+    with patch("causaganha.cli.logger", new=MagicMock()):
+        # Mock the repository and its method
+        mock_repo = MagicMock()
 
-    async def get_all_intimations(limit: int) -> list[dict]:
-        return [
-            {
-                "id": 1,
-                "numero_processo": "123",
-                "sigla_tribunal": "TJRO",
-                "data_disponibilizacao": "2024-01-01",
-                "link": "http://example.com/pdf",
-                "needs_download": True,
-                "ia_url": None,
-            },
-        ]
+        async def get_all_intimations(limit: int) -> list[dict]:
+            return [
+                {
+                    "id": 1,
+                    "numero_processo": "123",
+                    "sigla_tribunal": "TJRO",
+                    "data_disponibilizacao": "2024-01-01",
+                    "link": "http://example.com/pdf",
+                    "needs_download": True,
+                    "ia_url": None,
+                },
+            ]
 
-    mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
-    mock_get_repo.return_value = mock_repo
+        mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
+        mock_get_repo.return_value = mock_repo
 
-    runner = CliRunner()
-    result = runner.invoke(app, ["manifest", "export", "--limit", "1"])
+        runner = CliRunner()
+        result = runner.invoke(app, ["manifest", "export", "--limit", "1"])
 
-    assert result.exit_code == 0
-    output = json.loads(result.stdout)
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
 
-    assert len(output) == 1
-    assert output[0]["intimation_id"] == 1
-    assert output[0]["process_number"] == "123"
-    assert output[0]["tribunal"] == "TJRO"
-    assert output[0]["decision_date"] == "2024-01-01"
-    assert output[0]["needs_download"] is True
+        assert len(output) == 1
+        assert output[0]["intimation_id"] == 1
+        assert output[0]["process_number"] == "123"
+        assert output[0]["tribunal"] == "TJRO"
+        assert output[0]["decision_date"] == "2024-01-01"
+        assert output[0]["needs_download"] is True
