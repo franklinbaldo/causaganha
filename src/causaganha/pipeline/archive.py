@@ -7,7 +7,8 @@ import structlog
 
 from causaganha.services.archive import ArchiveService
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.services.preservation import PreservationService
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
@@ -44,10 +45,12 @@ async def run_archive(
 
     logger.info("processing_intimations", count=len(intimations))
 
+    preservation_service = PreservationService(doc_service, archive_service)
+
     for intimation in intimations:
         try:
             await _process_intimation(
-                intimation, doc_service, archive_service, repository, dry_run,
+                intimation, preservation_service, archive_service, repository, dry_run,
             )
         except Exception:
             logger.exception(
@@ -61,7 +64,7 @@ async def run_archive(
 
 async def _process_intimation(
     intimation: dict[str, Any],
-    doc_service: DocumentService,
+    preservation_service: PreservationService,
     archive_service: ArchiveService,
     repository: IntimationRepository,
     dry_run: bool,
@@ -70,47 +73,17 @@ async def _process_intimation(
 
     Args:
         intimation: The intimation data.
-        doc_service: Document download service.
-        ia_service: Internet Archive upload service.
+        preservation_service: Preservation service.
+        archive_service: Archive service (for metadata generation).
         repository: Repository for updates.
         dry_run: If True, skip actual upload.
     """
     intimation_id = intimation.get("id")
-    # Field name is 'link' in the schema (TDD integration test found this)
     document_url = intimation.get("link")
-
-    # Convert intimation_id to string for validation (TDD found this bug)
     intimation_id_str = str(intimation_id)
 
     if not document_url:
         logger.warning("no_document_url", intimation_id=intimation_id)
-        return
-
-    logger.info(
-        "downloading_document",
-        intimation_id=intimation_id,
-        url=document_url,
-    )
-
-    # Download the document
-    content = await doc_service.download_pdf(document_url)
-    if not content:
-        logger.error("download_failed", intimation_id=intimation_id)
-        return
-
-    # Save temporarily
-    temp_dir = Path("data/temp")
-    temp_dir.mkdir(parents=True, exist_ok=True)
-
-    filename = f"intimation_{intimation_id}.pdf"
-    temp_path = temp_dir / filename
-
-    temp_path.write_bytes(content)
-    logger.info("document_saved", path=str(temp_path), size=len(content))
-
-    if dry_run:
-        logger.info("dry_run_skipping_upload", intimation_id=intimation_id)
-        temp_path.unlink()  # Clean up
         return
 
     # Upload to Internet Archive
@@ -120,7 +93,9 @@ async def _process_intimation(
     # Generate metadata from intimation data (refactored)
     metadata = archive_service.generate_metadata(intimation)
 
-    ia_url = await archive_service.upload_file(temp_path, item_id, metadata)
+    ia_url = await preservation_service.preserve_document(
+        document_url, item_id, metadata, dry_run,
+    )
 
     if ia_url:
         logger.info(
@@ -128,11 +103,6 @@ async def _process_intimation(
             intimation_id=intimation_id,
             ia_url=ia_url,
         )
-        # Update repository to mark as archived (TDD: use string ID)
         await repository.mark_as_archived(intimation_id_str, ia_url)
-    else:
+    elif not dry_run:
         logger.error("upload_failed", intimation_id=intimation_id)
-
-    # Clean up temporary file
-    if temp_path.exists():
-        temp_path.unlink()

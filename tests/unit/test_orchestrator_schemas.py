@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from causaganha.analysis.models import Outcome
-from causaganha.ia.schemas import LawyerInfo, ParquetSchema
+from causaganha.schemas.orchestrator import LawyerInfo, ParquetSchema
 
 
 def test_parquet_schema_creation() -> None:

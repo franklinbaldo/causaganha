@@ -6,7 +6,8 @@ import structlog
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
@@ -14,6 +15,7 @@ logger = structlog.get_logger()
 
 async def run_analysis(
     repository: IntimationRepository,
+    analysis_repository: AnalysisRepository,
     doc_service: DocumentService,
     analyzer: DecisionAnalyzer,
     limit: int = 10,
@@ -125,7 +127,7 @@ async def run_analysis(
 
             # Store batch results
             if valid_results:
-                await repository.store_analysis_results_batch(valid_results)
+                await analysis_repository.store_analysis_results_batch(valid_results)
 
         processed += len(items)
 

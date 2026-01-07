@@ -28,7 +28,7 @@ class ParquetSchema(BaseModel):
         .. code-block:: python
 
             from datetime import date
-            from causaganha.ia.schemas import ParquetSchema, LawyerInfo, Outcome
+            from causaganha.schemas.orchestrator import ParquetSchema, LawyerInfo, Outcome
 
             manifest_entry = ParquetSchema(
                 intimation_id=12345,

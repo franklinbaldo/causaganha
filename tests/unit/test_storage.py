@@ -9,7 +9,7 @@ from ibis import BaseBackend
 
 from causaganha.domain.models import Intimation, Lawyer, Party
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 from causaganha.storage.schema import create_schema
 
 

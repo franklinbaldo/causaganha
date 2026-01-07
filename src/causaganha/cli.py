@@ -10,15 +10,17 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.api.client import PJeAPIClient
 from causaganha.config import DB_PATH, settings
-from causaganha.ia.schemas import ParquetSchema
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
+from causaganha.schemas.orchestrator import ParquetSchema
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
 from causaganha.services.archive import create_archive_service
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -63,10 +65,14 @@ def _handle_error(e: Exception, message: str) -> None:
     raise typer.Exit(code=1)
 
 
-def _get_repository() -> IntimationRepository:
-    """Helper to initialize repository and schema."""
+def _get_repositories() -> tuple[IntimationRepository, AnalysisRepository, LawyerRatingRepository]:
+    """Helper to initialize repositories and schema."""
     con = get_connection(DB_PATH)
-    return IntimationRepository(con)
+    return (
+        IntimationRepository(con),
+        AnalysisRepository(con),
+        LawyerRatingRepository(con),
+    )
 
 @app.command()
 def collect(
@@ -84,7 +90,7 @@ def collect(
     logger.info("collect_command_start")
 
     async def _run() -> None:
-        repository = _get_repository()
+        repository, _, _ = _get_repositories()
         client = PJeAPIClient()
         court_list = [c.strip() for c in courts.split(",")] if courts else settings.COURTS
 
@@ -115,7 +121,7 @@ def analyze(
     logger.info("analyze_command_start")
 
     async def _run() -> None:
-        repository = _get_repository()
+        repository, analysis_repo, _ = _get_repositories()
         doc_service = DocumentService()
         analyzer = DecisionAnalyzer()
 
@@ -125,7 +131,13 @@ def analyze(
             transient=True,
         ) as progress:
             progress.add_task(description="Analisando intimações...", total=None)
-            await run_analysis(repository, doc_service, analyzer, limit=limit)
+            await run_analysis(
+                repository,
+                analysis_repo,
+                doc_service,
+                analyzer,
+                limit=limit,
+            )
 
     try:
         asyncio.run(_run())
@@ -142,7 +154,7 @@ def archive(
     logger.info("archive_start", limit=limit, dry_run=dry_run)
 
     async def _run() -> None:
-        repository = _get_repository()
+        repository, _, _ = _get_repositories()
         doc_service = DocumentService()
         archive_service = create_archive_service()
 
@@ -175,8 +187,8 @@ def score(
 
     async def _run() -> None:
         try:
-            repository = _get_repository()
-            await run_scoring(repository, limit=limit)
+            _, analysis_repo, rating_repo = _get_repositories()
+            await run_scoring(analysis_repo, rating_repo, limit=limit)
         except Exception as e:
             _handle_error(e, "Scoring failed")
 
@@ -205,7 +217,7 @@ def pipeline(
     logger.info("pipeline_start")
 
     async def _run() -> None:
-        repository = _get_repository()
+        repository, analysis_repo, rating_repo = _get_repositories()
         client = PJeAPIClient()
         doc_service = DocumentService()
         archive_service = create_archive_service()
@@ -239,7 +251,13 @@ def pipeline(
             # Step 3: Analyze
             if not skip_analyze:
                 typer.echo("Step 3/4: Analyzing decisions...")
-                await run_analysis(repository, doc_service, analyzer, limit=analyze_limit)
+                await run_analysis(
+                    repository,
+                    analysis_repo,
+                    doc_service,
+                    analyzer,
+                    limit=analyze_limit,
+                )
                 typer.echo("✓ Analysis complete")
             else:
                 typer.echo("⊘ Skipping analysis")
@@ -247,7 +265,7 @@ def pipeline(
             # Step 4: Score
             if not skip_score:
                 typer.echo("Step 4/4: Calculating ratings...")
-                await run_scoring(repository, limit=score_limit)
+                await run_scoring(analysis_repo, rating_repo, limit=score_limit)
                 typer.echo("✓ Scoring complete")
             else:
                 typer.echo("⊘ Skipping scoring")
@@ -290,7 +308,7 @@ def manifest_export(
     # Suppress logging for this command so it outputs only pure JSON
     structlog.configure(logger_factory=structlog.ReturnLogger)
 
-    repository = _get_repository()
+    repository, _, _ = _get_repositories()
 
     async def _export() -> None:
         items = await repository.get_all_intimations(limit=limit)

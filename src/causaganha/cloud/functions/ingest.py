@@ -1,7 +1,5 @@
 import base64
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +14,7 @@ from causaganha.cloud.db import (
 from causaganha.config import settings
 from causaganha.services.archive import InternetArchiveService, LocalArchiveService
 from causaganha.services.document import DocumentService
+from causaganha.services.preservation import PreservationService
 
 
 logger = structlog.get_logger()
@@ -44,10 +43,6 @@ async def ingest_worker(event: dict, context: Any) -> None:
     # 1. Acquire Lock
     if not await acquire_lock(db, doc_key, "ingest"):
         logger.info("lock_acquisition_failed_or_locked", doc_key=doc_key)
-        # Should we NACK? If we NACK, it retries immediately.
-        # Better to let it ack and rely on next run or retry dispatcher if we strictly follow "Function A/B" split without Tasks.
-        # But Pub/Sub standard pattern is NACK if transient. Locking implies another worker is busy.
-        # We'll simple return (Ack) to avoid hot loop on locked item.
         return
 
     doc_ref = db.collection(COLLECTION_NAME).document(doc_key)
@@ -67,64 +62,30 @@ async def ingest_worker(event: dict, context: Any) -> None:
         return
 
     try:
-        # 2. Download PDF
         doc_service = DocumentService()
-        pdf_bytes = await doc_service.download_pdf(pdf_url)
 
-        if not pdf_bytes:
-            msg = f"Failed to download PDF from {pdf_url}"
+        # Determine Archive Service (Local or IA)
+        # For cloud, we prefer IA if keys are present
+        if settings.IA_ACCESS_KEY:
+            archive_service = InternetArchiveService()
+        else:
+            # Fallback or error? For "Cloud Functions only" usually we want real IA.
+            # But to keep it working if keys missing, we warn.
+            logger.warning("no_ia_keys_using_local_mock")
+            archive_service = LocalArchiveService(archive_root=Path("/tmp/archive"))
+
+        preservation_service = PreservationService(doc_service, archive_service)
+
+        ia_identifier = f"causaganha-{doc_key[:16]}"
+        metadata = {"url": pdf_url, "docKey": doc_key}
+
+        result_url = await preservation_service.preserve_document(
+            pdf_url, ia_identifier, metadata,
+        )
+
+        if not result_url:
+            msg = "IA upload failed"
             raise RuntimeError(msg)
-
-        # 3. Upload to IA
-        # Using temp file as IA service expects path
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(pdf_bytes)
-            tmp_path = Path(tmp.name)
-
-        # Rename to document.pdf for upload consistency if the service uses the filename
-        # Ideally we pass a target filename to upload_file, but based on existing service it takes file_path.
-        # We can rename the temp file to 'document.pdf' in a temp dir.
-
-        upload_path = tmp_path.parent / "document.pdf"
-        # If multiple concurrent runs, this name collision in /tmp/ is risky.
-        # Use a unique temp dir.
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            upload_path = Path(tmp_dir) / "document.pdf"
-            with open(upload_path, "wb") as f:
-                f.write(pdf_bytes)
-
-            try:
-                # Determine Archive Service (Local or IA)
-                # For cloud, we prefer IA if keys are present
-                if settings.IA_ACCESS_KEY:
-                    archive_service = InternetArchiveService()
-                else:
-                    # Fallback or error? For "Cloud Functions only" usually we want real IA.
-                    # But to keep it working if keys missing, we warn.
-                    logger.warning("no_ia_keys_using_local_mock")
-                    archive_service = LocalArchiveService(archive_root=Path("/tmp/archive"))
-
-                ia_identifier = f"causaganha-{doc_key[:16]}"
-
-                # Check if exists first? Plan says "Ensure... stored".
-                # IA Service `upload_file` handles some of this, but we can check.
-
-                result_url = await archive_service.upload_file(
-                    file_path=upload_path,
-                    item_id=ia_identifier,
-                    metadata={"url": pdf_url, "docKey": doc_key},
-                )
-
-                if not result_url:
-                     msg = "IA upload failed"
-                     raise RuntimeError(msg)
-            finally:
-                pass
-
-        # Cleanup original tmp if we didn't use the with block fully for it (we did)
-        if tmp_path.exists():
-             os.unlink(tmp_path)
 
         # 4. Update status
         from google.cloud import firestore
