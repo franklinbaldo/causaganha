@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import ibis
 import pytest
 
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture

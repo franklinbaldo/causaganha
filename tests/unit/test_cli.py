@@ -25,9 +25,11 @@ def mock_create_schema() -> Generator[MagicMock, None, None]:
         yield mock_create
 
 @pytest.fixture
-def mock_repository() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.IntimationRepository") as mock_repo:
-        yield mock_repo
+def mock_repositories() -> Generator[tuple[MagicMock, MagicMock, MagicMock], None, None]:
+    with patch("causaganha.cli.IntimationRepository") as mock_int_repo, \
+         patch("causaganha.cli.AnalysisRepository") as mock_ana_repo, \
+         patch("causaganha.cli.LawyerRatingRepository") as mock_law_repo:
+        yield mock_int_repo, mock_ana_repo, mock_law_repo
 
 @pytest.fixture
 def mock_run_collection() -> Generator[MagicMock, None, None]:
@@ -98,7 +100,7 @@ def test_db_unknown_action() -> None:
     assert result.exit_code == 0  # Typer argument parsing passes, but our logic prints
     assert "Unknown action: unknown" in result.stdout
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_collect(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
     result = runner.invoke(app, ["collect", "--courts", "TJSP"])
     assert result.exit_code == 0
@@ -107,7 +109,7 @@ def test_collect(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> 
     mock_pje_client.close.assert_called_once()
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
     """Tests the error handler for the collect command."""
     mock_run_collection.side_effect = RuntimeError("API unavailable")
@@ -117,7 +119,7 @@ def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicM
     assert "API unavailable" in result.stdout
     mock_pje_client.close.assert_called_once()
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_analyze(mock_run_analysis: MagicMock) -> None:
     with patch("causaganha.cli.DecisionAnalyzer"), patch("causaganha.cli.DocumentService"):
         result = runner.invoke(app, ["analyze", "--limit", "5"])
@@ -127,7 +129,7 @@ def test_analyze(mock_run_analysis: MagicMock) -> None:
         assert kwargs["limit"] == 5
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
     """Tests the error handler for the analyze command."""
     mock_run_analysis.side_effect = ValueError("Invalid document format")
@@ -138,7 +140,7 @@ def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
         assert "Invalid document format" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive(mock_run_archive: MagicMock) -> None:
     with patch("causaganha.cli.create_archive_service"), \
          patch("causaganha.cli.DocumentService"):
@@ -150,7 +152,7 @@ def test_archive(mock_run_archive: MagicMock) -> None:
             assert kwargs["dry_run"] is True
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive_failure(mock_run_archive: MagicMock) -> None:
     """Tests the error handler for the archive command."""
     mock_run_archive.side_effect = ConnectionError("Upload failed")
@@ -162,7 +164,7 @@ def test_archive_failure(mock_run_archive: MagicMock) -> None:
             assert "Upload failed" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_score(mock_run_scoring: MagicMock) -> None:
     result = runner.invoke(app, ["score", "--limit", "50"])
     assert result.exit_code == 0
@@ -172,7 +174,7 @@ def test_score(mock_run_scoring: MagicMock) -> None:
     assert kwargs["limit"] == 50
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_score_failure(mock_run_scoring: MagicMock) -> None:
     """Tests the error handler for the score command."""
     mock_run_scoring.side_effect = KeyError("Rating not found")
@@ -182,7 +184,7 @@ def test_score_failure(mock_run_scoring: MagicMock) -> None:
     assert "Rating not found" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_pipeline(
     mock_run_collection: MagicMock,
     mock_run_archive: MagicMock,
@@ -206,7 +208,7 @@ def test_pipeline(
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_pipeline_skips(
     mock_run_collection: MagicMock,
     mock_run_archive: MagicMock,
@@ -251,7 +253,7 @@ def mock_rich_progress() -> Generator[MagicMock, None, None]:
         yield mock_progress
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_collect_shows_progress(
     mock_run_collection: MagicMock,
     mock_pje_client: MagicMock,
@@ -265,7 +267,7 @@ def test_collect_shows_progress(
     mock_rich_progress.assert_called_once()
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_analyze_shows_progress(
     mock_run_analysis: MagicMock, mock_rich_progress: MagicMock,
 ) -> None:
@@ -279,7 +281,7 @@ def test_analyze_shows_progress(
         mock_rich_progress.assert_called_once()
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
+@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive_shows_progress(
     mock_run_archive: MagicMock, mock_rich_progress: MagicMock,
 ) -> None:
@@ -293,8 +295,8 @@ def test_archive_shows_progress(
         mock_rich_progress.assert_called_once()
 
 
-@patch("causaganha.cli._get_repository")
-def test_manifest_export(mock_get_repo: MagicMock) -> None:
+@patch("causaganha.cli._get_repositories")
+def test_manifest_export(mock_get_repos: MagicMock) -> None:
     """Test the manifest export command."""
     # Reconfigure structlog to capture log messages
     structlog.configure(logger_factory=structlog.ReturnLogger)
@@ -316,7 +318,7 @@ def test_manifest_export(mock_get_repo: MagicMock) -> None:
         ]
 
     mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
-    mock_get_repo.return_value = mock_repo
+    mock_get_repos.return_value = (mock_repo, MagicMock(), MagicMock())
 
     runner = CliRunner()
     result = runner.invoke(app, ["manifest", "export", "--limit", "1"])

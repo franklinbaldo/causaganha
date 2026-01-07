@@ -3,7 +3,7 @@ from datetime import date
 import structlog
 
 from causaganha.api.client import PJeAPIClient
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()

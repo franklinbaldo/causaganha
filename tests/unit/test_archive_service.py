@@ -7,7 +7,7 @@ import pytest
 
 from causaganha.services.archive import ArchiveService, InternetArchiveService, LocalArchiveService
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture
