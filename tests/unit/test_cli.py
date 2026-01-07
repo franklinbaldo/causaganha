@@ -4,6 +4,7 @@ from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import structlog
 from typer.testing import CliRunner
 
 from causaganha.cli import app
@@ -139,8 +140,8 @@ def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repository")
 def test_archive(mock_run_archive: MagicMock) -> None:
-    with patch("causaganha.cli.create_archive_service"):
-        with patch("causaganha.cli.DocumentService"):
+    with patch("causaganha.cli.create_archive_service"), \
+         patch("causaganha.cli.DocumentService"):
             result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
             assert result.exit_code == 0
             mock_run_archive.assert_called_once()
@@ -153,8 +154,8 @@ def test_archive(mock_run_archive: MagicMock) -> None:
 def test_archive_failure(mock_run_archive: MagicMock) -> None:
     """Tests the error handler for the archive command."""
     mock_run_archive.side_effect = ConnectionError("Upload failed")
-    with patch("causaganha.cli.create_archive_service"):
-        with patch("causaganha.cli.DocumentService"):
+    with patch("causaganha.cli.create_archive_service"), \
+         patch("causaganha.cli.DocumentService"):
             result = runner.invoke(app, ["archive"])
             assert result.exit_code == 1
             assert "❌ Archive failed" in result.stdout
@@ -292,9 +293,6 @@ def test_archive_shows_progress(
         mock_rich_progress.assert_called_once()
 
 
-import structlog
-
-
 @patch("causaganha.cli._get_repository")
 def test_manifest_export(mock_get_repo: MagicMock) -> None:
     """Test the manifest export command."""
@@ -304,7 +302,7 @@ def test_manifest_export(mock_get_repo: MagicMock) -> None:
     # Mock the repository and its method
     mock_repo = MagicMock()
 
-    async def get_all_intimations(limit: int) -> list[dict]:
+    async def get_all_intimations(limit: int) -> list[dict]: # noqa: ARG001
         return [
             {
                 "id": 1,
