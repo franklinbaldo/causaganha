@@ -1,5 +1,6 @@
 
 import asyncio
+import json
 from datetime import date, timedelta
 
 import structlog
@@ -286,7 +287,9 @@ def manifest_export(
     limit: int = typer.Option(100, help="Number of items to export"),
 ) -> None:
     """Export intimations metadata as a JSON manifest."""
-    logger.info("manifest_export_start", limit=limit)
+    # Suppress logging for this command so it outputs only pure JSON
+    structlog.configure(logger_factory=structlog.ReturnLogger)
+
     repository = _get_repository()
 
     async def _export() -> None:
@@ -312,6 +315,7 @@ def manifest_export(
             )
             output_items.append(schema.model_dump(mode="json"))
 
+        typer.echo(json.dumps(output_items, indent=2))
 
     asyncio.run(_export())
 

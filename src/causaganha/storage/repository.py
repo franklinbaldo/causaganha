@@ -62,14 +62,16 @@ class IntimationRepository:
         # Also store lawyers if present
         lawyers_data = []
         for intimation in intimations:
-            for lawyer in intimation.advogados:
-                lawyers_data.append({
+            lawyers_data.extend([
+                {
                     "intimation_id": intimation.id,
                     "oab_number": lawyer.numero_oab,
                     "oab_state": lawyer.uf_oab,
                     "lawyer_name": lawyer.nome,
-                    "polo": "A", # Default for now, should extract if available
-                })
+                    "polo": "A",  # Default for now, should extract if available
+                }
+                for lawyer in intimation.advogados
+            ])
 
         if lawyers_data:
             t_lawyers = ibis.memtable(lawyers_data)
@@ -87,20 +89,9 @@ class IntimationRepository:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
-        # Check if 'analysis_results' table exists and has data to join, or if we should rely on 'analyzed' flag in 'intimations'
-        # The test case set 'analyzed' flag to TRUE for id=1.
-        # But here we are joining with 'analysis_results'.
-        # If 'analysis_results' is empty, LEFT JOIN ... WHERE right.id IS NULL returns ALL rows.
-        # This explains why id=1 is returned (it's not in analysis_results, so it's considered unanalyzed by this logic).
-
-        # We should also check the 'analyzed' flag in 'intimations' table if it exists.
-        # The schema definition has 'analyzed' boolean field.
-
-        # Let's use the 'analyzed' flag as primary filter if possible, or combine both.
-        # If the 'analyzed' column exists and is populated, it's faster.
-
-        # Treat NULL as "not analyzed yet" for backward-compatibility with older inserts.
-        filtered = t_int.filter(t_int.analyzed.isnull() | (not t_int.analyzed))
+        # Check 'analyzed' flag in 'intimations' table.
+        # Use ~t_int.analyzed for negation instead of 'not' keyword
+        filtered = t_int.filter(t_int.analyzed.isnull() | (~t_int.analyzed))
 
         # Verify we only fetch rows that have a link (to download PDF)
         filtered = filtered.filter(t_int.link.notnull())
@@ -134,15 +125,14 @@ class IntimationRepository:
         if analyzed_at is None:
             analyzed_at = datetime.now(UTC)
 
-        try:
+        with contextlib.suppress(Exception):
             raw_con = self.con.con
             raw_con.execute(
-                "UPDATE intimations SET analyzed = TRUE, analyzed_at = ?, analysis_attempted_at = ? WHERE id = ?",
+                "UPDATE intimations SET analyzed = TRUE, "
+                "analyzed_at = ?, analysis_attempted_at = ? "
+                "WHERE id = ?",
                 (analyzed_at, analyzed_at, intimation_id),
             )
-        except Exception:
-            # Best-effort: schema may be evolving in early development.
-            return
 
     async def store_analysis_result(self, result: dict[str, Any]) -> None:
         """Store analysis result.
@@ -172,7 +162,11 @@ class IntimationRepository:
 
         # Generate placeholders
         placeholders = ", ".join(["?"] * len(intimation_ids))
-        query = f"UPDATE intimations SET analyzed = TRUE, analyzed_at = ?, analysis_attempted_at = ? WHERE id IN ({placeholders})"
+        query = (
+            f"UPDATE intimations SET analyzed = TRUE, "
+            f"analyzed_at = ?, analysis_attempted_at = ? "
+            f"WHERE id IN ({placeholders})"
+        )  # noqa: S608
 
         params = [analyzed_at, analyzed_at, *intimation_ids]
 
@@ -192,7 +186,6 @@ class IntimationRepository:
         t_int = self.con.table("intimations")
 
         # Filter intimations that have not been archived yet
-        # Assuming there's an 'archived' column or 'ia_url' column
         try:
             filtered = t_int.filter(
                 (t_int.ia_url.isnull()) | (t_int.ia_url == ""),
@@ -218,15 +211,11 @@ class IntimationRepository:
     def _sync_mark_as_archived(self, intimation_id: str, ia_url: str) -> None:
         """Synchronous mark intimation as archived."""
         raw_con = self.con.con
-        try:
+        with contextlib.suppress(Exception):
             raw_con.execute(
                 "UPDATE intimations SET ia_url = ?, archived_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (ia_url, intimation_id),
             )
-        except Exception:
-            # If columns don't exist, we can't mark as archived
-            # This is acceptable during early development
-            pass
 
     def _validate_archive_params(self, intimation_id: str, ia_url: str) -> None:
         """Validate parameters for archiving (refactored validation logic).
@@ -285,7 +274,7 @@ class IntimationRepository:
         try:
             # Filter where scored is null or false, AND lawyers are identified
             unscored = t_analysis.filter(
-                (t_analysis.scored.isnull()) | (not t_analysis.scored),
+                (t_analysis.scored.isnull()) | (~t_analysis.scored),
             ).filter(
                 t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
             ).limit(limit)
@@ -360,7 +349,9 @@ class IntimationRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        raw_con.execute(f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})", ids)
+        # noqa: S608 - Internal IDs are safe for simple interpolation here
+        query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"
+        raw_con.execute(query, ids)
 
     async def mark_analyses_scored(self, ids: list[Any]) -> None:
         """Mark analyses as scored."""
