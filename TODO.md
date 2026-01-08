@@ -69,3 +69,17 @@
 - [x] **Documentation**
     - [x] Update `README.md` with new architecture diagrams.
     - [x] Generate API docs with `mkdocs`.
+
+## Phase 5: V2 Refactor & Standardization (✅ Completed)
+- [x] **Establish V2 Test Structure**
+    - [x] Create `tests/v2/unit/`.
+    - [x] Migrate `tests/unit` to `tests/v2/unit`.
+    - [x] Fix broken Cloud Tests (`test_ingest_worker`).
+- [x] **Improve V2 Coverage**
+    - [x] Add tests for `AnalysisRepository` (`tests/v2/unit/test_repository_analysis.py`).
+    - [x] Add tests for `LawyerRatingRepository` (`tests/v2/unit/test_repository_lawyer.py`).
+    - [x] Add tests for `ContinuityManager` (`tests/v2/unit/test_continuity.py`).
+    - [x] Increase coverage for `api/client.py` to 100%.
+    - [x] Increase coverage for `pipeline/analyze.py` (Mocking dependencies).
+- [ ] **Strict Type Checking**
+    - [ ] Fix `mypy` strict mode errors in migrated tests (Optional for now).

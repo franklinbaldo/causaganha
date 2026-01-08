@@ -92,9 +92,9 @@ class AnalysisRepository:
 
     def _sync_get_unscored_analyses(self, limit: int = 100) -> list[dict[str, Any]]:
         """Synchronous fetch unscored analyses."""
-        t_analysis = self.con.table("analysis_results")
-
         try:
+            t_analysis = self.con.table("analysis_results")
+
             # Filter where scored is null or false, AND lawyers are identified
             unscored = t_analysis.filter(
                 (t_analysis.scored.isnull()) | (~t_analysis.scored),

@@ -22,11 +22,11 @@ class LawyerRatingRepository:
         if not oabs:
             return []
 
-        t_ratings = self.con.table("lawyer_ratings")
-        numbers = [x[0] for x in oabs]
-        states = [x[1] for x in oabs]
-
         try:
+            t_ratings = self.con.table("lawyer_ratings")
+            numbers = [x[0] for x in oabs]
+            states = [x[1] for x in oabs]
+
             candidates = t_ratings.filter(
                 t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
             ).execute().to_dict(orient="records")
