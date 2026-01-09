@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import ibis
 from ibis import BaseBackend
@@ -75,7 +75,7 @@ class AnalysisRepository:
             f"UPDATE intimations SET analyzed = TRUE, "
             f"analyzed_at = ?, analysis_attempted_at = ? "
             f"WHERE id IN ({placeholders})"
-        )  # noqa: S608
+        )
 
         params = [analyzed_at, analyzed_at, *intimation_ids]
 
@@ -101,7 +101,7 @@ class AnalysisRepository:
             ).filter(
                 t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
             ).limit(limit)
-            return unscored.execute().to_dict(orient="records")
+            return cast(list[dict[str, Any]], unscored.execute().to_dict(orient="records"))
         except Exception:
             return []
 
@@ -115,7 +115,7 @@ class AnalysisRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        # noqa: S608 - Internal IDs are safe for simple interpolation here
+
         query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"
         raw_con.execute(query, ids)
 

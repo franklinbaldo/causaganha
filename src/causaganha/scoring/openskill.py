@@ -1,6 +1,6 @@
 """OpenSkill rating system implementation."""
 
-from typing import Any
+from typing import Any, Sequence
 
 from openskill.models import PlackettLuce
 from openskill.models.weng_lin.plackett_luce import (
@@ -84,6 +84,7 @@ def rate_teams(
     """
     teams = [team_a_ratings, team_b_ratings]
 
+    ranks: Sequence[float | int]
     if result == "win_a":
         ranks = [0, 1]
         new_ratings = os_model.rate(teams, ranks=ranks)

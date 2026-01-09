@@ -7,7 +7,7 @@ import pytest
 from causaganha.domain.models import Intimation
 from causaganha.pipeline.collect import run_collection
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 from causaganha.storage.schema import create_schema
 
 

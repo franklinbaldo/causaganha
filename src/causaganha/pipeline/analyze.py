@@ -1,6 +1,7 @@
 """Analysis pipeline logic."""
 import asyncio
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -37,7 +38,7 @@ async def run_analysis(
     """
     logger.info("starting_analysis", limit=limit)
 
-    async def process_item(item: dict) -> dict | None:
+    async def process_item(item: dict[str, Any]) -> dict[str, Any] | None:
         intimation_id = item["id"]
         link = item["link"]
 

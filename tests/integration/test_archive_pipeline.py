@@ -7,7 +7,7 @@ import pytest
 from causaganha.pipeline.archive import _process_intimation, run_archive
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture
@@ -82,10 +82,19 @@ async def test_run_archive_no_intimations(mock_repository, mock_doc_service, moc
 async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_service, tmp_path) -> None:
     """Test archive pipeline in dry run mode."""
     # Set up temp directory
-    with patch("causaganha.pipeline.archive.Path") as mock_path:
-        temp_dir = tmp_path / "temp"
-        temp_dir.mkdir()
-        mock_path.return_value = temp_dir
+    # Patch PreservationService to avoid actual file system ops if needed, or check logs
+
+    # We patch Path in preservation service because pipeline imports it? No, pipeline imports PreservationService.
+    # PreservationService uses Path.
+    # If we patch 'causaganha.services.preservation.Path', it should work for the service.
+
+    with patch("causaganha.services.preservation.Path") as mock_path:
+        # Mock Path behaviors
+        mock_path_instance = MagicMock()
+        mock_path.return_value = mock_path_instance
+        # Mocking temp_dir creation
+        mock_path.return_value.__truediv__.return_value = mock_path_instance
+        mock_path_instance.exists.return_value = False
 
         await run_archive(
             mock_repository,
@@ -96,7 +105,7 @@ async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_se
         )
 
         # In dry run, files should not be uploaded
-        # We can't easily verify this without refactoring, but the test runs
+        mock_ia_service.upload_file.assert_not_called()
 
 
 @pytest.mark.asyncio

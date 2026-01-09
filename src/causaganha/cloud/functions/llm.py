@@ -133,7 +133,7 @@ async def process_llm(doc_key: str) -> None:
              logger.exception("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
              raise e # Raise original error to NACK
 
-async def llm_worker(event: dict | Any, context: Any = None) -> None:
+async def llm_worker(event: dict[str, Any] | Any, context: Any = None) -> None:
     """Pub/Sub trigger (or HTTP if called by Cloud Tasks).
     Analyzes PDF with Gemini and uploads result.
 

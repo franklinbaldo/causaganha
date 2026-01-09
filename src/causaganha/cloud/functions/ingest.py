@@ -19,7 +19,7 @@ from causaganha.services.preservation import PreservationService
 
 logger = structlog.get_logger()
 
-async def ingest_worker(event: dict, context: Any) -> None:
+async def ingest_worker(event: dict[str, Any], context: Any) -> None:
     """Pub/Sub trigger.
     Downloads PDF and uploads to Internet Archive.
     """
