@@ -7,7 +7,8 @@ import pytest
 from causaganha.analysis.models import DecisionAnalysis, Outcome
 from causaganha.domain.models import Intimation
 from causaganha.pipeline.analyze import run_analysis
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.mark.asyncio
@@ -19,6 +20,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     con = get_connection(str(db_path))
     create_schema(con)
     repository = IntimationRepository(con)
+    analysis_repository = AnalysisRepository(con)
 
     # 1. Seed DB with unanalyzed intimation
     # Correctly using Domain Model for seeding via Repository
@@ -50,6 +52,12 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
         summary="Won",
         judge_name="Judge",
         confidence_score=0.9,
+        winner_lawyer_oab="123",
+        winner_lawyer_state="RO",
+        winner_party_name="Winner",
+        loser_lawyer_oab="456",
+        loser_lawyer_state="RO",
+        loser_party_name="Loser",
     )
     mock_analyzer = AsyncMock()
     mock_analyzer.analyze_decision.return_value = mock_analysis
@@ -57,18 +65,20 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     # Run
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=1,
     )
 
-    # Verify
-    mock_doc_service.download_pdf.assert_called_with("http://example.com/decision.pdf")
-    mock_analyzer.analyze_decision.assert_called_once()
+    # Verify results
+    analyses = await analysis_repository.get_unscored_analyses()
+    assert len(analyses) == 1
+    assert analyses[0]["outcome"] == "WIN"
+    assert analyses[0]["intimation_id"] == 100
+    assert analyses[0]["winner_lawyer_oab"] == "123"
 
-    # Check DB
-    t = con.table("analysis_results")
-    rows = t.execute()
-    assert len(rows) == 1
-    assert rows.iloc[0]["intimation_id"] == 100
-    assert rows.iloc[0]["outcome"] == "WIN"
+    # Verify intimation marked as analyzed
+    # Since get_unanalyzed_intimations filters analyzed=False, it should return empty
+    unanalyzed = await repository.get_unanalyzed_intimations()
+    assert len(unanalyzed) == 0

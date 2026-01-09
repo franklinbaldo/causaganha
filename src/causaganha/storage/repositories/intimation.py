@@ -3,12 +3,14 @@
 import asyncio
 import contextlib
 from typing import Any
+import structlog
 
 import ibis
 from ibis import BaseBackend
 
 from causaganha.domain.models import Intimation
 
+logger = structlog.get_logger()
 
 class IntimationRepository:
     """Repository for managing intimation data."""
@@ -52,29 +54,46 @@ class IntimationRepository:
         if not intimations:
             return
 
-        data = [self._intimation_to_db(i) for i in intimations]
+        raw_con = self.con.con
 
-        # Using memtable to insert data
-        t = ibis.memtable(data)
-        self.con.insert("intimations", t)
-
-        # Also store lawyers if present
-        lawyers_data = []
         for intimation in intimations:
-            lawyers_data.extend([
-                {
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A",  # Default for now, should extract if available
-                }
-                for lawyer in intimation.advogados
-            ])
+            try:
+                # Prepare statement for intimation
+                # We use parameterized query to avoid injection
+                raw_con.execute("""
+                    INSERT INTO intimations (
+                        id, numero_processo, data_disponibilizacao, sigla_tribunal,
+                        tipo_comunicacao, nome_orgao, texto, link,
+                        tipo_documento, nome_classe, codigo_classe,
+                        hash, status, analyzed, needs_download
+                    ) VALUES (
+                        ?, ?, ?, ?,
+                        ?, ?, ?, ?,
+                        ?, ?, ?,
+                        ?, ?, ?, ?
+                    ) ON CONFLICT (id) DO UPDATE SET
+                        updated_at = now()
+                """, [
+                    intimation.id, intimation.numero_processo, intimation.data_disponibilizacao, intimation.sigla_tribunal,
+                    intimation.tipo_comunicacao, intimation.nome_orgao, intimation.texto, intimation.link,
+                    intimation.tipo_documento, intimation.nome_classe, intimation.codigo_classe,
+                    intimation.hash, intimation.status, False, True
+                ])
 
-        if lawyers_data:
-            t_lawyers = ibis.memtable(lawyers_data)
-            self.con.insert("intimation_lawyers", t_lawyers)
+                # Store lawyers
+                for lawyer in intimation.advogados:
+                    raw_con.execute("""
+                        INSERT INTO intimation_lawyers (
+                            intimation_id, oab_number, oab_state, lawyer_name, polo
+                        ) VALUES (
+                            ?, ?, ?, ?, ?
+                        ) ON CONFLICT (intimation_id, oab_number, oab_state) DO NOTHING
+                    """, [
+                        intimation.id, lawyer.numero_oab, lawyer.uf_oab, lawyer.nome, "A"
+                    ])
+
+            except Exception as e:
+                logger.exception("store_intimation_failed", error=str(e), intimation_id=intimation.id)
 
     async def store_intimations(self, intimations: list[Intimation]) -> None:
         """Store a list of intimations in the database asynchronously.

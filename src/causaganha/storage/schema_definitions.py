@@ -25,6 +25,8 @@ INTIMATIONS_SCHEMA = ibis.schema({
     # Metadata
     "hash": "string",
     "status": "string",
+    "created_at": "timestamp",
+    "updated_at": "timestamp",
 
     # Analysis tracking
     "analyzed": "boolean",

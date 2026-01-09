@@ -15,7 +15,7 @@ from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 structlog.configure(

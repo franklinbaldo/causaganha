@@ -26,6 +26,10 @@ def create_schema(con: BaseBackend) -> None:
 
     if "intimations" not in con.list_tables():
         con.create_table("intimations", schema=INTIMATIONS_SCHEMA)
+        # Create UNIQUE constraint on id for ON CONFLICT support
+        con.raw_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_intimations_id ON intimations (id)",
+        )
         # Create index on ia_url for faster unarchived queries
         con.raw_sql(
             "CREATE INDEX IF NOT EXISTS idx_intimations_ia_url ON intimations (ia_url)",
@@ -40,6 +44,9 @@ def create_schema(con: BaseBackend) -> None:
 
     if "analysis_results" not in con.list_tables():
         con.create_table("analysis_results", schema=ANALYSIS_RESULTS_SCHEMA)
+        con.raw_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_results_intimation_id ON analysis_results (intimation_id)",
+        )
 
     if "lawyer_ratings" not in con.list_tables():
         con.create_table("lawyer_ratings", schema=LAWYER_RATINGS_SCHEMA)

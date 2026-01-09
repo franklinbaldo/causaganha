@@ -7,7 +7,7 @@ import pytest
 from causaganha.pipeline.archive import _process_intimation, run_archive
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture

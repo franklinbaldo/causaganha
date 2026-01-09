@@ -15,7 +15,9 @@ from causaganha.pipeline.score import run_scoring
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -122,6 +124,8 @@ class TestFullPipelineSimulation:
         This test verifies all components work together end-to-end.
         """
         _db_path, con = test_db
+        analysis_repository = AnalysisRepository(con)
+        rating_repository = LawyerRatingRepository(con)
 
         # ==========================================
         # STEP 1: COLLECT - Simulate PJe API
@@ -207,6 +211,7 @@ class TestFullPipelineSimulation:
                 # Run analysis
                 await run_analysis(
                     repository,
+                    analysis_repository,
                     doc_service,
                     analyzer,
                     limit=10,
@@ -222,7 +227,11 @@ class TestFullPipelineSimulation:
         # STEP 4: SCORE - Calculate Ratings
         # ==========================================
         # Run scoring
-        await run_scoring(repository, limit=100)
+        await run_scoring(
+            analysis_repository=analysis_repository,
+            rating_repository=rating_repository,
+            limit=100
+        )
 
         # Verify ratings were calculated
         ratings = con.table("lawyer_ratings").execute()
