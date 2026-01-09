@@ -11,7 +11,7 @@ import structlog
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.api.client import PJeAPIClient
+from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.collect import run_collection
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repository import IntimationRepository

@@ -8,8 +8,8 @@ import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.api.client import PJeAPIClient
 from causaganha.config import DB_PATH, settings
+from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
 from causaganha.schemas.orchestrator import ParquetSchema

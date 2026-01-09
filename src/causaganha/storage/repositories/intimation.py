@@ -84,7 +84,7 @@ class IntimationRepository:
         """
         await asyncio.to_thread(self._sync_store_intimations, intimations)
 
-    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unanalyzed intimations."""
         t_int = self.con.table("intimations")
 
@@ -97,16 +97,17 @@ class IntimationRepository:
 
         query = filtered.limit(limit)
 
-        return query.execute().to_dict(orient="records")
+        records = query.execute().to_dict(orient="records")
+        return [Intimation(**record) for record in records]
 
-    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unanalyzed_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been analyzed yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 

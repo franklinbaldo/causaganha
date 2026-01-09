@@ -96,19 +96,20 @@ async def test_repository_get_unanalyzed(memory_db: BaseBackend) -> None:
     con = memory_db
     con.raw_sql("""
         INSERT INTO intimations (
-            id, numero_processo, data_disponibilizacao, sigla_tribunal, analyzed, link
+                id, numero_processo, data_disponibilizacao, sigla_tribunal, analyzed, link,
+                tipo_comunicacao, nome_orgao, texto, tipo_documento, nome_classe, hash
         )
         VALUES
-        (1, 'proc1', '2024-01-01', 'TJRO', TRUE, 'link1'),
-        (2, 'proc2', '2024-01-01', 'TJRO', FALSE, 'link2'),
-        (3, 'proc3', '2024-01-01', 'TJRO', FALSE, NULL) -- No link, should be skipped?
+            (1, 'proc1', '2024-01-01', 'TJRO', TRUE, 'link1', 'T', 'O', 'Txt', 'D', 'C', 'h1'),
+            (2, 'proc2', '2024-01-01', 'TJRO', FALSE, 'link2', 'T', 'O', 'Txt', 'D', 'C', 'h2'),
+            (3, 'proc3', '2024-01-01', 'TJRO', FALSE, NULL, 'T', 'O', 'Txt', 'D', 'C', 'h3')
     """)
 
     # Repository method is `get_unanalyzed_intimations`
     results = await repo.get_unanalyzed_intimations(limit=10)
 
     assert len(results) >= 1
-    ids = [i["id"] for i in results]
+    ids = [i.id for i in results]
     assert 2 in ids
     assert 1 not in ids
     # If logic skips null links:
