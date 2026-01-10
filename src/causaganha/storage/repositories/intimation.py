@@ -62,19 +62,25 @@ class IntimationRepository:
         lawyers_data = []
         for intimation in intimations:
             lawyers_data.extend([
-                {
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A",  # Default for now, should extract if available
-                }
+                (
+                    intimation.id,
+                    lawyer.numero_oab,
+                    lawyer.uf_oab,
+                    lawyer.nome,
+                    "A",  # Default for now, should extract if available
+                )
                 for lawyer in intimation.advogados
             ])
 
         if lawyers_data:
-            t_lawyers = ibis.memtable(lawyers_data)
-            self.con.insert("intimation_lawyers", t_lawyers)
+            # Use raw SQL for INSERT OR IGNORE to handle duplicates
+            raw_con = self.con.con
+            raw_con.executemany(
+                "INSERT OR IGNORE INTO intimation_lawyers "
+                "(intimation_id, oab_number, oab_state, lawyer_name, polo) "
+                "VALUES (?, ?, ?, ?, ?)",
+                lawyers_data,
+            )
 
     async def store_intimations(self, intimations: list[Intimation]) -> None:
         """Store a list of intimations in the database asynchronously.

@@ -3,7 +3,7 @@
 import asyncio
 import os
 import shutil
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -116,11 +116,12 @@ class LocalArchiveService:
         return False
 
     def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
+        """Generate metadata for the archive item."""
         # Copied from InternetArchiveService to allow LocalArchiveService to also generate metadata
         # so it can be passed to upload_file for hierarchical storage.
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get("data_disponibilizacao", datetime.now(UTC).date().isoformat())
 
         return {
             "collection": IA_DEFAULT_COLLECTION,
@@ -288,7 +289,7 @@ class InternetArchiveService:
         """
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get("data_disponibilizacao", datetime.now(UTC).date().isoformat())
 
         return {
             "collection": IA_DEFAULT_COLLECTION,

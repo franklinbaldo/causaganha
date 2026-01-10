@@ -71,8 +71,7 @@ class PreservationService:
                 return None
 
             # Upload
-            ia_url = await self.archive_service.upload_file(temp_path, item_id, metadata)
-            return ia_url
+            return await self.archive_service.upload_file(temp_path, item_id, metadata)
 
         except Exception as e:
             logger.exception("preservation_failed", item_id=item_id, error=str(e))

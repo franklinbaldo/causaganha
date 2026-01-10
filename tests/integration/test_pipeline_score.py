@@ -5,7 +5,9 @@ import pytest
 
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -16,10 +18,7 @@ async def test_run_scoring(tmp_path: Path) -> None:
     create_schema(con)
 
     # Insert fake analysis result
-    # We need to use raw SQL or Ibis memtable to insert because there is no helper for just inserting analysis results
-    # except store_analysis_result which is async and internal to analyze.py (well, exposed in queries.py)
-
-    from causaganha.storage.queries import store_analysis_result
+    analysis_repo = AnalysisRepository(con)
 
     analysis_data = {
         "id": 1,
@@ -39,11 +38,11 @@ async def test_run_scoring(tmp_path: Path) -> None:
         "decision_reasoning": "Reason",
     }
 
-    await store_analysis_result(con, analysis_data)
+    await analysis_repo.store_analysis_results_batch([analysis_data])
 
     # Run scoring
-    repository = IntimationRepository(con)
-    await run_scoring(repository)
+    rating_repo = LawyerRatingRepository(con)
+    await run_scoring(analysis_repo, rating_repo)
 
     # Verify lawyer ratings
     t = con.table("lawyer_ratings")

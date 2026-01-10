@@ -1,6 +1,5 @@
 """Analysis pipeline logic."""
 import asyncio
-from datetime import UTC, datetime
 
 import structlog
 

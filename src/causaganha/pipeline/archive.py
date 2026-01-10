@@ -1,6 +1,5 @@
 """Archive pipeline for downloading and uploading judicial documents."""
 
-from pathlib import Path
 from typing import Any
 
 import structlog

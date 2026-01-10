@@ -14,7 +14,9 @@ from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
+from causaganha.storage.repositories.analysis import AnalysisRepository
 from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -24,7 +26,8 @@ def realistic_data():
     data_path = Path("tests/mock_data/realistic_intimations.json")
     if not data_path.exists():
         pytest.fail(f"Mock data not found at {data_path}")
-    return json.loads(data_path.read_text())
+    data = json.loads(data_path.read_text())
+    return data["items"]
 
 
 @pytest.fixture
@@ -37,12 +40,30 @@ def db_connection():
 
 @pytest.fixture
 def repository(db_connection):
-    """Create repository."""
+    """Create intimation repository."""
     return IntimationRepository(db_connection)
 
 
+@pytest.fixture
+def analysis_repository(db_connection):
+    """Create analysis repository."""
+    return AnalysisRepository(db_connection)
+
+
+@pytest.fixture
+def rating_repository(db_connection):
+    """Create rating repository."""
+    return LawyerRatingRepository(db_connection)
+
+
 @pytest.mark.asyncio
-async def test_pipeline_with_realistic_data(db_connection, repository, realistic_data) -> None:
+async def test_pipeline_with_realistic_data(
+    db_connection,
+    repository,
+    analysis_repository,
+    rating_repository,
+    realistic_data,
+) -> None:
     """Test the full pipeline (Collect -> Analyze -> Score) using realistic JSON data.
     Mocking:
       - API Client: returns the JSON data.
@@ -93,17 +114,17 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         )
 
     # Verify Collection
-    intimations = await repository.get_unanalyzed_intimations(limit=100)
-    assert len(intimations) == 2
+    intimations = await repository.get_unanalyzed_intimations(limit=300)
+    assert len(intimations) == 300
     # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i["numero_processo"] for i in intimations]
-    assert "70009673320258220010" in process_numbers
+    process_numbers = [i.numero_processo for i in intimations]
+    assert "70127110520238220007" in process_numbers
 
     # Verify Lawyer Association
     # (Checking DB directly via Ibis to ensure table population)
     lawyers = db_connection.table("intimation_lawyers").execute()
     assert len(lawyers) > 0
-    assert "6475A" in lawyers["oab_number"].values
+    assert "9173" in lawyers["oab_number"].values
 
     # --- STAGE 2: ANALYSIS ---
 
@@ -114,45 +135,28 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     # Mock Analyzer
     mock_analyzer = MagicMock(spec=DecisionAnalyzer)
 
-    # Return different results for the two intimations
+    # Return valid result
     from causaganha.analysis.models import Outcome
 
-    analysis_results = [
-        DecisionAnalysis(
-            winner_lawyer_oab="6475A",
-            winner_lawyer_state="RO",
-            winner_party_name="JUAREZ MOREIRA DE SOUZA",
-            loser_lawyer_oab="9999", # Unknown/Other
-            loser_lawyer_state="RO",
-            loser_party_name="BANCO X",
-            decision_type="Sentença",
-                outcome=Outcome.WIN,
-                summary="Summary 1",
-            judge_name="Dr. Judge",
-            decision_reasoning="Reasoning...",
-            confidence_score=0.95,
-        ),
-        DecisionAnalysis(
-            winner_lawyer_oab="1234",
-            winner_lawyer_state="RO",
-            winner_party_name="BANCO DO BRASIL SA",
-            loser_lawyer_oab="0000",
-            loser_lawyer_state="RO",
-            loser_party_name="JOAO DA SILVA",
-            decision_type="Decisão",
-                outcome=Outcome.WIN,
-                summary="Summary 2",
-            judge_name="Dr. Judge 2",
-            decision_reasoning="Reasoning 2...",
-            confidence_score=0.90,
-        ),
-    ]
-
-    # The pipeline calls analyze_decision (via process_item)
-    mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
+    # Use return_value instead of side_effect to handle any number of calls
+    mock_analyzer.analyze_decision = AsyncMock(return_value=DecisionAnalysis(
+        winner_lawyer_oab="9173",
+        winner_lawyer_state="ES",
+        winner_party_name="BANCO DO BRASIL SA",
+        loser_lawyer_oab="9999", # Unknown/Other
+        loser_lawyer_state="RO",
+        loser_party_name="CLAUD INEI SCOTTI",
+        decision_type="Sentença",
+        outcome=Outcome.WIN,
+        summary="Summary Generic",
+        judge_name="Dr. Judge",
+        decision_reasoning="Reasoning...",
+        confidence_score=0.95,
+    ))
 
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=10,
@@ -160,13 +164,14 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     # Verify Analysis Storage
     analyzed_items = db_connection.table("analysis_results").execute()
-    assert len(analyzed_items) == 2
-    assert "6475A" in analyzed_items["winner_lawyer_oab"].values
+    assert len(analyzed_items) == 10
+    assert "9173" in analyzed_items["winner_lawyer_oab"].values
 
     # --- STAGE 3: SCORING ---
 
     await run_scoring(
-        repository=repository,
+        analysis_repository=analysis_repository,
+        rating_repository=rating_repository,
         limit=100,
     )
 
@@ -174,7 +179,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     ratings = db_connection.table("lawyer_ratings").execute()
     assert len(ratings) > 0
 
-    # Lawyer 6475A won, so mu should be > 25
-    lawyer_a = ratings[ratings["oab_number"] == "6475A"].iloc[0]
+    # Lawyer 9173 won, so mu should be > 25
+    lawyer_a = ratings[ratings["oab_number"] == "9173"].iloc[0]
     assert lawyer_a["mu"] > 25.0
-    assert lawyer_a["wins"] == 1
+    # Wins might be > 1 if multiple cases were analyzed for same lawyer
+    assert lawyer_a["wins"] >= 1

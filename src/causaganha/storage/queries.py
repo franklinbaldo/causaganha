@@ -9,7 +9,7 @@ from typing import Any
 from ibis import BaseBackend
 
 from causaganha.domain.models import Intimation
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 async def store_intimations(con: BaseBackend, intimations: list[Intimation]) -> None:

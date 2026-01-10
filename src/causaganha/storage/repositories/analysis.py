@@ -75,7 +75,7 @@ class AnalysisRepository:
             f"UPDATE intimations SET analyzed = TRUE, "
             f"analyzed_at = ?, analysis_attempted_at = ? "
             f"WHERE id IN ({placeholders})"
-        )  # noqa: S608
+        )
 
         params = [analyzed_at, analyzed_at, *intimation_ids]
 
@@ -115,8 +115,8 @@ class AnalysisRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        # noqa: S608 - Internal IDs are safe for simple interpolation here
-        query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"
+
+        query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"  # noqa: S608
         raw_con.execute(query, ids)
 
     async def mark_analyses_scored(self, ids: list[Any]) -> None:
