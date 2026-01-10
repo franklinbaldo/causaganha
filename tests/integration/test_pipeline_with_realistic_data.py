@@ -15,6 +15,8 @@ from causaganha.pipeline.score import run_scoring
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -40,9 +42,19 @@ def repository(db_connection):
     """Create repository."""
     return IntimationRepository(db_connection)
 
+@pytest.fixture
+def analysis_repository(db_connection):
+    """Create analysis repository."""
+    return AnalysisRepository(db_connection)
+
+@pytest.fixture
+def lawyer_rating_repository(db_connection):
+    """Create lawyer rating repository."""
+    return LawyerRatingRepository(db_connection)
+
 
 @pytest.mark.asyncio
-async def test_pipeline_with_realistic_data(db_connection, repository, realistic_data) -> None:
+async def test_pipeline_with_realistic_data(db_connection, repository, analysis_repository, lawyer_rating_repository, realistic_data) -> None:
     """Test the full pipeline (Collect -> Analyze -> Score) using realistic JSON data.
     Mocking:
       - API Client: returns the JSON data.
@@ -53,18 +65,6 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     # Mock API Client to return realistic data
     MagicMock(spec=PJeAPIClient)
-
-    # We need to structure the return value of get_intimations_by_court to return Domain Models
-    # Since PJeAPIClient._map_to_domain is internal, we can rely on PJeAPIClient behavior if we mock the HTTP layer,
-    # OR we can mock get_intimations_by_court directly to return a list of DomainIntimation.
-    # Given we want to test "Integration", mocking the HTTP layer is better to exercise the Client mapping logic.
-    # However, `PJeAPIClient` uses `httpx.AsyncClient`.
-
-    # Let's mock the `get_intimations_by_court` for simplicity and robustness in this test,
-    # ensuring we are testing the PIPELINE logic, not the CLIENT logic (which has its own unit tests).
-
-    # Actually, to use `realistic_data` (which is API JSON format), we should probably use the real `PJeAPIClient`
-    # and mock the `httpx` response. This verifies the mapping logic too.
 
     real_client = PJeAPIClient()
 
@@ -96,7 +96,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     intimations = await repository.get_unanalyzed_intimations(limit=100)
     assert len(intimations) == 2
     # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i["numero_processo"] for i in intimations]
+    process_numbers = [i.numero_processo for i in intimations]
     assert "70009673320258220010" in process_numbers
 
     # Verify Lawyer Association
@@ -126,8 +126,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="BANCO X",
             decision_type="Sentença",
-                outcome=Outcome.WIN,
-                summary="Summary 1",
+            outcome=Outcome.WIN,
+            summary="Summary 1",
             judge_name="Dr. Judge",
             decision_reasoning="Reasoning...",
             confidence_score=0.95,
@@ -140,8 +140,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="JOAO DA SILVA",
             decision_type="Decisão",
-                outcome=Outcome.WIN,
-                summary="Summary 2",
+            outcome=Outcome.WIN,
+            summary="Summary 2",
             judge_name="Dr. Judge 2",
             decision_reasoning="Reasoning 2...",
             confidence_score=0.90,
@@ -153,6 +153,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=10,
@@ -166,7 +167,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     # --- STAGE 3: SCORING ---
 
     await run_scoring(
-        repository=repository,
+        analysis_repository=analysis_repository,
+        rating_repository=lawyer_rating_repository,
         limit=100,
     )
 
@@ -175,6 +177,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     assert len(ratings) > 0
 
     # Lawyer 6475A won, so mu should be > 25
+    # The default mu is 25.0
     lawyer_a = ratings[ratings["oab_number"] == "6475A"].iloc[0]
     assert lawyer_a["mu"] > 25.0
     assert lawyer_a["wins"] == 1
