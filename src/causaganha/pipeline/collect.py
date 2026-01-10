@@ -2,7 +2,7 @@ from datetime import date
 
 import structlog
 
-from causaganha.integrations.pje.client import PJeAPIClient
+from causaganha.domain.interfaces import CourtClientProtocol
 from causaganha.storage.repositories.intimation import IntimationRepository
 
 
@@ -10,7 +10,7 @@ logger = structlog.get_logger()
 
 async def run_collection(
     repository: IntimationRepository,
-    client: PJeAPIClient,
+    client: CourtClientProtocol,
     start_date: str,
     end_date: str,
     courts: list[str] | None = None,

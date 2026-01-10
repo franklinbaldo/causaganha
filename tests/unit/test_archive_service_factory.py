@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from causaganha.services.archive import LocalArchiveService, create_archive_service
+from causaganha.infrastructure.archive import LocalArchiveService, create_archive_service
 
 
 def test_create_archive_service_defaults_to_local(monkeypatch) -> None:

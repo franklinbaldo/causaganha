@@ -7,7 +7,7 @@ import structlog
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.domain.factories import AnalysisResultFactory
 from causaganha.domain.models import Intimation
-from causaganha.services.document import DocumentService
+from causaganha.infrastructure.document import DocumentService
 from causaganha.storage.repositories.analysis import AnalysisRepository
 from causaganha.storage.repositories.intimation import IntimationRepository
 

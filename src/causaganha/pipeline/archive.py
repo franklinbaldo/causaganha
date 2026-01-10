@@ -5,9 +5,10 @@ from typing import Any
 
 import structlog
 
-from causaganha.services.archive import ArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.services.preservation import PreservationService
+from causaganha.domain.models import Intimation
+from causaganha.infrastructure.archive import ArchiveService
+from causaganha.infrastructure.document import DocumentService
+from causaganha.infrastructure.preservation import PreservationService
 from causaganha.storage.repositories.intimation import IntimationRepository
 
 
@@ -55,7 +56,7 @@ async def run_archive(
         except Exception:
             logger.exception(
                 "intimation_processing_failed",
-                intimation_id=intimation.get("id"),
+                intimation_id=intimation.id,
             )
             continue
 
@@ -63,7 +64,7 @@ async def run_archive(
 
 
 async def _process_intimation(
-    intimation: dict[str, Any],
+    intimation: Intimation,
     preservation_service: PreservationService,
     archive_service: ArchiveService,
     repository: IntimationRepository,
@@ -78,8 +79,8 @@ async def _process_intimation(
         repository: Repository for updates.
         dry_run: If True, skip actual upload.
     """
-    intimation_id = intimation.get("id")
-    document_url = intimation.get("link")
+    intimation_id = intimation.id
+    document_url = intimation.link
     intimation_id_str = str(intimation_id)
 
     if not document_url:
@@ -87,11 +88,20 @@ async def _process_intimation(
         return
 
     # Upload to Internet Archive
-    tribunal = intimation.get("sigla_tribunal", "unknown").lower()
+    tribunal = intimation.sigla_tribunal.lower() if intimation.sigla_tribunal else "unknown"
     item_id = f"causaganha-{tribunal}-{intimation_id_str}"
 
     # Generate metadata from intimation data (refactored)
-    metadata = archive_service.generate_metadata(intimation)
+    # Note: archive_service.generate_metadata expects a dict.
+    # We should eventually update ArchiveService to accept Intimation,
+    # but for now we convert to dict to maintain compatibility if we don't want to change service signature yet.
+    # However, Step 2 is about standardizing repositories.
+    # It is cleaner to update ArchiveService.generate_metadata signature or convert here.
+    # I will convert here for now to minimize ripple effect, as ArchiveService is in the next step to be moved.
+    # Wait, ArchiveService is a Protocol in services/archive.py, but implemented there too.
+    # I should pass a dict for now.
+    intimation_dict = intimation.model_dump()
+    metadata = archive_service.generate_metadata(intimation_dict)
 
     ia_url = await preservation_service.preserve_document(
         document_url, item_id, metadata, dry_run,

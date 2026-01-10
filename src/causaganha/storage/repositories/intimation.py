@@ -111,7 +111,7 @@ class IntimationRepository:
         """
         return await asyncio.to_thread(self._sync_get_unanalyzed_intimations, limit)
 
-    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching unarchived intimations."""
         t_int = self.con.table("intimations")
 
@@ -125,16 +125,17 @@ class IntimationRepository:
             filtered = t_int.filter(t_int.link.notnull())
 
         query = filtered.limit(limit)
-        return query.execute().to_dict(orient="records")
+        records = query.execute().to_dict(orient="records")
+        return [Intimation(**record) for record in records]
 
-    async def get_unarchived_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_unarchived_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch intimations that have not been archived yet.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_unarchived_intimations, limit)
 
@@ -179,19 +180,20 @@ class IntimationRepository:
 
         await asyncio.to_thread(self._sync_mark_as_archived, intimation_id, ia_url)
 
-    def _sync_get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _sync_get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Synchronous implementation of fetching all intimations."""
         t_int = self.con.table("intimations")
         query = t_int.limit(limit)
-        return query.execute().to_dict(orient="records")
+        records = query.execute().to_dict(orient="records")
+        return [Intimation(**record) for record in records]
 
-    async def get_all_intimations(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_all_intimations(self, limit: int = 100) -> list[Intimation]:
         """Fetch all intimations.
 
         Args:
             limit: Max number of records to fetch.
 
         Returns:
-            List of dicts representing intimations.
+            List of Intimation objects.
         """
         return await asyncio.to_thread(self._sync_get_all_intimations, limit)

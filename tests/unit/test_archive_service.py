@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.services.archive import ArchiveService, InternetArchiveService, LocalArchiveService
-from causaganha.services.document import DocumentService
+from causaganha.infrastructure.archive import ArchiveService, InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.document import DocumentService
 from causaganha.storage.repositories.intimation import IntimationRepository
 
 
@@ -127,7 +127,7 @@ class TestUploadResilience:
     async def test_logs_upload_progress(self, ia_service: InternetArchiveService, temp_file: Path) -> None:
         """Should log upload progress for monitoring."""
         with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
-            with patch("causaganha.services.archive.logger") as mock_logger:
+            with patch("causaganha.infrastructure.archive.logger") as mock_logger:
                 await ia_service.upload_file(
                     temp_file,
                     "test-item",
@@ -228,7 +228,7 @@ class TestLocalArchiveHierarchicalStorage:
 
     @pytest.fixture
     def local_service(self, tmp_path: Path) -> LocalArchiveService:
-        from causaganha.services.archive import LocalArchiveService
+        from causaganha.infrastructure.archive import LocalArchiveService
         return LocalArchiveService(archive_root=tmp_path)
 
     @pytest.fixture
@@ -299,14 +299,21 @@ async def test_archive_uses_correct_court_in_id(
     """Test that the archive pipeline uses the correct tribunal in the item ID."""
     from causaganha.pipeline.archive import run_archive
 
-    # Setup data
-    intimation = {
-        "id": 12345,
-        "sigla_tribunal": "TJMT",
-        "link": "http://example.com/doc.pdf",
-        "numero_processo": "123",
-        "data_disponibilizacao": "2023-01-01",
-    }
+    from causaganha.domain.models import Intimation
+    # Setup data as Intimation object
+    intimation = Intimation(
+        id=12345,
+        sigla_tribunal="TJMT",
+        link="http://example.com/doc.pdf",
+        numero_processo="123",
+        data_disponibilizacao="2023-01-01",
+        tipo_comunicacao="I",
+        nome_orgao="Orgao",
+        texto="Texto",
+        tipo_documento="Doc",
+        nome_classe="Classe",
+        hash="abc",
+    )
 
     mock_repository.get_unarchived_intimations.return_value = [intimation]
 

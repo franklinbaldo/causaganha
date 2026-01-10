@@ -40,6 +40,11 @@ class Intimation(BaseModel):
     hash: str
     status: str | None = None
 
+    # Pipeline metadata (added for compatibility with schema)
+    ia_url: str | None = None
+    needs_download: bool = True
+    analyzed: bool = False
+
     # Relationships
     advogados: list[Lawyer] = Field(default_factory=list)
     partes: list[Party] = Field(default_factory=list)

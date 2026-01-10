@@ -19,7 +19,7 @@ from causaganha.cloud.db import (
     acquire_lock,
     get_firestore_client,
 )
-from causaganha.services.archive import InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.archive import InternetArchiveService, LocalArchiveService
 
 
 logger = structlog.get_logger()

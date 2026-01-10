@@ -4,9 +4,8 @@ from typing import Any
 
 import structlog
 
+from causaganha.domain.interfaces import AnalysisSourceProtocol, LawyerRatingStoreProtocol
 from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 
 
 logger = structlog.get_logger()
@@ -17,14 +16,14 @@ class ScoringService:
 
     def __init__(
         self,
-        analysis_repository: AnalysisRepository,
-        rating_repository: LawyerRatingRepository,
+        analysis_repository: AnalysisSourceProtocol,
+        rating_repository: LawyerRatingStoreProtocol,
     ) -> None:
         """Initialize the service.
 
         Args:
-            analysis_repository: Repository for analysis results.
-            rating_repository: Repository for lawyer ratings.
+            analysis_repository: Source for analysis results (implements AnalysisSourceProtocol).
+            rating_repository: Store for lawyer ratings (implements LawyerRatingStoreProtocol).
         """
         self.analysis_repo = analysis_repository
         self.rating_repo = rating_repository

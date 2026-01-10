@@ -12,7 +12,7 @@ from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
-from causaganha.services.document import DocumentService
+from causaganha.infrastructure.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repositories.intimation import IntimationRepository
 from causaganha.storage.schema import create_schema

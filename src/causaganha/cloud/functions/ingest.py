@@ -12,9 +12,9 @@ from causaganha.cloud.db import (
     get_firestore_client,
 )
 from causaganha.config import settings
-from causaganha.services.archive import InternetArchiveService, LocalArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.services.preservation import PreservationService
+from causaganha.infrastructure.archive import InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.document import DocumentService
+from causaganha.infrastructure.preservation import PreservationService
 
 
 logger = structlog.get_logger()

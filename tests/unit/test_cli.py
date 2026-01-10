@@ -305,16 +305,24 @@ def test_manifest_export(mock_get_repos: MagicMock) -> None:
     mock_repo = MagicMock()
 
     async def get_all_intimations(limit: int) -> list[dict]: # noqa: ARG001
+        from causaganha.domain.models import Intimation
+        # Return an Intimation object to match new repository signature
         return [
-            {
-                "id": 1,
-                "numero_processo": "123",
-                "sigla_tribunal": "TJRO",
-                "data_disponibilizacao": "2024-01-01",
-                "link": "http://example.com/pdf",
-                "needs_download": True,
-                "ia_url": None,
-            },
+            Intimation(
+                id=1,
+                numero_processo="123",
+                sigla_tribunal="TJRO",
+                data_disponibilizacao="2024-01-01",
+                tipo_comunicacao="Intimação",
+                nome_orgao="Vara",
+                texto="Texto",
+                tipo_documento="Decisão",
+                nome_classe="Classe",
+                hash="hash",
+                link="http://example.com/pdf",
+                needs_download=True,
+                ia_url=None,
+            )
         ]
 
     mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)

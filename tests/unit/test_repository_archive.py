@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import ibis
 import pytest
 
+from causaganha.domain.models import Intimation
 from causaganha.storage.repositories.intimation import IntimationRepository
 
 
@@ -37,10 +38,29 @@ class TestGetUnarchivedIntimations:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        expected_data = [
-            {"id": "1", "link": "http://example.com/1.pdf", "ia_url": None},
-            {"id": "2", "link": "http://example.com/2.pdf", "ia_url": ""},
-        ]
+        # Mock data must now match Intimation model fields (at least required ones)
+        # Assuming minimal required fields for Intimation instantiation
+        base_record = {
+            "id": 1,
+            "numero_processo": "0000000-00.0000.0.00.0000",
+            "data_disponibilizacao": "2023-01-01",
+            "sigla_tribunal": "TJRO",
+            "tipo_comunicacao": "I",
+            "nome_orgao": "Orgao",
+            "texto": "Texto",
+            "tipo_documento": "Doc",
+            "nome_classe": "Classe",
+            "hash": "abc",
+            "needs_download": True,
+        }
+
+        record1 = base_record.copy()
+        record1.update({"id": 1, "link": "http://example.com/1.pdf", "ia_url": None})
+
+        record2 = base_record.copy()
+        record2.update({"id": 2, "link": "http://example.com/2.pdf", "ia_url": ""})
+
+        expected_data = [record1, record2]
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
@@ -48,7 +68,8 @@ class TestGetUnarchivedIntimations:
 
         # Assert
         assert len(result) == 2
-        assert result[0]["id"] == "1"
+        assert isinstance(result[0], Intimation)
+        assert result[0].id == 1
         mock_connection.table.assert_called_once_with("intimations")
 
     @pytest.mark.asyncio
@@ -64,16 +85,30 @@ class TestGetUnarchivedIntimations:
         mock_filtered.limit.return_value = mock_filtered
 
         # Only return intimations with links
-        expected_data = [
-            {"id": "1", "link": "http://example.com/1.pdf", "ia_url": None},
-        ]
+        base_record = {
+            "id": 1,
+            "numero_processo": "0000000-00.0000.0.00.0000",
+            "data_disponibilizacao": "2023-01-01",
+            "sigla_tribunal": "TJRO",
+            "tipo_comunicacao": "I",
+            "nome_orgao": "Orgao",
+            "texto": "Texto",
+            "tipo_documento": "Doc",
+            "nome_classe": "Classe",
+            "hash": "abc",
+            "needs_download": True,
+        }
+        record1 = base_record.copy()
+        record1.update({"id": 1, "link": "http://example.com/1.pdf", "ia_url": None})
+
+        expected_data = [record1]
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
         result = await repository.get_unarchived_intimations(limit=10)
 
         # Assert
-        assert all(item.get("link") for item in result)
+        assert all(item.link for item in result)
 
     @pytest.mark.asyncio
     async def test_respects_limit_parameter(self, repository, mock_connection) -> None:
@@ -87,7 +122,25 @@ class TestGetUnarchivedIntimations:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        expected_data = [{"id": f"{i}", "link": f"http://example.com/{i}.pdf"} for i in range(5)]
+        base_record = {
+            "numero_processo": "0000000-00.0000.0.00.0000",
+            "data_disponibilizacao": "2023-01-01",
+            "sigla_tribunal": "TJRO",
+            "tipo_comunicacao": "I",
+            "nome_orgao": "Orgao",
+            "texto": "Texto",
+            "tipo_documento": "Doc",
+            "nome_classe": "Classe",
+            "hash": "abc",
+            "needs_download": True,
+        }
+
+        expected_data = []
+        for i in range(5):
+             r = base_record.copy()
+             r.update({"id": i, "link": f"http://example.com/{i}.pdf"})
+             expected_data.append(r)
+
         mock_filtered.execute.return_value.to_dict.return_value = expected_data
 
         # Act
@@ -116,8 +169,22 @@ class TestGetUnarchivedIntimations:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        expected_data = [{"id": "1", "link": "http://example.com/1.pdf"}]
-        mock_filtered.execute.return_value.to_dict.return_value = expected_data
+        base_record = {
+            "id": 1,
+            "numero_processo": "0000000-00.0000.0.00.0000",
+            "data_disponibilizacao": "2023-01-01",
+            "sigla_tribunal": "TJRO",
+            "tipo_comunicacao": "I",
+            "nome_orgao": "Orgao",
+            "texto": "Texto",
+            "tipo_documento": "Doc",
+            "nome_classe": "Classe",
+            "hash": "abc",
+            "needs_download": True,
+            "link": "http://example.com/1.pdf",
+        }
+
+        mock_filtered.execute.return_value.to_dict.return_value = [base_record]
 
         # Act
         result = await repository.get_unarchived_intimations(limit=10)
@@ -192,10 +259,23 @@ class TestRepositoryIntegration:
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 
-        unarchived_data = [
-            {"id": "1", "link": "http://example.com/1.pdf", "ia_url": None},
-        ]
-        mock_filtered.execute.return_value.to_dict.return_value = unarchived_data
+        base_record = {
+            "id": 1,
+            "numero_processo": "0000000-00.0000.0.00.0000",
+            "data_disponibilizacao": "2023-01-01",
+            "sigla_tribunal": "TJRO",
+            "tipo_comunicacao": "I",
+            "nome_orgao": "Orgao",
+            "texto": "Texto",
+            "tipo_documento": "Doc",
+            "nome_classe": "Classe",
+            "hash": "abc",
+            "needs_download": True,
+            "link": "http://example.com/1.pdf",
+            "ia_url": None,
+        }
+
+        mock_filtered.execute.return_value.to_dict.return_value = [base_record]
 
         mock_raw_con = MagicMock()
         mock_connection.con = mock_raw_con
@@ -204,7 +284,7 @@ class TestRepositoryIntegration:
         intimations = await repository.get_unarchived_intimations(limit=1)
         assert len(intimations) == 1
 
-        await repository.mark_as_archived(intimations[0]["id"], "https://archive.org/details/1")
+        await repository.mark_as_archived(str(intimations[0].id), "https://archive.org/details/1")
 
         # Assert
         mock_raw_con.execute.assert_called_once()

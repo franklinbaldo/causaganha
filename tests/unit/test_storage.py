@@ -97,12 +97,12 @@ async def test_repository_get_unanalyzed(memory_db: BaseBackend) -> None:
     con.raw_sql("""
         INSERT INTO intimations (
                 id, numero_processo, data_disponibilizacao, sigla_tribunal, analyzed, link,
-                tipo_comunicacao, nome_orgao, texto, tipo_documento, nome_classe, hash
+                tipo_comunicacao, nome_orgao, texto, tipo_documento, nome_classe, hash, needs_download
         )
         VALUES
-            (1, 'proc1', '2024-01-01', 'TJRO', TRUE, 'link1', 'T', 'O', 'Txt', 'D', 'C', 'h1'),
-            (2, 'proc2', '2024-01-01', 'TJRO', FALSE, 'link2', 'T', 'O', 'Txt', 'D', 'C', 'h2'),
-            (3, 'proc3', '2024-01-01', 'TJRO', FALSE, NULL, 'T', 'O', 'Txt', 'D', 'C', 'h3')
+            (1, 'proc1', '2024-01-01', 'TJRO', TRUE, 'link1', 'T', 'O', 'Txt', 'D', 'C', 'h1', TRUE),
+            (2, 'proc2', '2024-01-01', 'TJRO', FALSE, 'link2', 'T', 'O', 'Txt', 'D', 'C', 'h2', TRUE),
+            (3, 'proc3', '2024-01-01', 'TJRO', FALSE, NULL, 'T', 'O', 'Txt', 'D', 'C', 'h3', TRUE)
     """)
 
     # Repository method is `get_unanalyzed_intimations`

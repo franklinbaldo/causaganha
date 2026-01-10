@@ -15,8 +15,8 @@ from causaganha.pipeline.archive import run_archive
 from causaganha.schemas.orchestrator import ParquetSchema
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
-from causaganha.services.archive import create_archive_service
-from causaganha.services.document import DocumentService
+from causaganha.infrastructure.archive import create_archive_service
+from causaganha.infrastructure.document import DocumentService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repositories.analysis import AnalysisRepository
 from causaganha.storage.repositories.intimation import IntimationRepository
@@ -314,22 +314,14 @@ def manifest_export(
         items = await repository.get_all_intimations(limit=limit)
         output_items = []
         for item in items:
-            # Convert date string to date object if it exists
-            decision_date = None
-            if item.get("data_disponibilizacao"):
-                try:
-                    decision_date = date.fromisoformat(item["data_disponibilizacao"])
-                except (ValueError, TypeError):
-                    pass  # Keep as None if parsing fails
-
             schema = ParquetSchema(
-                intimation_id=item.get("id"),
-                process_number=item.get("numero_processo"),
-                tribunal=item.get("sigla_tribunal"),
-                decision_date=decision_date,
-                download_url=item.get("link"),
-                needs_download=item.get("needs_download", True),
-                ia_url=item.get("ia_url"),
+                intimation_id=item.id,
+                process_number=item.numero_processo,
+                tribunal=item.sigla_tribunal,
+                decision_date=item.data_disponibilizacao,
+                download_url=item.link,
+                needs_download=item.needs_download,
+                ia_url=item.ia_url,
             )
             output_items.append(schema.model_dump(mode="json"))
 
