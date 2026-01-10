@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 
 import pytest
 
-from causaganha.api.client import PJeAPIClient
 from causaganha.domain.models import Intimation
+from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
 from causaganha.pipeline.collect import run_collection

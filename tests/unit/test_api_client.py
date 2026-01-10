@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from causaganha.api.client import PJeAPIClient
+from causaganha.integrations.pje.client import PJeAPIClient
 from tests.conftest import create_mock_intimation_item
 
 

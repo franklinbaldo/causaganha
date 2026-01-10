@@ -27,7 +27,7 @@ def mock_pubsub_ingest():
 
 @pytest.fixture
 def mock_pje_client():
-    with patch("causaganha.api.client.PJeAPIClient") as mock:
+    with patch("causaganha.integrations.pje.client.PJeAPIClient") as mock:
         yield mock
 
 @pytest.fixture
