@@ -7,7 +7,7 @@ import pytest
 from causaganha.pipeline.archive import _process_intimation, run_archive
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture
@@ -81,22 +81,16 @@ async def test_run_archive_no_intimations(mock_repository, mock_doc_service, moc
 @pytest.mark.asyncio
 async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_service, tmp_path) -> None:
     """Test archive pipeline in dry run mode."""
-    # Set up temp directory
-    with patch("causaganha.pipeline.archive.Path") as mock_path:
-        temp_dir = tmp_path / "temp"
-        temp_dir.mkdir()
-        mock_path.return_value = temp_dir
+    await run_archive(
+        mock_repository,
+        mock_doc_service,
+        mock_ia_service,
+        limit=2,
+        dry_run=True,
+    )
 
-        await run_archive(
-            mock_repository,
-            mock_doc_service,
-            mock_ia_service,
-            limit=2,
-            dry_run=True,
-        )
-
-        # In dry run, files should not be uploaded
-        # We can't easily verify this without refactoring, but the test runs
+    # In dry run, files should not be uploaded
+    # We can't easily verify this without refactoring, but the test runs
 
 
 @pytest.mark.asyncio

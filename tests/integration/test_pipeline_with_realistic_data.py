@@ -14,7 +14,9 @@ from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
+from causaganha.storage.repositories.analysis import AnalysisRepository
 from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -96,8 +98,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     intimations = await repository.get_unanalyzed_intimations(limit=100)
     assert len(intimations) == 2
     # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i["numero_processo"] for i in intimations]
-    assert "70009673320258220010" in process_numbers
+    process_numbers = [i.numero_processo for i in intimations]
+    assert "7000967-33.2025.8.22.0010" in process_numbers
 
     # Verify Lawyer Association
     # (Checking DB directly via Ibis to ensure table population)
@@ -151,8 +153,10 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     # The pipeline calls analyze_decision (via process_item)
     mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
 
+    analysis_repository = AnalysisRepository(db_connection)
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=10,
@@ -165,8 +169,10 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     # --- STAGE 3: SCORING ---
 
+    rating_repository = LawyerRatingRepository(db_connection)
     await run_scoring(
-        repository=repository,
+        analysis_repository=analysis_repository,
+        rating_repository=rating_repository,
         limit=100,
     )
 

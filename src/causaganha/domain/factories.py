@@ -65,7 +65,7 @@ class AnalysisResultFactory:
         if analysis:
             return {
                 **base_result,
-                "outcome": analysis.outcome.value if hasattr(analysis.outcome, 'value') else analysis.outcome,
+                "outcome": analysis.outcome.value if hasattr(analysis.outcome, "value") else analysis.outcome,
                 "summary": analysis.summary,
                 "judge_name": analysis.judge_name,
                 "confidence_score": analysis.confidence_score,

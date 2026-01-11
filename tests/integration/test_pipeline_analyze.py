@@ -7,7 +7,8 @@ import pytest
 from causaganha.analysis.models import DecisionAnalysis, Outcome
 from causaganha.domain.models import Intimation
 from causaganha.pipeline.analyze import run_analysis
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.mark.asyncio
@@ -55,8 +56,10 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     mock_analyzer.analyze_decision.return_value = mock_analysis
 
     # Run
+    analysis_repository = AnalysisRepository(con)
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=1,

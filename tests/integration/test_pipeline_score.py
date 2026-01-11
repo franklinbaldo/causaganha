@@ -5,7 +5,8 @@ import pytest
 
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -42,8 +43,10 @@ async def test_run_scoring(tmp_path: Path) -> None:
     await store_analysis_result(con, analysis_data)
 
     # Run scoring
-    repository = IntimationRepository(con)
-    await run_scoring(repository)
+    # AnalysisRepository is already imported from fix in previous step? No, NameError says it isn't.
+    analysis_repository = AnalysisRepository(con)
+    rating_repository = LawyerRatingRepository(con)
+    await run_scoring(analysis_repository, rating_repository)
 
     # Verify lawyer ratings
     t = con.table("lawyer_ratings")
