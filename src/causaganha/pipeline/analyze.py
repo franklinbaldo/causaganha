@@ -6,18 +6,17 @@ import structlog
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.domain.factories import AnalysisResultFactory
+from causaganha.domain.interfaces import AnalysisRepositoryProtocol, IntimationRepositoryProtocol
 from causaganha.domain.models import Intimation
 from causaganha.services.document import DocumentService
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
 
 
 async def run_analysis(
-    repository: IntimationRepository,
-    analysis_repository: AnalysisRepository,
+    repository: IntimationRepositoryProtocol,
+    analysis_repository: AnalysisRepositoryProtocol,
     doc_service: DocumentService,
     analyzer: DecisionAnalyzer,
     limit: int = 10,

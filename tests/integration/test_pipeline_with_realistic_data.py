@@ -14,7 +14,9 @@ from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
+from causaganha.storage.repositories.analysis import AnalysisRepository
 from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -41,8 +43,26 @@ def repository(db_connection):
     return IntimationRepository(db_connection)
 
 
+@pytest.fixture
+def analysis_repository(db_connection):
+    """Create analysis repository."""
+    return AnalysisRepository(db_connection)
+
+
+@pytest.fixture
+def rating_repository(db_connection):
+    """Create lawyer rating repository."""
+    return LawyerRatingRepository(db_connection)
+
+
 @pytest.mark.asyncio
-async def test_pipeline_with_realistic_data(db_connection, repository, realistic_data) -> None:
+async def test_pipeline_with_realistic_data(
+    db_connection,
+    repository,
+    analysis_repository,
+    rating_repository,
+    realistic_data
+) -> None:
     """Test the full pipeline (Collect -> Analyze -> Score) using realistic JSON data.
     Mocking:
       - API Client: returns the JSON data.
@@ -96,8 +116,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     intimations = await repository.get_unanalyzed_intimations(limit=100)
     assert len(intimations) == 2
     # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i["numero_processo"] for i in intimations]
-    assert "70009673320258220010" in process_numbers
+    process_numbers = [i.numero_processo for i in intimations]
+    assert "7000967-33.2025.8.22.0010" in process_numbers
 
     # Verify Lawyer Association
     # (Checking DB directly via Ibis to ensure table population)
@@ -153,6 +173,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repository,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=10,
@@ -166,7 +187,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     # --- STAGE 3: SCORING ---
 
     await run_scoring(
-        repository=repository,
+        analysis_repository=analysis_repository,
+        rating_repository=rating_repository,
         limit=100,
     )
 

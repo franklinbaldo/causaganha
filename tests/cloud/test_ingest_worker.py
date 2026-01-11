@@ -88,12 +88,13 @@ async def test_ingest_worker_success(
 
     # Verify Upload
     mock_archive_service.upload_file.assert_called_once()
-    _args, kwargs = mock_archive_service.upload_file.call_args
-    assert kwargs["item_id"] == "causaganha-test_doc_key" # truncated key
-    assert kwargs["metadata"]["url"] == "http://court.gov.br/doc.pdf"
+    args, _kwargs = mock_archive_service.upload_file.call_args
+    # Called with positional args: (file_path, item_id, metadata)
+    assert args[1] == "causaganha-test_doc_key"  # item_id
+    assert args[2]["url"] == "http://court.gov.br/doc.pdf"  # metadata
 
     # Verify Filename Contract (Must be document.pdf)
-    file_path = kwargs["file_path"]
+    file_path = args[0]
     assert str(file_path).endswith("document.pdf")
 
     # Verify Status Update

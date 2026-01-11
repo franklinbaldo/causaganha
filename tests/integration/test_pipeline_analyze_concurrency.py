@@ -8,7 +8,8 @@ import pytest
 from causaganha.analysis.models import DecisionAnalysis, Outcome
 from causaganha.domain.models import Intimation
 from causaganha.pipeline.analyze import run_analysis
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.mark.asyncio
@@ -20,6 +21,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     con = get_connection(str(db_path))
     create_schema(con)
     repository = IntimationRepository(con)
+    analysis_repo = AnalysisRepository(con)
 
     # 1. Seed DB with multiple unanalyzed intimations
     intimations = []
@@ -66,6 +68,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     # We will refactor to make it concurrent.
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repo,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=5,

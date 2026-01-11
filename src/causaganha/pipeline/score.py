@@ -2,17 +2,16 @@
 
 import structlog
 
+from causaganha.domain.interfaces import AnalysisRepositoryProtocol, LawyerRatingRepositoryProtocol
 from causaganha.domain.services.scoring import ScoringService
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 
 
 logger = structlog.get_logger()
 
 
 async def run_scoring(
-    analysis_repository: AnalysisRepository,
-    rating_repository: LawyerRatingRepository,
+    analysis_repository: AnalysisRepositoryProtocol,
+    rating_repository: LawyerRatingRepositoryProtocol,
     limit: int = 100,
 ) -> None:
     """Run the scoring pipeline.

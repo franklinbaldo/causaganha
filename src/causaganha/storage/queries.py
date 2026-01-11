@@ -9,7 +9,8 @@ from typing import Any
 from ibis import BaseBackend
 
 from causaganha.domain.models import Intimation
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 async def store_intimations(con: BaseBackend, intimations: list[Intimation]) -> None:
@@ -33,7 +34,7 @@ async def get_unanalyzed_intimations(con: BaseBackend, limit: int = 100) -> list
 async def store_analysis_result(con: BaseBackend, result: dict[str, Any]) -> None:
     """Store analysis result.
 
-    Deprecated. Use IntimationRepository.store_analysis_result.
+    Deprecated. Use AnalysisRepository.store_analysis_result.
     """
-    repo = IntimationRepository(con)
+    repo = AnalysisRepository(con)
     await repo.store_analysis_result(result)
