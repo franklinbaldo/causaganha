@@ -12,9 +12,9 @@ from causaganha.config import DB_PATH, settings
 from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.pipeline.archive import run_archive
-from causaganha.schemas.orchestrator import ParquetSchema
 from causaganha.pipeline.collect import run_collection
 from causaganha.pipeline.score import run_scoring
+from causaganha.schemas.orchestrator import ParquetSchema
 from causaganha.services.archive import create_archive_service
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection

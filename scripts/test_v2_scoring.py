@@ -12,7 +12,8 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 
 
 structlog.configure(
@@ -35,11 +36,13 @@ async def main() -> None:
 
     con = get_connection(str(db_path))
     # Schema should already exist
-    repository = IntimationRepository(con)
+    analysis_repository = AnalysisRepository(con)
+    rating_repository = LawyerRatingRepository(con)
 
     try:
         await run_scoring(
-            repository=repository,
+            analysis_repository=analysis_repository,
+            rating_repository=rating_repository,
             limit=args.limit,
         )
     except Exception as e:

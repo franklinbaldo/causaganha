@@ -3,9 +3,12 @@ from pathlib import Path
 
 import pytest
 
+from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.domain.models import AnalysisResult
 from causaganha.pipeline.score import run_scoring
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -15,35 +18,35 @@ async def test_run_scoring(tmp_path: Path) -> None:
     con = get_connection(str(db_path))
     create_schema(con)
 
-    # Insert fake analysis result
-    # We need to use raw SQL or Ibis memtable to insert because there is no helper for just inserting analysis results
-    # except store_analysis_result which is async and internal to analyze.py (well, exposed in queries.py)
+    # Use AnalysisRepository to store results
+    analysis_repository = AnalysisRepository(con)
+    rating_repository = LawyerRatingRepository(con)
 
-    from causaganha.storage.queries import store_analysis_result
+    # Insert fake analysis result using AnalysisResult domain object
+    analysis_result = AnalysisResult(
+        intimation_id=101,
+        analysis=DecisionAnalysis(
+            outcome=Outcome.WIN,
+            summary="Summary",
+            judge_name="Judge",
+            confidence_score=0.9,
+            winner_lawyer_oab="123",
+            winner_lawyer_state="RO",
+            winner_party_name="Winner",
+            loser_lawyer_oab="456",
+            loser_lawyer_state="RO",
+            loser_party_name="Loser",
+            decision_type="SENTENCE",
+            decision_reasoning="Reason",
+        ),
+        analyzed_at=datetime.now(UTC),
+    )
 
-    analysis_data = {
-        "id": 1,
-        "intimation_id": 101,
-        "outcome": "WIN",
-        "summary": "Summary",
-        "judge_name": "Judge",
-        "confidence_score": 0.9,
-        "analyzed_at": datetime.now(UTC),
-        "winner_lawyer_oab": "123",
-        "winner_lawyer_state": "RO",
-        "winner_party_name": "Winner",
-        "loser_lawyer_oab": "456",
-        "loser_lawyer_state": "RO",
-        "loser_party_name": "Loser",
-        "decision_type": "SENTENCE",
-        "decision_reasoning": "Reason",
-    }
-
-    await store_analysis_result(con, analysis_data)
+    # Store batch requires a list
+    await analysis_repository.store_analysis_results_batch([analysis_result])
 
     # Run scoring
-    repository = IntimationRepository(con)
-    await run_scoring(repository)
+    await run_scoring(analysis_repository, rating_repository)
 
     # Verify lawyer ratings
     t = con.table("lawyer_ratings")

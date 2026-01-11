@@ -75,20 +75,28 @@ class AnalysisRepository:
             f"UPDATE intimations SET analyzed = TRUE, "
             f"analyzed_at = ?, analysis_attempted_at = ? "
             f"WHERE id IN ({placeholders})"
-        )  # noqa: S608
+        )
 
         params = [analyzed_at, analyzed_at, *intimation_ids]
 
         with contextlib.suppress(Exception):
             raw_con.execute(query, params)
 
-    async def store_analysis_results_batch(self, results: list[dict[str, Any]]) -> None:
+    async def store_analysis_results_batch(self, results: list[Any]) -> None:
         """Store analysis results in batch.
 
         Args:
-            results: List of Dicts matching analysis_results schema.
+            results: List of AnalysisResult objects or dicts.
         """
-        await asyncio.to_thread(self._sync_store_analysis_results_batch, results)
+        # Convert AnalysisResult objects to dicts if needed
+        data_list = []
+        for r in results:
+            if hasattr(r, "to_dict"):
+                data_list.append(r.to_dict())
+            else:
+                data_list.append(r)
+
+        await asyncio.to_thread(self._sync_store_analysis_results_batch, data_list)
 
     def _sync_get_unscored_analyses(self, limit: int = 100) -> list[dict[str, Any]]:
         """Synchronous fetch unscored analyses."""
@@ -115,7 +123,7 @@ class AnalysisRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        # noqa: S608 - Internal IDs are safe for simple interpolation here
+
         query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"
         raw_con.execute(query, ids)
 

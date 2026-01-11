@@ -1,8 +1,11 @@
 """Domain entities for CausaGanha."""
 
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
+
+from causaganha.analysis.models import DecisionAnalysis
 
 
 class Lawyer(BaseModel):
@@ -43,3 +46,22 @@ class Intimation(BaseModel):
     # Relationships
     advogados: list[Lawyer] = Field(default_factory=list)
     partes: list[Party] = Field(default_factory=list)
+
+
+class AnalysisResult(BaseModel):
+    """Result of an analysis."""
+    intimation_id: int
+    analysis: DecisionAnalysis
+    analyzed_at: datetime
+    scored: bool = False
+    id: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for storage."""
+        data = self.analysis.model_dump(exclude={"acordao", "tribunal", "decision_date"})
+        data["intimation_id"] = self.intimation_id
+        data["analyzed_at"] = self.analyzed_at
+        data["scored"] = self.scored
+        if self.id:
+            data["id"] = self.id
+        return data

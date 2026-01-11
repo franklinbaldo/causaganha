@@ -15,7 +15,8 @@ from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
 
 
 structlog.configure(
@@ -39,6 +40,7 @@ async def main() -> None:
     con = get_connection(str(db_path))
     # Schema should already exist from collection step
     repository = IntimationRepository(con)
+    analysis_repository = AnalysisRepository(con)
     doc_service = DocumentService()
 
     # Check for API key
@@ -50,6 +52,7 @@ async def main() -> None:
     try:
         await run_analysis(
             repository=repository,
+            analysis_repository=analysis_repository,
             doc_service=doc_service,
             analyzer=analyzer,
             limit=args.limit,
