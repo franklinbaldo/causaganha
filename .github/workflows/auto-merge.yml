@@ -16,7 +16,8 @@ jobs:
     if: |
       github.actor == 'google-labs-jules[bot]' ||
       github.actor == 'dependabot[bot]' ||
-      github.actor == 'renovate[bot]'
+      github.actor == 'renovate[bot]' ||
+      github.actor == 'github-actions[bot]'
 
     steps:
       - name: Convert draft to ready for review
