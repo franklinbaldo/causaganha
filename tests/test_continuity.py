@@ -2,9 +2,9 @@ from datetime import datetime
 
 import pytest
 
-from causaganha.pipeline.continuity import ContinuityManager
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
+from causaganha.application.pipeline.continuity import ContinuityManager
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 @pytest.fixture

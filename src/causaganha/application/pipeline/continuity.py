@@ -2,8 +2,8 @@ from datetime import datetime
 
 from ibis import BaseBackend
 
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 class ContinuityManager:

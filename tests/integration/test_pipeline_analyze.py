@@ -4,21 +4,23 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
 from causaganha.domain.models import Intimation
-from causaganha.pipeline.analyze import run_analysis
-from causaganha.storage.repository import IntimationRepository
+from causaganha.application.pipeline.analyze import run_analysis
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.mark.asyncio
 async def test_run_analysis_success(tmp_path: Path) -> None:
-    from causaganha.storage.connection import get_connection
-    from causaganha.storage.schema import create_schema
+    from causaganha.infrastructure.storage.connection import get_connection
+    from causaganha.infrastructure.storage.schema import create_schema
 
     db_path = tmp_path / "test.duckdb"
     con = get_connection(str(db_path))
     create_schema(con)
     repository = IntimationRepository(con)
+    from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+    analysis_repo = AnalysisRepository(con)
 
     # 1. Seed DB with unanalyzed intimation
     # Correctly using Domain Model for seeding via Repository
@@ -57,6 +59,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     # Run
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repo,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
         limit=1,

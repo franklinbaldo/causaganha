@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.cloud.db import COLLECTION_NAME
+from causaganha.infrastructure.cloud.db import COLLECTION_NAME
 
 # Import the module to test.
-from causaganha.cloud.functions import llm
+from causaganha.infrastructure.cloud.functions import llm
 
 
 @pytest.fixture(autouse=True)
@@ -24,20 +24,20 @@ def mock_env_vars():
 
 @pytest.fixture
 def mock_firestore():
-    with patch("causaganha.cloud.functions.llm.get_firestore_client") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.llm.get_firestore_client") as mock:
         client = MagicMock()
         mock.return_value = client
         yield client
 
 @pytest.fixture
 def mock_acquire_lock():
-    with patch("causaganha.cloud.functions.llm.acquire_lock") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.llm.acquire_lock") as mock:
         mock.return_value = True
         yield mock
 
 @pytest.fixture
 def mock_httpx():
-    with patch("causaganha.cloud.functions.llm.httpx.AsyncClient") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.llm.httpx.AsyncClient") as mock:
         client = AsyncMock()
         client.__aenter__.return_value = client
         client.__aexit__.return_value = None
@@ -53,7 +53,7 @@ def mock_httpx():
 
 @pytest.fixture
 def mock_analyzer():
-    with patch("causaganha.cloud.functions.llm.DecisionAnalyzer") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.llm.DecisionAnalyzer") as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance
 
@@ -66,14 +66,14 @@ def mock_analyzer():
 
 @pytest.fixture
 def mock_archive_service():
-    with patch("causaganha.cloud.functions.llm.InternetArchiveService") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.llm.InternetArchiveService") as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance
         yield instance
 
 @pytest.fixture
 def mock_tasks_client():
-    with patch("causaganha.cloud.functions.llm.tasks_v2.CloudTasksClient") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.llm.tasks_v2.CloudTasksClient") as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance
         yield instance

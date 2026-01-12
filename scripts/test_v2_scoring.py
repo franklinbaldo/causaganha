@@ -11,8 +11,8 @@ import structlog
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.pipeline.score import run_scoring
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 structlog.configure(

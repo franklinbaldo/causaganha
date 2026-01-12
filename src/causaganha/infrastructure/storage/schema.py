@@ -2,7 +2,7 @@
 
 from ibis import BaseBackend
 
-from causaganha.storage.schema_definitions import (
+from causaganha.infrastructure.storage.schema_definitions import (
     ANALYSIS_RESULTS_SCHEMA,
     INTIMATION_LAWYERS_SCHEMA,
     INTIMATIONS_SCHEMA,

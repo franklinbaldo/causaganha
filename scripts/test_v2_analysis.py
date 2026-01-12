@@ -14,8 +14,8 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.pipeline.analyze import run_analysis
 from causaganha.services.document import DocumentService
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 structlog.configure(

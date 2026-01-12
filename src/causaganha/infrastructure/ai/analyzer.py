@@ -2,7 +2,7 @@
 import structlog
 from pydantic_ai import Agent, BinaryContent
 
-from causaganha.analysis.models import DecisionAnalysis
+from causaganha.domain.models_analysis import DecisionAnalysis
 
 
 logger = structlog.get_logger()

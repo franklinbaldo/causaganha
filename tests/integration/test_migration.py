@@ -7,8 +7,8 @@ import duckdb
 # Ensure scripts is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from causaganha.storage.connection import get_connection
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.schema import create_schema
 from scripts.migrate_v1_to_v2 import migrate_ratings, parse_v1_lawyer_id
 
 

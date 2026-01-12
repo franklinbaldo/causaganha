@@ -5,10 +5,10 @@ from typing import Any
 
 import structlog
 
-from causaganha.services.archive import ArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.services.preservation import PreservationService
-from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.clients.archive import ArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.clients.preservation import PreservationService
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()

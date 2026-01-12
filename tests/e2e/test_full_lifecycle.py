@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from causaganha.cli import app
 from causaganha.domain.models import Intimation
-from causaganha.storage.connection import get_connection
+from causaganha.infrastructure.storage.connection import get_connection
 
 
 runner = CliRunner()

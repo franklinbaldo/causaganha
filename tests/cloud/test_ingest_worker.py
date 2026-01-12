@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 # Import module under test
-from causaganha.cloud.functions import ingest
+from causaganha.infrastructure.cloud.functions import ingest
 
 
 @pytest.fixture(autouse=True)
@@ -18,27 +18,27 @@ def mock_env_vars():
 
 @pytest.fixture
 def mock_firestore():
-    with patch("causaganha.cloud.functions.ingest.get_firestore_client") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.get_firestore_client") as mock:
         client = MagicMock()
         mock.return_value = client
         yield client
 
 @pytest.fixture
 def mock_publisher():
-    with patch("causaganha.cloud.functions.ingest.pubsub_v1.PublisherClient") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.pubsub_v1.PublisherClient") as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance
         yield instance
 
 @pytest.fixture
 def mock_acquire_lock():
-    with patch("causaganha.cloud.functions.ingest.acquire_lock") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.acquire_lock") as mock:
         mock.return_value = True
         yield mock
 
 @pytest.fixture
 def mock_doc_service():
-    with patch("causaganha.cloud.functions.ingest.DocumentService") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.DocumentService") as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance
         instance.download_pdf.return_value = b"%PDF-1.4 fake content"
@@ -46,7 +46,7 @@ def mock_doc_service():
 
 @pytest.fixture
 def mock_archive_service():
-    with patch("causaganha.cloud.functions.ingest.InternetArchiveService") as mock_cls:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService") as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance
         instance.upload_file.return_value = "https://archive.org/details/test_id"
@@ -88,12 +88,16 @@ async def test_ingest_worker_success(
 
     # Verify Upload
     mock_archive_service.upload_file.assert_called_once()
-    _args, kwargs = mock_archive_service.upload_file.call_args
-    assert kwargs["item_id"] == "causaganha-test_doc_key" # truncated key
-    assert kwargs["metadata"]["url"] == "http://court.gov.br/doc.pdf"
+    args, _kwargs = mock_archive_service.upload_file.call_args
+    # upload_file takes positional args: (file_path, item_id, metadata)
+    file_path = args[0]
+    item_id = args[1]
+    metadata = args[2]
+
+    assert item_id == "causaganha-test_doc_key" # truncated key
+    assert metadata["url"] == "http://court.gov.br/doc.pdf"
 
     # Verify Filename Contract (Must be document.pdf)
-    file_path = kwargs["file_path"]
     assert str(file_path).endswith("document.pdf")
 
     # Verify Status Update

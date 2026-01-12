@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from causaganha.analysis.models import Outcome
+from causaganha.domain.models_analysis import Outcome
 from causaganha.schemas.orchestrator import LawyerInfo, ParquetSchema
 
 

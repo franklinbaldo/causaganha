@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
 
 
 def test_decision_analysis_model_creation() -> None:

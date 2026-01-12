@@ -6,15 +6,15 @@ from typing import Any
 import structlog
 from google.cloud import pubsub_v1
 
-from causaganha.cloud.db import (
+from causaganha.infrastructure.cloud.db import (
     COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
 )
 from causaganha.config import settings
-from causaganha.services.archive import InternetArchiveService, LocalArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.services.preservation import PreservationService
+from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.clients.preservation import PreservationService
 
 
 logger = structlog.get_logger()

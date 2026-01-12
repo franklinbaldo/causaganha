@@ -5,8 +5,8 @@ from typing import Any
 import structlog
 from google.cloud import pubsub_v1
 
-from causaganha.cloud.db import COLLECTION_NAME, DocState, compute_doc_key, get_firestore_client
-from causaganha.integrations.pje.client import PJeAPIClient
+from causaganha.infrastructure.cloud.db import COLLECTION_NAME, DocState, compute_doc_key, get_firestore_client
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 
 
 logger = structlog.get_logger()

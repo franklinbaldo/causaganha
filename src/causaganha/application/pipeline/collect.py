@@ -2,8 +2,8 @@ from datetime import date
 
 import structlog
 
-from causaganha.integrations.pje.client import PJeAPIClient
-from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
