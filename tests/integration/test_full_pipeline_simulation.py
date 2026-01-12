@@ -15,7 +15,9 @@ from causaganha.pipeline.score import run_scoring
 from causaganha.services.archive import InternetArchiveService
 from causaganha.services.document import DocumentService
 from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
+from causaganha.storage.repositories.analysis import AnalysisRepository
+from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.storage.schema import create_schema
 
 
@@ -34,6 +36,20 @@ def repository(test_db):
     """Create repository with test database."""
     _, con = test_db
     return IntimationRepository(con)
+
+
+@pytest.fixture
+def analysis_repository(test_db):
+    """Create analysis repository."""
+    _, con = test_db
+    return AnalysisRepository(con)
+
+
+@pytest.fixture
+def lawyer_rating_repository(test_db):
+    """Create lawyer rating repository."""
+    _, con = test_db
+    return LawyerRatingRepository(con)
 
 
 @pytest.fixture
@@ -107,6 +123,8 @@ class TestFullPipelineSimulation:
     async def test_complete_pipeline_collect_to_score(
         self,
         repository,
+        analysis_repository,
+        lawyer_rating_repository,
         test_db,
         realistic_intimation_data,
         mock_pdf_content,
@@ -207,6 +225,7 @@ class TestFullPipelineSimulation:
                 # Run analysis
                 await run_analysis(
                     repository,
+                    analysis_repository,
                     doc_service,
                     analyzer,
                     limit=10,
@@ -222,7 +241,7 @@ class TestFullPipelineSimulation:
         # STEP 4: SCORE - Calculate Ratings
         # ==========================================
         # Run scoring
-        await run_scoring(repository, limit=100)
+        await run_scoring(analysis_repository, lawyer_rating_repository, limit=100)
 
         # Verify ratings were calculated
         ratings = con.table("lawyer_ratings").execute()

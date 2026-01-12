@@ -69,10 +69,12 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     real_client = PJeAPIClient()
 
     # Prepare the mock response structure
+    # realistic_data is the full JSON dict from the file, containing "items" list
+    items_list = realistic_data.get("items", [])
     mock_response = {
         "status": "success",
-        "count": len(realistic_data),
-        "items": realistic_data,
+        "count": len(items_list),
+        "items": items_list,
     }
 
     with patch.object(real_client.client, "get") as mock_get:
@@ -93,17 +95,21 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         )
 
     # Verify Collection
+    # The JSON data has 300 items. The limit=100 in get_unanalyzed_intimations will return 100.
     intimations = await repository.get_unanalyzed_intimations(limit=100)
-    assert len(intimations) == 2
-    # Verify the first intimation process number (allowing for random order in list)
-    process_numbers = [i["numero_processo"] for i in intimations]
-    assert "70009673320258220010" in process_numbers
+    assert len(intimations) == 100
+    # Verify a known process number from sample_intimacoes.json (id 210744246)
+    process_numbers = [i.numero_processo for i in intimations]
+    assert "70127110520238220007" in process_numbers
 
     # Verify Lawyer Association
     # (Checking DB directly via Ibis to ensure table population)
     lawyers = db_connection.table("intimation_lawyers").execute()
     assert len(lawyers) > 0
-    assert "6475A" in lawyers["oab_number"].values
+    # In sample_intimacoes.json, item with id 210762465 has lawyer "5871" (Renato Chagas)
+    # Let's check for a known OAB present in the data.
+    # From traceback: 9173, 3412, 660, 10776...
+    assert "9173" in lawyers["oab_number"].values
 
     # --- STAGE 2: ANALYSIS ---
 
@@ -119,15 +125,15 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     analysis_results = [
         DecisionAnalysis(
-            winner_lawyer_oab="6475A",
-            winner_lawyer_state="RO",
+            winner_lawyer_oab="9173", # Using a known lawyer from dataset
+            winner_lawyer_state="ES",
             winner_party_name="JUAREZ MOREIRA DE SOUZA",
             loser_lawyer_oab="9999", # Unknown/Other
             loser_lawyer_state="RO",
             loser_party_name="BANCO X",
             decision_type="Sentença",
-                outcome=Outcome.WIN,
-                summary="Summary 1",
+            outcome=Outcome.WIN,
+            summary="Summary 1",
             judge_name="Dr. Judge",
             decision_reasoning="Reasoning...",
             confidence_score=0.95,
@@ -140,8 +146,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="JOAO DA SILVA",
             decision_type="Decisão",
-                outcome=Outcome.WIN,
-                summary="Summary 2",
+            outcome=Outcome.WIN,
+            summary="Summary 2",
             judge_name="Dr. Judge 2",
             decision_reasoning="Reasoning 2...",
             confidence_score=0.90,
@@ -149,24 +155,41 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     ]
 
     # The pipeline calls analyze_decision (via process_item)
-    mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
+    # Configure the mock to return the results sequentially
+    mock_analyzer.analyze_decision.side_effect = analysis_results
+
+    # We need to ensure we don't exhaust the iterator if batch size or concurrency causes extra calls
+    # But with limit=2, it should be exactly 2 calls.
+
+    # For analysis, we need AnalysisRepository
+    from causaganha.storage.repositories.analysis import AnalysisRepository
+    analysis_repo = AnalysisRepository(db_connection)
 
     await run_analysis(
         repository=repository,
+        analysis_repository=analysis_repo,
         doc_service=mock_doc_service,
         analyzer=mock_analyzer,
-        limit=10,
+        limit=2,
     )
 
     # Verify Analysis Storage
     analyzed_items = db_connection.table("analysis_results").execute()
     assert len(analyzed_items) == 2
-    assert "6475A" in analyzed_items["winner_lawyer_oab"].values
+    assert "9173" in analyzed_items["winner_lawyer_oab"].values
 
     # --- STAGE 3: SCORING ---
 
+    # For scoring, we need AnalysisRepository and LawyerRatingRepository
+    from causaganha.storage.repositories.analysis import AnalysisRepository
+    from causaganha.storage.repositories.lawyer import LawyerRatingRepository
+
+    analysis_repo = AnalysisRepository(db_connection)
+    lawyer_repo = LawyerRatingRepository(db_connection)
+
     await run_scoring(
-        repository=repository,
+        analysis_repository=analysis_repo,
+        rating_repository=lawyer_repo,
         limit=100,
     )
 
@@ -174,7 +197,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     ratings = db_connection.table("lawyer_ratings").execute()
     assert len(ratings) > 0
 
-    # Lawyer 6475A won, so mu should be > 25
-    lawyer_a = ratings[ratings["oab_number"] == "6475A"].iloc[0]
+    # Lawyer 9173 won, so mu should be > 25
+    lawyer_a = ratings[ratings["oab_number"] == "9173"].iloc[0]
     assert lawyer_a["mu"] > 25.0
     assert lawyer_a["wins"] == 1

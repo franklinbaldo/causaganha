@@ -54,27 +54,49 @@ class IntimationRepository:
 
         data = [self._intimation_to_db(i) for i in intimations]
 
-        # Using memtable to insert data
-        t = ibis.memtable(data)
-        self.con.insert("intimations", t)
+        # Using native DuckDB connection for UPSERT (ON CONFLICT) support
+        # Ibis insert() doesn't support ON CONFLICT yet
+        raw_con = self.con.con
 
-        # Also store lawyers if present
-        lawyers_data = []
+        # 1. Insert Intimations
+        for item in data:
+            # We construct the query manually for now to support ON CONFLICT
+            # Note: In a real scenario with many rows, we would use executemany or appender
+            # But for simplicity and correctness with ON CONFLICT:
+            keys = list(item.keys())
+            placeholders = ", ".join(["?" for _ in keys])
+            columns = ", ".join(keys)
+
+            sql = f"""
+                INSERT INTO intimations ({columns})
+                VALUES ({placeholders})
+                ON CONFLICT (id) DO UPDATE SET
+                    updated_at = now(),
+                    status = excluded.status
+            """
+            try:
+                raw_con.execute(sql, list(item.values()))
+            except Exception as e:
+                # Log error but continue? Or raise?
+                # Ideally we want to fail if DB is broken, but maybe skip bad rows?
+                # For now let's raise to see issues in tests
+                raise e
+
+        # 2. Insert Lawyers
         for intimation in intimations:
-            lawyers_data.extend([
-                {
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A",  # Default for now, should extract if available
-                }
-                for lawyer in intimation.advogados
-            ])
-
-        if lawyers_data:
-            t_lawyers = ibis.memtable(lawyers_data)
-            self.con.insert("intimation_lawyers", t_lawyers)
+            for lawyer in intimation.advogados:
+                sql_lawyer = """
+                    INSERT OR IGNORE INTO intimation_lawyers
+                    (intimation_id, oab_number, oab_state, lawyer_name, polo)
+                    VALUES (?, ?, ?, ?, ?)
+                """
+                raw_con.execute(sql_lawyer, [
+                    intimation.id,
+                    lawyer.numero_oab,
+                    lawyer.uf_oab,
+                    lawyer.nome,
+                    "A" # Default polo
+                ])
 
     async def store_intimations(self, intimations: list[Intimation]) -> None:
         """Store a list of intimations in the database asynchronously.

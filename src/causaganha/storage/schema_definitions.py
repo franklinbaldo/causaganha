@@ -11,6 +11,10 @@ INTIMATIONS_SCHEMA = ibis.schema({
     "data_disponibilizacao": "string",
     "sigla_tribunal": "string",
 
+    # Metadata for tracking
+    "created_at": "timestamp",
+    "updated_at": "timestamp",
+
     # Communication details
     "tipo_comunicacao": "string",
     "nome_orgao": "string",
