@@ -7,16 +7,16 @@ from urllib.parse import urlparse
 import pytest
 
 from causaganha.domain.models import Intimation
-from causaganha.integrations.pje.client import PJeAPIClient
-from causaganha.pipeline.analyze import run_analysis
-from causaganha.pipeline.archive import run_archive
-from causaganha.pipeline.collect import run_collection
-from causaganha.pipeline.score import run_scoring
-from causaganha.services.archive import InternetArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
+from causaganha.application.pipeline.analyze import run_analysis
+from causaganha.application.pipeline.archive import run_archive
+from causaganha.application.pipeline.collect import run_collection
+from causaganha.application.pipeline.score import run_scoring
+from causaganha.infrastructure.clients.archive import InternetArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 @pytest.fixture
@@ -193,7 +193,7 @@ class TestFullPipelineSimulation:
         # STEP 3: ANALYZE - Simulate LLM Analysis
         # ==========================================
         # Mock the entire analysis call to avoid needing API keys
-        with patch("causaganha.pipeline.analyze.DecisionAnalyzer") as MockAnalyzer:
+        with patch("causaganha.application.pipeline.analyze.DecisionAnalyzer") as MockAnalyzer:
             mock_analyzer_instance = AsyncMock()
             mock_analyzer_instance.analyze_decision.return_value = mock_llm_analysis
             MockAnalyzer.return_value = mock_analyzer_instance
@@ -205,8 +205,11 @@ class TestFullPipelineSimulation:
                 analyzer = MockAnalyzer()
 
                 # Run analysis
+                from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+                analysis_repo = AnalysisRepository(con)
                 await run_analysis(
                     repository,
+                    analysis_repo,
                     doc_service,
                     analyzer,
                     limit=10,
@@ -222,7 +225,9 @@ class TestFullPipelineSimulation:
         # STEP 4: SCORE - Calculate Ratings
         # ==========================================
         # Run scoring
-        await run_scoring(repository, limit=100)
+        from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
+        rating_repo = LawyerRatingRepository(con)
+        await run_scoring(analysis_repo, rating_repo, limit=100)
 
         # Verify ratings were calculated
         ratings = con.table("lawyer_ratings").execute()

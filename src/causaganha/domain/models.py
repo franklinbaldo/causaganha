@@ -40,6 +40,11 @@ class Intimation(BaseModel):
     hash: str
     status: str | None = None
 
+    # Optional fields required for PJe compatibility
+    meio: str | None = None
+    ativo: bool | None = None
+    meiocompleto: str | None = None
+
     # Relationships
     advogados: list[Lawyer] = Field(default_factory=list)
     partes: list[Party] = Field(default_factory=list)

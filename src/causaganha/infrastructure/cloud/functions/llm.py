@@ -13,13 +13,13 @@ import structlog
 from google.cloud import firestore, tasks_v2
 from google.protobuf import timestamp_pb2
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.cloud.db import (
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
+from causaganha.infrastructure.cloud.db import (
     COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
 )
-from causaganha.services.archive import InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
 
 
 logger = structlog.get_logger()

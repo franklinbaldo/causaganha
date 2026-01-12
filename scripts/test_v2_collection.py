@@ -13,9 +13,9 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.integrations.pje.client import PJeAPIClient
 from causaganha.pipeline.collect import run_collection
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 structlog.configure(

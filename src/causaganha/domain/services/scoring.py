@@ -4,9 +4,9 @@ from typing import Any
 
 import structlog
 
-from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.lawyer import LawyerRatingRepository
+from causaganha.domain.scoring.openskill import create_rating, get_openskill_model, rate_teams
+from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
 
 
 logger = structlog.get_logger()

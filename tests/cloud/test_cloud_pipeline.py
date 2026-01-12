@@ -11,8 +11,8 @@ from causaganha.domain.models import Intimation
 # Mocks for GCP services
 @pytest.fixture
 def mock_firestore():
-    # Patching firestore.AsyncClient inside causaganha.cloud.db
-    with patch("causaganha.cloud.db.firestore.AsyncClient") as mock:
+    # Patching firestore.AsyncClient inside causaganha.infrastructure.cloud.db
+    with patch("causaganha.infrastructure.cloud.db.firestore.AsyncClient") as mock:
         yield mock
 
 @pytest.fixture
@@ -27,23 +27,23 @@ def mock_pubsub_ingest():
 
 @pytest.fixture
 def mock_pje_client():
-    with patch("causaganha.integrations.pje.client.PJeAPIClient") as mock:
+    with patch("causaganha.infrastructure.integrations.pje.client.PJeAPIClient") as mock:
         yield mock
 
 @pytest.fixture
 def mock_doc_service():
-    # Patch where it is used: causaganha.cloud.functions.ingest
-    with patch("causaganha.cloud.functions.ingest.DocumentService") as mock:
+    # Patch where it is used: causaganha.infrastructure.cloud.functions.ingest
+    with patch("causaganha.infrastructure.cloud.functions.ingest.DocumentService") as mock:
         yield mock
 
 @pytest.fixture
 def mock_ia_service():
-    with patch("causaganha.cloud.functions.ingest.InternetArchiveService") as mock:
+    with patch("causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService") as mock:
         yield mock
 
 @pytest.mark.asyncio
 async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> None:
-    from causaganha.cloud.functions.scheduler import scheduler_tick
+    from causaganha.infrastructure.cloud.functions.scheduler import scheduler_tick
 
     # Setup PJe mock
     mock_client_instance = mock_pje_client.return_value
@@ -97,7 +97,7 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
 
 @pytest.mark.asyncio
 async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service) -> None:
-    from causaganha.cloud.functions.ingest import ingest_worker
+    from causaganha.infrastructure.cloud.functions.ingest import ingest_worker
 
     # Input event
     doc_key = "test_key"
@@ -122,7 +122,7 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
     # Setup get to be awaitable
     mock_doc_ref.get = AsyncMock(return_value=mock_snapshot)
 
-    with patch("causaganha.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock) as mock_lock, \
+    with patch("causaganha.infrastructure.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock) as mock_lock, \
          patch("causaganha.config.settings.IA_ACCESS_KEY", "test"), \
          patch("causaganha.config.settings.TOPIC_LLM", "projects/test/topics/llm"):
 

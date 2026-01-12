@@ -4,8 +4,8 @@ from pathlib import Path
 
 import structlog
 
-from causaganha.services.archive import ArchiveService
-from causaganha.services.document import DocumentService
+from causaganha.infrastructure.clients.archive import ArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
 
 
 logger = structlog.get_logger()

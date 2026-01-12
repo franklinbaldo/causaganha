@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.analysis.models import DecisionAnalysis, Outcome
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
+from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
 
 
 @pytest.fixture
 def mock_agent() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.analysis.analyzer.Agent") as mock:
+    with patch("causaganha.infrastructure.ai.analyzer.Agent") as mock:
         yield mock
 
 

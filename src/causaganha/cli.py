@@ -7,21 +7,21 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.config import DB_PATH, settings
-from causaganha.integrations.pje.client import PJeAPIClient
-from causaganha.pipeline.analyze import run_analysis
-from causaganha.pipeline.archive import run_archive
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
+from causaganha.application.pipeline.analyze import run_analysis
+from causaganha.application.pipeline.archive import run_archive
 from causaganha.schemas.orchestrator import ParquetSchema
-from causaganha.pipeline.collect import run_collection
-from causaganha.pipeline.score import run_scoring
-from causaganha.services.archive import create_archive_service
-from causaganha.services.document import DocumentService
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.intimation import IntimationRepository
-from causaganha.storage.repositories.lawyer import LawyerRatingRepository
-from causaganha.storage.schema import create_schema
+from causaganha.application.pipeline.collect import run_collection
+from causaganha.application.pipeline.score import run_scoring
+from causaganha.infrastructure.clients.archive import create_archive_service
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 # Configure basic logging (can be enhanced later)

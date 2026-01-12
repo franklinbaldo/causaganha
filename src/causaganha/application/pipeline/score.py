@@ -3,8 +3,8 @@
 import structlog
 
 from causaganha.domain.services.scoring import ScoringService
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.lawyer import LawyerRatingRepository
+from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
 
 
 logger = structlog.get_logger()

@@ -1,7 +1,7 @@
 import ibis
 import pytest
 
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.schema import create_schema
 from causaganha.validation.validator import DataValidator
 
 

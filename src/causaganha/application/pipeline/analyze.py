@@ -4,12 +4,12 @@ from datetime import UTC, datetime
 
 import structlog
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.domain.factories import AnalysisResultFactory
 from causaganha.domain.models import Intimation
-from causaganha.services.document import DocumentService
-from causaganha.storage.repositories.analysis import AnalysisRepository
-from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()

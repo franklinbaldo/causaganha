@@ -5,9 +5,9 @@ from datetime import datetime
 import pytest
 
 from causaganha.domain.models import Intimation
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 @pytest.fixture

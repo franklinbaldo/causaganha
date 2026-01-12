@@ -8,9 +8,9 @@ import pytest
 from ibis import BaseBackend
 
 from causaganha.domain.models import Intimation, Lawyer, Party
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repositories.intimation import IntimationRepository
-from causaganha.storage.schema import create_schema
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 @pytest.fixture

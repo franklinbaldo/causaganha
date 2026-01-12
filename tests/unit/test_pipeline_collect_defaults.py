@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from causaganha.pipeline.collect import run_collection
+from causaganha.application.pipeline.collect import run_collection
 
 
 @pytest.mark.asyncio

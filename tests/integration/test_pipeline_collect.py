@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from causaganha.domain.models import Intimation
-from causaganha.pipeline.collect import run_collection
-from causaganha.storage.connection import get_connection
-from causaganha.storage.repository import IntimationRepository
-from causaganha.storage.schema import create_schema
+from causaganha.application.pipeline.collect import run_collection
+from causaganha.infrastructure.storage.connection import get_connection
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.storage.schema import create_schema
 
 
 @pytest.mark.asyncio

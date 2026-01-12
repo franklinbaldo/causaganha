@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.services.archive import ArchiveService, InternetArchiveService, LocalArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.storage.repositories.intimation import IntimationRepository
+from causaganha.infrastructure.clients.archive import ArchiveService, InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture
@@ -127,7 +127,7 @@ class TestUploadResilience:
     async def test_logs_upload_progress(self, ia_service: InternetArchiveService, temp_file: Path) -> None:
         """Should log upload progress for monitoring."""
         with patch.object(ia_service, "_sync_upload", return_value="https://archive.org/details/test"):
-            with patch("causaganha.services.archive.logger") as mock_logger:
+            with patch("causaganha.infrastructure.clients.archive.logger") as mock_logger:
                 await ia_service.upload_file(
                     temp_file,
                     "test-item",
@@ -228,7 +228,7 @@ class TestLocalArchiveHierarchicalStorage:
 
     @pytest.fixture
     def local_service(self, tmp_path: Path) -> LocalArchiveService:
-        from causaganha.services.archive import LocalArchiveService
+        from causaganha.infrastructure.clients.archive import LocalArchiveService
         return LocalArchiveService(archive_root=tmp_path)
 
     @pytest.fixture
@@ -297,7 +297,7 @@ async def test_archive_uses_correct_court_in_id(
     mock_repository: AsyncMock, mock_doc_service: AsyncMock, mock_archive_service: AsyncMock,
 ) -> None:
     """Test that the archive pipeline uses the correct tribunal in the item ID."""
-    from causaganha.pipeline.archive import run_archive
+    from causaganha.application.pipeline.archive import run_archive
 
     # Setup data
     intimation = {

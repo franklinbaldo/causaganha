@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.pipeline.archive import _process_intimation, run_archive
-from causaganha.services.archive import InternetArchiveService
-from causaganha.services.document import DocumentService
-from causaganha.storage.repository import IntimationRepository
+from causaganha.application.pipeline.archive import _process_intimation, run_archive
+from causaganha.infrastructure.clients.archive import InternetArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ async def test_run_archive_no_intimations(mock_repository, mock_doc_service, moc
 async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_service, tmp_path) -> None:
     """Test archive pipeline in dry run mode."""
     # Set up temp directory
-    with patch("causaganha.pipeline.archive.Path") as mock_path:
+    with patch("causaganha.application.pipeline.archive.Path") as mock_path:
         temp_dir = tmp_path / "temp"
         temp_dir.mkdir()
         mock_path.return_value = temp_dir

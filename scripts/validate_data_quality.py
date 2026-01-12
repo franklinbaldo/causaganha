@@ -14,7 +14,7 @@ import structlog
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.config import DB_PATH
-from causaganha.storage.connection import get_connection
+from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.validation.validator import DataValidator
 
 

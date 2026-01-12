@@ -8,7 +8,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-from causaganha.analysis.models import Outcome
+from causaganha.domain.models_analysis import Outcome
 
 
 class LawyerInfo(BaseModel):

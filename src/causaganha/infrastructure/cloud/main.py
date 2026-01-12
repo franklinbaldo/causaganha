@@ -1,8 +1,8 @@
 import functions_framework
 
-from causaganha.cloud.functions.ingest import ingest_worker
-from causaganha.cloud.functions.llm import llm_worker, process_llm
-from causaganha.cloud.functions.scheduler import scheduler_tick
+from causaganha.infrastructure.cloud.functions.ingest import ingest_worker
+from causaganha.infrastructure.cloud.functions.llm import llm_worker, process_llm
+from causaganha.infrastructure.cloud.functions.scheduler import scheduler_tick
 
 
 # Expose functions for Cloud Functions runtime

@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from causaganha.analysis.models import DecisionAnalysis
+from causaganha.domain.models_analysis import DecisionAnalysis
 from causaganha.domain.models import Intimation
 
 
