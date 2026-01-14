@@ -6,6 +6,7 @@ uv.lock
 
 # Data files
 data/*
+data/*.duckdb
 
 
 
