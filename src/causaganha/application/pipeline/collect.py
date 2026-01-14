@@ -2,14 +2,14 @@ from datetime import date
 
 import structlog
 
+from causaganha.domain.interfaces import IntimationRepositoryProtocol
 from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
-from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
 
 async def run_collection(
-    repository: IntimationRepository,
+    repository: IntimationRepositoryProtocol,
     client: PJeAPIClient,
     start_date: str,
     end_date: str,

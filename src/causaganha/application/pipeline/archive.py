@@ -5,17 +5,17 @@ from typing import Any
 
 import structlog
 
+from causaganha.domain.interfaces import IntimationRepositoryProtocol
 from causaganha.infrastructure.clients.archive import ArchiveService
 from causaganha.infrastructure.clients.document import DocumentService
 from causaganha.infrastructure.clients.preservation import PreservationService
-from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
 logger = structlog.get_logger()
 
 
 async def run_archive(
-    repository: IntimationRepository,
+    repository: IntimationRepositoryProtocol,
     doc_service: DocumentService,
     archive_service: ArchiveService,
     limit: int = 10,
@@ -66,7 +66,7 @@ async def _process_intimation(
     intimation: dict[str, Any],
     preservation_service: PreservationService,
     archive_service: ArchiveService,
-    repository: IntimationRepository,
+    repository: IntimationRepositoryProtocol,
     dry_run: bool,
 ) -> None:
     """Process a single intimation for archiving.
