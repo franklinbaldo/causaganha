@@ -195,25 +195,24 @@ class TestFullPipelineSimulation:
         # Mock the entire analysis call to avoid needing API keys
         with patch("causaganha.application.pipeline.analyze.DecisionAnalyzer") as MockAnalyzer:
             mock_analyzer_instance = AsyncMock()
-            mock_analyzer_instance.analyze_decision.return_value = mock_llm_analysis
+            mock_analyzer_instance.analyze_bulk.return_value = [mock_llm_analysis, mock_llm_analysis]
             MockAnalyzer.return_value = mock_analyzer_instance
 
-            with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download:
-                mock_download.return_value = mock_pdf_content
+            doc_service = DocumentService()
+            analyzer = MockAnalyzer()
 
-                doc_service = DocumentService()
-                analyzer = MockAnalyzer()
+            # Run analysis
+            from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+            analysis_repo = AnalysisRepository(con)
+            await run_analysis(
+                repository,
+                analysis_repo,
+                doc_service,
+                analyzer,
+                limit=10,
+            )
 
-                # Run analysis
-                from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
-                analysis_repo = AnalysisRepository(con)
-                await run_analysis(
-                    repository,
-                    analysis_repo,
-                    doc_service,
-                    analyzer,
-                    limit=10,
-                )
+            mock_analyzer_instance.analyze_bulk.assert_awaited_once()
 
         # Verify analyses were stored
         analyses = con.table("analysis_results").execute()

@@ -82,7 +82,7 @@ def test_full_lifecycle_e2e(
     mock_archive_service_instance.upload_file.return_value = "https://archive.org/details/mock_item"
 
     mock_analyzer_instance = AsyncMock()
-    mock_analyzer_instance.analyze_decision.return_value = mock_llm_analysis
+    mock_analyzer_instance.analyze_bulk.return_value = [mock_llm_analysis]
 
     # We need to patch the classes/factories in causaganha.cli
     with patch("causaganha.cli.DB_PATH", str(db_path)), \

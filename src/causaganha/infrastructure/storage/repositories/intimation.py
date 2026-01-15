@@ -53,24 +53,47 @@ class IntimationRepository:
             return
 
         data = [self._intimation_to_db(i) for i in intimations]
+        ids_to_insert = [d["id"] for d in data]
 
-        # Using memtable to insert data
-        t = ibis.memtable(data)
-        self.con.insert("intimations", t)
+        t_int = self.con.table("intimations")
+        
+        # Check for existing IDs to avoid duplicates
+        try:
+            # We fetch existing IDs that match the ones we want to insert
+            existing_ids_df = t_int.filter(t_int.id.isin(ids_to_insert)).select("id").execute()
+            existing_ids = set(existing_ids_df["id"].tolist())
+        except Exception:
+            # If table doesn't exist or other error, assume no duplicates (or let insert fail if it's a constraint)
+            # But normally the table should exist if we are here (migration runs on init)
+            existing_ids = set()
 
-        # Also store lawyers if present
+        new_data = [d for d in data if d["id"] not in existing_ids]
+
+        if new_data:
+            # Using memtable to insert data
+            t = ibis.memtable(new_data)
+            self.con.insert("intimations", t)
+
+        # Handle lawyers
+        # We delete existing lawyers for these intimations and re-insert to ensure consistency?
+        # Or just insert for new intimations?
+        # Let's just insert for the NEW intimations to be safe and simple.
+        
+        new_intimation_ids = {d["id"] for d in new_data}
+        
         lawyers_data = []
         for intimation in intimations:
-            lawyers_data.extend([
-                {
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A",  # Default for now, should extract if available
-                }
-                for lawyer in intimation.advogados
-            ])
+            if intimation.id in new_intimation_ids:
+                lawyers_data.extend([
+                    {
+                        "intimation_id": intimation.id,
+                        "oab_number": lawyer.numero_oab,
+                        "oab_state": lawyer.uf_oab,
+                        "lawyer_name": lawyer.nome,
+                        "polo": "A",  # Default for now, should extract if available
+                    }
+                    for lawyer in intimation.advogados
+                ])
 
         if lawyers_data:
             t_lawyers = ibis.memtable(lawyers_data)

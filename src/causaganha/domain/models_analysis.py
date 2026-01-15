@@ -30,3 +30,6 @@ class DecisionAnalysis(BaseModel):
     acordao: str | None = Field(None, description="The full text of the decision (e.g., 'Acórdão' or 'Sentença').")
     tribunal: str | None = Field(None, description="The court that issued the decision (e.g., 'TJRO').")
     decision_date: date | None = Field(None, description="The date of the decision.")
+
+class BatchDecisionAnalysis(BaseModel):
+    results: list[DecisionAnalysis] = Field(..., description="List of analysis results, one for each provided document, in the same order.")

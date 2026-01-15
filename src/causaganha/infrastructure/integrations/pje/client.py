@@ -1,5 +1,6 @@
 """PJe Communications API client with httpx."""
 
+import asyncio
 from datetime import date
 
 import httpx
@@ -116,17 +117,43 @@ class PJeAPIClient:
                 itens_por_pagina=itens_por_pagina,
             )
 
-            try:
-                response = await self.client.get(
-                    f"{self.base_url}/comunicacao",
-                    params=params,
-                )
-                response.raise_for_status()
-                data = response.json()
+            data = None
+            max_retries = 3
+            
+            for attempt in range(max_retries):
+                try:
+                    response = await self.client.get(
+                        f"{self.base_url}/comunicacao",
+                        params=params,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    break # Success
 
-            except httpx.HTTPError as e:
-                logger.exception("api_request_failed", error=str(e), params=params)
-                raise
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 429:
+                        wait_time = 60 
+                        logger.warning("rate_limit_hit", wait_seconds=wait_time, attempt=attempt+1)
+                        await asyncio.sleep(wait_time)
+                        if attempt == max_retries - 1:
+                            logger.exception("api_request_failed_after_retries", error=str(e), params=params)
+                            raise
+                        continue
+                    
+                    if e.response.status_code >= 500:
+                        wait_time = 5 * (attempt + 1)
+                        logger.warning("server_error_retrying", wait_seconds=wait_time, attempt=attempt+1)
+                        await asyncio.sleep(wait_time)
+                        if attempt == max_retries - 1:
+                            logger.exception("api_request_failed_after_retries", error=str(e), params=params)
+                            raise
+                        continue
+                        
+                    logger.exception("api_request_failed", error=str(e), params=params)
+                    raise
+                except httpx.RequestError as e:
+                    logger.exception("api_request_failed", error=str(e), params=params)
+                    raise
 
             # Validate and parse
             items = data.get("items", [])

@@ -22,45 +22,21 @@ async def run_analysis(
     limit: int = 10,
     batch_size: int = 5,
 ) -> None:
-    """Run the analysis pipeline.
+    """Run the analysis pipeline using bulk processing on decision text.
 
     1. Fetch unanalyzed intimations.
-    2. Download PDF.
-    3. Analyze with AI.
+    2. Collect text content from intimations.
+    3. Analyze with AI in bulk.
     4. Store results.
 
     Args:
         repository: Storage repository.
-        doc_service: Document service for downloads.
+        doc_service: Document service (unused now, kept for interface compatibility).
         analyzer: Decision analyzer service.
         limit: Total items to process.
         batch_size: Items per batch.
     """
-    logger.info("starting_analysis", limit=limit)
-
-    async def process_item(item: Intimation) -> dict | None:
-        intimation_id = item.id
-        link = item.link
-
-        logger.info("processing_intimation", id=intimation_id, link=link)
-
-        if not link:
-            logger.warning("missing_link", id=intimation_id)
-            return None
-
-        pdf_bytes = await doc_service.download_pdf(link)
-        if not pdf_bytes:
-            return AnalysisResultFactory.create_result(item, error="Download failed")
-
-        try:
-            analysis = await analyzer.analyze_decision(pdf_bytes)
-            logger.info("analysis_success", id=intimation_id, outcome=analysis.outcome)
-
-            return AnalysisResultFactory.create_result(item, analysis=analysis)
-
-        except Exception as e:
-            logger.exception("analysis_failed", id=intimation_id, error=str(e))
-            return AnalysisResultFactory.create_result(item, error=str(e))
+    logger.info("starting_analysis", limit=limit, batch_size=batch_size)
 
     processed = 0
     while processed < limit:
@@ -72,15 +48,68 @@ async def run_analysis(
             logger.info("no_more_items_to_analyze")
             break
 
-        # Process batch concurrently
-        tasks = [process_item(item) for item in items]
-        if tasks:
-            results = await asyncio.gather(*tasks)
-            valid_results = [r for r in results if r is not None]
+        logger.info("processing_batch", size=len(items))
 
-            # Store batch results
-            if valid_results:
-                await analysis_repository.store_analysis_results_batch(valid_results)
+        items_ready_for_analysis: list[tuple[Intimation, str]] = []
+        results_to_store = []
+
+        # 1. Filter valid content
+        for item in items:
+            if item.texto and item.texto.strip():
+                items_ready_for_analysis.append((item, item.texto))
+            else:
+                logger.warning("skipping_analysis_no_text", id=item.id)
+                results_to_store.append(
+                    AnalysisResultFactory.create_result(
+                        item,
+                        error="No text content available",
+                    ),
+                )
+
+        # 2. Bulk Analyze
+        if items_ready_for_analysis:
+            texts_to_analyze = [text for _, text in items_ready_for_analysis]
+            try:
+                analyses = await analyzer.analyze_bulk(texts_to_analyze)
+
+                # Check for mismatch
+                if len(analyses) != len(items_ready_for_analysis):
+                    logger.error(
+                        "analysis_count_mismatch",
+                        sent=len(items_ready_for_analysis),
+                        received=len(analyses),
+                    )
+                    # Fallback: Mark all as error to be safe
+                    for item, _ in items_ready_for_analysis:
+                        results_to_store.append(
+                            AnalysisResultFactory.create_result(
+                                item,
+                                error="Bulk analysis mismatch",
+                            ),
+                        )
+                else:
+                    # Map results
+                    for i, analysis in enumerate(analyses):
+                        item, _ = items_ready_for_analysis[i]
+                        logger.info("analysis_success", id=item.id, outcome=analysis.outcome)
+                        results_to_store.append(
+                            AnalysisResultFactory.create_result(item, analysis=analysis),
+                        )
+
+            except Exception as e:
+                logger.exception("bulk_analysis_failed", error=str(e))
+                # Mark all in this batch as failed
+                for item, _ in items_ready_for_analysis:
+                    results_to_store.append(
+                        AnalysisResultFactory.create_result(
+                            item,
+                            error=f"Bulk analysis exception: {str(e)}",
+                        ),
+                    )
+
+        # 3. Store Results
+        if results_to_store:
+            await analysis_repository.store_analysis_results_batch(results_to_store)
 
         processed += len(items)
 

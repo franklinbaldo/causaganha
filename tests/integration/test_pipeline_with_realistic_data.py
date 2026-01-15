@@ -154,7 +154,6 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     # Mock Document Service
     mock_doc_service = MagicMock(spec=DocumentService)
-    mock_doc_service.download_pdf.return_value = b"%PDF-1.4 dummy content"
 
     # Mock Analyzer
     mock_analyzer = MagicMock(spec=DecisionAnalyzer)
@@ -171,8 +170,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="BANCO X",
             decision_type="Sentença",
-                outcome=Outcome.WIN,
-                summary="Summary 1",
+            outcome=Outcome.WIN,
+            summary="Summary 1",
             judge_name="Dr. Judge",
             decision_reasoning="Reasoning...",
             confidence_score=0.95,
@@ -185,16 +184,15 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="JOAO DA SILVA",
             decision_type="Decisão",
-                outcome=Outcome.WIN,
-                summary="Summary 2",
+            outcome=Outcome.WIN,
+            summary="Summary 2",
             judge_name="Dr. Judge 2",
             decision_reasoning="Reasoning 2...",
             confidence_score=0.90,
         ),
     ]
 
-    # The pipeline calls analyze_decision (via process_item)
-    mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
+    mock_analyzer.analyze_bulk = AsyncMock(return_value=analysis_results)
 
     from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
     analysis_repo = AnalysisRepository(db_connection)
@@ -206,6 +204,9 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         analyzer=mock_analyzer,
         limit=10,
     )
+
+    mock_doc_service.download_pdf.assert_not_called()
+    mock_analyzer.analyze_bulk.assert_awaited_once()
 
     # Verify Analysis Storage
     analyzed_items = db_connection.table("analysis_results").execute()
