@@ -12,10 +12,10 @@ import structlog
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.pipeline.analyze import run_analysis
-from causaganha.services.document import DocumentService
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.pipeline.analyze import run_analysis
+from causaganha.services.document import DocumentService
 
 
 structlog.configure(
@@ -27,10 +27,13 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Analysis Pipeline")
     parser.add_argument("--limit", type=int, default=5, help="Number of items to analyze")
-    parser.add_argument("--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file")
+    parser.add_argument(
+        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+    )
     args = parser.parse_args()
 
     db_path = Path(args.db)
@@ -66,7 +69,11 @@ async def main() -> None:
         if count > 0:
             logger.info("sample", data=t.limit(1).execute().to_dict(orient="records"))
     except Exception:
-        logger.info("verification_no_table", msg="analysis_results table might be empty or not created if no analyses ran")
+        logger.info(
+            "verification_no_table",
+            msg="analysis_results table might be empty or not created if no analyses ran",
+        )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

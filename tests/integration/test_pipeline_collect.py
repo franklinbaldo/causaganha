@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from causaganha.domain.models import Intimation
 from causaganha.application.pipeline.collect import run_collection
+from causaganha.domain.models import Intimation
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.schema import create_schema

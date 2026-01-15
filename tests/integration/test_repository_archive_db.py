@@ -156,7 +156,9 @@ class TestRepositoryArchiveOperations:
         assert unarchived[0]["id"] == 20
 
     @pytest.mark.asyncio
-    async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(self, repository) -> None:
+    async def test_marking_as_archived_prevents_it_from_appearing_in_unarchived(
+        self, repository
+    ) -> None:
         """After marking as archived, intimation should not appear in get_unarchived_intimations."""
         # Arrange
         intimation = Intimation(

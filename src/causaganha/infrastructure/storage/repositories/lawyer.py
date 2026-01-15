@@ -27,9 +27,13 @@ class LawyerRatingRepository:
         states = [x[1] for x in oabs]
 
         try:
-            candidates = t_ratings.filter(
-                t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
-            ).execute().to_dict(orient="records")
+            candidates = (
+                t_ratings.filter(
+                    t_ratings.oab_number.isin(numbers) & t_ratings.oab_state.isin(states),
+                )
+                .execute()
+                .to_dict(orient="records")
+            )
         except Exception:
             return []
 
@@ -47,7 +51,8 @@ class LawyerRatingRepository:
 
         raw_con = self.con.con
         for r in ratings:
-            raw_con.execute("""
+            raw_con.execute(
+                """
                 INSERT INTO lawyer_ratings (
                     oab_number, oab_state, lawyer_name,
                     mu, sigma, last_updated,
@@ -64,11 +69,18 @@ class LawyerRatingRepository:
                     total_cases = EXCLUDED.total_cases,
                     wins = EXCLUDED.wins,
                     losses = EXCLUDED.losses
-            """, [
-                r["oab_number"], r["oab_state"], r.get("lawyer_name"),
-                r["mu"], r["sigma"],
-                r["total_cases"], r["wins"], r["losses"],
-            ])
+            """,
+                [
+                    r["oab_number"],
+                    r["oab_state"],
+                    r.get("lawyer_name"),
+                    r["mu"],
+                    r["sigma"],
+                    r["total_cases"],
+                    r["wins"],
+                    r["losses"],
+                ],
+            )
 
     async def save_lawyer_ratings(self, ratings: list[dict[str, Any]]) -> None:
         """Save updated lawyer ratings."""

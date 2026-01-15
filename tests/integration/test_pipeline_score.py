@@ -5,7 +5,6 @@ import pytest
 
 from causaganha.application.pipeline.score import run_scoring
 from causaganha.infrastructure.storage.connection import get_connection
-from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.schema import create_schema
 
 
@@ -20,6 +19,7 @@ async def test_run_scoring(tmp_path: Path) -> None:
     # except store_analysis_result which is async and internal to analyze.py (well, exposed in queries.py)
 
     from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+
     analysis_repo = AnalysisRepository(con)
 
     analysis_data = {

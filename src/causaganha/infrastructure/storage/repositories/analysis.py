@@ -75,7 +75,7 @@ class AnalysisRepository:
             f"UPDATE intimations SET analyzed = TRUE, "
             f"analyzed_at = ?, analysis_attempted_at = ? "
             f"WHERE id IN ({placeholders})"
-        )  # noqa: S608
+        )
 
         params = [analyzed_at, analyzed_at, *intimation_ids]
 
@@ -96,11 +96,15 @@ class AnalysisRepository:
 
         try:
             # Filter where scored is null or false, AND lawyers are identified
-            unscored = t_analysis.filter(
-                (t_analysis.scored.isnull()) | (~t_analysis.scored),
-            ).filter(
-                t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
-            ).limit(limit)
+            unscored = (
+                t_analysis.filter(
+                    (t_analysis.scored.isnull()) | (~t_analysis.scored),
+                )
+                .filter(
+                    t_analysis.winner_lawyer_oab.notnull() & t_analysis.loser_lawyer_oab.notnull(),
+                )
+                .limit(limit)
+            )
             return unscored.execute().to_dict(orient="records")
         except Exception:
             return []
@@ -115,7 +119,7 @@ class AnalysisRepository:
             return
         raw_con = self.con.con
         placeholders = ", ".join(["?"] * len(ids))
-        # noqa: S608 - Internal IDs are safe for simple interpolation here
+
         query = f"UPDATE analysis_results SET scored = TRUE WHERE id IN ({placeholders})"
         raw_con.execute(query, ids)
 

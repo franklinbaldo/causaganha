@@ -14,12 +14,12 @@ from google.cloud import firestore, tasks_v2
 from google.protobuf import timestamp_pb2
 
 from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
+from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
 from causaganha.infrastructure.cloud.db import (
     COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
 )
-from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
 
 
 logger = structlog.get_logger()
@@ -34,7 +34,7 @@ async def schedule_retry(doc_key: str, attempt: int) -> None:
     parent = client.queue_path(settings.GCP_PROJECT, settings.GCP_REGION, settings.TASKS_QUEUE)
 
     # Backoff: 5m, 15m, 60m...
-    delay_seconds = 300 * (3 ** (attempt - 1)) # 5m, 15m, 45m
+    delay_seconds = 300 * (3 ** (attempt - 1))  # 5m, 15m, 45m
     delay_seconds = min(delay_seconds, 86400)
 
     run_at = timestamp_pb2.Timestamp()
@@ -43,7 +43,7 @@ async def schedule_retry(doc_key: str, attempt: int) -> None:
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
-            "url": settings.FUNCTION_URL, # The HTTP trigger for this worker
+            "url": settings.FUNCTION_URL,  # The HTTP trigger for this worker
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"docKey": doc_key, "retry": True}).encode(),
         },
@@ -53,6 +53,7 @@ async def schedule_retry(doc_key: str, attempt: int) -> None:
     # Let exceptions propagate so caller can handle
     client.create_task(request={"parent": parent, "task": task})
     logger.info("retry_scheduled", doc_key=doc_key, delay=delay_seconds)
+
 
 async def process_llm(doc_key: str) -> None:
     logger.info("llm_worker_start", doc_key=doc_key)
@@ -89,7 +90,7 @@ async def process_llm(doc_key: str) -> None:
             pdf_bytes = resp.content
 
         # 3. Call Gemini
-        analyzer = DecisionAnalyzer() # Picks up env vars
+        analyzer = DecisionAnalyzer()  # Picks up env vars
         result = await analyzer.analyze_decision(pdf_bytes)
 
         # 4. Save LLM output
@@ -112,14 +113,16 @@ async def process_llm(doc_key: str) -> None:
                 metadata={"docKey": doc_key, "type": "llm_result"},
             )
         finally:
-             if tmp_path.exists():
+            if tmp_path.exists():
                 os.unlink(tmp_path)
 
         # 5. Mark Done
-        await doc_ref.update({
-            "status": "llm_done",
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        })
+        await doc_ref.update(
+            {
+                "status": "llm_done",
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+        )
         logger.info("llm_complete", doc_key=doc_key)
 
     except Exception as e:
@@ -130,8 +133,9 @@ async def process_llm(doc_key: str) -> None:
         try:
             await schedule_retry(doc_key, data.get("attempts", {}).get("llm", 0) + 1)
         except Exception as retry_err:
-             logger.exception("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
-             raise e # Raise original error to NACK
+            logger.exception("retry_schedule_failed_raising", doc_key=doc_key, error=str(retry_err))
+            raise e  # Raise original error to NACK
+
 
 async def llm_worker(event: dict | Any, context: Any = None) -> None:
     """Pub/Sub trigger (or HTTP if called by Cloud Tasks).

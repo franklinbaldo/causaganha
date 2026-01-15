@@ -16,14 +16,17 @@ def db_connection():
     # No explicit close needed for Ibis/DuckDB in-memory but good practice if supported
     # con.disconnect() or similar if needed, but usually GC handles it for in-memory
 
+
 @pytest.fixture
 def continuity_manager(db_connection):
     """Fixture to provide a ContinuityManager instance."""
     return ContinuityManager(con=db_connection)
 
+
 def test_is_done_initially_false(continuity_manager) -> None:
     """Test that is_done returns False for a new task."""
     assert continuity_manager.is_done("task_123", "collection") is False
+
 
 def test_mark_done(continuity_manager, db_connection) -> None:
     """Test that mark_done correctly records the task completion."""
@@ -43,6 +46,7 @@ def test_mark_done(continuity_manager, db_connection) -> None:
     assert rows.iloc[0]["step"] == step
     assert isinstance(rows.iloc[0]["timestamp"], datetime)
 
+
 def test_is_done_specific(continuity_manager) -> None:
     """Test that is_done is specific to task_id and step."""
     continuity_manager.mark_done("task_A", "step_1")
@@ -50,6 +54,7 @@ def test_is_done_specific(continuity_manager) -> None:
     assert continuity_manager.is_done("task_A", "step_1") is True
     assert continuity_manager.is_done("task_A", "step_2") is False
     assert continuity_manager.is_done("task_B", "step_1") is False
+
 
 def test_mark_done_idempotent(continuity_manager, db_connection) -> None:
     """Test that mark_done can be called multiple times without error (maybe update timestamp or ignore)."""

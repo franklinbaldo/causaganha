@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 from datetime import date, timedelta
@@ -7,21 +6,21 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.config import DB_PATH, settings
-from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.application.pipeline.analyze import run_analysis
 from causaganha.application.pipeline.archive import run_archive
-from causaganha.schemas.orchestrator import ParquetSchema
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
+from causaganha.config import DB_PATH, settings
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.infrastructure.clients.archive import create_archive_service
 from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.infrastructure.storage.schema import create_schema
+from causaganha.schemas.orchestrator import ParquetSchema
 
 
 # Configure basic logging (can be enhanced later)
@@ -74,6 +73,7 @@ def _get_repositories() -> tuple[IntimationRepository, AnalysisRepository, Lawye
         LawyerRatingRepository(con),
     )
 
+
 @app.command()
 def collect(
     start_date: str = typer.Option(
@@ -84,7 +84,9 @@ def collect(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: str | None = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
+    courts: str | None = typer.Option(
+        None, help="Comma-separated list of courts. Defaults to config."
+    ),
 ) -> None:
     """Collect intimations from PJe."""
     logger.info("collect_command_start")
@@ -102,7 +104,11 @@ def collect(
             ) as progress:
                 progress.add_task(description="Coletando intimações...", total=None)
                 await run_collection(
-                    repository, client, start_date, end_date, court_list,
+                    repository,
+                    client,
+                    start_date,
+                    end_date,
+                    court_list,
                 )
         finally:
             await client.close()
@@ -194,6 +200,7 @@ def score(
 
     asyncio.run(_run())
 
+
 @app.command()
 def pipeline(
     start_date: str = typer.Option(
@@ -204,7 +211,9 @@ def pipeline(
         date.today().isoformat(),
         help="End date (YYYY-MM-DD)",
     ),
-    courts: str | None = typer.Option(None, help="Comma-separated list of courts. Defaults to config."),
+    courts: str | None = typer.Option(
+        None, help="Comma-separated list of courts. Defaults to config."
+    ),
     analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
     archive_limit: int = typer.Option(10, help="Number of items to archive"),
     score_limit: int = typer.Option(100, help="Number of items to score"),
@@ -278,27 +287,29 @@ def pipeline(
 
     asyncio.run(_run())
 
+
 @app.command()
 def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
     """Database management commands."""
     logger.info("db_command", action=action)
     if action == "status":
-         con = get_connection(DB_PATH)
-         tables = con.list_tables()
-         typer.echo(f"Connected to DuckDB. Found tables: {tables}")
+        con = get_connection(DB_PATH)
+        tables = con.list_tables()
+        typer.echo(f"Connected to DuckDB. Found tables: {tables}")
     elif action == "init":
-         try:
-             typer.echo("Initializing database schema...")
-             con = get_connection(DB_PATH)
-             create_schema(con)
-             typer.echo("✅ Schema created successfully.")
-         except Exception as e:
-             _handle_error(e, "Initialization failed")
+        try:
+            typer.echo("Initializing database schema...")
+            con = get_connection(DB_PATH)
+            create_schema(con)
+            typer.echo("✅ Schema created successfully.")
+        except Exception as e:
+            _handle_error(e, "Initialization failed")
     else:
         typer.echo(f"Unknown action: {action}")
 
 
 manifest_app = typer.Typer(name="manifest", help="Manage and export data manifests.")
+
 
 @manifest_app.command("export")
 def manifest_export(
@@ -337,6 +348,7 @@ def manifest_export(
 
     asyncio.run(_export())
 
+
 app.add_typer(manifest_app)
 
 
@@ -348,6 +360,7 @@ def main(
     if verbose:
         # Reconfigure for verbose if needed, though dev renderer is already verbose-ish
         pass
+
 
 if __name__ == "__main__":
     app()

@@ -15,6 +15,8 @@ class Intimation(BaseModel):
     link: str | None = None
     tipo_documento: str | None = Field(default=None, alias="tipoDocumento")
     nome_classe: str | None = Field(default=None, alias="nomeClasse")
+    codigo_classe: str | None = Field(default=None, alias="codigoClasse")
+    id_orgao: int | None = Field(default=None, alias="idOrgao")
     hash: str | None = None
     status: str | None = None
     numero_processo: str | None = None

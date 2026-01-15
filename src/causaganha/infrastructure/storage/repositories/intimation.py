@@ -61,16 +61,18 @@ class IntimationRepository:
         # Also store lawyers if present
         lawyers_data = []
         for intimation in intimations:
-            lawyers_data.extend([
-                {
-                    "intimation_id": intimation.id,
-                    "oab_number": lawyer.numero_oab,
-                    "oab_state": lawyer.uf_oab,
-                    "lawyer_name": lawyer.nome,
-                    "polo": "A",  # Default for now, should extract if available
-                }
-                for lawyer in intimation.advogados
-            ])
+            lawyers_data.extend(
+                [
+                    {
+                        "intimation_id": intimation.id,
+                        "oab_number": lawyer.numero_oab,
+                        "oab_state": lawyer.uf_oab,
+                        "lawyer_name": lawyer.nome,
+                        "polo": "A",  # Default for now, should extract if available
+                    }
+                    for lawyer in intimation.advogados
+                ]
+            )
 
         if lawyers_data:
             t_lawyers = ibis.memtable(lawyers_data)

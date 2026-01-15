@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.domain.models_analysis import DecisionAnalysis
-from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.application.pipeline.analyze import run_analysis
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
+from causaganha.domain.models_analysis import DecisionAnalysis
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.schema import create_schema
@@ -46,10 +46,10 @@ def realistic_data():
                             "id": 123,
                             "nome": "ADVOGADO TESTE",
                             "numero_oab": "6475A",
-                            "uf_oab": "RO"
-                        }
-                    }
-                ]
+                            "uf_oab": "RO",
+                        },
+                    },
+                ],
             },
             {
                 "id": 1234568,
@@ -66,8 +66,8 @@ def realistic_data():
                 "codigo_classe": "156",
                 "hash": "hash2",
                 "destinatarios": [],
-                "destinatarioadvogados": []
-            }
+                "destinatarioadvogados": [],
+            },
         ]
     return json.loads(data_path.read_text())
 
@@ -125,8 +125,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         mock_get.return_value.raise_for_status = lambda: None
         # Mock getting an empty list for the second page to stop pagination
         mock_get.side_effect = [
-             MagicMock(json=lambda: mock_response, raise_for_status=lambda: None),
-             MagicMock(json=lambda: {"items": []}, raise_for_status=lambda: None),
+            MagicMock(json=lambda: mock_response, raise_for_status=lambda: None),
+            MagicMock(json=lambda: {"items": []}, raise_for_status=lambda: None),
         ]
 
         await run_collection(
@@ -167,12 +167,12 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             winner_lawyer_oab="6475A",
             winner_lawyer_state="RO",
             winner_party_name="JUAREZ MOREIRA DE SOUZA",
-            loser_lawyer_oab="9999", # Unknown/Other
+            loser_lawyer_oab="9999",  # Unknown/Other
             loser_lawyer_state="RO",
             loser_party_name="BANCO X",
             decision_type="Sentença",
-                outcome=Outcome.WIN,
-                summary="Summary 1",
+            outcome=Outcome.WIN,
+            summary="Summary 1",
             judge_name="Dr. Judge",
             decision_reasoning="Reasoning...",
             confidence_score=0.95,
@@ -185,8 +185,8 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
             loser_lawyer_state="RO",
             loser_party_name="JOAO DA SILVA",
             decision_type="Decisão",
-                outcome=Outcome.WIN,
-                summary="Summary 2",
+            outcome=Outcome.WIN,
+            summary="Summary 2",
             judge_name="Dr. Judge 2",
             decision_reasoning="Reasoning 2...",
             confidence_score=0.90,
@@ -197,6 +197,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
 
     from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+
     analysis_repo = AnalysisRepository(db_connection)
 
     await run_analysis(
@@ -215,6 +216,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
     # --- STAGE 3: SCORING ---
 
     from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
+
     rating_repo = LawyerRatingRepository(db_connection)
 
     await run_scoring(
