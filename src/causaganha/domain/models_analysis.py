@@ -30,3 +30,9 @@ class DecisionAnalysis(BaseModel):
     acordao: str | None = Field(None, description="The full text of the decision (e.g., 'Acórdão' or 'Sentença').")
     tribunal: str | None = Field(None, description="The court that issued the decision (e.g., 'TJRO').")
     decision_date: date | None = Field(None, description="The date of the decision.")
+
+    # Fields for ML-based winner prediction
+    ml_prediction: str | None = Field(None, description="The ML model's prediction of the winning side.")
+    ml_confidence: float | None = Field(None, description="Confidence score from the ML model.")
+    teacher_label: str | None = Field(None, description="The label provided by the LLM teacher.")
+    ml_model_version: str | None = Field(None, description="Version of the ML model used for prediction.")

@@ -113,9 +113,21 @@ def collect(
         _handle_error(e, "Collection failed")
 
 
+from enum import Enum
+
+class WinnerClassifierMode(str, Enum):
+    OFF = "off"
+    INFER = "infer"
+    TEACH = "teach"
+
 @app.command()
 def analyze(
     limit: int = typer.Option(10, help="Number of items to analyze"),
+    winner_classifier: WinnerClassifierMode = typer.Option(
+        WinnerClassifierMode.OFF,
+        help="Mode for the winner classifier: 'off', 'infer', or 'teach'.",
+        case_sensitive=False,
+    ),
 ) -> None:
     """Analyze decisions using LLM."""
     logger.info("analyze_command_start")
@@ -212,6 +224,11 @@ def pipeline(
     skip_archive: bool = typer.Option(False, help="Skip archive step"),
     skip_analyze: bool = typer.Option(False, help="Skip analysis step"),
     skip_score: bool = typer.Option(False, help="Skip scoring step"),
+    winner_classifier: WinnerClassifierMode = typer.Option(
+        WinnerClassifierMode.OFF,
+        help="Mode for the winner classifier: 'off', 'infer', or 'teach'.",
+        case_sensitive=False,
+    ),
 ) -> None:
     """Run the complete pipeline: collect → archive → analyze → score."""
     logger.info("pipeline_start")

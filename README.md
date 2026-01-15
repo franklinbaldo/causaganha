@@ -74,6 +74,23 @@ uv run causaganha collect --courts TJRO
 uv run causaganha archive --limit 10
 uv run causaganha analyze --limit 5
 uv run causaganha score
+
+### Análise com Classificador de Vencedor (ML)
+
+É possível ativar um modelo de Machine Learning para classificar a parte vencedora de uma decisão. Use a flag `--winner-classifier` nos comandos `analyze` e `pipeline`.
+
+- `--winner-classifier=infer`: Roda o modelo em modo de inferência, apenas para predição.
+- `--winner-classifier=teach`: Roda o modelo em modo de treinamento, onde o LLM atua como "professor" para novas decisões, melhorando o modelo continuamente.
+
+**Exemplo:**
+```bash
+# Rodar a análise com o classificador em modo de inferência
+uv run causaganha analyze --limit 20 --winner-classifier=infer
+
+# Rodar o pipeline completo com o classificador em modo de treinamento
+uv run causaganha pipeline --start-date 2024-12-01 --winner-classifier=teach
+```
+
 ```
 
 ## Variáveis de Ambiente

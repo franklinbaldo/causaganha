@@ -7,8 +7,11 @@ import structlog
 logger = structlog.get_logger()
 
 
+import io
+from PyPDF2 import PdfReader
+
 class DocumentService:
-    """Service for handling document operations like downloading."""
+    """Service for handling document operations like downloading and text extraction."""
 
     async def download_pdf(self, url: str) -> bytes | None:
         """Download PDF from URL.
@@ -31,3 +34,22 @@ class DocumentService:
             except Exception:
                 logger.exception("download_failed", url=url)
                 return None
+
+    async def extract_text_from_pdf(self, pdf_bytes: bytes) -> list[str]:
+        """Extracts text from PDF bytes, page by page.
+
+        Args:
+            pdf_bytes: The byte content of the PDF.
+
+        Returns:
+            A list of strings, where each string is the text of a page.
+        """
+        try:
+            with io.BytesIO(pdf_bytes) as f:
+                reader = PdfReader(f)
+                pages_text = [page.extract_text() for page in reader.pages]
+                return pages_text
+        except Exception:
+            logger.exception("pdf_text_extraction_failed")
+            return []
+
