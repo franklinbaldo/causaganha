@@ -90,10 +90,74 @@ async def test_analyze_decision_failure(mock_agent: MagicMock) -> None:
 
 
 @pytest.mark.asyncio
-async def test_analyze_batch_placeholder(mock_agent: MagicMock) -> None:
-    """Test batch analysis.
+async def test_analyze_batch_success(mock_agent: MagicMock) -> None:
+    """Test successful batch analysis."""
+    mock_result_data = DecisionAnalysis(
+        winner_lawyer_oab="12345",
+        winner_lawyer_state="RO",
+        winner_party_name="Winner",
+        loser_lawyer_oab="67890",
+        loser_lawyer_state="RO",
+        loser_party_name="Loser",
+        decision_type="Sentença",
+        outcome=Outcome.WIN,
+        summary="Summary",
+        judge_name="Judge",
+        decision_reasoning="Reasoning",
+        confidence_score=0.9,
+    )
 
-    Note: batch analysis is NOT yet implemented in DecisionAnalyzer class in this file version,
-    but it was in the plan. I will skip this test or remove it until implemented.
-    The current implementation only has `analyze_decision`.
-    """
+    mock_run_result = MagicMock()
+    mock_run_result.data = mock_result_data
+    instance = mock_agent.return_value
+    instance.run = AsyncMock(return_value=mock_run_result)
+
+    analyzer = DecisionAnalyzer()
+
+    # Analyze 2 items
+    pdf_contents = [b"pdf1", b"pdf2"]
+    results = await analyzer.analyze_batch(pdf_contents)
+
+    assert len(results) == 2
+    assert results[0] == mock_result_data
+    assert results[1] == mock_result_data
+    assert instance.run.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_analyze_batch_partial_failure(mock_agent: MagicMock) -> None:
+    """Test batch analysis with some failures."""
+    mock_result_data = DecisionAnalysis(
+        winner_lawyer_oab="12345",
+        winner_lawyer_state="RO",
+        winner_party_name="Winner",
+        loser_lawyer_oab="67890",
+        loser_lawyer_state="RO",
+        loser_party_name="Loser",
+        decision_type="Sentença",
+        outcome=Outcome.WIN,
+        summary="Summary",
+        judge_name="Judge",
+        decision_reasoning="Reasoning",
+        confidence_score=0.9,
+    )
+
+    mock_run_result = MagicMock()
+    mock_run_result.data = mock_result_data
+
+    instance = mock_agent.return_value
+    # First succeeds, second fails
+    instance.run = AsyncMock(side_effect=[mock_run_result, Exception("Failed")])
+
+    analyzer = DecisionAnalyzer()
+
+    pdf_contents = [b"pdf1", b"pdf2"]
+    # Should return results or exceptions?
+    # The plan says "return successful analyses" or "Union[Result, Exception]".
+    # Memory says: "Batch analysis methods (e.g., analyze_batch in analyzer.py) must return a list of Union[Result, Exception] matching the input order to preserve ID association"
+
+    results = await analyzer.analyze_batch(pdf_contents)
+
+    assert len(results) == 2
+    assert results[0] == mock_result_data
+    assert isinstance(results[1], Exception)
