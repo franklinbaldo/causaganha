@@ -42,6 +42,7 @@ O **CausaGanha V2** já está implementado e em fase de testes e estabilização
 - **🌐 Distribuído**: DuckDB compartilhado via Internet Archive
 - **⚡ Assíncrono**: Processamento concorrente otimizado (asyncio + Ibis)
 - **🔄 Automatizado**: Workflows GitHub Actions para operação autônoma
+- **🔮 Previsão de Vencedor**: Subsistema opcional com embeddings e aprendizado online para prever resultados (Novo)
 
 ## Instalação Rápida
 
@@ -75,6 +76,30 @@ uv run causaganha archive --limit 10
 uv run causaganha analyze --limit 5
 uv run causaganha score
 ```
+
+### Previsão de Vencedor (Winner Prediction)
+
+O subsistema opcional de previsão de vencedor permite treinar um modelo leve (SGD) usando embeddings do texto da decisão para prever se o autor ou réu venceu.
+
+```bash
+# Apenas inferência (usa modelo existente)
+uv run causaganha analyze --limit 10 --winner-classifier infer
+
+# Treinamento com Professor (LLM) + Bootstrap automático
+uv run causaganha analyze --limit 10 \
+    --winner-classifier teach \
+    --winner-bootstrap auto \
+    --winner-bootstrap-limit 2000 \
+    --jobs 8
+```
+
+Modos:
+- `off`: Desabilitado (padrão).
+- `infer`: Calcula embedding e prevê resultado.
+- `teach`: Calcula embedding, prevê, consulta LLM ("Professor") para label real e atualiza o modelo.
+
+Bootstrap:
+- O sistema pode treinar automaticamente com decisões históricas já analisadas no banco de dados para evitar "cold start".
 
 ## Variáveis de Ambiente
 
