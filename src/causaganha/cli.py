@@ -20,8 +20,7 @@ from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepo
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
 from causaganha.infrastructure.storage.schema import create_schema
-from causaganha.schemas.orchestrator import ParquetSchema
-
+from causaganha.ml.types import WinnerClassifierMode, WinnerBootstrapMode
 
 # Configure basic logging (can be enhanced later)
 structlog.configure(
@@ -122,9 +121,22 @@ def collect(
 @app.command()
 def analyze(
     limit: int = typer.Option(10, help="Number of items to analyze"),
+    winner_classifier: WinnerClassifierMode = typer.Option(
+        WinnerClassifierMode.OFF,
+        help="Winner prediction mode: off, infer, or teach"
+    ),
+    jobs: int = typer.Option(4, help="Concurrency level for embedding/teacher calls"),
+    winner_bootstrap: WinnerBootstrapMode = typer.Option(
+        WinnerBootstrapMode.AUTO,
+        help="Bootstrap mode: off, auto, or force. Auto defaults to on when teach is active."
+    ),
+    winner_bootstrap_limit: int = typer.Option(
+        5000,
+        help="Max number of historical decisions to use for bootstrapping"
+    ),
 ) -> None:
     """Analyze decisions using LLM."""
-    logger.info("analyze_command_start")
+    logger.info("analyze_command_start", winner_classifier=winner_classifier.value)
 
     async def _run() -> None:
         repository, analysis_repo, _ = _get_repositories()
@@ -143,6 +155,10 @@ def analyze(
                 doc_service,
                 analyzer,
                 limit=limit,
+                winner_classifier_mode=winner_classifier,
+                jobs=jobs,
+                winner_bootstrap_mode=winner_bootstrap,
+                winner_bootstrap_limit=winner_bootstrap_limit,
             )
 
     try:
