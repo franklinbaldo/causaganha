@@ -64,6 +64,12 @@ async def test_full_pipeline_mocked(
         # Run collection
         collect_result = await collect_metadata_for_court("TJRO", days_back=1)
 
+        # Verify Client was called with dates
+        client_instance.get_intimations_by_court.assert_called_once()
+        _, kwargs = client_instance.get_intimations_by_court.call_args
+        assert "data_inicio" in kwargs
+        assert "data_fim" in kwargs
+
         assert collect_result["status"] == "success"
         assert collect_result["intimations_new"] == 1
 
