@@ -3,6 +3,7 @@
 Each test is written before the implementation.
 """
 
+from datetime import date
 from unittest.mock import Mock, patch
 
 import pytest
@@ -129,5 +130,39 @@ async def test_fetch_handles_pagination() -> None:
         # Should have fetched from multiple pages
         expected_count = 101
         assert len(intimations) == expected_count
+
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_fetch_uses_date_filters() -> None:
+    """Test that date filters are passed to the API."""
+    client = PJeAPIClient()
+    start_date = date(2023, 1, 1)
+    end_date = date(2023, 1, 31)
+
+    mock_response = Mock()
+    mock_response.json.return_value = {"items": [], "count": 0}
+    mock_response.raise_for_status = lambda: None
+
+    with patch.object(client.client, "get", new_callable=Mock) as mock_get:
+        async def async_return() -> Mock:
+            return mock_response
+        mock_get.return_value = async_return()
+
+        await client.get_intimations_by_court(
+            "TJRO",
+            data_inicio=start_date,
+            data_fim=end_date,
+        )
+
+        # Verify arguments passed to get
+        call_args = mock_get.call_args
+        assert call_args is not None
+        _, kwargs = call_args
+        params = kwargs["params"]
+
+        assert params["dataDisponibilizacaoInicio"] == "2023-01-01"
+        assert params["dataDisponibilizacaoFim"] == "2023-01-31"
 
     await client.close()

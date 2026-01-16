@@ -38,13 +38,14 @@ async def collect_metadata_for_court(
 
     try:
         # Calculate date range
-        # Start date logic isn't used in this simplified version but would be passed to API
-        _ = date.today() - timedelta(days=days_back)
+        today = date.today()
+        start_date = today - timedelta(days=days_back)
 
         # Fetch from API
         intimations = await client.get_intimations_by_court(
             sigla_tribunal=sigla_tribunal,
-            # data_inicio=data_inicio # API client update needed to support dates
+            data_inicio=start_date,
+            data_fim=today,
         )
 
         # Store intimations
