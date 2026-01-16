@@ -50,10 +50,7 @@ class PJeAPIClient:
             for d in api_obj.destinatarioadvogados
         ]
 
-        partes = [
-            Party(nome=p.nome, polo=p.polo)
-            for p in api_obj.destinatarios
-        ]
+        partes = [Party(nome=p.nome, polo=p.polo) for p in api_obj.destinatarios]
 
         return DomainIntimation(
             id=api_obj.id,
@@ -105,7 +102,9 @@ class PJeAPIClient:
             }
 
             if data_disponibilizacao_inicio:
-                params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime("%Y-%m-%d")
+                params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime(
+                    "%Y-%m-%d"
+                )
             if data_disponibilizacao_fim:
                 params["dataDisponibilizacaoFim"] = data_disponibilizacao_fim.strftime("%Y-%m-%d")
 
@@ -160,8 +159,8 @@ class PJeAPIClient:
             # Check if more pages based on items returned
             # If the API returns fewer items than requested, we're on the last page.
             if len(items) < itens_por_pagina:
-                 logger.info("last_page_fetched", total=len(all_domain_intimations))
-                 break
+                logger.info("last_page_fetched", total=len(all_domain_intimations))
+                break
 
             current_page += 1
 

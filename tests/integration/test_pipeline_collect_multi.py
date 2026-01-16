@@ -8,10 +8,12 @@ from causaganha.cli import app
 
 runner = CliRunner()
 
+
 @pytest.fixture
 def mock_run_collection():
     with patch("causaganha.cli.run_collection", new_callable=AsyncMock) as mock:
         yield mock
+
 
 def test_collect_uses_configured_courts_default(mock_run_collection) -> None:
     """Test that the collect command uses configured courts if no argument is provided."""

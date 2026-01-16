@@ -5,7 +5,12 @@ from typing import Any
 import structlog
 from google.cloud import pubsub_v1
 
-from causaganha.infrastructure.cloud.db import COLLECTION_NAME, DocState, compute_doc_key, get_firestore_client
+from causaganha.infrastructure.cloud.db import (
+    COLLECTION_NAME,
+    DocState,
+    compute_doc_key,
+    get_firestore_client,
+)
 from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 
 
@@ -74,14 +79,16 @@ async def scheduler_tick(request: Any) -> str:
                     logger.debug("doc_done_skipping_publish", doc_key=doc_key)
                     continue
 
-                message_json = json.dumps({
-                    "docKey": doc_key,
-                    "stage": "ingest",
-                    "force": False,
-                }).encode("utf-8")
+                message_json = json.dumps(
+                    {
+                        "docKey": doc_key,
+                        "stage": "ingest",
+                        "force": False,
+                    }
+                ).encode("utf-8")
 
                 future = publisher.publish(settings.TOPIC_INGEST, message_json)
-                future.result() # Wait for publish
+                future.result()  # Wait for publish
                 processed_count += 1
 
         except Exception as e:

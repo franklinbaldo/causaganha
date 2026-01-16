@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
-from causaganha.domain.models import Intimation
 from causaganha.application.pipeline.analyze import run_analysis
+from causaganha.domain.models import Intimation
+from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
@@ -20,6 +20,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     create_schema(con)
     repository = IntimationRepository(con)
     from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+
     analysis_repo = AnalysisRepository(con)
 
     # 1. Seed DB with unanalyzed intimation

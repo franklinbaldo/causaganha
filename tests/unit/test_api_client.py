@@ -20,6 +20,7 @@ async def test_client_initialization() -> None:
 
     await client.close()
 
+
 @pytest.mark.asyncio
 async def test_fetch_intimations_returns_list(api_client: PJeAPIClient) -> None:
     """Test that fetching returns a list of intimations."""
@@ -92,6 +93,7 @@ async def test_fetch_intimations_pagination(api_client: PJeAPIClient) -> None:
         assert intimations[0].id == 1
         assert intimations[1].id == 2
         assert mock_get.call_count == 3
+
 
 @pytest.mark.asyncio
 async def test_fetch_raises_on_http_error(api_client: PJeAPIClient) -> None:

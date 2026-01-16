@@ -1,4 +1,3 @@
-
 import json
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,6 +11,7 @@ from causaganha.cli import app
 
 runner = CliRunner()
 
+
 @pytest.fixture
 def mock_db_connection() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.get_connection") as mock_get:
@@ -19,37 +19,46 @@ def mock_db_connection() -> Generator[MagicMock, None, None]:
         mock_get.return_value = mock_con
         yield mock_con
 
+
 @pytest.fixture
 def mock_create_schema() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.create_schema") as mock_create:
         yield mock_create
 
+
 @pytest.fixture
 def mock_repositories() -> Generator[tuple[MagicMock, MagicMock, MagicMock], None, None]:
-    with patch("causaganha.cli.IntimationRepository") as mock_int_repo, \
-         patch("causaganha.cli.AnalysisRepository") as mock_ana_repo, \
-         patch("causaganha.cli.LawyerRatingRepository") as mock_law_repo:
+    with (
+        patch("causaganha.cli.IntimationRepository") as mock_int_repo,
+        patch("causaganha.cli.AnalysisRepository") as mock_ana_repo,
+        patch("causaganha.cli.LawyerRatingRepository") as mock_law_repo,
+    ):
         yield mock_int_repo, mock_ana_repo, mock_law_repo
+
 
 @pytest.fixture
 def mock_run_collection() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.run_collection", new_callable=AsyncMock) as mock_run:
         yield mock_run
 
+
 @pytest.fixture
 def mock_run_analysis() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.run_analysis", new_callable=AsyncMock) as mock_run:
         yield mock_run
+
 
 @pytest.fixture
 def mock_run_archive() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.run_archive", new_callable=AsyncMock) as mock_run:
         yield mock_run
 
+
 @pytest.fixture
 def mock_run_scoring() -> Generator[MagicMock, None, None]:
     with patch("causaganha.cli.run_scoring", new_callable=AsyncMock) as mock_run:
         yield mock_run
+
 
 @pytest.fixture
 def mock_pje_client() -> Generator[MagicMock, None, None]:
@@ -59,12 +68,14 @@ def mock_pje_client() -> Generator[MagicMock, None, None]:
         mock_cls.return_value = mock_instance
         yield mock_instance
 
+
 def test_db_init(mock_db_connection: MagicMock, mock_create_schema: MagicMock) -> None:
     result = runner.invoke(app, ["db", "init"])
     assert result.exit_code == 0
     assert "Initializing database schema..." in result.stdout
     assert "Schema created successfully." in result.stdout
     mock_create_schema.assert_called_once_with(mock_db_connection)
+
 
 @pytest.mark.usefixtures("mock_db_connection")
 def test_db_init_failure_shows_suggestions(mock_create_schema: MagicMock) -> None:
@@ -88,17 +99,20 @@ def test_error_message_is_colored(mock_create_schema: MagicMock) -> None:
     assert result.exit_code == 1
     assert "❌ Initialization failed" in result.stdout
 
+
 def test_db_status(mock_db_connection: MagicMock) -> None:
     mock_db_connection.list_tables.return_value = ["table1", "table2"]
     result = runner.invoke(app, ["db", "status"])
     assert result.exit_code == 0
     assert "Connected to DuckDB. Found tables: ['table1', 'table2']" in result.stdout
 
+
 @pytest.mark.usefixtures("mock_db_connection")
 def test_db_unknown_action() -> None:
     result = runner.invoke(app, ["db", "unknown"])
     assert result.exit_code == 0  # Typer argument parsing passes, but our logic prints
     assert "Unknown action: unknown" in result.stdout
+
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_collect(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
@@ -118,6 +132,7 @@ def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicM
     assert "❌ Collection failed" in result.stdout
     assert "API unavailable" in result.stdout
     mock_pje_client.close.assert_called_once()
+
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_analyze(mock_run_analysis: MagicMock) -> None:
@@ -142,26 +157,24 @@ def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive(mock_run_archive: MagicMock) -> None:
-    with patch("causaganha.cli.create_archive_service"), \
-         patch("causaganha.cli.DocumentService"):
-            result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
-            assert result.exit_code == 0
-            mock_run_archive.assert_called_once()
-            _args, kwargs = mock_run_archive.call_args
-            assert kwargs["limit"] == 3
-            assert kwargs["dry_run"] is True
+    with patch("causaganha.cli.create_archive_service"), patch("causaganha.cli.DocumentService"):
+        result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
+        assert result.exit_code == 0
+        mock_run_archive.assert_called_once()
+        _args, kwargs = mock_run_archive.call_args
+        assert kwargs["limit"] == 3
+        assert kwargs["dry_run"] is True
 
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive_failure(mock_run_archive: MagicMock) -> None:
     """Tests the error handler for the archive command."""
     mock_run_archive.side_effect = ConnectionError("Upload failed")
-    with patch("causaganha.cli.create_archive_service"), \
-         patch("causaganha.cli.DocumentService"):
-            result = runner.invoke(app, ["archive"])
-            assert result.exit_code == 1
-            assert "❌ Archive failed" in result.stdout
-            assert "Upload failed" in result.stdout
+    with patch("causaganha.cli.create_archive_service"), patch("causaganha.cli.DocumentService"):
+        result = runner.invoke(app, ["archive"])
+        assert result.exit_code == 1
+        assert "❌ Archive failed" in result.stdout
+        assert "Upload failed" in result.stdout
 
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
@@ -193,10 +206,11 @@ def test_pipeline(
     mock_pje_client: MagicMock,
 ) -> None:
     # We need to mock services instantiated in pipeline
-    with patch("causaganha.cli.create_archive_service"), \
-         patch("causaganha.cli.DocumentService"), \
-         patch("causaganha.cli.DecisionAnalyzer"):
-
+    with (
+        patch("causaganha.cli.create_archive_service"),
+        patch("causaganha.cli.DocumentService"),
+        patch("causaganha.cli.DecisionAnalyzer"),
+    ):
         result = runner.invoke(app, ["pipeline", "--score-limit", "10"])
 
         assert result.exit_code == 0
@@ -208,6 +222,7 @@ def test_pipeline(
         mock_run_scoring.assert_called_once()
         mock_pje_client.close.assert_called_once()
 
+
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_pipeline_skips(
     mock_run_collection: MagicMock,
@@ -217,18 +232,22 @@ def test_pipeline_skips(
     mock_pje_client: MagicMock,
 ) -> None:
     # We need to mock services instantiated in pipeline
-    with patch("causaganha.cli.create_archive_service"), \
-         patch("causaganha.cli.DocumentService"), \
-         patch("causaganha.cli.DecisionAnalyzer"):
-
+    with (
+        patch("causaganha.cli.create_archive_service"),
+        patch("causaganha.cli.DocumentService"),
+        patch("causaganha.cli.DecisionAnalyzer"),
+    ):
         # Skip all steps
-        result = runner.invoke(app, [
-            "pipeline",
-            "--skip-collect",
-            "--skip-archive",
-            "--skip-analyze",
-            "--skip-score",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "pipeline",
+                "--skip-collect",
+                "--skip-archive",
+                "--skip-analyze",
+                "--skip-score",
+            ],
+        )
 
         assert result.exit_code == 0
         assert "Pipeline complete!" in result.stdout
@@ -269,11 +288,15 @@ def test_collect_shows_progress(
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_analyze_shows_progress(
-    mock_run_analysis: MagicMock, mock_rich_progress: MagicMock,
+    mock_run_analysis: MagicMock,
+    mock_rich_progress: MagicMock,
 ) -> None:
     """Tests that the analyze command shows a progress indicator."""
-    with patch("causaganha.cli.DecisionAnalyzer"), patch(
-        "causaganha.cli.DocumentService",
+    with (
+        patch("causaganha.cli.DecisionAnalyzer"),
+        patch(
+            "causaganha.cli.DocumentService",
+        ),
     ):
         result = runner.invoke(app, ["analyze"])
         assert result.exit_code == 0
@@ -283,11 +306,15 @@ def test_analyze_shows_progress(
 
 @pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
 def test_archive_shows_progress(
-    mock_run_archive: MagicMock, mock_rich_progress: MagicMock,
+    mock_run_archive: MagicMock,
+    mock_rich_progress: MagicMock,
 ) -> None:
     """Tests that the archive command shows a progress indicator."""
-    with patch("causaganha.cli.create_archive_service"), patch(
-        "causaganha.cli.DocumentService",
+    with (
+        patch("causaganha.cli.create_archive_service"),
+        patch(
+            "causaganha.cli.DocumentService",
+        ),
     ):
         result = runner.invoke(app, ["archive"])
         assert result.exit_code == 0
@@ -304,7 +331,7 @@ def test_manifest_export(mock_get_repos: MagicMock) -> None:
     # Mock the repository and its method
     mock_repo = MagicMock()
 
-    async def get_all_intimations(limit: int) -> list[dict]: # noqa: ARG001
+    async def get_all_intimations(limit: int) -> list[dict]:  # noqa: ARG001
         return [
             {
                 "id": 1,

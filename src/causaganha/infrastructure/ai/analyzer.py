@@ -1,5 +1,7 @@
 """Analyzer for judicial decisions."""
+
 import asyncio
+
 import structlog
 from pydantic_ai import Agent, BinaryContent
 
@@ -8,12 +10,15 @@ from causaganha.domain.models_analysis import DecisionAnalysis
 
 logger = structlog.get_logger()
 
+
 class DecisionAnalyzer:
     """Analyzer for judicial decisions using Pydantic AI."""
 
     agent: Agent
 
-    def __init__(self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash") -> None:
+    def __init__(
+        self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash"
+    ) -> None:
         """Initialize the DecisionAnalyzer.
 
         Args:

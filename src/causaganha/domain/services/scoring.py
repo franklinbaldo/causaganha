@@ -100,15 +100,17 @@ class ScoringService:
         ratings_to_save = []
         for (oab, state), rating in ratings_cache.items():
             stats = getattr(rating, "stats", {"total_cases": 0, "wins": 0, "losses": 0})
-            ratings_to_save.append({
-                "oab_number": oab,
-                "oab_state": state,
-                "mu": rating.mu,
-                "sigma": rating.sigma,
-                "total_cases": stats["total_cases"],
-                "wins": stats["wins"],
-                "losses": stats["losses"],
-            })
+            ratings_to_save.append(
+                {
+                    "oab_number": oab,
+                    "oab_state": state,
+                    "mu": rating.mu,
+                    "sigma": rating.sigma,
+                    "total_cases": stats["total_cases"],
+                    "wins": stats["wins"],
+                    "losses": stats["losses"],
+                }
+            )
 
         if ratings_to_save:
             await self.rating_repo.save_lawyer_ratings(ratings_to_save)
@@ -148,12 +150,19 @@ class ScoringService:
 
         # Update ratings
         new_winner, new_loser = rate_teams(
-            self.model, [r_winner], [r_loser], result_code,
+            self.model,
+            [r_winner],
+            [r_loser],
+            result_code,
         )
 
         # Update cache objects
-        self._update_rating_stats(ratings_cache, (winner_oab, winner_state), new_winner[0], is_win=True)
-        self._update_rating_stats(ratings_cache, (loser_oab, loser_state), new_loser[0], is_win=False)
+        self._update_rating_stats(
+            ratings_cache, (winner_oab, winner_state), new_winner[0], is_win=True
+        )
+        self._update_rating_stats(
+            ratings_cache, (loser_oab, loser_state), new_loser[0], is_win=False
+        )
 
         return True
 

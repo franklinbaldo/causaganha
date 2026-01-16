@@ -25,14 +25,42 @@ logger = structlog.get_logger()
 # List of courts to check
 COURTS = [
     # State Courts (TJ)
-    "TJRO", "TJAC", "TJAM", "TJRR", "TJPA", "TJAP", "TJTO",
-    "TJMA", "TJPI", "TJCE", "TJRN", "TJPB", "TJPE", "TJAL", "TJSE", "TJBA",
-    "TJMG", "TJES", "TJRJ", "TJSP",
-    "TJPR", "TJSC", "TJRS",
-    "TJMS", "TJMT", "TJGO", "TJDFT",
+    "TJRO",
+    "TJAC",
+    "TJAM",
+    "TJRR",
+    "TJPA",
+    "TJAP",
+    "TJTO",
+    "TJMA",
+    "TJPI",
+    "TJCE",
+    "TJRN",
+    "TJPB",
+    "TJPE",
+    "TJAL",
+    "TJSE",
+    "TJBA",
+    "TJMG",
+    "TJES",
+    "TJRJ",
+    "TJSP",
+    "TJPR",
+    "TJSC",
+    "TJRS",
+    "TJMS",
+    "TJMT",
+    "TJGO",
+    "TJDFT",
     # Federal Courts (TRF)
-    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
+    "TRF1",
+    "TRF2",
+    "TRF3",
+    "TRF4",
+    "TRF5",
+    "TRF6",
 ]
+
 
 async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
     """Check if a specific court API is accessible."""
@@ -68,6 +96,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
             "count": 0,
             "error": str(e),
         }
+
 
 async def validate_coverage() -> None:
     """Validate API coverage for all defined courts."""

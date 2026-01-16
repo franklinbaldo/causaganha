@@ -1,4 +1,3 @@
-
 from datetime import date
 
 import pytest
@@ -39,6 +38,7 @@ def test_decision_analysis_missing_required_fields() -> None:
             # Missing summary and confidence_score
         )
 
+
 def test_decision_analysis_optional_fields() -> None:
     """Test that optional fields can be None."""
     analysis = DecisionAnalysis(
@@ -51,6 +51,7 @@ def test_decision_analysis_optional_fields() -> None:
     assert analysis.acordao is None
     assert analysis.tribunal is None
     assert analysis.decision_date is None
+
 
 def test_decision_analysis_invalid_confidence_score() -> None:
     """Test that confidence_score outside the valid range raises an error."""

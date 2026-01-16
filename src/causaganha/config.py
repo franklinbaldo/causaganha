@@ -9,6 +9,7 @@ _BASE_DIR = Path(__file__).resolve().parent.parent.parent
 _DATA_DIR = _BASE_DIR / "data"
 _DEFAULT_DB_PATH = str(_DATA_DIR / "causaganha.duckdb")
 
+
 class Settings(BaseSettings):
     # Core
     BASE_DIR: Path = _BASE_DIR
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context: Any) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 settings = Settings()
 

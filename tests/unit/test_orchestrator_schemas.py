@@ -1,4 +1,3 @@
-
 from datetime import date
 
 import pytest
@@ -36,6 +35,7 @@ def test_parquet_schema_missing_required_fields() -> None:
             intimation_id=1,
             # Missing process_number, tribunal, download_url, needs_download
         )
+
 
 def test_parquet_schema_optional_fields() -> None:
     """Test that optional fields can be None or have default values."""

@@ -13,6 +13,7 @@ def attempt_network_operation(succeed=False) -> str:
     msg = "Simulated: Failed to connect to the server."
     raise ConnectionError(msg)
 
+
 def access_api_service(calls_made, limit=3) -> str:
     """Simulates accessing an API service with a rate limit."""
     if calls_made >= limit:
@@ -20,6 +21,7 @@ def access_api_service(calls_made, limit=3) -> str:
         msg = "Simulated: API rate limit exceeded."
         raise Exception(msg)
     return f"Data from API call {calls_made + 1}"
+
 
 def process_file(file_exists=True, file_is_valid=True) -> str:
     """Simulates processing a file that might be missing or corrupted."""
@@ -30,6 +32,7 @@ def process_file(file_exists=True, file_is_valid=True) -> str:
         msg = "Simulated: Error reading corrupted file."
         raise OSError(msg)
     return "File content"
+
 
 def main() -> None:
     # --- Network Error Example ---
@@ -42,12 +45,12 @@ def main() -> None:
     # --- API Limit Example ---
     api_call_count = 0
     api_call_limit = 2
-    for _i in range(api_call_limit + 1): # Try one more time than the limit
+    for _i in range(api_call_limit + 1):  # Try one more time than the limit
         try:
             access_api_service(api_call_count, limit=api_call_limit)
             api_call_count += 1
         except Exception:
-            break # Stop trying after hitting the limit in this example
+            break  # Stop trying after hitting the limit in this example
 
     # --- File Processing Error Examples ---
     # Scenario 1: File does not exist
@@ -61,7 +64,7 @@ def main() -> None:
     # Scenario 3: File is processed successfully
     try:
         process_file(file_exists=True, file_is_valid=True)
-    except Exception: # Generic catch-all for unexpected issues
+    except Exception:  # Generic catch-all for unexpected issues
         pass
 
 

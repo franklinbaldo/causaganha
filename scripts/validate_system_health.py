@@ -24,6 +24,7 @@ from causaganha.infrastructure.storage.connection import get_connection
 
 logger = structlog.get_logger()
 
+
 async def validate_health() -> None:
     logger.info("Starting system health check", db_path=DB_PATH)
 
@@ -34,7 +35,13 @@ async def validate_health() -> None:
 
         # 2. Table Checks
         tables = con.list_tables()
-        required_tables = {"intimations", "analysis_results", "lawyer_ratings", "pipeline_state", "schema_version"}
+        required_tables = {
+            "intimations",
+            "analysis_results",
+            "lawyer_ratings",
+            "pipeline_state",
+            "schema_version",
+        }
         missing_tables = required_tables - set(tables)
 
         if missing_tables:
@@ -72,6 +79,7 @@ async def validate_health() -> None:
     except Exception:
         logger.exception("Health check failed")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(validate_health())
