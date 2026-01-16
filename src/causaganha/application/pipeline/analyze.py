@@ -81,9 +81,9 @@ async def run_analysis(
             ml_result = {}
             if winner_classifier_mode != WinnerClassifierMode.OFF:
                 try:
-                    # Construct text for embedding/teacher from analysis result
-                    # Using summary + reasoning as proxy for decision text
-                    text_context = f"{analysis.summary}\n\n{analysis.decision_reasoning}"
+                    # Use raw intimação text from API (item.texto) for embedding
+                    # This allows ML predictions before expensive LLM analysis
+                    text_context = item.texto
                     ml_result = await winner_runner.process_decision(text_context)
                 except Exception as e:
                     logger.error("winner_classifier_failed", id=intimation_id, error=str(e))
