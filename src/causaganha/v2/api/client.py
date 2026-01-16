@@ -4,6 +4,28 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class LawyerInfo(BaseModel):
+    """Lawyer information from API."""
+
+    id: int
+    nome: str
+    numero_oab: str
+    uf_oab: str
+
+
+class DestinarioAdvogado(BaseModel):
+    """Lawyer association."""
+
+    advogado: LawyerInfo
+
+
+class Destinatario(BaseModel):
+    """Party information."""
+
+    nome: str
+    polo: str  # 'A', 'P', etc.
+
+
 class Intimation(BaseModel):
     """PJe Intimation Model."""
 
@@ -21,6 +43,9 @@ class Intimation(BaseModel):
     status: str | None = None
     numero_processo: str | None = None
     data_disponibilizacao: str | None = None
+    numeroprocessocommascara: str | None = None
+    destinatarioadvogados: list[DestinarioAdvogado] = []
+    destinatarios: list[Destinatario] = []
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
