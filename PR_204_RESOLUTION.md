@@ -76,6 +76,40 @@ src/causaganha/ml/
 └── types.py             # Type definitions and enums
 ```
 
+## Critical Issue Identified
+
+### Current Implementation Embeds LLM Results, Not Raw Text
+
+The current implementation (PR #205) has an architectural issue:
+
+**Current behavior** (src/causaganha/application/pipeline/analyze.py:77-78):
+```python
+# Construct text for embedding/teacher from analysis result
+# Using summary + reasoning as proxy for decision text
+text_context = f"{analysis.summary}\n\n{analysis.decision_reasoning}"
+ml_result = await winner_runner.process_decision(text_context)
+```
+
+**Problem:**
+- Embeds the LLM analysis results (summary + reasoning), NOT the raw intimação text
+- The expensive LLM call happens BEFORE embedding
+- Defeats the stated purpose: "scale analysis without always invoking an expensive LLM"
+- Cannot use ML to skip or replace LLM analysis
+
+**PR #204's approach:**
+```python
+pdf_text = " ".join(await doc_service.extract_text_from_pdf(pdf_bytes))
+embedding = await ml_components["embedder"].embed_text(pdf_text)
+```
+
+**Recommended fix:**
+The ML classifier should embed and analyze the raw PDF text, not the LLM output. This would allow:
+1. Using ML predictions to skip expensive LLM calls for some decisions
+2. Running ML and LLM in parallel for comparison
+3. True cost optimization by reducing LLM usage
+
 ## Conclusion
 
-No action needed. The feature is already implemented and available in main.
+While PR #205 provides a more complete architectural framework (runner, bootstrapper, caching), it has a critical flaw in what it embeds. PR #204's approach of embedding raw PDF text is architecturally correct for the stated use case.
+
+**Action needed:** Fix the current implementation to embed raw PDF text instead of LLM analysis results.
