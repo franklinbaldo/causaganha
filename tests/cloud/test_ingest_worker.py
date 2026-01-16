@@ -11,10 +11,13 @@ from causaganha.infrastructure.cloud.functions import ingest
 @pytest.fixture(autouse=True)
 def mock_env_vars():
     """Sets environment variables for all tests in this module."""
-    with patch("causaganha.config.settings.GCP_PROJECT", "test-project"), \
-         patch("causaganha.config.settings.TOPIC_LLM", "projects/test-project/topics/llm"), \
-         patch("causaganha.config.settings.IA_ACCESS_KEY", "fake-ia-key"):
+    with (
+        patch("causaganha.config.settings.GCP_PROJECT", "test-project"),
+        patch("causaganha.config.settings.TOPIC_LLM", "projects/test-project/topics/llm"),
+        patch("causaganha.config.settings.IA_ACCESS_KEY", "fake-ia-key"),
+    ):
         yield
+
 
 @pytest.fixture
 def mock_firestore():
@@ -23,18 +26,23 @@ def mock_firestore():
         mock.return_value = client
         yield client
 
+
 @pytest.fixture
 def mock_publisher():
-    with patch("causaganha.infrastructure.cloud.functions.ingest.pubsub_v1.PublisherClient") as mock_cls:
+    with patch(
+        "causaganha.infrastructure.cloud.functions.ingest.pubsub_v1.PublisherClient"
+    ) as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance
         yield instance
+
 
 @pytest.fixture
 def mock_acquire_lock():
     with patch("causaganha.infrastructure.cloud.functions.ingest.acquire_lock") as mock:
         mock.return_value = True
         yield mock
+
 
 @pytest.fixture
 def mock_doc_service():
@@ -44,13 +52,17 @@ def mock_doc_service():
         instance.download_pdf.return_value = b"%PDF-1.4 fake content"
         yield instance
 
+
 @pytest.fixture
 def mock_archive_service():
-    with patch("causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService") as mock_cls:
+    with patch(
+        "causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService"
+    ) as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance
         instance.upload_file.return_value = "https://archive.org/details/test_id"
         yield instance
+
 
 @pytest.mark.asyncio
 async def test_ingest_worker_success(
@@ -94,7 +106,7 @@ async def test_ingest_worker_success(
     item_id = args[1]
     metadata = args[2]
 
-    assert item_id == "causaganha-test_doc_key" # truncated key
+    assert item_id == "causaganha-test_doc_key"  # truncated key
     assert metadata["url"] == "http://court.gov.br/doc.pdf"
 
     # Verify Filename Contract (Must be document.pdf)
@@ -113,6 +125,7 @@ async def test_ingest_worker_success(
     assert msg_data["docKey"] == "test_doc_key"
     assert msg_data["stage"] == "llm"
 
+
 @pytest.mark.asyncio
 async def test_ingest_worker_already_done(
     mock_firestore,
@@ -127,7 +140,7 @@ async def test_ingest_worker_already_done(
     doc_snap.exists = True
     doc_snap.to_dict.return_value = {
         "pdf_url": "http://court.gov.br/doc.pdf",
-        "status": "pdf_uploaded", # Already done
+        "status": "pdf_uploaded",  # Already done
     }
     doc_ref.get = AsyncMock(return_value=doc_snap)
 
@@ -140,6 +153,7 @@ async def test_ingest_worker_already_done(
     # Should skip download/upload but publish next stage
     mock_doc_service.download_pdf.assert_not_called()
     mock_publisher.publish.assert_called_once()
+
 
 @pytest.mark.asyncio
 async def test_ingest_worker_failure(

@@ -45,11 +45,15 @@ def validate_swagger_bytes(content: bytes, *, source: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Vendor the PJe Comunica API Swagger spec into the repo.")
+    parser = argparse.ArgumentParser(
+        description="Vendor the PJe Comunica API Swagger spec into the repo."
+    )
     src = parser.add_mutually_exclusive_group()
     src.add_argument("--url", default=DEFAULT_URL, help=f"Swagger URL (default: {DEFAULT_URL})")
     src.add_argument("--input-file", help="Read spec bytes from a local file instead of fetching")
-    parser.add_argument("--output", default=DEFAULT_OUTPUT, help=f"Output path (default: {DEFAULT_OUTPUT})")
+    parser.add_argument(
+        "--output", default=DEFAULT_OUTPUT, help=f"Output path (default: {DEFAULT_OUTPUT})"
+    )
     parser.add_argument("--timeout", type=float, default=30.0, help="HTTP timeout (seconds)")
     args = parser.parse_args()
 

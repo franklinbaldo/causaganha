@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.domain.models_analysis import DecisionAnalysis, Outcome
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 
 
 @pytest.fixture

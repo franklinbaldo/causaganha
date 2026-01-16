@@ -10,9 +10,9 @@ import structlog
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.pipeline.score import run_scoring
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
+from causaganha.pipeline.score import run_scoring
 
 
 structlog.configure(
@@ -24,10 +24,13 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Scoring Pipeline")
     parser.add_argument("--limit", type=int, default=100, help="Number of cases to score")
-    parser.add_argument("--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file")
+    parser.add_argument(
+        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+    )
     args = parser.parse_args()
 
     db_path = Path(args.db)
@@ -52,9 +55,14 @@ async def main() -> None:
         logger.info("verification", count=count)
 
         if count > 0:
-            logger.info("sample", data=t.order_by(t.mu.desc()).limit(5).execute().to_dict(orient="records"))
+            logger.info(
+                "sample", data=t.order_by(t.mu.desc()).limit(5).execute().to_dict(orient="records")
+            )
     except Exception:
-        logger.info("verification_no_table", msg="lawyer_ratings table might be empty or not created")
+        logger.info(
+            "verification_no_table", msg="lawyer_ratings table might be empty or not created"
+        )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

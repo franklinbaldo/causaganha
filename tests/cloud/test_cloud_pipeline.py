@@ -15,20 +15,24 @@ def mock_firestore():
     with patch("causaganha.infrastructure.cloud.db.firestore.AsyncClient") as mock:
         yield mock
 
+
 @pytest.fixture
 def mock_pubsub():
     with patch("google.cloud.pubsub_v1.PublisherClient") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_pubsub_ingest():
     with patch("google.cloud.pubsub_v1.PublisherClient") as mock:
         yield mock
 
+
 @pytest.fixture
 def mock_pje_client():
     with patch("causaganha.infrastructure.integrations.pje.client.PJeAPIClient") as mock:
         yield mock
+
 
 @pytest.fixture
 def mock_doc_service():
@@ -36,10 +40,12 @@ def mock_doc_service():
     with patch("causaganha.infrastructure.cloud.functions.ingest.DocumentService") as mock:
         yield mock
 
+
 @pytest.fixture
 def mock_ia_service():
     with patch("causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService") as mock:
         yield mock
+
 
 @pytest.mark.asyncio
 async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> None:
@@ -48,8 +54,9 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
     # Setup PJe mock
     mock_client_instance = mock_pje_client.return_value
     # Make get_intimations_by_court awaitable
-    mock_client_instance.get_intimations_by_court = AsyncMock(return_value=[
-         Intimation(
+    mock_client_instance.get_intimations_by_court = AsyncMock(
+        return_value=[
+            Intimation(
                 id=123,
                 numero_processo="1234567-89.2024.8.22.0001",
                 link="http://example.com/doc.pdf",
@@ -62,7 +69,8 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
                 nome_classe="Procedimento Comum",
                 hash="abc123hash",
             ),
-    ])
+        ]
+    )
 
     # Setup Firestore mock
     mock_db = mock_firestore.return_value
@@ -95,8 +103,11 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
     assert args[0]["pdf_url"] == "http://example.com/doc.pdf"
     assert args[0]["status"] == "new"
 
+
 @pytest.mark.asyncio
-async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service) -> None:
+async def test_ingest_worker(
+    mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service
+) -> None:
     from causaganha.infrastructure.cloud.functions.ingest import ingest_worker
 
     # Input event
@@ -122,10 +133,13 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
     # Setup get to be awaitable
     mock_doc_ref.get = AsyncMock(return_value=mock_snapshot)
 
-    with patch("causaganha.infrastructure.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock) as mock_lock, \
-         patch("causaganha.config.settings.IA_ACCESS_KEY", "test"), \
-         patch("causaganha.config.settings.TOPIC_LLM", "projects/test/topics/llm"):
-
+    with (
+        patch(
+            "causaganha.infrastructure.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock
+        ) as mock_lock,
+        patch("causaganha.config.settings.IA_ACCESS_KEY", "test"),
+        patch("causaganha.config.settings.TOPIC_LLM", "projects/test/topics/llm"),
+    ):
         mock_lock.return_value = True
 
         # Setup DocService
@@ -150,9 +164,11 @@ async def test_ingest_worker(mock_firestore, mock_pubsub_ingest, mock_doc_servic
         # Verify
         mock_doc_instance.download_pdf.assert_called_with("http://example.com/doc.pdf")
         mock_ia_instance.upload_file.assert_called_once()
-        mock_doc_ref.update.assert_called_with({
-            "status": "pdf_uploaded",
-            "ia_identifier": f"causaganha-{doc_key[:16]}",
-            "updated_at": ANY,
-        })
+        mock_doc_ref.update.assert_called_with(
+            {
+                "status": "pdf_uploaded",
+                "ia_identifier": f"causaganha-{doc_key[:16]}",
+                "updated_at": ANY,
+            }
+        )
         mock_pubsub_ingest.return_value.publish.assert_called_once()

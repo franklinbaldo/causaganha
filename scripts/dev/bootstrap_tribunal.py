@@ -32,6 +32,5 @@ def main() -> None:
         (target / fname).write_text(template.format(name=class_name, code=args.code))
 
 
-
 if __name__ == "__main__":
     main()

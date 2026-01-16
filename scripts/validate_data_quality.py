@@ -20,6 +20,7 @@ from causaganha.validation.validator import DataValidator
 
 logger = structlog.get_logger()
 
+
 def validate_data() -> None:
     logger.info("Starting data quality validation", db_path=DB_PATH)
 
@@ -61,6 +62,7 @@ def validate_data() -> None:
     except Exception:
         logger.exception("Validation script failed")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     validate_data()

@@ -11,11 +11,11 @@ import structlog
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.integrations.pje.client import PJeAPIClient
-from causaganha.pipeline.collect import run_collection
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.schema import create_schema
+from causaganha.integrations.pje.client import PJeAPIClient
+from causaganha.pipeline.collect import run_collection
 
 
 structlog.configure(
@@ -27,10 +27,13 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Collection Pipeline")
     parser.add_argument("--days", type=int, default=1, help="Number of days back to collect")
-    parser.add_argument("--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file")
+    parser.add_argument(
+        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+    )
     args = parser.parse_args()
 
     db_path = Path(args.db)
@@ -65,6 +68,7 @@ async def main() -> None:
 
     if count > 0:
         logger.info("sample", data=t.limit(1).execute().to_dict(orient="records"))
+
 
 if __name__ == "__main__":
     asyncio.run(main())

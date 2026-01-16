@@ -8,6 +8,7 @@ from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 
 logger = structlog.get_logger()
 
+
 async def run_collection(
     repository: IntimationRepositoryProtocol,
     client: PJeAPIClient,
@@ -26,6 +27,7 @@ async def run_collection(
     """
     if courts is None:
         from causaganha.config import settings
+
         courts = settings.COURTS
 
     logger.info("starting_collection", start_date=start_date, end_date=end_date, courts=courts)

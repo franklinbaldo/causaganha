@@ -2,8 +2,8 @@
 
 from datetime import UTC, datetime
 
-from causaganha.domain.models_analysis import DecisionAnalysis
 from causaganha.domain.models import Intimation
+from causaganha.domain.models_analysis import DecisionAnalysis
 
 
 class AnalysisResultFactory:
@@ -65,7 +65,9 @@ class AnalysisResultFactory:
         if analysis:
             return {
                 **base_result,
-                "outcome": analysis.outcome.value if hasattr(analysis.outcome, 'value') else analysis.outcome,
+                "outcome": analysis.outcome.value
+                if hasattr(analysis.outcome, "value")
+                else analysis.outcome,
                 "summary": analysis.summary,
                 "judge_name": analysis.judge_name,
                 "confidence_score": analysis.confidence_score,

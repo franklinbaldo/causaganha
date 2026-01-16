@@ -14,18 +14,20 @@ from causaganha.infrastructure.storage.repositories.intimation import Intimation
 def mock_repository():
     """Create a mock repository."""
     repo = MagicMock(spec=IntimationRepository)
-    repo.get_unarchived_intimations = AsyncMock(return_value=[
-        {
-            "id": "test-id-1",
-            "url_documento": "https://example.com/doc1.pdf",
-            "link": "https://example.com/doc1.pdf",
-        },
-        {
-            "id": "test-id-2",
-            "url_documento": "https://example.com/doc2.pdf",
-            "link": "https://example.com/doc2.pdf",
-        },
-    ])
+    repo.get_unarchived_intimations = AsyncMock(
+        return_value=[
+            {
+                "id": "test-id-1",
+                "url_documento": "https://example.com/doc1.pdf",
+                "link": "https://example.com/doc1.pdf",
+            },
+            {
+                "id": "test-id-2",
+                "url_documento": "https://example.com/doc2.pdf",
+                "link": "https://example.com/doc2.pdf",
+            },
+        ]
+    )
     repo.mark_as_archived = AsyncMock()
     return repo
 
@@ -62,7 +64,9 @@ async def test_run_archive_success(mock_repository, mock_doc_service, mock_ia_se
 
 
 @pytest.mark.asyncio
-async def test_run_archive_no_intimations(mock_repository, mock_doc_service, mock_ia_service) -> None:
+async def test_run_archive_no_intimations(
+    mock_repository, mock_doc_service, mock_ia_service
+) -> None:
     """Test archive pipeline with no intimations."""
     mock_repository.get_unarchived_intimations.return_value = []
 
@@ -79,7 +83,9 @@ async def test_run_archive_no_intimations(mock_repository, mock_doc_service, moc
 
 
 @pytest.mark.asyncio
-async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_service, tmp_path) -> None:
+async def test_run_archive_dry_run(
+    mock_repository, mock_doc_service, mock_ia_service, tmp_path
+) -> None:
     """Test archive pipeline in dry run mode."""
     # Set up temp directory
     with patch("causaganha.application.pipeline.archive.Path") as mock_path:
@@ -100,7 +106,9 @@ async def test_run_archive_dry_run(mock_repository, mock_doc_service, mock_ia_se
 
 
 @pytest.mark.asyncio
-async def test_process_intimation_no_url(mock_doc_service, mock_ia_service, mock_repository) -> None:
+async def test_process_intimation_no_url(
+    mock_doc_service, mock_ia_service, mock_repository
+) -> None:
     """Test processing intimation without document URL."""
     intimation = {"id": "test-id", "url_documento": None}
 
@@ -117,7 +125,9 @@ async def test_process_intimation_no_url(mock_doc_service, mock_ia_service, mock
 
 
 @pytest.mark.asyncio
-async def test_process_intimation_download_failure(mock_doc_service, mock_ia_service, mock_repository) -> None:
+async def test_process_intimation_download_failure(
+    mock_doc_service, mock_ia_service, mock_repository
+) -> None:
     """Test processing intimation with download failure."""
     intimation = {
         "id": "test-id",

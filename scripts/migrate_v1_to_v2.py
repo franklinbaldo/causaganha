@@ -22,6 +22,7 @@ from causaganha.infrastructure.storage.connection import get_connection
 
 logger = structlog.get_logger()
 
+
 def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | None]:
     """Parses V1 lawyer ID string to extract Name, OAB, State.
     Expected format: "NAME (OAB/UF NUMBER)" or similar.
@@ -40,6 +41,7 @@ def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | No
 
     return None, None, None
 
+
 def migrate_ratings(v1_path: str, v2_con) -> None:
     """Migrate ratings from V1 to V2."""
     logger.info("Migrating ratings from V1", v1_path=v1_path)
@@ -54,7 +56,9 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
             return
 
         # Fetch all ratings
-        ratings = v1_con.execute("SELECT advogado_id, mu, sigma, total_partidas FROM ratings").fetchall()
+        ratings = v1_con.execute(
+            "SELECT advogado_id, mu, sigma, total_partidas FROM ratings"
+        ).fetchall()
         logger.info(f"Found {len(ratings)} ratings in V1")
 
         migrated_count = 0
@@ -76,7 +80,8 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
                         # Fallback or direct DuckDB connection
                         con = v2_con
 
-                    con.execute("""
+                    con.execute(
+                        """
                         INSERT INTO lawyer_ratings (
                             oab_number, oab_state, lawyer_name,
                             mu, sigma, total_cases, last_updated
@@ -90,7 +95,9 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
                             total_cases = EXCLUDED.total_cases,
                             lawyer_name = EXCLUDED.lawyer_name,
                             last_updated = now()
-                    """, [oab, state, name, mu, sigma, total_partidas])
+                    """,
+                        [oab, state, name, mu, sigma, total_partidas],
+                    )
 
                     migrated_count += 1
                 except Exception as e:
@@ -108,8 +115,10 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
         if "v1_con" in locals():
             v1_con.close()
 
+
 def main() -> None:
     import argparse
+
     parser = argparse.ArgumentParser(description="Migrate CausaGanha V1 data to V2")
     parser.add_argument("v1_db_path", help="Path to V1 DuckDB file")
     args = parser.parse_args()
@@ -125,6 +134,7 @@ def main() -> None:
     migrate_ratings(v1_path, v2_con)
 
     logger.info("Migration script finished")
+
 
 if __name__ == "__main__":
     main()

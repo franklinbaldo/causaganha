@@ -6,18 +6,19 @@ from typing import Any
 import structlog
 from google.cloud import pubsub_v1
 
+from causaganha.config import settings
+from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
+from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.infrastructure.clients.preservation import PreservationService
 from causaganha.infrastructure.cloud.db import (
     COLLECTION_NAME,
     acquire_lock,
     get_firestore_client,
 )
-from causaganha.config import settings
-from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
-from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.infrastructure.clients.preservation import PreservationService
 
 
 logger = structlog.get_logger()
+
 
 async def ingest_worker(event: dict, context: Any) -> None:
     """Pub/Sub trigger.
@@ -80,7 +81,9 @@ async def ingest_worker(event: dict, context: Any) -> None:
         metadata = {"url": pdf_url, "docKey": doc_key}
 
         result_url = await preservation_service.preserve_document(
-            pdf_url, ia_identifier, metadata,
+            pdf_url,
+            ia_identifier,
+            metadata,
         )
 
         if not result_url:
@@ -89,11 +92,14 @@ async def ingest_worker(event: dict, context: Any) -> None:
 
         # 4. Update status
         from google.cloud import firestore
-        await doc_ref.update({
-            "status": "pdf_uploaded",
-            "ia_identifier": ia_identifier,
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        })
+
+        await doc_ref.update(
+            {
+                "status": "pdf_uploaded",
+                "ia_identifier": ia_identifier,
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+        )
 
         # 5. Emit next stage
         _publish_next_stage(publisher, doc_key)
@@ -103,10 +109,13 @@ async def ingest_worker(event: dict, context: Any) -> None:
         # Here we could NACK (raise) to retry via Pub/Sub
         raise
 
+
 def _publish_next_stage(publisher, doc_key) -> None:
-    message_json = json.dumps({
-        "docKey": doc_key,
-        "stage": "llm",
-        "force": False,
-    }).encode("utf-8")
+    message_json = json.dumps(
+        {
+            "docKey": doc_key,
+            "stage": "llm",
+            "force": False,
+        }
+    ).encode("utf-8")
     publisher.publish(settings.TOPIC_LLM, message_json)

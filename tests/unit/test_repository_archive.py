@@ -26,7 +26,9 @@ class TestGetUnarchivedIntimations:
     """Test suite for get_unarchived_intimations."""
 
     @pytest.mark.asyncio
-    async def test_returns_only_intimations_with_null_ia_url(self, repository, mock_connection) -> None:
+    async def test_returns_only_intimations_with_null_ia_url(
+        self, repository, mock_connection
+    ) -> None:
         """Should return only intimations where ia_url is NULL."""
         # Arrange
         mock_table = MagicMock()
@@ -98,7 +100,9 @@ class TestGetUnarchivedIntimations:
         assert len(result) <= 5
 
     @pytest.mark.asyncio
-    async def test_handles_missing_ia_url_column_gracefully(self, repository, mock_connection) -> None:
+    async def test_handles_missing_ia_url_column_gracefully(
+        self, repository, mock_connection
+    ) -> None:
         """Should handle case where ia_url column doesn't exist."""
         # Arrange
         mock_table = MagicMock()
@@ -109,10 +113,12 @@ class TestGetUnarchivedIntimations:
 
         # Fallback should work
         mock_filtered = MagicMock()
-        mock_table.filter = MagicMock(side_effect=[
-            AttributeError("ia_url"),
-            mock_filtered,  # Second call succeeds (fallback)
-        ])
+        mock_table.filter = MagicMock(
+            side_effect=[
+                AttributeError("ia_url"),
+                mock_filtered,  # Second call succeeds (fallback)
+            ]
+        )
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered
 

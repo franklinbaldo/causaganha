@@ -1,13 +1,13 @@
 """Analysis pipeline logic."""
+
 import asyncio
-from datetime import UTC, datetime
 
 import structlog
 
-from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.domain.factories import AnalysisResultFactory
 from causaganha.domain.interfaces import AnalysisRepositoryProtocol, IntimationRepositoryProtocol
 from causaganha.domain.models import Intimation
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.infrastructure.clients.document import DocumentService
 from causaganha.ml.types import WinnerClassifierMode, WinnerBootstrapMode
 from causaganha.ml.runner import WinnerClassifierRunner
