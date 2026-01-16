@@ -77,6 +77,57 @@ CREATE TABLE IF NOT EXISTS decision_analysis (
     model_provider VARCHAR(20),
     analysis_duration_seconds FLOAT,
 
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    -- Status
+    rated BOOLEAN DEFAULT FALSE,
+    rated_at TIMESTAMP
+);
+
+-- Lawyer ratings (OpenSkill - existing, may need adjustments)
+CREATE TABLE IF NOT EXISTS lawyer_ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    oab_number VARCHAR(20) NOT NULL,
+    oab_state VARCHAR(2) NOT NULL,
+    lawyer_name VARCHAR(255),
+
+    -- OpenSkill parameters
+    mu FLOAT NOT NULL DEFAULT 25.0,
+    sigma FLOAT NOT NULL DEFAULT 8.333,
+
+    -- Derived rating (conservative estimate)
+    rating FLOAT,
+
+    -- Statistics
+    total_cases INTEGER DEFAULT 0,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    win_rate FLOAT,
+
+    -- Context
+    tribunal VARCHAR(10) DEFAULT 'GLOBAL',  -- 'GLOBAL' for global rating
+
+    last_updated TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE(oab_number, oab_state, tribunal)
+);
+
+-- Sync/processing log
+CREATE TABLE IF NOT EXISTS sync_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_type VARCHAR(20) NOT NULL,  -- 'collect', 'analyze', 'score'
+    entity_id VARCHAR(100),  -- tribunal or batch identifier
+
+    started_at TIMESTAMP NOT NULL,
+    completed_at TIMESTAMP,
+
+    items_processed INTEGER DEFAULT 0,
+    items_succeeded INTEGER DEFAULT 0,
+    items_failed INTEGER DEFAULT 0,
+
+    status VARCHAR(20) NOT NULL,  -- 'running', 'success', 'failed', 'partial'
+    error_message TEXT,
+
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -88,3 +139,9 @@ CREATE INDEX IF NOT EXISTS idx_intimations_tribunal_date
 -- So we create a regular index instead
 CREATE INDEX IF NOT EXISTS idx_intimations_unanalyzed
     ON intimations(analyzed, data_disponibilizacao);
+
+CREATE INDEX IF NOT EXISTS idx_lawyer_ratings_ranking
+    ON lawyer_ratings(tribunal, rating DESC);
+
+CREATE INDEX IF NOT EXISTS idx_decision_analysis_rated
+    ON decision_analysis(rated, created_at);
