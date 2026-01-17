@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS intimations (
     hash VARCHAR(100) UNIQUE,
     status VARCHAR(1),
 
+    -- Archiving
+    ia_url VARCHAR(500),
+
     -- Analysis tracking
     analyzed BOOLEAN DEFAULT FALSE,
     analysis_attempted_at TIMESTAMP,
@@ -39,7 +42,7 @@ CREATE TABLE IF NOT EXISTS intimations (
 
 -- Lawyer associations (extracted from API destinatarioadvogados)
 CREATE TABLE IF NOT EXISTS intimation_lawyers (
-    intimation_id BIGINT REFERENCES intimations(id),
+    intimation_id BIGINT,
     oab_number VARCHAR(20) NOT NULL,
     oab_state VARCHAR(2) NOT NULL,
     lawyer_name VARCHAR(255),
