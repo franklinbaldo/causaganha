@@ -19,6 +19,8 @@ from causaganha.v2.storage.queries import (
     update_lawyer_rating,
     mark_analysis_as_rated,
     get_lawyer_name,
+    get_unarchived_intimations,
+    mark_as_archived,
 )
 
 
@@ -235,6 +237,41 @@ def test_mark_as_analyzed(db_connection: Backend) -> None:
     assert result.iloc[0]["analysis_error"] == "Error"
 
 
+def test_mark_as_analyzed_with_fk_constraint(db_connection: Backend) -> None:
+    """Test marking intimation as analyzed when it is referenced by another table."""
+    # 1. Store Intimation
+    intimation = Intimation(
+        id=999,
+        siglaTribunal="TJRO",
+        numero_processo="123",
+        data_disponibilizacao="2024-01-01",
+    )
+    store_intimations(db_connection, [intimation])
+
+    # 2. Store Lawyer (creates FK reference in intimation_lawyers)
+    lawyers = [
+        DestinarioAdvogado(
+            advogado=LawyerInfo(
+                id=1,
+                nome="Advogado Teste",
+                numero_oab="12345",
+                uf_oab="RO"
+            )
+        )
+    ]
+    store_lawyer_associations(db_connection, 999, lawyers)
+
+    # 3. Try to mark as analyzed (UPDATE intimations)
+    # This should NOT fail if DuckDB handles FKs correctly on non-key updates
+    mark_as_analyzed(db_connection, 999, success=True)
+
+    t = db_connection.table("intimations")
+    result = t.execute()
+    # Filter for our ID
+    row = result[result["id"] == 999].iloc[0]
+    assert row["analyzed"]
+
+
 def test_rating_queries(db_connection: Backend) -> None:
     """Test queries for rating pipeline."""
     # 1. Test get_unrated_analyses
@@ -340,3 +377,34 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
     )
     name = get_lawyer_name(db_connection, "9999", "RO")
     assert name == "Stored Name"
+
+
+def test_archive_queries(db_connection: Backend) -> None:
+    """Test archive-related queries."""
+    # Insert intimations
+    intimation1 = Intimation(
+        id=1,
+        siglaTribunal="TJRO",
+        numero_processo="123",
+        data_disponibilizacao="2024-01-01",
+        link="http://example.com/1",
+    )
+    store_intimations(db_connection, [intimation1])
+
+    # Should be unarchived initially
+    unarchived = get_unarchived_intimations(db_connection, limit=10)
+    assert len(unarchived) == 1
+    assert unarchived[0]["id"] == 1
+
+    # Mark as archived
+    ia_url = "https://archive.org/details/causaganha-tjro-1"
+    mark_as_archived(db_connection, 1, ia_url)
+
+    # Should not be returned now
+    unarchived_after = get_unarchived_intimations(db_connection, limit=10)
+    assert len(unarchived_after) == 0
+
+    # Verify update
+    t = db_connection.table("intimations")
+    result = t.execute()
+    assert result.iloc[0]["ia_url"] == ia_url
