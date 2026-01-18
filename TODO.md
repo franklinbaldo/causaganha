@@ -71,14 +71,14 @@
     - [x] Generate API docs with `mkdocs`.
 
 ## Phase 5: V2 Integration & Migration (🚧 In Progress)
-- [ ] **Implement V2 Archive Pipeline**
-    - [ ] Add archive queries to `src/causaganha/v2/storage/queries.py`
-    - [ ] Create `src/causaganha/v2/pipeline/archive.py`
+- [x] **Implement V2 Archive Pipeline**
+    - [x] Add archive queries to `src/causaganha/v2/storage/queries.py`
+    - [x] Create `src/causaganha/v2/pipeline/archive.py`
 - [ ] **Migrate CLI to V2**
-    - [ ] Update `src/causaganha/cli.py` to use V2 pipeline modules
+    - [x] Update `src/causaganha/cli.py` to use V2 pipeline modules
     - [ ] Verify `collect` command
-    - [ ] Verify `archive` command
+    - [x] Verify `archive` command
     - [ ] Verify `analyze` command
     - [ ] Verify `score` command
-- [ ] **Verify E2E**
-    - [ ] Ensure `tests/e2e/test_full_lifecycle.py` passes with V2 components
+- [x] **Verify E2E**
+    - [x] Ensure `tests/e2e/test_full_lifecycle.py` passes with V2 components
