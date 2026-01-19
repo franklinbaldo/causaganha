@@ -24,9 +24,10 @@ Internal      Researchers         Consumers              B2B Revenue
 
 ### Features
 - ✅ Data collection from 5 tribunals (TJRO, TJAC, TJAP, TJAM, TJRR)
-- ✅ LLM-powered analysis (Gemini)
+- ✅ LLM-powered analysis of `texto` field (Gemini)
 - ✅ OpenSkill ratings
-- ✅ Internet Archive preservation
+- ✅ Parquet export with tribunal+date partitioning
+- ✅ Internet Archive data lake (free distributed storage)
 - ✅ Automated daily pipeline via GitHub Actions
 - ✅ Basic monitoring and error handling
 

@@ -146,15 +146,21 @@ GitHub Actions (Daily Trigger)
 
 ## 💾 Data Storage Requirements
 
-### Database Schema
+### Database Architecture
 
-**Tables:**
-1. `intimations` - Raw court intimations (~1KB/row)
+**Local DuckDB (Working Database):**
+1. `intimations` - Staging area for API data (~1KB/row)
 2. `intimation_lawyers` - Lawyer associations (~200B/row)
 3. `decision_analysis` - LLM extractions (~500B/row)
 4. `lawyer_ratings` - Current ratings (~300B/row)
 5. `sync_log` - Pipeline execution history (~500B/row)
 6. `monitored_courts` - Tribunal configuration (~200B/row)
+
+**Internet Archive (Primary Data Lake):**
+- Parquet files partitioned by tribunal + date
+- Format: `causaganha-{TRIBUNAL}-{YEAR}-{MONTH}.parquet`
+- Denormalized schema for efficient queries
+- Public download for verification and reproducibility
 
 **Indexes:**
 - intimations(hash) - duplicate detection
@@ -165,18 +171,23 @@ GitHub Actions (Daily Trigger)
 
 ### Storage Growth Projections
 
-| Phase | Decisions | Lawyers | DB Size | Archive Size |
-|-------|-----------|---------|---------|--------------|
-| MVP | 50K | 10K | 5 GB | 50 GB PDFs |
-| Year 1 | 500K | 50K | 50 GB | 500 GB PDFs |
-| Year 2 | 2M | 150K | 200 GB | 2 TB PDFs |
+| Phase | Decisions | Lawyers | DuckDB (Local) | IA Parquet (Free) | Cost Savings |
+|-------|-----------|---------|----------------|-------------------|--------------|
+| MVP | 50K | 10K | 500 MB | 5 MB | $0 vs. $15/mo |
+| Year 1 | 500K | 50K | 5 GB | 50 MB | $0 vs. $100/mo |
+| Year 2 | 2M | 150K | 20 GB | 200 MB | $0 vs. $300/mo |
+| Year 5 | 10M | 500K | 100 GB | 1 GB | $0 vs. $1,500/mo |
+
+**Compression Benefits:**
+- Raw JSON: ~5KB per decision
+- Parquet (compressed): ~500 bytes per decision
+- **Compression ratio: 10x**
 
 **Retention Policy:**
-- Raw intimations: Permanent
-- Analyses: Permanent
-- Ratings history: Permanent (audit trail)
+- DuckDB (working): Last 6 months (then archive to IA)
+- Internet Archive Parquet: Permanent
 - Logs: 90 days
-- PDFs: Permanent (Internet Archive)
+- Partitioning: Monthly export to IA, DuckDB purge old data
 
 ---
 
@@ -217,19 +228,25 @@ GitHub Actions (Daily Trigger)
 
 **Compute:**
 - GitHub Actions (2,000 minutes/month free tier)
-- Pipeline runs: ~4 hours/day = ~120 hours/month = 7,200 minutes/month
+- Pipeline runs: ~2 hours/day = ~60 hours/month = 3,600 minutes/month
 - **Cost:** $0 (within free tier)
 
 **Storage:**
-- DuckDB: Local file system
+- DuckDB: Local file system (<1 GB working database)
+- Internet Archive: Free (permanent Parquet data lake)
 - GitHub repo: <1 GB
-- **Cost:** $0
+- **Cost:** $0 (vs. $15-100/month on AWS S3)
 
 **External Services:**
-- Gemini API: $300-500/month
-- Internet Archive: Free
+- Gemini API: $300-500/month (texto analysis)
+- Internet Archive: $0 (free for public data)
 - Domain: $15/year
 - **Total:** ~$500/month
+
+**Key Savings:**
+- Storage: $0 (IA) vs. $100-1,500/month (AWS S3 + bandwidth)
+- Database: $0 (local DuckDB) vs. $25-200/month (managed PostgreSQL)
+- **Annual savings: $1,500-20,000**
 
 ### Year 2 Infrastructure
 

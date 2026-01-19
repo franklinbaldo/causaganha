@@ -25,21 +25,24 @@
 - <2% duplicate rate
 - Process without manual intervention
 
-#### 1.2 Document Archival
-- ✅ Download PDFs from PJe
+#### 1.2 Data Export & Archival
+- ✅ Transform analyzed data to Parquet format (columnar)
+- ✅ Partition by tribunal and month (e.g., causaganha-TJRO-2025-01.parquet)
 - ✅ Upload to Internet Archive with metadata
 - ✅ Store archive.org URLs in database
 - ✅ Verify successful uploads
 - ✅ Handle archival failures gracefully
 
 **Acceptance Criteria:**
-- 100% of collected decisions archived within 24 hours
-- Permanent preservation on archive.org
-- Verifiable links stored in database
+- 100% of analyzed decisions exported to Parquet within 24 hours
+- Permanent preservation on archive.org (free data lake)
+- Efficient partitioning for query performance
+- Public access for verification and reproducibility
 
 #### 1.3 Decision Analysis
-- ✅ Gemini LLM (2.0-flash-exp) for extraction
+- ✅ Gemini LLM (2.0-flash-exp) analyzes `texto` field from PJe API
 - ✅ Extract: winner, loser, decision type, outcome, judge, reasoning
+- ✅ No PDF download required (`texto` contains full decision text)
 - ✅ Pydantic model validation
 - ✅ Confidence scoring (threshold: 0.70 minimum)
 - ✅ Batch processing (5-10 decisions per batch)
@@ -339,11 +342,13 @@
 - **Underserved markets:** Less legal tech presence, higher impact
 - **Geographic diversity:** Spread across region
 
-### Why Internet Archive, Not S3?
-- **Mission alignment:** Transparency and permanence
-- **Zero cost:** Free for nonprofit use
-- **Credibility:** archive.org is trusted by researchers
-- **Permanence:** True long-term preservation
+### Why Internet Archive as Data Lake?
+- **Zero cost:** $0 vs. $1,200+/year on AWS S3
+- **Distributed:** No single server costs or failure points
+- **Permanence:** Data survives beyond project lifetime
+- **Public access:** Anyone can download Parquet files and verify ratings
+- **Transparency:** Complete data lineage and reproducibility
+- **Mission alignment:** Open data for public good
 
 ### Why OpenSkill, Not ELO?
 - **Handles uncertainty:** Sigma parameter for new lawyers

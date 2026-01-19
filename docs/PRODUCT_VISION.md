@@ -131,17 +131,12 @@ We're creating the **"Elo rating for lawyers"** - objective, data-driven, transp
 
 ```
 ┌──────────────┐
-│   COLLECT    │  Fetch intimations from PJe API
+│   COLLECT    │  Fetch intimations from PJe API (includes texto field)
 └──────┬───────┘
        │
        ▼
 ┌──────────────┐
-│   ARCHIVE    │  Preserve PDFs to Internet Archive
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│   ANALYZE    │  Extract structured data with Gemini LLM
+│   ANALYZE    │  Extract winner/loser from texto using Gemini LLM
 └──────┬───────┘
        │
        ▼
@@ -151,11 +146,23 @@ We're creating the **"Elo rating for lawyers"** - objective, data-driven, transp
        │
        ▼
 ┌──────────────┐
-│   PUBLISH    │  Make data available via API/website
+│   EXPORT     │  Convert to Parquet (columnar format)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  ARCHIVE     │  Upload to Internet Archive (free data lake)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   PUBLISH    │  Share IA URLs for public download & verification
 └──────────────┘
 ```
 
 This loop runs automatically, daily, unattended.
+
+**Key Innovation**: Internet Archive serves as a free, distributed, permanent data lake using Parquet format for efficient queries.
 
 ---
 
@@ -189,21 +196,26 @@ This loop runs automatically, daily, unattended.
 
 ### 2. **AI-Powered at Scale**
 - Manual analysis doesn't scale to 90 tribunals
-- LLM extraction is our moat
+- LLM extraction of `texto` field from PJe API
+- Automated winner/loser determination
 
-### 3. **Permanent Preservation**
-- Internet Archive partnership
-- Court data often disappears - we prevent that
+### 3. **Free, Distributed Data Lake**
+- Internet Archive as primary database ($0 cost)
+- Parquet format (10x compression, fast queries)
+- Anyone can download and verify ratings
+- No cloud storage costs (vs. $1,200+/year on AWS)
 
 ### 4. **Open & Transparent**
 - Not a black box algorithm
 - Full methodology disclosure builds trust
-- Hard for competitors to claim "more transparent"
+- Public data lake enables independent verification
+- Reproducible science: download Parquet files, recalculate ratings
 
 ### 5. **Technical Excellence**
-- Modern stack (DuckDB, Ibis, Pydantic AI)
+- Modern stack (DuckDB, Ibis, Pydantic AI, Parquet)
 - Automated CI/CD pipeline
 - Scalable architecture
+- Smart partitioning (tribunal + date) for efficient access
 
 ---
 
