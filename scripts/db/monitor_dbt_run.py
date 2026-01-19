@@ -7,7 +7,8 @@ from pathlib import Path
 
 # Configure basic logging for the monitor script itself
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -47,19 +48,19 @@ def parse_run_results(results_path: Path) -> None:
     slowest_nodes = []
 
     for result in results:
-        node_type = result.get("unique_id", "").split(".")[
-            0
-        ]  # e.g., model, test, seed, snapshot
+        node_type = result.get("unique_id", "").split(".")[0]  # e.g., model, test, seed, snapshot
         status = result.get("status", "unknown")
         execution_time = result.get("execution_time", 0)
         node_name = result.get("unique_id", "unknown.node")
 
         if execution_time > 0:  # Track execution time for non-trivial nodes
-            slowest_nodes.append({
-                "name": node_name,
-                "time": execution_time,
-                "status": status,
-            })
+            slowest_nodes.append(
+                {
+                    "name": node_name,
+                    "time": execution_time,
+                    "status": status,
+                }
+            )
 
         if node_type in {"model", "snapshot", "seed"}:
             model_statuses[status] += 1
@@ -144,9 +145,7 @@ if __name__ == "__main__":
         args.run_results_path.name == "run_results.json"
         and args.run_results_path.parent.name == "target"
     ):  # default was used
-        effective_run_results_path = (
-            args.dbt_project_dir / "target" / "run_results.json"
-        )
+        effective_run_results_path = args.dbt_project_dir / "target" / "run_results.json"
     else:  # User provided a relative path for run_results_path
         effective_run_results_path = args.run_results_path
 

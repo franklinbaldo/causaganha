@@ -13,8 +13,10 @@ logger = structlog.get_logger()
 COLLECTION_NAME = "docs"
 LOCK_DURATION_SECONDS = 300  # 5 minutes
 
+
 class DocState(BaseModel):
     """Firestore document state model."""
+
     docKey: str
     status: Literal["new", "pdf_uploaded", "llm_submitted", "llm_done", "error"]
     pdf_url: str
@@ -30,13 +32,16 @@ class DocState(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 def get_firestore_client() -> firestore.AsyncClient:
     """Returns an async Firestore client."""
     return firestore.AsyncClient()
 
+
 def compute_doc_key(url: str) -> str:
     """Computes a stable document key from the URL."""
     return hashlib.sha256(url.encode()).hexdigest()
+
 
 async def acquire_lock(db: firestore.AsyncClient, doc_key: str, stage: str) -> bool:
     """Acquires a lock for the document for a specific stage."""
@@ -63,10 +68,13 @@ async def acquire_lock(db: firestore.AsyncClient, doc_key: str, stage: str) -> b
 
         # Lock it
         new_lock_until = datetime.now(UTC) + timedelta(seconds=LOCK_DURATION_SECONDS)
-        transaction.update(ref, {
-            "lock_until": new_lock_until,
-            "updated_at": datetime.now(UTC),
-        })
+        transaction.update(
+            ref,
+            {
+                "lock_until": new_lock_until,
+                "updated_at": datetime.now(UTC),
+            },
+        )
         return True
 
     try:

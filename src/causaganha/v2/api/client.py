@@ -1,7 +1,30 @@
 """PJe Communications API client with httpx."""
 
 import httpx
+from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class LawyerInfo(BaseModel):
+    """Lawyer information from API."""
+
+    id: int
+    nome: str
+    numero_oab: str
+    uf_oab: str
+
+
+class DestinarioAdvogado(BaseModel):
+    """Lawyer association."""
+
+    advogado: LawyerInfo
+
+
+class Destinatario(BaseModel):
+    """Party information."""
+
+    nome: str
+    polo: str  # 'A', 'P', etc.
 
 
 class Intimation(BaseModel):
@@ -15,10 +38,15 @@ class Intimation(BaseModel):
     link: str | None = None
     tipo_documento: str | None = Field(default=None, alias="tipoDocumento")
     nome_classe: str | None = Field(default=None, alias="nomeClasse")
+    codigo_classe: str | None = Field(default=None, alias="codigoClasse")
+    id_orgao: int | None = Field(default=None, alias="idOrgao")
     hash: str | None = None
     status: str | None = None
     numero_processo: str | None = None
     data_disponibilizacao: str | None = None
+    numeroprocessocommascara: str | None = None
+    destinatarioadvogados: list[DestinarioAdvogado] = []
+    destinatarios: list[Destinatario] = []
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
@@ -50,12 +78,16 @@ class PJeAPIClient:
         self,
         sigla_tribunal: str,
         limit_per_page: int = 100,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
     ) -> list[Intimation]:
         """Fetch all intimations for a court with automatic pagination.
 
         Args:
             sigla_tribunal: Court acronym (e.g. TJRO).
             limit_per_page: Items per page.
+            data_inicio: Start date filter.
+            data_fim: End date filter.
 
         Returns:
             List of Intimation objects.
@@ -64,11 +96,16 @@ class PJeAPIClient:
         offset = 0
 
         while True:
-            params = {
+            params: dict[str, str | int] = {
                 "siglaTribunal": sigla_tribunal,
                 "offset": offset,
                 "limit": limit_per_page,
             }
+
+            if data_inicio:
+                params["dataDisponibilizacaoInicio"] = data_inicio.isoformat()
+            if data_fim:
+                params["dataDisponibilizacaoFim"] = data_fim.isoformat()
 
             response = await self.client.get(
                 f"{self.base_url}/comunicacao",

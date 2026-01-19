@@ -12,6 +12,7 @@ def doc_service():
     """Create document service."""
     return DocumentService()
 
+
 @pytest.mark.asyncio
 async def test_download_pdf_success(doc_service) -> None:
     """Test successful PDF download."""
@@ -34,6 +35,7 @@ async def test_download_pdf_success(doc_service) -> None:
         result = await doc_service.download_pdf(url)
         assert result == content
 
+
 @pytest.mark.asyncio
 async def test_download_pdf_not_pdf_warning(doc_service) -> None:
     """Test warning when content type is not PDF."""
@@ -55,6 +57,7 @@ async def test_download_pdf_not_pdf_warning(doc_service) -> None:
         # We want to verify the warning log, but for now just check it returns content
         result = await doc_service.download_pdf(url)
         assert result == content
+
 
 @pytest.mark.asyncio
 async def test_download_pdf_failure(doc_service) -> None:

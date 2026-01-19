@@ -1,8 +1,6 @@
 """Integration test script for V2 pipeline."""
 
 import asyncio
-import os
-import shutil
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -60,7 +58,7 @@ async def main() -> None:
             Lawyer(id=1, nome="Advogado A", numero_oab="1001", uf_oab="RO"),
             Lawyer(id=2, nome="Advogado B", numero_oab="1002", uf_oab="RO"),
         ],
-        partes=[]
+        partes=[],
     )
 
     # Mock Analysis Result
@@ -76,7 +74,7 @@ async def main() -> None:
         summary="Test summary",
         judge_name="Judge Test",
         decision_reasoning="Reasoning test",
-        confidence_score=0.95
+        confidence_score=0.95,
     )
 
     # 2. Run Pipeline Stages
@@ -91,7 +89,9 @@ async def main() -> None:
     # --- STAGE 1: COLLECTION ---
     logger.info("Running Collection Stage...")
 
-    with patch("causaganha.api.client.PJeAPIClient.get_intimations_by_court", new_callable=AsyncMock) as mock_get:
+    with patch(
+        "causaganha.api.client.PJeAPIClient.get_intimations_by_court", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = [mock_intimation]
 
         client = PJeAPIClient()
@@ -114,18 +114,18 @@ async def main() -> None:
 
     # Mock Document Service
     doc_service = DocumentService()
-    doc_service.download_pdf = AsyncMock(return_value=b"%PDF-1.4...") # type: ignore
+    doc_service.download_pdf = AsyncMock(return_value=b"%PDF-1.4...")  # type: ignore
 
     # Mock Analyzer
     with patch("causaganha.analysis.analyzer.Agent") as mock_agent_cls:
         analyzer = DecisionAnalyzer(model="google-gla:gemini-2.5-flash")
-        analyzer.analyze_decision = AsyncMock(return_value=mock_analysis) # type: ignore
+        analyzer.analyze_decision = AsyncMock(return_value=mock_analysis)  # type: ignore
 
         await run_analysis(
             repository=repo,
             doc_service=doc_service,
             analyzer=analyzer,
-            limit=10
+            limit=10,
         )
 
     # Verify Analysis
@@ -143,14 +143,14 @@ async def main() -> None:
 
     await run_scoring(
         repository=repo,
-        limit=100
+        limit=100,
     )
 
     # Verify Scoring
     # Verify 'lawyer_ratings' table exists and has entries
 
     ratings = con.table("lawyer_ratings").execute()
-    assert len(ratings) >= 2 # Winner and Loser
+    assert len(ratings) >= 2  # Winner and Loser
 
     winner = ratings[ratings["oab_number"] == "1001"].iloc[0]
     loser = ratings[ratings["oab_number"] == "1002"].iloc[0]

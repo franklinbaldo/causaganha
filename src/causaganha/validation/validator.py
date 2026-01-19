@@ -29,9 +29,13 @@ class DataValidator:
 
         # Check invalid links (simple check: must start with http)
         # Handle nulls safely
-        invalid_links = t.filter(
-            ~(t.link.startswith("http")) | t.link.isnull(),
-        ).count().execute()
+        invalid_links = (
+            t.filter(
+                ~(t.link.startswith("http")) | t.link.isnull(),
+            )
+            .count()
+            .execute()
+        )
 
         # Check missing tribunal
         missing_tribunal = t.filter(t.sigla_tribunal.isnull()).count().execute()
@@ -53,7 +57,8 @@ class DataValidator:
 
         # Left join analysis -> intimations
         joined = analysis.left_join(
-            intimations, analysis.intimation_id == intimations.id,
+            intimations,
+            analysis.intimation_id == intimations.id,
         )
 
         # Filter where intimation id is null (meaning no match found)

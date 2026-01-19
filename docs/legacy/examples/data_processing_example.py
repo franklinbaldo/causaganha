@@ -17,9 +17,11 @@ def load_mock_data(file_path):
     except json.JSONDecodeError:
         return []
 
+
 def filter_decisions_by_court(decisions, court_name):
     """Filters decisions by a specific court."""
     return [d for d in decisions if d.get("court") == court_name]
+
 
 def count_keywords(decisions):
     """Counts the occurrences of keywords across all decisions."""
@@ -28,6 +30,7 @@ def count_keywords(decisions):
         for keyword in decision.get("keywords", []):
             keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
     return keyword_counts
+
 
 def main() -> None:
     # Adjust the path if your mock data is located elsewhere relative to this script
@@ -48,7 +51,6 @@ def main() -> None:
     if not decisions_data:
         return
 
-
     supreme_court_cases = filter_decisions_by_court(decisions_data, "Supreme Court")
     for _case in supreme_court_cases:
         pass
@@ -60,6 +62,7 @@ def main() -> None:
     all_keywords = count_keywords(decisions_data)
     for _keyword, _count in all_keywords.items():
         pass
+
 
 if __name__ == "__main__":
     main()

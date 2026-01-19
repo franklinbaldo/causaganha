@@ -192,7 +192,10 @@ class InternetArchiveService:
 
                 # Run the blocking IA upload in a thread pool
                 result = await asyncio.to_thread(
-                    self._sync_upload, file_path, item_id, metadata or {},
+                    self._sync_upload,
+                    file_path,
+                    item_id,
+                    metadata or {},
                 )
 
                 logger.info("upload_success", item_id=item_id, url=result)
@@ -214,13 +217,18 @@ class InternetArchiveService:
 
             except Exception as e:
                 # Non-transient errors - don't retry
-                logger.exception("upload_failed", item_id=item_id, path=str(file_path), error=str(e))
+                logger.exception(
+                    "upload_failed", item_id=item_id, path=str(file_path), error=str(e)
+                )
                 return None
 
         return None
 
     def _sync_upload(
-        self, file_path: Path, item_id: str, metadata: dict[str, Any],
+        self,
+        file_path: Path,
+        item_id: str,
+        metadata: dict[str, Any],
     ) -> str:
         """Synchronous upload to IA.
 
@@ -299,4 +307,3 @@ class InternetArchiveService:
             "description": f"Intimação judicial do processo {processo}",
             "date": data_pub,
         }
-
