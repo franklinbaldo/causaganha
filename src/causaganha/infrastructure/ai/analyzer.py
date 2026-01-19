@@ -126,7 +126,7 @@ class DecisionAnalyzer:
         for attempt in range(len(self.api_keys)):
             try:
                 result = await self.agent.run(payload)
-                return result.output
+                return result.data
             except Exception as e:
                 error_str = str(e)
                 # Check for 429 rate limit error
@@ -169,14 +169,14 @@ class DecisionAnalyzer:
             try:
                 result = await self.batch_agent.run(user_content)
 
-                if len(result.output.results) != len(texts_list):
+                if len(result.data.results) != len(texts_list):
                     logger.warning(
                         "batch_analysis_count_mismatch",
                         expected=len(texts_list),
-                        got=len(result.output.results),
+                        got=len(result.data.results),
                     )
 
-                return result.output.results
+                return result.data.results
             except Exception as e:
                 error_str = str(e)
                 # Check for 429 rate limit error
