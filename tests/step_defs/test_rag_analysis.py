@@ -96,7 +96,7 @@ def mock_embedding_service():
 
     service.embed_text = AsyncMock(side_effect=mock_embed_text)
     service.embed_batch = AsyncMock(side_effect=mock_embed_batch)
-    service.chunk_text = EmbeddingService.chunk_text.__func__
+    service.chunk_text = EmbeddingService.chunk_text
 
     return service
 
@@ -346,8 +346,12 @@ def check_chunk_size(context, size):
     """Check chunk sizes."""
     chunks = context.get("chunks", [])
     for i, chunk in enumerate(chunks):
-        # Allow some variance (±50 chars)
-        assert abs(len(chunk) - size) <= 50, f"Chunk {i} size {len(chunk)} not approximately {size}"
+        # Allow some variance (±50 chars), except for last chunk which can be smaller
+        if i == len(chunks) - 1:
+            # Last chunk can be any size up to chunk_size
+            assert len(chunk) <= size + 50, f"Last chunk {i} size {len(chunk)} exceeds {size}"
+        else:
+            assert abs(len(chunk) - size) <= 50, f"Chunk {i} size {len(chunk)} not approximately {size}"
 
 
 @then("consecutive chunks should have overlapping content")

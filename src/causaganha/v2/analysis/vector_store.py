@@ -50,8 +50,7 @@ class VectorStore:
         Returns:
             True if table exists, False otherwise.
         """
-        db = self.connect()
-        return table_name in db.table_names()
+        return table_name in self.list_tables()
 
     def create_table(
         self,
@@ -243,7 +242,9 @@ class VectorStore:
             List of table names.
         """
         db = self.connect()
-        tables = db.table_names()
+        # Use the new list_tables() API which returns a response object
+        response = db.list_tables()
+        tables = response.tables if hasattr(response, 'tables') else response
 
         logger.debug("tables_listed", num_tables=len(tables))
 
