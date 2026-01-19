@@ -137,7 +137,23 @@ def store_analysis(
     intimation_id: int,
     analysis: DecisionAnalysis,
 ) -> None:
-    """Store analysis results."""
+    """Store analysis results (supports both LLM and RAG analysis)."""
+    import json
+
+    # Determine model info based on analysis method
+    if analysis.analysis_method == "rag":
+        model_used = "rag-embedding-004"
+        model_provider = "google"
+    elif analysis.analysis_method == "hybrid":
+        model_used = "hybrid-rag-llm"
+        model_provider = "google"
+    else:  # llm
+        model_used = "gemini-2.5-flash"
+        model_provider = "google"
+
+    # Serialize rag_votes to JSON if present
+    rag_votes_json = json.dumps(analysis.rag_votes) if analysis.rag_votes else None
+
     # Use underlying DuckDB connection for parameterized query
     con.con.execute(
         """
@@ -147,14 +163,19 @@ def store_analysis(
             loser_lawyer_oab, loser_lawyer_state, loser_party_name,
             decision_type, outcome, judge_name,
             decision_reasoning, confidence_score,
+            analysis_method, rag_confidence, rag_votes_json,
             model_used, model_provider
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'gemini-2.5-flash', 'google'
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (intimation_id) DO UPDATE SET
             winner_lawyer_oab = EXCLUDED.winner_lawyer_oab,
             winner_lawyer_state = EXCLUDED.winner_lawyer_state,
-            confidence_score = EXCLUDED.confidence_score
+            confidence_score = EXCLUDED.confidence_score,
+            analysis_method = EXCLUDED.analysis_method,
+            rag_confidence = EXCLUDED.rag_confidence,
+            rag_votes_json = EXCLUDED.rag_votes_json,
+            model_used = EXCLUDED.model_used
         """,
         [
             intimation_id,
@@ -169,6 +190,11 @@ def store_analysis(
             analysis.judge_name,
             analysis.decision_reasoning,
             analysis.confidence_score,
+            analysis.analysis_method,
+            analysis.rag_confidence,
+            rag_votes_json,
+            model_used,
+            model_provider,
         ],
     )
 
