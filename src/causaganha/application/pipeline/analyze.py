@@ -1,16 +1,15 @@
 """Analysis pipeline logic."""
-
 import asyncio
+from datetime import UTC, datetime
 
 import structlog
 
+from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.domain.factories import AnalysisResultFactory
 from causaganha.domain.interfaces import AnalysisRepositoryProtocol, IntimationRepositoryProtocol
 from causaganha.domain.models import Intimation
-from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
 from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.ml.types import WinnerClassifierMode, WinnerBootstrapMode
-from causaganha.ml.runner import WinnerClassifierRunner
+
 
 logger = structlog.get_logger()
 
@@ -22,81 +21,22 @@ async def run_analysis(
     analyzer: DecisionAnalyzer,
     limit: int = 10,
     batch_size: int = 5,
-    winner_classifier_mode: WinnerClassifierMode = WinnerClassifierMode.OFF,
-    jobs: int = 4,
-    winner_bootstrap_mode: WinnerBootstrapMode = WinnerBootstrapMode.AUTO,
-    winner_bootstrap_limit: int = 5000,
 ) -> None:
-    """Run the analysis pipeline.
+    """Run the analysis pipeline using bulk processing on decision text.
 
     1. Fetch unanalyzed intimations.
-    2. Download PDF.
-    3. Analyze with AI.
+    2. Collect text content from intimations.
+    3. Analyze with AI in bulk.
     4. Store results.
 
     Args:
         repository: Storage repository.
-        doc_service: Document service for downloads.
+        doc_service: Document service (unused now, kept for interface compatibility).
         analyzer: Decision analyzer service.
         limit: Total items to process.
         batch_size: Items per batch.
-        winner_classifier_mode: Mode for winner prediction subsystem.
-        jobs: Concurrency level for winner classifier.
-        winner_bootstrap_mode: Bootstrap mode.
-        winner_bootstrap_limit: Bootstrap limit.
     """
-    logger.info("starting_analysis", limit=limit)
-
-    # Initialize winner classifier runner
-    # Note: We cast analysis_repository because the Protocol doesn't include the raw connection needed by bootstrapper
-    # ideally we should improve the interface or pass the concrete repo.
-    # Assuming runtime passed the concrete repo.
-    winner_runner = WinnerClassifierRunner(
-        mode=winner_classifier_mode,
-        bootstrap_mode=winner_bootstrap_mode,
-        bootstrap_limit=winner_bootstrap_limit,
-        jobs=jobs,
-        analysis_repo=analysis_repository, # type: ignore
-    )
-
-    async def process_item(item: Intimation) -> dict | None:
-        intimation_id = item.id
-        link = item.link
-
-        logger.info("processing_intimation", id=intimation_id, link=link)
-
-        if not link:
-            logger.warning("missing_link", id=intimation_id)
-            return None
-
-        pdf_bytes = await doc_service.download_pdf(link)
-        if not pdf_bytes:
-            return AnalysisResultFactory.create_result(item, error="Download failed")
-
-        try:
-            analysis = await analyzer.analyze_decision(pdf_bytes)
-            logger.info("analysis_success", id=intimation_id, outcome=analysis.outcome)
-
-            # Winner Classifier hook
-            ml_result = {}
-            if winner_classifier_mode != WinnerClassifierMode.OFF:
-                try:
-                    # Use raw intimação text from API (item.texto) for embedding
-                    # This allows ML predictions before expensive LLM analysis
-                    text_context = item.texto
-                    ml_result = await winner_runner.process_decision(text_context)
-                except Exception as e:
-                    logger.error("winner_classifier_failed", id=intimation_id, error=str(e))
-
-            # Merge ML results into the final dict
-            result = AnalysisResultFactory.create_result(item, analysis=analysis)
-            if ml_result:
-                result.update(ml_result)
-            return result
-
-        except Exception as e:
-            logger.exception("analysis_failed", id=intimation_id, error=str(e))
-            return AnalysisResultFactory.create_result(item, error=str(e))
+    logger.info("starting_analysis", limit=limit, batch_size=batch_size)
 
     processed = 0
     while processed < limit:
@@ -108,15 +48,68 @@ async def run_analysis(
             logger.info("no_more_items_to_analyze")
             break
 
-        # Process batch concurrently
-        tasks = [process_item(item) for item in items]
-        if tasks:
-            results = await asyncio.gather(*tasks)
-            valid_results = [r for r in results if r is not None]
+        logger.info("processing_batch", size=len(items))
 
-            # Store batch results
-            if valid_results:
-                await analysis_repository.store_analysis_results_batch(valid_results)
+        items_ready_for_analysis: list[tuple[Intimation, str]] = []
+        results_to_store = []
+
+        # 1. Filter valid content
+        for item in items:
+            if item.texto and item.texto.strip():
+                items_ready_for_analysis.append((item, item.texto))
+            else:
+                logger.warning("skipping_analysis_no_text", id=item.id)
+                results_to_store.append(
+                    AnalysisResultFactory.create_result(
+                        item,
+                        error="No text content available",
+                    ),
+                )
+
+        # 2. Bulk Analyze
+        if items_ready_for_analysis:
+            texts_to_analyze = [text for _, text in items_ready_for_analysis]
+            try:
+                analyses = await analyzer.analyze_bulk(texts_to_analyze)
+
+                # Check for mismatch
+                if len(analyses) != len(items_ready_for_analysis):
+                    logger.error(
+                        "analysis_count_mismatch",
+                        sent=len(items_ready_for_analysis),
+                        received=len(analyses),
+                    )
+                    # Fallback: Mark all as error to be safe
+                    for item, _ in items_ready_for_analysis:
+                        results_to_store.append(
+                            AnalysisResultFactory.create_result(
+                                item,
+                                error="Bulk analysis mismatch",
+                            ),
+                        )
+                else:
+                    # Map results
+                    for i, analysis in enumerate(analyses):
+                        item, _ = items_ready_for_analysis[i]
+                        logger.info("analysis_success", id=item.id, outcome=analysis.outcome)
+                        results_to_store.append(
+                            AnalysisResultFactory.create_result(item, analysis=analysis),
+                        )
+
+            except Exception as e:
+                logger.exception("bulk_analysis_failed", error=str(e))
+                # Mark all in this batch as failed
+                for item, _ in items_ready_for_analysis:
+                    results_to_store.append(
+                        AnalysisResultFactory.create_result(
+                            item,
+                            error=f"Bulk analysis exception: {str(e)}",
+                        ),
+                    )
+
+        # 3. Store Results
+        if results_to_store:
+            await analysis_repository.store_analysis_results_batch(results_to_store)
 
         processed += len(items)
 

@@ -22,12 +22,28 @@ class DecisionAnalysis(BaseModel):
     )
 
     # Detailed fields for scoring
-    winner_lawyer_oab: str | None = Field(None, description="OAB number of the winning lawyer.")
-    winner_lawyer_state: str | None = Field(None, description="State of the winning lawyer OAB.")
+    winner_lawyer_oab: str | None = Field(
+        None,
+        description=(
+            "OAB number of the winning lawyer. "
+            "If the lawyer is from Procuradoria/AGU and no OAB is listed, use a synthetic identifier like: "
+            "'PROCURADORIA-FEDERAL-RO', 'PROCURADORIA-MUNICIPAL-ARIQUEMES-RO', 'PGE-RO', etc. "
+            "ALWAYS provide this field when there is a lawyer/procuradoria representing the winning party."
+        )
+    )
+    winner_lawyer_state: str | None = Field(None, description="State of the winning lawyer OAB (e.g., 'RO', 'SP').")
     winner_party_name: str | None = Field(None, description="Name of the winning party.")
 
-    loser_lawyer_oab: str | None = Field(None, description="OAB number of the losing lawyer.")
-    loser_lawyer_state: str | None = Field(None, description="State of the losing lawyer OAB.")
+    loser_lawyer_oab: str | None = Field(
+        None,
+        description=(
+            "OAB number of the losing lawyer. "
+            "If the lawyer is from Procuradoria/AGU and no OAB is listed, use a synthetic identifier like: "
+            "'PROCURADORIA-FEDERAL-RO', 'PROCURADORIA-MUNICIPAL-ARIQUEMES-RO', 'PGE-RO', etc. "
+            "ALWAYS provide this field when there is a lawyer/procuradoria representing the losing party."
+        )
+    )
+    loser_lawyer_state: str | None = Field(None, description="State of the losing lawyer OAB (e.g., 'RO', 'SP').")
     loser_party_name: str | None = Field(None, description="Name of the losing party.")
 
     decision_type: str | None = Field(
@@ -41,3 +57,6 @@ class DecisionAnalysis(BaseModel):
         None, description="The court that issued the decision (e.g., 'TJRO')."
     )
     decision_date: date | None = Field(None, description="The date of the decision.")
+
+class BatchDecisionAnalysis(BaseModel):
+    results: list[DecisionAnalysis] = Field(..., description="List of analysis results, one for each provided document, in the same order.")

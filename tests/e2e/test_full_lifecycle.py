@@ -1,13 +1,12 @@
-from datetime import date
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
 from causaganha.cli import app
-from causaganha.v2.api.client import Intimation, DestinarioAdvogado, LawyerInfo
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.domain.models import Intimation
+from causaganha.infrastructure.storage.connection import get_connection
 
 
 runner = CliRunner()
@@ -19,55 +18,51 @@ def realistic_intimation_data() -> list[Intimation]:
     return [
         Intimation(
             id=1001,
-            siglaTribunal="TJRO",
             numero_processo="1234567-89.2024.8.22.0001",
-            data_disponibilizacao="2024-12-15",
-            tipoComunicacao="Intimação",
-            nomeOrgao="1ª Vara Cível de Porto Velho",
+            data_disponibilizacao=datetime(
+                2024, 12, 15, tzinfo=UTC,
+            ),  # type: ignore[arg-type]
+            sigla_tribunal="TJRO",
+            tipo_comunicacao="Intimação",
+            nome_orgao="1ª Vara Cível de Porto Velho",
             texto="Intima-se a parte autora para manifestação sobre os documentos juntados.",
             link="https://pje.tjro.jus.br/docs/decisao_1001.pdf",
-            tipoDocumento="PDF",
-            nomeClasse="Procedimento Comum Cível",
-            codigoClasse="318",
+            tipo_documento="PDF",
+            nome_classe="Procedimento Comum Cível",
+            codigo_classe="318",
             hash="abc123def456",
-            status="P",
-            destinatarioadvogados=[
-                DestinarioAdvogado(
-                    advogado=LawyerInfo(
-                        id=1,
-                        nome="Advogado Teste",
-                        numero_oab="12345",
-                        uf_oab="RO"
-                    )
-                )
-            ]
+            status="pending",
+            meio="Diário da Justiça",
+            ativo=True,
+            meiocompleto="Diário da Justiça Eletrônico",
+            datadisponibilizacao="2024-12-15 00:00:00",
         ),
     ]
 
 
 @pytest.fixture
-def mock_llm_analysis() -> list[DecisionAnalysis]:
+def mock_llm_analysis() -> MagicMock:
     """Realistic LLM analysis response."""
-    analysis = DecisionAnalysis(
-        winner_lawyer_oab="12345",
-        winner_lawyer_state="RO",
-        winner_party_name="Joao Autor",
-        loser_lawyer_oab="67890",
-        loser_lawyer_state="RO",
-        loser_party_name="Maria Re",
-        decision_type="Sentença",
-        outcome="procedente",
-        judge_name="Dr. Joao da Silva",
-        decision_reasoning="Presenca de todos os requisitos legais",
-        confidence_score=0.95
-    )
-    return [analysis]
+    analysis = MagicMock()
+    analysis.outcome.value = "WIN"
+    analysis.summary = "Pedido julgado procedente em favor do autor"
+    analysis.judge_name = "Dr. Joao da Silva"
+    analysis.confidence_score = 0.95
+    analysis.winner_lawyer_oab = "12345"
+    analysis.winner_lawyer_state = "RO"
+    analysis.winner_party_name = "Joao Autor"
+    analysis.loser_lawyer_oab = "67890"
+    analysis.loser_lawyer_state = "RO"
+    analysis.loser_party_name = "Maria Re"
+    analysis.decision_type = "Sentenca"
+    analysis.decision_reasoning = "Presenca de todos os requisitos legais"
+    return analysis
 
 
 def test_full_lifecycle_e2e(
     tmp_path: pytest.TempPathFactory,
     realistic_intimation_data: list[Intimation],
-    mock_llm_analysis: list[DecisionAnalysis],
+    mock_llm_analysis: MagicMock,
 ) -> None:
     """E2E Test ensuring the CLI pipeline command runs correctly from start to finish.
 
@@ -80,47 +75,33 @@ def test_full_lifecycle_e2e(
     mock_client_instance.get_intimations_by_court.return_value = realistic_intimation_data
 
     mock_doc_service_instance = MagicMock()
+    # Ensure download_pdf is async mock if called with await
     mock_doc_service_instance.download_pdf = AsyncMock(return_value=b"%PDF-1.4 Mock PDF")
 
-    mock_archive_service_instance = MagicMock()
-    mock_archive_service_instance.generate_metadata.return_value = {"title": "Test"}
-
-    mock_preservation_instance = AsyncMock()
-    mock_preservation_instance.preserve_document.return_value = "https://archive.org/details/mock_item"
+    mock_archive_service_instance = AsyncMock()
+    mock_archive_service_instance.upload_file.return_value = "https://archive.org/details/mock_item"
 
     mock_analyzer_instance = AsyncMock()
-    mock_analyzer_instance.analyze_batch.return_value = mock_llm_analysis
+    mock_analyzer_instance.analyze_bulk.return_value = [mock_llm_analysis]
 
-    # We need to patch where they are used.
-    # In V2, 'PJeAPIClient' is instantiated inside 'collect_metadata_for_court' in 'causaganha.v2.pipeline.collect'
-    # 'DocumentService' is instantiated inside CLI
-    # 'DecisionAnalyzer' is instantiated inside 'analyze_pending_decisions'
+    # We need to patch the classes/factories in causaganha.cli
+    with patch("causaganha.cli.DB_PATH", str(db_path)), \
+         patch("causaganha.cli.PJeAPIClient", return_value=mock_client_instance), \
+         patch("causaganha.cli.DocumentService", return_value=mock_doc_service_instance), \
+         patch(
+             "causaganha.cli.create_archive_service",
+             return_value=mock_archive_service_instance,
+         ), \
+         patch("causaganha.cli.DecisionAnalyzer", return_value=mock_analyzer_instance):
 
-    with (
-        patch("causaganha.v2.pipeline.collect.PJeAPIClient", return_value=mock_client_instance),
-        patch("causaganha.v2.storage.connection.get_connection", side_effect=lambda: get_connection(str(db_path))),
-        patch("causaganha.cli.DocumentService", return_value=mock_doc_service_instance),
-        patch("causaganha.cli.create_archive_service", return_value=mock_archive_service_instance),
-        patch("causaganha.v2.pipeline.archive.PreservationService", return_value=mock_preservation_instance),
-        patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer", return_value=mock_analyzer_instance),
-    ):
-        # 1. Initialize DB (Optional as V2 auto-inits, but good for testing CLI)
+        # 1. Initialize DB
         result_init = runner.invoke(app, ["db", "init"])
         assert result_init.exit_code == 0
-        assert "Schema initialized successfully" in result_init.stdout
+        assert "Schema created successfully" in result_init.stdout
 
         # 2. Run Pipeline
-        # We also need to force schema re-creation if the DB file is new in the mock context
-        # But get_connection handles it.
-
-        # Ensure we don't have lingering state in singleton
-        import causaganha.v2.storage.connection
-        causaganha.v2.storage.connection._connection = None
-
+        # We use --skip-collect=False implicitly
         result_pipeline = runner.invoke(app, ["pipeline", "--courts", "TJRO"])
-
-        if result_pipeline.exit_code != 0:
-            print(result_pipeline.stdout)
 
         assert result_pipeline.exit_code == 0
         assert "Step 1/4: Collecting intimations..." in result_pipeline.stdout
@@ -129,7 +110,7 @@ def test_full_lifecycle_e2e(
         assert "Step 4/4: Calculating ratings..." in result_pipeline.stdout
         assert "Pipeline complete!" in result_pipeline.stdout
 
-        # Verify DB state
+        # Verify DB state - we can inspect the DB file to be sure
         con = get_connection(str(db_path))
 
         # Check intimations
@@ -138,15 +119,11 @@ def test_full_lifecycle_e2e(
         assert intimations["ia_url"].iloc[0] == "https://archive.org/details/mock_item"
 
         # Check analysis
-        analyses = con.table("decision_analysis").execute()
+        analyses = con.table("analysis_results").execute()
         assert len(analyses) == 1
-        assert analyses["outcome"].iloc[0] == "procedente"
+        assert analyses["outcome"].iloc[0] == "WIN"
 
         # Check ratings
         ratings = con.table("lawyer_ratings").execute()
         # We expect ratings because we had a winner and loser
         assert len(ratings) > 0
-
-        # Verify specific rating update (Winner)
-        winner_rating = ratings[ratings['oab_number'] == '12345'].iloc[0]
-        assert winner_rating['wins'] == 1

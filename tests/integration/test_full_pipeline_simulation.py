@@ -6,14 +6,14 @@ from urllib.parse import urlparse
 
 import pytest
 
+from causaganha.domain.models import Intimation
+from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.application.pipeline.analyze import run_analysis
 from causaganha.application.pipeline.archive import run_archive
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
-from causaganha.domain.models import Intimation
 from causaganha.infrastructure.clients.archive import InternetArchiveService
 from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 from causaganha.infrastructure.storage.schema import create_schema
@@ -126,9 +126,7 @@ class TestFullPipelineSimulation:
         # ==========================================
         # STEP 1: COLLECT - Simulate PJe API
         # ==========================================
-        with patch.object(
-            PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock
-        ) as mock_api:
+        with patch.object(PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = realistic_intimation_data
 
             client = PJeAPIClient()
@@ -155,19 +153,15 @@ class TestFullPipelineSimulation:
         # ==========================================
         # STEP 2: ARCHIVE - Simulate IA Upload
         # ==========================================
-        with (
-            patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
-            patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
-            ) as mock_upload,
-        ):
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
+
             # Mock PDF download
             mock_download.return_value = mock_pdf_content
 
             # Mock IA upload (return realistic IA URL)
             def mock_ia_upload(file_path, item_id, metadata) -> str:
                 return f"https://archive.org/details/{item_id}"
-
             mock_upload.side_effect = mock_ia_upload
 
             doc_service = DocumentService()
@@ -183,13 +177,9 @@ class TestFullPipelineSimulation:
             )
 
         # Verify intimations were archived
-        archived = (
-            con.table("intimations")
-            .filter(
-                con.table("intimations").ia_url.notnull(),
-            )
-            .execute()
-        )
+        archived = con.table("intimations").filter(
+            con.table("intimations").ia_url.notnull(),
+        ).execute()
 
         assert len(archived) == 2, "Should have archived both intimations"
         assert all(urlparse(url).hostname == "archive.org" for url in archived["ia_url"].tolist())
@@ -205,30 +195,24 @@ class TestFullPipelineSimulation:
         # Mock the entire analysis call to avoid needing API keys
         with patch("causaganha.application.pipeline.analyze.DecisionAnalyzer") as MockAnalyzer:
             mock_analyzer_instance = AsyncMock()
-            mock_analyzer_instance.analyze_decision.return_value = mock_llm_analysis
+            mock_analyzer_instance.analyze_bulk.return_value = [mock_llm_analysis, mock_llm_analysis]
             MockAnalyzer.return_value = mock_analyzer_instance
 
-            with patch.object(
-                DocumentService, "download_pdf", new_callable=AsyncMock
-            ) as mock_download:
-                mock_download.return_value = mock_pdf_content
+            doc_service = DocumentService()
+            analyzer = MockAnalyzer()
 
-                doc_service = DocumentService()
-                analyzer = MockAnalyzer()
+            # Run analysis
+            from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+            analysis_repo = AnalysisRepository(con)
+            await run_analysis(
+                repository,
+                analysis_repo,
+                doc_service,
+                analyzer,
+                limit=10,
+            )
 
-                # Run analysis
-                from causaganha.infrastructure.storage.repositories.analysis import (
-                    AnalysisRepository,
-                )
-
-                analysis_repo = AnalysisRepository(con)
-                await run_analysis(
-                    repository,
-                    analysis_repo,
-                    doc_service,
-                    analyzer,
-                    limit=10,
-                )
+            mock_analyzer_instance.analyze_bulk.assert_awaited_once()
 
         # Verify analyses were stored
         analyses = con.table("analysis_results").execute()
@@ -241,7 +225,6 @@ class TestFullPipelineSimulation:
         # ==========================================
         # Run scoring
         from causaganha.infrastructure.storage.repositories.lawyer import LawyerRatingRepository
-
         rating_repo = LawyerRatingRepository(con)
         await run_scoring(analysis_repo, rating_repo, limit=100)
 
@@ -259,13 +242,9 @@ class TestFullPipelineSimulation:
         assert loser_lawyer["losses"].iloc[0] == 2, "Loser should have 2 losses"
 
         # Verify analyses marked as scored
-        scored_analyses = (
-            con.table("analysis_results")
-            .filter(
-                con.table("analysis_results").scored,
-            )
-            .execute()
-        )
+        scored_analyses = con.table("analysis_results").filter(
+            con.table("analysis_results").scored,
+        ).execute()
         assert len(scored_analyses) == 2, "Both analyses should be marked as scored"
 
     @pytest.mark.asyncio
@@ -299,12 +278,9 @@ class TestFullPipelineSimulation:
         await repository.store_intimations([intimation_no_link])
 
         # Try to archive - should skip this one
-        with (
-            patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
-            patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
-            ) as mock_upload,
-        ):
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
+
             mock_download.return_value = mock_pdf_content
             mock_upload.return_value = "https://archive.org/details/test"
 
@@ -315,17 +291,12 @@ class TestFullPipelineSimulation:
             await run_archive(repository, doc_service, ia_service, limit=10, dry_run=False)
 
         # Verify it wasn't archived (no link to download)
-        result = (
-            con.table("intimations")
-            .filter(
-                con.table("intimations").id == 2001,
-            )
-            .execute()
-        )
+        result = con.table("intimations").filter(
+            con.table("intimations").id == 2001,
+        ).execute()
 
-        assert result["ia_url"].iloc[0] is None or result["ia_url"].isna().iloc[0], (
+        assert result["ia_url"].iloc[0] is None or result["ia_url"].isna().iloc[0], \
             "Intimation without link should not be archived"
-        )
 
     @pytest.mark.asyncio
     async def test_pipeline_dry_run_mode(
@@ -338,12 +309,9 @@ class TestFullPipelineSimulation:
         # Store intimations
         await repository.store_intimations(realistic_intimation_data)
 
-        with (
-            patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
-            patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
-            ) as mock_upload,
-        ):
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
+
             mock_download.return_value = mock_pdf_content
 
             doc_service = DocumentService()
@@ -395,12 +363,9 @@ class TestFullPipelineSimulation:
         assert len(unarchived) == 3, "Should respect limit of 3"
 
         # Archive only 5
-        with (
-            patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
-            patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
-            ) as mock_upload,
-        ):
+        with patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download, \
+             patch.object(InternetArchiveService, "upload_file", new_callable=AsyncMock) as mock_upload:
+
             mock_download.return_value = b"fake pdf"
             mock_upload.return_value = "https://archive.org/details/test"
 
@@ -410,13 +375,9 @@ class TestFullPipelineSimulation:
             await run_archive(repository, doc_service, ia_service, limit=5, dry_run=False)
 
         # Verify only 5 were archived
-        archived = (
-            con.table("intimations")
-            .filter(
-                con.table("intimations").ia_url.notnull(),
-            )
-            .execute()
-        )
+        archived = con.table("intimations").filter(
+            con.table("intimations").ia_url.notnull(),
+        ).execute()
         assert len(archived) == 5, "Should have archived exactly 5"
 
         # Verify 5 remain unarchived

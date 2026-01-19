@@ -45,7 +45,6 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
 
     # 2. Mock DocumentService
     mock_doc_service = AsyncMock()
-    mock_doc_service.download_pdf.return_value = b"%PDF-1.5 fake content"
 
     # 3. Mock Analyzer
     mock_analysis = DecisionAnalysis(
@@ -55,7 +54,7 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
         confidence_score=0.9,
     )
     mock_analyzer = AsyncMock()
-    mock_analyzer.analyze_decision.return_value = mock_analysis
+    mock_analyzer.analyze_bulk.return_value = [mock_analysis]
 
     # Run
     await run_analysis(
@@ -67,8 +66,8 @@ async def test_run_analysis_success(tmp_path: Path) -> None:
     )
 
     # Verify
-    mock_doc_service.download_pdf.assert_called_with("http://example.com/decision.pdf")
-    mock_analyzer.analyze_decision.assert_called_once()
+    mock_doc_service.download_pdf.assert_not_called()
+    mock_analyzer.analyze_bulk.assert_awaited_once_with(["Decisão."])
 
     # Check DB
     t = con.table("analysis_results")

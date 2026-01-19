@@ -1,4 +1,3 @@
-import asyncio
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -50,12 +49,6 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     # 2. Mock DocumentService with delay to test concurrency
     mock_doc_service = AsyncMock()
 
-    async def download_with_delay(url) -> bytes:
-        await asyncio.sleep(0.01)
-        return b"%PDF-1.5 fake content"
-
-    mock_doc_service.download_pdf.side_effect = download_with_delay
-
     # 3. Mock Analyzer
     mock_analysis = DecisionAnalysis(
         outcome=Outcome.WIN,
@@ -64,7 +57,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
         confidence_score=0.9,
     )
     mock_analyzer = AsyncMock()
-    mock_analyzer.analyze_decision.return_value = mock_analysis
+    mock_analyzer.analyze_bulk.return_value = [mock_analysis for _ in intimations]
 
     # Run with batch_size=5
     # The current implementation is sequential, so this will pass but slower.
@@ -84,5 +77,5 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
     assert len(rows) == 5
 
     # Verify calls
-    assert mock_doc_service.download_pdf.call_count == 5
-    assert mock_analyzer.analyze_decision.call_count == 5
+    mock_doc_service.download_pdf.assert_not_called()
+    mock_analyzer.analyze_bulk.assert_awaited_once()

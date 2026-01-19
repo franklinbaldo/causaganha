@@ -154,7 +154,6 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
 
     # Mock Document Service
     mock_doc_service = MagicMock(spec=DocumentService)
-    mock_doc_service.download_pdf.return_value = b"%PDF-1.4 dummy content"
 
     # Mock Analyzer
     mock_analyzer = MagicMock(spec=DecisionAnalyzer)
@@ -193,8 +192,7 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         ),
     ]
 
-    # The pipeline calls analyze_decision (via process_item)
-    mock_analyzer.analyze_decision = AsyncMock(side_effect=analysis_results)
+    mock_analyzer.analyze_bulk = AsyncMock(return_value=analysis_results)
 
     from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
 
@@ -207,6 +205,9 @@ async def test_pipeline_with_realistic_data(db_connection, repository, realistic
         analyzer=mock_analyzer,
         limit=10,
     )
+
+    mock_doc_service.download_pdf.assert_not_called()
+    mock_analyzer.analyze_bulk.assert_awaited_once()
 
     # Verify Analysis Storage
     analyzed_items = db_connection.table("analysis_results").execute()
