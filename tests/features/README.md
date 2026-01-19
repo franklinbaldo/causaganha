@@ -30,6 +30,13 @@ These features ensure data quality, system performance, and operational excellen
 9. **`09_data_quality.feature`** - Validation of extracted legal data accuracy
 10. **`10_performance_monitoring.feature`** - System observability and performance tracking
 
+### 🟣 Priority 5: Public Features & Compliance (Post-MVP)
+These features enable public-facing product launch and legal compliance. Not in MVP scope.
+
+11. **`11_public_features.feature`** - User-facing lawyer search, profiles, and comparison
+12. **`12_transparency.feature`** - Methodology documentation and complete audit trails
+13. **`13_compliance.feature`** - LGPD rights implementation and dispute resolution
+
 ## Running BDD Tests
 
 ```bash
@@ -72,6 +79,17 @@ Feature: Lawyer Performance Ratings
     And the rating confidence should be low due to limited data
 ```
 
+## Summary Statistics
+
+- **Total Features:** 13
+- **Total Scenarios:** 459
+- **Coverage Breakdown:**
+  - Priority 1 (Core): 108 scenarios
+  - Priority 2 (Operations): 56 scenarios
+  - Priority 3 (Scale): 96 scenarios
+  - Priority 4 (Quality): 69 scenarios
+  - Priority 5 (Public/Compliance): 130 scenarios
+
 ## Feature Organization Principles
 
 1. **Business Value First**: Features are ordered by their impact on end users
@@ -90,6 +108,8 @@ Feature: Lawyer Performance Ratings
 | P2 | Operations | "Does the system run reliably?" |
 | P3 | Product Team | "How do we scale to 90+ courts?" |
 | P4 | Data Analysts | "Is the extracted data accurate?" |
+| P5 | Legal Consumers | "Can I search and compare lawyers?" |
+| P5 | Regulators (ANPD, OAB) | "Are you compliant with laws?" |
 
 ## Coverage Goals
 
@@ -97,6 +117,7 @@ Feature: Lawyer Performance Ratings
 - **Essential (P2)**: 80%+ scenario coverage
 - **Advanced (P3)**: 70%+ scenario coverage
 - **Quality (P4)**: 60%+ scenario coverage
+- **Public/Compliance (P5)**: Phased implementation (Phase 2-3)
 
 ## Next Steps
 
