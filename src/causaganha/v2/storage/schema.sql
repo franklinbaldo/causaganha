@@ -80,6 +80,11 @@ CREATE TABLE IF NOT EXISTS decision_analysis (
     model_provider VARCHAR(20),
     analysis_duration_seconds FLOAT,
 
+    -- Analysis tracking
+    analysis_method VARCHAR(20) DEFAULT 'llm',
+    rag_confidence FLOAT,
+    rag_votes_json TEXT,  -- JSON string
+
     created_at TIMESTAMP DEFAULT NOW(),
 
     -- Status
