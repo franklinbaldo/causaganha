@@ -1,18 +1,22 @@
-"""Embedding service for generating text embeddings using Google's text-embedding-004 model."""
+"""Embedding service for generating text embeddings using multiple providers (Google, Jina AI, etc.)."""
 
 import asyncio
 import os
 from typing import Literal
 
-import httpx
 import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential
+
+from causaganha.v2.analysis.embedding_providers import (
+    EmbeddingProvider,
+    auto_select_provider,
+    create_embedding_provider,
+)
 
 logger = structlog.get_logger()
 
-# Embedding configuration
-EMBEDDING_MODEL = "text-embedding-004"
-EMBEDDING_DIMENSION = 768
+# Embedding configuration defaults
+EMBEDDING_MODEL = "text-embedding-004"  # Default Google model
+EMBEDDING_DIMENSION = 768  # Default Google dimension
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 CONTEXTUAL_PREFIX = """Analise esta parte da decisão judicial para classificar o resultado (WIN/LOSS/PARTIAL/UNKNOWN).
@@ -23,34 +27,136 @@ TaskType = Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
 
 
 class EmbeddingService:
-    """Service for generating text embeddings with Google's API."""
+    """Service for generating text embeddings with pluggable providers (Google, Jina AI, etc.)."""
+
+    @classmethod
+    async def create(
+        cls,
+        provider: str = "auto",
+        priority: list[str] | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        dimension: int | None = None,
+        max_retries: int = 3,
+    ) -> "EmbeddingService":
+        """Create an embedding service with automatic or manual provider selection.
+
+        Args:
+            provider: Embedding provider to use ('auto', 'google', or 'jina'). Default: 'auto'.
+            priority: Priority order for auto-selection. Default: ["jina", "google"]
+            api_key: API key for the provider (ignored for 'auto').
+            model: Embedding model to use. If None, uses provider default.
+            dimension: Embedding dimension. If None, uses provider default.
+            max_retries: Maximum number of retry attempts.
+
+        Returns:
+            Initialized EmbeddingService instance.
+
+        Raises:
+            RuntimeError: If no valid provider can be found (when using 'auto').
+        """
+        provider = provider.lower()
+
+        # Build provider kwargs
+        provider_kwargs = {}
+        if model:
+            provider_kwargs["model"] = model
+        if dimension:
+            provider_kwargs["dimension"] = dimension
+
+        if provider == "auto":
+            # Auto-select provider based on priority
+            selected_provider = await auto_select_provider(
+                priority=priority,
+                **provider_kwargs,
+            )
+
+            if selected_provider is None:
+                raise RuntimeError(
+                    "No valid embedding provider found. Please ensure at least one "
+                    "provider API key is set (GOOGLE_API_KEY or JINA_API_KEY) and valid."
+                )
+
+            # Create instance with the selected provider
+            instance = cls.__new__(cls)
+            instance.provider = selected_provider
+            instance.provider_name = (
+                "google"
+                if isinstance(selected_provider, type(create_embedding_provider("google", api_key="dummy")))
+                else "jina"
+            )
+            instance.max_retries = max_retries
+
+            # Determine provider name from class type
+            provider_class_name = type(selected_provider).__name__
+            if "Google" in provider_class_name:
+                instance.provider_name = "google"
+            elif "Jina" in provider_class_name:
+                instance.provider_name = "jina"
+            else:
+                instance.provider_name = "unknown"
+
+            logger.info(
+                "embedding_service_created_auto",
+                provider=instance.provider_name,
+                dimension=instance.provider.dimension,
+                max_retries=max_retries,
+            )
+
+            return instance
+        else:
+            # Create with specific provider (use regular __init__)
+            return cls(
+                provider=provider,
+                api_key=api_key,
+                model=model,
+                dimension=dimension,
+                max_retries=max_retries,
+            )
 
     def __init__(
         self,
+        provider: str = "google",
         api_key: str | None = None,
-        model: str = EMBEDDING_MODEL,
+        model: str | None = None,
+        dimension: int | None = None,
         max_retries: int = 3,
     ) -> None:
-        """Initialize the embedding service.
+        """Initialize the embedding service with a specific provider.
+
+        Note: For automatic provider selection, use EmbeddingService.create() instead.
 
         Args:
-            api_key: Google API key. If None, reads from GOOGLE_API_KEY env var.
-            model: Embedding model to use (default: text-embedding-004).
-            max_retries: Maximum number of retry attempts for failed requests.
+            provider: Embedding provider to use ('google' or 'jina'). Default: 'google'.
+            api_key: API key for the provider. If None, reads from environment variable.
+                     For Google: GOOGLE_API_KEY, For Jina: JINA_API_KEY
+            model: Embedding model to use. If None, uses provider default.
+                   Google default: text-embedding-004, Jina default: jina-embeddings-v3
+            dimension: Embedding dimension. If None, uses provider default.
+                      Google default: 768, Jina default: 1024
+            max_retries: Maximum number of retry attempts (used by provider implementations).
         """
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "Google API key must be provided or set in GOOGLE_API_KEY env var"
-            )
-
-        self.model = model
+        self.provider_name = provider.lower()
         self.max_retries = max_retries
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+
+        # Build provider kwargs
+        provider_kwargs = {}
+        if model:
+            provider_kwargs["model"] = model
+        if dimension:
+            provider_kwargs["dimension"] = dimension
+
+        # Create the provider
+        self.provider: EmbeddingProvider = create_embedding_provider(
+            provider=self.provider_name,
+            api_key=api_key,
+            **provider_kwargs,
+        )
 
         logger.info(
             "embedding_service_initialized",
-            model=model,
+            provider=self.provider_name,
+            dimension=self.provider.dimension,
             max_retries=max_retries,
         )
 
@@ -65,18 +171,13 @@ class EmbeddingService:
         """
         return f"{CONTEXTUAL_PREFIX}\n\n{text}"
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        reraise=True,
-    )
     async def embed_text(
         self,
         text: str,
         task_type: TaskType = "RETRIEVAL_QUERY",
         add_prefix: bool = True,
     ) -> list[float]:
-        """Generate embedding for a single text.
+        """Generate embedding for a single text using the configured provider.
 
         Args:
             text: Text to embed.
@@ -84,7 +185,7 @@ class EmbeddingService:
             add_prefix: Whether to add contextual prefix.
 
         Returns:
-            Embedding vector (768 dimensions).
+            Embedding vector (dimension depends on provider).
 
         Raises:
             httpx.HTTPError: If the API request fails.
@@ -92,44 +193,8 @@ class EmbeddingService:
         if add_prefix:
             text = self._add_contextual_prefix(text)
 
-        url = f"{self.base_url}/models/{self.model}:embedContent"
-        headers = {"Content-Type": "application/json"}
-        params = {"key": self.api_key}
-
-        payload = {
-            "content": {"parts": [{"text": text}]},
-            "taskType": task_type,
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    url,
-                    json=payload,
-                    headers=headers,
-                    params=params,
-                )
-                response.raise_for_status()
-
-                data = response.json()
-                embedding = data["embedding"]["values"]
-
-                logger.debug(
-                    "embedding_generated",
-                    text_length=len(text),
-                    embedding_dim=len(embedding),
-                    task_type=task_type,
-                )
-
-                return embedding
-
-            except httpx.HTTPError as e:
-                logger.error(
-                    "embedding_generation_failed",
-                    error=str(e),
-                    text_length=len(text),
-                )
-                raise
+        # Delegate to the provider
+        return await self.provider.embed_text(text, task_type=task_type)
 
     async def embed_batch(
         self,
@@ -163,7 +228,8 @@ class EmbeddingService:
             if isinstance(emb, Exception):
                 logger.error("embedding_failed_in_batch", error=str(emb))
                 failed += 1
-                successful.append([0.0] * EMBEDDING_DIMENSION)  # Zero vector fallback
+                # Zero vector fallback with provider's dimension
+                successful.append([0.0] * self.provider.dimension)
             else:
                 successful.append(emb)
 

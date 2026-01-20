@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     TASKS_QUEUE: str = "llm-retry-queue"
     FUNCTION_URL: str = "https://region-project.cloudfunctions.net/llm_worker"
 
+    # Embedding Provider Configuration
+    EMBEDDING_PROVIDER: str = "auto"  # Options: "auto", "google", "jina"
+    EMBEDDING_PROVIDER_PRIORITY: list[str] = [
+        "jina",
+        "google",
+    ]  # Priority order for auto-selection
+    JINA_API_KEY: str | None = None  # Optional: Jina AI API key for embeddings
+
     # IA
     IA_ACCESS_KEY: str | None = None
     IA_SECRET_KEY: str | None = None
