@@ -1,3 +1,0 @@
-## 📉 2025-12-24 - Simplify Filesystem Utils
-**Observation:** The `write_markdown_post` function in `src/egregora/utils/filesystem.py` used an unnecessary local variable for its list of optional keys and performed a slightly indirect conditional check for the presence of authors by checking the `front_matter` dictionary instead of the original `metadata`.
-**Action:** I simplified the function by inlining the list of optional keys directly into the `for` loop and updated the conditional to check the `metadata` dictionary directly. This makes the code more direct and removes a minor indirection.

@@ -1,3 +1,0 @@
-## 📉 2025-12-24 - Simplify `sync_authors_from_posts`
-**Observation:** The `sync_authors_from_posts` function in `src/egregora/utils/filesystem.py` used complex logic to handle author extraction from post frontmatter, with separate checks for single authors and lists of authors. This made the code harder to read and maintain.
-**Action:** I refactored the function to treat the `authors` field as a list, regardless of whether it contains a single entry or multiple. This was achieved by checking if the field is not a list and, if so, wrapping it in one. This change simplifies the logic by removing a conditional branch, making the code more direct and easier to understand without altering its behavior.
