@@ -142,10 +142,19 @@ class DecisionAnalysis(BaseModel):
     @field_validator("decision_type", "outcome", mode="before")
     @classmethod
     def normalize_enum(cls, v: str) -> str:
-        """Normalize enum values to lowercase to handle LLM capitalization."""
+        """Normalize enum values to handle both LLM (Portuguese) and RAG (English)."""
         if not v:
             return "unknown"
-        return v.lower().strip()
+
+        v_stripped = v.strip()
+        v_upper = v_stripped.upper()
+
+        # Preserve RAG's simplified English terms (uppercase)
+        if v_upper in ["WIN", "LOSS", "PARTIAL", "UNKNOWN"]:
+            return v_upper
+
+        # Normalize LLM's Portuguese terms to lowercase
+        return v_stripped.lower()
 
     @field_validator("winner_lawyer_state", "loser_lawyer_state", mode="before")
     @classmethod
