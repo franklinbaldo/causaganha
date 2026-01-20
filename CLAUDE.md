@@ -97,34 +97,49 @@ See [`tests/features/README.md`](tests/features/README.md) for the complete BDD 
 
 ## 🧠 Embedding Providers
 
-CausaGanha supports multiple embedding providers through a pluggable architecture:
+CausaGanha supports multiple embedding providers with **automatic provider selection** based on API key availability and authentication.
 
 ### Available Providers
 
-1. **Google Gemini** (Default)
+1. **Jina AI** (Priority #1)
+   - Model: `jina-embeddings-v3`
+   - Dimensions: 1024 (configurable 256-1024)
+   - API Key: `JINA_API_KEY` environment variable (already configured in GitHub secrets)
+   - Best for: Multilingual support, Matryoshka embeddings, cost efficiency
+
+2. **Google Gemini** (Priority #2, Fallback)
    - Model: `text-embedding-004`
    - Dimensions: 768
    - API Key: `GOOGLE_API_KEY` environment variable
    - Best for: General-purpose embeddings with Google's ecosystem
 
-2. **Jina AI** (Optional)
-   - Model: `jina-embeddings-v3`
-   - Dimensions: 1024 (configurable 256-1024)
-   - API Key: `JINA_API_KEY` environment variable (already configured in GitHub secrets)
-   - Best for: Multilingual support, Matryoshka embeddings, cost efficiency
+### Auto-Selection (Recommended)
+
+By default, CausaGanha automatically selects the best available provider:
+
+1. Checks for `JINA_API_KEY` first (priority #1)
+2. Validates the API key by attempting authentication
+3. Falls back to `GOOGLE_API_KEY` if Jina is unavailable
+4. Throws an error if no valid provider is found
+
+This ensures the system always uses the best available option without manual configuration.
 
 ### Configuration
 
 Set the provider in your `.env` file:
 
 ```bash
-# Use Google (default)
-EMBEDDING_PROVIDER=google
-GOOGLE_API_KEY=your_google_api_key
+# Auto-select (default, recommended)
+EMBEDDING_PROVIDER=auto
+EMBEDDING_PROVIDER_PRIORITY=jina,google  # Try Jina first, then Google
 
-# OR use Jina AI
-EMBEDDING_PROVIDER=jina
+# OR manually specify a provider
+EMBEDDING_PROVIDER=google  # Force Google
+EMBEDDING_PROVIDER=jina    # Force Jina
+
+# Set your API keys
 JINA_API_KEY=your_jina_api_key
+GOOGLE_API_KEY=your_google_api_key
 ```
 
 ### Usage
@@ -132,19 +147,31 @@ JINA_API_KEY=your_jina_api_key
 ```python
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 
-# Use default provider (Google)
-service = EmbeddingService()
+# Auto-select best available provider (recommended)
+service = await EmbeddingService.create()  # async factory method
 
-# Use Jina AI explicitly
-service = EmbeddingService(provider="jina")
+# Auto-select with custom priority
+service = await EmbeddingService.create(priority=["google", "jina"])
+
+# Use specific provider
+service = EmbeddingService(provider="jina")  # synchronous
 
 # Generate embeddings
 embedding = await service.embed_text("Your text here")
 ```
 
+### How Auto-Selection Works
+
+1. **API Key Check**: Verifies environment variables exist
+2. **Authentication Test**: Makes a test API call to validate credentials
+3. **Priority Order**: Tries providers in configured priority order
+4. **Fallback**: Automatically falls back to next provider if one fails
+5. **Logging**: Comprehensive logs for debugging provider selection
+
 ### Implementation
 
 - **Provider abstraction**: `src/causaganha/v2/analysis/embedding_providers.py`
+- **Auto-selection logic**: `auto_select_provider()` function
 - **Service wrapper**: `src/causaganha/v2/analysis/embedding_service.py`
 - **Configuration**: `src/causaganha/config.py`
 

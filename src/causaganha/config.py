@@ -32,7 +32,11 @@ class Settings(BaseSettings):
     FUNCTION_URL: str = "https://region-project.cloudfunctions.net/llm_worker"
 
     # Embedding Provider Configuration
-    EMBEDDING_PROVIDER: str = "google"  # Options: "google", "jina"
+    EMBEDDING_PROVIDER: str = "auto"  # Options: "auto", "google", "jina"
+    EMBEDDING_PROVIDER_PRIORITY: list[str] = [
+        "jina",
+        "google",
+    ]  # Priority order for auto-selection
     JINA_API_KEY: str | None = None  # Optional: Jina AI API key for embeddings
 
     # IA

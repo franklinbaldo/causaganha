@@ -43,6 +43,15 @@ class EmbeddingProvider(Protocol):
         """
         ...
 
+    @abstractmethod
+    async def validate(self) -> bool:
+        """Validate that the provider is configured correctly and can authenticate.
+
+        Returns:
+            True if provider is valid and can authenticate, False otherwise.
+        """
+        ...
+
 
 class GoogleEmbeddingProvider:
     """Google Gemini embedding provider using text-embedding-004 model."""
@@ -141,6 +150,25 @@ class GoogleEmbeddingProvider:
                     text_length=len(text),
                 )
                 raise
+
+    async def validate(self) -> bool:
+        """Validate Google provider by testing API authentication with a simple request.
+
+        Returns:
+            True if authentication succeeds, False otherwise.
+        """
+        try:
+            # Try to embed a very short test text
+            await self.embed_text("test", task_type="RETRIEVAL_QUERY")
+            logger.info("google_provider_validated", status="success")
+            return True
+        except Exception as e:
+            logger.warning(
+                "google_provider_validation_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return False
 
 
 class JinaEmbeddingProvider:
@@ -264,6 +292,25 @@ class JinaEmbeddingProvider:
                 )
                 raise
 
+    async def validate(self) -> bool:
+        """Validate Jina provider by testing API authentication with a simple request.
+
+        Returns:
+            True if authentication succeeds, False otherwise.
+        """
+        try:
+            # Try to embed a very short test text
+            await self.embed_text("test", task_type="RETRIEVAL_QUERY")
+            logger.info("jina_provider_validated", status="success")
+            return True
+        except Exception as e:
+            logger.warning(
+                "jina_provider_validation_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return False
+
 
 def create_embedding_provider(
     provider: str = "google",
@@ -294,3 +341,84 @@ def create_embedding_provider(
             f"Unsupported embedding provider: {provider}. "
             f"Supported providers: google, jina"
         )
+
+
+async def auto_select_provider(
+    priority: list[str] | None = None,
+    **kwargs,
+) -> EmbeddingProvider | None:
+    """Automatically select an embedding provider based on priority and API key availability.
+
+    Tries providers in the specified priority order, validating API keys and authentication.
+    Returns the first provider that successfully validates.
+
+    Args:
+        priority: List of provider names in priority order. Default: ["jina", "google"]
+        **kwargs: Additional provider-specific arguments.
+
+    Returns:
+        First successfully validated provider, or None if all fail.
+    """
+    if priority is None:
+        priority = ["jina", "google"]
+
+    logger.info("auto_selecting_embedding_provider", priority=priority)
+
+    for provider_name in priority:
+        provider_name = provider_name.lower()
+
+        # Check if API key is available in environment
+        if provider_name == "google":
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                logger.debug(
+                    "provider_skipped_no_api_key",
+                    provider=provider_name,
+                    env_var="GOOGLE_API_KEY",
+                )
+                continue
+        elif provider_name == "jina":
+            api_key = os.getenv("JINA_API_KEY")
+            if not api_key:
+                logger.debug(
+                    "provider_skipped_no_api_key",
+                    provider=provider_name,
+                    env_var="JINA_API_KEY",
+                )
+                continue
+        else:
+            logger.warning("unsupported_provider_in_priority", provider=provider_name)
+            continue
+
+        # Try to create and validate the provider
+        try:
+            provider = create_embedding_provider(
+                provider=provider_name,
+                api_key=api_key,
+                **kwargs,
+            )
+
+            # Validate authentication
+            logger.info("validating_provider", provider=provider_name)
+            if await provider.validate():
+                logger.info(
+                    "provider_auto_selected",
+                    provider=provider_name,
+                    dimension=provider.dimension,
+                )
+                return provider
+            else:
+                logger.warning(
+                    "provider_validation_failed",
+                    provider=provider_name,
+                )
+        except Exception as e:
+            logger.warning(
+                "provider_creation_failed",
+                provider=provider_name,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    logger.error("no_valid_provider_found", priority=priority)
+    return None

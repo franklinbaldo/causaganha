@@ -8,6 +8,7 @@ import structlog
 
 from causaganha.v2.analysis.embedding_providers import (
     EmbeddingProvider,
+    auto_select_provider,
     create_embedding_provider,
 )
 
@@ -28,6 +29,91 @@ TaskType = Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
 class EmbeddingService:
     """Service for generating text embeddings with pluggable providers (Google, Jina AI, etc.)."""
 
+    @classmethod
+    async def create(
+        cls,
+        provider: str = "auto",
+        priority: list[str] | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        dimension: int | None = None,
+        max_retries: int = 3,
+    ) -> "EmbeddingService":
+        """Create an embedding service with automatic or manual provider selection.
+
+        Args:
+            provider: Embedding provider to use ('auto', 'google', or 'jina'). Default: 'auto'.
+            priority: Priority order for auto-selection. Default: ["jina", "google"]
+            api_key: API key for the provider (ignored for 'auto').
+            model: Embedding model to use. If None, uses provider default.
+            dimension: Embedding dimension. If None, uses provider default.
+            max_retries: Maximum number of retry attempts.
+
+        Returns:
+            Initialized EmbeddingService instance.
+
+        Raises:
+            RuntimeError: If no valid provider can be found (when using 'auto').
+        """
+        provider = provider.lower()
+
+        # Build provider kwargs
+        provider_kwargs = {}
+        if model:
+            provider_kwargs["model"] = model
+        if dimension:
+            provider_kwargs["dimension"] = dimension
+
+        if provider == "auto":
+            # Auto-select provider based on priority
+            selected_provider = await auto_select_provider(
+                priority=priority,
+                **provider_kwargs,
+            )
+
+            if selected_provider is None:
+                raise RuntimeError(
+                    "No valid embedding provider found. Please ensure at least one "
+                    "provider API key is set (GOOGLE_API_KEY or JINA_API_KEY) and valid."
+                )
+
+            # Create instance with the selected provider
+            instance = cls.__new__(cls)
+            instance.provider = selected_provider
+            instance.provider_name = (
+                "google"
+                if isinstance(selected_provider, type(create_embedding_provider("google", api_key="dummy")))
+                else "jina"
+            )
+            instance.max_retries = max_retries
+
+            # Determine provider name from class type
+            provider_class_name = type(selected_provider).__name__
+            if "Google" in provider_class_name:
+                instance.provider_name = "google"
+            elif "Jina" in provider_class_name:
+                instance.provider_name = "jina"
+            else:
+                instance.provider_name = "unknown"
+
+            logger.info(
+                "embedding_service_created_auto",
+                provider=instance.provider_name,
+                dimension=instance.provider.dimension,
+                max_retries=max_retries,
+            )
+
+            return instance
+        else:
+            # Create with specific provider (use regular __init__)
+            return cls(
+                provider=provider,
+                api_key=api_key,
+                model=model,
+                dimension=dimension,
+                max_retries=max_retries,
+            )
+
     def __init__(
         self,
         provider: str = "google",
@@ -37,6 +123,8 @@ class EmbeddingService:
         max_retries: int = 3,
     ) -> None:
         """Initialize the embedding service with a specific provider.
+
+        Note: For automatic provider selection, use EmbeddingService.create() instead.
 
         Args:
             provider: Embedding provider to use ('google' or 'jina'). Default: 'google'.
