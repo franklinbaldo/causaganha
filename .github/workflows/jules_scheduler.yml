@@ -1,0 +1,112 @@
+name: Jules Scheduler
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt_id:
+        description: "Run only a specific prompt id (e.g. curator)"
+        required: false
+        type: string
+      run_all:
+        description: "Ignore schedules and run all enabled prompts"
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: "Do not call Jules API (prints what would run)"
+        required: false
+        type: boolean
+        default: false
+      reset:
+        description: "Reset the persona cycle and start from the first persona"
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Required for 'gh' CLI in feedback script to list runs and comments
+  actions: read
+
+jobs:
+  tick:
+    if: >
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      (startsWith(github.event.workflow_run.head_branch, 'jules-sched-') ||
+       github.event.workflow_run.head_branch == 'main' ||
+       github.event.workflow_run.head_branch == 'jules'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          extras: "--all-extras"
+
+      - name: Run Jules Scheduler
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: .team
+        run: |
+          args=(tick)
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.run_all }}" = "true" ]; then
+              args+=(--all)
+            fi
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              args+=(--dry-run)
+            fi
+            if [ -n "${{ inputs.prompt_id }}" ]; then
+              args+=(--prompt-id "${{ inputs.prompt_id }}")
+            fi
+            if [ "${{ inputs.reset }}" = "true" ]; then
+              args+=(--reset)
+            fi
+          fi
+
+          # All dependencies (httpx, requests, pydantic, typer, etc) are in pyproject.toml
+          uv run python -m repo.cli schedule "${args[@]}"
+
+      - name: Run Jules Feedback Loop
+        # Run on schedule or if requested manually (unless prompt_id is specific for something else, but safe to run)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.prompt_id == '')
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: .team
+        run: |
+           args=()
+           if [ "${{ inputs.dry_run }}" = "true" ]; then
+              args+=(--dry-run)
+           fi
+
+           # All dependencies are in pyproject.toml, uv will use cached environment
+           uv run python -m repo.cli feedback loop "${args[@]}"
+
+      - name: Commit schedule updates
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .team/schedule.csv .team/oracle_schedule.csv
+          if git diff --staged --quiet; then
+            echo "No schedule changes to commit"
+          else
+            git commit -m "chore: update scheduler state [skip ci]"
+            # Pull with rebase to handle concurrent runs
+            git pull --rebase origin ${{ github.ref_name }} || true
+            git push || echo "Push failed - another run may have pushed first"
+          fi

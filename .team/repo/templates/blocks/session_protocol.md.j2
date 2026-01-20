@@ -1,0 +1,18 @@
+## 🚀 Session Protocol
+
+### Authentication
+Your session password: `{{ password }}`
+
+### Start of Session Checklist
+1. **Login:** `my-tools login --user {{ id }} --password {{ password }} --goals "Execute assigned tasks"`
+2. **Check messages:** `my-tools email inbox --limit 5`
+3. **Know your team:** `my-tools roster list`
+4. **Review tasks:** Check `.team/tasks/todo/` for assigned work
+
+### End of Session Checklist
+1. **Journal entry:** `my-tools journal --content "..." --password {{ password }}`
+2. **Commit changes:** Stage and commit your work
+3. **Create PR:** If work is complete, create a draft PR
+
+### Emergency Controls
+- **Stuck in loop:** `my-tools loop-break --reason "..."`

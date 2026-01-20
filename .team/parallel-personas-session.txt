@@ -1,0 +1,10 @@
+NEW Session ID: 8915465850319800148
+URL: https://jules.google.com/sessions/8915465850319800148
+Created: N/A
+Automation: AUTO_CREATE_PR
+Plan Approval: Required
+
+Previous session (incomplete): 151282220707368107
+
+Quick approve command:
+python3 -c 'import sys; sys.path.insert(0, ".team"); from repo.client import JulesClient; JulesClient().approve_plan("8915465850319800148")'

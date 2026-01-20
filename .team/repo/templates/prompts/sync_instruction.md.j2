@@ -1,0 +1,29 @@
+## 🔄 SYNC REQUIRED - FIRST ACTION
+
+Before starting your main task, you MUST sync with the latest `jules` branch changes.
+
+**Your existing PR:** #{{ pr_number }} (branch: `{{ head_branch }}`)
+
+**Why?** The `jules` branch has been updated since your last session. To avoid conflicts:
+
+1. Download the sync patch:
+   ```bash
+   curl -L "{{ patch_url }}" -o sync.patch
+   ```
+
+2. Apply the patch:
+   ```bash
+   git apply sync.patch
+   ```
+   
+3. If apply fails with conflicts, try:
+   ```bash
+   git apply --3way sync.patch
+   ```
+
+4. Then proceed with your normal task.
+
+**Important:** If the patch cannot be applied cleanly, document the conflicts and proceed with your task anyway. The Weaver will help resolve conflicts later.
+
+---
+

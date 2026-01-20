@@ -99,3 +99,27 @@ See [`tests/features/README.md`](tests/features/README.md) for the complete BDD 
 
 CausaGanha implements a parallel development system using an agent registry in `.agents/`.
 See `.agents/README.md` for detailed communication guidelines.
+
+## 🤖 **Jules Automation System**
+
+CausaGanha uses the Jules automation system for autonomous code maintenance and improvement.
+The system consists of AI personas (agents) that work on the codebase autonomously.
+
+**Key components:**
+- `.team/` - Jules scheduler and persona configurations
+- `.team/personas/` - AI agent definitions with specialized roles
+- `.team/README.md` - Complete Jules system documentation
+
+**Available commands:**
+```bash
+# Run a specific persona
+uv run jules schedule tick --prompt-id <persona-name>
+
+# Run the scheduler
+uv run jules schedule tick
+
+# Check persona mailbox
+uv run mail inbox --persona <persona-name>@team
+```
+
+For complete documentation, see [.team/README.md](.team/README.md).
