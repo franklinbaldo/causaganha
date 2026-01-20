@@ -25,7 +25,7 @@ The Jules automation system is a **multi-agent AI workforce** that maintains and
 
 ### Key Features
 
-- **10 Specialized Personas** - Tailored for legal data platform (security, testing, architecture, etc.)
+- **11 Specialized Personas** - Tailored for legal data platform (legal domain expert, security, testing, architecture, etc.)
 - **Autonomous Operation** - Agents create PRs, review code, and coordinate work
 - **Sprint-Based Planning** - Personas plan ahead and provide feedback to each other
 - **Multiple Execution Modes** - Parallel cycles, scheduled runs, and on-demand execution

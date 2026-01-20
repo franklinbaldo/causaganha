@@ -23,10 +23,10 @@ EXCLUDED_PERSONAS = [
 
 # Fallback list if filesystem discovery fails
 # This should match the actual personas in .team/personas/ (excluding EXCLUDED_PERSONAS)
-# CausaGanha active personas (10 specialized for legal data analysis platform)
+# CausaGanha active personas (11 specialized for legal data analysis platform)
 FALLBACK_CYCLE_PERSONAS = [
-    "bdd_specialist", "builder", "janitor", "refactor", "scribe",
-    "sentinel", "shepherd", "simplifier", "typeguard", "visionary"
+    "bdd_specialist", "builder", "janitor", "legal_advisor", "refactor",
+    "scribe", "sentinel", "shepherd", "simplifier", "typeguard", "visionary"
 ]
 
 
