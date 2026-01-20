@@ -23,19 +23,22 @@ These features optimize costs, enable scale, and improve system resilience.
 6. **`06_winner_prediction.feature`** - ML-based outcome prediction to reduce LLM costs
 7. **`07_multi_court_coverage.feature`** - Support for 90+ Brazilian tribunals
 8. **`08_error_handling.feature`** - Graceful failure handling and recovery
+9. **`rag_analysis.feature`** - RAG-based decision analysis using vector similarity
+10. **`hybrid_analysis.feature`** - Hybrid strategy combining RAG + LLM with confidence thresholds
+11. **`rag_cli.feature`** - CLI commands for RAG analysis and vector store management
 
 ### 🔵 Priority 4: Quality & Operations
 These features ensure data quality, system performance, and operational excellence.
 
-9. **`09_data_quality.feature`** - Validation of extracted legal data accuracy
-10. **`10_performance_monitoring.feature`** - System observability and performance tracking
+12. **`09_data_quality.feature`** - Validation of extracted legal data accuracy
+13. **`10_performance_monitoring.feature`** - System observability and performance tracking
 
 ### 🟣 Priority 5: Public Features & Compliance (Post-MVP)
 These features enable public-facing product launch and legal compliance. Not in MVP scope.
 
-11. **`11_public_features.feature`** - User-facing lawyer search, profiles, and comparison
-12. **`12_transparency.feature`** - Methodology documentation and complete audit trails
-13. **`13_compliance.feature`** - LGPD rights implementation and dispute resolution
+14. **`11_public_features.feature`** - User-facing lawyer search, profiles, and comparison
+15. **`12_transparency.feature`** - Methodology documentation and complete audit trails
+16. **`13_compliance.feature`** - LGPD rights implementation and dispute resolution
 
 ## Running BDD Tests
 
@@ -81,12 +84,12 @@ Feature: Lawyer Performance Ratings
 
 ## Summary Statistics
 
-- **Total Features:** 13
-- **Total Scenarios:** 449
+- **Total Features:** 16
+- **Total Scenarios:** 477
 - **Coverage Breakdown:**
   - Priority 1 (Core): 82 scenarios
   - Priority 2 (Operations): 66 scenarios
-  - Priority 3 (Scale): 107 scenarios
+  - Priority 3 (Advanced): 135 scenarios
   - Priority 4 (Quality): 88 scenarios
   - Priority 5 (Public/Compliance): 106 scenarios
 
