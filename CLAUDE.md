@@ -95,6 +95,59 @@ See [`tests/features/README.md`](tests/features/README.md) for the complete BDD 
 *   **Application**: `src/causaganha/pipeline` (Orchestration)
 *   **Infrastructure**: `src/causaganha/storage` (Ibis), `src/causaganha/api` (HTTP)
 
+## 🧠 Embedding Providers
+
+CausaGanha supports multiple embedding providers through a pluggable architecture:
+
+### Available Providers
+
+1. **Google Gemini** (Default)
+   - Model: `text-embedding-004`
+   - Dimensions: 768
+   - API Key: `GOOGLE_API_KEY` environment variable
+   - Best for: General-purpose embeddings with Google's ecosystem
+
+2. **Jina AI** (Optional)
+   - Model: `jina-embeddings-v3`
+   - Dimensions: 1024 (configurable 256-1024)
+   - API Key: `JINA_API_KEY` environment variable (already configured in GitHub secrets)
+   - Best for: Multilingual support, Matryoshka embeddings, cost efficiency
+
+### Configuration
+
+Set the provider in your `.env` file:
+
+```bash
+# Use Google (default)
+EMBEDDING_PROVIDER=google
+GOOGLE_API_KEY=your_google_api_key
+
+# OR use Jina AI
+EMBEDDING_PROVIDER=jina
+JINA_API_KEY=your_jina_api_key
+```
+
+### Usage
+
+```python
+from causaganha.v2.analysis.embedding_service import EmbeddingService
+
+# Use default provider (Google)
+service = EmbeddingService()
+
+# Use Jina AI explicitly
+service = EmbeddingService(provider="jina")
+
+# Generate embeddings
+embedding = await service.embed_text("Your text here")
+```
+
+### Implementation
+
+- **Provider abstraction**: `src/causaganha/v2/analysis/embedding_providers.py`
+- **Service wrapper**: `src/causaganha/v2/analysis/embedding_service.py`
+- **Configuration**: `src/causaganha/config.py`
+
 ## 🤖 **Agent Registry System**
 
 CausaGanha implements a parallel development system using an agent registry in `.agents/`.
