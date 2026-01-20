@@ -8,6 +8,7 @@ import zipfile
 from typing import Any
 
 import httpx
+from urllib.parse import urlparse
 from repo.core.exceptions import GitHubError
 
 JULES_BOT_LOGINS = {"google-labs-jules[bot]", "app/google-labs-jules", "google-labs-jules"}
@@ -542,7 +543,10 @@ def get_repo_info() -> dict[str, str]:
             url = result.stdout.strip()
             # Handle both HTTPS and SSH formats
             # https://github.com/owner/repo.git or git@github.com:owner/repo.git
-            if "github.com" in url:
+            parsed = urlparse(url)
+            is_https_github = parsed.scheme in ("http", "https") and parsed.netloc.lower() == "github.com"
+            is_ssh_github = url.startswith("git@github.com:")
+            if is_https_github or is_ssh_github:
                 parts = url.replace(".git", "").replace(":", "/").split("/")
                 if len(parts) >= 2:
                     owner = parts[-2]
