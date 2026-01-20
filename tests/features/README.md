@@ -14,7 +14,7 @@ These features represent the fundamental value proposition of CausaGanha - witho
 ### 🟡 Priority 2: Essential Operations
 These features enable the core business features to work properly and provide essential support functions.
 
-4. **`04_document_archival.feature`** - Long-term preservation of decisions to Internet Archive
+4. **`04_data_lake_export.feature`** - Parquet export to Internet Archive (free distributed data lake)
 5. **`05_pipeline_orchestration.feature`** - End-to-end workflow from collection to scoring
 
 ### 🟢 Priority 3: Advanced Capabilities
@@ -82,13 +82,13 @@ Feature: Lawyer Performance Ratings
 ## Summary Statistics
 
 - **Total Features:** 13
-- **Total Scenarios:** 459
+- **Total Scenarios:** 449
 - **Coverage Breakdown:**
-  - Priority 1 (Core): 108 scenarios
-  - Priority 2 (Operations): 56 scenarios
-  - Priority 3 (Scale): 96 scenarios
-  - Priority 4 (Quality): 69 scenarios
-  - Priority 5 (Public/Compliance): 130 scenarios
+  - Priority 1 (Core): 82 scenarios
+  - Priority 2 (Operations): 66 scenarios
+  - Priority 3 (Scale): 107 scenarios
+  - Priority 4 (Quality): 88 scenarios
+  - Priority 5 (Public/Compliance): 106 scenarios
 
 ## Feature Organization Principles
 

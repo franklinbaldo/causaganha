@@ -17,39 +17,41 @@ Feature: Transparency and Auditability
   # AUDIT TRAIL - RATINGS TO SOURCE DOCUMENTS
   # ============================================================================
 
-  Scenario: Trace rating back to source decisions
+  Scenario: Trace rating back to source data (Parquet data lake)
     Given lawyer "123456/SP" has rating 32.5
     When I view the rating details
     Then I should see all cases that contributed to this rating
     And each case should link to the analysis record
-    And each analysis should link to the archived PDF
-    And I can verify the entire chain of evidence
+    And each analysis should link to the Parquet partition on Internet Archive
+    And I can download the Parquet file and verify the entire chain of evidence
 
   Scenario: View complete decision analysis
     Given an analyzed decision with ID "ana-001"
     When I view the analysis details
     Then I should see:
-      | Field                | Example Value                           |
-      | Intimation ID        | int-12345                               |
-      | Case Number          | 0001234-56.2024.8.22.0001              |
-      | Tribunal             | TJRO                                    |
-      | Decision Type        | SENTENÇA                                |
-      | Outcome              | PROCEDENTE                              |
-      | Winner               | 123456/SP (OAB/State)                   |
-      | Loser                | 234567/RJ                               |
-      | Judge                | Dr. Carlos Silva                        |
-      | Reasoning            | Summary of decision reasoning           |
-      | Confidence           | 0.92                                    |
-      | Analyzed Date        | 2025-01-15 14:23:01 UTC                 |
-      | LLM Model            | gemini-2.0-flash-exp                    |
-      | Archive URL          | https://archive.org/details/causaganha-xyz |
+      | Field                | Example Value                                  |
+      | Intimation ID        | int-12345                                      |
+      | Case Number          | 0001234-56.2024.8.22.0001                     |
+      | Tribunal             | TJRO                                           |
+      | Decision Type        | SENTENÇA                                       |
+      | Outcome              | PROCEDENTE                                     |
+      | Winner               | 123456/SP (OAB/State)                          |
+      | Loser                | 234567/RJ                                      |
+      | Judge                | Dr. Carlos Silva                               |
+      | Reasoning            | Summary of decision reasoning                  |
+      | Confidence           | 0.92                                           |
+      | Analyzed Date        | 2025-01-15 14:23:01 UTC                        |
+      | LLM Model            | gemini-2.0-flash-exp                           |
+      | Parquet File         | causaganha-TJRO-2025-01.parquet                |
+      | Archive URL          | https://archive.org/details/causaganha-TJRO-2025-01 |
 
-  Scenario: Verify PDF matches analysis
+  Scenario: Download and verify data from Parquet data lake
     Given an analysis identifies lawyer "123456/SP" as winner
-    When I click the Archive.org link
-    Then the PDF should open
-    And I can manually verify the winner identification
-    And I can compare the LLM reasoning to the actual decision text
+    When I download the Parquet file from Internet Archive
+    Then I can query the Parquet file with DuckDB
+    And I can find the exact row with intimation_id "int-12345"
+    And I can verify the winner identification matches
+    And I can read the original `texto` field to validate LLM extraction
 
   Scenario: View rating calculation history
     Given lawyer "123456/SP" has 45 rated cases
@@ -147,15 +149,16 @@ Feature: Transparency and Auditability
     When I click "Download Sample Validation Data"
     Then I should receive a CSV file with:
       | Column              | Description                          |
-      | decision_id         | Unique identifier                    |
-      | archive_url         | Link to PDF                          |
+      | intimation_id       | Unique identifier                    |
+      | parquet_file        | Partition file on Internet Archive   |
+      | archive_url         | Link to Parquet on archive.org       |
       | llm_winner          | AI-identified winner                 |
       | llm_loser           | AI-identified loser                  |
       | manual_winner       | Human-verified winner                |
       | manual_loser        | Human-verified loser                 |
       | correct             | TRUE/FALSE                           |
       | confidence          | 0.0-1.0                              |
-    And I can manually verify a subset
+    And I can download the Parquet files to manually verify the texto field
 
   # ============================================================================
   # CHANGE LOG & VERSIONING
@@ -179,39 +182,43 @@ Feature: Transparency and Auditability
     And major version changes should be highlighted
 
   # ============================================================================
-  # INTERNET ARCHIVE PRESERVATION
+  # INTERNET ARCHIVE PRESERVATION (PARQUET DATA LAKE)
   # ============================================================================
 
-  Scenario: All decisions permanently archived
-    Given a decision has been analyzed
+  Scenario: All analyzed decisions exported to Parquet data lake
+    Given a decision has been analyzed in January 2025
     When I check its archival status
-    Then it must have an Internet Archive URL
-    And the URL should be publicly accessible
-    And the PDF should be viewable on archive.org
-    And metadata should be present (tribunal, date, case number)
+    Then it must be included in the monthly Parquet export
+    And the Parquet file must have an Internet Archive URL
+    And the URL should be publicly accessible (e.g., archive.org/details/causaganha-TJRO-2025-01)
+    And I can download and query the Parquet file with DuckDB
+    And the decision's texto field should be present for verification
 
-  Scenario: Archive.org metadata is complete
-    Given a decision archived to Internet Archive
+  Scenario: Archive.org Parquet metadata is complete
+    Given a Parquet partition "causaganha-TJRO-2025-01" has been archived
     When I view the item on archive.org
     Then the metadata should include:
       | Field           | Example Value                           |
-      | Title           | Decision 0001234-56.2024.8.22.0001 - TJRO |
+      | Title           | CausaGanha - TJRO - January 2025       |
       | Collection      | causaganha                              |
-      | Media Type      | texts                                   |
-      | Subject         | judicial decisions; brazil; TJRO        |
-      | Date            | 2025-01-15                              |
+      | Media Type      | data                                    |
+      | Format          | Parquet                                 |
+      | Subject         | judicial decisions; brazil; TJRO; 2025-01 |
+      | Date            | 2025-01                                 |
       | Source          | PJe - Tribunal de Justiça de Rondônia   |
-      | Rights          | Public Domain (court decision)          |
+      | Rights          | CC0 1.0 Universal (Public Domain)       |
 
-  Scenario: Verify archival completeness
-    When I query the system for archival statistics
+  Scenario: Verify Parquet export completeness
+    When I query the system for export statistics
     Then I should see:
       | Metric                      | Target |
       | Total decisions collected   | 50,000 |
-      | Total decisions archived    | 50,000 |
-      | Archival rate               | 100%   |
-      | Failed archives             | 0      |
-    And any failures should be listed with reasons
+      | Total decisions exported    | 50,000 |
+      | Export rate                 | 100%   |
+      | Failed exports              | 0      |
+      | Parquet partitions created  | 30     |
+      | Total Parquet size on IA    | 25 MB  |
+    And any export failures should be listed with reasons
 
   # ============================================================================
   # DISPUTE & CORRECTION TRANSPARENCY
@@ -341,9 +348,9 @@ Feature: Transparency and Auditability
     And this proves the rating is deterministic and reproducible
 
   Scenario: Validate LLM analysis
-    Given I have a decision PDF
+    Given I have a decision's texto field from the Parquet data lake
     And I have the LLM prompt and model version
-    When I send the same PDF to Gemini with the same prompt
+    When I send the same texto to Gemini with the same prompt
     Then I should get a consistent analysis result
     And I can verify the system's analysis is reproducible
 
@@ -355,11 +362,12 @@ Feature: Transparency and Auditability
     Given an external auditor wants to verify our methodology
     When they request access to validation data
     Then we should provide:
-      | Resource                    | Purpose                          |
-      | Random sample of 1000 PDFs  | Manual re-analysis               |
-      | Corresponding LLM analyses  | Compare to their analysis        |
-      | Rating calculation scripts  | Verify OpenSkill implementation  |
-      | Accuracy testing results    | Validate our accuracy claims     |
+      | Resource                         | Purpose                          |
+      | Random sample of 1000 decisions  | Manual re-analysis (texto field) |
+      | Parquet data lake access         | Download and verify source data  |
+      | Corresponding LLM analyses       | Compare to their analysis        |
+      | Rating calculation scripts       | Verify OpenSkill implementation  |
+      | Accuracy testing results         | Validate our accuracy claims     |
 
   Scenario: Academic research access
     Given a researcher wants to use our data
