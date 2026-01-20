@@ -278,12 +278,20 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
             _handle_error(e, "Initialization failed")
     elif action == "migrate":
         try:
-            typer.echo("Running migrations for RAG support...")
+            typer.echo("Running migrations...")
             con = get_connection()
             import os
+            from pathlib import Path
 
-            migration_file = "src/causaganha/v2/storage/migrations/001_add_rag_support.sql"
-            if os.path.exists(migration_file):
+            migrations_dir = Path("src/causaganha/v2/storage/migrations")
+            migration_files = sorted(migrations_dir.glob("*.sql"))
+
+            if not migration_files:
+                typer.echo(f"❌ No migration files found in {migrations_dir}")
+                return
+
+            for migration_file in migration_files:
+                typer.echo(f"  Applying {migration_file.name}...")
                 with open(migration_file) as f:
                     sql = f.read()
                     # Split by semicolon and execute each statement
@@ -292,17 +300,249 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
                             try:
                                 con.con.execute(statement)
                             except Exception as e:
-                                # Ignore errors for columns that already exist
+                                # Ignore errors for columns/tables that already exist
                                 if "already exists" not in str(e).lower():
                                     typer.echo(f"Warning: {e}")
 
-                typer.echo("✅ Migrations applied successfully.")
-            else:
-                typer.echo(f"❌ Migration file not found: {migration_file}")
+            typer.echo("✅ All migrations applied successfully.")
         except Exception as e:
             _handle_error(e, "Migration failed")
     else:
         typer.echo(f"Unknown action: {action}")
+
+
+@app.command()
+def export_parquet(
+    date: str | None = typer.Option(None, help="Date to export (YYYY-MM-DD), defaults to yesterday"),
+    tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
+    backfill: bool = typer.Option(False, help="Backfill mode"),
+    start_date: str | None = typer.Option(None, help="Start date for backfill (YYYY-MM-DD)"),
+    end_date: str | None = typer.Option(None, help="End date for backfill (YYYY-MM-DD)"),
+    no_cleanup: bool = typer.Option(False, help="Keep local Parquet files after upload"),
+) -> None:
+    """Export analyzed decisions to Parquet and upload to Internet Archive."""
+    logger.info("export_parquet_command_start", date=date, tribunal=tribunal, backfill=backfill)
+
+    async def _run() -> None:
+        try:
+            from causaganha.v2.pipeline.parquet_export import ParquetExporter, ExportConfig
+            from causaganha.v2.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+            from causaganha.v2.pipeline.export_orchestrator import ExportOrchestrator
+
+            # Initialize components
+            con = get_connection()
+            exporter = ParquetExporter(con, ExportConfig())
+            uploader = InternetArchiveUploader(UploadConfig())
+            orchestrator = ExportOrchestrator(con, exporter, uploader)
+
+            cleanup_files = not no_cleanup
+
+            if backfill:
+                # Backfill mode
+                if not start_date or not end_date:
+                    typer.secho(
+                        "❌ Backfill requires --start-date and --end-date",
+                        fg=typer.colors.RED,
+                    )
+                    raise typer.Exit(code=1)
+
+                typer.echo(f"Starting backfill from {start_date} to {end_date}...")
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    transient=True,
+                ) as progress:
+                    progress.add_task(description="Backfilling exports...", total=None)
+                    result = await orchestrator.backfill_historical(
+                        start_date, end_date, cleanup_files
+                    )
+
+                # Display results
+                typer.echo("\n✅ Backfill complete!")
+                typer.echo(f"  Date range: {result['start_date']} to {result['end_date']}")
+                typer.echo(f"  Days processed: {result['successful_days']}/{result['total_days']}")
+                typer.echo(f"  Successful exports: {result['successful_exports']}")
+                typer.echo(f"  Failed exports: {result['failed_exports']}")
+
+            elif tribunal:
+                # Single tribunal export
+                typer.echo(f"Exporting {tribunal} for {date or 'yesterday'}...")
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    transient=True,
+                ) as progress:
+                    progress.add_task(description=f"Exporting {tribunal}...", total=None)
+                    file_path, row_count = await exporter.export_day_tribunal(date, tribunal)
+
+                    file_size_mb = file_path.stat().st_size / (1024 * 1024)
+
+                    progress.add_task(description="Uploading to Internet Archive...", total=None)
+                    ia_url = await uploader.upload_parquet(
+                        file_path, tribunal, date, file_size_mb, row_count
+                    )
+
+                typer.echo("\n✅ Export complete!")
+                typer.echo(f"  Tribunal: {tribunal}")
+                typer.echo(f"  Date: {date}")
+                typer.echo(f"  Rows: {row_count:,}")
+                typer.echo(f"  Size: {file_size_mb:.2f} MB")
+                typer.echo(f"  IA URL: {ia_url}")
+
+            else:
+                # Daily export for all tribunals
+                export_date = date or "yesterday"
+                typer.echo(f"Starting daily export for {export_date}...")
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    transient=True,
+                ) as progress:
+                    progress.add_task(description="Exporting all tribunals...", total=None)
+                    result = await orchestrator.run_daily_export(date, cleanup_files)
+
+                # Display results
+                success_rate = (
+                    100 * result["successful"] / result["total_tribunals"]
+                    if result["total_tribunals"] > 0
+                    else 0
+                )
+
+                typer.echo("\n✅ Daily export complete!")
+                typer.echo(f"  Date: {result['date']}")
+                typer.echo(f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)")
+                typer.echo(f"  Failed: {result['failed']}")
+                typer.echo(f"  Skipped (already exported): {result['skipped']}")
+                typer.echo(f"  Total rows: {result['total_rows']:,}")
+                typer.echo(f"  Total size: {result['total_size_mb']:.1f} MB")
+                typer.echo(f"  Duration: {result['duration_seconds']:.1f}s")
+
+                if result["failures"]:
+                    typer.echo("\n❌ Failed tribunals:")
+                    for failure in result["failures"]:
+                        typer.echo(f"  - {failure['tribunal']}: {failure['error']}")
+
+        except Exception as e:
+            _handle_error(e, "Export failed")
+
+    asyncio.run(_run())
+
+
+@app.command()
+def export_status(
+    tribunal: str | None = typer.Option(None, help="Filter by tribunal"),
+    days: int = typer.Option(7, help="Show last N days"),
+    failed_only: bool = typer.Option(False, help="Show only failed exports"),
+) -> None:
+    """Show Parquet export status and statistics."""
+    logger.info("export_status_command", tribunal=tribunal, days=days)
+
+    try:
+        con = get_connection()
+
+        # Build query
+        conditions = []
+        params = []
+
+        if tribunal:
+            conditions.append("tribunal = ?")
+            params.append(tribunal)
+
+        if failed_only:
+            conditions.append("status = 'failed'")
+
+        # Get date range
+        from datetime import date, timedelta
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days)
+
+        conditions.append("partition_date >= ? AND partition_date <= ?")
+        params.extend([start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")])
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+        # Query exports
+        query = f"""
+            SELECT
+                partition_date,
+                tribunal,
+                status,
+                row_count,
+                file_size_mb,
+                ia_url,
+                error_message
+            FROM parquet_exports
+            WHERE {where_clause}
+            ORDER BY partition_date DESC, tribunal
+        """
+
+        result = con.con.execute(query, params).fetchall()
+
+        if not result:
+            typer.echo("No exports found matching criteria.")
+            return
+
+        # Display results
+        typer.echo(f"\n📊 Export Status (last {days} days):\n")
+
+        current_date = None
+        for row in result:
+            pdate, trib, status, rows, size, url, error = row
+
+            if pdate != current_date:
+                if current_date:
+                    typer.echo()  # Blank line between dates
+                typer.echo(f"📅 {pdate}:")
+                current_date = pdate
+
+            status_icon = "✓" if status == "completed" else "✗" if status == "failed" else "⏳"
+            status_color = typer.colors.GREEN if status == "completed" else typer.colors.RED if status == "failed" else typer.colors.YELLOW
+
+            typer.echo(f"  {status_icon} ", nl=False)
+            typer.secho(f"{trib:6}", fg=status_color, nl=False)
+            typer.echo(f" | {rows:>7,} rows | {size:>6.1f} MB | {status:>10}", nl=False)
+
+            if error:
+                typer.echo(f" | Error: {error[:50]}")
+            else:
+                typer.echo()
+
+        # Summary statistics
+        typer.echo(f"\n📈 Summary:")
+
+        stats_query = """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                SUM(row_count) as total_rows,
+                SUM(file_size_mb) as total_size
+            FROM parquet_exports
+            WHERE partition_date >= ? AND partition_date <= ?
+        """
+
+        if tribunal:
+            stats_query += " AND tribunal = ?"
+            stats_params = [start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"), tribunal]
+        else:
+            stats_params = [start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")]
+
+        stats = con.con.execute(stats_query, stats_params).fetchone()
+
+        total, completed, failed, total_rows, total_size = stats
+        success_rate = 100 * completed / total if total > 0 else 0
+
+        typer.echo(f"  Total exports: {total}")
+        typer.echo(f"  Completed: {completed} ({success_rate:.1f}%)")
+        typer.echo(f"  Failed: {failed}")
+        typer.echo(f"  Total rows: {total_rows:,}")
+        typer.echo(f"  Total size: {total_size:.1f} MB")
+
+    except Exception as e:
+        _handle_error(e, "Failed to get export status")
 
 
 # Ground truth management commands
