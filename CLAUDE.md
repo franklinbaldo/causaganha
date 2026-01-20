@@ -23,9 +23,18 @@ src/causaganha/       # Main package (Canonical V2)
 legacy_archive/      # Archived V1 code (Do not use)
 ```
 
-## Project Overview
+## 📖 Project Overview
+
+**Mission:** Eliminate information asymmetry in the Brazilian legal market through transparent, data-driven lawyer performance ratings.
 
 CausaGanha is an automated judicial decision analysis platform. It extracts, analyzes, and scores judicial decisions from Brazilian tribunals using Google's Gemini LLM with local DuckDB storage.
+
+**For complete project understanding, see:**
+- [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) - Product strategy, user personas, and success metrics
+- [`docs/MVP_SCOPE.md`](docs/MVP_SCOPE.md) - Current development scope and definition of "done"
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) - Feature prioritization and timeline
+- [`docs/TECHNICAL_REQUIREMENTS.md`](docs/TECHNICAL_REQUIREMENTS.md) - Scale targets and performance specs
+- [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) - Legal and regulatory requirements (LGPD, OAB)
 
 ## Development Setup
 
@@ -56,7 +65,27 @@ CausaGanha follows a **plan-first development approach**:
 ```bash
 # Run CLI
 uv run causaganha --help
+
+# Run tests
+uv run pytest
+
+# Run BDD feature tests
+uv run pytest tests/features/
+
+# Run specific priority features
+uv run pytest tests/features/01_*.feature  # Priority 1
+uv run pytest tests/features/02_*.feature  # Priority 2
 ```
+
+## 🧪 Testing Strategy
+
+CausaGanha has comprehensive BDD (Behavior-Driven Development) test coverage:
+
+- **329 scenarios** across **10 feature files**
+- **Hierarchical organization** by business priority (P1-P4)
+- **Living documentation** that serves as both spec and test
+
+See [`tests/features/README.md`](tests/features/README.md) for the complete BDD suite and feature hierarchy.
 
 ## Architecture Overview
 

@@ -29,7 +29,23 @@ O **CausaGanha V2** já está implementado e em fase de testes e estabilização
 - ✅ **Fase 3**: Expansão Multi-Tribunal e Infraestrutura Cloud
 - 🔄 **Fase 4 (Atual)**: Testes E2E, Documentação e Hardening
 
-📖 **Documentação Completa**: Consulte `/docs` para a documentação atualizada do projeto.
+## 📖 Documentação Completa
+
+O projeto possui documentação abrangente em inglês na pasta `/docs`:
+
+### Estratégia e Visão
+- [`PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) - Visão do produto, personas de usuários e métricas de sucesso
+- [`ROADMAP.md`](docs/ROADMAP.md) - Roadmap de features priorizadas e cronograma (MVP → Monetização)
+- [`MVP_SCOPE.md`](docs/MVP_SCOPE.md) - Escopo do MVP e definição de "pronto"
+- [`PERSONAS.md`](docs/PERSONAS.md) - Personas detalhadas e jornadas de usuário
+
+### Requisitos Técnicos e Legais
+- [`TECHNICAL_REQUIREMENTS.md`](docs/TECHNICAL_REQUIREMENTS.md) - Alvos de escala e especificações de performance
+- [`COMPLIANCE.md`](docs/COMPLIANCE.md) - Requisitos legais e regulatórios (LGPD, OAB)
+
+### Testes BDD
+- [`tests/features/README.md`](tests/features/README.md) - **459 cenários BDD** organizados por prioridade de negócio
+- 13 arquivos .feature cobrindo todos os aspectos da plataforma
 
 ---
 
