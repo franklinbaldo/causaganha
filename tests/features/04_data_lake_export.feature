@@ -11,8 +11,10 @@ Feature: Parquet Data Lake on Internet Archive
   # ============================================================================
   # ARCHITECTURE: Internet Archive as FREE Data Lake
   # - Parquet format: 10x compression, columnar storage
-  # - Partitioned by DATE (daily, all tribunals combined)
-  # - ~150 MB per day (270K-450K decisions across 90 tribunals)
+  # - Partitioned by DATE (daily) then sub-partitioned by TRIBUNAL
+  # - Naming: causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet
+  # - File sizes: 1-50 MB per file (tribunal-dependent)
+  # - ~90 files per day (one per tribunal) = 32,850 files/year
   # - $0 cost vs $1,500+/year on AWS S3
   # - Public download for verification and reproducibility
   # ============================================================================
@@ -21,16 +23,16 @@ Feature: Parquet Data Lake on Internet Archive
   # PARQUET EXPORT FROM DUCKDB
   # ============================================================================
 
-  Scenario: Export single day partition to Parquet
+  Scenario: Export single day partition for one tribunal
     Given it is the end of January 15, 2025
-    And there are 270,000 analyzed intimations across all tribunals on 2025-01-15
-    When I run the export command for date "2025-01-15"
-    Then a Parquet file should be created named "causaganha-2025-01-15.parquet"
-    And the file should contain exactly 270,000 rows
+    And there are 3,000 analyzed intimations for "TJRO" on 2025-01-15
+    When I run the export command for date "2025-01-15" and tribunal "TJRO"
+    Then a Parquet file should be created named "causaganha-2025-01-15-TJRO.parquet"
+    And the file should contain exactly 3,000 rows
     And the file should be compressed with snappy codec
-    And the file size should be approximately 135 MB
+    And the file size should be approximately 1.5 MB
 
-  Scenario: Export includes all tribunals in single daily file
+  Scenario: Export creates separate files per tribunal (hierarchical partitioning)
     Given there are analyzed intimations from multiple tribunals on 2025-01-15:
       | Tribunal | Count   |
       | TJSP     | 50,000  |
@@ -39,10 +41,15 @@ Feature: Parquet Data Lake on Internet Archive
       | TJRO     | 3,000   |
       | TJAC     | 2,000   |
     When I run the export command for date "2025-01-15"
-    Then 1 Parquet file should be created: "causaganha-2025-01-15.parquet"
-    And the file should contain 110,000 rows total
-    And the file should include decisions from all 5 tribunals
-    And users can filter by tribunal in DuckDB queries
+    Then 5 Parquet files should be created:
+      | Filename                             | Rows   | Size   |
+      | causaganha-2025-01-15-TJSP.parquet  | 50,000 | ~25 MB |
+      | causaganha-2025-01-15-TJRJ.parquet  | 30,000 | ~15 MB |
+      | causaganha-2025-01-15-TJMG.parquet  | 25,000 | ~12 MB |
+      | causaganha-2025-01-15-TJRO.parquet  | 3,000  | ~1.5MB |
+      | causaganha-2025-01-15-TJAC.parquet  | 2,000  | ~1 MB  |
+    And each file contains only decisions from its respective tribunal
+    And users can selectively download only needed tribunals
 
   Scenario: Parquet schema includes all necessary fields
     Given intimations are being exported to Parquet
