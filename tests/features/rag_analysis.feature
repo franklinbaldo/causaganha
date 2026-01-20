@@ -1,11 +1,10 @@
-Feature: RAG-Based Decision Analysis
+Feature: RAG-Based Decision Analysis (Zero-Shot)
   As a system administrator,
-  I want to analyze judicial decisions using RAG (Retrieval-Augmented Generation),
-  So that I can classify decisions at 98% lower cost than LLM-only analysis.
+  I want to analyze judicial decisions using zero-shot RAG,
+  So that I can classify decisions at 98% lower cost than LLM-only analysis without needing ground truth data.
 
   Background:
-    Given the system has a vector store initialized
-    And the vector store contains ground truth decisions
+    Given the RAG analyzer is initialized with generic outcome phrases
 
   Scenario: Analyze a decision with high confidence using RAG
     Given I have a decision text about a clear win outcome
@@ -18,14 +17,14 @@ Feature: RAG-Based Decision Analysis
     Given I have a decision text with mixed signals
     When I analyze the decision using RAG
     Then an outcome should be returned
-    And the confidence score should be between 0.60 and 0.80
+    And the confidence score should be between 0.70 and 0.85
     And the analysis method should be "rag"
 
   Scenario: Analyze a decision with low confidence using RAG
     Given I have a decision text with unclear outcome
     When I analyze the decision using RAG
     Then an outcome should be returned
-    And the confidence score should be less than 0.60
+    And the confidence score should be less than 0.70
     And the analysis method should be "rag"
 
   Scenario: Chunk decision text for embedding
@@ -41,19 +40,18 @@ Feature: RAG-Based Decision Analysis
     Then I should receive 3 embedding vectors
     And each embedding should have 768 dimensions
 
-  Scenario: Classify using k-NN voting
-    Given I have decision embeddings
-    And the vector store has 5 similar WIN decisions and 2 LOSS decisions
-    When I classify using k=7 nearest neighbors
-    Then the outcome should be "WIN"
-    And the confidence should be approximately 0.71
-    And the vote distribution should show 5 WIN and 2 LOSS
+  Scenario: Classify chunk using zero-shot similarity
+    Given I have a decision chunk embedding
+    And the system has outcome phrases embedded
+    When I classify the chunk using cosine similarity
+    Then the chunk should be classified to the most similar outcome
+    And the similarity score should be between 0.0 and 1.0
 
   Scenario: Track RAG analysis costs
     Given I analyze 100 decisions using RAG
     When I calculate the total cost
-    Then the cost should be approximately $0.0008
-    And the cost per decision should be $0.000008
+    Then the cost should be approximately $0.0004
+    And the cost per decision should be $0.000004
 
   Scenario: Batch analysis with RAG
     Given I have 10 pending decisions to analyze
