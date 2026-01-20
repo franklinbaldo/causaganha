@@ -224,23 +224,19 @@ class ParquetExporter:
         result = tribunals_query.execute()
         return result["sigla_tribunal"].tolist()
 
-    def _dataframe_to_arrow(self, df: pa.RecordBatch) -> pa.Table:
+    def _dataframe_to_arrow(self, df: pa.Table) -> pa.Table:
         """
         Convert data to PyArrow table with proper schema.
 
         Args:
-            df: PyArrow RecordBatch from query
+            df: PyArrow Table from query (to_pyarrow() returns Table, not RecordBatch)
 
         Returns:
             PyArrow Table with validated schema
         """
-        # Build schema with proper types
-        schema = self._build_parquet_schema()
-
-        # Create table from record batch
-        table = pa.Table.from_batches([df], schema=schema)
-
-        return table
+        # The df is already a Table (not RecordBatch), just return it
+        # to_pyarrow() from Ibis returns a Table directly
+        return df
 
     def _build_parquet_schema(self) -> pa.Schema:
         """
