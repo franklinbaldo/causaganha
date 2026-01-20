@@ -1,0 +1,18 @@
+## 🕸️ CONFLICT RESOLUTION TASK
+
+The following PRs failed to auto-merge. Resolve their conflicts:
+
+{% for pr in conflict_prs %}
+### PR #{{ pr.number }}: {{ pr.title }}
+**Error:** {{ pr.merge_error | default('Conflict') }}
+```bash
+curl -L "https://github.com/{{ owner }}/{{ repo }}/pull/{{ pr.number }}.patch" -o pr_{{ pr.number }}.patch
+git apply --3way pr_{{ pr.number }}.patch
+```
+{% endfor %}
+
+After resolving, commit:
+```bash
+git add -A
+git commit -m "🕸️ Weaver: Resolve conflicts for PRs {{ pr_numbers_str }}"
+```
