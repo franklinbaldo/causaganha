@@ -1,0 +1,26 @@
+# CausaGanha Daily Parquet Export - Cron Configuration
+#
+# This file defines the cron schedule for daily Parquet exports.
+# Install this file by copying it to /etc/cron.d/ or adding to user crontab.
+#
+# Installation:
+#   sudo cp deployment/cron/causaganha-export.cron /etc/cron.d/causaganha-export
+#   sudo chmod 644 /etc/cron.d/causaganha-export
+#
+# Or for user crontab:
+#   crontab -e
+#   # Then paste the line below
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=admin@example.com
+
+# Run daily at 02:00 UTC
+# Minute Hour Day Month DayOfWeek Command
+0 2 * * * causaganha cd /opt/causaganha && /opt/causaganha/.venv/bin/python scripts/daily_export.py >> /var/log/causaganha/export.log 2>&1
+
+# Alternative: Run with UV (if using UV for dependency management)
+# 0 2 * * * causaganha cd /opt/causaganha && uv run python scripts/daily_export.py >> /var/log/causaganha/export.log 2>&1
+
+# Alternative: Run with explicit Python path
+# 0 2 * * * causaganha cd /opt/causaganha && PYTHONPATH=/opt/causaganha/src /opt/causaganha/.venv/bin/python scripts/daily_export.py >> /var/log/causaganha/export.log 2>&1

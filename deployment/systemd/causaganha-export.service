@@ -1,0 +1,40 @@
+[Unit]
+Description=CausaGanha Daily Parquet Export
+Documentation=https://github.com/franklinbaldo/causaganha
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=causaganha
+Group=causaganha
+WorkingDirectory=/opt/causaganha
+Environment="PATH=/opt/causaganha/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Run the daily export script
+ExecStart=/opt/causaganha/.venv/bin/python /opt/causaganha/scripts/daily_export.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=causaganha-export
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/causaganha/data
+ReadWritePaths=/opt/causaganha/logs
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=50%
+
+# Restart policy (for oneshot, this only applies if it fails)
+Restart=on-failure
+RestartSec=5min
+
+[Install]
+WantedBy=multi-user.target
