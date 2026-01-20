@@ -18,19 +18,15 @@ ORACLE_SESSION_MAX_AGE_HOURS = 24
 # Personas that are excluded from automatic scheduling
 # These exist in the personas directory but should not be scheduled automatically
 EXCLUDED_PERSONAS = [
-    "oracle",        # Runs on-demand, not in rotation
-    "bdd_specialist", # Runs on-demand, not in rotation
-    "franklin"       # Reserved for manual testing
+    # All personas are currently in rotation for CausaGanha
 ]
 
 # Fallback list if filesystem discovery fails
 # This should match the actual personas in .team/personas/ (excluding EXCLUDED_PERSONAS)
+# CausaGanha active personas (10 specialized for legal data analysis platform)
 FALLBACK_CYCLE_PERSONAS = [
-    "absolutist", "artisan", "bolt", "builder", "curator", "docs_curator",
-    "essentialist", "forge", "janitor", "lore", "maintainer", "organizer", "palette",
-    "pruner", "refactor", "sapper", "scribe", "sentinel", "shepherd", "sheriff",
-    "simplifier", "steward", "streamliner", "taskmaster", "typeguard",
-    "visionary"
+    "bdd_specialist", "builder", "janitor", "refactor", "scribe",
+    "sentinel", "shepherd", "simplifier", "typeguard", "visionary"
 ]
 
 

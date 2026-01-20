@@ -21,11 +21,11 @@
 
 ## 🎯 Overview
 
-The Jules automation system is a **multi-agent AI workforce** that maintains and improves the Egregora codebase autonomously. Each agent (persona) has a specialized role and works independently or collaboratively through a sophisticated scheduler.
+The Jules automation system is a **multi-agent AI workforce** that maintains and improves the CausaGanha codebase autonomously. Each agent (persona) has a specialized role and works independently or collaboratively through a sophisticated scheduler.
 
 ### Key Features
 
-- **23 Specialized Personas** - Each with unique expertise (security, performance, UX, etc.)
+- **10 Specialized Personas** - Tailored for legal data platform (security, testing, architecture, etc.)
 - **Autonomous Operation** - Agents create PRs, review code, and coordinate work
 - **Sprint-Based Planning** - Personas plan ahead and provide feedback to each other
 - **Multiple Execution Modes** - Parallel cycles, scheduled runs, and on-demand execution
