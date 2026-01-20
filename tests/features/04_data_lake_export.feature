@@ -99,25 +99,25 @@ Feature: Parquet Data Lake on Internet Archive
   # ============================================================================
 
   Scenario: Upload Parquet file to Internet Archive
-    Given a Parquet file "causaganha-2025-01-15.parquet" exists locally
-    And it contains 270,000 analyzed decisions from all tribunals
+    Given a Parquet file "causaganha-2025-01-15-TJRO.parquet" exists locally
+    And it contains 3,000 analyzed decisions from TJRO
     When I run the archive upload command
     Then the file should be uploaded to Internet Archive
-    And the item identifier should be "causaganha-2025-01-15"
-    And the item URL should be "https://archive.org/details/causaganha-2025-01-15"
+    And the item identifier should be "causaganha-2025-01-15-TJRO"
+    And the item URL should be "https://archive.org/details/causaganha-2025-01-15-TJRO"
 
   Scenario: Generate comprehensive metadata for IA item
-    Given a Parquet file for "2025-01-15" is being uploaded
+    Given a Parquet file for "TJRO" on "2025-01-15" is being uploaded
     When the upload occurs
     Then the Internet Archive metadata should include:
       | Field           | Value                                           |
-      | title           | CausaGanha - Brazilian Court Decisions - 2025-01-15 |
+      | title           | CausaGanha - TJRO - 2025-01-15                  |
       | collection      | causaganha                                      |
       | mediatype       | data                                            |
-      | subject         | judicial decisions; brazil; 2025-01-15          |
-      | description     | Daily tabulated judicial decision data from 90 Brazilian tribunals |
+      | subject         | judicial decisions; brazil; TJRO; 2025-01-15    |
+      | description     | Daily judicial decision data from TJRO for January 15, 2025 |
       | format          | Parquet                                         |
-      | coverage        | Brazil - All Tribunals                          |
+      | coverage        | TJRO (Tribunal de Justiça de Rondônia)          |
       | date            | 2025-01-15                                      |
       | language        | por (Portuguese)                                |
       | creator         | CausaGanha Project                              |
@@ -129,12 +129,13 @@ Feature: Parquet Data Lake on Internet Archive
     When the upload completes
     Then the database should record:
       | Field              | Value                                          |
-      | ia_item_id         | causaganha-2025-01-15                          |
-      | ia_url             | https://archive.org/details/causaganha-2025-01-15 |
-      | parquet_filename   | causaganha-2025-01-15.parquet                  |
+      | ia_item_id         | causaganha-2025-01-15-TJRO                     |
+      | ia_url             | https://archive.org/details/causaganha-2025-01-15-TJRO |
+      | parquet_filename   | causaganha-2025-01-15-TJRO.parquet             |
+      | tribunal           | TJRO                                           |
       | partition_date     | 2025-01-15                                     |
-      | row_count          | 270,000                                        |
-      | file_size_mb       | 135                                            |
+      | row_count          | 3,000                                          |
+      | file_size_mb       | 1.5                                            |
       | uploaded_at        | 2025-01-16 01:00:00 UTC                        |
 
   Scenario: Verify successful upload
@@ -149,26 +150,28 @@ Feature: Parquet Data Lake on Internet Archive
   # PARTITIONING STRATEGY
   # ============================================================================
 
-  Scenario: Partition by date - all tribunals combined (recommended strategy)
+  Scenario: Hierarchical partitioning - date then tribunal (recommended strategy)
     Given decisions span multiple tribunals and dates
     When partitions are created
-    Then files should follow naming convention: "causaganha-{YYYY}-{MM}-{DD}.parquet"
-    And each file should contain decisions from ALL tribunals for that single date
-    And file size should be approximately 135-150 MB per day
-    And this enables daily incremental exports and manageable file sizes
+    Then files should follow naming convention: "causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet"
+    And each file should contain decisions for ONE tribunal on ONE date
+    And file sizes should vary by tribunal: 1-50 MB per file
+    And this enables selective downloads by tribunal or date
+    And approximately 90 files per day (one per tribunal)
 
-  Scenario: Daily partition boundary handling
-    Given decisions are collected on January 15 and January 16, 2025
+  Scenario: Daily partition boundary handling with tribunal sub-partitions
+    Given decisions are collected from TJRO on January 15 and January 16, 2025
     When the export runs
-    Then January 15 decisions should be in causaganha-2025-01-15.parquet
-    And January 16 decisions should be in causaganha-2025-01-16.parquet
-    And each file should include all tribunals for that date
+    Then January 15 TJRO decisions should be in causaganha-2025-01-15-TJRO.parquet
+    And January 16 TJRO decisions should be in causaganha-2025-01-16-TJRO.parquet
+    And decisions from TJSP on Jan 15 should be in causaganha-2025-01-15-TJSP.parquet
     And no decisions should be in the wrong partition
 
   Scenario: Export only complete days
     Given it is January 15, 2025 at 14:00 UTC (mid-day)
     When the export command runs
     Then it should export only complete days (January 14, 2025 and earlier)
+    And it should create ~90 files for January 14 (one per tribunal)
     And January 15, 2025 should not be exported yet (day incomplete)
     And a warning should indicate "January 15, 2025 is incomplete"
 
@@ -176,47 +179,50 @@ Feature: Parquet Data Lake on Internet Archive
   # INCREMENTAL UPDATES
   # ============================================================================
 
-  Scenario: Daily export workflow
+  Scenario: Daily export workflow with tribunal sub-partitions
     Given it is January 16, 2025 at 02:00 UTC (after midnight)
     And January 15, 2025 is now complete
     When the daily export runs
     Then all tribunals' data for 2025-01-15 should be exported
-    And the file "causaganha-2025-01-15.parquet" should be uploaded to Internet Archive
+    And approximately 90 files should be created (one per tribunal)
+    And files should be named causaganha-2025-01-15-{TRIBUNAL}.parquet
+    And all files should be uploaded to Internet Archive
     And local DuckDB should mark 2025-01-15 data as archived
     And older data (> 6 months) should be purged from DuckDB
 
-  Scenario: Backfill historical days
+  Scenario: Backfill historical days creates tribunal sub-partitions
     Given historical data exists from 2024-12-01 to 2024-12-31 (31 days)
+    And data spans 5 active tribunals (TJRO, TJAC, TJSP, TJRJ, TJMG)
     And no Parquet exports have been created yet
     When the backfill export command runs
-    Then 31 Parquet files should be created (one per day)
+    Then 31 days × 5 tribunals = 155 Parquet files should be created
     And all should be uploaded to Internet Archive
     And the process should be resumable if interrupted
 
-  Scenario: Avoid duplicate exports
-    Given "causaganha-2025-01-15.parquet" already exists on IA
-    When the export command runs for date "2025-01-15"
+  Scenario: Avoid duplicate exports per tribunal
+    Given "causaganha-2025-01-15-TJRO.parquet" already exists on IA
+    When the export command runs for date "2025-01-15" and tribunal "TJRO"
     Then the system should check if the file already exists
     And if exists, skip the upload
-    And log "Already archived: 2025-01-15"
+    And log "Already archived: 2025-01-15 TJRO"
 
   # ============================================================================
   # COMPRESSION & OPTIMIZATION
   # ============================================================================
 
-  Scenario: Parquet compression is effective
-    Given 270,000 intimations with avg texto length of 5,000 characters
-    And raw JSON would be approximately 1.35 GB
+  Scenario: Parquet compression is effective per tribunal
+    Given 3,000 TJRO intimations with avg texto length of 5,000 characters
+    And raw JSON would be approximately 15 MB
     When the data is exported to Parquet with snappy compression
-    Then the Parquet file should be approximately 135 MB
+    Then the Parquet file should be approximately 1.5 MB
     And the compression ratio should be 10:1
 
-  Scenario: Row group size optimization
-    Given a daily partition with 270,000 rows
+  Scenario: Row group size optimization for variable-sized partitions
+    Given a TJSP partition with 50,000 rows
     When the Parquet file is created
-    Then row groups should be sized at 50,000 rows
+    Then row groups should be sized at 10,000-20,000 rows
     And this enables efficient partial reads
-    And memory usage during writes should remain bounded at ~200 MB
+    And memory usage during writes should remain bounded at ~50 MB per file
 
   Scenario: Column statistics for query optimization
     When a Parquet file is created
@@ -228,37 +234,43 @@ Feature: Parquet Data Lake on Internet Archive
   # QUERY VERIFICATION
   # ============================================================================
 
-  Scenario: Query exported Parquet locally with DuckDB
-    Given a Parquet file "causaganha-2025-01-15.parquet" has been downloaded
+  Scenario: Query single tribunal partition with DuckDB
+    Given a Parquet file "causaganha-2025-01-15-TJRO.parquet" has been downloaded
     When I query it with DuckDB:
       """
-      SELECT COUNT(*) FROM 'causaganha-2025-01-15.parquet'
-      WHERE sigla_tribunal = 'TJRO'
+      SELECT COUNT(*) FROM 'causaganha-2025-01-15-TJRO.parquet'
       """
-    Then the query should return ~3,000 (TJRO decisions for that day)
-    And the query should complete in < 200ms (columnar efficiency with 270K rows)
+    Then the query should return 3,000 (all TJRO decisions for that day)
+    And the query should complete in < 50ms (small file, columnar efficiency)
 
-  Scenario: Filter by date range efficiently
-    Given daily Parquet files exist for January 2025
-    When I query for decisions from Jan 1-15:
+  Scenario: Filter by date range for specific tribunal (selective download)
+    Given a researcher needs only TJRO data for January 2025
+    When they download only TJRO files:
       """
-      SELECT * FROM 'causaganha-2025-01-*.parquet'
+      causaganha-2025-01-*-TJRO.parquet (31 files)
+      """
+    And query with DuckDB:
+      """
+      SELECT * FROM 'causaganha-2025-01-*-TJRO.parquet'
       WHERE partition_date BETWEEN '2025-01-01' AND '2025-01-15'
       """
-    Then only Jan 1-15 files should be scanned (partition pruning)
-    And approximately 4 million rows should be returned (15 days × 270K/day)
-    And the query should leverage predicate pushdown
+    Then they download only 31 × 1.5 MB = ~47 MB (TJRO only)
+    And approximately 90,000 TJRO decisions are returned (15 days × 3K/day)
+    And they did NOT need to download other tribunals' data
 
-  Scenario: Filter by specific tribunal across multiple days
-    Given a researcher needs only TJSP data for January 2025
-    When they download all January files and query:
+  Scenario: Query across all tribunals for specific date
+    Given a researcher needs all tribunals for January 15, 2025
+    When they download all files for that date:
       """
-      SELECT * FROM 'causaganha-2025-01-*.parquet'
-      WHERE sigla_tribunal = 'TJSP'
+      causaganha-2025-01-15-*.parquet (~90 files)
       """
-    Then they need to download ~31 files × 135 MB = ~4.2 GB
-    But only TJSP rows are returned (~1.5M decisions)
-    And columnar format reads only needed columns efficiently
+    And query with DuckDB:
+      """
+      SELECT * FROM 'causaganha-2025-01-15-*.parquet'
+      """
+    Then they download ~90 files totaling ~135 MB
+    And approximately 270,000 decisions are returned (all tribunals)
+    And columnar format enables efficient filtering
 
   # ============================================================================
   # ERROR HANDLING
@@ -309,8 +321,8 @@ Feature: Parquet Data Lake on Internet Archive
   # MONITORING & METRICS
   # ============================================================================
 
-  Scenario: Track export metrics
-    When the export process completes
+  Scenario: Track export metrics with tribunal sub-partitions
+    When the export process completes for 2025-01-15
     Then the following metrics should be logged:
       | Metric                      | Example Value    |
       | Date exported               | 2025-01-15       |
@@ -318,30 +330,32 @@ Feature: Parquet Data Lake on Internet Archive
       | Total rows exported         | 270,000          |
       | Total Parquet size          | 135 MB           |
       | Compression ratio           | 10.0:1           |
-      | Export duration             | 8m 30s           |
-      | Upload duration             | 12m 15s          |
-      | Files uploaded to IA        | 1                |
+      | Export duration             | 5m 15s           |
+      | Upload duration             | 8m 45s           |
+      | Files uploaded to IA        | 90               |
       | Storage cost                | $0               |
 
-  Scenario: Alert on export failures
+  Scenario: Alert on export failures per tribunal
     Given the export process runs daily
-    And the export fails for any date
+    And the export fails for tribunal "TJSP" on date "2025-01-15"
     When the failure is detected
     Then an alert should be sent to administrators
-    And the alert should include date and error details
+    And the alert should include date, tribunal, and error details
     And the alert should suggest remediation steps
+    And other tribunal exports should continue (isolated failures)
 
   # ============================================================================
   # PUBLIC ACCESS & TRANSPARENCY
   # ============================================================================
 
-  Scenario: Public can download Parquet files
+  Scenario: Public can download Parquet files by tribunal
     Given Parquet files are uploaded to Internet Archive
-    When a user visits https://archive.org/details/causaganha-2025-01-15
+    When a user visits https://archive.org/details/causaganha-2025-01-15-TJRO
     Then they should see the Parquet file available for download
-    And they should see metadata explaining the data (90 tribunals, 270K decisions)
+    And they should see metadata explaining the data (TJRO, 3K decisions, Jan 15)
     And they should be able to download without authentication
-    And the file size should be clearly shown (~135 MB)
+    And the file size should be clearly shown (~1.5 MB)
+    And they can browse other tribunals' files for the same date
 
   Scenario: Provide query examples for users
     Given Parquet files are public on IA
@@ -354,13 +368,15 @@ Feature: Parquet Data Lake on Internet Archive
   # COST TRACKING
   # ============================================================================
 
-  Scenario: Calculate storage cost savings
-    Given 365 days × 270K decisions/day = ~100M decisions/year are stored on IA
-    And the total size is ~365 days × 135 MB = ~49 GB/year
+  Scenario: Calculate storage cost savings with tribunal partitions
+    Given 365 days × 90 tribunals = 32,850 files/year are stored on IA
+    And 365 days × 270K decisions/day = ~100M decisions/year
+    And the total size is ~49 GB/year (varies by tribunal)
     When compared to AWS S3 alternative
     Then IA cost should be $0
     And AWS S3 cost would be ~$150/year (storage) + $500/year (bandwidth) = $650/year
     And annual savings should be $650+ for production scale
+    And file management is simpler than millions of destinatário files
 
   Scenario: Track bandwidth savings with high download volume
     Given researchers download 50 GB of Parquet data per month (frequent queries)

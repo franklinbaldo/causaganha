@@ -185,41 +185,42 @@ Feature: Transparency and Auditability
   # INTERNET ARCHIVE PRESERVATION (PARQUET DATA LAKE)
   # ============================================================================
 
-  Scenario: All analyzed decisions exported to Parquet data lake
-    Given a decision has been analyzed on January 15, 2025
+  Scenario: All analyzed decisions exported to Parquet data lake by tribunal
+    Given a TJRO decision has been analyzed on January 15, 2025
     When I check its archival status
-    Then it must be included in the daily Parquet export for 2025-01-15
+    Then it must be included in the daily+tribunal Parquet export for 2025-01-15-TJRO
     And the Parquet file must have an Internet Archive URL
-    And the URL should be publicly accessible (e.g., archive.org/details/causaganha-2025-01-15)
+    And the URL should be publicly accessible (e.g., archive.org/details/causaganha-2025-01-15-TJRO)
     And I can download and query the Parquet file with DuckDB
     And the decision's texto field should be present for verification
 
-  Scenario: Archive.org Parquet metadata is complete
-    Given a daily Parquet partition "causaganha-2025-01-15" has been archived
+  Scenario: Archive.org Parquet metadata is complete per tribunal
+    Given a daily+tribunal Parquet partition "causaganha-2025-01-15-TJRO" has been archived
     When I view the item on archive.org
     Then the metadata should include:
       | Field           | Example Value                                           |
-      | Title           | CausaGanha - Brazilian Court Decisions - 2025-01-15     |
+      | Title           | CausaGanha - TJRO - 2025-01-15                          |
       | Collection      | causaganha                                              |
       | Media Type      | data                                                    |
       | Format          | Parquet                                                 |
-      | Subject         | judicial decisions; brazil; 2025-01-15                  |
+      | Subject         | judicial decisions; brazil; TJRO; 2025-01-15            |
       | Date            | 2025-01-15                                              |
-      | Coverage        | Brazil - All Tribunals                                  |
-      | Source          | PJe - 90 Brazilian Tribunals                            |
+      | Coverage        | TJRO (Tribunal de Justiça de Rondônia)                  |
+      | Source          | PJe - Tribunal de Justiça de Rondônia                   |
       | Rights          | CC0 1.0 Universal (Public Domain)                       |
 
-  Scenario: Verify Parquet export completeness
+  Scenario: Verify Parquet export completeness with tribunal sub-partitions
     When I query the system for export statistics
     Then I should see:
-      | Metric                      | Target    |
-      | Total decisions collected   | 8.1M/month|
-      | Total decisions exported    | 8.1M/month|
-      | Export rate                 | 100%      |
-      | Failed exports              | 0         |
-      | Parquet partitions created  | 30/month  |
-      | Total Parquet size on IA    | ~4 GB/month|
-    And any export failures should be listed with reasons
+      | Metric                      | Target      |
+      | Total decisions collected   | 8.1M/month  |
+      | Total decisions exported    | 8.1M/month  |
+      | Export rate                 | 100%        |
+      | Failed exports              | 0           |
+      | Parquet files created       | 2,700/month |
+      | Total Parquet size on IA    | ~4 GB/month |
+    And any export failures should be listed with tribunal and date
+    And approximately 90 files created per day (one per tribunal)
 
   # ============================================================================
   # DISPUTE & CORRECTION TRANSPARENCY

@@ -73,7 +73,7 @@ internet-archive/
 
 ---
 
-### Option 2: By Date - Daily, All Tribunals ⭐ RECOMMENDED
+### Option 2: By Date Only - Daily, All Tribunals
 ```
 internet-archive/
 ├── causaganha-2025-01-01.parquet  # All tribunals, Jan 1 (~135 MB)
@@ -83,48 +83,51 @@ internet-archive/
 ```
 
 **Pros:**
-- ✅ Daily incremental exports (no waiting for month end)
-- ✅ Manageable file sizes (~135-150 MB per day)
-- ✅ Only 365 files/year (not 1,080+ with per-tribunal)
-- ✅ Natural append-only model
-- ✅ Time-series queries efficient
-- ✅ Can filter by tribunal in DuckDB queries
+- Daily incremental exports (no waiting for month end)
+- Manageable file sizes (~135-150 MB per day)
+- Only 365 files/year
+- Natural append-only model
+- Time-series queries efficient
 
 **Cons:**
-- Must download all tribunals to get one tribunal
-- Larger individual files than monthly per-tribunal approach
+- ❌ Must download all tribunals to get one tribunal's data
+- ❌ Larger individual files than hierarchical approach
+- ❌ Bandwidth waste if user only needs specific tribunals
 
-**Why This Works at Scale:**
-- **High Volume**: 270K-450K decisions/day across 90 tribunals
-- **File Size**: Daily partition = 135 MB (optimal for IA downloads)
-- **Monthly per-tribunal would create**: 90 files/month × 12 = 1,080 files/year
-- **Daily all-tribunals creates**: 365 files/year (much simpler)
-
-**Verdict:** ✅ **RECOMMENDED for high-volume production use**
+**Verdict:** ⚠️ **Good for time-series analysis, but not optimal for selective tribunal downloads**
 
 ---
 
-### Option 3: By Tribunal + Date (Hierarchical)
+### Option 3: By Date + Tribunal (Hierarchical) ⭐ RECOMMENDED
 ```
 internet-archive/
-├── causaganha-TJRO-2025-01.parquet  # TJRO Jan (~30 MB)
-├── causaganha-TJRO-2025-02.parquet
-├── causaganha-TJSP-2025-01.parquet  # TJSP Jan (~750 MB)
-├── causaganha-TJAC-2025-01.parquet
+├── causaganha-2025-01-01-TJRO.parquet  # TJRO Jan 1 (~1.5 MB)
+├── causaganha-2025-01-01-TJSP.parquet  # TJSP Jan 1 (~25 MB)
+├── causaganha-2025-01-01-TJRJ.parquet  # TJRJ Jan 1 (~15 MB)
+├── causaganha-2025-01-02-TJRO.parquet  # TJRO Jan 2
+├── causaganha-2025-01-02-TJSP.parquet  # TJSP Jan 2
 └── ...
 ```
 
 **Pros:**
-- Download specific tribunal + time range
-- Smaller individual files for small tribunals
+- ✅ Selective downloads by tribunal (download only TJRO files)
+- ✅ Selective downloads by date range (download only Jan 1-15)
+- ✅ Manageable file sizes (1-50 MB per file, tribunal-dependent)
+- ✅ Daily incremental exports (no waiting for month end)
+- ✅ Supports both access patterns: by tribunal AND by date
+- ✅ Natural append-only model
 
 **Cons:**
-- ❌ Creates 1,080+ files per year (90 tribunals × 12 months)
-- ❌ File management overhead
-- ❌ Large variance in file sizes (TJSP = 750 MB, TJRO = 30 MB)
-- ❌ Must wait until month end for complete data
+- More files to manage (32,850 files/year = 90 tribunals × 365 days)
+- But Internet Archive handles this easily
 
-**Verdict:** ⚠️ **Previously recommended, now superseded by Option 2 at scale**
+**Why This Works Best:**
+- **High Volume**: 270K-450K decisions/day across 90 tribunals
+- **File Count**: 32,850 files/year (manageable for IA)
+- **Selective Access**: Download only TJRO → 365 files × 1.5 MB = ~547 MB/year
+- **Full Access**: Download all → ~49 GB/year (same as Option 2)
+
+**Verdict:** ✅ **RECOMMENDED for flexibility and selective downloads**
 
 ---
 
@@ -155,33 +158,35 @@ internet-archive/
 
 ---
 
-## 🏆 Final Recommendation: Option 2 (Daily Partitions)
+## 🏆 Final Recommendation: Option 3 (Hierarchical: Date + Tribunal)
 
 **Naming Convention:**
 ```
-causaganha-{YEAR}-{MONTH}-{DAY}.parquet
+causaganha-{YEAR}-{MONTH}-{DAY}-{TRIBUNAL}.parquet
 ```
 
 **Examples:**
-- `causaganha-2025-01-15.parquet` (All 90 tribunals for Jan 15, 2025)
-- `causaganha-2025-01-16.parquet` (All 90 tribunals for Jan 16, 2025)
+- `causaganha-2025-01-15-TJRO.parquet` (TJRO decisions for Jan 15, 2025)
+- `causaganha-2025-01-15-TJSP.parquet` (TJSP decisions for Jan 15, 2025)
+- `causaganha-2025-01-16-TJRO.parquet` (TJRO decisions for Jan 16, 2025)
 
 **File Characteristics:**
-- **Size**: ~135-150 MB per file (270K-450K decisions/day)
-- **Rows**: ~270,000 decisions across all 90 tribunals
-- **Compression**: 10:1 ratio (1.35 GB raw JSON → 135 MB Parquet)
-- **Frequency**: Daily exports (one file per day)
+- **Size**: 1-50 MB per file (tribunal-dependent volume)
+- **Rows**: Varies by tribunal (TJRO ~3K/day, TJSP ~50K/day)
+- **Compression**: 10:1 ratio (consistent across all files)
+- **Frequency**: Daily exports (~90 files/day, one per tribunal)
+- **Total files/year**: 32,850 (90 tribunals × 365 days)
 
 **Metadata (IA Item Description):**
 ```json
 {
-  "title": "CausaGanha - Brazilian Court Decisions - 2025-01-15",
+  "title": "CausaGanha - TJRO - 2025-01-15",
   "collection": "causaganha",
   "mediatype": "data",
-  "subject": ["judicial decisions", "brazil", "2025-01-15"],
-  "description": "Daily tabulated judicial decision data from 90 Brazilian tribunals for January 15, 2025. Contains lawyer information, case outcomes, and LLM-extracted decision analysis. ~270,000 decisions across all courts.",
+  "subject": ["judicial decisions", "brazil", "TJRO", "2025-01-15"],
+  "description": "Daily judicial decision data from TJRO (Tribunal de Justiça de Rondônia) for January 15, 2025. Contains lawyer information, case outcomes, and LLM-extracted decision analysis. ~3,000 decisions.",
   "format": "Parquet",
-  "coverage": "Brazil - All Tribunals",
+  "coverage": "TJRO (Tribunal de Justiça de Rondônia)",
   "date": "2025-01-15"
 }
 ```
@@ -259,30 +264,33 @@ PARTITION BY (partition_date);
 
 ## 🔍 Query Examples
 
-### Example 1: All TJRO decisions in January 2025
+### Example 1: All TJRO decisions in January 2025 (selective download)
 ```python
 import duckdb
 
-# Download all January 2025 files (31 files × 135 MB = ~4.2 GB)
-# causaganha-2025-01-01.parquet
-# causaganha-2025-01-02.parquet
+# Download only TJRO files for January (31 files × 1.5 MB = ~47 MB)
+# causaganha-2025-01-01-TJRO.parquet
+# causaganha-2025-01-02-TJRO.parquet
 # ...
-# causaganha-2025-01-31.parquet
+# causaganha-2025-01-31-TJRO.parquet
 
-# Query for TJRO only
+# Query all TJRO data
 con = duckdb.connect()
 df = con.execute("""
-    SELECT * FROM 'causaganha-2025-01-*.parquet'
-    WHERE sigla_tribunal = 'TJRO'
+    SELECT * FROM 'causaganha-2025-01-*-TJRO.parquet'
 """).df()
 
 # Result: ~90K decisions from TJRO in January (3K/day × 30 days)
+# Downloaded: ONLY 47 MB (not 4.2 GB!)
 ```
 
 ### Example 2: All decisions on a specific date (all tribunals)
 ```python
+# Download all tribunal files for Jan 15 (90 files × ~1.5 MB avg = ~135 MB)
+# causaganha-2025-01-15-*.parquet
+
 df = con.execute("""
-    SELECT * FROM 'causaganha-2025-01-15.parquet'
+    SELECT * FROM 'causaganha-2025-01-15-*.parquet'
 """).df()
 
 # Result: ~270K decisions across all 90 tribunals on Jan 15
@@ -290,21 +298,26 @@ df = con.execute("""
 
 ### Example 3: Lawyer performance analysis (TJSP only, Q1 2025)
 ```python
+# Download only TJSP files for Q1 (90 days × 25 MB = ~2.25 GB)
+# causaganha-2025-01-*-TJSP.parquet
+# causaganha-2025-02-*-TJSP.parquet
+# causaganha-2025-03-*-TJSP.parquet
+
 df = con.execute("""
     SELECT
         winner_lawyer_oab,
         winner_lawyer_state,
         COUNT(*) as wins,
         AVG(confidence_score) as avg_confidence
-    FROM 'causaganha-2025-01-*.parquet'
-    WHERE sigla_tribunal = 'TJSP'
-    AND partition_date BETWEEN '2025-01-01' AND '2025-03-31'
+    FROM 'causaganha-2025-*-*-TJSP.parquet'
+    WHERE partition_date BETWEEN '2025-01-01' AND '2025-03-31'
     GROUP BY winner_lawyer_oab, winner_lawyer_state
     ORDER BY wins DESC
     LIMIT 100
 """).df()
 
-# Scans only Q1 files, filters for TJSP using predicate pushdown
+# Downloaded: ONLY 2.25 GB (not 12 GB for all tribunals!)
+# Query is fast due to selective file filtering
 ```
 
 ---
@@ -312,9 +325,9 @@ df = con.execute("""
 ## 📤 Upload Strategy
 
 ### Initial Upload (Backfill)
-For each date in history:
-1. Query DuckDB for all intimations on that date (all tribunals)
-2. Export to Parquet file named `causaganha-{YYYY}-{MM}-{DD}.parquet`
+For each date and tribunal in history:
+1. Query DuckDB for all intimations on that date for that tribunal
+2. Export to Parquet file named `causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet`
 3. Upload to IA with metadata
 4. Record IA URL in local database
 
@@ -323,13 +336,14 @@ For each date in history:
 2. **Analysis**: Analyze with LLM/RAG as they arrive
 3. **Storage**: Store in DuckDB (working database)
 4. **Daily Export** (runs at 02:00 UTC each day):
-   - Export previous day's complete data to Parquet
+   - Export previous day's complete data to Parquet (per tribunal)
    - Example: On Jan 16 at 02:00, export all Jan 15 data
-   - Upload to IA with metadata
-   - Record export in database
+   - Creates ~90 files: causaganha-2025-01-15-{TRIBUNAL}.parquet
+   - Upload all files to IA with metadata
+   - Record exports in database
    - Purge old data from DuckDB (> 6 months)
 
-**Frequency**: One Parquet file per day (365 files/year)
+**Frequency**: ~90 Parquet files per day (32,850 files/year)
 
 **Note**: Parquet files are **immutable**. Don't update existing files; create new versions if corrections are needed.
 
@@ -344,14 +358,14 @@ What if an analysis is wrong and corrected later?
 
 **Option A: Versioned Files**
 ```
-causaganha-2025-01-15-v1.parquet  # Original
-causaganha-2025-01-15-v2.parquet  # Corrected
+causaganha-2025-01-15-TJRO-v1.parquet  # Original
+causaganha-2025-01-15-TJRO-v2.parquet  # Corrected
 ```
 
 **Option B: Separate Corrections Table**
 ```
-causaganha-2025-01-15.parquet              # Original data
-causaganha-2025-01-15-corrections.parquet  # Corrections
+causaganha-2025-01-15-TJRO.parquet              # Original data
+causaganha-2025-01-15-TJRO-corrections.parquet  # Corrections
 ```
 Query: `SELECT * FROM original LEFT JOIN corrections USING (intimation_id)`
 
@@ -370,24 +384,28 @@ Include `is_corrected` and `correction_id` columns in schema.
 - Compression ratio: **10x**
 
 ### Per Day (270,000 decisions across 90 tribunals)
-- Raw JSON: ~1.35 GB
-- Parquet (compressed): **~135 MB per file**
-- Files created: **1 file per day**
+- Raw JSON: ~1.35 GB total
+- Parquet (compressed): **~135 MB total** (varies by tribunal)
+- Files created: **~90 files per day** (one per tribunal)
+- File sizes:
+  - Small tribunals (TJRO): ~1.5 MB (3K decisions)
+  - Medium tribunals (TJMG): ~12 MB (25K decisions)
+  - Large tribunals (TJSP): ~25 MB (50K decisions)
 
 ### Per Month
-- Files: 30-31 files
-- Total storage: ~135 MB × 30 = **~4 GB/month**
+- Files: ~2,700 files (90 tribunals × 30 days)
+- Total storage: ~4 GB/month (135 MB/day × 30 days)
 - Cost on IA: **$0**
 
 ### Year 1 (Production Scale)
-- Total files: 365 files
-- Total storage: ~135 MB × 365 = **~49 GB**
+- Total files: **32,850 files** (90 tribunals × 365 days)
+- Total storage: ~49 GB (135 MB/day × 365 days)
 - Decisions: ~100 million
 - Cost on IA: **$0**
 - Cost on AWS S3: **~$650/year (storage + bandwidth)**
 
 ### Year 5 (At Scale)
-- Total files: 1,825 files (365 × 5)
+- Total files: **164,250 files** (32,850 × 5 years)
 - Total storage: ~245 GB
 - Decisions: ~500 million
 - Cost on IA: **$0**
@@ -398,17 +416,18 @@ Include `is_corrected` and `correction_id` columns in schema.
 ## 🎯 Implementation Checklist
 
 ### Phase 1: MVP (Current)
-- [ ] Define Parquet schema with daily partitioning
-- [ ] Implement export from DuckDB to Parquet (all tribunals)
+- [ ] Define Parquet schema with daily+tribunal partitioning
+- [ ] Implement export from DuckDB to Parquet (per tribunal)
 - [ ] Implement IA upload with metadata
-- [ ] Test with single day export (2025-01-15)
-- [ ] Verify query performance with 270K rows
+- [ ] Test with single day export for one tribunal (2025-01-15-TJRO)
+- [ ] Verify query performance with ~3K rows per file
+- [ ] Test wildcard queries across multiple tribunals
 
 ### Phase 2: Automation
-- [ ] Daily pipeline exports previous day at 02:00 UTC
-- [ ] Automated upload to Internet Archive
-- [ ] Backfill historical data (daily files)
-- [ ] Document query patterns
+- [ ] Daily pipeline exports previous day at 02:00 UTC (~90 files)
+- [ ] Automated upload to Internet Archive (parallel uploads)
+- [ ] Backfill historical data (daily+tribunal files)
+- [ ] Document query patterns for selective downloads
 
 ### Phase 3: Optimization
 - [ ] Evaluate compression options (snappy vs gzip)
