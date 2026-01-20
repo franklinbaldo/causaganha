@@ -186,38 +186,39 @@ Feature: Transparency and Auditability
   # ============================================================================
 
   Scenario: All analyzed decisions exported to Parquet data lake
-    Given a decision has been analyzed in January 2025
+    Given a decision has been analyzed on January 15, 2025
     When I check its archival status
-    Then it must be included in the monthly Parquet export
+    Then it must be included in the daily Parquet export for 2025-01-15
     And the Parquet file must have an Internet Archive URL
-    And the URL should be publicly accessible (e.g., archive.org/details/causaganha-TJRO-2025-01)
+    And the URL should be publicly accessible (e.g., archive.org/details/causaganha-2025-01-15)
     And I can download and query the Parquet file with DuckDB
     And the decision's texto field should be present for verification
 
   Scenario: Archive.org Parquet metadata is complete
-    Given a Parquet partition "causaganha-TJRO-2025-01" has been archived
+    Given a daily Parquet partition "causaganha-2025-01-15" has been archived
     When I view the item on archive.org
     Then the metadata should include:
-      | Field           | Example Value                           |
-      | Title           | CausaGanha - TJRO - January 2025       |
-      | Collection      | causaganha                              |
-      | Media Type      | data                                    |
-      | Format          | Parquet                                 |
-      | Subject         | judicial decisions; brazil; TJRO; 2025-01 |
-      | Date            | 2025-01                                 |
-      | Source          | PJe - Tribunal de Justiça de Rondônia   |
-      | Rights          | CC0 1.0 Universal (Public Domain)       |
+      | Field           | Example Value                                           |
+      | Title           | CausaGanha - Brazilian Court Decisions - 2025-01-15     |
+      | Collection      | causaganha                                              |
+      | Media Type      | data                                                    |
+      | Format          | Parquet                                                 |
+      | Subject         | judicial decisions; brazil; 2025-01-15                  |
+      | Date            | 2025-01-15                                              |
+      | Coverage        | Brazil - All Tribunals                                  |
+      | Source          | PJe - 90 Brazilian Tribunals                            |
+      | Rights          | CC0 1.0 Universal (Public Domain)                       |
 
   Scenario: Verify Parquet export completeness
     When I query the system for export statistics
     Then I should see:
-      | Metric                      | Target |
-      | Total decisions collected   | 50,000 |
-      | Total decisions exported    | 50,000 |
-      | Export rate                 | 100%   |
-      | Failed exports              | 0      |
-      | Parquet partitions created  | 30     |
-      | Total Parquet size on IA    | 25 MB  |
+      | Metric                      | Target    |
+      | Total decisions collected   | 8.1M/month|
+      | Total decisions exported    | 8.1M/month|
+      | Export rate                 | 100%      |
+      | Failed exports              | 0         |
+      | Parquet partitions created  | 30/month  |
+      | Total Parquet size on IA    | ~4 GB/month|
     And any export failures should be listed with reasons
 
   # ============================================================================
