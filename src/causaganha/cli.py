@@ -112,9 +112,26 @@ def archive(
 def analyze(
     limit: int = typer.Option(10, help="Number of items to analyze"),
     max_batches: int | None = typer.Option(None, help="Max batches to process"),
+    strategy: str = typer.Option(
+        "hybrid",
+        help="Analysis strategy: llm (expensive, accurate), rag (cheap, good), hybrid (optimal - default)",
+    ),
+    confidence_threshold: float = typer.Option(
+        0.70,
+        help="Confidence threshold for hybrid strategy (0.0-1.0). Below this triggers LLM fallback.",
+    ),
 ) -> None:
-    """Analyze decisions using LLM."""
-    logger.info("analyze_command_start")
+    """Analyze decisions using AI (supports LLM, RAG, or hybrid strategies)."""
+    logger.info("analyze_command_start", strategy=strategy)
+
+    # Validate strategy
+    valid_strategies = ["llm", "rag", "hybrid", "auto"]
+    if strategy not in valid_strategies:
+        typer.secho(
+            f"❌ Invalid strategy '{strategy}'. Must be one of: {', '.join(valid_strategies)}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
 
     async def _run() -> None:
         try:
@@ -123,11 +140,30 @@ def analyze(
                 TextColumn("[progress.description]{task.description}"),
                 transient=True,
             ) as progress:
-                progress.add_task(description="Analyzing decisions...", total=None)
-                await analyze_pending_decisions(
+                task_desc = f"Analyzing decisions ({strategy} strategy)..."
+                progress.add_task(description=task_desc, total=None)
+
+                result = await analyze_pending_decisions(
                     batch_size=limit,
-                    max_batches=max_batches
+                    max_batches=max_batches,
+                    strategy=strategy,
+                    confidence_threshold=confidence_threshold,
                 )
+
+                # Display results
+                typer.echo("\n✅ Analysis complete!")
+                typer.echo(f"  Strategy: {result['strategy']}")
+                typer.echo(f"  Analyzed: {result['analyzed']}")
+                typer.echo(f"  Failed: {result['failed']}")
+
+                if strategy in ["hybrid", "auto"]:
+                    typer.echo(f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)")
+                    typer.echo(f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)")
+
+                typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
+                typer.echo(f"  Cost/decision: ${result['cost_per_decision']:.6f}")
+                typer.echo(f"  Savings vs LLM: {result['savings_vs_llm_pct']:.1f}%")
+
         except Exception as e:
             _handle_error(e, "Analysis failed")
 
@@ -225,7 +261,7 @@ def pipeline(
 
 
 @app.command()
-def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
+def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) -> None:
     """Database management commands."""
     logger.info("db_command", action=action)
     if action == "status":
@@ -240,8 +276,98 @@ def db(action: str = typer.Argument(..., help="Action: init, status")) -> None:
             typer.echo("✅ Schema initialized successfully.")
         except Exception as e:
             _handle_error(e, "Initialization failed")
+    elif action == "migrate":
+        try:
+            typer.echo("Running migrations for RAG support...")
+            con = get_connection()
+            import os
+
+            migration_file = "src/causaganha/v2/storage/migrations/001_add_rag_support.sql"
+            if os.path.exists(migration_file):
+                with open(migration_file) as f:
+                    sql = f.read()
+                    # Split by semicolon and execute each statement
+                    for statement in sql.split(";"):
+                        if statement.strip():
+                            try:
+                                con.con.execute(statement)
+                            except Exception as e:
+                                # Ignore errors for columns that already exist
+                                if "already exists" not in str(e).lower():
+                                    typer.echo(f"Warning: {e}")
+
+                typer.echo("✅ Migrations applied successfully.")
+            else:
+                typer.echo(f"❌ Migration file not found: {migration_file}")
+        except Exception as e:
+            _handle_error(e, "Migration failed")
     else:
         typer.echo(f"Unknown action: {action}")
+
+
+# Ground truth management commands
+groundtruth_app = typer.Typer(help="Ground truth management for RAG")
+app.add_typer(groundtruth_app, name="groundtruth")
+
+
+@groundtruth_app.command("status")
+def groundtruth_status() -> None:
+    """Check ground truth vector store status."""
+    try:
+        from causaganha.v2.analysis.vector_store import VectorStore
+
+        store = VectorStore()
+        tables = store.list_tables()
+
+        typer.echo("Vector Store Status:")
+        typer.echo(f"  Location: {store.db_path}")
+        typer.echo(f"  Tables: {len(tables)}")
+
+        if "ground_truth" in tables:
+            info = store.get_table_info("ground_truth")
+            typer.echo(f"\n✅ Ground truth table exists:")
+            typer.echo(f"  Records: {info['num_records']}")
+        else:
+            typer.echo("\n❌ Ground truth table not found.")
+            typer.echo("Run 'causaganha groundtruth init' to create it.")
+
+    except Exception as e:
+        _handle_error(e, "Failed to check ground truth status")
+
+
+@groundtruth_app.command("info")
+def groundtruth_info() -> None:
+    """Show detailed ground truth information."""
+    try:
+        con = get_connection()
+
+        # Check if we have high-confidence analyses to use as ground truth
+        query = """
+            SELECT
+                analysis_method,
+                COUNT(*) as total,
+                AVG(confidence_score) as avg_confidence,
+                COUNT(DISTINCT outcome) as unique_outcomes
+            FROM decision_analysis
+            WHERE confidence_score >= 0.90
+            GROUP BY analysis_method
+        """
+
+        result = con.con.execute(query).fetchall()
+
+        typer.echo("High-Confidence Analyses (≥90% confidence):")
+        typer.echo("Can be used as ground truth for RAG\n")
+
+        if result:
+            for row in result:
+                method, total, avg_conf, outcomes = row
+                typer.echo(f"  {method}: {total} decisions (avg confidence: {avg_conf:.2%})")
+        else:
+            typer.echo("  No high-confidence analyses found yet.")
+            typer.echo("  Run some LLM analyses first to build ground truth.")
+
+    except Exception as e:
+        _handle_error(e, "Failed to get ground truth info")
 
 
 if __name__ == "__main__":

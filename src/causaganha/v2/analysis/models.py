@@ -29,54 +29,88 @@ VALID_STATES = {
 
 
 class DecisionAnalysis(BaseModel):
-    """Structured output from LLM analysis of a judicial decision.
+    """Structured output from LLM or RAG analysis of a judicial decision.
 
-    This model defines exactly what we expect from the AI.
+    This model defines exactly what we expect from analysis.
+    Some fields are optional to support both LLM (full extraction) and
+    RAG (outcome classification only) analysis methods.
     """
 
-    winner_lawyer_oab: str = Field(
+    # Core identification
+    intimation_id: int = Field(default=0, description="Intimation ID being analyzed")
+
+    # Lawyer information (optional for RAG analysis)
+    winner_lawyer_oab: str | None = Field(
+        default=None,
         description="OAB registration number of the winning lawyer (e.g., '5733')",
     )
-    winner_lawyer_state: str = Field(
+    winner_lawyer_state: str | None = Field(
+        default=None,
         max_length=2,
         description="State code of winner's OAB registration (e.g., 'RO')",
     )
-    winner_party_name: str = Field(description="Full name of the winning party")
+    winner_party_name: str | None = Field(
+        default=None,
+        description="Full name of the winning party",
+    )
 
-    loser_lawyer_oab: str = Field(
+    loser_lawyer_oab: str | None = Field(
+        default=None,
         description="OAB registration number of the losing lawyer",
     )
-    loser_lawyer_state: str = Field(
+    loser_lawyer_state: str | None = Field(
+        default=None,
         max_length=2,
         description="State code of loser's OAB registration",
     )
-    loser_party_name: str = Field(description="Full name of the losing party")
+    loser_party_name: str | None = Field(
+        default=None,
+        description="Full name of the losing party",
+    )
 
-    decision_type: DecisionType = Field(
+    # Decision classification (required)
+    decision_type: DecisionType | str = Field(
         description=(
             "Type of decision: 'sentença' (first instance judgment), "
             "'acórdão' (appellate decision), or 'decisão interlocutória' "
             "(interlocutory decision)"
         ),
     )
-    outcome: Outcome = Field(
+    outcome: Outcome | str = Field(
         description=(
             "Outcome of the decision: 'procedente' (granted in full), "
-            "'improcedente' (denied), or 'parcialmente procedente' (partially granted)"
+            "'improcedente' (denied), 'parcialmente procedente' (partially granted), "
+            "or simplified: WIN, LOSS, PARTIAL, UNKNOWN"
         ),
     )
 
-    judge_name: str = Field(
+    # Optional metadata
+    judge_name: str | None = Field(
+        default=None,
         description="Full name of the judge or rapporteur who issued the decision",
     )
 
-    decision_reasoning: str = Field(
+    decision_reasoning: str | None = Field(
+        default=None,
         description=(
             "Brief summary of the judge's main reasoning and legal basis "
             "for the decision (2-3 sentences maximum)"
         ),
     )
 
+    # Simple outcome flag
+    plaintiff_won: bool = Field(
+        default=False,
+        description="True if plaintiff/autor won, False otherwise",
+    )
+
+    # Summary
+    summary: str | None = Field(
+        default=None,
+        description="Brief summary of the analysis",
+    )
+
+    # Confidence score (required)
     confidence_score: float = Field(
         ge=0.0,
         le=1.0,
@@ -84,6 +118,25 @@ class DecisionAnalysis(BaseModel):
             "Confidence level in this analysis (0.0 to 1.0). "
             "Use lower scores if information is unclear or ambiguous."
         ),
+    )
+
+    # Analysis method tracking
+    analysis_method: str = Field(
+        default="llm",
+        description="Method used: 'llm', 'rag', 'hybrid', or 'rag_low_confidence'",
+    )
+
+    # RAG-specific tracking
+    rag_confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score from RAG analysis (if RAG was used)",
+    )
+
+    rag_votes: dict[str, int] | None = Field(
+        default=None,
+        description="Vote distribution from k-NN (if RAG was used)",
     )
 
     @field_validator("decision_type", "outcome", mode="before")
