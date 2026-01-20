@@ -2,8 +2,10 @@
 -- Run this to enable tracking of daily Parquet exports for data lake
 
 -- Step 1: Create parquet_exports table
+CREATE SEQUENCE IF NOT EXISTS parquet_exports_id_seq START 1;
+
 CREATE TABLE IF NOT EXISTS parquet_exports (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('parquet_exports_id_seq'),
     tribunal VARCHAR NOT NULL,
     partition_date DATE NOT NULL,
     ia_item_id VARCHAR NOT NULL,
