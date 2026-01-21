@@ -39,14 +39,28 @@ interface State {
 	};
 }
 
-// Lista de órgãos DJEN
+// Lista completa de órgãos DJEN (92 tribunais)
 const ORGAOS = [
+	// Tribunais Regionais Federais (6)
 	'TRF1', 'TRF2', 'TRF3', 'TRF4', 'TRF5', 'TRF6',
+	// Tribunais Superiores (5)
 	'TST', 'TSE', 'STM', 'STJ', 'STF',
+	// Conselhos e outros (3)
+	'CNJ', 'CNMP', 'TNU',
+	// Tribunais de Justiça Estaduais (27)
 	'TJAC', 'TJAL', 'TJAM', 'TJAP', 'TJBA', 'TJCE', 'TJDF', 'TJES',
 	'TJGO', 'TJMA', 'TJMG', 'TJMS', 'TJMT', 'TJPA', 'TJPB', 'TJPE',
 	'TJPI', 'TJPR', 'TJRJ', 'TJRN', 'TJRO', 'TJRR', 'TJRS', 'TJSC',
-	'TJSE', 'TJSP', 'TJTO'
+	'TJSE', 'TJSP', 'TJTO',
+	// Tribunais Regionais do Trabalho (24)
+	'TRT1', 'TRT2', 'TRT3', 'TRT4', 'TRT5', 'TRT6', 'TRT7', 'TRT8',
+	'TRT9', 'TRT10', 'TRT11', 'TRT12', 'TRT13', 'TRT14', 'TRT15', 'TRT16',
+	'TRT17', 'TRT18', 'TRT19', 'TRT20', 'TRT21', 'TRT22', 'TRT23', 'TRT24',
+	// Tribunais Regionais Eleitorais (27)
+	'TREAC', 'TREAL', 'TREAM', 'TREAP', 'TREBA', 'TRECE', 'TREDF', 'TREES',
+	'TREGO', 'TREMA', 'TREMG', 'TREMS', 'TREMT', 'TREPA', 'TREPB', 'TREPE',
+	'TREPI', 'TREPR', 'TRERJ', 'TRERN', 'TRERO', 'TRERR', 'TRERS', 'TRESC',
+	'TRESE', 'TRESP', 'TRETO'
 ];
 
 // Quantas páginas buscar por execução (respeitando limite de 50 subrequests)
