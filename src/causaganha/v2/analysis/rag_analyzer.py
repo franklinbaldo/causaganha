@@ -49,17 +49,23 @@ COST_PER_DECISION = 0.000004  # Approximate for embedding-only approach
 class RAGAnalyzer:
     """Zero-shot decision analyzer using cosine similarity with generic phrases."""
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, embedding_service: EmbeddingService | None = None) -> None:
         """Initialize the RAG analyzer.
 
         Args:
-            api_key: Google API key for embeddings. If None, reads from env.
+            embedding_service: Pre-initialized embedding service. If None, must call create().
         """
-        self.embedding_service = EmbeddingService(api_key=api_key)
+        self.embedding_service = embedding_service
         self.outcome_embeddings: dict[str, list[list[float]]] = {}
         self._embeddings_initialized = False
 
         logger.info("rag_analyzer_initialized", mode="zero_shot_similarity")
+
+    @classmethod
+    async def create(cls) -> "RAGAnalyzer":
+        """Async factory to create RAGAnalyzer with auto-selected embedding provider."""
+        embedding_service = await EmbeddingService.create()
+        return cls(embedding_service=embedding_service)
 
     async def _initialize_outcome_embeddings(self) -> None:
         """Embed all generic outcome phrases once (cached for reuse)."""

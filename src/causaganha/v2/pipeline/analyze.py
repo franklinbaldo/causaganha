@@ -55,10 +55,10 @@ async def analyze_pending_decisions(
         analyzer = DecisionAnalyzer()
         logger.info("using_llm_only_strategy")
     elif strategy == AnalysisStrategy.RAG:
-        analyzer = RAGAnalyzer()
+        analyzer = await RAGAnalyzer.create()
         logger.info("using_rag_only_strategy")
     else:  # HYBRID or AUTO
-        rag_analyzer = RAGAnalyzer()
+        rag_analyzer = await RAGAnalyzer.create()
         llm_analyzer = DecisionAnalyzer()
         analyzer = HybridAnalyzer(rag_analyzer, llm_analyzer, confidence_threshold)
         logger.info(

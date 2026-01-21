@@ -218,6 +218,34 @@ class EmbeddingService:
 
         return successful
 
+    def chunk_text(
+        self,
+        text: str,
+        strategy: str = "auto",
+        overlap_tokens: int = 128,
+    ) -> list[str]:
+        """Split text into chunks suitable for embedding.
+
+        Uses the model's max_tokens to determine chunk size.
+
+        Args:
+            text: Text to chunk.
+            strategy: Chunking strategy ('auto', 'sections', or 'sliding_window').
+            overlap_tokens: Number of tokens to overlap between chunks.
+
+        Returns:
+            List of text chunks.
+        """
+        if not text or not text.strip():
+            return []
+
+        chunker = TextChunker(
+            max_tokens=self.model.max_tokens,
+            overlap_tokens=overlap_tokens,
+        )
+
+        return chunker.chunk_text(text, strategy=strategy)
+
     async def embed_chunked_text(
         self,
         text: str,

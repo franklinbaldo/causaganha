@@ -8,29 +8,51 @@ import structlog
 
 from causaganha.v2.api.client import PJeAPIClient
 from causaganha.v2.storage.connection import get_connection
+from causaganha.v2.storage.migrations import run_migrations
 from causaganha.v2.storage.queries import store_intimations, store_lawyer_associations
 
 
 logger = structlog.get_logger()
 
+# Flag to track if migrations have been run this session
+_migrations_run = False
+
+
+def ensure_migrations() -> None:
+    """Run database migrations if not already done this session."""
+    global _migrations_run
+    if not _migrations_run:
+        try:
+            con = get_connection()
+            run_migrations(con)
+            _migrations_run = True
+        except Exception as e:
+            logger.warning("migrations_check_failed", error=str(e))
+
 
 async def collect_metadata_for_court(
     sigla_tribunal: str,
     days_back: int = 7,
+    max_items: int | None = None,
 ) -> dict[str, Any]:
     """Collect intimation metadata from PJe API for a court.
 
     Args:
         sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
         days_back: How many days back to fetch
+        max_items: Maximum items to fetch (None = all available)
 
     Returns:
         Dictionary with statistics
     """
+    # Ensure database schema is up to date
+    ensure_migrations()
+
     logger.info(
         "collection_start",
         tribunal=sigla_tribunal,
         days_back=days_back,
+        max_items=max_items,
     )
 
     client = PJeAPIClient()
@@ -41,11 +63,41 @@ async def collect_metadata_for_court(
         today = date.today()
         start_date = today - timedelta(days=days_back)
 
-        # Fetch from API
+        logger.info(
+            "fetching_from_api",
+            tribunal=sigla_tribunal,
+            start_date=start_date.isoformat(),
+            end_date=today.isoformat(),
+        )
+
+        # Fetch from API with rate limit handling
         intimations = await client.get_intimations_by_court(
             sigla_tribunal=sigla_tribunal,
             data_inicio=start_date,
             data_fim=today,
+            max_items=max_items,
+        )
+
+        if not intimations:
+            logger.warning(
+                "no_intimations_fetched",
+                tribunal=sigla_tribunal,
+                start_date=start_date.isoformat(),
+                end_date=today.isoformat(),
+            )
+            return {
+                "tribunal": sigla_tribunal,
+                "intimations_fetched": 0,
+                "intimations_new": 0,
+                "lawyers_stored": 0,
+                "status": "success",
+                "note": "No data available for date range",
+            }
+
+        logger.info(
+            "api_fetch_complete",
+            tribunal=sigla_tribunal,
+            count=len(intimations),
         )
 
         # Store intimations
@@ -78,7 +130,7 @@ async def collect_metadata_for_court(
         }
 
     except Exception as e:
-        logger.error(
+        logger.exception(
             "collection_failed",
             tribunal=sigla_tribunal,
             error=str(e),
