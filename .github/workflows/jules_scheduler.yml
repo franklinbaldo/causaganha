@@ -44,6 +44,7 @@ jobs:
        github.event.workflow_run.head_branch == 'main' ||
        github.event.workflow_run.head_branch == 'jules'))
     runs-on: ubuntu-latest
+    environment: dev
     steps:
       - uses: actions/checkout@v6
         with:
@@ -59,11 +60,12 @@ jobs:
           if [ -z "${{ secrets.JULES_API_KEY }}" ]; then
             echo "has_api_key=false" >> $GITHUB_OUTPUT
             echo "⚠️ JULES_API_KEY is not configured. Jules scheduler will be skipped."
-            echo "To enable the Jules scheduler, add JULES_API_KEY to repository secrets."
+            echo "To enable the Jules scheduler, add JULES_API_KEY to repository or environment secrets."
             echo ""
             echo "See documentation: https://developers.google.com/jules"
           else
             echo "has_api_key=true" >> $GITHUB_OUTPUT
+            echo "✅ JULES_API_KEY is configured and ready to use"
           fi
 
       - name: Run Jules Scheduler
