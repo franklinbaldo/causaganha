@@ -218,14 +218,19 @@ async function executeBatch(env: Env, date: string, orgaos: string[]): Promise<a
 
 			const data = await response.json();
 
+			// API retorna { status, message, count, items }
+			const items = data.items || [];
+			const count = data.count || 0;
+
 			results.push({
 				orgao,
 				date,
-				data,
+				count,
+				items,
 				timestamp: new Date().toISOString()
 			});
 
-			console.log(`✅ ${orgao}: ${Array.isArray(data) ? data.length : 0} registros`);
+			console.log(`✅ ${orgao}: ${items.length} items (total: ${count})`);
 
 			// Pequeno delay entre requests (200ms)
 			await new Promise(resolve => setTimeout(resolve, 200));
@@ -260,7 +265,8 @@ async function saveToR2(env: Env, date: string, results: any[]): Promise<void> {
  * Atualiza estado no KV
  */
 async function updateState(env: Env, state: State, targetDate: string, results: any[]): Promise<void> {
-	const recordCount = results.reduce((sum, r) => sum + (r.data?.length || 0), 0);
+	// Contar items coletados (data.items) não o count total da API
+	const recordCount = results.reduce((sum, r) => sum + (r.items?.length || 0), 0);
 
 	// Atualizar D-1
 	if (targetDate === state.d1.date) {
