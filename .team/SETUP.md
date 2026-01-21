@@ -66,8 +66,10 @@ The Jules scheduler runs automatically via GitHub Actions every 5 minutes.
 
 Add these secrets to your GitHub repository (Settings > Secrets and variables > Actions):
 
-1. `JULES_API_KEY` - Your Jules API key
+1. `JULES_API_KEY` - Your Jules API key (required for Jules automation)
 2. `GITHUB_TOKEN` - Automatically provided by GitHub Actions (no setup needed)
+
+**Note:** If `JULES_API_KEY` is not configured, the workflow will skip Jules-related steps and display a warning message. This allows the workflow to run successfully even without the API key, making it safe to enable the workflow before obtaining a Jules API key.
 
 ### Manual Trigger
 
