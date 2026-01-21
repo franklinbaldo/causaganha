@@ -1,4 +1,6 @@
 name: Daily Embedding Generation
+permissions:
+  contents: read
 
 on:
   # Run daily at 3 AM Brazil time (6 AM UTC)
