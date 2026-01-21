@@ -29,7 +29,10 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Scoring Pipeline")
     parser.add_argument("--limit", type=int, default=100, help="Number of cases to score")
     parser.add_argument(
-        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+        "--db",
+        type=str,
+        default="test_collection.duckdb",
+        help="Path to DuckDB file",
     )
     args = parser.parse_args()
 
@@ -56,11 +59,13 @@ async def main() -> None:
 
         if count > 0:
             logger.info(
-                "sample", data=t.order_by(t.mu.desc()).limit(5).execute().to_dict(orient="records")
+                "sample",
+                data=t.order_by(t.mu.desc()).limit(5).execute().to_dict(orient="records"),
             )
     except Exception:
         logger.info(
-            "verification_no_table", msg="lawyer_ratings table might be empty or not created"
+            "verification_no_table",
+            msg="lawyer_ratings table might be empty or not created",
         )
 
 

@@ -38,7 +38,7 @@ def test_check_intimations_valid(con) -> None:
             "status": "pending",
             "ia_url": None,
             "archived_at": None,
-        }
+        },
     ]
     con.insert("intimations", data)
 
@@ -100,7 +100,7 @@ def test_check_orphaned_analysis(con) -> None:
             "decision_type": None,
             "decision_reasoning": None,
             "scored": False,
-        }
+        },
     ]
     con.insert("analysis_results", analysis_data)
 

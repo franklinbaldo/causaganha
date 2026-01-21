@@ -9,11 +9,14 @@ provider token limits:
 
 import asyncio
 import os
+
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 from causaganha.v2.analysis.text_chunker import create_chunker_for_provider
 
+
 # Sample long legal decision text (simulated)
-SAMPLE_LEGAL_TEXT = """
+SAMPLE_LEGAL_TEXT = (
+    """
 ACÓRDÃO
 
 RELATÓRIO
@@ -125,7 +128,9 @@ São Paulo, 15 de junho de 2025.
 
 DESEMBARGADOR JOÃO DA SILVA
 Relator
-""" * 3  # Multiply by 3 to create a longer document
+"""
+    * 3
+)  # Multiply by 3 to create a longer document
 
 
 async def test_dynamic_chunking():
@@ -140,7 +145,7 @@ async def test_dynamic_chunking():
     text_length = len(test_text)
     approx_tokens = text_length // 4  # Rough estimate: 1 token ≈ 4 chars
 
-    print(f"Test document:")
+    print("Test document:")
     print(f"  - Length: {text_length:,} characters")
     print(f"  - Estimated tokens: ~{approx_tokens:,} tokens")
     print()
@@ -167,7 +172,7 @@ async def test_dynamic_chunking():
 
         # Chunk using semantic sections (auto strategy)
         chunks_v4_auto = chunker_v4.chunk_text(test_text, strategy="auto")
-        print(f"Strategy: auto (semantic sections for legal docs)")
+        print("Strategy: auto (semantic sections for legal docs)")
         print(f"Result: {len(chunks_v4_auto)} chunk(s)")
         for i, chunk in enumerate(chunks_v4_auto, 1):
             print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
@@ -175,7 +180,7 @@ async def test_dynamic_chunking():
 
         # Chunk using sliding window
         chunks_v4_window = chunker_v4.chunk_text(test_text, strategy="sliding_window")
-        print(f"Strategy: sliding_window")
+        print("Strategy: sliding_window")
         print(f"Result: {len(chunks_v4_window)} chunk(s)")
         for i, chunk in enumerate(chunks_v4_window, 1):
             print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
@@ -205,7 +210,7 @@ async def test_dynamic_chunking():
         print()
 
         chunks_v3 = chunker_v3.chunk_text(test_text, strategy="auto")
-        print(f"Strategy: auto")
+        print("Strategy: auto")
         print(f"Result: {len(chunks_v3)} chunk(s)")
         for i, chunk in enumerate(chunks_v3, 1):
             print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
@@ -236,7 +241,7 @@ async def test_dynamic_chunking():
             print()
 
             chunks_google = chunker_google.chunk_text(test_text, strategy="auto")
-            print(f"Strategy: auto")
+            print("Strategy: auto")
             print(f"Result: {len(chunks_google)} chunk(s)")
             for i, chunk in enumerate(chunks_google, 1):
                 print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")

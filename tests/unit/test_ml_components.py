@@ -1,11 +1,10 @@
-import pytest
-from pathlib import Path
 import tempfile
-import sqlite3
-import numpy as np
+from pathlib import Path
+
 from causaganha.ml.embeddings import EmbeddingCache
 from causaganha.ml.online_learner import WinnerPredictor
 from causaganha.ml.types import WinnerLabel
+
 
 class TestEmbeddingCache:
     def test_set_and_get(self):
@@ -30,6 +29,7 @@ class TestEmbeddingCache:
             # Different model/text should return None
             assert cache.get("other text", model) is None
             assert cache.get(text, "other-model") is None
+
 
 class TestWinnerPredictor:
     def test_cold_start(self):

@@ -19,6 +19,7 @@ from pathlib import Path
 
 import structlog
 
+
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -76,20 +77,19 @@ async def run_daily_export() -> int:
         if result["failed"] == 0:
             logger.info("daily_export_success", message="All tribunals exported successfully")
             return 0
-        elif result["successful"] > 0:
+        if result["successful"] > 0:
             logger.warning(
                 "daily_export_partial_failure",
                 message=f"{result['failed']} tribunals failed",
                 failures=result["failures"],
             )
             return 1
-        else:
-            logger.error(
-                "daily_export_complete_failure",
-                message="No tribunals exported successfully",
-                failures=result["failures"],
-            )
-            return 2
+        logger.error(
+            "daily_export_complete_failure",
+            message="No tribunals exported successfully",
+            failures=result["failures"],
+        )
+        return 2
 
     except Exception as e:
         logger.error("daily_export_error", error=str(e), exc_info=True)

@@ -9,6 +9,7 @@ from typing import Protocol
 
 import structlog
 
+
 logger = structlog.get_logger()
 
 
@@ -231,16 +232,13 @@ class TextChunker:
         # Auto-detect best strategy
         if strategy == "auto":
             # Check if text contains legal section markers
-            has_sections = any(
-                re.search(marker, text) for marker in self.SECTION_MARKERS
-            )
+            has_sections = any(re.search(marker, text) for marker in self.SECTION_MARKERS)
             strategy = "sections" if has_sections else "sliding_window"
 
         # Chunk with selected strategy
         if strategy == "sections":
             return self.chunk_by_sections(text)
-        else:
-            return self.chunk_by_sliding_window(text)
+        return self.chunk_by_sliding_window(text)
 
 
 def create_chunker_for_provider(provider) -> TextChunker:

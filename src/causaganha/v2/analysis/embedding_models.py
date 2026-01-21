@@ -7,6 +7,7 @@ Each model specifies its name, dimensions, token limits, and provider.
 from dataclasses import dataclass
 from typing import Literal
 
+
 ProviderType = Literal["jina", "google"]
 
 
@@ -162,7 +163,7 @@ def get_model(provider: ProviderType, name: str, dimension: int) -> EmbeddingMod
     if model is None:
         raise ValueError(
             f"Model not found: {provider}/{name} with {dimension}D. "
-            f"Available models: {list(JINA_MODELS.keys() if provider == 'jina' else GOOGLE_MODELS.keys())}"
+            f"Available models: {list(JINA_MODELS.keys() if provider == 'jina' else GOOGLE_MODELS.keys())}",
         )
 
     return model
@@ -179,10 +180,9 @@ def get_default_model(provider: ProviderType) -> EmbeddingModel:
     """
     if provider == "jina":
         return DEFAULT_JINA_MODEL
-    elif provider == "google":
+    if provider == "google":
         return DEFAULT_GOOGLE_MODEL
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
+    raise ValueError(f"Unknown provider: {provider}")
 
 
 def list_models(provider: ProviderType | None = None) -> list[EmbeddingModel]:
@@ -196,9 +196,8 @@ def list_models(provider: ProviderType | None = None) -> list[EmbeddingModel]:
     """
     if provider is None:
         return list(ALL_MODELS.values())
-    elif provider == "jina":
+    if provider == "jina":
         return list(JINA_MODELS.values())
-    elif provider == "google":
+    if provider == "google":
         return list(GOOGLE_MODELS.values())
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
+    raise ValueError(f"Unknown provider: {provider}")

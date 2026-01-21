@@ -109,7 +109,7 @@ class ScoringService:
                     "total_cases": stats["total_cases"],
                     "wins": stats["wins"],
                     "losses": stats["losses"],
-                }
+                },
             )
 
         if ratings_to_save:
@@ -158,10 +158,16 @@ class ScoringService:
 
         # Update cache objects
         self._update_rating_stats(
-            ratings_cache, (winner_oab, winner_state), new_winner[0], is_win=True
+            ratings_cache,
+            (winner_oab, winner_state),
+            new_winner[0],
+            is_win=True,
         )
         self._update_rating_stats(
-            ratings_cache, (loser_oab, loser_state), new_loser[0], is_win=False
+            ratings_cache,
+            (loser_oab, loser_state),
+            new_loser[0],
+            is_win=False,
         )
 
         return True

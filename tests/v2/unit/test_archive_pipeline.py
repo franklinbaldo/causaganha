@@ -20,11 +20,12 @@ async def test_archive_documents_success() -> None:
     mock_preservation = AsyncMock()
     mock_preservation.preserve_document.return_value = "https://archive.org/item"
 
-    with patch("causaganha.v2.pipeline.archive.get_connection") as mock_get_conn, \
-         patch("causaganha.v2.pipeline.archive.get_unarchived_intimations") as mock_get_unarchived, \
-         patch("causaganha.v2.pipeline.archive.mark_as_archived") as mock_mark, \
-         patch("causaganha.v2.pipeline.archive.PreservationService") as mock_preservation_cls:
-
+    with (
+        patch("causaganha.v2.pipeline.archive.get_connection") as mock_get_conn,
+        patch("causaganha.v2.pipeline.archive.get_unarchived_intimations") as mock_get_unarchived,
+        patch("causaganha.v2.pipeline.archive.mark_as_archived") as mock_mark,
+        patch("causaganha.v2.pipeline.archive.PreservationService") as mock_preservation_cls,
+    ):
         # Setup DB mocks
         mock_get_unarchived.return_value = [
             {
@@ -32,7 +33,7 @@ async def test_archive_documents_success() -> None:
                 "link": "http://example.com/1.pdf",
                 "sigla_tribunal": "TJRO",
                 "numero_processo": "123",
-            }
+            },
         ]
 
         # Setup Service mocks
@@ -43,7 +44,7 @@ async def test_archive_documents_success() -> None:
         result = await archive_documents(
             mock_doc_service,
             mock_archive_service,
-            limit=1
+            limit=1,
         )
 
         assert result["status"] == "success"
@@ -59,9 +60,10 @@ async def test_archive_documents_no_items() -> None:
     mock_doc_service = Mock()
     mock_archive_service = Mock()
 
-    with patch("causaganha.v2.pipeline.archive.get_connection"), \
-         patch("causaganha.v2.pipeline.archive.get_unarchived_intimations") as mock_get_unarchived:
-
+    with (
+        patch("causaganha.v2.pipeline.archive.get_connection"),
+        patch("causaganha.v2.pipeline.archive.get_unarchived_intimations") as mock_get_unarchived,
+    ):
         mock_get_unarchived.return_value = []
 
         result = await archive_documents(

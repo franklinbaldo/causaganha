@@ -1,14 +1,15 @@
-import hashlib
-import sqlite3
-import structlog
-from pathlib import Path
-from typing import Optional
 import asyncio
-import google.generativeai as genai
-from causaganha.config import settings
+import hashlib
 import json
+import sqlite3
+from pathlib import Path
+
+import google.generativeai as genai
+import structlog
+
 
 logger = structlog.get_logger()
+
 
 class EmbeddingCache:
     def __init__(self, db_path: str = ".causaganha/embeddings_cache.sqlite"):
@@ -28,7 +29,7 @@ class EmbeddingCache:
     def _hash_text(self, text: str, model_name: str) -> str:
         return hashlib.sha256(f"{model_name}:{text}".encode()).hexdigest()
 
-    def get(self, text: str, model_name: str) -> Optional[list[float]]:
+    def get(self, text: str, model_name: str) -> list[float] | None:
         key = self._hash_text(text, model_name)
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -44,12 +45,18 @@ class EmbeddingCache:
         key = self._hash_text(text, model_name)
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("INSERT OR REPLACE INTO embeddings (key, vector) VALUES (?, ?)", (key, json.dumps(vector)))
+                conn.execute(
+                    "INSERT OR REPLACE INTO embeddings (key, vector) VALUES (?, ?)",
+                    (key, json.dumps(vector)),
+                )
         except Exception:
             pass
 
+
 class GeminiEmbedder:
-    def __init__(self, model_name: str = "models/embedding-001", cache: Optional[EmbeddingCache] = None):
+    def __init__(
+        self, model_name: str = "models/embedding-001", cache: EmbeddingCache | None = None
+    ):
         self.model_name = model_name
         self.cache = cache
 
@@ -57,9 +64,8 @@ class GeminiEmbedder:
         # Assuming google-generativeai picks up GOOGLE_API_KEY env var automatically
         # but we can try to be explicit if settings has it.
         # Based on config.py it might not be exposed as a property if not defined, so rely on env.
-        pass
 
-    async def embed(self, text: str) -> Optional[list[float]]:
+    async def embed(self, text: str) -> list[float] | None:
         if not text:
             return None
 
@@ -74,9 +80,9 @@ class GeminiEmbedder:
                 genai.embed_content,
                 model=self.model_name,
                 content=text,
-                task_type="classification"
+                task_type="classification",
             )
-            embedding = result['embedding']
+            embedding = result["embedding"]
 
             if self.cache:
                 self.cache.set(text, self.model_name, embedding)

@@ -27,7 +27,9 @@ class TestGetUnarchivedIntimations:
 
     @pytest.mark.asyncio
     async def test_returns_only_intimations_with_null_ia_url(
-        self, repository, mock_connection
+        self,
+        repository,
+        mock_connection,
     ) -> None:
         """Should return only intimations where ia_url is NULL."""
         # Arrange
@@ -101,7 +103,9 @@ class TestGetUnarchivedIntimations:
 
     @pytest.mark.asyncio
     async def test_handles_missing_ia_url_column_gracefully(
-        self, repository, mock_connection
+        self,
+        repository,
+        mock_connection,
     ) -> None:
         """Should handle case where ia_url column doesn't exist."""
         # Arrange
@@ -117,7 +121,7 @@ class TestGetUnarchivedIntimations:
             side_effect=[
                 AttributeError("ia_url"),
                 mock_filtered,  # Second call succeeds (fallback)
-            ]
+            ],
         )
         mock_filtered.filter.return_value = mock_filtered
         mock_filtered.limit.return_value = mock_filtered

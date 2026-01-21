@@ -33,7 +33,7 @@ INTIMATIONS_SCHEMA = ibis.schema(
         "archived_at": "timestamp",
         # ML pipeline flags
         "needs_download": "boolean",
-    }
+    },
 )
 
 
@@ -45,7 +45,7 @@ INTIMATION_LAWYERS_SCHEMA = ibis.schema(
         "oab_state": "string",
         "lawyer_name": "string",
         "polo": "string",
-    }
+    },
 )
 
 # Pipeline state table schema
@@ -54,7 +54,7 @@ PIPELINE_STATE_SCHEMA = ibis.schema(
         "task_id": "string",
         "step": "string",
         "timestamp": "timestamp",
-    }
+    },
 )
 
 
@@ -79,7 +79,7 @@ ANALYSIS_RESULTS_SCHEMA = ibis.schema(
         "decision_reasoning": "string",
         # Scoring tracking
         "scored": "boolean",
-    }
+    },
 )
 
 
@@ -97,5 +97,5 @@ LAWYER_RATINGS_SCHEMA = ibis.schema(
         "total_cases": "int64",
         "wins": "int64",
         "losses": "int64",
-    }
+    },
 )

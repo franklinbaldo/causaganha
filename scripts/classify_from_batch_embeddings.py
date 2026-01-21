@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Classify decisions using pre-computed batch embeddings + k-NN (zero additional cost)."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -12,9 +14,10 @@ import duckdb
 import lancedb
 import numpy as np
 from rich.console import Console
-from rich.table import Table
-from rich.progress import track
 from rich.panel import Panel
+from rich.progress import track
+from rich.table import Table
+
 
 console = Console()
 
@@ -102,12 +105,14 @@ def main():
     console.print(f"[yellow]Carregando embeddings de {embeddings_file}...[/yellow]")
 
     embeddings_data = []
-    with open(embeddings_file, 'r') as f:
+    with open(embeddings_file) as f:
         for line in f:
             record = json.loads(line)
             embeddings_data.append(record)
 
-    console.print(f"[green]✓ Carregados embeddings para {len(embeddings_data):,} decisões[/green]\n")
+    console.print(
+        f"[green]✓ Carregados embeddings para {len(embeddings_data):,} decisões[/green]\n"
+    )
 
     # Processar classificações
     console.print("[yellow]Classificando decisões...[/yellow]\n")
@@ -116,20 +121,22 @@ def main():
     outcome_counts = Counter()
 
     for record in track(embeddings_data, description="Classificando"):
-        intimation_id = record['intimation_id']
+        intimation_id = record["intimation_id"]
 
         # Extrair embeddings de todos os chunks
-        chunk_embeddings = [chunk['embedding'] for chunk in record['chunks']]
+        chunk_embeddings = [chunk["embedding"] for chunk in record["chunks"]]
 
         try:
             prediction = classify_with_knn_precomputed(chunk_embeddings, table, k=5)
 
-            results.append({
-                "intimation_id": intimation_id,
-                "outcome": prediction["outcome"],
-                "confidence": prediction["confidence"],
-                "votes": prediction["votes"],
-            })
+            results.append(
+                {
+                    "intimation_id": intimation_id,
+                    "outcome": prediction["outcome"],
+                    "confidence": prediction["confidence"],
+                    "votes": prediction["votes"],
+                }
+            )
 
             outcome_counts[prediction["outcome"]] += 1
 
@@ -192,26 +199,31 @@ def main():
     console.print("\n[yellow]Salvando resultados no banco...[/yellow]")
 
     for r in results:
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR REPLACE INTO rag_classifications
             (intimation_id, outcome, confidence_score, votes_json)
             VALUES (?, ?, ?, ?)
-        """, (r["intimation_id"], r["outcome"], r["confidence"], json.dumps(r["votes"])))
+        """,
+            (r["intimation_id"], r["outcome"], r["confidence"], json.dumps(r["votes"])),
+        )
 
     conn.commit()
 
     # Estatísticas finais
     total_classified = conn.execute("SELECT COUNT(*) FROM rag_classifications").fetchone()[0]
 
-    console.print(f"[green]✓ Resultados salvos em 'rag_classifications'[/green]\n")
+    console.print("[green]✓ Resultados salvos em 'rag_classifications'[/green]\n")
 
-    console.print(Panel(
-        f"[bold]Total Classificadas:[/bold] {total_classified:,}\n"
-        f"[bold]Custo Total:[/bold] $0.045 (batch embeddings)\n"
-        f"[bold]Custo por Classificação:[/bold] ${0.045 / total_classified:.6f}\n"
-        f"[bold]Economia vs LLM:[/bold] 98.1% (${2.43 - 0.045:.2f} economizados)",
-        title="✓ Processamento Completo"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Total Classificadas:[/bold] {total_classified:,}\n"
+            f"[bold]Custo Total:[/bold] $0.045 (batch embeddings)\n"
+            f"[bold]Custo por Classificação:[/bold] ${0.045 / total_classified:.6f}\n"
+            f"[bold]Economia vs LLM:[/bold] 98.1% (${2.43 - 0.045:.2f} economizados)",
+            title="✓ Processamento Completo",
+        )
+    )
 
     # Comparação com ground truth se disponível
     comparison = conn.execute("""

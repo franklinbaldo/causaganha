@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Testa com 4 frases-chave: WIN, LOSS, UNKNOWN, PARTIAL."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import os
+
 import duckdb
 import google.generativeai as genai
 import numpy as np
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import track
+from rich.table import Table
+
 
 console = Console()
 
@@ -71,16 +75,18 @@ def main():
         "WIN": "O autor da ação judicial venceu a causa e o réu foi condenado a pagar.",
         "LOSS": "O réu venceu a ação judicial e o pedido do autor foi negado e julgado improcedente.",
         "UNKNOWN": "Este é apenas um despacho processual ou intimação, sem julgamento definitivo do mérito da ação.",
-        "PARTIAL": "A decisão foi parcialmente favorável ao autor e parcialmente ao réu, com procedência parcial."
+        "PARTIAL": "A decisão foi parcialmente favorável ao autor e parcialmente ao réu, com procedência parcial.",
     }
 
-    console.print(Panel(
-        f"[green]WIN:[/green] {frases['WIN']}\n\n"
-        f"[red]LOSS:[/red] {frases['LOSS']}\n\n"
-        f"[yellow]UNKNOWN:[/yellow] {frases['UNKNOWN']}\n\n"
-        f"[cyan]PARTIAL:[/cyan] {frases['PARTIAL']}",
-        title="4 Frases de Referência"
-    ))
+    console.print(
+        Panel(
+            f"[green]WIN:[/green] {frases['WIN']}\n\n"
+            f"[red]LOSS:[/red] {frases['LOSS']}\n\n"
+            f"[yellow]UNKNOWN:[/yellow] {frases['UNKNOWN']}\n\n"
+            f"[cyan]PARTIAL:[/cyan] {frases['PARTIAL']}",
+            title="4 Frases de Referência",
+        )
+    )
 
     # Gerar embeddings das frases-chave
     console.print("\n[yellow]Gerando embeddings das 4 frases-chave...[/yellow]")
@@ -89,7 +95,7 @@ def main():
         "WIN": get_embedding(frases["WIN"]),
         "LOSS": get_embedding(frases["LOSS"]),
         "UNKNOWN": get_embedding(frases["UNKNOWN"]),
-        "PARTIAL": get_embedding(frases["PARTIAL"])
+        "PARTIAL": get_embedding(frases["PARTIAL"]),
     }
 
     console.print("[green]✓ 4 embeddings gerados[/green]\n")
@@ -117,10 +123,7 @@ def main():
         max_similarities = {}
 
         for outcome_type, ref_emb in embeddings_ref.items():
-            max_sim = max([
-                cosine_similarity(chunk_emb, ref_emb)
-                for chunk_emb in chunk_embeddings
-            ])
+            max_sim = max([cosine_similarity(chunk_emb, ref_emb) for chunk_emb in chunk_embeddings])
             max_similarities[outcome_type] = max_sim
 
         # Classificar baseado na MAIOR similaridade entre as 4
@@ -133,24 +136,27 @@ def main():
             correct += 1
         total += 1
 
-        results.append({
-            "id": intimation_id,
-            "real": outcome_real,
-            "previsto": outcome_previsto,
-            "scores": max_similarities,
-            "max_score": max_score,
-            "acertou": acertou
-        })
+        results.append(
+            {
+                "id": intimation_id,
+                "real": outcome_real,
+                "previsto": outcome_previsto,
+                "scores": max_similarities,
+                "max_score": max_score,
+                "acertou": acertou,
+            }
+        )
 
     # Calcular acurácia
     acuracia = (correct / total) * 100
 
-    console.print(f"\n[bold]📊 Resultado Geral:[/bold]")
+    console.print("\n[bold]📊 Resultado Geral:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
     console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
 
     # Matriz de confusão
     from collections import Counter
+
     conf_table = Table(title="Matriz de Confusão")
     conf_table.add_column("Real", style="cyan")
     conf_table.add_column("Previsto", style="yellow")
@@ -183,7 +189,7 @@ def main():
                 outcome,
                 str(outcome_total),
                 str(outcome_correct),
-                f"{outcome_acc:.1f}%"
+                f"{outcome_acc:.1f}%",
             )
 
     console.print(acc_table)
@@ -202,21 +208,23 @@ def main():
         console.print(f"  Scores: {', '.join([f'{k}: {v:.3f}' for k, v in r['scores'].items()])}\n")
 
     # Comparação final
-    console.print(Panel(
-        "[bold]Comparação de Métodos:[/bold]\n\n"
-        f"[cyan]4 Frases Simples:[/cyan] {acuracia:.1f}% (ESTE TESTE)\n"
-        "[red]2 Frases Simples:[/red] 20.0% (só WIN/LOSS)\n"
-        "[yellow]Frases Genéricas:[/yellow] 13.3%\n"
-        "[green]RAG k-NN:[/green] 83.3%\n"
-        "[magenta]LLM:[/magenta] ~85%\n\n"
-        "[bold]Custo:[/bold]\n"
-        "  4 Frases: $0.000004 (4 embeddings + comparação)\n"
-        "  RAG k-NN: $0.000008\n"
-        "  LLM: $0.000420\n\n"
-        f"[bold]Veredicto:[/bold] "
-        f"{'✅ Funciona muito bem!' if acuracia >= 70 else '⚠️ Melhor que 2 frases mas ainda abaixo do RAG'}",
-        title="📊 Resultado Final"
-    ))
+    console.print(
+        Panel(
+            "[bold]Comparação de Métodos:[/bold]\n\n"
+            f"[cyan]4 Frases Simples:[/cyan] {acuracia:.1f}% (ESTE TESTE)\n"
+            "[red]2 Frases Simples:[/red] 20.0% (só WIN/LOSS)\n"
+            "[yellow]Frases Genéricas:[/yellow] 13.3%\n"
+            "[green]RAG k-NN:[/green] 83.3%\n"
+            "[magenta]LLM:[/magenta] ~85%\n\n"
+            "[bold]Custo:[/bold]\n"
+            "  4 Frases: $0.000004 (4 embeddings + comparação)\n"
+            "  RAG k-NN: $0.000008\n"
+            "  LLM: $0.000420\n\n"
+            f"[bold]Veredicto:[/bold] "
+            f"{'✅ Funciona muito bem!' if acuracia >= 70 else '⚠️ Melhor que 2 frases mas ainda abaixo do RAG'}",
+            title="📊 Resultado Final",
+        )
+    )
 
     conn.close()
 

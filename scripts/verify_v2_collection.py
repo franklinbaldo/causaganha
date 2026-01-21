@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""
-Verify V2 Collection Pipeline
+"""Verify V2 Collection Pipeline
 Collects metadata from TJRO using V2 components and stores in DuckDB.
 """
+
 import asyncio
 import sys
 from pathlib import Path
-import httpx
+
 import structlog
-from typing import Any
+
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from causaganha.v2.pipeline.collect import collect_metadata_for_court
 from causaganha.v2.storage.connection import get_connection
+
 
 # Configure logging
 structlog.configure(
@@ -25,6 +26,7 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
 
 async def main() -> None:
     """Run verification."""
@@ -54,7 +56,9 @@ async def main() -> None:
             error_msg = result.get("error", "")
             if "403" in error_msg or "Forbidden" in error_msg:
                 logger.warning("geo_blocking_detected", error=error_msg)
-                print(f"⚠️ Geo-blocking detected: {error_msg}. This is expected in some environments.")
+                print(
+                    f"⚠️ Geo-blocking detected: {error_msg}. This is expected in some environments."
+                )
             else:
                 logger.error("collection_failed_unexpectedly", error=error_msg)
                 sys.exit(1)
@@ -62,6 +66,7 @@ async def main() -> None:
     except Exception as e:
         logger.error("script_failed", error=str(e))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,8 +1,8 @@
 # CausaGanha v2 - Refactoring Plan
 ## Enhancing Judicial Analytics with PJe API Integration
 
-**Version:** 2.0  
-**Date:** December 2024  
+**Version:** 2.0
+**Date:** December 2024
 **Status:** Planning Phase
 
 ---
@@ -773,25 +773,25 @@ async def collect_metadata_for_court(
 ) -> int:
     """
     Collect intimation metadata from PJe API
-    
+
     Returns:
         Number of new intimations collected
     """
     client = PJeAPIClient()
     con = get_connection()
-    
+
     # Get date range
     data_inicio = date.today() - timedelta(days=days_back)
-    
+
     # Fetch from API
     intimations = await client.get_intimations_by_court(
         sigla_tribunal=tribunal,
         data_inicio=data_inicio
     )
-    
+
     # Store in database
     new_count = store_intimations(con, intimations)
-    
+
     return new_count
 ```
 
@@ -827,24 +827,24 @@ async def analyze_pending_decisions(
 ) -> int:
     """
     Analyze pending PDFs in batches
-    
+
     Returns:
         Number of decisions analyzed
     """
     con = get_connection()
     analyzer = DecisionAnalyzer()
-    
+
     # Get pending intimations
     pending = get_unanalyzed_intimations(con, limit=batch_size)
-    
+
     # Analyze in parallel
     results = await analyzer.analyze_batch(
         [p.pdf_url for p in pending]
     )
-    
+
     # Store results
     analyzed_count = store_analysis_results(con, results)
-    
+
     return analyzed_count
 ```
 
@@ -941,13 +941,13 @@ CREATE TABLE intimations (
     codigo_classe VARCHAR(10),
     hash VARCHAR(100) UNIQUE,
     status VARCHAR(1),
-    
+
     -- Analysis tracking
     analyzed BOOLEAN DEFAULT FALSE,
     analysis_attempted_at TIMESTAMP,
     analysis_error TEXT,
     analyzed_at TIMESTAMP,
-    
+
     -- Metadata
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -960,7 +960,7 @@ CREATE TABLE intimation_lawyers (
     oab_state VARCHAR(2) NOT NULL,
     lawyer_name VARCHAR(255),
     polo VARCHAR(1),  -- 'A' = autor, 'P' = réu, etc.
-    
+
     PRIMARY KEY (intimation_id, oab_number, oab_state)
 );
 
@@ -970,7 +970,7 @@ CREATE TABLE intimation_parties (
     intimation_id BIGINT REFERENCES intimations(id),
     party_name VARCHAR(255) NOT NULL,
     polo VARCHAR(1),
-    
+
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -978,31 +978,31 @@ CREATE TABLE intimation_parties (
 CREATE TABLE decision_analysis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     intimation_id BIGINT REFERENCES intimations(id) UNIQUE,
-    
+
     -- Winner info
     winner_lawyer_oab VARCHAR(20) NOT NULL,
     winner_lawyer_state VARCHAR(2) NOT NULL,
     winner_party_name VARCHAR(255),
-    
+
     -- Loser info
     loser_lawyer_oab VARCHAR(20) NOT NULL,
     loser_lawyer_state VARCHAR(2) NOT NULL,
     loser_party_name VARCHAR(255),
-    
+
     -- Decision details
     decision_type VARCHAR(50),
     outcome VARCHAR(50),
     judge_name VARCHAR(255),
     decision_reasoning TEXT,
-    
+
     -- Quality metrics
     confidence_score FLOAT CHECK (confidence_score BETWEEN 0 AND 1),
-    
+
     -- Model info
     model_used VARCHAR(50),
     model_provider VARCHAR(20),
     analysis_duration_seconds FLOAT,
-    
+
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -1012,29 +1012,29 @@ CREATE TABLE lawyer_ratings (
     oab_number VARCHAR(20) NOT NULL,
     oab_state VARCHAR(2) NOT NULL,
     lawyer_name VARCHAR(255),
-    
+
     -- OpenSkill parameters
     mu FLOAT NOT NULL DEFAULT 25.0,
     sigma FLOAT NOT NULL DEFAULT 8.333,
-    
+
     -- Derived rating (conservative estimate)
     rating FLOAT GENERATED ALWAYS AS (mu - 3 * sigma) STORED,
-    
+
     -- Statistics
     total_cases INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     win_rate FLOAT GENERATED ALWAYS AS (
-        CASE WHEN total_cases > 0 
-        THEN CAST(wins AS FLOAT) / total_cases 
+        CASE WHEN total_cases > 0
+        THEN CAST(wins AS FLOAT) / total_cases
         ELSE 0 END
     ) STORED,
-    
+
     -- Context
     tribunal VARCHAR(10),  -- NULL for global rating
-    
+
     last_updated TIMESTAMP DEFAULT NOW(),
-    
+
     UNIQUE(oab_number, oab_state, tribunal)
 );
 
@@ -1043,43 +1043,43 @@ CREATE TABLE sync_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_type VARCHAR(20) NOT NULL,  -- 'collect', 'analyze', 'score'
     entity_id VARCHAR(100),  -- tribunal or batch identifier
-    
+
     started_at TIMESTAMP NOT NULL,
     completed_at TIMESTAMP,
-    
+
     items_processed INTEGER DEFAULT 0,
     items_succeeded INTEGER DEFAULT 0,
     items_failed INTEGER DEFAULT 0,
-    
+
     status VARCHAR(20) NOT NULL,  -- 'running', 'success', 'failed', 'partial'
     error_message TEXT,
-    
+
     created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Indexes for performance
-CREATE INDEX idx_intimations_tribunal_date 
+CREATE INDEX idx_intimations_tribunal_date
     ON intimations(sigla_tribunal, data_disponibilizacao DESC);
 
-CREATE INDEX idx_intimations_unanalyzed 
-    ON intimations(analyzed, data_disponibilizacao) 
+CREATE INDEX idx_intimations_unanalyzed
+    ON intimations(analyzed, data_disponibilizacao)
     WHERE analyzed = FALSE;
 
-CREATE INDEX idx_intimation_lawyers_oab 
+CREATE INDEX idx_intimation_lawyers_oab
     ON intimation_lawyers(oab_number, oab_state);
 
-CREATE INDEX idx_decision_winner 
+CREATE INDEX idx_decision_winner
     ON decision_analysis(winner_lawyer_oab, winner_lawyer_state);
 
-CREATE INDEX idx_decision_loser 
+CREATE INDEX idx_decision_loser
     ON decision_analysis(loser_lawyer_oab, loser_lawyer_state);
 
-CREATE INDEX idx_lawyer_ratings_ranking 
-    ON lawyer_ratings(tribunal, rating DESC) 
+CREATE INDEX idx_lawyer_ratings_ranking
+    ON lawyer_ratings(tribunal, rating DESC)
     WHERE tribunal IS NOT NULL;
 
-CREATE INDEX idx_lawyer_ratings_global 
-    ON lawyer_ratings(rating DESC) 
+CREATE INDEX idx_lawyer_ratings_global
+    ON lawyer_ratings(rating DESC)
     WHERE tribunal IS NULL;
 ```
 
@@ -1115,7 +1115,7 @@ INSERT INTO decision_analysis (
 );
 
 -- 4. Mark as analyzed
-UPDATE intimations 
+UPDATE intimations
 SET analyzed = TRUE, analyzed_at = NOW()
 WHERE id = 123456;
 
@@ -1181,17 +1181,17 @@ class Intimation(BaseModel):
     status: str
     destinatarioadvogados: List[DestinarioAdvogado] = []
     destinatarios: List[Destinatario] = []
-    
+
     class Config:
         populate_by_name = True
 
 class PJeAPIClient:
     """
     Client for PJe Communications API
-    
+
     Handles authentication, pagination, and error handling
     """
-    
+
     def __init__(
         self,
         base_url: str = "https://comunicaapi.pje.jus.br/api/v1",
@@ -1202,7 +1202,7 @@ class PJeAPIClient:
             timeout=timeout,
             limits=httpx.Limits(max_keepalive_connections=5)
         )
-    
+
     async def get_intimations_by_court(
         self,
         sigla_tribunal: str,
@@ -1212,36 +1212,36 @@ class PJeAPIClient:
     ) -> List[Intimation]:
         """
         Fetch all intimations for a court with automatic pagination
-        
+
         Args:
             sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
             data_inicio: Start date filter
             data_fim: End date filter
             limit_per_page: Results per page (max 100)
-        
+
         Returns:
             List of validated Intimation objects
         """
         all_intimations = []
         offset = 0
-        
+
         while True:
             params = {
                 "siglaTribunal": sigla_tribunal,
                 "offset": offset,
                 "limit": limit_per_page
             }
-            
+
             if data_inicio:
                 params["dataInicio"] = data_inicio.strftime("%Y-%m-%d")
             if data_fim:
                 params["dataFim"] = data_fim.strftime("%Y-%m-%d")
-            
+
             logger.info("fetching_page",
                        tribunal=sigla_tribunal,
                        offset=offset,
                        limit=limit_per_page)
-            
+
             try:
                 response = await self.client.get(
                     f"{self.base_url}/comunicacao",
@@ -1249,43 +1249,43 @@ class PJeAPIClient:
                 )
                 response.raise_for_status()
                 data = response.json()
-                
+
             except httpx.HTTPError as e:
                 logger.error("api_request_failed",
                             error=str(e),
                             params=params)
                 raise
-            
+
             # Validate and parse
             items = data.get("items", [])
             if not items:
                 logger.info("no_more_items", total_fetched=len(all_intimations))
                 break
-            
+
             try:
                 intimations = [Intimation(**item) for item in items]
                 all_intimations.extend(intimations)
                 logger.info("page_fetched",
                            count=len(intimations),
                            total=len(all_intimations))
-                
+
             except Exception as e:
                 logger.error("validation_failed",
                             error=str(e),
                             sample=items[0] if items else None)
                 raise
-            
+
             # Check if more pages
             total_count = data.get("count", 0)
             if len(all_intimations) >= total_count:
                 logger.info("all_pages_fetched",
                            total=len(all_intimations))
                 break
-            
+
             offset += limit_per_page
-        
+
         return all_intimations
-    
+
     async def close(self):
         """Close the HTTP client"""
         await self.client.aclose()
@@ -1310,31 +1310,31 @@ _connection = None
 def get_connection(db_path: str = "data/causaganha.duckdb") -> ibis.backends.duckdb.Backend:
     """
     Get or create DuckDB connection via Ibis
-    
+
     This is a singleton - returns the same connection instance
     """
     global _connection
-    
+
     if _connection is None:
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info("connecting_to_duckdb", path=str(db_file))
         _connection = ibis.duckdb.connect(str(db_file))
-        
+
         # Initialize schema if needed
         _initialize_schema(_connection)
-    
+
     return _connection
 
 def _initialize_schema(con: ibis.backends.duckdb.Backend):
     """Create tables if they don't exist"""
-    
+
     tables = con.list_tables()
-    
+
     if 'intimations' not in tables:
         logger.info("creating_schema")
-        
+
         # Read schema from SQL file
         schema_file = Path(__file__).parent / "schema.sql"
         if schema_file.exists():
@@ -1365,9 +1365,9 @@ def get_unanalyzed_intimations(
     limit: int = 100
 ) -> list:
     """Get intimations that need PDF analysis"""
-    
+
     intimations = con.table('intimations')
-    
+
     result = (
         intimations
         .filter(_.analyzed == False)
@@ -1375,7 +1375,7 @@ def get_unanalyzed_intimations(
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)
     )
-    
+
     return result.to_pandas().to_dict('records')
 
 def store_intimations(
@@ -1384,12 +1384,12 @@ def store_intimations(
 ) -> int:
     """
     Store intimations in database
-    
+
     Returns count of new records inserted
     """
     if not intimations:
         return 0
-    
+
     # Prepare records
     records = []
     for item in intimations:
@@ -1411,7 +1411,7 @@ def store_intimations(
             'status': item.status,
             'analyzed': False
         })
-    
+
     # Use raw SQL for upsert (Ibis doesn't have native upsert yet)
     inserted = 0
     for record in records:
@@ -1449,7 +1449,7 @@ def store_intimations(
             logger.warning("insert_failed",
                           intimation_id=record['id'],
                           error=str(e))
-    
+
     logger.info("intimations_stored", inserted=inserted, total=len(records))
     return inserted
 
@@ -1459,11 +1459,11 @@ def store_lawyer_associations(
     lawyers: list
 ) -> int:
     """Store lawyer associations for an intimation"""
-    
+
     inserted = 0
     for lawyer_data in lawyers:
         advogado = lawyer_data.get('advogado', {})
-        
+
         try:
             con.raw_sql(f"""
                 INSERT INTO intimation_lawyers (
@@ -1481,7 +1481,7 @@ def store_lawyer_associations(
             logger.warning("lawyer_association_failed",
                           intimation_id=intimation_id,
                           error=str(e))
-    
+
     return inserted
 
 def get_recent_analyses(
@@ -1489,17 +1489,17 @@ def get_recent_analyses(
     days: int = 7
 ) -> list:
     """Get recent decision analyses"""
-    
+
     analysis = con.table('decision_analysis')
-    
+
     cutoff = date.today() - timedelta(days=days)
-    
+
     result = (
         analysis
         .filter(_.created_at >= cutoff)
         .order_by(_.created_at.desc())
     )
-    
+
     return result.to_pandas().to_dict('records')
 
 def get_lawyer_stats(
@@ -1508,9 +1508,9 @@ def get_lawyer_stats(
     oab_state: str
 ) -> dict:
     """Get statistics for a specific lawyer"""
-    
+
     analysis = con.table('decision_analysis')
-    
+
     # Wins
     wins = (
         analysis
@@ -1519,7 +1519,7 @@ def get_lawyer_stats(
         .count()
         .execute()
     )
-    
+
     # Losses
     losses = (
         analysis
@@ -1528,7 +1528,7 @@ def get_lawyer_stats(
         .count()
         .execute()
     )
-    
+
     return {
         'oab_number': oab_number,
         'oab_state': oab_state,
@@ -1551,10 +1551,10 @@ from pydantic import BaseModel, Field
 class DecisionAnalysis(BaseModel):
     """
     Structured output from LLM analysis of a judicial decision
-    
+
     This model defines exactly what we expect from the AI
     """
-    
+
     winner_lawyer_oab: str = Field(
         description="OAB registration number of the winning lawyer (e.g., '5733')"
     )
@@ -1565,7 +1565,7 @@ class DecisionAnalysis(BaseModel):
     winner_party_name: str = Field(
         description="Full name of the winning party"
     )
-    
+
     loser_lawyer_oab: str = Field(
         description="OAB registration number of the losing lawyer"
     )
@@ -1576,7 +1576,7 @@ class DecisionAnalysis(BaseModel):
     loser_party_name: str = Field(
         description="Full name of the losing party"
     )
-    
+
     decision_type: str = Field(
         description=(
             "Type of decision: 'sentença' (first instance judgment), "
@@ -1590,18 +1590,18 @@ class DecisionAnalysis(BaseModel):
             "'improcedente' (denied), or 'parcialmente procedente' (partially granted)"
         )
     )
-    
+
     judge_name: str = Field(
         description="Full name of the judge or rapporteur who issued the decision"
     )
-    
+
     decision_reasoning: str = Field(
         description=(
             "Brief summary of the judge's main reasoning and legal basis "
             "for the decision (2-3 sentences maximum)"
         )
     )
-    
+
     confidence_score: float = Field(
         ge=0.0,
         le=1.0,
@@ -1628,11 +1628,11 @@ logger = structlog.get_logger()
 class DecisionAnalyzer:
     """
     Analyze judicial decisions using Pydantic AI
-    
+
     Uses Google Gemini to read PDFs natively and extract
     structured information about case outcomes
     """
-    
+
     def __init__(
         self,
         model_name: str = "gemini-2.5-flash",
@@ -1640,14 +1640,14 @@ class DecisionAnalyzer:
     ):
         self.model_name = model_name
         self.provider = provider
-        
+
         # System prompt for the AI
         system_prompt = """
         You are an expert Brazilian legal analyst specializing in judicial decisions.
-        
+
         Your task is to read judicial decision documents and extract structured
         information about case outcomes for a lawyer performance rating system.
-        
+
         CRITICAL REQUIREMENTS:
         1. Identify the winning and losing parties with precision
         2. Extract the correct OAB numbers for each lawyer
@@ -1658,7 +1658,7 @@ class DecisionAnalyzer:
            - 0.7-0.9: Confident, minor ambiguities
            - 0.5-0.7: Moderate confidence, some unclear elements
            - <0.5: Low confidence, significant ambiguities
-        
+
         IMPORTANT NOTES:
         - OAB numbers are usually in format: "OAB/XX NNNNN" (e.g., "OAB/RO 5733")
         - In Brazilian law:
@@ -1671,23 +1671,23 @@ class DecisionAnalyzer:
            * "Sentença" = first instance judgment
            * "Acórdão" = appellate court decision
            * "Decisão interlocutória" = interlocutory decision
-        
+
         If critical information is missing or unclear, reflect this in your
         confidence_score. Never guess OAB numbers - if unclear, indicate in
         confidence_score.
         """
-        
+
         # Create Pydantic AI agent
         self.agent = Agent(
             f'{provider}:{model_name}',
             result_type=DecisionAnalysis,
             system_prompt=system_prompt
         )
-        
+
         logger.info("analyzer_initialized",
                    model=model_name,
                    provider=provider)
-    
+
     async def analyze_pdf(
         self,
         pdf_url: str,
@@ -1695,28 +1695,28 @@ class DecisionAnalyzer:
     ) -> DecisionAnalysis:
         """
         Analyze a single PDF decision document
-        
+
         Args:
             pdf_url: URL to the PDF document
             intimation_id: Optional intimation ID for logging
-        
+
         Returns:
             DecisionAnalysis with extracted information
-        
+
         Raises:
             Exception: If analysis fails
         """
         logger.info("analyzing_pdf",
                    url=pdf_url,
                    intimation_id=intimation_id)
-        
+
         try:
             # Pydantic AI + Gemini reads PDF natively
             result = await self.agent.run(
                 f"Analyze this judicial decision PDF: {pdf_url}",
                 message_history=[]
             )
-            
+
             # Log results
             logger.info("analysis_complete",
                        intimation_id=intimation_id,
@@ -1725,16 +1725,16 @@ class DecisionAnalyzer:
                        decision_type=result.data.decision_type,
                        outcome=result.data.outcome,
                        confidence=result.data.confidence_score)
-            
+
             return result.data
-            
+
         except Exception as e:
             logger.error("analysis_failed",
                         intimation_id=intimation_id,
                         url=pdf_url,
                         error=str(e))
             raise
-    
+
     async def analyze_batch(
         self,
         pdf_urls: List[str],
@@ -1742,40 +1742,40 @@ class DecisionAnalyzer:
     ) -> List[DecisionAnalysis]:
         """
         Analyze multiple PDFs concurrently
-        
+
         Args:
             pdf_urls: List of PDF URLs
             intimation_ids: Optional list of intimation IDs (same length)
-        
+
         Returns:
             List of DecisionAnalysis results (only successful ones)
         """
         import asyncio
-        
+
         if intimation_ids is None:
             intimation_ids = [None] * len(pdf_urls)
-        
+
         logger.info("batch_analysis_start",
                    total=len(pdf_urls))
-        
+
         # Create tasks
         tasks = [
             self.analyze_pdf(url, int_id)
             for url, int_id in zip(pdf_urls, intimation_ids)
         ]
-        
+
         # Execute concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # Separate successes from failures
         analyses = [r for r in results if isinstance(r, DecisionAnalysis)]
         errors = [r for r in results if isinstance(r, Exception)]
-        
+
         logger.info("batch_analysis_complete",
                    total=len(pdf_urls),
                    successful=len(analyses),
                    failed=len(errors))
-        
+
         return analyses
 ```
 
@@ -1803,34 +1803,34 @@ async def collect_metadata_for_court(
 ) -> dict:
     """
     Collect intimation metadata from PJe API for a court
-    
+
     Args:
         sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
         days_back: How many days back to fetch
-    
+
     Returns:
         Dictionary with statistics
     """
     logger.info("collection_start",
                tribunal=sigla_tribunal,
                days_back=days_back)
-    
+
     client = PJeAPIClient()
     con = get_connection()
-    
+
     try:
         # Calculate date range
         data_inicio = date.today() - timedelta(days=days_back)
-        
+
         # Fetch from API
         intimations = await client.get_intimations_by_court(
             sigla_tribunal=sigla_tribunal,
             data_inicio=data_inicio
         )
-        
+
         # Store intimations
         new_count = store_intimations(con, intimations)
-        
+
         # Store lawyer associations
         lawyers_stored = 0
         for intimation in intimations:
@@ -1840,13 +1840,13 @@ async def collect_metadata_for_court(
                 intimation.destinatarioadvogados
             )
             lawyers_stored += count
-        
+
         logger.info("collection_complete",
                    tribunal=sigla_tribunal,
                    intimations_fetched=len(intimations),
                    intimations_new=new_count,
                    lawyers_stored=lawyers_stored)
-        
+
         return {
             'tribunal': sigla_tribunal,
             'intimations_fetched': len(intimations),
@@ -1854,7 +1854,7 @@ async def collect_metadata_for_court(
             'lawyers_stored': lawyers_stored,
             'status': 'success'
         }
-        
+
     except Exception as e:
         logger.error("collection_failed",
                     tribunal=sigla_tribunal,
@@ -1864,7 +1864,7 @@ async def collect_metadata_for_court(
             'status': 'failed',
             'error': str(e)
         }
-        
+
     finally:
         await client.close()
 
@@ -1874,47 +1874,47 @@ async def collect_metadata_for_all_courts(
 ) -> List[dict]:
     """
     Collect metadata for multiple courts concurrently
-    
+
     Args:
         courts: List of court codes
         days_back: How many days back to fetch
-    
+
     Returns:
         List of result dictionaries
     """
     logger.info("multi_court_collection_start",
                courts=courts,
                count=len(courts))
-    
+
     tasks = [
         collect_metadata_for_court(court, days_back)
         for court in courts
     ]
-    
+
     results = await asyncio.gather(*tasks)
-    
+
     successful = sum(1 for r in results if r['status'] == 'success')
     failed = sum(1 for r in results if r['status'] == 'failed')
-    
+
     logger.info("multi_court_collection_complete",
                total=len(courts),
                successful=successful,
                failed=failed)
-    
+
     return results
 
 # CLI entry point
 async def main():
     """CLI entry point for metadata collection"""
     import sys
-    
+
     if len(sys.argv) < 2:
         print("Usage: python -m causaganha.v2.pipeline.collect TJRO [TJMT ...]")
         sys.exit(1)
-    
+
     courts = sys.argv[1:]
     results = await collect_metadata_for_all_courts(courts)
-    
+
     print("\nResults:")
     for result in results:
         print(f"  {result['tribunal']}: {result['status']}")
@@ -1947,50 +1947,50 @@ async def analyze_pending_decisions(
 ) -> dict:
     """
     Analyze pending decision PDFs
-    
+
     Args:
         batch_size: Number of PDFs to process at once
         max_batches: Maximum number of batches to process (None = all)
-    
+
     Returns:
         Dictionary with statistics
     """
     logger.info("analysis_start",
                batch_size=batch_size,
                max_batches=max_batches)
-    
+
     con = get_connection()
     analyzer = DecisionAnalyzer()
-    
+
     total_analyzed = 0
     total_failed = 0
     batches_processed = 0
-    
+
     while True:
         # Check batch limit
         if max_batches and batches_processed >= max_batches:
             logger.info("batch_limit_reached", batches=batches_processed)
             break
-        
+
         # Get pending intimations
         pending = get_unanalyzed_intimations(con, limit=batch_size)
-        
+
         if not pending:
             logger.info("no_pending_intimations")
             break
-        
+
         logger.info("processing_batch",
                    batch=batches_processed + 1,
                    size=len(pending))
-        
+
         # Extract URLs and IDs
         pdf_urls = [p['link'] for p in pending]
         intimation_ids = [p['id'] for p in pending]
-        
+
         # Analyze batch
         try:
             analyses = await analyzer.analyze_batch(pdf_urls, intimation_ids)
-            
+
             # Store results
             for analysis, intimation_id in zip(analyses, intimation_ids):
                 try:
@@ -2003,21 +2003,21 @@ async def analyze_pending_decisions(
                                 error=str(e))
                     _mark_as_analyzed(con, intimation_id, success=False, error=str(e))
                     total_failed += 1
-            
+
         except Exception as e:
             logger.error("batch_failed", error=str(e))
             # Mark all as failed
             for intimation_id in intimation_ids:
                 _mark_as_analyzed(con, intimation_id, success=False, error=str(e))
             total_failed += len(intimation_ids)
-        
+
         batches_processed += 1
-    
+
     logger.info("analysis_complete",
                batches=batches_processed,
                analyzed=total_analyzed,
                failed=total_failed)
-    
+
     return {
         'batches_processed': batches_processed,
         'analyzed': total_analyzed,
@@ -2027,7 +2027,7 @@ async def analyze_pending_decisions(
 
 def _store_analysis(con, intimation_id: int, analysis):
     """Store analysis results"""
-    
+
     con.raw_sql(f"""
         INSERT INTO decision_analysis (
             intimation_id,
@@ -2060,10 +2060,10 @@ def _store_analysis(con, intimation_id: int, analysis):
 
 def _mark_as_analyzed(con, intimation_id: int, success: bool, error: str = None):
     """Mark intimation as analyzed"""
-    
+
     con.raw_sql(f"""
         UPDATE intimations
-        SET 
+        SET
             analyzed = {success},
             analyzed_at = {'CURRENT_TIMESTAMP' if success else 'NULL'},
             analysis_attempted_at = CURRENT_TIMESTAMP,
@@ -2075,12 +2075,12 @@ def _mark_as_analyzed(con, intimation_id: int, success: bool, error: str = None)
 async def main():
     """CLI entry point for PDF analysis"""
     import sys
-    
+
     batch_size = int(sys.argv[1]) if len(sys.argv) > 1 else 10
     max_batches = int(sys.argv[2]) if len(sys.argv) > 2 else None
-    
+
     result = await analyze_pending_decisions(batch_size, max_batches)
-    
+
     print(f"\nAnalysis complete:")
     print(f"  Analyzed: {result['analyzed']}")
     print(f"  Failed: {result['failed']}")
@@ -2224,10 +2224,10 @@ from causaganha.v2.api.client import PJeAPIClient
 async def test_client_initialization():
     """Test that client initializes with correct defaults"""
     client = PJeAPIClient()
-    
+
     assert client.base_url == "https://comunicaapi.pje.jus.br/api/v1"
     assert client.client is not None
-    
+
     await client.close()
 
 # Run test → FAILS (PJeAPIClient doesn't exist)
@@ -2241,7 +2241,7 @@ class PJeAPIClient:
     def __init__(self, base_url: str = "https://comunicaapi.pje.jus.br/api/v1"):
         self.base_url = base_url
         self.client = httpx.AsyncClient()
-    
+
     async def close(self):
         await self.client.aclose()
 
@@ -2252,9 +2252,9 @@ class PJeAPIClient:
 async def test_fetch_intimations_returns_list():
     """Test that fetching returns a list"""
     client = PJeAPIClient()
-    
+
     intimations = await client.get_intimations_by_court("TJRO")
-    
+
     assert isinstance(intimations, list)
     await client.close()
 
@@ -2746,14 +2746,14 @@ from causaganha.v2.api.client import PJeAPIClient
 async def test_client_initializes_with_defaults():
     """
     RED → GREEN → REFACTOR
-    
+
     This test is written FIRST, before PJeAPIClient exists
     """
     client = PJeAPIClient()
-    
+
     assert client.base_url == "https://comunicaapi.pje.jus.br/api/v1"
     assert client.client is not None
-    
+
     await client.close()
 
 # Now implement PJeAPIClient to make test pass (minimal code)
@@ -2766,9 +2766,9 @@ async def test_fetch_intimations_returns_list():
     Write this BEFORE implementing get_intimations_by_court
     """
     client = PJeAPIClient()
-    
+
     intimations = await client.get_intimations_by_court("TJRO")
-    
+
     assert isinstance(intimations, list)
     await client.close()
 
@@ -2781,15 +2781,15 @@ async def test_fetch_handles_pagination():
     Test pagination BEFORE implementing it
     """
     client = PJeAPIClient()
-    
+
     # Mock API to return multiple pages
     # ... implementation of mock
-    
+
     intimations = await client.get_intimations_by_court("TJRO")
-    
+
     # Should have fetched from multiple pages
     assert len(intimations) > 100  # More than one page
-    
+
     await client.close()
 
 # Now implement pagination logic
@@ -2801,11 +2801,11 @@ async def test_fetch_raises_on_http_error():
     Test error handling BEFORE implementing it
     """
     client = PJeAPIClient()
-    
+
     with pytest.raises(httpx.HTTPError):
         # Force an HTTP error
         await client.get_intimations_by_court("INVALID")
-    
+
     await client.close()
 
 # Now add proper error handling
@@ -2820,7 +2820,7 @@ class PJeAPIClient:
     def __init__(self, base_url: str = "https://comunicaapi.pje.jus.br/api/v1"):
         self.base_url = base_url
         self.client = httpx.AsyncClient()
-    
+
     async def close(self):
         await self.client.aclose()
 ```
@@ -2830,7 +2830,7 @@ class PJeAPIClient:
 # Add just enough to return empty list
 class PJeAPIClient:
     # ... existing code ...
-    
+
     async def get_intimations_by_court(self, sigla_tribunal: str) -> list:
         return []  # Simplest implementation that passes
 ```
@@ -2842,22 +2842,22 @@ async def get_intimations_by_court(self, sigla_tribunal: str) -> list:
     all_intimations = []
     offset = 0
     limit = 100
-    
+
     while True:
         params = {"siglaTribunal": sigla_tribunal, "offset": offset, "limit": limit}
         response = await self.client.get(f"{self.base_url}/comunicacao", params=params)
         data = response.json()
-        
+
         items = data.get("items", [])
         if not items:
             break
-        
+
         all_intimations.extend(items)
         offset += limit
-        
+
         if len(all_intimations) >= data.get("count", 0):
             break
-    
+
     return all_intimations
 ```
 
@@ -2969,7 +2969,7 @@ def sample_intimation():
 def sample_decision_analysis():
     """Sample decision analysis for testing"""
     from causaganha.v2.analysis.models import DecisionAnalysis
-    
+
     return DecisionAnalysis(
         winner_lawyer_oab="5733",
         winner_lawyer_state="RO",
@@ -3016,13 +3016,13 @@ async def test_fetch_intimations_success(api_client):
             }
         ]
     }
-    
+
     with patch.object(api_client.client, 'get') as mock_get:
         mock_get.return_value.json.return_value = mock_response
         mock_get.return_value.raise_for_status = lambda: None
-        
+
         intimations = await api_client.get_intimations_by_court("TJRO")
-        
+
         assert len(intimations) == 1
         assert intimations[0].id == 123
 
@@ -3033,10 +3033,10 @@ async def test_fetch_intimations_http_error(api_client):
     Written BEFORE implementation
     """
     import httpx
-    
+
     with patch.object(api_client.client, 'get') as mock_get:
         mock_get.side_effect = httpx.HTTPError("Network error")
-        
+
         with pytest.raises(httpx.HTTPError):
             await api_client.get_intimations_by_court("TJRO")
 ```
@@ -3068,12 +3068,12 @@ def test_winner_rating_increases(winner_mu, winner_sigma, loser_mu, loser_sigma)
     """
     winner_before = (winner_mu, winner_sigma)
     loser_before = (loser_mu, loser_sigma)
-    
+
     winner_after, loser_after = rate([winner_before], [loser_before])
-    
+
     # Winner's mu should increase
     assert winner_after[0] >= winner_mu
-    
+
     # Loser's mu should decrease
     assert loser_after[0] <= loser_mu
 ```
@@ -3089,12 +3089,12 @@ from causaganha.v2.api.client import PJeAPIClient
 async def test_fetch_intimations():
     """Test API client can fetch intimations"""
     client = PJeAPIClient()
-    
+
     intimations = await client.get_intimations_by_court(
         sigla_tribunal="TJRO",
         days_back=1
     )
-    
+
     assert len(intimations) > 0
     assert intimations[0].id is not None
     await client.close()
@@ -3107,12 +3107,12 @@ from causaganha.v2.analysis.analyzer import DecisionAnalyzer
 async def test_analyze_pdf():
     """Test PDF analysis"""
     analyzer = DecisionAnalyzer()
-    
+
     # Use a test PDF URL
     result = await analyzer.analyze_pdf(
         pdf_url="https://example.com/test.pdf"
     )
-    
+
     assert result.winner_lawyer_oab is not None
     assert 0 <= result.confidence_score <= 1
 
@@ -3124,10 +3124,10 @@ from causaganha.v2.storage.queries import store_intimations
 def test_store_intimations():
     """Test storing intimations"""
     con = get_connection(":memory:")  # In-memory for testing
-    
+
     # Mock intimation data
     intimations = [...]
-    
+
     count = store_intimations(con, intimations)
     assert count > 0
 ```
@@ -3146,16 +3146,16 @@ from causaganha.v2.pipeline.analyze import analyze_pending_decisions
 @pytest.mark.integration
 async def test_full_pipeline():
     """Test complete pipeline from API to ratings"""
-    
+
     # 1. Collect metadata
     result = await collect_metadata_for_court("TJRO", days_back=1)
     assert result['status'] == 'success'
     assert result['intimations_fetched'] > 0
-    
+
     # 2. Analyze decisions
     analysis_result = await analyze_pending_decisions(batch_size=5, max_batches=1)
     assert analysis_result['analyzed'] > 0
-    
+
     # 3. Check database
     con = get_connection()
     intimations = con.table('intimations')
@@ -3171,18 +3171,18 @@ async def test_full_pipeline():
 # tests/v2/test_validation.py
 def test_rating_consistency():
     """Compare ratings between v1 and v2"""
-    
+
     # Get ratings from v1 database
     v1_ratings = get_v1_ratings()
-    
+
     # Get ratings from v2 database
     v2_ratings = get_v2_ratings()
-    
+
     # Compare (allowing for small differences due to ordering)
     for lawyer_id in v1_ratings:
         v1_rating = v1_ratings[lawyer_id]
         v2_rating = v2_ratings.get(lawyer_id)
-        
+
         if v2_rating:
             # Ratings should be within 5% (due to minor differences in data)
             diff_pct = abs(v1_rating - v2_rating) / v1_rating
@@ -3538,12 +3538,12 @@ from pydantic import BaseModel
 class Intimation(BaseModel):
     """
     Represents a judicial intimation from PJe API.
-    
+
     Attributes:
         id: Unique intimation identifier
         numero_processo: Process number in format NNNNNNN-DD.YYYY.J.TT.OOOO
         sigla_tribunal: Court code (e.g., 'TJRO', 'TJMT')
-    
+
     Example:
         >>> intimation = Intimation(
         ...     id=123456,
@@ -3553,7 +3553,7 @@ class Intimation(BaseModel):
         >>> intimation.sigla_tribunal
         'TJRO'
     """
-    
+
     id: int
     numero_processo: str
     sigla_tribunal: str
@@ -3561,14 +3561,14 @@ class Intimation(BaseModel):
 
 class StorageProtocol(Protocol):
     """Protocol defining storage interface."""
-    
+
     def store_intimation(self, intimation: Intimation) -> bool:
         """
         Store an intimation.
-        
+
         Args:
             intimation: The intimation to store
-            
+
         Returns:
             True if stored successfully, False otherwise
         """
@@ -3581,18 +3581,18 @@ def process_intimations(
 ) -> tuple[int, int]:
     """
     Process a batch of intimations.
-    
+
     This function stores intimations and returns statistics.
     Follows single responsibility principle - only handles storage,
     not validation or transformation.
-    
+
     Args:
         intimations: List of intimations to process
         storage: Storage implementation to use
-        
+
     Returns:
         Tuple of (successful_count, failed_count)
-        
+
     Example:
         >>> intimations = [Intimation(...), Intimation(...)]
         >>> storage = DuckDBStorage()
@@ -3601,13 +3601,13 @@ def process_intimations(
     """
     succeeded = 0
     failed = 0
-    
+
     for intimation in intimations:
         if storage.store_intimation(intimation):
             succeeded += 1
         else:
             failed += 1
-    
+
     return succeeded, failed
 
 
@@ -3627,10 +3627,10 @@ def test_process_intimations_success():
     ]
     storage = Mock(spec=StorageProtocol)
     storage.store_intimation.return_value = True
-    
+
     # Act
     succeeded, failed = process_intimations(intimations, storage)
-    
+
     # Assert
     assert succeeded == 2
     assert failed == 0
@@ -3645,9 +3645,9 @@ def test_process_intimations_partial_failure():
     ]
     storage = Mock(spec=StorageProtocol)
     storage.store_intimation.side_effect = [True, False]  # First succeeds, second fails
-    
+
     succeeded, failed = process_intimations(intimations, storage)
-    
+
     assert succeeded == 1
     assert failed == 1
 ```
@@ -3659,28 +3659,28 @@ def test_process_intimations_partial_failure():
 def calculate_win_rate(wins: int, total_cases: int) -> float:
     """
     Calculate win rate as a percentage.
-    
+
     Args:
         wins: Number of cases won
         total_cases: Total number of cases
-        
+
     Returns:
         Win rate as float between 0.0 and 1.0
-        
+
     Raises:
         ValueError: If total_cases is negative or wins > total_cases
     """
     if total_cases < 0:
         msg = f"total_cases must be non-negative, got {total_cases}"
         raise ValueError(msg)
-    
+
     if wins > total_cases:
         msg = f"wins ({wins}) cannot exceed total_cases ({total_cases})"
         raise ValueError(msg)
-    
+
     if total_cases == 0:
         return 0.0
-    
+
     return wins / total_cases
 ```
 

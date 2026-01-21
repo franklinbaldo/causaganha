@@ -1,8 +1,8 @@
 """Tracks reconciliation state to prevent loops."""
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 
 class ReconciliationTracker:
@@ -73,7 +73,7 @@ class ReconciliationTracker:
         state = self._load_state()
         state[str(sprint)] = {
             "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": "attempted"
+            "timestamp": datetime.now(UTC).isoformat(),
+            "status": "attempted",
         }
         self._save_state(state)

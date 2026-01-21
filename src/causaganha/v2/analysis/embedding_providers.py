@@ -10,22 +10,31 @@ New code should use:
 # Re-export everything from the new providers module for backward compatibility
 from causaganha.v2.analysis.providers import (
     EmbeddingProviderBase as EmbeddingModelBase,
-    GoogleProvider as GoogleEmbeddingProvider,
-    JinaProvider as JinaEmbeddingProvider,
-    TaskType,
-    auto_select_provider,
-    create_provider as create_embedding_provider,
 )
 
 # Re-export the Protocol (keep for type checking)
 from causaganha.v2.analysis.providers import EmbeddingProviderBase as EmbeddingProvider
+from causaganha.v2.analysis.providers import (
+    GoogleProvider as GoogleEmbeddingProvider,
+)
+from causaganha.v2.analysis.providers import (
+    JinaProvider as JinaEmbeddingProvider,
+)
+from causaganha.v2.analysis.providers import (
+    TaskType,
+    auto_select_provider,
+)
+from causaganha.v2.analysis.providers import (
+    create_provider as create_embedding_provider,
+)
+
 
 __all__ = [
-    "EmbeddingProvider",
     "EmbeddingModelBase",
+    "EmbeddingProvider",
     "GoogleEmbeddingProvider",
     "JinaEmbeddingProvider",
     "TaskType",
-    "create_embedding_provider",
     "auto_select_provider",
+    "create_embedding_provider",
 ]

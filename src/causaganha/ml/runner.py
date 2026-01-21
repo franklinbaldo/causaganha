@@ -1,14 +1,22 @@
 import asyncio
-import structlog
 from typing import Any
-from causaganha.ml.types import WinnerClassifierMode, WinnerBootstrapMode, WinnerLabel, PredictionResult
-from causaganha.ml.embeddings import GeminiEmbedder, EmbeddingCache
+
+import structlog
+
+from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.ml.bootstrap import DBBootstrapper
+from causaganha.ml.embeddings import EmbeddingCache, GeminiEmbedder
 from causaganha.ml.online_learner import WinnerPredictor
 from causaganha.ml.teacher import LLMTeacher
-from causaganha.ml.bootstrap import DBBootstrapper
-from causaganha.infrastructure.storage.repositories.analysis import AnalysisRepository
+from causaganha.ml.types import (
+    WinnerBootstrapMode,
+    WinnerClassifierMode,
+    WinnerLabel,
+)
+
 
 logger = structlog.get_logger()
+
 
 class WinnerClassifierRunner:
     def __init__(

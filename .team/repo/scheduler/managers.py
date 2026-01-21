@@ -16,10 +16,11 @@ from repo.core.github import (
     get_pr_by_session_id_any_state,
     get_pr_details_via_gh,
 )
-from repo.features.sprints import sprint_manager
 from repo.features.reconciliation import ReconciliationTracker
+from repo.features.sprints import sprint_manager
 from repo.scheduler.legacy import JULES_BRANCH, JULES_SCHEDULER_PREFIX
 from repo.scheduler.models import CycleState, PersonaConfig, SessionRequest
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,10 @@ class BranchManager:
 
             # Create fresh branch from main
             result = subprocess.run(
-                ["git", "rev-parse", "origin/main"], capture_output=True, text=True, check=True
+                ["git", "rev-parse", "origin/main"],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             main_sha = result.stdout.strip()
             subprocess.run(  # noqa: S603
@@ -211,8 +215,12 @@ class BranchManager:
                 check=True,
                 capture_output=True,
             )
-            subprocess.run(["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True)  # noqa: S607
-            subprocess.run(["git", "push", "origin", self.team_branch], check=True, capture_output=True)  # noqa: S603, S607
+            subprocess.run(
+                ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True
+            )  # noqa: S607
+            subprocess.run(
+                ["git", "push", "origin", self.team_branch], check=True, capture_output=True
+            )  # noqa: S603, S607
             return True
         except subprocess.CalledProcessError as e:
             e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
@@ -303,7 +311,9 @@ class BranchManager:
 
                 # Checkout main and merge
                 subprocess.run(  # noqa: S603
-                    ["git", "checkout", "-B", "main", "origin/main"], check=True, capture_output=True
+                    ["git", "checkout", "-B", "main", "origin/main"],
+                    check=True,
+                    capture_output=True,
                 )
                 subprocess.run(  # noqa: S603
                     ["git", "merge", f"origin/{self.team_branch}", "--no-edit"],
@@ -311,7 +321,9 @@ class BranchManager:
                     capture_output=True,
                 )
                 subprocess.run(  # noqa: S603
-                    ["git", "push", "origin", "main"], check=True, capture_output=True
+                    ["git", "push", "origin", "main"],
+                    check=True,
+                    capture_output=True,
                 )
                 return True
 
@@ -384,7 +396,7 @@ class BranchManager:
 
             return True
 
-        except subprocess.CalledProcessError:  # noqa: BLE001
+        except subprocess.CalledProcessError:
             return False
 
 
@@ -436,26 +448,29 @@ class PRManager:
 
     def _pr_only_touches_jules(self, pr_number: int) -> bool:
         """Check if a PR's CONFLICTS are only in .team/ directory.
-        
+
         If conflicts are restricted to .team/, we can force-accept the new changes.
-        
+
         Args:
             pr_number: PR number to check
-            
+
         Returns:
             True if all conflicting files are in .team/, False otherwise
         """
         import json
+
         try:
             # Get the list of files with conflicts from GitHub
             # The 'files' field shows all changed files and their status
             result = subprocess.run(
                 ["gh", "pr", "view", str(pr_number), "--json", "files"],
-                capture_output=True, text=True, check=True
+                capture_output=True,
+                text=True,
+                check=True,
             )
             data = json.loads(result.stdout)
             files = data.get("files", [])
-            
+
             # If PR has any files outside .team/, conflicts could affect real code
             # So we need to be more conservative
             for f in files:
@@ -463,7 +478,7 @@ class PRManager:
                 # If any file is outside .team/, don't force-merge
                 if not path.startswith(".team/"):
                     return False
-            
+
             return len(files) > 0  # At least one file, all in .team/
         except Exception:
             return False  # If we can't check, assume it's not safe
@@ -489,14 +504,16 @@ class PRManager:
         # 2. Check mergeStateStatus (GraphQL via gh) OR mergeable_state (REST API)
         # GraphQL: CLEAN, BEHIND, BLOCKED, etc.
         # REST API: clean, behind, dirty, unstable, blocked, unknown
-        state_status = pr_details.get("mergeStateStatus", "") or pr_details.get("mergeable_state", "")
+        state_status = pr_details.get("mergeStateStatus", "") or pr_details.get(
+            "mergeable_state", ""
+        )
         state_status_upper = state_status.upper() if state_status else ""
-        
+
         # Only reject if CI is blocked (failing checks)
         # Allow DIRTY (conflicts) to try merge - we handle conflicts downstream
         if state_status_upper == "BLOCKED":
             return False
-        
+
         # If state is CLEAN, BEHIND, or even DIRTY - let it try
         if state_status_upper in ["CLEAN", "BEHIND", "DIRTY"]:
             return True
@@ -512,7 +529,7 @@ class PRManager:
             conclusion = (check.get("conclusion") or "").upper()
             if conclusion == "FAILURE":
                 return False
-            
+
             # Accept SUCCESS, NEUTRAL, SKIPPED as passing
             if conclusion in ["SUCCESS", "NEUTRAL", "SKIPPED"]:
                 continue
@@ -524,7 +541,7 @@ class PRManager:
                 continue
             if legacy_state in ["PENDING", "QUEUED", "IN_PROGRESS"]:
                 return False
-                
+
             # If not completed yet, not green
             status = (check.get("status") or "").upper()
             if status not in ["COMPLETED"]:
@@ -538,7 +555,7 @@ class PRManager:
         retry=retry_if_exception(
             lambda e: isinstance(e, MergeError)
             and "permission denied" not in str(e).lower()
-            and "403" not in str(e).lower()
+            and "403" not in str(e).lower(),
         ),
         reraise=True,
     )
@@ -572,7 +589,9 @@ class PRManager:
                 )
                 return
             except subprocess.CalledProcessError:
-                print(f"      ⚠️ Rebase merge failed for PR #{pr_number}, falling back to standard merge...")
+                print(
+                    f"      ⚠️ Rebase merge failed for PR #{pr_number}, falling back to standard merge..."
+                )
 
             # Fallback: Standard Merge
             subprocess.run(  # noqa: S603
@@ -606,7 +625,17 @@ class PRManager:
             import json
 
             result = subprocess.run(  # noqa: S603
-                ["gh", "pr", "list", "--head", self.team_branch, "--base", "main", "--json", "number"],
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--head",
+                    self.team_branch,
+                    "--base",
+                    "main",
+                    "--json",
+                    "number",
+                ],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -650,7 +679,9 @@ class PRManager:
                     text=True,
                     check=True,
                 )
-                file_count = len([line for line in diff_tree_result.stdout.strip().split("\n") if line])
+                file_count = len(
+                    [line for line in diff_tree_result.stdout.strip().split("\n") if line]
+                )
                 commits_ahead = file_count  # Use file count as proxy when no merge-base
             else:
                 # Normal case - count commits
@@ -709,7 +740,9 @@ This PR contains accumulated work from the Jules autonomous development cycle.
         except Exception:  # noqa: BLE001
             return None
 
-    def find_by_session_id(self, open_prs: list[dict[str, Any]], session_id: str) -> dict[str, Any] | None:
+    def find_by_session_id(
+        self, open_prs: list[dict[str, Any]], session_id: str
+    ) -> dict[str, Any] | None:
         """Find a PR matching the given session ID.
 
         Args:
@@ -728,49 +761,59 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                 return pr
         return None
 
-    def reconcile_all_jules_prs(self, client: TeamClient, repo_info: dict[str, Any], dry_run: bool = False) -> list[dict]:
+    def reconcile_all_jules_prs(
+        self, client: TeamClient, repo_info: dict[str, Any], dry_run: bool = False
+    ) -> list[dict]:
         """Overseer: Auto-merge Jules PRs (oldest first), return conflicts for Weaver.
 
         Args:
             client: Jules API client
             repo_info: Repository information
             dry_run: If True, only log actions
-            
+
         Returns:
             List of PRs that failed to merge (conflicts for Weaver)
         """
         print("\n🔍 Overseer: Checking for autonomous PRs to reconcile...")
         import json
-        
+
         conflict_prs = []
-        
+
         try:
             # Fetch all open PRs with author, body, base, and creation time
             result = subprocess.run(
-                ["gh", "pr", "list", "--json", "number,title,isDraft,mergeable,headRefName,baseRefName,body,author,createdAt"],
-                capture_output=True, text=True, check=True
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--json",
+                    "number,title,isDraft,mergeable,headRefName,baseRefName,body,author,createdAt",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
             prs = json.loads(result.stdout)
-            
+
             # Filter for Jules-initiated PRs targeting jules branch
             jules_prs = []
             for pr in prs:
                 head = pr.get("headRefName", "")
                 base = pr.get("baseRefName", "")
-                
+
                 # Skip if not targeting jules branch
                 if base != self.team_branch:
                     continue
                 if head == self.team_branch:
                     continue
-                
+
                 author = pr.get("author", {}).get("login", "")
                 body = pr.get("body", "") or ""
                 session_id = _extract_session_id(head, body)
-                
+
                 if author == "app/google-labs-jules" or head.startswith("jules-") or session_id:
                     jules_prs.append(pr)
-            
+
             if not jules_prs:
                 print("   No autonomous persona PRs found.")
                 return []
@@ -783,7 +826,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                 pr_number = pr["number"]
                 head = pr["headRefName"]
                 is_draft = pr["isDraft"]
-                
+
                 print(f"   --- PR #{pr_number} ({head}) ---")
 
                 # 1. Check if it's a draft and if session is complete
@@ -793,7 +836,9 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                         try:
                             session = client.get_session(session_id)
                             if session.get("state") == "COMPLETED":
-                                print(f"      ✅ Session {session_id} is COMPLETED. Marking PR as ready...")
+                                print(
+                                    f"      ✅ Session {session_id} is COMPLETED. Marking PR as ready..."
+                                )
                                 if not dry_run:
                                     self.mark_ready(pr_number)
                                 is_draft = False
@@ -804,7 +849,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                 if not is_draft:
                     details = get_pr_details_via_gh(pr_number)
                     if self.is_green(details):
-                        print(f"      ✅ PR is green! Attempting auto-merge...")
+                        print("      ✅ PR is green! Attempting auto-merge...")
                         if not dry_run:
                             try:
                                 self.merge_into_jules(pr_number)
@@ -812,40 +857,69 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                             except Exception as e:
                                 # Merge failed - check if PR only touches .team/ files
                                 only_jules_files = self._pr_only_touches_jules(pr_number)
-                                
+
                                 if only_jules_files:
                                     # Safe to force-accept new changes, but preserve history!
-                                    print(f"      🔄 PR only touches .team/ files - resolving conflict favoring PR...")
+                                    print(
+                                        "      🔄 PR only touches .team/ files - resolving conflict favoring PR..."
+                                    )
                                     try:
                                         # 1. Checkout the PR branch
                                         # Use gh pr checkout to ensure we get the right branch configs
                                         subprocess.run(
                                             ["gh", "pr", "checkout", str(pr_number)],
-                                            check=True, capture_output=True
+                                            check=True,
+                                            capture_output=True,
                                         )
-                                        
+
                                         # 2. Configure git user for resolution
-                                        subprocess.run(["git", "config", "user.name", "Jules Overseer"], check=False)
-                                        subprocess.run(["git", "config", "user.email", "overseer@repo.ai"], check=False)
+                                        subprocess.run(
+                                            ["git", "config", "user.name", "Jules Overseer"],
+                                            check=False,
+                                        )
+                                        subprocess.run(
+                                            ["git", "config", "user.email", "overseer@repo.ai"],
+                                            check=False,
+                                        )
 
                                         # 3. Merge base (jules) into PR, preferring PR changes (ours)
                                         # We are on PR branch, so 'ours' = PR content, 'theirs' = jules content
                                         # This resolves conflict by accepting what's in the PR
                                         subprocess.run(
-                                            ["git", "merge", f"origin/{self.team_branch}", "-X", "ours", "--no-edit"],
-                                            check=True, capture_output=True
+                                            [
+                                                "git",
+                                                "merge",
+                                                f"origin/{self.team_branch}",
+                                                "-X",
+                                                "ours",
+                                                "--no-edit",
+                                            ],
+                                            check=True,
+                                            capture_output=True,
                                         )
 
                                         # 4. Push the resolved branch back to origin
-                                        subprocess.run(["git", "push"], check=True, capture_output=True)
+                                        subprocess.run(
+                                            ["git", "push"], check=True, capture_output=True
+                                        )
 
                                         # 5. Now perform a standard merge (preserves history)
                                         subprocess.run(
-                                            ["gh", "pr", "merge", str(pr_number), "--merge", "--delete-branch"],
-                                            check=True, capture_output=True
+                                            [
+                                                "gh",
+                                                "pr",
+                                                "merge",
+                                                str(pr_number),
+                                                "--merge",
+                                                "--delete-branch",
+                                            ],
+                                            check=True,
+                                            capture_output=True,
                                         )
-                                        print(f"      ✅ Resolved & Merged PR #{pr_number} (history preserved)")
-                                        
+                                        print(
+                                            f"      ✅ Resolved & Merged PR #{pr_number} (history preserved)"
+                                        )
+
                                     except Exception as e2:
                                         print(f"      ⚠️ History-preserving merge failed: {e2}")
                                         pr["merge_error"] = str(e2)
@@ -863,10 +937,10 @@ This PR contains accumulated work from the Jules autonomous development cycle.
 
         except Exception as e:
             print(f"⚠️ Overseer Error: {e}")
-        
+
         if conflict_prs:
             print(f"\n   🕸️ {len(conflict_prs)} PR(s) have conflicts - will trigger Weaver")
-        
+
         return conflict_prs
 
 
@@ -924,7 +998,9 @@ class CycleStateManager:
 
             # If not in open PRs, check all states
             if not pr:
-                pr = get_pr_by_session_id_any_state(repo_info["owner"], repo_info["repo"], session_id)
+                pr = get_pr_by_session_id_any_state(
+                    repo_info["owner"], repo_info["repo"], session_id
+                )
 
             if not pr:
                 continue
@@ -1030,12 +1106,19 @@ class SessionOrchestrator:
             for session in sessions:
                 state = session.get("state")
                 title = session.get("title", "")
-                
+
                 # Check if this session is for the same persona and is still active
                 # Titles look like: "⚡ absolutist: scheduled task"
-                if request.persona_id in title and state not in ["COMPLETED", "FAILED", "CANCELLED", "DELETED"]:
+                if request.persona_id in title and state not in [
+                    "COMPLETED",
+                    "FAILED",
+                    "CANCELLED",
+                    "DELETED",
+                ]:
                     session_id = session.get("name", "").split("/")[-1]
-                    print(f"   🔄 Reusing existing active session for {request.persona_id}: {session_id} ({state})")
+                    print(
+                        f"   🔄 Reusing existing active session for {request.persona_id}: {session_id} ({state})"
+                    )
                     return session_id
         except Exception as e:
             print(f"   ⚠️ Warning: Failed to check for existing sessions: {e}")
@@ -1106,9 +1189,7 @@ class SessionOrchestrator:
                 return False
 
             if state == "AWAITING_USER_FEEDBACK":
-                nudge_text = (
-                    "Please make the best decision possible and proceed autonomously to complete the task."
-                )
+                nudge_text = "Please make the best decision possible and proceed autonomously to complete the task."
                 self.client.send_message(session_id, nudge_text)
                 return False
 
@@ -1161,7 +1242,9 @@ class ReconciliationManager:
 
         # Get the PR diff
         gh_client = GitHubClient()
-        diff = gh_client.get_pr_diff(self.repo_info["owner"], self.repo_info["repo"], drift_pr_number)
+        diff = gh_client.get_pr_diff(
+            self.repo_info["owner"], self.repo_info["repo"], drift_pr_number
+        )
 
         if not diff:
             return None

@@ -69,7 +69,7 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
                 nome_classe="Procedimento Comum",
                 hash="abc123hash",
             ),
-        ]
+        ],
     )
 
     # Setup Firestore mock
@@ -106,7 +106,10 @@ async def test_scheduler_tick(mock_firestore, mock_pubsub, mock_pje_client) -> N
 
 @pytest.mark.asyncio
 async def test_ingest_worker(
-    mock_firestore, mock_pubsub_ingest, mock_doc_service, mock_ia_service
+    mock_firestore,
+    mock_pubsub_ingest,
+    mock_doc_service,
+    mock_ia_service,
 ) -> None:
     from causaganha.infrastructure.cloud.functions.ingest import ingest_worker
 
@@ -135,7 +138,8 @@ async def test_ingest_worker(
 
     with (
         patch(
-            "causaganha.infrastructure.cloud.functions.ingest.acquire_lock", new_callable=AsyncMock
+            "causaganha.infrastructure.cloud.functions.ingest.acquire_lock",
+            new_callable=AsyncMock,
         ) as mock_lock,
         patch("causaganha.config.settings.IA_ACCESS_KEY", "test"),
         patch("causaganha.config.settings.TOPIC_LLM", "projects/test/topics/llm"),
@@ -169,6 +173,6 @@ async def test_ingest_worker(
                 "status": "pdf_uploaded",
                 "ia_identifier": f"causaganha-{doc_key[:16]}",
                 "updated_at": ANY,
-            }
+            },
         )
         mock_pubsub_ingest.return_value.publish.assert_called_once()

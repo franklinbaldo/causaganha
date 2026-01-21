@@ -121,7 +121,7 @@ async def process_llm(doc_key: str) -> None:
             {
                 "status": "llm_done",
                 "updated_at": firestore.SERVER_TIMESTAMP,
-            }
+            },
         )
         logger.info("llm_complete", doc_key=doc_key)
 

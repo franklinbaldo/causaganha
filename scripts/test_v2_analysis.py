@@ -32,7 +32,10 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Analysis Pipeline")
     parser.add_argument("--limit", type=int, default=5, help="Number of items to analyze")
     parser.add_argument(
-        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+        "--db",
+        type=str,
+        default="test_collection.duckdb",
+        help="Path to DuckDB file",
     )
     args = parser.parse_args()
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Test embedding-based analysis vs LLM analysis."""
+
 import asyncio
 import sys
 from pathlib import Path
+
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -88,7 +90,7 @@ async def test_embedding_accuracy():
           AND LENGTH(i.texto) > 200
         ORDER BY ar.analyzed_at DESC
         LIMIT 30
-    """
+    """,
     ).fetchall()
 
     console.print(f"✓ Encontradas {len(decisions)} decisões para teste\n")
@@ -132,7 +134,7 @@ async def test_embedding_accuracy():
                 "emb_confidence": emb_confidence,
                 "match": match,
                 "all_scores": emb_result["all_scores"],
-            }
+            },
         )
 
         # Show progress
@@ -141,7 +143,7 @@ async def test_embedding_accuracy():
             f"{status} [{total:2d}/{len(decisions)}] "
             f"LLM: {llm_outcome:8s} ({llm_conf:.2f}) | "
             f"EMB: {emb_outcome:8s} ({emb_confidence:.2f}) | "
-            f"ID: {intimation_id}"
+            f"ID: {intimation_id}",
         )
 
     # Calculate metrics
@@ -184,7 +186,9 @@ async def test_embedding_accuracy():
     # Show some mismatches
     mismatches = [r for r in results if not r["match"]]
     if mismatches:
-        console.print(f"\n[bold yellow]⚠️  Análise de {len(mismatches)} Discrepâncias:[/bold yellow]\n")
+        console.print(
+            f"\n[bold yellow]⚠️  Análise de {len(mismatches)} Discrepâncias:[/bold yellow]\n"
+        )
 
         for i, result in enumerate(mismatches[:5], 1):
             console.print(f"{i}. Intimation ID: {result['intimation_id']}")
@@ -214,12 +218,20 @@ async def test_embedding_accuracy():
     cost_table.add_column("Custo/Decisão", style="yellow")
     cost_table.add_column("Custo 5.794 decisões", style="green")
 
-    cost_table.add_row("LLM (Gemini Flash)", f"${llm_cost_per_decision:.6f}", f"${llm_cost_per_decision * 5794:.2f}")
     cost_table.add_row(
-        "Embeddings", f"${embedding_cost_per_decision:.6f}", f"${embedding_cost_per_decision * 5794:.2f}"
+        "LLM (Gemini Flash)",
+        f"${llm_cost_per_decision:.6f}",
+        f"${llm_cost_per_decision * 5794:.2f}",
     )
     cost_table.add_row(
-        "[bold]Economia[/bold]", f"[bold green]${savings_per_decision:.6f}[/bold green]", f"[bold green]${total_savings_5k:.2f}[/bold green]"
+        "Embeddings",
+        f"${embedding_cost_per_decision:.6f}",
+        f"${embedding_cost_per_decision * 5794:.2f}",
+    )
+    cost_table.add_row(
+        "[bold]Economia[/bold]",
+        f"[bold green]${savings_per_decision:.6f}[/bold green]",
+        f"[bold green]${total_savings_5k:.2f}[/bold green]",
     )
 
     console.print(cost_table)
@@ -230,17 +242,17 @@ async def test_embedding_accuracy():
     if accuracy >= 80:
         console.print(
             f"[green]✅ Acurácia de {accuracy:.1f}% é excelente! "
-            f"Embeddings podem substituir LLM com economia de ${total_savings_5k:.2f}[/green]"
+            f"Embeddings podem substituir LLM com economia de ${total_savings_5k:.2f}[/green]",
         )
     elif accuracy >= 60:
         console.print(
             f"[yellow]⚠️  Acurácia de {accuracy:.1f}% é aceitável. "
-            f"Considere usar embeddings para triagem e LLM para confirmação.[/yellow]"
+            f"Considere usar embeddings para triagem e LLM para confirmação.[/yellow]",
         )
     else:
         console.print(
             f"[red]❌ Acurácia de {accuracy:.1f}% é baixa. "
-            f"Ajuste as frases de referência ou use abordagem híbrida.[/red]"
+            f"Ajuste as frases de referência ou use abordagem híbrida.[/red]",
         )
 
     conn.close()

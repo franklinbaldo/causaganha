@@ -30,7 +30,7 @@ def mock_firestore():
 @pytest.fixture
 def mock_publisher():
     with patch(
-        "causaganha.infrastructure.cloud.functions.ingest.pubsub_v1.PublisherClient"
+        "causaganha.infrastructure.cloud.functions.ingest.pubsub_v1.PublisherClient",
     ) as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance
@@ -56,7 +56,7 @@ def mock_doc_service():
 @pytest.fixture
 def mock_archive_service():
     with patch(
-        "causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService"
+        "causaganha.infrastructure.cloud.functions.ingest.InternetArchiveService",
     ) as mock_cls:
         instance = AsyncMock()
         mock_cls.return_value = instance

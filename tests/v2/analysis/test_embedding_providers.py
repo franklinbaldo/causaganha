@@ -1,9 +1,7 @@
 """Tests for embedding provider implementations."""
 
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from causaganha.v2.analysis.embedding_providers import (
@@ -48,13 +46,13 @@ class TestGoogleEmbeddingProvider:
         # Mock the HTTP response
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "embedding": {"values": [0.1] * 768}
+            "embedding": {"values": [0.1] * 768},
         }
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
+                return_value=mock_response,
             )
 
             embedding = await provider.embed_text("test text")
@@ -108,13 +106,13 @@ class TestJinaEmbeddingProvider:
         # Mock the HTTP response (Jina uses OpenAI-compatible format)
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "data": [{"embedding": [0.2] * 1024}]
+            "data": [{"embedding": [0.2] * 1024}],
         }
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
+                return_value=mock_response,
             )
 
             embedding = await provider.embed_text("test text")

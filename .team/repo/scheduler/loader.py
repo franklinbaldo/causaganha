@@ -27,11 +27,13 @@ class PersonaLoader:
         # We point to the templates directory relative to this file
         templates_dir = Path(__file__).parent.parent / "templates"
         self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader([
-                str(templates_dir),
-                str(personas_dir),
-                ".",  # Allow loading relative to root if needed
-            ]),
+            loader=jinja2.FileSystemLoader(
+                [
+                    str(templates_dir),
+                    str(personas_dir),
+                    ".",  # Allow loading relative to root if needed
+                ]
+            ),
             undefined=jinja2.Undefined,  # Use lenient Undefined for roster listing
             trim_blocks=True,
             lstrip_blocks=True,
@@ -66,12 +68,15 @@ class PersonaLoader:
                         prompt_file = base_path.with_suffix(".md.j2")
                     # If passed .md but replaced with .j2 (renamed)
                     elif base_path.suffix == ".md" and base_path.with_suffix(".j2").exists():
-                         prompt_file = base_path.with_suffix(".j2")
+                        prompt_file = base_path.with_suffix(".j2")
                     # Append .j2 if missing
                     elif base_path.with_suffix(base_path.suffix + ".j2").exists():
                         prompt_file = base_path.with_suffix(base_path.suffix + ".j2")
                     else:
-                        print(f"Cycle prompt not found: {rel_path} (checked {prompt_file})", file=sys.stderr)
+                        print(
+                            f"Cycle prompt not found: {rel_path} (checked {prompt_file})",
+                            file=sys.stderr,
+                        )
                         continue
 
                 try:
@@ -90,7 +95,10 @@ class PersonaLoader:
             found_personas = {}
 
             # Scan for .md.j2 and .md
-            candidates = sorted(list(self.personas_dir.glob("*/prompt.md.j2")) + list(self.personas_dir.glob("*/prompt.md")))
+            candidates = sorted(
+                list(self.personas_dir.glob("*/prompt.md.j2"))
+                + list(self.personas_dir.glob("*/prompt.md"))
+            )
 
             for p_file in candidates:
                 persona_name = p_file.parent.name
@@ -170,15 +178,16 @@ class PersonaLoader:
         """
         # Load shared blocks
         full_context = {**context, **metadata}
-        
+
         # Inject Password
         import uuid
+
         if "id" in full_context:
             full_context["password"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, full_context["id"]))
 
         # Sprint planning
         from repo.features.sprints import sprint_manager
-        
+
         # Calculate sprint context text (used by sprint_planning_block or legacy append)
         sprint_context = sprint_manager.get_sprint_context(metadata.get("id", "unknown"))
         full_context["sprint_context_text"] = sprint_context
@@ -191,8 +200,8 @@ class PersonaLoader:
                 # Use filename without extension as variable name
                 # e.g. "partials/identity_branding.md.j2" -> "identity_branding"
                 # e.g. "blocks/autonomy.md.j2" -> "autonomy_block"
-                name = Path(template_name).name.split('.')[0]
-                
+                name = Path(template_name).name.split(".")[0]
+
                 if template_name.startswith("blocks/"):
                     var_name = f"{name}_block"
                 else:
@@ -202,7 +211,7 @@ class PersonaLoader:
                     # Render the partial with current context
                     content = self.jinja_env.get_template(template_name).render(**full_context)
                     full_context[var_name] = content
-                    
+
                     # Aliases
                     if var_name == "celebration":
                         full_context["empty_queue_celebration"] = content

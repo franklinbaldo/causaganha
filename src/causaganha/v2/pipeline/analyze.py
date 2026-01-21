@@ -110,7 +110,9 @@ async def analyze_pending_decisions(
             else:  # HYBRID
                 # Hybrid needs both text and PDF URLs
                 results, stats = await analyzer.analyze_batch(
-                    texts, intimation_ids, pdf_urls
+                    texts,
+                    intimation_ids,
+                    pdf_urls,
                 )
                 analyses = results
 
@@ -163,11 +165,7 @@ async def analyze_pending_decisions(
 
     # Calculate savings vs LLM-only
     llm_only_cost = total_analyzed * 0.000420
-    savings_pct = (
-        ((llm_only_cost - total_cost) / llm_only_cost * 100)
-        if llm_only_cost > 0
-        else 0.0
-    )
+    savings_pct = ((llm_only_cost - total_cost) / llm_only_cost * 100) if llm_only_cost > 0 else 0.0
 
     logger.info(
         "analysis_complete",

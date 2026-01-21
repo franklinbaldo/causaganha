@@ -1,12 +1,18 @@
 import structlog
-from pydantic_ai import Agent
 from pydantic import BaseModel, Field
+from pydantic_ai import Agent
+
 from causaganha.ml.types import WinnerLabel
+
 
 logger = structlog.get_logger()
 
+
 class TeacherResult(BaseModel):
-    winner: WinnerLabel = Field(..., description="Who won the case: plaintiff_won, defendant_won, or unclear.")
+    winner: WinnerLabel = Field(
+        ..., description="Who won the case: plaintiff_won, defendant_won, or unclear."
+    )
+
 
 class LLMTeacher:
     def __init__(self, model: str = "google-gla:gemini-2.5-flash"):

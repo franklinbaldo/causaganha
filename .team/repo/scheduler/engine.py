@@ -42,6 +42,7 @@ from repo.scheduler.schedule import (
     update_sequence,
 )
 
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
@@ -49,6 +50,7 @@ from repo.scheduler.schedule import (
 JULES_BOT_AUTHOR = "app/google-labs-jules"
 PERSONA_DIR = Path(".team/personas")
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
 
 # PR States
 class PRState(str, Enum):
@@ -87,6 +89,7 @@ JINJA_ENV = jinja2.Environment(
 # DATA CLASSES
 # ============================================================================
 
+
 @dataclass
 class PRInfo:
     """Pull request information."""
@@ -122,6 +125,7 @@ class SchedulerResult:
 # GITHUB API HELPERS
 # ============================================================================
 
+
 def fetch_jules_prs(state: str = "open") -> list[dict[str, Any]]:
     """Fetch Jules PRs from GitHub CLI.
 
@@ -136,10 +140,15 @@ def fetch_jules_prs(state: str = "open") -> list[dict[str, Any]]:
 
     """
     cmd = [
-        "gh", "pr", "list",
-        "--author", JULES_BOT_AUTHOR,
-        "--state", state,
-        "--json", "number,headRefName,state,isDraft,mergedAt,closedAt",
+        "gh",
+        "pr",
+        "list",
+        "--author",
+        JULES_BOT_AUTHOR,
+        "--state",
+        state,
+        "--json",
+        "number,headRefName,state,isDraft,mergedAt,closedAt",
     ]
 
     if state != "all":
@@ -243,9 +252,18 @@ def find_persona_pr(persona_id: str) -> SyncInfo | None:
     """
     try:
         result = subprocess.run(
-            ["gh", "pr", "list", "--author", JULES_BOT_AUTHOR,
-             "--json", "number,headRefName,baseRefName,body"],
-            capture_output=True, text=True, check=True
+            [
+                "gh",
+                "pr",
+                "list",
+                "--author",
+                JULES_BOT_AUTHOR,
+                "--json",
+                "number,headRefName,baseRefName,body",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         prs = json.loads(result.stdout)
 
@@ -257,7 +275,9 @@ def find_persona_pr(persona_id: str) -> SyncInfo | None:
                 # Get repo info for URL
                 repo_result = subprocess.run(
                     ["gh", "repo", "view", "--json", "owner,name"],
-                    capture_output=True, text=True, check=True
+                    capture_output=True,
+                    text=True,
+                    check=True,
                 )
                 repo_info = json.loads(repo_result.stdout)
                 owner = repo_info["owner"]["login"]
@@ -269,7 +289,7 @@ def find_persona_pr(persona_id: str) -> SyncInfo | None:
                 return SyncInfo(
                     patch_url=patch_url,
                     pr_number=pr["number"],
-                    head_branch=head_branch
+                    head_branch=head_branch,
                 )
     except Exception:
         pass
@@ -280,6 +300,7 @@ def find_persona_pr(persona_id: str) -> SyncInfo | None:
 # ============================================================================
 # SESSION CREATION
 # ============================================================================
+
 
 def build_session_prompt(base_prompt: str, sync_info: SyncInfo | None) -> str:
     """Build session prompt with optional sync instructions.
@@ -334,14 +355,16 @@ def create_persona_session(
         # Get base commit
         result = subprocess.run(
             ["git", "rev-parse", JULES_BRANCH],
-            capture_output=True, text=True, check=False
+            capture_output=True,
+            text=True,
+            check=False,
         )
         result.stdout.strip() if result.returncode == 0 else ""
 
         # Create session branch
         session_branch = branch_mgr.create_session_branch(
             base_branch=JULES_BRANCH,
-            persona_id=persona.id
+            persona_id=persona.id,
         )
 
         # Build prompt
@@ -363,7 +386,7 @@ def create_persona_session(
             return SchedulerResult(
                 success=True,
                 message=f"[DRY RUN] Would create session for {persona.id}",
-                session_id=None
+                session_id=None,
             )
 
         # Create session
@@ -373,20 +396,21 @@ def create_persona_session(
         return SchedulerResult(
             success=True,
             message=f"Created session for {persona.id}",
-            session_id=str(session_id)
+            session_id=str(session_id),
         )
 
     except Exception as e:
         return SchedulerResult(
             success=False,
             message=f"Failed to create session: {e}",
-            error=e
+            error=e,
         )
 
 
 # ============================================================================
 # SEQUENTIAL SCHEDULER
 # ============================================================================
+
 
 def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> SchedulerResult:
     """Execute next persona in sequential order from schedule.csv.
@@ -410,7 +434,7 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
         if not rows:
             return SchedulerResult(
                 success=False,
-                message=f"No schedule found at {SCHEDULE_PATH}"
+                message=f"No schedule found at {SCHEDULE_PATH}",
             )
 
         # Auto-extend if needed
@@ -419,7 +443,6 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
             rows = auto_extend(rows, SCHEDULE_AUTO_EXTEND_COUNT)
             if not dry_run:
                 save_schedule(rows)
-
 
         # Find current sequence
         current, schedule_modified = get_current_sequence(rows)
@@ -431,7 +454,7 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
         if not current:
             return SchedulerResult(
                 success=True,
-                message="All scheduled work complete"
+                message="All scheduled work complete",
             )
 
         seq = current["sequence"]
@@ -439,6 +462,7 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
 
         # Apply any pending votes for this sequence
         from repo.features.voting import VoteManager
+
         vote_mgr = VoteManager()
         voted_winner = vote_mgr.apply_votes(seq)
         if voted_winner and voted_winner != persona_id:
@@ -467,18 +491,19 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
                 save_schedule(rows)
             return SchedulerResult(
                 success=False,
-                message=f"Persona '{persona_id}' not found"
+                message=f"Persona '{persona_id}' not found",
             )
 
         persona = personas[persona_id]
 
         # Governance Check: Persona must be pleaded to the current Constitution
         from repo.features.governance import GovernanceManager
+
         gov = GovernanceManager()
         if not gov.is_persona_pleaded(persona_id):
             return SchedulerResult(
                 success=False,
-                message=f"Persona '{persona_id}' is not pleaded to the latest Team Constitution."
+                message=f"Persona '{persona_id}' is not pleaded to the latest Team Constitution.",
             )
 
         # Check for existing PR
@@ -488,11 +513,15 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
 
         # Create session
         result = create_persona_session(
-            client, persona, seq, sync_info, repo_info, dry_run
+            client,
+            persona,
+            seq,
+            sync_info,
+            repo_info,
+            dry_run,
         )
 
         if result.success and result.session_id:
-
             # Update CSV
             rows = update_sequence(rows, seq, session_id=result.session_id)
             if not dry_run:
@@ -506,13 +535,14 @@ def execute_sequential_tick(dry_run: bool = False, reset: bool = False) -> Sched
         return SchedulerResult(
             success=False,
             message=f"Scheduler error: {e}",
-            error=e
+            error=e,
         )
 
 
 # ============================================================================
 # PR STATUS TRACKER
 # ============================================================================
+
 
 def convert_pr_to_info(pr_dict: dict) -> PRInfo:
     """Convert gh CLI PR dict to PRInfo object.
@@ -575,7 +605,7 @@ def find_pr_for_session(
             # Determine state from timestamps
             merged_at = pr_data.get("mergedAt")
             closed_at = pr_data.get("closedAt")
-            
+
             if merged_at:
                 state = PRState.MERGED
             elif closed_at:
@@ -617,14 +647,14 @@ def update_schedule_pr_status(dry_run: bool = False) -> SchedulerResult:
 
         # Find rows needing updates
         needs_update = [
-            row for row in rows
+            row
+            for row in rows
             if row.get("session_id", "").strip()
             and row.get("pr_status", "").strip().lower() not in [PRState.MERGED, PRState.CLOSED]
         ]
 
         if not needs_update:
             return SchedulerResult(success=True, message="No updates needed")
-
 
         # Build PR lookup
         pr_by_branch = build_pr_lookup()
@@ -638,8 +668,11 @@ def update_schedule_pr_status(dry_run: bool = False) -> SchedulerResult:
             session_id = row.get("session_id", "").strip()
 
             pr_info = find_pr_for_session(
-                session_id, persona, pr_by_branch,
-                repo_info["owner"], repo_info["repo"]
+                session_id,
+                persona,
+                pr_by_branch,
+                repo_info["owner"],
+                repo_info["repo"],
             )
 
             if pr_info:
@@ -649,9 +682,10 @@ def update_schedule_pr_status(dry_run: bool = False) -> SchedulerResult:
                 if str(pr_info.number) != current_pr or pr_info.state != current_status:
                     if not dry_run:
                         rows = update_sequence(
-                            rows, seq,
+                            rows,
+                            seq,
                             pr_number=str(pr_info.number),
-                            pr_status=pr_info.state
+                            pr_status=pr_info.state,
                         )
                     updated += 1
 
@@ -662,20 +696,21 @@ def update_schedule_pr_status(dry_run: bool = False) -> SchedulerResult:
 
         return SchedulerResult(
             success=True,
-            message=f"Updated {updated} rows"
+            message=f"Updated {updated} rows",
         )
 
     except Exception as e:
         return SchedulerResult(
             success=False,
             message=f"PR tracker error: {e}",
-            error=e
+            error=e,
         )
 
 
 # ============================================================================
 # ORACLE FACILITATOR
 # ============================================================================
+
 
 def extract_persona_from_title(title: str, known_personas: list[str]) -> str | None:
     """Extract persona ID from session title.
@@ -714,11 +749,17 @@ def execute_facilitator_tick(dry_run: bool = False) -> SchedulerResult:
 
         # Load personas for identification
         dummy_context = {
-            "owner": "dummy", "repo": "dummy", "open_prs": [],
-            "identity_branding": "", "pre_commit_instructions": "",
-            "autonomy_block": "", "sprint_planning_block": "",
-            "collaboration_block": "", "empty_queue_celebration": "",
-            "journal_management": "", "sprint_context_text": ""
+            "owner": "dummy",
+            "repo": "dummy",
+            "open_prs": [],
+            "identity_branding": "",
+            "pre_commit_instructions": "",
+            "autonomy_block": "",
+            "sprint_planning_block": "",
+            "collaboration_block": "",
+            "empty_queue_celebration": "",
+            "journal_management": "",
+            "sprint_context_text": "",
         }
         loader = PersonaLoader(PERSONA_DIR, dummy_context)
         loader.jinja_env.undefined = jinja2.Undefined
@@ -727,11 +768,7 @@ def execute_facilitator_tick(dry_run: bool = False) -> SchedulerResult:
 
         # Get stuck sessions
         sessions = client.list_sessions().get("sessions", [])
-        stuck_sessions = [
-            s for s in sessions
-            if s.get("state") == SessionState.AWAITING_FEEDBACK
-        ]
-
+        stuck_sessions = [s for s in sessions if s.get("state") == SessionState.AWAITING_FEEDBACK]
 
         # Route questions to Oracle
         for session in stuck_sessions:
@@ -747,8 +784,7 @@ def execute_facilitator_tick(dry_run: bool = False) -> SchedulerResult:
                 questions = [
                     a["message"]["text"]
                     for a in activities
-                    if a.get("type") == "MESSAGE"
-                    and a.get("message", {}).get("role") == "AGENT"
+                    if a.get("type") == "MESSAGE" and a.get("message", {}).get("role") == "AGENT"
                 ]
 
                 if questions:
@@ -800,13 +836,14 @@ def execute_facilitator_tick(dry_run: bool = False) -> SchedulerResult:
         return SchedulerResult(
             success=False,
             message=f"Facilitator error: {e}",
-            error=e
+            error=e,
         )
 
 
 # ============================================================================
 # SINGLE PERSONA EXECUTION
 # ============================================================================
+
 
 def execute_single_persona(persona_id: str, dry_run: bool = False) -> SchedulerResult:
     """Execute a single persona by ID (ad-hoc execution).
@@ -838,20 +875,23 @@ def execute_single_persona(persona_id: str, dry_run: bool = False) -> SchedulerR
         if not target:
             return SchedulerResult(
                 success=False,
-                message=f"Persona '{persona_id}' not found"
+                message=f"Persona '{persona_id}' not found",
             )
-
 
         # Check for sync
         sync_info = find_persona_pr(target.id)
 
         # Create session (no sequence for ad-hoc)
         result = create_persona_session(
-            client, target, "", sync_info, repo_info, dry_run
+            client,
+            target,
+            "",
+            sync_info,
+            repo_info,
+            dry_run,
         )
 
         if result.success and result.session_id:
-
             # Register Oracle sessions
             if target.id == "oracle" and not dry_run:
                 register_oracle_session(result.session_id)
@@ -864,13 +904,14 @@ def execute_single_persona(persona_id: str, dry_run: bool = False) -> SchedulerR
         return SchedulerResult(
             success=False,
             message=f"Single persona error: {e}",
-            error=e
+            error=e,
         )
 
 
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
+
 
 def run_scheduler(
     dry_run: bool = False,
@@ -913,11 +954,13 @@ def run_scheduler(
 
         # 5. Email polling
         from repo.features.polling import EmailPoller
+
         poller = EmailPoller(client)
         poller.poll_and_deliver()
 
         # 6. User Mail Sync (GitHub <-> local)
         from repo.features.mail_handler import run_sync
+
         run_sync()
 
         return result
@@ -926,7 +969,7 @@ def run_scheduler(
         return SchedulerResult(
             success=False,
             message=f"Scheduler error: {e}",
-            error=e
+            error=e,
         )
 
 
@@ -934,10 +977,11 @@ def run_scheduler(
 # LEGACY COMPATIBILITY
 # ============================================================================
 
+
 def execute_scheduled_tick(
     run_all: bool = False,
     prompt_id: str | None = None,
-    dry_run: bool = False
+    dry_run: bool = False,
 ) -> None:
     """Legacy compatibility wrapper.
 

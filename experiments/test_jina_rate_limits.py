@@ -15,13 +15,14 @@ import structlog
 
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 
+
 # Configure logging
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
         structlog.dev.ConsoleRenderer(),
-    ]
+    ],
 )
 
 logger = structlog.get_logger()
@@ -35,7 +36,9 @@ recurso e dar-lhe provimento para reformar a sentença de primeiro grau.
 
 
 async def test_concurrent_embeddings(
-    concurrency: int, total_requests: int, service: EmbeddingService
+    concurrency: int,
+    total_requests: int,
+    service: EmbeddingService,
 ) -> dict[str, Any]:
     """Test embedding generation with specific concurrency level.
 
@@ -62,7 +65,8 @@ async def test_concurrent_embeddings(
             req_start = time.time()
             try:
                 await service.embed_text(
-                    f"{SAMPLE_TEXT} Request {request_num}", add_prefix=False
+                    f"{SAMPLE_TEXT} Request {request_num}",
+                    add_prefix=False,
                 )
                 req_time = time.time() - req_start
                 latencies.append(req_time)
@@ -90,12 +94,8 @@ async def test_concurrent_embeddings(
     # Calculate statistics
     avg_latency = sum(latencies) / len(latencies) if latencies else 0
     p50_latency = sorted(latencies)[len(latencies) // 2] if latencies else 0
-    p95_latency = (
-        sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0
-    )
-    p99_latency = (
-        sorted(latencies)[int(len(latencies) * 0.99)] if latencies else 0
-    )
+    p95_latency = sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0
+    p99_latency = sorted(latencies)[int(len(latencies) * 0.99)] if latencies else 0
 
     return {
         "concurrency": concurrency,
@@ -153,17 +153,17 @@ async def find_optimal_rate():
         print(
             f"   ✓ Successes: {result['successes']}, "
             f"Rate limited: {result['rate_limited']}, "
-            f"Errors: {result['errors']}"
+            f"Errors: {result['errors']}",
         )
         print(
-            f"   ✓ Throughput: {result['requests_per_second']:.2f} requests/second"
+            f"   ✓ Throughput: {result['requests_per_second']:.2f} requests/second",
         )
         print(
             f"   ✓ Latency (avg/p50/p95/p99): "
             f"{result['avg_latency']:.3f}s / "
             f"{result['p50_latency']:.3f}s / "
             f"{result['p95_latency']:.3f}s / "
-            f"{result['p99_latency']:.3f}s"
+            f"{result['p99_latency']:.3f}s",
         )
         print()
 
@@ -243,7 +243,7 @@ async def find_optimal_rate():
     print()
     print(
         f"{'Concurrency':<12} {'Requests':<10} {'Success':<10} "
-        f"{'Rate Limited':<15} {'RPS':<10} {'Avg Latency':<12}"
+        f"{'Rate Limited':<15} {'RPS':<10} {'Avg Latency':<12}",
     )
     print("-" * 80)
     for result in results:
@@ -253,7 +253,7 @@ async def find_optimal_rate():
             f"{result['successes']:<10} "
             f"{result['rate_limited']:<15} "
             f"{result['requests_per_second']:<10.2f} "
-            f"{result['avg_latency']:<12.3f}"
+            f"{result['avg_latency']:<12.3f}",
         )
     print()
 
@@ -265,11 +265,16 @@ async def find_optimal_rate():
         print()
         print("   Jina AI appears to have:")
         breaking_point = next(
-            (r for r in results if r["rate_limited"] > r["total_requests"] * 0.2), None
+            (r for r in results if r["rate_limited"] > r["total_requests"] * 0.2),
+            None,
         )
         if breaking_point:
-            print(f"   • Rate limit threshold around {breaking_point['concurrency']} concurrent requests")
-            print(f"   • Recommend staying below {max(1, breaking_point['concurrency'] - 5)} concurrent")
+            print(
+                f"   • Rate limit threshold around {breaking_point['concurrency']} concurrent requests"
+            )
+            print(
+                f"   • Recommend staying below {max(1, breaking_point['concurrency'] - 5)} concurrent"
+            )
         print()
 
     print("=" * 80)
@@ -289,13 +294,25 @@ async def find_optimal_rate():
     print("  • IP-based limit: 10,000 requests/60s")
     print()
     print("📊 EMPIRICAL vs DOCUMENTED:")
-    print(f"  • Our max throughput: {optimal['requests_per_second']:.2f} req/s" if optimal else "  • Could not determine")
-    print(f"  • Documented limit: 1.67 req/s (100 RPM)")
-    print(f"  • Match: {'✅ Yes' if optimal and optimal['requests_per_second'] < 1.7 else '⚠️ Approaching limit'}")
+    print(
+        f"  • Our max throughput: {optimal['requests_per_second']:.2f} req/s"
+        if optimal
+        else "  • Could not determine"
+    )
+    print("  • Documented limit: 1.67 req/s (100 RPM)")
+    print(
+        f"  • Match: {'✅ Yes' if optimal and optimal['requests_per_second'] < 1.7 else '⚠️ Approaching limit'}"
+    )
     print()
-    print(f"  • Our optimal concurrency: {optimal['concurrency']}" if optimal else "  • Could not determine")
-    print(f"  • Documented limit: 2 concurrent")
-    print(f"  • Match: {'✅ Yes' if optimal and optimal['concurrency'] <= 2 else '❌ Exceeds limit'}")
+    print(
+        f"  • Our optimal concurrency: {optimal['concurrency']}"
+        if optimal
+        else "  • Could not determine"
+    )
+    print("  • Documented limit: 2 concurrent")
+    print(
+        f"  • Match: {'✅ Yes' if optimal and optimal['concurrency'] <= 2 else '❌ Exceeds limit'}"
+    )
     print()
     print("💡 CONCLUSION:")
     print("  • Free tier bottleneck: Concurrent request limit (2)")

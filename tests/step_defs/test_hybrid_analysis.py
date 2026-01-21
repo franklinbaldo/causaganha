@@ -1,19 +1,23 @@
 """Step definitions for hybrid analysis strategy BDD tests."""
 
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from pytest_bdd import given, when, then, scenario, parsers
+
+import pytest
+from pytest_bdd import given, parsers, scenario, then, when
 
 from causaganha.v2.analysis.analyzer import DecisionAnalyzer
 from causaganha.v2.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.v2.analysis.strategy import AnalysisStrategy
 
 
 # Scenarios
-@scenario("../features/hybrid_analysis.feature", "High confidence RAG result does not trigger LLM fallback")
+@scenario(
+    "../features/hybrid_analysis.feature",
+    "High confidence RAG result does not trigger LLM fallback",
+)
 def test_high_confidence_no_fallback():
     """Test hybrid strategy with high RAG confidence."""
 
@@ -38,7 +42,9 @@ def test_method_usage_stats():
     """Test tracking of analysis method statistics."""
 
 
-@scenario("../features/hybrid_analysis.feature", "Hybrid strategy without PDF URL falls back gracefully")
+@scenario(
+    "../features/hybrid_analysis.feature", "Hybrid strategy without PDF URL falls back gracefully"
+)
 def test_no_pdf_graceful_fallback():
     """Test hybrid strategy without PDF URL."""
 
@@ -58,7 +64,9 @@ def test_default_strategy():
     """Test that hybrid is the default strategy."""
 
 
-@scenario("../features/hybrid_analysis.feature", "Store RAG confidence even when using LLM fallback")
+@scenario(
+    "../features/hybrid_analysis.feature", "Store RAG confidence even when using LLM fallback"
+)
 def test_preserve_rag_confidence():
     """Test that RAG confidence is preserved in hybrid results."""
 
@@ -247,7 +255,7 @@ def analyze_hybrid(context, hybrid_analyzer):
 
     loop = asyncio.get_event_loop()
     result = loop.run_until_complete(
-        hybrid_analyzer.analyze_text(text, intimation_id=1, pdf_url=pdf_url)
+        hybrid_analyzer.analyze_text(text, intimation_id=1, pdf_url=pdf_url),
     )
 
     context["analysis_result"] = result
@@ -265,7 +273,7 @@ def run_hybrid_batch(context, hybrid_analyzer):
 
     loop = asyncio.get_event_loop()
     results, stats = loop.run_until_complete(
-        hybrid_analyzer.analyze_batch(texts, pdf_urls=pdf_urls)
+        hybrid_analyzer.analyze_batch(texts, pdf_urls=pdf_urls),
     )
 
     context["batch_results"] = results
@@ -276,7 +284,6 @@ def run_hybrid_batch(context, hybrid_analyzer):
 def check_statistics(context):
     """Prepare to check statistics."""
     # Statistics are already in context from previous steps
-    pass
 
 
 @when("I analyze a decision")
@@ -291,14 +298,14 @@ def analyze_decision(context, mock_rag_analyzer, mock_llm_analyzer):
     if strategy == AnalysisStrategy.LLM:
         # LLM only
         result = loop.run_until_complete(
-            mock_llm_analyzer.analyze_pdf(pdf_url, intimation_id=1)
+            mock_llm_analyzer.analyze_pdf(pdf_url, intimation_id=1),
         )
         context["llm_only_called"] = True
         context["rag_only_called"] = False
     elif strategy == AnalysisStrategy.RAG:
         # RAG only
         result = loop.run_until_complete(
-            mock_rag_analyzer.analyze_text(text, intimation_id=1)
+            mock_rag_analyzer.analyze_text(text, intimation_id=1),
         )
         context["rag_only_called"] = True
         context["llm_only_called"] = False
@@ -306,7 +313,7 @@ def analyze_decision(context, mock_rag_analyzer, mock_llm_analyzer):
         # Hybrid (default)
         hybrid = HybridAnalyzer(mock_rag_analyzer, mock_llm_analyzer)
         result = loop.run_until_complete(
-            hybrid.analyze_text(text, intimation_id=1, pdf_url=pdf_url)
+            hybrid.analyze_text(text, intimation_id=1, pdf_url=pdf_url),
         )
         context["rag_only_called"] = False
         context["llm_only_called"] = False
@@ -325,12 +332,12 @@ def analyze_hybrid_with_fallback(context, mock_rag_analyzer, mock_llm_analyzer):
     hybrid = HybridAnalyzer(
         mock_rag_analyzer,
         mock_llm_analyzer,
-        confidence_threshold=0.70
+        confidence_threshold=0.70,
     )
 
     loop = asyncio.get_event_loop()
     result = loop.run_until_complete(
-        hybrid.analyze_text(text, intimation_id=1, pdf_url=pdf_url)
+        hybrid.analyze_text(text, intimation_id=1, pdf_url=pdf_url),
     )
 
     context["analysis_result"] = result
@@ -427,7 +434,9 @@ def check_cost_savings(context, percentage):
     actual_savings = stats.get("savings_vs_llm", 0.0)
 
     variance = 5.0  # Allow 5% variance
-    assert abs(actual_savings - percentage) <= variance, f"Savings {actual_savings}% not approximately {percentage}%"
+    assert (
+        abs(actual_savings - percentage) <= variance
+    ), f"Savings {actual_savings}% not approximately {percentage}%"
 
 
 @then(parsers.parse("the RAG usage rate should be {percentage:d}%"))
@@ -439,7 +448,9 @@ def check_rag_usage_rate(context, percentage):
     actual_rate = (rag_used / total * 100) if total > 0 else 0.0
 
     variance = 5.0
-    assert abs(actual_rate - percentage) <= variance, f"RAG usage {actual_rate}% not approximately {percentage}%"
+    assert (
+        abs(actual_rate - percentage) <= variance
+    ), f"RAG usage {actual_rate}% not approximately {percentage}%"
 
 
 @then(parsers.parse("the LLM fallback rate should be {percentage:d}%"))
@@ -451,7 +462,9 @@ def check_llm_fallback_rate(context, percentage):
     actual_rate = (llm_used / total * 100) if total > 0 else 0.0
 
     variance = 5.0
-    assert abs(actual_rate - percentage) <= variance, f"LLM fallback {actual_rate}% not approximately {percentage}%"
+    assert (
+        abs(actual_rate - percentage) <= variance
+    ), f"LLM fallback {actual_rate}% not approximately {percentage}%"
 
 
 @then(parsers.parse("the average cost per decision should be approximately ${expected:f}"))
@@ -465,7 +478,9 @@ def check_avg_cost_per_decision(context, expected):
     actual_avg = total_cost / total if total > 0 else 0.0
 
     variance = expected * 0.05
-    assert abs(actual_avg - expected) <= variance, f"Avg cost ${actual_avg} not approximately ${expected}"
+    assert (
+        abs(actual_avg - expected) <= variance
+    ), f"Avg cost ${actual_avg} not approximately ${expected}"
 
 
 @then(parsers.parse('the analysis method should be "{method}"'))
@@ -525,8 +540,9 @@ def check_rag_confidence_field(context, confidence):
     result = context["analysis_result"]
     assert result.rag_confidence is not None, "RAG confidence not preserved"
     # Allow small variance
-    assert abs(result.rag_confidence - confidence) <= 0.1, \
-        f"RAG confidence {result.rag_confidence} not approximately {confidence}"
+    assert (
+        abs(result.rag_confidence - confidence) <= 0.1
+    ), f"RAG confidence {result.rag_confidence} not approximately {confidence}"
 
 
 @then("the rag_votes should be preserved")

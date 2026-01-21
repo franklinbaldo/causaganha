@@ -1,6 +1,5 @@
 """Jules Auto-Fixer."""
 
-import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ from repo.core.github import (
     get_repo_info,
 )
 
+
 AUTOFIX_AUTOMATION_MODE = "AUTO_CREATE_PR"
 
 
@@ -29,7 +29,7 @@ def post_pr_comment(pr_number: int, comment: str, repo_path: str = ".") -> None:
         subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=repo_path)
         print(f"📝 Posted comment on PR #{pr_number}")
     except FileNotFoundError:
-        print(f"⚠️  gh CLI not found - skipping PR comment")
+        print("⚠️  gh CLI not found - skipping PR comment")
     except subprocess.CalledProcessError as e:
         print(f"⚠️  Failed to post PR comment: {e.stderr if e.stderr else e}")
     except Exception as e:
@@ -56,7 +56,7 @@ def _public_issues_block(details: dict[str, Any], logs_summary: str) -> str:
         suffix = "\n\n_(resumo truncado)_" if len(logs_summary) > 3000 else ""
         lines.append(
             "\n<details><summary>Resumo dos logs</summary>\n\n"
-            f"```text\n{short}\n```{suffix}\n</details>"
+            f"```text\n{short}\n```{suffix}\n</details>",
         )
     return "\n".join(lines) if lines else "- ✅ Nenhum problema detectado."
 
@@ -78,7 +78,10 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
     if details.get("failed_check_names"):
         logs_summary = fetch_failed_logs_summary(pr_number, cwd=repo_root)
         full_ci_logs = fetch_full_ci_logs(
-            pr_number=pr_number, branch=details.get("branch", ""), repo_full=repo_full, cwd=repo_root
+            pr_number=pr_number,
+            branch=details.get("branch", ""),
+            repo_full=repo_full,
+            cwd=repo_root,
         )
 
     feedback = _render_feedback_prompt(
@@ -119,9 +122,7 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
         print(f"📋 {creation_reason} - creating NEW Jules session for PR #{pr_number}")
 
         # Get repo info from environment
-        owner, repo = (
-            repo_full.split("/") if "/" in repo_full else ("franklinbaldo", "egregora")
-        )
+        owner, repo = repo_full.split("/") if "/" in repo_full else ("franklinbaldo", "egregora")
 
         # Get base branch SHA for context
         base_sha = get_base_sha(details["base_branch"], repo_path=repo_root)
@@ -171,7 +172,9 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
                 require_plan_approval=False,
             )
 
-            new_session_id = new_session.get("name", "").split("/")[-1] if new_session.get("name") else "unknown"
+            new_session_id = (
+                new_session.get("name", "").split("/")[-1] if new_session.get("name") else "unknown"
+            )
             print(f"✅ Created new session: {new_session_id}")
 
             # Post success comment
@@ -296,7 +299,9 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
             "session_state": session_state,
         }
     except Exception as e:
-        error_msg = f"Failed to send message to session {session_id} (state: {session_state}): {e!s}"
+        error_msg = (
+            f"Failed to send message to session {session_id} (state: {session_state}): {e!s}"
+        )
         comment = (
             f"## 🤖 Auto-Fix: Failed\n\n"
             f"❌ **Error sending message to Jules session**\n\n"
@@ -321,7 +326,10 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
 
 
 def _render_feedback_prompt(
-    pr_number: int, details: dict[str, Any], logs_summary: str, full_ci_logs: str
+    pr_number: int,
+    details: dict[str, Any],
+    logs_summary: str,
+    full_ci_logs: str,
 ) -> str:
     """Render the feedback prompt using Jinja for clarity and flexibility."""
     env = jinja2.Environment(

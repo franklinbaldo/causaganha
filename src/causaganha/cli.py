@@ -1,6 +1,4 @@
 import asyncio
-from datetime import date, timedelta
-from typing import Any
 
 import structlog
 import typer
@@ -9,13 +7,14 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from causaganha.config import settings
 from causaganha.infrastructure.clients.archive import create_archive_service
 from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.v2.pipeline.analyze import analyze_pending_decisions
+from causaganha.v2.pipeline.archive import archive_documents
 
 # Import V2 pipelines
 from causaganha.v2.pipeline.collect import collect_metadata_for_all_courts
-from causaganha.v2.pipeline.archive import archive_documents
-from causaganha.v2.pipeline.analyze import analyze_pending_decisions
 from causaganha.v2.pipeline.score import calculate_ratings
 from causaganha.v2.storage.connection import get_connection
+
 
 # Configure logging
 structlog.configure(
@@ -54,7 +53,8 @@ def _handle_error(e: Exception, message: str) -> None:
 def collect(
     days_back: int = typer.Option(7, help="Days back to fetch"),
     courts: str | None = typer.Option(
-        None, help="Comma-separated list of courts. Defaults to config."
+        None,
+        help="Comma-separated list of courts. Defaults to config.",
     ),
 ) -> None:
     """Collect intimations from PJe."""
@@ -157,8 +157,12 @@ def analyze(
                 typer.echo(f"  Failed: {result['failed']}")
 
                 if strategy in ["hybrid", "auto"]:
-                    typer.echo(f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)")
-                    typer.echo(f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)")
+                    typer.echo(
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)"
+                    )
+                    typer.echo(
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)"
+                    )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
                 typer.echo(f"  Cost/decision: ${result['cost_per_decision']:.6f}")
@@ -196,7 +200,8 @@ def score(
 def pipeline(
     days_back: int = typer.Option(1, help="Days back to collect"),
     courts: str | None = typer.Option(
-        None, help="Comma-separated list of courts. Defaults to config."
+        None,
+        help="Comma-separated list of courts. Defaults to config.",
     ),
     analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
     archive_limit: int = typer.Option(10, help="Number of items to archive"),
@@ -280,7 +285,6 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
         try:
             typer.echo("Running migrations...")
             con = get_connection()
-            import os
             from pathlib import Path
 
             migrations_dir = Path("src/causaganha/v2/storage/migrations")
@@ -313,7 +317,9 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 
 @app.command()
 def export_parquet(
-    date: str | None = typer.Option(None, help="Date to export (YYYY-MM-DD), defaults to yesterday"),
+    date: str | None = typer.Option(
+        None, help="Date to export (YYYY-MM-DD), defaults to yesterday"
+    ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
     backfill: bool = typer.Option(False, help="Backfill mode"),
     start_date: str | None = typer.Option(None, help="Start date for backfill (YYYY-MM-DD)"),
@@ -325,9 +331,9 @@ def export_parquet(
 
     async def _run() -> None:
         try:
-            from causaganha.v2.pipeline.parquet_export import ParquetExporter, ExportConfig
-            from causaganha.v2.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
             from causaganha.v2.pipeline.export_orchestrator import ExportOrchestrator
+            from causaganha.v2.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+            from causaganha.v2.pipeline.parquet_export import ExportConfig, ParquetExporter
 
             # Initialize components
             con = get_connection()
@@ -355,7 +361,9 @@ def export_parquet(
                 ) as progress:
                     progress.add_task(description="Backfilling exports...", total=None)
                     result = await orchestrator.backfill_historical(
-                        start_date, end_date, cleanup_files
+                        start_date,
+                        end_date,
+                        cleanup_files,
                     )
 
                 # Display results
@@ -381,7 +389,11 @@ def export_parquet(
 
                     progress.add_task(description="Uploading to Internet Archive...", total=None)
                     ia_url = await uploader.upload_parquet(
-                        file_path, tribunal, date, file_size_mb, row_count
+                        file_path,
+                        tribunal,
+                        date,
+                        file_size_mb,
+                        row_count,
                     )
 
                 typer.echo("\n✅ Export complete!")
@@ -413,7 +425,9 @@ def export_parquet(
 
                 typer.echo("\n✅ Daily export complete!")
                 typer.echo(f"  Date: {result['date']}")
-                typer.echo(f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)")
+                typer.echo(
+                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)"
+                )
                 typer.echo(f"  Failed: {result['failed']}")
                 typer.echo(f"  Skipped (already exported): {result['skipped']}")
                 typer.echo(f"  Total rows: {result['total_rows']:,}")
@@ -456,6 +470,7 @@ def export_status(
 
         # Get date range
         from datetime import date, timedelta
+
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
@@ -499,7 +514,13 @@ def export_status(
                 current_date = pdate
 
             status_icon = "✓" if status == "completed" else "✗" if status == "failed" else "⏳"
-            status_color = typer.colors.GREEN if status == "completed" else typer.colors.RED if status == "failed" else typer.colors.YELLOW
+            status_color = (
+                typer.colors.GREEN
+                if status == "completed"
+                else typer.colors.RED
+                if status == "failed"
+                else typer.colors.YELLOW
+            )
 
             typer.echo(f"  {status_icon} ", nl=False)
             typer.secho(f"{trib:6}", fg=status_color, nl=False)
@@ -511,7 +532,7 @@ def export_status(
                 typer.echo()
 
         # Summary statistics
-        typer.echo(f"\n📈 Summary:")
+        typer.echo("\n📈 Summary:")
 
         stats_query = """
             SELECT
@@ -526,7 +547,11 @@ def export_status(
 
         if tribunal:
             stats_query += " AND tribunal = ?"
-            stats_params = [start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"), tribunal]
+            stats_params = [
+                start_date.strftime("%Y-%m-%d"),
+                end_date.strftime("%Y-%m-%d"),
+                tribunal,
+            ]
         else:
             stats_params = [start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")]
 
@@ -565,7 +590,7 @@ def groundtruth_status() -> None:
 
         if "ground_truth" in tables:
             info = store.get_table_info("ground_truth")
-            typer.echo(f"\n✅ Ground truth table exists:")
+            typer.echo("\n✅ Ground truth table exists:")
             typer.echo(f"  Records: {info['num_records']}")
         else:
             typer.echo("\n❌ Ground truth table not found.")

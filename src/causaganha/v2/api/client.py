@@ -1,10 +1,12 @@
 """PJe Communications API client with httpx."""
 
 import os
-import httpx
 from datetime import date
-from pydantic import BaseModel, ConfigDict, Field
+
+import httpx
 import structlog
+from pydantic import BaseModel, ConfigDict, Field
+
 
 logger = structlog.get_logger()
 

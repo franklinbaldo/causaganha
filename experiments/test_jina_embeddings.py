@@ -17,13 +17,14 @@ import structlog
 
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 
+
 # Configure logging
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
         structlog.dev.ConsoleRenderer(),
-    ]
+    ],
 )
 
 logger = structlog.get_logger()
@@ -63,7 +64,7 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     """Calculate cosine similarity between two vectors."""
     import math
 
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
     magnitude1 = math.sqrt(sum(a * a for a in vec1))
     magnitude2 = math.sqrt(sum(b * b for b in vec2))
 
@@ -146,13 +147,17 @@ async def test_jina_provider():
 
     start = time.time()
     query_emb = await jina_service.embed_text(
-        query_text, task_type="RETRIEVAL_QUERY", add_prefix=False
+        query_text,
+        task_type="RETRIEVAL_QUERY",
+        add_prefix=False,
     )
     query_time = time.time() - start
 
     start = time.time()
     doc_emb = await jina_service.embed_text(
-        doc_text, task_type="RETRIEVAL_DOCUMENT", add_prefix=False
+        doc_text,
+        task_type="RETRIEVAL_DOCUMENT",
+        add_prefix=False,
     )
     doc_time = time.time() - start
 
@@ -201,9 +206,7 @@ async def test_jina_provider():
         "long": emb3,
     }
 
-    similarities = {
-        name: cosine_similarity(query_emb, emb) for name, emb in doc_embeddings.items()
-    }
+    similarities = {name: cosine_similarity(query_emb, emb) for name, emb in doc_embeddings.items()}
 
     print("Query: 'Qual foi o resultado da decisão?'")
     for name, sim in sorted(similarities.items(), key=lambda x: x[1], reverse=True):
@@ -234,7 +237,7 @@ async def test_jina_provider():
 
     print(f"✓ Similarity (with/without prefix): {similarity:.4f}")
     print(
-        f"✓ Prefix impact: {'High' if similarity < 0.95 else 'Low'} (lower = more impact)"
+        f"✓ Prefix impact: {'High' if similarity < 0.95 else 'Low'} (lower = more impact)",
     )
     print()
 
@@ -248,11 +251,11 @@ async def test_jina_provider():
     print(f"  • Dimension: {jina_service.provider.dimension}")
     print(f"  • Average latency: ~{elapsed/len(texts):.3f}s per embedding")
     print(f"  • Vector quality: Magnitude ~{stats['magnitude']:.2f}")
-    print(f"  • Task differentiation: Working as expected")
-    print(f"  • Semantic similarity: Capturing legal concepts effectively")
+    print("  • Task differentiation: Working as expected")
+    print("  • Semantic similarity: Capturing legal concepts effectively")
     print()
     print(
-        "💡 Recommendation: Jina embeddings are working well for legal text analysis."
+        "💡 Recommendation: Jina embeddings are working well for legal text analysis.",
     )
     print()
 

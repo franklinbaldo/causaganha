@@ -3,8 +3,9 @@
 import typer
 
 from repo.features.autofix import auto_reply_to_jules
-from repo.scheduler.managers import BranchManager
 from repo.scheduler.engine import run_scheduler
+from repo.scheduler.managers import BranchManager
+
 
 app = typer.Typer()
 schedule_app = typer.Typer()
@@ -19,8 +20,12 @@ app.add_typer(sync_app, name="sync")
 def schedule_tick(
     all: bool = typer.Option(False, "--all", help="Run all enabled prompts regardless of schedule"),  # noqa: FBT001, FBT003, A002
     dry_run: bool = typer.Option(False, "--dry-run", help="Do not create sessions"),  # noqa: FBT001, FBT003
-    prompt_id: str = typer.Option(None, "--prompt-id", help="Run only specific prompt ID or prompt path"),
-    reset: bool = typer.Option(False, "--reset", help="Reset cycle and start from the first persona"),
+    prompt_id: str = typer.Option(
+        None, "--prompt-id", help="Run only specific prompt ID or prompt path"
+    ),
+    reset: bool = typer.Option(
+        False, "--reset", help="Reset cycle and start from the first persona"
+    ),
 ) -> None:
     """Run the scheduler tick."""
     result = run_scheduler(dry_run=dry_run, persona_id=prompt_id, reset=reset)

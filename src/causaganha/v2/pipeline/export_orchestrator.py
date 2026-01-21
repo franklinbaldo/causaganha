@@ -1,5 +1,4 @@
-"""
-Export Orchestration Module
+"""Export Orchestration Module
 
 Coordinates the daily Parquet export pipeline:
 1. Query DuckDB for previous day's data
@@ -16,11 +15,10 @@ Usage:
 import asyncio
 import logging
 from datetime import date, datetime, timedelta
-from pathlib import Path
-from typing import Optional
 
 from .ia_upload import InternetArchiveUploader
 from .parquet_export import ParquetExporter
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +32,7 @@ class ExportOrchestrator:
         parquet_exporter: ParquetExporter,
         ia_uploader: InternetArchiveUploader,
     ):
-        """
-        Initialize export orchestrator.
+        """Initialize export orchestrator.
 
         Args:
             db_connection: Ibis DuckDB connection
@@ -48,10 +45,11 @@ class ExportOrchestrator:
         logger.info("ExportOrchestrator initialized")
 
     async def run_daily_export(
-        self, partition_date: Optional[str] = None, cleanup_files: bool = True
+        self,
+        partition_date: str | None = None,
+        cleanup_files: bool = True,
     ) -> dict:
-        """
-        Run daily export for specified date (defaults to yesterday).
+        """Run daily export for specified date (defaults to yesterday).
 
         Args:
             partition_date: Date in YYYY-MM-DD format (None = yesterday)
@@ -72,14 +70,15 @@ class ExportOrchestrator:
 
         # Get tribunals with data for this date
         tribunals = await asyncio.to_thread(
-            self.exporter._get_tribunals_for_date, partition_date
+            self.exporter._get_tribunals_for_date,
+            partition_date,
         )
 
         if not tribunals:
             raise ValueError(f"No data found for date {partition_date}")
 
         logger.info(
-            f"Found {len(tribunals)} tribunals with data for {partition_date}"
+            f"Found {len(tribunals)} tribunals with data for {partition_date}",
         )
 
         # Track results
@@ -98,13 +97,15 @@ class ExportOrchestrator:
         for tribunal in tribunals:
             try:
                 success = await self._export_tribunal(
-                    partition_date, tribunal, cleanup_files
+                    partition_date,
+                    tribunal,
+                    cleanup_files,
                 )
 
                 if success["skipped"]:
                     results["skipped"] += 1
                     logger.info(
-                        f"Skipped {tribunal} (already exported)"
+                        f"Skipped {tribunal} (already exported)",
                     )
                 else:
                     results["successful"] += 1
@@ -112,7 +113,7 @@ class ExportOrchestrator:
                     results["total_size_mb"] += success["file_size_mb"]
                     logger.info(
                         f"✓ {tribunal}: {success['row_count']} rows, "
-                        f"{success['file_size_mb']:.2f} MB"
+                        f"{success['file_size_mb']:.2f} MB",
                     )
 
             except Exception as e:
@@ -140,7 +141,7 @@ class ExportOrchestrator:
             f"({success_rate:.1f}%), "
             f"{results['total_rows']:,} rows, "
             f"{results['total_size_mb']:.1f} MB, "
-            f"duration: {duration}"
+            f"duration: {duration}",
         )
 
         # Purge old data if exports were successful
@@ -150,10 +151,12 @@ class ExportOrchestrator:
         return results
 
     async def _export_tribunal(
-        self, partition_date: str, tribunal: str, cleanup_files: bool
+        self,
+        partition_date: str,
+        tribunal: str,
+        cleanup_files: bool,
     ) -> dict:
-        """
-        Export single tribunal partition.
+        """Export single tribunal partition.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -176,7 +179,8 @@ class ExportOrchestrator:
         # 1. Export to Parquet
         logger.info(f"Exporting {tribunal} for {partition_date}...")
         file_path, row_count = await self.exporter.export_day_tribunal(
-            partition_date, tribunal
+            partition_date,
+            tribunal,
         )
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
@@ -184,7 +188,11 @@ class ExportOrchestrator:
         # 2. Upload to Internet Archive
         logger.info(f"Uploading {file_path.name} to Internet Archive...")
         ia_url = await self.uploader.upload_parquet(
-            file_path, tribunal, partition_date, file_size_mb, row_count
+            file_path,
+            tribunal,
+            partition_date,
+            file_size_mb,
+            row_count,
         )
 
         # 3. Record in database
@@ -210,8 +218,7 @@ class ExportOrchestrator:
         }
 
     async def _already_exported(self, partition_date: str, tribunal: str) -> bool:
-        """
-        Check if partition already exported.
+        """Check if partition already exported.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -227,17 +234,20 @@ class ExportOrchestrator:
         """
 
         result = await asyncio.to_thread(
-            self.db.raw_sql, query, [tribunal, partition_date]
+            self.db.raw_sql,
+            query,
+            [tribunal, partition_date],
         )
 
         count = result.fetchone()[0]
         return count > 0
 
     async def _record_export_pending(
-        self, partition_date: str, tribunal: str
+        self,
+        partition_date: str,
+        tribunal: str,
     ) -> None:
-        """
-        Record export as pending in database.
+        """Record export as pending in database.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -272,8 +282,7 @@ class ExportOrchestrator:
         row_count: int,
         file_size_mb: float,
     ) -> None:
-        """
-        Record successful export in database.
+        """Record successful export in database.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -319,10 +328,12 @@ class ExportOrchestrator:
         logger.debug(f"Recorded successful export: {tribunal} {partition_date}")
 
     async def _record_export_failure(
-        self, partition_date: str, tribunal: str, error: str
+        self,
+        partition_date: str,
+        tribunal: str,
+        error: str,
     ) -> None:
-        """
-        Record failed export in database.
+        """Record failed export in database.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -354,8 +365,7 @@ class ExportOrchestrator:
         logger.debug(f"Recorded failed export: {tribunal} {partition_date}")
 
     async def _purge_old_data(self, current_date: str) -> None:
-        """
-        Purge intimations older than 6 months that have been exported.
+        """Purge intimations older than 6 months that have been exported.
 
         Args:
             current_date: Current date being processed (YYYY-MM-DD)
@@ -384,10 +394,12 @@ class ExportOrchestrator:
         logger.info(f"Purged {rows_deleted:,} old intimation rows")
 
     async def backfill_historical(
-        self, start_date: str, end_date: str, cleanup_files: bool = True
+        self,
+        start_date: str,
+        end_date: str,
+        cleanup_files: bool = True,
     ) -> dict:
-        """
-        Backfill historical data exports.
+        """Backfill historical data exports.
 
         Args:
             start_date: Start date in YYYY-MM-DD format
@@ -431,7 +443,7 @@ class ExportOrchestrator:
                 summary["failed_exports"] += result["failed"]
 
                 logger.info(
-                    f"Backfilled {date_str}: {result['successful']}/{result['total_tribunals']} successful"
+                    f"Backfilled {date_str}: {result['successful']}/{result['total_tribunals']} successful",
                 )
 
             except Exception as e:
@@ -446,7 +458,7 @@ class ExportOrchestrator:
 
         logger.info(
             f"Backfill complete: {summary['successful_days']}/{summary['total_days']} days, "
-            f"{summary['successful_exports']} exports"
+            f"{summary['successful_exports']} exports",
         )
 
         return summary

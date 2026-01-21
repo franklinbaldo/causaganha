@@ -21,12 +21,14 @@ from repo.core.github import (
     get_pr_details_via_gh,
     get_repo_info,
 )
+
+
 # Legacy placeholders - templates moved to .md.j2
 IDENTITY_BRANDING = ""
 JOURNAL_MANAGEMENT = ""
 CELEBRATION = ""
 PRE_COMMIT_INSTRUCTIONS = ""
-from repo.features.sprints import SprintManager, sprint_manager
+from repo.features.sprints import sprint_manager
 
 
 def load_schedule_registry(registry_path: Path) -> dict:
@@ -56,7 +58,13 @@ def load_prompt_entries(prompts_dir: Path, cycle_list: list[str]) -> list[dict[s
                     print(f"Cycle prompt missing id: {rel_path}", file=sys.stderr)
                     continue
                 entries.append(
-                    {"id": pid, "path": p_file, "rel_path": rel_path, "emoji": emoji, "title": title}
+                    {
+                        "id": pid,
+                        "path": p_file,
+                        "rel_path": rel_path,
+                        "emoji": emoji,
+                        "title": title,
+                    },
                 )
             except Exception as exc:
                 print(f"Failed to load cycle prompt {rel_path}: {exc}", file=sys.stderr)
@@ -72,7 +80,13 @@ def load_prompt_entries(prompts_dir: Path, cycle_list: list[str]) -> list[dict[s
             if pid:
                 rel_path = str(p_file.relative_to(base_dir))
                 entries.append(
-                    {"id": pid, "path": p_file, "rel_path": rel_path, "emoji": emoji, "title": title}
+                    {
+                        "id": pid,
+                        "path": p_file,
+                        "rel_path": rel_path,
+                        "emoji": emoji,
+                        "title": title,
+                    },
                 )
         except Exception:
             pass
@@ -143,7 +157,9 @@ def parse_prompt_file(filepath: Path, context: dict) -> dict:
     full_context["identity_branding"] = env.from_string(IDENTITY_BRANDING).render(**full_context)
     full_context["journal_management"] = env.from_string(JOURNAL_MANAGEMENT).render(**full_context)
     full_context["empty_queue_celebration"] = env.from_string(CELEBRATION).render(**full_context)
-    full_context["pre_commit_instructions"] = env.from_string(PRE_COMMIT_INSTRUCTIONS).render(**full_context)
+    full_context["pre_commit_instructions"] = env.from_string(PRE_COMMIT_INSTRUCTIONS).render(
+        **full_context
+    )
 
     # Add sprint context to the body
     sprint_context = sprint_manager.get_sprint_context(config.get("id", "unknown"))
@@ -266,7 +282,10 @@ def get_last_cycle_session(
             pr = _get_pr_by_session_id_any_state(repo_info["owner"], repo_info["repo"], session_id)
         if not pr:
             start_branch = (
-                session.get("sourceContext", {}).get("githubRepoContext", {}).get("startingBranch", "") or ""
+                session.get("sourceContext", {})
+                .get("githubRepoContext", {})
+                .get("startingBranch", "")
+                or ""
             )
             if _is_scheduler_branch(start_branch):
                 persona_id = _match_persona_from_branch(start_branch, cycle_entries)
@@ -284,7 +303,9 @@ def get_last_cycle_session(
     return None, None
 
 
-def _get_pr_by_session_id_any_state(owner: str, repo: str, session_id: str) -> dict[str, Any] | None:
+def _get_pr_by_session_id_any_state(
+    owner: str, repo: str, session_id: str
+) -> dict[str, Any] | None:
     """Proxy to allow monkeypatching in the compatibility scheduler."""
     scheduler_module = sys.modules.get("repo.scheduler")
     if scheduler_module:
@@ -345,13 +366,18 @@ def prepare_session_base_branch(
     try:
         subprocess.run(["git", "fetch", "origin", base_branch], check=True, capture_output=True)
         result = subprocess.run(
-            ["git", "rev-parse", f"origin/{base_branch}"], capture_output=True, text=True, check=True
+            ["git", "rev-parse", f"origin/{base_branch}"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         base_sha = result.stdout.strip()
         print(f"Base branch '{base_branch}' is at SHA: {base_sha[:12]}")
 
         subprocess.run(
-            ["git", "push", "origin", f"{base_sha}:refs/heads/{base_ref}"], check=True, capture_output=True
+            ["git", "push", "origin", f"{base_sha}:refs/heads/{base_ref}"],
+            check=True,
+            capture_output=True,
         )
         print(f"Prepared base branch '{base_ref}' from {base_branch}")
         return base_ref
@@ -372,12 +398,14 @@ def is_scheduled_drifted() -> bool:
             text=True,
         )
         if result.returncode == 1:
-            print(f"Drift detected: Conflicting changes between 'origin/{JULES_BRANCH}' and 'origin/main'.")
+            print(
+                f"Drift detected: Conflicting changes between 'origin/{JULES_BRANCH}' and 'origin/main'."
+            )
             return True
         if result.returncode > 1:
             stderr = result.stderr.strip()
             print(
-                f"Warning: git merge-tree failed with code {result.returncode}: {stderr}. Assuming NO drift to avoid accidental rotation."
+                f"Warning: git merge-tree failed with code {result.returncode}: {stderr}. Assuming NO drift to avoid accidental rotation.",
             )
             return False
         return False
@@ -443,10 +471,14 @@ def update_scheduled_from_main() -> bool:
         subprocess.run(["git", "config", "user.name", "Team Bot"], check=False)
         subprocess.run(["git", "config", "user.email", "team-bot@egregora.com"], check=False)
         subprocess.run(
-            ["git", "checkout", "-B", JULES_BRANCH, f"origin/{JULES_BRANCH}"], check=True, capture_output=True
+            ["git", "checkout", "-B", JULES_BRANCH, f"origin/{JULES_BRANCH}"],
+            check=True,
+            capture_output=True,
         )
         print(f"Merging origin/main into '{JULES_BRANCH}'...")
-        subprocess.run(["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True
+        )
         subprocess.run(["git", "push", "origin", JULES_BRANCH], check=True, capture_output=True)
         print(f"Successfully updated '{JULES_BRANCH}' from main.")
         return True
@@ -478,7 +510,10 @@ def ensure_scheduled_branch_exists() -> None:
 
         print(f"Branch '{JULES_BRANCH}' needs recreation. Creating from main...")
         result = subprocess.run(
-            ["git", "rev-parse", "origin/main"], capture_output=True, text=True, check=True
+            ["git", "rev-parse", "origin/main"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         main_sha = result.stdout.strip()
         subprocess.run(
@@ -581,7 +616,9 @@ def run_cycle_step(
 
             print(f"Next persona: {next_entry['id']}. Starting from '{JULES_BRANCH}'.")
         else:
-            merged_pr = _get_pr_by_session_id_any_state(repo_info["owner"], repo_info["repo"], last_session_id)
+            merged_pr = _get_pr_by_session_id_any_state(
+                repo_info["owner"], repo_info["repo"], last_session_id
+            )
             if merged_pr and merged_pr.get("mergedAt"):
                 base_pr_number = str(merged_pr.get("number", ""))
                 print(f"PR for session {last_session_id} already merged. Continuing.")
@@ -610,7 +647,9 @@ def run_cycle_step(
                     # Handle terminal states
                     if state == "CANCELLED":
                         # CANCELLED means intentionally stopped - skip to next persona
-                        print(f"Session {last_session_id} was cancelled. Advancing to next persona.")
+                        print(
+                            f"Session {last_session_id} was cancelled. Advancing to next persona."
+                        )
                         if last_pid in cycle_ids:
                             idx = cycle_ids.index(last_pid)
                             next_idx = (idx + 1) % len(cycle_entries)
@@ -622,7 +661,7 @@ def run_cycle_step(
                     elif state in ["COMPLETED", "FAILED"]:
                         # Session completed/failed but no PR - ask Jules to finalize
                         print(
-                            f"Session {last_session_id} is in state '{state}' but no PR was created."
+                            f"Session {last_session_id} is in state '{state}' but no PR was created.",
                         )
                         print("Sending message to request PR creation...")
                         if not dry_run:
@@ -636,14 +675,14 @@ def run_cycle_step(
                         return  # Wait for Jules to create PR
                     elif state == "AWAITING_PLAN_APPROVAL":
                         print(
-                            f"Session {last_session_id} is awaiting plan approval. Approving automatically..."
+                            f"Session {last_session_id} is awaiting plan approval. Approving automatically...",
                         )
                         if not dry_run:
                             client.approve_plan(last_session_id)
                         return  # Wait for approval to take effect
                     elif state == "AWAITING_USER_FEEDBACK":
                         print(
-                            f"Session {last_session_id} is awaiting user feedback (stuck). Sending nudge..."
+                            f"Session {last_session_id} is awaiting user feedback (stuck). Sending nudge...",
                         )
                         if not dry_run:
                             nudge_text = "Please make the best decision possible and proceed autonomously to complete the task."
@@ -651,7 +690,9 @@ def run_cycle_step(
                             print(f"Nudge sent to session {last_session_id}.")
                         return  # Wait for nudge to take effect
                     else:
-                        print(f"PR for session {last_session_id} not found. Session state: {state}. Waiting.")
+                        print(
+                            f"PR for session {last_session_id} not found. Session state: {state}. Waiting."
+                        )
                         return
                 except Exception as e:
                     print(f"Error checking/approving session {last_session_id}: {e}")
@@ -714,7 +755,10 @@ def run_cycle_step(
 
 
 def run_scheduler(
-    command: str, run_all: bool = False, dry_run: bool = False, prompt_id: str | None = None
+    command: str,
+    run_all: bool = False,
+    dry_run: bool = False,
+    prompt_id: str | None = None,
 ) -> None:
     client = TeamClient()
     repo_info = get_repo_info()

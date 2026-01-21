@@ -54,21 +54,25 @@ class ParquetSchema(BaseModel):
     decision_date: date | None = Field(None, description="The date of the decision.")
     download_url: str = Field(..., description="URL to the original PDF document.")
     needs_download: bool = Field(
-        ..., description="Flag indicating if the PDF needs to be downloaded."
+        ...,
+        description="Flag indicating if the PDF needs to be downloaded.",
     )
     ia_url: str | None = Field(None, description="URL of the document on the Internet Archive.")
 
     # Gemini Analysis Results
     gemini_summary: str | None = Field(None, description="Summary of the decision from Gemini.")
     full_decision_text: str | None = Field(
-        None, description="The full text of the decision (acórdão)."
+        None,
+        description="The full text of the decision (acórdão).",
     )
     outcome: Outcome | None = Field(None, description="The outcome of the case (WIN, LOSS, etc.).")
     winner_lawyers: list[LawyerInfo] = Field(
-        default_factory=list, description="List of winning lawyers."
+        default_factory=list,
+        description="List of winning lawyers.",
     )
     loser_lawyers: list[LawyerInfo] = Field(
-        default_factory=list, description="List of losing lawyers."
+        default_factory=list,
+        description="List of losing lawyers.",
     )
 
     class Config:
@@ -85,10 +89,10 @@ class ParquetSchema(BaseModel):
                 "full_decision_text": "Full text of the acordão...",
                 "outcome": "LOSS",
                 "winner_lawyers": [
-                    {"oab_number": "123", "oab_state": "RO", "name": "Winning Lawyer"}
+                    {"oab_number": "123", "oab_state": "RO", "name": "Winning Lawyer"},
                 ],
                 "loser_lawyers": [
-                    {"oab_number": "456", "oab_state": "RO", "name": "Losing Lawyer"}
+                    {"oab_number": "456", "oab_state": "RO", "name": "Losing Lawyer"},
                 ],
             },
         }

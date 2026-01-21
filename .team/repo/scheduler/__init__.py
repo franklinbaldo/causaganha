@@ -1,5 +1,6 @@
 """Scheduler package with legacy re-exports."""
 
+from repo.core.client import TeamClient  # noqa: F401
 from repo.scheduler.legacy import (  # noqa: F401
     JULES_BRANCH,
     JULES_SCHEDULER_PREFIX,
@@ -11,4 +12,3 @@ from repo.scheduler.legacy import (  # noqa: F401
     prepare_session_base_branch,
     run_cycle_step,
 )
-from repo.core.client import TeamClient  # noqa: F401

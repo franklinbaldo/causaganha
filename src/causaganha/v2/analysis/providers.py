@@ -15,6 +15,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from causaganha.v2.analysis.embedding_models import EmbeddingModel
 
+
 logger = structlog.get_logger()
 
 # Task type mapping between providers
@@ -57,7 +58,7 @@ class EmbeddingProviderBase(ABC):
         self.api_key = api_key or os.getenv(api_key_env_var)
         if not self.api_key:
             raise ValueError(
-                f"{provider_name} API key must be provided or set in {api_key_env_var} env var"
+                f"{provider_name} API key must be provided or set in {api_key_env_var} env var",
             )
 
         self.base_url = base_url
@@ -166,7 +167,7 @@ class GoogleProvider(EmbeddingProviderBase):
         """
         if model.provider != "google":
             raise ValueError(
-                f"GoogleProvider requires a Google model, got {model.provider}/{model.name}"
+                f"GoogleProvider requires a Google model, got {model.provider}/{model.name}",
             )
 
         url = f"{self.base_url}/models/{model.name}:embedContent"
@@ -266,7 +267,7 @@ class JinaProvider(EmbeddingProviderBase):
         """
         if model.provider != "jina":
             raise ValueError(
-                f"JinaProvider requires a Jina model, got {model.provider}/{model.name}"
+                f"JinaProvider requires a Jina model, got {model.provider}/{model.name}",
             )
 
         url = f"{self.base_url}/embeddings"
@@ -339,13 +340,11 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
 
     if provider == "google":
         return GoogleProvider(api_key=api_key)
-    elif provider == "jina":
+    if provider == "jina":
         return JinaProvider(api_key=api_key)
-    else:
-        raise ValueError(
-            f"Unsupported embedding provider: {provider}. "
-            f"Supported providers: google, jina"
-        )
+    raise ValueError(
+        f"Unsupported embedding provider: {provider}. " f"Supported providers: google, jina",
+    )
 
 
 async def auto_select_provider(
@@ -408,11 +407,10 @@ async def auto_select_provider(
                     dimension=default_model.dimension,
                 )
                 return provider
-            else:
-                logger.warning(
-                    "provider_validation_failed",
-                    provider=provider_name,
-                )
+            logger.warning(
+                "provider_validation_failed",
+                provider=provider_name,
+            )
         except Exception as e:
             logger.warning(
                 "provider_creation_failed",

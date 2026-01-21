@@ -6,6 +6,7 @@ from causaganha.v2.analysis.analyzer import DecisionAnalyzer
 from causaganha.v2.analysis.models import DecisionAnalysis
 from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
 
+
 logger = structlog.get_logger()
 
 # Default confidence threshold for RAG vs LLM fallback
@@ -151,9 +152,8 @@ class HybridAnalyzer:
                 llm_result = await self.llm.analyze_pdf(pdf_url, intimation_id)
                 llm_result.analysis_method = "hybrid"
                 return llm_result
-            else:
-                # No fallback available
-                raise
+            # No fallback available
+            raise
 
     async def analyze_batch(
         self,
@@ -191,7 +191,10 @@ class HybridAnalyzer:
         }
 
         for text, int_id, pdf_url in zip(
-            texts, intimation_ids, pdf_urls, strict=False
+            texts,
+            intimation_ids,
+            pdf_urls,
+            strict=False,
         ):
             try:
                 result = await self.analyze_text(text, int_id, pdf_url)
@@ -222,9 +225,9 @@ class HybridAnalyzer:
                         outcome="UNKNOWN",
                         plaintiff_won=False,
                         confidence_score=0.0,
-                        summary=f"Analysis failed: {str(e)}",
+                        summary=f"Analysis failed: {e!s}",
                         analysis_method="failed",
-                    )
+                    ),
                 )
 
         # Calculate totals
