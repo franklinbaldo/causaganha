@@ -20,7 +20,7 @@ class DecisionEmbedding(LanceModel):
     intimation_id: int
     chunk_index: int
     chunk_text: str
-    vector: Vector(768)  # Gemini embedding-004 dimension
+    vector: Vector(768)  # Gemini embedding dimension (768 for compatibility with old data)
     chunk_size: int
     created_at: str
 
@@ -53,7 +53,10 @@ class DecisionVectorStore:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY required")
 
         genai.configure(api_key=key)
-        self.model_name = "models/text-embedding-004"
+        # Updated to current model (text-embedding-004 was deprecated August 2025)
+        # Using 768 dimension for compatibility with existing LanceDB schema
+        self.model_name = "models/gemini-embedding-001"
+        self.dimension = 768  # Compatible with DecisionEmbedding schema
 
         logger.info("vector_store_initialized", db_path=str(self.db_path))
 
@@ -64,12 +67,13 @@ class DecisionVectorStore:
             text: Text to embed
 
         Returns:
-            Embedding vector
+            Embedding vector (768 dimensions for compatibility)
         """
         result = genai.embed_content(
             model=self.model_name,
             content=text,
             task_type="retrieval_document",
+            output_dimensionality=self.dimension,  # Force 768D for LanceDB compatibility
         )
         return result["embedding"]
 

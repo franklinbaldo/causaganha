@@ -1,0 +1,16 @@
+# Cloud Functions Dependencies
+# These are separate from main project dependencies
+
+# HTTP client for forwarding requests
+httpx==0.27.0
+
+# Structured logging
+structlog==24.1.0
+
+# Flask (provided by Cloud Functions runtime, but specified for local testing)
+flask==3.0.0
+
+# Google Cloud libraries (for other functions)
+google-cloud-firestore==2.14.0
+google-cloud-pubsub==2.19.0
+google-cloud-storage==2.14.0
