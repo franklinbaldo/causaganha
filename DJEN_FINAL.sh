@@ -132,6 +132,21 @@ cat << 'EOF'
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOF
 
+# Verificar se serviço já existe
+if gcloud run services describe djen-proxy --region southamerica-east1 &>/dev/null; then
+    echo "⚠️  Serviço djen-proxy já existe"
+    read -p "Deletar e começar do zero? (y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "🗑️  Deletando serviço existente..."
+        gcloud run services delete djen-proxy --region southamerica-east1 --quiet
+        echo "✅ Deletado"
+    else
+        echo "ℹ️  Vai atualizar o serviço existente"
+    fi
+    echo ""
+fi
+
 read -p "Deploy? (y/n): " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
