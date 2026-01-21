@@ -46,7 +46,7 @@ const ORGAOS = [
 	'TJSE', 'TJSP', 'TJTO'
 ];
 
-const BATCH_SIZE = 50; // Limite de subrequests do Cloudflare
+const BATCH_SIZE = 5; // Reduzido para evitar rate limiting (429)
 
 export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -185,16 +185,15 @@ async function determinePriority(state: State): Promise<{ targetDate: string; or
 }
 
 /**
- * Executa batch de requests ao DJEN via proxy
+ * Executa batch de requests ao DJEN via proxy (sequencial para evitar 429)
  */
 async function executeBatch(env: Env, date: string, orgaos: string[]): Promise<any[]> {
 	const proxyUrl = env.PROXY_URL || 'https://djen-proxy-mhgmawcn3a-rj.a.run.app';
 	const results: any[] = [];
 
-	// Fazer requests em paralelo (respeitando limite de 50 subrequests)
-	const promises = orgaos.map(async (orgao) => {
+	// Fazer requests SEQUENCIAIS para evitar rate limiting
+	for (const orgao of orgaos) {
 		try {
-			// API DJEN: /api/v1/comunicacao?dataPublicacao=YYYY-MM-DD&idOrgao={orgao}
 			const url = `${proxyUrl}/api/v1/comunicacao?dataPublicacao=${date}&idOrgao=${orgao}`;
 
 			const response = await fetch(url, {
@@ -205,32 +204,36 @@ async function executeBatch(env: Env, date: string, orgaos: string[]): Promise<a
 			});
 
 			if (!response.ok) {
+				// Consumir body para evitar stalled response warning
+				await response.text();
 				console.error(`❌ Erro ${orgao}: ${response.status}`);
-				return null;
+
+				// Se rate limited, parar o batch
+				if (response.status === 429) {
+					console.log('⏸️ Rate limited, parando batch');
+					break;
+				}
+				continue;
 			}
 
 			const data = await response.json();
 
-			return {
+			results.push({
 				orgao,
 				date,
 				data,
 				timestamp: new Date().toISOString()
-			};
+			});
+
+			console.log(`✅ ${orgao}: ${Array.isArray(data) ? data.length : 0} registros`);
+
+			// Pequeno delay entre requests (200ms)
+			await new Promise(resolve => setTimeout(resolve, 200));
 
 		} catch (error) {
 			console.error(`❌ Erro ${orgao}:`, error);
-			return null;
 		}
-	});
-
-	const settled = await Promise.allSettled(promises);
-
-	settled.forEach((result) => {
-		if (result.status === 'fulfilled' && result.value) {
-			results.push(result.value);
-		}
-	});
+	}
 
 	return results;
 }

@@ -10,7 +10,7 @@ crons = ["* * * * *"]
 # KV Namespace para estado
 [[kv_namespaces]]
 binding = "DJEN_STATE"
-id = "YOUR_KV_NAMESPACE_ID"  # Será preenchido pelo setup.sh
+id = "f1ccc48302594ad4a68dc5b57885d350"
 
 # R2 Bucket para storage de dados
 [[r2_buckets]]
@@ -21,6 +21,4 @@ bucket_name = "djen-buffer"
 [vars]
 PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
-# Limites (free tier)
-[limits]
-cpu_ms = 10  # 10ms CPU time por invocação
+# Free tier: 10ms CPU time por invocação (automático)
