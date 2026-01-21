@@ -239,7 +239,7 @@ async function executeBatch(env: Env, date: string, orgaos: string[]): Promise<a
 }
 
 /**
- * Salva dados no R2 (JSON comprimido)
+ * Salva dados no R2 (JSON)
  */
 async function saveToR2(env: Env, date: string, results: any[]): Promise<void> {
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -247,17 +247,13 @@ async function saveToR2(env: Env, date: string, results: any[]): Promise<void> {
 
 	const json = JSON.stringify(results, null, 0);
 
-	// Comprimir com gzip
-	const compressed = await compressGzip(json);
-
-	await env.DJEN_STORAGE.put(key + '.gz', compressed, {
+	await env.DJEN_STORAGE.put(key, json, {
 		httpMetadata: {
-			contentType: 'application/json',
-			contentEncoding: 'gzip'
+			contentType: 'application/json'
 		}
 	});
 
-	console.log(`💾 Salvou ${key}.gz (${compressed.byteLength} bytes)`);
+	console.log(`💾 Salvou ${key} (${json.length} bytes)`);
 }
 
 /**
@@ -306,15 +302,4 @@ function getPreviousDate(dateStr: string): string {
 	const date = new Date(dateStr);
 	date.setDate(date.getDate() - 1);
 	return date.toISOString().split('T')[0];
-}
-
-async function compressGzip(text: string): Promise<ReadableStream> {
-	const stream = new ReadableStream({
-		start(controller) {
-			controller.enqueue(new TextEncoder().encode(text));
-			controller.close();
-		}
-	});
-
-	return stream.pipeThrough(new CompressionStream('gzip'));
 }
