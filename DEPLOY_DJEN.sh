@@ -62,7 +62,24 @@ DOCKER
 echo "✅ Arquivos criados"
 echo ""
 
-# 3. Deploy
+# 3. Verificar se serviço existe e perguntar se quer deletar
+if gcloud run services describe djen-proxy --region southamerica-east1 &>/dev/null; then
+    echo "⚠️  Serviço djen-proxy já existe"
+    echo ""
+    read -p "Deletar e começar do zero? (y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "🗑️  Deletando serviço existente..."
+        gcloud run services delete djen-proxy --region southamerica-east1 --quiet
+        echo "✅ Deletado"
+        echo ""
+    else
+        echo "ℹ️  Vai atualizar o serviço existente"
+        echo ""
+    fi
+fi
+
+# 4. Deploy
 echo "🚀 Fazendo deploy..."
 gcloud run deploy djen-proxy \
   --source . \
@@ -72,7 +89,7 @@ gcloud run deploy djen-proxy \
   --max-instances 10 \
   --timeout 30s
 
-# 4. Pegar URL
+# 5. Pegar URL
 URL=$(gcloud run services describe djen-proxy --region southamerica-east1 --format='value(status.url)')
 
 # 5. Testar
