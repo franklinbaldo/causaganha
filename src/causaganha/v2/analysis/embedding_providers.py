@@ -1,8 +1,8 @@
 """Embedding provider implementations for different APIs (Google, Jina AI, etc.)."""
 
 import os
-from abc import abstractmethod
-from typing import Literal, Protocol
+from abc import ABC, abstractmethod
+from typing import ClassVar, Literal, Protocol
 
 import httpx
 import structlog
@@ -15,7 +15,11 @@ TaskType = Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
 
 
 class EmbeddingProvider(Protocol):
-    """Protocol defining the interface for embedding providers."""
+    """Protocol defining the interface for embedding providers.
+
+    This protocol allows for structural typing - any class that implements
+    these methods can be used as an embedding provider, regardless of inheritance.
+    """
 
     @property
     @abstractmethod
@@ -59,41 +63,61 @@ class EmbeddingProvider(Protocol):
         ...
 
 
-class GoogleEmbeddingProvider:
-    """Google Gemini embedding provider using gemini-embedding-001 model."""
+class EmbeddingModelBase(ABC):
+    """Abstract base class for embedding providers with shared functionality.
 
-    # Model-specific token limits
-    MODEL_TOKEN_LIMITS = {
-        "gemini-embedding-001": 2048,
-        "text-embedding-004": 768,  # Deprecated
-        "text-embedding-005": 768,  # If exists
-    }
+    This class consolidates common logic for all embedding providers:
+    - API key management from environment variables
+    - Model and dimension configuration
+    - Token limit management based on model
+    - Default validation implementation
+    - Logging initialization
+
+    Subclasses must:
+    1. Define MODEL_TOKEN_LIMITS class variable
+    2. Implement embed_text() method
+    3. Set api_key_env_var, base_url in __init__
+    4. Call super().__init__() with appropriate parameters
+    """
+
+    # Subclasses must override this
+    MODEL_TOKEN_LIMITS: ClassVar[dict[str, int]] = {}
 
     def __init__(
         self,
-        api_key: str | None = None,
-        model: str = "gemini-embedding-001",  # Updated default
-        dimension: int = 768,
+        api_key: str | None,
+        api_key_env_var: str,
+        model: str,
+        dimension: int,
+        base_url: str,
+        provider_name: str,
     ) -> None:
-        """Initialize Google embedding provider.
+        """Initialize the embedding provider with common setup.
 
         Args:
-            api_key: Google API key. If None, reads from GOOGLE_API_KEY env var.
-            model: Embedding model to use (default: gemini-embedding-001).
-            dimension: Embedding dimension (default: 768).
+            api_key: API key. If None, reads from environment variable.
+            api_key_env_var: Name of environment variable for API key.
+            model: Embedding model to use.
+            dimension: Embedding dimension.
+            base_url: Base URL for the API.
+            provider_name: Name of the provider for logging.
+
+        Raises:
+            ValueError: If API key is not provided and not in environment.
         """
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.api_key = api_key or os.getenv(api_key_env_var)
         if not self.api_key:
             raise ValueError(
-                "Google API key must be provided or set in GOOGLE_API_KEY env var"
+                f"{provider_name} API key must be provided or set in {api_key_env_var} env var"
             )
 
         self.model = model
         self._dimension = dimension
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+        self.base_url = base_url
+        self.provider_name = provider_name
 
         logger.info(
-            "google_embedding_provider_initialized",
+            f"{provider_name.lower()}_embedding_provider_initialized",
             model=model,
             dimension=dimension,
             max_tokens=self.max_token_limit,
@@ -111,7 +135,86 @@ class GoogleEmbeddingProvider:
         Returns:
             Maximum number of tokens this model can process.
         """
-        return self.MODEL_TOKEN_LIMITS.get(self.model, 2048)
+        # Subclasses should define MODEL_TOKEN_LIMITS
+        default_limit = 8192  # Reasonable default
+        return self.MODEL_TOKEN_LIMITS.get(self.model, default_limit)
+
+    @abstractmethod
+    async def embed_text(
+        self,
+        text: str,
+        task_type: TaskType = "RETRIEVAL_QUERY",
+    ) -> list[float]:
+        """Generate embedding for a single text.
+
+        Must be implemented by subclasses with provider-specific API calls.
+
+        Args:
+            text: Text to embed.
+            task_type: Type of task (RETRIEVAL_QUERY or RETRIEVAL_DOCUMENT).
+
+        Returns:
+            Embedding vector.
+
+        Raises:
+            httpx.HTTPError: If the API request fails.
+        """
+        ...
+
+    async def validate(self) -> bool:
+        """Validate provider by testing API authentication with a simple request.
+
+        Returns:
+            True if authentication succeeds, False otherwise.
+        """
+        try:
+            # Try to embed a very short test text
+            await self.embed_text("test", task_type="RETRIEVAL_QUERY")
+            logger.info(
+                f"{self.provider_name.lower()}_provider_validated",
+                status="success",
+            )
+            return True
+        except Exception as e:
+            logger.warning(
+                f"{self.provider_name.lower()}_provider_validation_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return False
+
+
+class GoogleEmbeddingProvider(EmbeddingModelBase):
+    """Google Gemini embedding provider using gemini-embedding-001 model."""
+
+    # Model-specific token limits
+    MODEL_TOKEN_LIMITS: ClassVar[dict[str, int]] = {
+        "gemini-embedding-001": 2048,
+        "text-embedding-004": 768,  # Deprecated (August 2025)
+        "text-embedding-005": 768,  # If exists
+    }
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "gemini-embedding-001",  # Updated default
+        dimension: int = 768,
+    ) -> None:
+        """Initialize Google embedding provider.
+
+        Args:
+            api_key: Google API key. If None, reads from GOOGLE_API_KEY env var.
+            model: Embedding model to use (default: gemini-embedding-001).
+            dimension: Embedding dimension (default: 768).
+        """
+        super().__init__(
+            api_key=api_key,
+            api_key_env_var="GOOGLE_API_KEY",
+            model=model,
+            dimension=dimension,
+            base_url="https://generativelanguage.googleapis.com/v1beta",
+            provider_name="Google",
+        )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -174,44 +277,25 @@ class GoogleEmbeddingProvider:
                 )
                 raise
 
-    async def validate(self) -> bool:
-        """Validate Google provider by testing API authentication with a simple request.
 
-        Returns:
-            True if authentication succeeds, False otherwise.
-        """
-        try:
-            # Try to embed a very short test text
-            await self.embed_text("test", task_type="RETRIEVAL_QUERY")
-            logger.info("google_provider_validated", status="success")
-            return True
-        except Exception as e:
-            logger.warning(
-                "google_provider_validation_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            return False
-
-
-class JinaEmbeddingProvider:
+class JinaEmbeddingProvider(EmbeddingModelBase):
     """Jina AI embedding provider using jina-embeddings-v4 model (32K tokens)."""
 
     # Task type mapping: our standard -> Jina's task format
-    TASK_MAPPING = {
+    TASK_MAPPING: ClassVar[dict[str, str]] = {
         "RETRIEVAL_QUERY": "retrieval.query",
         "RETRIEVAL_DOCUMENT": "retrieval.passage",
     }
 
     # Model-specific token limits
-    MODEL_TOKEN_LIMITS = {
+    MODEL_TOKEN_LIMITS: ClassVar[dict[str, int]] = {
         "jina-embeddings-v4": 32768,  # 32K tokens
         "jina-embeddings-v3": 8192,   # 8K tokens
         "jina-embeddings-v2": 8192,   # 8K tokens
     }
 
-    # Model-specific dimension ranges
-    MODEL_DIMENSION_RANGES = {
+    # Model-specific dimension ranges (Matryoshka embeddings)
+    MODEL_DIMENSION_RANGES: ClassVar[dict[str, tuple[int, int]]] = {
         "jina-embeddings-v4": (256, 1024),  # Matryoshka
         "jina-embeddings-v3": (256, 1024),  # Matryoshka
         "jina-embeddings-v2": (768, 768),   # Fixed
@@ -229,18 +313,11 @@ class JinaEmbeddingProvider:
             api_key: Jina API key. If None, reads from JINA_API_KEY env var.
             model: Embedding model to use (default: jina-embeddings-v4).
             dimension: Embedding dimension (default: 1024).
+
+        Raises:
+            ValueError: If dimension is outside the valid range for the model.
         """
-        self.api_key = api_key or os.getenv("JINA_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "Jina API key must be provided or set in JINA_API_KEY env var"
-            )
-
-        self.model = model
-        self._dimension = dimension
-        self.base_url = "https://api.jina.ai/v1"
-
-        # Validate dimension range for the selected model
+        # Validate dimension range for the selected model BEFORE calling super().__init__
         if model in self.MODEL_DIMENSION_RANGES:
             min_dim, max_dim = self.MODEL_DIMENSION_RANGES[model]
             if not (min_dim <= dimension <= max_dim):
@@ -248,26 +325,14 @@ class JinaEmbeddingProvider:
                     f"{model} dimension must be between {min_dim} and {max_dim}, got {dimension}"
                 )
 
-        logger.info(
-            "jina_embedding_provider_initialized",
+        super().__init__(
+            api_key=api_key,
+            api_key_env_var="JINA_API_KEY",
             model=model,
             dimension=dimension,
-            max_tokens=self.max_token_limit,
+            base_url="https://api.jina.ai/v1",
+            provider_name="Jina",
         )
-
-    @property
-    def dimension(self) -> int:
-        """Return the embedding dimension."""
-        return self._dimension
-
-    @property
-    def max_token_limit(self) -> int:
-        """Return the maximum token limit for the current model.
-
-        Returns:
-            Maximum number of tokens this model can process.
-        """
-        return self.MODEL_TOKEN_LIMITS.get(self.model, 8192)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -340,25 +405,6 @@ class JinaEmbeddingProvider:
                     else None,
                 )
                 raise
-
-    async def validate(self) -> bool:
-        """Validate Jina provider by testing API authentication with a simple request.
-
-        Returns:
-            True if authentication succeeds, False otherwise.
-        """
-        try:
-            # Try to embed a very short test text
-            await self.embed_text("test", task_type="RETRIEVAL_QUERY")
-            logger.info("jina_provider_validated", status="success")
-            return True
-        except Exception as e:
-            logger.warning(
-                "jina_provider_validation_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            return False
 
 
 def create_embedding_provider(
