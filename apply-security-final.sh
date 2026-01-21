@@ -137,7 +137,7 @@ gcloud run deploy djen-proxy \
   --region southamerica-east1 \
   --platform managed \
   --allow-unauthenticated \
-  --memory 256Mi \
+  --memory 512Mi \
   --cpu 1 \
   --max-instances 10 \
   --min-instances 0 \
