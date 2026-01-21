@@ -11,14 +11,15 @@ from causaganha.v2.analysis.embedding_providers import (
     auto_select_provider,
     create_embedding_provider,
 )
+from causaganha.v2.analysis.text_chunker import TextChunker, create_chunker_for_provider
 
 logger = structlog.get_logger()
 
 # Embedding configuration defaults
-EMBEDDING_MODEL = "text-embedding-004"  # Default Google model
-EMBEDDING_DIMENSION = 768  # Default Google dimension
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+EMBEDDING_MODEL = "jina-embeddings-v4"  # Updated default to v4
+EMBEDDING_DIMENSION = 1024  # Default for Jina v4
+CHUNK_SIZE = 500  # Legacy - use dynamic chunking instead
+CHUNK_OVERLAP = 100  # Legacy - use dynamic chunking instead
 CONTEXTUAL_PREFIX = """Analise esta parte da decisão judicial para classificar o resultado (WIN/LOSS/PARTIAL/UNKNOWN).
 Considere: vitória do autor, vitória do réu, parcial, ou resultado não claro."""
 
@@ -250,6 +251,10 @@ class EmbeddingService:
     ) -> list[str]:
         """Split text into overlapping chunks.
 
+        DEPRECATED: This static chunking method uses fixed character counts and doesn't
+        adapt to different embedding model token limits. Use embed_chunked_text() without
+        chunk_size parameter for dynamic chunking instead.
+
         Args:
             text: Text to chunk.
             chunk_size: Size of each chunk in characters.
@@ -280,7 +285,7 @@ class EmbeddingService:
             start = end - overlap  # Step back by overlap amount
 
         logger.debug(
-            "text_chunked",
+            "text_chunked_legacy",
             original_length=len(text),
             num_chunks=len(chunks),
             chunk_size=chunk_size,
@@ -292,20 +297,48 @@ class EmbeddingService:
     async def embed_chunked_text(
         self,
         text: str,
-        chunk_size: int = CHUNK_SIZE,
-        overlap: int = CHUNK_OVERLAP,
         task_type: TaskType = "RETRIEVAL_QUERY",
+        strategy: str = "auto",
+        chunk_size: int | None = None,
+        overlap: int | None = None,
     ) -> list[list[float]]:
-        """Chunk text and generate embeddings for all chunks.
+        """Chunk text dynamically and generate embeddings for all chunks.
+
+        Uses dynamic chunking based on the provider's token limit. For Jina v4,
+        this allows up to 32K tokens per chunk. For Google Gemini, this limits
+        chunks to 2K tokens.
 
         Args:
             text: Text to process.
-            chunk_size: Size of each chunk.
-            overlap: Overlap between chunks.
             task_type: Task type for embeddings.
+            strategy: Chunking strategy ('auto', 'sections', or 'sliding_window').
+                     'auto' uses semantic sections for legal docs, sliding window otherwise.
+            chunk_size: (Legacy) Manual chunk size in characters. Overrides dynamic chunking.
+            overlap: (Legacy) Manual overlap in characters. Only used with manual chunk_size.
 
         Returns:
             List of embedding vectors for each chunk.
         """
-        chunks = self.chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+        # Legacy mode: use old static chunking if chunk_size is provided
+        if chunk_size is not None:
+            logger.warning(
+                "using_legacy_chunking",
+                chunk_size=chunk_size,
+                overlap=overlap or CHUNK_OVERLAP,
+                message="Static chunk_size is deprecated. Use dynamic chunking instead.",
+            )
+            chunks = self.chunk_text(text, chunk_size=chunk_size, overlap=overlap or CHUNK_OVERLAP)
+        else:
+            # Dynamic mode: create chunker from provider's token limit
+            chunker = create_chunker_for_provider(self.provider)
+            chunks = chunker.chunk_text(text, strategy=strategy)
+
+            logger.info(
+                "dynamic_chunking_complete",
+                provider=self.provider_name,
+                max_tokens=chunker.max_tokens,
+                num_chunks=len(chunks),
+                strategy=strategy,
+            )
+
         return await self.embed_batch(chunks, task_type=task_type, add_prefix=True)

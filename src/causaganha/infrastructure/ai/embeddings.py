@@ -24,7 +24,8 @@ class EmbeddingAnalyzer:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY required")
 
         genai.configure(api_key=key)
-        self.model_name = "models/text-embedding-004"
+        # Updated to current model (text-embedding-004 was deprecated August 2025)
+        self.model_name = "models/gemini-embedding-001"
 
         # Reference phrases for outcome classification
         self.reference_phrases = {

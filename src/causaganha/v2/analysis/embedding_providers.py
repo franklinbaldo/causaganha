@@ -23,6 +23,12 @@ class EmbeddingProvider(Protocol):
         """Return the embedding dimension for this provider."""
         ...
 
+    @property
+    @abstractmethod
+    def max_token_limit(self) -> int:
+        """Return the maximum token limit for this provider."""
+        ...
+
     @abstractmethod
     async def embed_text(
         self,
@@ -54,19 +60,26 @@ class EmbeddingProvider(Protocol):
 
 
 class GoogleEmbeddingProvider:
-    """Google Gemini embedding provider using text-embedding-004 model."""
+    """Google Gemini embedding provider using gemini-embedding-001 model."""
+
+    # Model-specific token limits
+    MODEL_TOKEN_LIMITS = {
+        "gemini-embedding-001": 2048,
+        "text-embedding-004": 768,  # Deprecated
+        "text-embedding-005": 768,  # If exists
+    }
 
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "text-embedding-004",
+        model: str = "gemini-embedding-001",  # Updated default
         dimension: int = 768,
     ) -> None:
         """Initialize Google embedding provider.
 
         Args:
             api_key: Google API key. If None, reads from GOOGLE_API_KEY env var.
-            model: Embedding model to use (default: text-embedding-004).
+            model: Embedding model to use (default: gemini-embedding-001).
             dimension: Embedding dimension (default: 768).
         """
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
@@ -83,12 +96,22 @@ class GoogleEmbeddingProvider:
             "google_embedding_provider_initialized",
             model=model,
             dimension=dimension,
+            max_tokens=self.max_token_limit,
         )
 
     @property
     def dimension(self) -> int:
         """Return the embedding dimension."""
         return self._dimension
+
+    @property
+    def max_token_limit(self) -> int:
+        """Return the maximum token limit for the current model.
+
+        Returns:
+            Maximum number of tokens this model can process.
+        """
+        return self.MODEL_TOKEN_LIMITS.get(self.model, 2048)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -172,7 +195,7 @@ class GoogleEmbeddingProvider:
 
 
 class JinaEmbeddingProvider:
-    """Jina AI embedding provider using jina-embeddings-v3 model."""
+    """Jina AI embedding provider using jina-embeddings-v4 model (32K tokens)."""
 
     # Task type mapping: our standard -> Jina's task format
     TASK_MAPPING = {
@@ -180,18 +203,32 @@ class JinaEmbeddingProvider:
         "RETRIEVAL_DOCUMENT": "retrieval.passage",
     }
 
+    # Model-specific token limits
+    MODEL_TOKEN_LIMITS = {
+        "jina-embeddings-v4": 32768,  # 32K tokens
+        "jina-embeddings-v3": 8192,   # 8K tokens
+        "jina-embeddings-v2": 8192,   # 8K tokens
+    }
+
+    # Model-specific dimension ranges
+    MODEL_DIMENSION_RANGES = {
+        "jina-embeddings-v4": (256, 1024),  # Matryoshka
+        "jina-embeddings-v3": (256, 1024),  # Matryoshka
+        "jina-embeddings-v2": (768, 768),   # Fixed
+    }
+
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "jina-embeddings-v3",
+        model: str = "jina-embeddings-v4",  # Changed default to v4
         dimension: int = 1024,
     ) -> None:
         """Initialize Jina AI embedding provider.
 
         Args:
             api_key: Jina API key. If None, reads from JINA_API_KEY env var.
-            model: Embedding model to use (default: jina-embeddings-v3).
-            dimension: Embedding dimension (default: 1024, range: 256-1024).
+            model: Embedding model to use (default: jina-embeddings-v4).
+            dimension: Embedding dimension (default: 1024).
         """
         self.api_key = api_key or os.getenv("JINA_API_KEY")
         if not self.api_key:
@@ -203,22 +240,34 @@ class JinaEmbeddingProvider:
         self._dimension = dimension
         self.base_url = "https://api.jina.ai/v1"
 
-        # Validate dimension range for jina-embeddings-v3
-        if "v3" in model and not (256 <= dimension <= 1024):
-            raise ValueError(
-                f"Jina v3 dimension must be between 256 and 1024, got {dimension}"
-            )
+        # Validate dimension range for the selected model
+        if model in self.MODEL_DIMENSION_RANGES:
+            min_dim, max_dim = self.MODEL_DIMENSION_RANGES[model]
+            if not (min_dim <= dimension <= max_dim):
+                raise ValueError(
+                    f"{model} dimension must be between {min_dim} and {max_dim}, got {dimension}"
+                )
 
         logger.info(
             "jina_embedding_provider_initialized",
             model=model,
             dimension=dimension,
+            max_tokens=self.max_token_limit,
         )
 
     @property
     def dimension(self) -> int:
         """Return the embedding dimension."""
         return self._dimension
+
+    @property
+    def max_token_limit(self) -> int:
+        """Return the maximum token limit for the current model.
+
+        Returns:
+            Maximum number of tokens this model can process.
+        """
+        return self.MODEL_TOKEN_LIMITS.get(self.model, 8192)
 
     @retry(
         stop=stop_after_attempt(3),
