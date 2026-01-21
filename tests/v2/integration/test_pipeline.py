@@ -81,9 +81,19 @@ async def test_full_pipeline_mocked(
         assert not result.iloc[0]["analyzed"]
 
     # 2. Mock Analyzer for Analysis
-    with patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer") as mock_analyzer:
+    with patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer") as mock_analyzer, \
+         patch("causaganha.v2.pipeline.analyze.RAGAnalyzer") as mock_rag_cls:
+
+        # Mock LLM Analyzer
         analyzer_instance = mock_analyzer.return_value
         analyzer_instance.analyze_batch = AsyncMock(return_value=[mock_analysis])
+        analyzer_instance.analyze_pdf = AsyncMock(return_value=mock_analysis)
+
+        # Mock RAG Analyzer
+        mock_rag_instance = AsyncMock()
+        mock_rag_instance.analyze_batch = AsyncMock(return_value=[mock_analysis])
+        mock_rag_instance.analyze_text = AsyncMock(return_value=mock_analysis)
+        mock_rag_cls.create = AsyncMock(return_value=mock_rag_instance)
 
         # Run analysis
         analyze_result = await analyze_pending_decisions(batch_size=10)
