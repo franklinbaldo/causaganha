@@ -81,9 +81,21 @@ async def test_full_pipeline_mocked(
         assert not result.iloc[0]["analyzed"]
 
     # 2. Mock Analyzer for Analysis
-    with patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer") as mock_analyzer:
-        analyzer_instance = mock_analyzer.return_value
-        analyzer_instance.analyze_batch = AsyncMock(return_value=[mock_analysis])
+    # We need to mock RAGAnalyzer.create because analyze_pending_decisions calls it.
+    # We also mock HybridAnalyzer to control the result and avoid complex logic.
+    with patch("causaganha.v2.pipeline.analyze.RAGAnalyzer") as mock_rag_cls, \
+         patch("causaganha.v2.pipeline.analyze.HybridAnalyzer") as mock_hybrid_cls, \
+         patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer"):
+
+        # Mock RAGAnalyzer.create
+        mock_rag_instance = AsyncMock()
+        mock_rag_cls.create = AsyncMock(return_value=mock_rag_instance)
+
+        # Mock HybridAnalyzer
+        mock_hybrid_instance = mock_hybrid_cls.return_value
+        mock_hybrid_instance.analyze_batch = AsyncMock(return_value=([mock_analysis], {}))
+
+        # Mock DecisionAnalyzer (LLM) just in case
 
         # Run analysis
         analyze_result = await analyze_pending_decisions(batch_size=10)

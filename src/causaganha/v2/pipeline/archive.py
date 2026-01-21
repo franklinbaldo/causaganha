@@ -21,6 +21,7 @@ async def archive_documents(
     doc_service: DocumentService,
     archive_service: ArchiveService,
     limit: int = 10,
+    *,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Archive intimation documents to Internet Archive.
@@ -87,7 +88,7 @@ async def archive_documents(
                     failed += 1
 
             except Exception as e:
-                logger.error("archive_item_failed", id=intimation_id, error=str(e))
+                logger.exception("archive_item_failed", id=intimation_id, error=str(e))
                 failed += 1
 
         logger.info(
@@ -105,7 +106,7 @@ async def archive_documents(
         }
 
     except Exception as e:
-        logger.error("archive_pipeline_failed", error=str(e))
+        logger.exception("archive_pipeline_failed", error=str(e))
         return {
             "processed": processed,
             "archived": archived,
