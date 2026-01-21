@@ -1,0 +1,26 @@
+name = "djen-scraper"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Cron: executa a cada minuto
+# 50 requests/min × 60 min × 24h = 72.000 requests/dia
+[triggers]
+crons = ["* * * * *"]
+
+# KV Namespace para estado
+[[kv_namespaces]]
+binding = "DJEN_STATE"
+id = "YOUR_KV_NAMESPACE_ID"  # Será preenchido pelo setup.sh
+
+# R2 Bucket para storage de dados
+[[r2_buckets]]
+binding = "DJEN_STORAGE"
+bucket_name = "djen-buffer"
+
+# Variáveis de ambiente
+[vars]
+PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+# Limites (free tier)
+[limits]
+cpu_ms = 10  # 10ms CPU time por invocação
