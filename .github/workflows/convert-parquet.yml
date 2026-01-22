@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install internetarchive 'ibis-framework[duckdb]'
+          pip install internetarchive duckdb
           mkdir -p ~/.config/internetarchive
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
           echo "Dependencies installed, IA config created"

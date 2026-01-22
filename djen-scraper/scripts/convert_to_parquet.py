@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-Convert DJEN ZIP files from Internet Archive to Parquet tables using Ibis + DuckDB.
+Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
+
+Optimized version: reads JSON directly into DuckDB and normalizes with SQL.
 
 Usage:
     python convert_to_parquet.py batch.txt
-
-Where batch.txt contains one item ID per line (e.g., djen-raw-2026-01-21-TJSP)
 """
 
-import json
 import subprocess
 import sys
 import tempfile
@@ -16,8 +15,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
-import ibis
-from ibis import _
+import duckdb
 
 # UUIDv5 namespace for DJEN
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
@@ -26,132 +24,6 @@ NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
 def generate_uuid(content: str) -> str:
     """Generate deterministic UUIDv5 from content."""
     return str(uuid.uuid5(NAMESPACE_DJEN, content))
-
-
-def extract_zip(zip_path: Path) -> list:
-    """Extract JSON records from ZIP file."""
-    records = []
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        for name in zf.namelist():
-            if name.endswith('.json'):
-                with zf.open(name) as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        records.extend(data)
-                    else:
-                        records.append(data)
-    return records
-
-
-def normalize(records: list, date: str, tribunal: str) -> dict:
-    """Normalize records into relational tables with UUIDv5 deduplication."""
-    textos_seen, partes_seen, advogados_seen = {}, {}, {}
-    comunicacoes, textos, partes, advogados = [], [], [], []
-    comunicacao_partes, comunicacao_advogados = [], []
-
-    for r in records:
-        cid = r.get('id', generate_uuid(json.dumps(r)))
-
-        # Texto - deduplicate by content hash
-        texto = r.get('texto', '')
-        texto_id = generate_uuid(texto) if texto else None
-        if texto and texto_id not in textos_seen:
-            textos_seen[texto_id] = True
-            textos.append({
-                'texto_id': texto_id,
-                'texto': texto,
-                'tamanho': len(texto)
-            })
-
-        # Main comunicacao record
-        comunicacoes.append({
-            'id': cid,
-            'numero_processo': r.get('numeroProcesso', '') or r.get('numero_processo', ''),
-            'tribunal': tribunal,
-            'data_disponibilizacao': date,
-            'orgao': r.get('orgao', {}).get('nome', '') if isinstance(r.get('orgao'), dict) else str(r.get('orgao', '')),
-            'tipo': r.get('tipoComunicacao', '') or r.get('tipo', ''),
-            'texto_id': texto_id,
-            'sigiloso': bool(r.get('sigiloso', False)),
-        })
-
-        # Partes - deduplicate by nome|documento
-        for p in r.get('partes', []):
-            if isinstance(p, dict):
-                nome = p.get('nome', '')
-                doc = p.get('documento', '') or p.get('cpfCnpj', '')
-                papel = p.get('tipo', '') or p.get('papel', '')
-            else:
-                nome, doc, papel = str(p), '', ''
-
-            if nome:
-                pid = generate_uuid(f"{nome}|{doc}")
-                if pid not in partes_seen:
-                    partes_seen[pid] = True
-                    partes.append({
-                        'parte_id': pid,
-                        'nome': nome,
-                        'documento': doc
-                    })
-                comunicacao_partes.append({
-                    'comunicacao_id': cid,
-                    'parte_id': pid,
-                    'papel': papel
-                })
-
-        # Advogados - deduplicate by oab|uf|nome
-        for a in r.get('advogados', []):
-            if isinstance(a, dict):
-                nome = a.get('nome', '')
-                oab = a.get('oab', '') or a.get('numeroOAB', '')
-                uf = a.get('uf', '') or a.get('ufOAB', '')
-            else:
-                nome, oab, uf = str(a), '', ''
-
-            if nome or oab:
-                aid = generate_uuid(f"{oab}|{uf}|{nome}")
-                if aid not in advogados_seen:
-                    advogados_seen[aid] = True
-                    advogados.append({
-                        'advogado_id': aid,
-                        'nome': nome,
-                        'oab': oab,
-                        'uf': uf
-                    })
-                comunicacao_advogados.append({
-                    'comunicacao_id': cid,
-                    'advogado_id': aid
-                })
-
-    return {
-        'comunicacoes': comunicacoes,
-        'textos': textos,
-        'partes': partes,
-        'advogados': advogados,
-        'comunicacao_partes': comunicacao_partes,
-        'comunicacao_advogados': comunicacao_advogados
-    }
-
-
-def write_parquet_ibis(data: list, path: Path, partition_by: list[str] | None = None):
-    """Write data to Parquet using Ibis + DuckDB."""
-    if not data:
-        return 0
-
-    # Create in-memory DuckDB connection
-    con = ibis.duckdb.connect()
-
-    # Create table from data
-    table = ibis.memtable(data)
-
-    # Write to parquet with zstd compression
-    con.to_parquet(
-        table,
-        str(path),
-        compression='zstd',
-    )
-
-    return len(data)
 
 
 def process_item(item_id: str) -> bool:
@@ -169,7 +41,7 @@ def process_item(item_id: str) -> bool:
         tmpdir = Path(tmpdir)
 
         # Download from IA
-        print(f"  Downloading from Internet Archive...")
+        print("  Downloading from Internet Archive...")
         result = subprocess.run(
             ['ia', 'download', item_id, '-d', str(tmpdir)],
             capture_output=True,
@@ -187,37 +59,177 @@ def process_item(item_id: str) -> bool:
             if zips:
                 zip_path = zips[0]
             else:
-                print(f"  ERROR: ZIP not found")
+                print("  ERROR: ZIP not found")
                 return False
 
-        # Extract records
-        print(f"  Extracting...")
-        records = extract_zip(zip_path)
-        print(f"  Found {len(records)} records")
+        # Extract JSON files from ZIP to temp dir for DuckDB to read
+        json_dir = tmpdir / 'json'
+        json_dir.mkdir()
 
-        if not records:
-            print(f"  WARNING: No records found")
+        print("  Extracting JSON from ZIP...")
+        with zipfile.ZipFile(zip_path) as zf:
+            json_files = [n for n in zf.namelist() if n.endswith('.json')]
+            for name in json_files:
+                zf.extract(name, json_dir)
+
+        if not json_files:
+            print("  WARNING: No JSON files found")
             return False
 
-        # Normalize to relational tables
-        print(f"  Normalizing with Ibis...")
-        tables = normalize(records, date, tribunal)
+        # Create DuckDB connection and register UUID function
+        con = duckdb.connect()
+        con.create_function('uuid5_djen', generate_uuid, [str], str)
 
-        # Write Parquet files using Ibis
+        # Read all JSON files directly into DuckDB
+        print("  Loading JSON into DuckDB...")
+        json_glob = str(json_dir / '**' / '*.json')
+
+        con.execute(f"""
+            CREATE TABLE raw AS
+            SELECT * FROM read_json_auto('{json_glob}',
+                union_by_name=true,
+                maximum_object_size=104857600,
+                ignore_errors=true
+            )
+        """)
+
+        total_records = con.execute("SELECT COUNT(*) FROM raw").fetchone()[0]
+        print(f"  Loaded {total_records} records")
+
+        if total_records == 0:
+            print("  WARNING: No records loaded")
+            return False
+
+        # Normalize using SQL - much faster than Python loops
+        print("  Normalizing with SQL...")
+
+        # 1. Comunicacoes (main table)
+        con.execute(f"""
+            CREATE TABLE comunicacoes AS
+            SELECT
+                COALESCE(id, uuid5_djen(to_json(raw)::VARCHAR)) as id,
+                COALESCE(numeroProcesso, numero_processo, '') as numero_processo,
+                '{tribunal}' as tribunal,
+                '{date}' as data_disponibilizacao,
+                CASE
+                    WHEN typeof(orgao) = 'STRUCT' THEN orgao.nome
+                    ELSE CAST(COALESCE(orgao, '') AS VARCHAR)
+                END as orgao,
+                COALESCE(tipoComunicacao, tipo, '') as tipo,
+                CASE WHEN texto IS NOT NULL AND texto != ''
+                     THEN uuid5_djen(texto)
+                     ELSE NULL
+                END as texto_id,
+                COALESCE(sigiloso, false) as sigiloso
+            FROM raw
+        """)
+
+        # 2. Textos (deduplicated by content)
+        con.execute("""
+            CREATE TABLE textos AS
+            SELECT DISTINCT
+                uuid5_djen(texto) as texto_id,
+                texto,
+                LENGTH(texto) as tamanho
+            FROM raw
+            WHERE texto IS NOT NULL AND texto != ''
+        """)
+
+        # 3. Partes (deduplicated)
+        con.execute("""
+            CREATE TABLE partes AS
+            SELECT DISTINCT
+                uuid5_djen(CONCAT(nome, '|', documento)) as parte_id,
+                nome,
+                documento
+            FROM (
+                SELECT
+                    COALESCE(p.nome, CAST(p AS VARCHAR), '') as nome,
+                    COALESCE(p.documento, p.cpfCnpj, '') as documento
+                FROM raw, UNNEST(COALESCE(partes, [])) as t(p)
+                WHERE p IS NOT NULL
+            )
+            WHERE nome != ''
+        """)
+
+        # 4. Comunicacao-Partes (association)
+        con.execute(f"""
+            CREATE TABLE comunicacao_partes AS
+            SELECT
+                COALESCE(r.id, uuid5_djen(to_json(r)::VARCHAR)) as comunicacao_id,
+                uuid5_djen(CONCAT(
+                    COALESCE(p.nome, CAST(p AS VARCHAR), ''),
+                    '|',
+                    COALESCE(p.documento, p.cpfCnpj, '')
+                )) as parte_id,
+                COALESCE(p.tipo, p.papel, '') as papel
+            FROM raw r, UNNEST(COALESCE(r.partes, [])) as t(p)
+            WHERE p IS NOT NULL
+              AND COALESCE(p.nome, CAST(p AS VARCHAR), '') != ''
+        """)
+
+        # 5. Advogados (deduplicated)
+        con.execute("""
+            CREATE TABLE advogados AS
+            SELECT DISTINCT
+                uuid5_djen(CONCAT(oab, '|', uf, '|', nome)) as advogado_id,
+                nome,
+                oab,
+                uf
+            FROM (
+                SELECT
+                    COALESCE(a.nome, CAST(a AS VARCHAR), '') as nome,
+                    COALESCE(a.oab, a.numeroOAB, '') as oab,
+                    COALESCE(a.uf, a.ufOAB, '') as uf
+                FROM raw, UNNEST(COALESCE(advogados, [])) as t(a)
+                WHERE a IS NOT NULL
+            )
+            WHERE nome != '' OR oab != ''
+        """)
+
+        # 6. Comunicacao-Advogados (association)
+        con.execute(f"""
+            CREATE TABLE comunicacao_advogados AS
+            SELECT
+                COALESCE(r.id, uuid5_djen(to_json(r)::VARCHAR)) as comunicacao_id,
+                uuid5_djen(CONCAT(
+                    COALESCE(a.oab, a.numeroOAB, ''),
+                    '|',
+                    COALESCE(a.uf, a.ufOAB, ''),
+                    '|',
+                    COALESCE(a.nome, CAST(a AS VARCHAR), '')
+                )) as advogado_id
+            FROM raw r, UNNEST(COALESCE(r.advogados, [])) as t(a)
+            WHERE a IS NOT NULL
+              AND (COALESCE(a.nome, CAST(a AS VARCHAR), '') != ''
+                   OR COALESCE(a.oab, a.numeroOAB, '') != '')
+        """)
+
+        # Write Parquet files
         out_dir = tmpdir / 'parquet'
         out_dir.mkdir()
 
-        for name, data in tables.items():
-            if data:
-                path = out_dir / f"{name}.parquet"
-                rows = write_parquet_ibis(data, path)
-                print(f"    {name}: {rows} rows")
+        tables = ['comunicacoes', 'textos', 'partes', 'advogados',
+                  'comunicacao_partes', 'comunicacao_advogados']
+
+        for table in tables:
+            count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if count > 0:
+                path = out_dir / f"{table}.parquet"
+                con.execute(f"""
+                    COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)
+                """)
+                print(f"    {table}: {count} rows")
 
         # Upload to Internet Archive
         parquet_id = f"djen-parquet-{date}-{tribunal}"
         print(f"  Uploading to IA: {parquet_id}")
 
         files = list(out_dir.glob('*.parquet'))
+        if not files:
+            print("  WARNING: No parquet files to upload")
+            return False
+
         cmd = [
             'ia', 'upload', parquet_id,
             *[str(f) for f in files],
@@ -230,6 +242,7 @@ def process_item(item_id: str) -> bool:
             f'--metadata=date:{date}',
             f'--metadata=tribunal:{tribunal}',
             f'--metadata=source_item:{item_id}',
+            f'--metadata=total_comunicacoes:{total_records}',
             '--retries=3',
             '--no-derive'
         ]
@@ -239,7 +252,7 @@ def process_item(item_id: str) -> bool:
             print(f"  ERROR: Upload failed: {result.stderr}")
             return False
 
-        print(f"  ✅ Done!")
+        print("  Done!")
         return True
 
 
@@ -256,7 +269,7 @@ def main():
 
     # Read items
     items = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(items)} items using Ibis + DuckDB")
+    print(f"Processing {len(items)} items using DuckDB")
 
     success = 0
     failed = 0
@@ -269,6 +282,8 @@ def main():
                 failed += 1
         except Exception as e:
             print(f"  ERROR: {e}")
+            import traceback
+            traceback.print_exc()
             failed += 1
 
     print(f"\n{'='*60}")
