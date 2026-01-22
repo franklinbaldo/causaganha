@@ -43,7 +43,7 @@ def process_item(item_id: str) -> bool:
         # Download from IA
         print("  Downloading from Internet Archive...")
         result = subprocess.run(
-            ['ia', 'download', item_id, '-d', str(tmpdir)],
+            ['ia', 'download', item_id, '--destdir', str(tmpdir)],
             capture_output=True,
             text=True
         )
@@ -80,48 +80,55 @@ def process_item(item_id: str) -> bool:
         con = duckdb.connect()
         con.create_function('uuid5_djen', generate_uuid, [str], str)
 
-        # Read all JSON files directly into DuckDB
+        # Read all JSON files - they have {count, items} wrapper structure
         print("  Loading JSON into DuckDB...")
-        json_glob = str(json_dir / '**' / '*.json')
+        json_glob = str(json_dir / '*.json')
 
+        # Unnest the items array from the wrapper
         con.execute(f"""
             CREATE TABLE raw AS
-            SELECT * FROM read_json_auto('{json_glob}',
+            SELECT UNNEST(items) as item
+            FROM read_json_auto('{json_glob}',
                 union_by_name=true,
                 maximum_object_size=104857600,
                 ignore_errors=true
             )
         """)
 
-        total_records = con.execute("SELECT COUNT(*) FROM raw").fetchone()[0]
+        # Flatten the nested structure
+        con.execute("""
+            CREATE TABLE comunicacoes_raw AS
+            SELECT item.* FROM raw
+        """)
+
+        total_records = con.execute("SELECT COUNT(*) FROM comunicacoes_raw").fetchone()[0]
         print(f"  Loaded {total_records} records")
 
         if total_records == 0:
             print("  WARNING: No records loaded")
             return False
 
-        # Normalize using SQL - much faster than Python loops
+        # Normalize using SQL
         print("  Normalizing with SQL...")
 
         # 1. Comunicacoes (main table)
         con.execute(f"""
             CREATE TABLE comunicacoes AS
             SELECT
-                COALESCE(id, uuid5_djen(to_json(raw)::VARCHAR)) as id,
-                COALESCE(numeroProcesso, numero_processo, '') as numero_processo,
-                '{tribunal}' as tribunal,
-                '{date}' as data_disponibilizacao,
-                CASE
-                    WHEN typeof(orgao) = 'STRUCT' THEN orgao.nome
-                    ELSE CAST(COALESCE(orgao, '') AS VARCHAR)
-                END as orgao,
-                COALESCE(tipoComunicacao, tipo, '') as tipo,
+                CAST(id AS VARCHAR) as id,
+                COALESCE(numero_processo, '') as numero_processo,
+                COALESCE(siglaTribunal, '{tribunal}') as tribunal,
+                COALESCE(data_disponibilizacao, '{date}') as data_disponibilizacao,
+                COALESCE(nomeOrgao, '') as orgao,
+                COALESCE(tipoComunicacao, '') as tipo,
                 CASE WHEN texto IS NOT NULL AND texto != ''
                      THEN uuid5_djen(texto)
                      ELSE NULL
                 END as texto_id,
-                COALESCE(sigiloso, false) as sigiloso
-            FROM raw
+                COALESCE(nomeClasse, '') as classe,
+                COALESCE(numeroComunicacao, '') as numero_comunicacao,
+                COALESCE(status, '') as status
+            FROM comunicacoes_raw
         """)
 
         # 2. Textos (deduplicated by content)
@@ -131,78 +138,76 @@ def process_item(item_id: str) -> bool:
                 uuid5_djen(texto) as texto_id,
                 texto,
                 LENGTH(texto) as tamanho
-            FROM raw
+            FROM comunicacoes_raw
             WHERE texto IS NOT NULL AND texto != ''
         """)
 
-        # 3. Partes (deduplicated)
+        # 3. Partes from destinatarios (deduplicated by nome)
         con.execute("""
             CREATE TABLE partes AS
             SELECT DISTINCT
-                uuid5_djen(CONCAT(nome, '|', documento)) as parte_id,
+                uuid5_djen(nome) as parte_id,
                 nome,
-                documento
+                '' as documento
             FROM (
-                SELECT
-                    COALESCE(p.nome, CAST(p AS VARCHAR), '') as nome,
-                    COALESCE(p.documento, p.cpfCnpj, '') as documento
-                FROM raw, UNNEST(COALESCE(partes, [])) as t(p)
-                WHERE p IS NOT NULL
+                SELECT UNNEST(destinatarios).nome as nome
+                FROM comunicacoes_raw
+                WHERE destinatarios IS NOT NULL
             )
-            WHERE nome != ''
+            WHERE nome IS NOT NULL AND nome != ''
         """)
 
         # 4. Comunicacao-Partes (association)
-        con.execute(f"""
+        con.execute("""
             CREATE TABLE comunicacao_partes AS
             SELECT
-                COALESCE(r.id, uuid5_djen(to_json(r)::VARCHAR)) as comunicacao_id,
-                uuid5_djen(CONCAT(
-                    COALESCE(p.nome, CAST(p AS VARCHAR), ''),
-                    '|',
-                    COALESCE(p.documento, p.cpfCnpj, '')
-                )) as parte_id,
-                COALESCE(p.tipo, p.papel, '') as papel
-            FROM raw r, UNNEST(COALESCE(r.partes, [])) as t(p)
-            WHERE p IS NOT NULL
-              AND COALESCE(p.nome, CAST(p AS VARCHAR), '') != ''
+                CAST(c.id AS VARCHAR) as comunicacao_id,
+                uuid5_djen(d.nome) as parte_id,
+                COALESCE(d.polo, '') as papel
+            FROM comunicacoes_raw c,
+                 LATERAL UNNEST(c.destinatarios) as t(d)
+            WHERE c.destinatarios IS NOT NULL
+              AND d.nome IS NOT NULL AND d.nome != ''
         """)
 
-        # 5. Advogados (deduplicated)
+        # 5. Advogados from destinatarioadvogados.advogado (deduplicated)
         con.execute("""
             CREATE TABLE advogados AS
             SELECT DISTINCT
-                uuid5_djen(CONCAT(oab, '|', uf, '|', nome)) as advogado_id,
+                uuid5_djen(CONCAT(
+                    COALESCE(numero_oab, ''), '|',
+                    COALESCE(uf_oab, ''), '|',
+                    COALESCE(nome, '')
+                )) as advogado_id,
                 nome,
-                oab,
-                uf
+                COALESCE(numero_oab, '') as oab,
+                COALESCE(uf_oab, '') as uf
             FROM (
                 SELECT
-                    COALESCE(a.nome, CAST(a AS VARCHAR), '') as nome,
-                    COALESCE(a.oab, a.numeroOAB, '') as oab,
-                    COALESCE(a.uf, a.ufOAB, '') as uf
-                FROM raw, UNNEST(COALESCE(advogados, [])) as t(a)
-                WHERE a IS NOT NULL
+                    da.advogado.nome as nome,
+                    da.advogado.numero_oab as numero_oab,
+                    da.advogado.uf_oab as uf_oab
+                FROM comunicacoes_raw c,
+                     LATERAL UNNEST(c.destinatarioadvogados) as t(da)
+                WHERE c.destinatarioadvogados IS NOT NULL
             )
-            WHERE nome != '' OR oab != ''
+            WHERE nome IS NOT NULL OR numero_oab IS NOT NULL
         """)
 
         # 6. Comunicacao-Advogados (association)
-        con.execute(f"""
+        con.execute("""
             CREATE TABLE comunicacao_advogados AS
             SELECT
-                COALESCE(r.id, uuid5_djen(to_json(r)::VARCHAR)) as comunicacao_id,
+                CAST(c.id AS VARCHAR) as comunicacao_id,
                 uuid5_djen(CONCAT(
-                    COALESCE(a.oab, a.numeroOAB, ''),
-                    '|',
-                    COALESCE(a.uf, a.ufOAB, ''),
-                    '|',
-                    COALESCE(a.nome, CAST(a AS VARCHAR), '')
+                    COALESCE(da.advogado.numero_oab, ''), '|',
+                    COALESCE(da.advogado.uf_oab, ''), '|',
+                    COALESCE(da.advogado.nome, '')
                 )) as advogado_id
-            FROM raw r, UNNEST(COALESCE(r.advogados, [])) as t(a)
-            WHERE a IS NOT NULL
-              AND (COALESCE(a.nome, CAST(a AS VARCHAR), '') != ''
-                   OR COALESCE(a.oab, a.numeroOAB, '') != '')
+            FROM comunicacoes_raw c,
+                 LATERAL UNNEST(c.destinatarioadvogados) as t(da)
+            WHERE c.destinatarioadvogados IS NOT NULL
+              AND (da.advogado.nome IS NOT NULL OR da.advogado.numero_oab IS NOT NULL)
         """)
 
         # Write Parquet files
