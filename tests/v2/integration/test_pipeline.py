@@ -86,7 +86,10 @@ async def test_full_pipeline_mocked(
         analyzer_instance.analyze_batch = AsyncMock(return_value=[mock_analysis])
 
         # Run analysis
-        analyze_result = await analyze_pending_decisions(batch_size=10)
+        analyze_result = await analyze_pending_decisions(
+            batch_size=10,
+            strategy="llm",
+        )
 
         assert analyze_result["status"] == "success"
         assert analyze_result["analyzed"] == 1
