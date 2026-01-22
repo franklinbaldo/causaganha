@@ -151,6 +151,59 @@ uv run causaganha parquet check --tribunal TJRO --date 2025-01-15
 uv run causaganha parquet clear-cache
 ```
 
+### DJEN Parquet Structure (Raw API Data)
+
+**Internet Archive items** (e.g., `djen-parquet-2026-01-21-TRF4`) contain **6 normalized parquet files** scraped from the PJe DJEN API:
+
+```
+djen-parquet-YYYY-MM-DD-TRIBUNAL/
+├── comunicacoes.parquet          # Main communication metadata (~260K rows)
+│   └── Columns: id, numero_processo, tribunal, data_disponibilizacao,
+│                orgao, tipo, classe, numero_comunicacao, status
+│
+├── textos.parquet                # Full text content (~246K rows)
+│   └── Columns: texto_id, texto, tamanho
+│
+├── partes.parquet                # Party master table (~211K parties)
+│   └── Columns: parte_id (UUID), nome, documento (CPF/CNPJ)
+│
+├── comunicacao_partes.parquet    # Party-communication associations (~370K links)
+│   └── Columns: comunicacao_id, parte_id, papel
+│       - papel: "A" (Ativo/Author), "P" (Passivo/Defendant), "T" (Terceiro), etc.
+│
+├── advogados.parquet             # Lawyer master table
+│   └── Columns: advogado_id (UUID), nome, oab_numero, oab_uf
+│
+└── comunicacao_advogados.parquet # Lawyer-communication associations
+    └── Columns: comunicacao_id, advogado_id
+```
+
+**How to JOIN for party information:**
+
+```python
+import pyarrow.parquet as pq
+import pandas as pd
+
+# Load tables
+comunicacoes = pq.read_table('comunicacoes.parquet').to_pandas()
+partes = pq.read_table('partes.parquet').to_pandas()
+comunicacao_partes = pq.read_table('comunicacao_partes.parquet').to_pandas()
+
+# Get parties for a specific comunicacao
+result = (
+    comunicacao_partes[comunicacao_partes['comunicacao_id'] == '502461475']
+    .merge(partes, on='parte_id')
+)
+
+# Result example:
+#   papel  | nome
+#   -------|---------------------------------
+#   A      | ELIANE DIAS
+#   P      | BANCO MASTER S/A
+```
+
+**Key insight:** Party data (autor, réu) is **already structured and normalized** in separate parquet files. No HTML parsing needed!
+
 ### Documentation
 
 - **Architecture**: [`docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md`](docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md) - Multi-parquet design

@@ -254,8 +254,11 @@ docs/experiments/heuristic-vs-rag-comparison.md      # This document
 # Test heuristic classifier
 uv run python scripts/test_accuracy_on_ground_truth.py --provider local --heuristic
 
+# Test situation classifier (improved version, also 72.2%)
+uv run python scripts/test_accuracy_on_ground_truth.py --provider local --situation
+
 # Compare with RAG
-uv run python scripts/test_accuracy_on_ground_truth.py --provider local  # No --heuristic flag
+uv run python scripts/test_accuracy_on_ground_truth.py --provider local  # No flags = RAG
 
 # Use in code
 from causaganha.v2.analysis.heuristic_classifier import predict_outcome
@@ -268,3 +271,48 @@ print(prediction.outcome)      # "WIN"
 print(prediction.confidence)   # 0.85
 print(prediction.reasoning)    # "Direct PROCEDENTE pattern"
 ```
+
+---
+
+## Update (2026-01-22): Structured Party Data Discovery
+
+After completing this experiment, we discovered that **DJEN parquet exports include structured party tables**:
+
+### Available Data Structure
+
+```
+djen-parquet-YYYY-MM-DD-TRIBUNAL/
+├── partes.parquet                # Party master table (~211K parties)
+│   └── Columns: parte_id (UUID), nome, documento
+│
+└── comunicacao_partes.parquet    # Party associations (~370K links)
+    └── Columns: comunicacao_id, parte_id, papel
+        - papel: "A" (Ativo/Author), "P" (Passivo/Defendant)
+```
+
+### Next Phase: Improved RAG with Party Data
+
+**Key insight:** We can now build **dynamic phrases using actual party names** from the structured data!
+
+**Example improvement:**
+```python
+# Current approach (0% accuracy):
+phrases = ["negar provimento à apelação"]
+similarity = compare(doc, phrases)  # Generic → low similarity
+
+# Improved approach with party data (expected 80-90% accuracy):
+parties = join_parquet_tables(comunicacao_id)
+# parties = {autor: "ELIANE DIAS", reu: "INSS"}
+
+dynamic_phrases = [
+    f"negar provimento à apelação {parties.reu}",  # "...INSS"
+    f"{parties.autor} venceu {parties.reu}",        # "ELIANE DIAS venceu INSS"
+]
+similarity = compare(doc, dynamic_phrases)  # Exact match! → high similarity
+```
+
+**Expected results:**
+- **Improved RAG (with party data)**: 80-90% accuracy
+- **Hybrid (RAG + Situation)**: 85-95% accuracy
+
+See: [`docs/plans/improved-rag-with-dynamic-phrases-FINAL.md`](../plans/improved-rag-with-dynamic-phrases-FINAL.md)

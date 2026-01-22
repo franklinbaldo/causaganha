@@ -301,3 +301,69 @@ The experiment successfully demonstrated that CPU-optimized local embeddings:
 - ✅ Are reliable and independent of external services
 
 **Status:** ✅ Experiment successful - **Recommend adoption for production**
+
+---
+
+## Ground Truth Accuracy Testing (2026-01-22)
+
+After confirming local embeddings are performant, we tested **classification accuracy** on 18 manually-labeled real legal decisions.
+
+### Testing Approach
+
+1. **Ground Truth Creation**: Brazilian legal expert manually labeled 50 documents from TRF4
+   - 18 documents with clear outcomes (WIN/LOSS/PARTIAL)
+   - 32 administrative acts (excluded from testing)
+
+2. **Three Classification Methods Tested**:
+   - **RAG (Pure Embeddings)**: Similarity matching against generic outcome phrases
+   - **Heuristic Classifier**: Multi-strategy (regex + embeddings + appeal analysis)
+   - **Situation Classifier**: Two-stage (identify legal situation → map to outcome)
+
+### Results Summary
+
+| Method | Accuracy | Key Finding |
+|--------|----------|-------------|
+| **RAG (Static Phrases)** | 0% | Cannot handle legal reasoning (all predicted UNKNOWN) |
+| **Heuristic Classifier** | 72.2% | Combined regex + embeddings works better |
+| **Situation Classifier** | **72.2%** | Two-stage classification matches heuristic |
+
+### Critical Bug Fixes
+
+1. **normalize_outcome() substring bug**: "IMPROCEDENTE" contains "PROCEDENTE" → fixed by checking IMPROCEDENTE first
+2. **Pattern word boundaries**: Added `\b` to prevent substring matches
+3. **Appellant inference**: Improved "agravante"/"agravado" detection
+
+### Key Insight: RAG Alone Fails for Legal Outcomes
+
+**Why RAG got 0% accuracy:**
+
+```python
+# Document text: "NEGAR PROVIMENTO À APELAÇÃO DO INSS"
+
+# RAG approach (FAILED):
+generic_phrases = ["julgo procedente", "julgo improcedente"]
+similarity = compare(document, phrases)  # Both <0.15 → UNKNOWN ❌
+
+# The problem: RAG cannot reason about:
+# - WHO appealed (INSS vs Author)
+# - WHAT "negar provimento" means for each party
+# - WHAT the procedural context implies
+```
+
+**Embeddings test similarity, not legal reasoning.**
+
+### Next Phase: Improved RAG with Structured Party Data
+
+After discovering DJEN parquet files include **structured party tables** (`partes.parquet`, `comunicacao_partes.parquet`), we can:
+
+1. ✅ JOIN parquet files to get party names (Autor, Réu)
+2. ✅ Build **dynamic phrases** using actual party names:
+   ```python
+   # Instead of: "negar provimento à apelação"
+   # Use: "negar provimento à apelação INSS"  # Exact party name!
+   ```
+3. ✅ Much higher similarity expected (exact phrase match)
+
+**Expected improvement:** 80-90% accuracy (vs current 72.2%)
+
+See: [`docs/plans/improved-rag-with-dynamic-phrases-FINAL.md`](../plans/improved-rag-with-dynamic-phrases-FINAL.md)
