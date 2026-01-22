@@ -635,5 +635,264 @@ def groundtruth_info() -> None:
         _handle_error(e, "Failed to get ground truth info")
 
 
+# Parquet analysis commands
+parquet_app = typer.Typer(help="Parquet-based analysis workflows")
+app.add_typer(parquet_app, name="parquet")
+
+
+@parquet_app.command("analyze")
+def analyze_parquet_file(
+    file: str = typer.Argument(..., help="Path to parquet file"),
+    strategy: str = typer.Option(
+        "hybrid",
+        help="Analysis strategy: llm, rag, hybrid, auto",
+    ),
+    output_mode: str = typer.Option(
+        "parquet",
+        help="Output mode: parquet, duckdb, both, none",
+    ),
+    confidence_threshold: float = typer.Option(
+        0.70,
+        help="Confidence threshold for hybrid strategy",
+    ),
+    filter_unanalyzed: bool = typer.Option(
+        True,
+        help="Only analyze rows without analysis",
+    ),
+) -> None:
+    """Analyze decisions from a local parquet file."""
+    logger.info("analyze_parquet_command", file=file, strategy=strategy)
+
+    async def _run() -> None:
+        try:
+            from causaganha.v2.pipeline.analyze_parquet import analyze_from_parquet
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task_desc = f"Analyzing from parquet ({strategy} strategy)..."
+                progress.add_task(description=task_desc, total=None)
+
+                result = await analyze_from_parquet(
+                    parquet_path=file,
+                    strategy=strategy,
+                    output_mode=output_mode,
+                    confidence_threshold=confidence_threshold,
+                    filter_unanalyzed=filter_unanalyzed,
+                )
+
+            # Display results
+            typer.echo("\n✅ Parquet analysis complete!")
+            typer.echo(f"  Strategy: {strategy}")
+            typer.echo(f"  Analyzed: {result['analyzed']}")
+            typer.echo(f"  Failed: {result['failed']}")
+            typer.echo(f"  Skipped: {result.get('skipped', 0)}")
+
+            if strategy in ["hybrid", "auto"]:
+                total = result["analyzed"]
+                if total > 0:
+                    typer.echo(
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                    )
+                    typer.echo(
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                    )
+
+            if "total_cost" in result:
+                typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
+
+            if "output_file" in result:
+                typer.echo(f"  Output file: {result['output_file']}")
+
+        except Exception as e:
+            _handle_error(e, "Parquet analysis failed")
+
+    asyncio.run(_run())
+
+
+@parquet_app.command("analyze-ia")
+def analyze_from_ia(
+    tribunal: str = typer.Argument(..., help="Tribunal code (e.g., TJRO)"),
+    date: str = typer.Argument(..., help="Date in YYYY-MM-DD format"),
+    strategy: str = typer.Option(
+        "hybrid",
+        help="Analysis strategy: llm, rag, hybrid, auto",
+    ),
+    output_mode: str = typer.Option(
+        "parquet",
+        help="Output mode: parquet, duckdb, both, none",
+    ),
+    confidence_threshold: float = typer.Option(
+        0.70,
+        help="Confidence threshold for hybrid strategy",
+    ),
+) -> None:
+    """Analyze decisions from Internet Archive parquet file."""
+    logger.info("analyze_ia_command", tribunal=tribunal, date=date, strategy=strategy)
+
+    async def _run() -> None:
+        try:
+            from causaganha.v2.pipeline.analyze_parquet import analyze_from_ia as analyze_ia_func
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Downloading from Internet Archive...", total=None)
+                progress.add_task(description=f"Analyzing ({strategy} strategy)...", total=None)
+
+                result = await analyze_ia_func(
+                    tribunal=tribunal,
+                    date=date,
+                    strategy=strategy,
+                    output_mode=output_mode,
+                    confidence_threshold=confidence_threshold,
+                )
+
+            # Display results
+            typer.echo("\n✅ Internet Archive analysis complete!")
+            typer.echo(f"  Tribunal: {tribunal}")
+            typer.echo(f"  Date: {date}")
+            typer.echo(f"  Strategy: {strategy}")
+            typer.echo(f"  Analyzed: {result['analyzed']}")
+            typer.echo(f"  Failed: {result['failed']}")
+            typer.echo(f"  Skipped: {result.get('skipped', 0)}")
+
+            if strategy in ["hybrid", "auto"]:
+                total = result["analyzed"]
+                if total > 0:
+                    typer.echo(
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                    )
+                    typer.echo(
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                    )
+
+            if "total_cost" in result:
+                typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
+
+            if "output_file" in result:
+                typer.echo(f"  Output file: {result['output_file']}")
+
+        except Exception as e:
+            _handle_error(e, "Internet Archive analysis failed")
+
+    asyncio.run(_run())
+
+
+@parquet_app.command("download")
+def download_parquet(
+    tribunal: str = typer.Argument(..., help="Tribunal code (e.g., TJRO)"),
+    date: str = typer.Argument(..., help="Date in YYYY-MM-DD format"),
+    force: bool = typer.Option(False, help="Force re-download (ignore cache)"),
+    cache_dir: str = typer.Option("./ia_cache", help="Cache directory"),
+) -> None:
+    """Download parquet file from Internet Archive."""
+    logger.info("download_parquet_command", tribunal=tribunal, date=date)
+
+    async def _run() -> None:
+        try:
+            from pathlib import Path
+            from causaganha.v2.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+            config = DownloadConfig(cache_dir=Path(cache_dir))
+            downloader = IAParquetDownloader(config=config)
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Downloading from Internet Archive...", total=None)
+
+                file_path = await downloader.download(
+                    tribunal=tribunal,
+                    date=date,
+                    force_refresh=force,
+                )
+
+            # Display results
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            typer.echo("\n✅ Download complete!")
+            typer.echo(f"  Tribunal: {tribunal}")
+            typer.echo(f"  Date: {date}")
+            typer.echo(f"  File: {file_path}")
+            typer.echo(f"  Size: {file_size_mb:.2f} MB")
+
+            # Get IA URL
+            ia_url = await downloader.get_item_url(tribunal, date)
+            typer.echo(f"  Source: {ia_url}")
+
+        except Exception as e:
+            _handle_error(e, "Download failed")
+
+    asyncio.run(_run())
+
+
+@parquet_app.command("check")
+def check_ia_exists(
+    tribunal: str = typer.Argument(..., help="Tribunal code (e.g., TJRO)"),
+    date: str = typer.Argument(..., help="Date in YYYY-MM-DD format"),
+) -> None:
+    """Check if parquet file exists on Internet Archive."""
+    logger.info("check_ia_command", tribunal=tribunal, date=date)
+
+    async def _run() -> None:
+        try:
+            from causaganha.v2.pipeline.ia_download import IAParquetDownloader
+
+            downloader = IAParquetDownloader()
+            exists = await downloader.check_exists(tribunal, date)
+
+            ia_url = await downloader.get_item_url(tribunal, date)
+
+            if exists:
+                typer.echo(f"✅ Parquet file exists on Internet Archive")
+                typer.echo(f"  Tribunal: {tribunal}")
+                typer.echo(f"  Date: {date}")
+                typer.echo(f"  URL: {ia_url}")
+            else:
+                typer.echo(f"❌ Parquet file not found on Internet Archive")
+                typer.echo(f"  Tribunal: {tribunal}")
+                typer.echo(f"  Date: {date}")
+                typer.echo(f"  Expected URL: {ia_url}")
+
+        except Exception as e:
+            _handle_error(e, "Check failed")
+
+    asyncio.run(_run())
+
+
+@parquet_app.command("clear-cache")
+def clear_parquet_cache(
+    older_than_days: int = typer.Option(
+        None,
+        help="Only delete files older than N days (None = all)",
+    ),
+    cache_dir: str = typer.Option("./ia_cache", help="Cache directory"),
+) -> None:
+    """Clear downloaded parquet cache."""
+    logger.info("clear_cache_command", older_than_days=older_than_days)
+
+    try:
+        from pathlib import Path
+        from causaganha.v2.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+        config = DownloadConfig(cache_dir=Path(cache_dir))
+        downloader = IAParquetDownloader(config=config)
+
+        deleted = downloader.clear_cache(older_than_days=older_than_days)
+
+        typer.echo(f"✅ Cleared {deleted} cached files")
+        if older_than_days:
+            typer.echo(f"  (files older than {older_than_days} days)")
+
+    except Exception as e:
+        _handle_error(e, "Cache clear failed")
+
+
 if __name__ == "__main__":
     app()

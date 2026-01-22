@@ -77,12 +77,66 @@ class DecisionAnalyzer:
             provider=provider,
         )
 
+    async def analyze_text(
+        self,
+        decision_text: str,
+        intimation_id: int | None = None,
+    ) -> DecisionAnalysis:
+        """Analyze a decision from text content.
+
+        Args:
+            decision_text: Full text of the judicial decision.
+            intimation_id: Optional intimation ID for logging.
+
+        Returns:
+            DecisionAnalysis with extracted information.
+
+        Raises:
+            Exception: If analysis fails.
+        """
+        logger.info(
+            "analyzing_text",
+            text_length=len(decision_text),
+            intimation_id=intimation_id,
+        )
+
+        try:
+            # Use Gemini to analyze text directly (no PDF needed!)
+            result = await self.agent.run(
+                f"Analyze this judicial decision:\n\n{decision_text}",
+                message_history=[],
+            )
+
+            # Log results
+            logger.info(
+                "analysis_complete",
+                intimation_id=intimation_id,
+                winner_oab=result.data.winner_lawyer_oab,
+                loser_oab=result.data.loser_lawyer_oab,
+                decision_type=result.data.decision_type,
+                outcome=result.data.outcome,
+                confidence=result.data.confidence_score,
+            )
+
+            return result.data
+
+        except Exception as e:
+            logger.error(
+                "analysis_failed",
+                intimation_id=intimation_id,
+                error=str(e),
+            )
+            raise
+
     async def analyze_pdf(
         self,
         pdf_url: str,
         intimation_id: int | None = None,
     ) -> DecisionAnalysis:
         """Analyze a single PDF decision document.
+
+        DEPRECATED: Use analyze_text() instead with texto field.
+        This method is kept for backward compatibility with existing code.
 
         Args:
             pdf_url: URL to the PDF document.
@@ -94,6 +148,12 @@ class DecisionAnalyzer:
         Raises:
             Exception: If analysis fails.
         """
+        logger.warning(
+            "analyze_pdf_deprecated",
+            message="analyze_pdf() is deprecated, use analyze_text() with texto field",
+            intimation_id=intimation_id,
+        )
+
         logger.info(
             "analyzing_pdf",
             url=pdf_url,
@@ -131,28 +191,44 @@ class DecisionAnalyzer:
 
     async def analyze_batch(
         self,
-        pdf_urls: list[str],
+        inputs: list[str],
         intimation_ids: list[int] | None = None,
+        input_type: str = "text",
     ) -> list[DecisionAnalysis | Exception]:
-        """Analyze multiple PDFs concurrently.
+        """Analyze multiple decisions concurrently.
 
         Args:
-            pdf_urls: List of PDF URLs.
+            inputs: List of decision texts or PDF URLs.
             intimation_ids: Optional list of intimation IDs (same length).
+            input_type: "text" (default, recommended) or "pdf" (deprecated).
 
         Returns:
             List of DecisionAnalysis or Exceptions, matching the input order.
         """
         if intimation_ids is None:
-            intimation_ids = [None] * len(pdf_urls)
+            intimation_ids = [None] * len(inputs)
 
-        logger.info("batch_analysis_start", total=len(pdf_urls))
+        logger.info(
+            "batch_analysis_start",
+            total=len(inputs),
+            input_type=input_type,
+        )
 
-        # Create tasks
-        tasks = [
-            self.analyze_pdf(url, int_id)
-            for url, int_id in zip(pdf_urls, intimation_ids, strict=False)
-        ]
+        # Create tasks based on input type
+        if input_type == "text":
+            tasks = [
+                self.analyze_text(text, int_id)
+                for text, int_id in zip(inputs, intimation_ids, strict=False)
+            ]
+        else:  # pdf (deprecated)
+            logger.warning(
+                "batch_pdf_analysis_deprecated",
+                message="PDF batch analysis is deprecated, use input_type='text'",
+            )
+            tasks = [
+                self.analyze_pdf(url, int_id)
+                for url, int_id in zip(inputs, intimation_ids, strict=False)
+            ]
 
         # Execute concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -163,7 +239,7 @@ class DecisionAnalyzer:
 
         logger.info(
             "batch_analysis_complete",
-            total=len(pdf_urls),
+            total=len(inputs),
             successful=successful,
             failed=failed,
         )
