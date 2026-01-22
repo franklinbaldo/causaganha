@@ -32,16 +32,7 @@ DuckDB Query Engine:
 
 ### Priority 0 (Critical)
 
-#### `01_P0_precomputed_embeddings.feature` ⚠️ DEPRECATED
-**Pre-computed Embeddings in Decisions Parquet** - Original approach (NOT recommended)
-
-**Status:** SUPERSEDED by `07_separate_embeddings_parquet.feature`
-
-This feature file describes embedding embeddings IN decisions parquet, which is NOT the correct architecture. See `07_separate_embeddings_parquet.feature` for the proper approach (separate embeddings file).
-
----
-
-#### `07_separate_embeddings_parquet.feature` ✅ RECOMMENDED (NEW)
+#### `07_separate_embeddings_parquet.feature` ✅ RECOMMENDED
 **Separate Embeddings Parquet** - Store embeddings in dedicated parquet file
 
 - **Problem:** RAG analysis re-embeds texto every time (slow, expensive)
@@ -117,26 +108,6 @@ This feature file describes embedding embeddings IN decisions parquet, which is 
 
 ### Priority 2 (Medium)
 
-#### `03_P2_lawyer_enrichment.feature`
-**Lawyer Enrichment** - ~~Embed lawyer profiles in decisions parquet~~
-
-**⚠️ REVISED: NOT NEEDED for multi-parquet architecture!**
-
-Since lawyers are already exported to separate parquet files, we should:
-- ✅ Keep using separate lawyers parquet
-- ✅ Join at query time with DuckDB
-- ❌ Don't duplicate lawyer data in decisions parquet
-
-**Benefits of Separate Files:**
-- 49% storage savings (no duplication)
-- Flexible updates (change ratings without touching decisions)
-- Historical snapshots (export lawyers parquet daily)
-- Efficient DuckDB joins (columnar format)
-
-**This feature file is kept for reference but implementation is NOT recommended.**
-
----
-
 #### `04_P2_confidence_breakdown.feature`
 **Confidence Breakdown** - Per-component confidence scores
 
@@ -188,15 +159,16 @@ Full deployment workflow including:
 - Feature flags for gradual rollout
 
 #### `06_multi_parquet_architecture.feature`
-**Multi-Parquet Architecture with DuckDB Joins** ⭐ NEW
+**Multi-Parquet Architecture with DuckDB Joins** ⭐
 
 Proper architecture specification:
-- Decisions parquet contains: text, embeddings, sections, confidence, analysis (NOT lawyer data)
+- Decisions parquet contains: text, sections, confidence, analysis (NO embeddings, NO lawyer data)
+- Embeddings parquet contains: embeddings ONLY (separate file, join on intimation_id)
 - Lawyers parquet contains: profiles, ratings, statistics (separate file)
 - Partes parquet contains: case parties (separate file)
 - DuckDB joins parquets at query time
 - Storage efficiency (49% savings vs monolithic)
-- Historical snapshots (daily lawyer exports)
+- Historical snapshots (daily exports for each type)
 - Query patterns and optimization
 - Partitioning strategies
 
@@ -226,10 +198,12 @@ Based on the **multi-parquet architecture with separate embeddings file**:
 
 | Feature | Reason |
 |---------|--------|
-| ~~Embeddings in Decisions~~ | Put in **separate embeddings parquet** instead! |
-| Lawyer Enrichment | Already in separate lawyers parquet, join at query time |
+| ~~Embeddings in Decisions~~ | Put in **separate embeddings parquet** instead (see feature 07)! |
+| Lawyer Enrichment | Already in separate lawyers parquet, join at query time via DuckDB |
 | Partes Details | Already in separate partes parquet |
 | PDF Content | 100x file size increase, not practical |
+
+**Note:** Deprecated feature files have been removed to avoid confusion. Only the recommended architecture is documented.
 
 ---
 
@@ -244,11 +218,11 @@ Based on the **multi-parquet architecture with separate embeddings file**:
    # Run all schema v2 tests
    uv run pytest tests/features/parquet_schema_v2/
 
-   # Run specific priority
-   uv run pytest tests/features/parquet_schema_v2/01_P0_*.feature
+   # Run specific feature file
+   uv run pytest tests/features/parquet_schema_v2/07_separate_embeddings_parquet.feature
 
    # Run specific scenario
-   uv run pytest tests/features/parquet_schema_v2/01_P0_*.feature -k "cached embeddings"
+   uv run pytest tests/features/parquet_schema_v2/ -k "embeddings"
    ```
 
 ---
