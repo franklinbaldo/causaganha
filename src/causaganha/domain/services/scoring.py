@@ -5,7 +5,7 @@ from typing import Any
 import structlog
 
 from causaganha.domain.interfaces import AnalysisRepositoryProtocol, LawyerRatingRepositoryProtocol
-from causaganha.domain.scoring.openskill import create_rating, get_openskill_model, rate_teams
+from causaganha.scoring.openskill import create_rating, get_openskill_model, rate_teams
 
 
 logger = structlog.get_logger()

@@ -11,7 +11,7 @@ import internetarchive as ia
 import structlog
 
 from causaganha.config import DATA_DIR
-from causaganha.infrastructure.clients.constants import (
+from causaganha.clients.constants import (
     DEFAULT_RETRY_SLEEP_SECONDS,
     DEFAULT_UPLOAD_RETRIES,
     DEFAULT_UPLOAD_TIMEOUT_SECONDS,

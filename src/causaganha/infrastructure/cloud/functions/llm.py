@@ -14,7 +14,7 @@ from google.cloud import firestore, tasks_v2
 from google.protobuf import timestamp_pb2
 
 from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.infrastructure.clients.archive import InternetArchiveService, LocalArchiveService
+from causaganha.clients.archive import InternetArchiveService, LocalArchiveService
 from causaganha.infrastructure.cloud.db import (
     COLLECTION_NAME,
     acquire_lock,

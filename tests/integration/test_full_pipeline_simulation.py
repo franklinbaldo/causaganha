@@ -11,8 +11,8 @@ from causaganha.application.pipeline.archive import run_archive
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
 from causaganha.domain.models import Intimation
-from causaganha.infrastructure.clients.archive import InternetArchiveService
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.archive import InternetArchiveService
+from causaganha.clients.document import DocumentService
 from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository

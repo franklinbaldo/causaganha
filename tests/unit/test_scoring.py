@@ -2,7 +2,7 @@ import pytest
 from openskill.models import PlackettLuce
 from openskill.models.weng_lin.plackett_luce import PlackettLuceRating as OpenSkillRating
 
-from causaganha.domain.scoring.openskill import (
+from causaganha.scoring.openskill import (
     create_rating,
     get_openskill_model,
     rate_teams,

@@ -5,9 +5,9 @@ from typing import Any
 import structlog
 
 from causaganha.domain.interfaces import IntimationRepositoryProtocol
-from causaganha.infrastructure.clients.archive import ArchiveService
-from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.infrastructure.clients.preservation import PreservationService
+from causaganha.clients.archive import ArchiveService
+from causaganha.clients.document import DocumentService
+from causaganha.clients.preservation import PreservationService
 
 
 logger = structlog.get_logger()

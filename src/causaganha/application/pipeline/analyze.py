@@ -6,7 +6,7 @@ from causaganha.domain.factories import AnalysisResultFactory
 from causaganha.domain.interfaces import AnalysisRepositoryProtocol, IntimationRepositoryProtocol
 from causaganha.domain.models import Intimation
 from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.document import DocumentService
 
 
 logger = structlog.get_logger()

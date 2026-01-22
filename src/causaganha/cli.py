@@ -5,8 +5,8 @@ import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from causaganha.config import settings
-from causaganha.infrastructure.clients.archive import create_archive_service
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.archive import create_archive_service
+from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
 from causaganha.pipeline.archive import archive_documents
 

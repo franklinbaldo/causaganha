@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.document import DocumentService
 
 
 @pytest.fixture

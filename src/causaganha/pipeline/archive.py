@@ -4,9 +4,9 @@ from typing import Any
 
 import structlog
 
-from causaganha.infrastructure.clients.archive import ArchiveService
-from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.infrastructure.clients.preservation import PreservationService
+from causaganha.clients.archive import ArchiveService
+from causaganha.clients.document import DocumentService
+from causaganha.clients.preservation import PreservationService
 from causaganha.storage.connection import get_connection
 from causaganha.storage.queries import (
     get_unarchived_intimations,

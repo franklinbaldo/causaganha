@@ -4,7 +4,7 @@ from typing import Any
 
 import structlog
 
-from causaganha.domain.scoring.openskill import (
+from causaganha.scoring.openskill import (
     create_rating,
     get_openskill_model,
     rate_teams,

@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from causaganha.application.pipeline.archive import _process_intimation, run_archive
-from causaganha.infrastructure.clients.archive import InternetArchiveService
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.archive import InternetArchiveService
+from causaganha.clients.document import DocumentService
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
