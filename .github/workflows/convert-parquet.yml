@@ -5,11 +5,8 @@ on:
     - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch:
     inputs:
-      date:
-        description: 'Specific date to process (YYYY-MM-DD)'
-        required: false
-      tribunal:
-        description: 'Specific tribunal to process'
+      item_id:
+        description: 'Specific item to convert (e.g., djen-raw-2026-01-21-TJSP)'
         required: false
 
 concurrency:
@@ -17,27 +14,21 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAX_ITEMS_PER_RUN: 5
+  MAX_ITEMS_PER_RUN: 10
 
 jobs:
   convert:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
+      - name: Setup
         run: |
           pip install internetarchive pyarrow pandas
 
-          # Configure IA
           mkdir -p ~/.config/internetarchive
           cat > ~/.config/internetarchive/ia.ini << EOF
           [s3]
@@ -48,53 +39,194 @@ jobs:
       - name: Find items to convert
         id: find
         run: |
-          python3 << 'PYTHON'
-          import subprocess
-          import json
+          echo "Fetching raw items from IA..."
+          ia search 'identifier:djen-raw-*' --itemlist > raw_items.txt 2>/dev/null || touch raw_items.txt
+          RAW_COUNT=$(wc -l < raw_items.txt | tr -d ' ')
+          echo "Found $RAW_COUNT raw items"
 
-          # Search for raw items that don't have corresponding parquet
-          # This is a simple check - we look for djen-raw-* items
-          result = subprocess.run(
-              ['ia', 'search', 'identifier:djen-raw-*', '--itemlist'],
-              capture_output=True, text=True
-          )
+          echo "Fetching parquet items from IA..."
+          ia search 'identifier:djen-parquet-*' --itemlist > parquet_items.txt 2>/dev/null || touch parquet_items.txt
+          PARQUET_COUNT=$(wc -l < parquet_items.txt | tr -d ' ')
+          echo "Found $PARQUET_COUNT parquet items"
 
-          raw_items = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
-          print(f"Found {len(raw_items)} raw items")
+          # Find items without parquet version
+          > to_convert.txt
+          while read -r RAW_ID; do
+            PARQUET_ID="${RAW_ID/djen-raw-/djen-parquet-}"
+            if ! grep -q "^${PARQUET_ID}$" parquet_items.txt; then
+              echo "$RAW_ID" >> to_convert.txt
+            fi
+          done < raw_items.txt
 
-          # Check which ones have been converted
-          result = subprocess.run(
-              ['ia', 'search', 'identifier:djen-parquet-*', '--itemlist'],
-              capture_output=True, text=True
-          )
+          TOTAL=$(wc -l < to_convert.txt | tr -d ' ')
+          echo "Found $TOTAL items to convert"
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
 
-          parquet_items = set(line.strip() for line in result.stdout.strip().split('\n') if line.strip())
+          head -n $MAX_ITEMS_PER_RUN to_convert.txt > batch.txt
+          BATCH_SIZE=$(wc -l < batch.txt | tr -d ' ')
+          echo "batch_size=$BATCH_SIZE" >> $GITHUB_OUTPUT
 
-          # Find items that need conversion
-          to_convert = []
-          for raw in raw_items:
-              # djen-raw-2026-01-21-TJSP -> djen-parquet-2026-01-21-TJSP
-              parquet_id = raw.replace('djen-raw-', 'djen-parquet-')
-              if parquet_id not in parquet_items:
-                  to_convert.append(raw)
-
-          print(f"Items to convert: {len(to_convert)}")
-
-          # Save to file
-          with open('to_convert.json', 'w') as f:
-              json.dump(to_convert[:int("${{ env.MAX_ITEMS_PER_RUN }}")], f)
-
-          # Set output
-          with open("$GITHUB_OUTPUT", 'a') as f:
-              f.write(f"count={len(to_convert)}\n")
-          PYTHON
-
-      - name: Convert to Parquet
-        if: steps.find.outputs.count != '0'
+      - name: Convert batch
+        if: steps.find.outputs.batch_size != '0'
         run: |
-          python3 djen-scraper/scripts/convert_to_parquet.py
+          python3 << 'PYTHON'
+          import json
+          import os
+          import subprocess
+          import tempfile
+          import uuid
+          import zipfile
+          from pathlib import Path
+
+          import pyarrow as pa
+          import pyarrow.parquet as pq
+
+          NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
+
+          def generate_uuid(content: str) -> str:
+              return str(uuid.uuid5(NAMESPACE_DJEN, content))
+
+          def extract_zip(zip_path: Path) -> list:
+              records = []
+              with zipfile.ZipFile(zip_path, 'r') as zf:
+                  for name in zf.namelist():
+                      if name.endswith('.json'):
+                          with zf.open(name) as f:
+                              data = json.load(f)
+                              if isinstance(data, list):
+                                  records.extend(data)
+                              else:
+                                  records.append(data)
+              return records
+
+          def normalize(records: list, date: str, tribunal: str) -> dict:
+              textos_seen, partes_seen, advogados_seen = {}, {}, {}
+              comunicacoes, textos, partes, advogados = [], [], [], []
+              comunicacao_partes, comunicacao_advogados = [], []
+
+              for r in records:
+                  cid = r.get('id', generate_uuid(json.dumps(r)))
+
+                  # Texto
+                  texto = r.get('texto', '')
+                  texto_id = generate_uuid(texto) if texto else None
+                  if texto and texto_id not in textos_seen:
+                      textos_seen[texto_id] = True
+                      textos.append({'texto_id': texto_id, 'texto': texto, 'tamanho': len(texto)})
+
+                  # Comunicacao
+                  comunicacoes.append({
+                      'id': cid,
+                      'numero_processo': r.get('numeroProcesso', '') or r.get('numero_processo', ''),
+                      'tribunal': tribunal,
+                      'data_disponibilizacao': date,
+                      'orgao': r.get('orgao', {}).get('nome', '') if isinstance(r.get('orgao'), dict) else str(r.get('orgao', '')),
+                      'tipo': r.get('tipoComunicacao', '') or r.get('tipo', ''),
+                      'texto_id': texto_id,
+                      'sigiloso': r.get('sigiloso', False),
+                  })
+
+                  # Partes
+                  for p in r.get('partes', []):
+                      if isinstance(p, dict):
+                          nome, doc, papel = p.get('nome', ''), p.get('documento', ''), p.get('tipo', '')
+                      else:
+                          nome, doc, papel = str(p), '', ''
+                      if nome:
+                          pid = generate_uuid(f"{nome}|{doc}")
+                          if pid not in partes_seen:
+                              partes_seen[pid] = True
+                              partes.append({'parte_id': pid, 'nome': nome, 'documento': doc})
+                          comunicacao_partes.append({'comunicacao_id': cid, 'parte_id': pid, 'papel': papel})
+
+                  # Advogados
+                  for a in r.get('advogados', []):
+                      if isinstance(a, dict):
+                          nome, oab, uf = a.get('nome', ''), a.get('oab', ''), a.get('uf', '')
+                      else:
+                          nome, oab, uf = str(a), '', ''
+                      if nome or oab:
+                          aid = generate_uuid(f"{oab}|{uf}|{nome}")
+                          if aid not in advogados_seen:
+                              advogados_seen[aid] = True
+                              advogados.append({'advogado_id': aid, 'nome': nome, 'oab': oab, 'uf': uf})
+                          comunicacao_advogados.append({'comunicacao_id': cid, 'advogado_id': aid})
+
+              return {
+                  'comunicacoes': comunicacoes, 'textos': textos, 'partes': partes,
+                  'advogados': advogados, 'comunicacao_partes': comunicacao_partes,
+                  'comunicacao_advogados': comunicacao_advogados
+              }
+
+          def write_parquet(data: list, path: Path):
+              if data:
+                  pq.write_table(pa.Table.from_pylist(data), path, compression='zstd')
+
+          # Process items
+          with open('batch.txt') as f:
+              items = [line.strip() for line in f if line.strip()]
+
+          for item_id in items:
+              print(f"\n{'='*50}")
+              print(f"Processing: {item_id}")
+
+              parts = item_id.replace('djen-raw-', '').rsplit('-', 1)
+              date, tribunal = parts[0], parts[1]
+
+              with tempfile.TemporaryDirectory() as tmpdir:
+                  tmpdir = Path(tmpdir)
+
+                  # Download
+                  print(f"  Downloading...")
+                  subprocess.run(['ia', 'download', item_id, '-d', str(tmpdir)],
+                                capture_output=True, check=True)
+
+                  zip_path = tmpdir / item_id / 'caderno.zip'
+                  if not zip_path.exists():
+                      print(f"  ERROR: ZIP not found")
+                      continue
+
+                  # Extract
+                  print(f"  Extracting...")
+                  records = extract_zip(zip_path)
+                  print(f"  Found {len(records)} records")
+
+                  if not records:
+                      continue
+
+                  # Normalize
+                  print(f"  Normalizing...")
+                  tables = normalize(records, date, tribunal)
+
+                  # Write Parquet
+                  out_dir = tmpdir / 'parquet'
+                  out_dir.mkdir()
+                  for name, data in tables.items():
+                      if data:
+                          write_parquet(data, out_dir / f"{name}.parquet")
+                          print(f"    {name}: {len(data)} rows")
+
+                  # Upload
+                  parquet_id = f"djen-parquet-{date}-{tribunal}"
+                  print(f"  Uploading: {parquet_id}")
+
+                  files = list(out_dir.glob('*.parquet'))
+                  cmd = ['ia', 'upload', parquet_id] + [str(f) for f in files] + [
+                      '--metadata=collection:opensource',
+                      '--metadata=mediatype:data',
+                      f'--metadata=title:DJEN Parquet {tribunal} {date}',
+                      f'--metadata=tribunal:{tribunal}',
+                      f'--metadata=date:{date}',
+                      f'--metadata=source:{item_id}',
+                      '--retries=3', '--no-derive'
+                  ]
+                  subprocess.run(cmd, check=True)
+                  print(f"  ✅ Done!")
+
+          PYTHON
 
       - name: Summary
         run: |
-          echo "Conversion completed"
-          echo "Check Internet Archive for djen-parquet-* items"
+          echo "## Convert Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Total pending: ${{ steps.find.outputs.total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Batch processed: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY

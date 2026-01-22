@@ -1,17 +1,28 @@
-name: Archive ZIPs to Internet Archive
+name: Archive DJEN to Internet Archive
 
 on:
   schedule:
     - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch:
+    inputs:
+      date:
+        description: 'Specific date (YYYY-MM-DD)'
+        required: false
+      tribunal:
+        description: 'Specific tribunal (e.g., TJSP)'
+        required: false
+      backfill_days:
+        description: 'Days to backfill from today'
+        required: false
+        default: '7'
 
 concurrency:
-  group: archive-zips
-  cancel-in-progress: false  # Don't cancel, just skip new runs
+  group: archive-djen
+  cancel-in-progress: false  # Skip new runs, don't cancel
 
 env:
-  WORKER_URL: https://djen-scraper.franklinbaldo.workers.dev
-  MAX_FILES_PER_RUN: 10  # Process max 10 files per run to stay within limits
+  DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
+  MAX_UPLOADS_PER_RUN: 20  # ~20 uploads at 1/sec = ~20 seconds
 
 jobs:
   archive:
@@ -19,28 +30,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check for pending files
-        id: check
-        run: |
-          PENDING=$(curl -s "$WORKER_URL/api/pending")
-          COUNT=$(echo "$PENDING" | jq '.files | length')
-          echo "pending_count=$COUNT" >> $GITHUB_OUTPUT
-          echo "Found $COUNT pending files"
-
-          if [ "$COUNT" -eq 0 ]; then
-            echo "No files to archive"
-            exit 0
-          fi
-
-          # Get first N files
-          echo "$PENDING" | jq -c ".files[:$MAX_FILES_PER_RUN]" > pending_files.json
-
-      - name: Install Internet Archive CLI
-        if: steps.check.outputs.pending_count != '0'
+      - name: Setup
         run: |
           pip install internetarchive
 
-          # Configure IA with credentials
           mkdir -p ~/.config/internetarchive
           cat > ~/.config/internetarchive/ia.ini << EOF
           [s3]
@@ -48,75 +41,138 @@ jobs:
           secret = ${{ secrets.IA_SECRET_KEY }}
           EOF
 
-      - name: Archive files to Internet Archive
-        if: steps.check.outputs.pending_count != '0'
+      - name: Find items to archive
+        id: find
         run: |
-          set -e
+          # Tribunais list
+          TRIBUNAIS="TRF1 TRF2 TRF3 TRF4 TRF5 TRF6 TST TSE STM STJ STF CNJ CNMP TNU"
+          TRIBUNAIS="$TRIBUNAIS TJAC TJAL TJAM TJAP TJBA TJCE TJDF TJES TJGO TJMA TJMG TJMS TJMT TJPA TJPB TJPE TJPI TJPR TJRJ TJRN TJRO TJRR TJRS TJSC TJSE TJSP TJTO"
+          TRIBUNAIS="$TRIBUNAIS TRT1 TRT2 TRT3 TRT4 TRT5 TRT6 TRT7 TRT8 TRT9 TRT10 TRT11 TRT12 TRT13 TRT14 TRT15 TRT16 TRT17 TRT18 TRT19 TRT20 TRT21 TRT22 TRT23 TRT24"
+          TRIBUNAIS="$TRIBUNAIS TREAC TREAL TREAM TREAP TREBA TRECE TREDF TREES TREGO TREMA TREMG TREMS TREMT TREPA TREPB TREPE TREPI TREPR TRERJ TRERN TRERO TRERR TRERS TRESC TRESE TRESP TRETO"
 
-          # Process each file
-          jq -c '.[]' pending_files.json | while read -r file; do
-            DATE=$(echo "$file" | jq -r '.date')
-            TRIBUNAL=$(echo "$file" | jq -r '.tribunal')
-            BYTES=$(echo "$file" | jq -r '.bytes')
+          # Get existing items from IA
+          echo "Fetching existing items from IA..."
+          ia search 'identifier:djen-raw-*' --itemlist > existing_items.txt 2>/dev/null || touch existing_items.txt
+          EXISTING_COUNT=$(wc -l < existing_items.txt | tr -d ' ')
+          echo "Found $EXISTING_COUNT existing items on IA"
 
-            echo "Processing: $DATE / $TRIBUNAL ($BYTES bytes)"
+          # Generate dates to check (D-1 to D-N)
+          BACKFILL_DAYS="${{ inputs.backfill_days }}"
+          BACKFILL_DAYS=${BACKFILL_DAYS:-7}
 
-            # Download from R2 via worker
-            echo "  Downloading..."
-            curl -s "$WORKER_URL/api/download/$DATE/$TRIBUNAL" -o "caderno.zip"
+          > to_archive.txt
+          for i in $(seq 1 $BACKFILL_DAYS); do
+            DATE=$(date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
 
-            if [ ! -s "caderno.zip" ]; then
-              echo "  ERROR: Download failed or empty file"
+            for TRIBUNAL in $TRIBUNAIS; do
+              ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
+
+              # Check if already on IA
+              if grep -q "^${ITEM_ID}$" existing_items.txt; then
+                continue
+              fi
+
+              echo "${DATE}|${TRIBUNAL}" >> to_archive.txt
+            done
+          done
+
+          TOTAL=$(wc -l < to_archive.txt | tr -d ' ')
+          echo "Found $TOTAL items to archive"
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+          # Limit to MAX_UPLOADS_PER_RUN
+          head -n $MAX_UPLOADS_PER_RUN to_archive.txt > batch.txt
+          BATCH_SIZE=$(wc -l < batch.txt | tr -d ' ')
+          echo "batch_size=$BATCH_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Archive batch
+        if: steps.find.outputs.batch_size != '0'
+        run: |
+          SUCCESS=0
+          FAILED=0
+
+          while IFS='|' read -r DATE TRIBUNAL; do
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📥 $TRIBUNAL $DATE"
+
+            # Get caderno info from DJEN API
+            INFO=$(curl -sf "$DJEN_API/api/v1/caderno/$TRIBUNAL/$DATE/D" 2>/dev/null || echo "")
+
+            if [ -z "$INFO" ]; then
+              echo "   ⚠️  No caderno available"
+              FAILED=$((FAILED + 1))
               continue
             fi
 
-            ACTUAL_SIZE=$(stat -f%z "caderno.zip" 2>/dev/null || stat -c%s "caderno.zip")
-            echo "  Downloaded: $ACTUAL_SIZE bytes"
+            # Extract download URL
+            URL=$(echo "$INFO" | jq -r '.url // empty')
+            TOTAL=$(echo "$INFO" | jq -r '.total_comunicacoes // 0')
+            SIZE=$(echo "$INFO" | jq -r '.tamanho_bytes // 0')
+            SIZE_MB=$((SIZE / 1024 / 1024))
+
+            if [ -z "$URL" ]; then
+              echo "   ⚠️  No download URL"
+              FAILED=$((FAILED + 1))
+              continue
+            fi
+
+            echo "   📊 $TOTAL comunicações, ${SIZE_MB}MB"
+
+            # Download ZIP
+            echo "   ⬇️  Downloading..."
+            if ! curl -sfL "$URL" -o caderno.zip; then
+              echo "   ❌ Download failed"
+              FAILED=$((FAILED + 1))
+              continue
+            fi
+
+            # Verify file
+            ACTUAL=$(stat -c%s caderno.zip 2>/dev/null || stat -f%z caderno.zip)
+            if [ "$ACTUAL" -lt 100 ]; then
+              echo "   ❌ File too small ($ACTUAL bytes)"
+              rm -f caderno.zip
+              FAILED=$((FAILED + 1))
+              continue
+            fi
 
             # Upload to Internet Archive
             ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
-            echo "  Uploading to IA: $ITEM_ID"
+            echo "   ⬆️  Uploading to IA: $ITEM_ID"
 
-            ia upload "$ITEM_ID" "caderno.zip" \
+            if ia upload "$ITEM_ID" caderno.zip \
               --metadata="collection:opensource" \
               --metadata="mediatype:data" \
-              --metadata="title:DJEN Caderno $TRIBUNAL $DATE" \
-              --metadata="description:Diário de Justiça Eletrônico Nacional - Caderno completo do tribunal $TRIBUNAL para $DATE" \
+              --metadata="title:DJEN $TRIBUNAL $DATE" \
+              --metadata="description:Diário de Justiça Eletrônico Nacional - Caderno $TRIBUNAL $DATE - $TOTAL comunicações" \
               --metadata="subject:brazilian-law;djen;legal;judiciary;$TRIBUNAL" \
               --metadata="creator:CausaGanha" \
               --metadata="date:$DATE" \
               --metadata="tribunal:$TRIBUNAL" \
+              --metadata="total_comunicacoes:$TOTAL" \
               --retries=3 \
-              --no-derive
-
-            if [ $? -eq 0 ]; then
-              echo "  Uploaded successfully!"
-
-              # Mark as archived in R2
-              echo "  Marking as archived..."
-              curl -s -X POST "$WORKER_URL/api/mark-archived/$DATE/$TRIBUNAL"
-
-              # Delete from R2
-              echo "  Deleting from R2..."
-              curl -s -X DELETE "$WORKER_URL/api/delete/$DATE/$TRIBUNAL"
-
-              echo "  Done: $TRIBUNAL $DATE"
+              --no-derive 2>&1; then
+              echo "   ✅ Done!"
+              SUCCESS=$((SUCCESS + 1))
             else
-              echo "  ERROR: Upload failed"
+              echo "   ❌ Upload failed"
+              FAILED=$((FAILED + 1))
             fi
 
-            # Clean up
             rm -f caderno.zip
 
-            # Rate limit: 1 upload per second
+            # Rate limit
             sleep 1
-          done
+
+          done < batch.txt
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Results: $SUCCESS success, $FAILED failed"
+          echo "📊 Remaining: $(($(wc -l < to_archive.txt) - SUCCESS - FAILED)) items"
 
       - name: Summary
-        if: steps.check.outputs.pending_count != '0'
         run: |
-          echo "Archive run completed"
-
-          # Check remaining
-          REMAINING=$(curl -s "$WORKER_URL/api/pending" | jq '.files | length')
-          echo "Remaining files: $REMAINING"
+          echo "## Archive Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Total pending: ${{ steps.find.outputs.total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Batch size: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY
