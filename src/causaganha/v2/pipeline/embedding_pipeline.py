@@ -8,9 +8,9 @@ This module provides high-throughput embedding generation with:
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 import structlog
 
@@ -18,6 +18,7 @@ from causaganha.v2.analysis.embedding_models import EmbeddingModel
 from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
 from causaganha.v2.analysis.text_chunker import TextChunker
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+
 
 logger = structlog.get_logger()
 

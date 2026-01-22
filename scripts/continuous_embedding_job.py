@@ -27,9 +27,9 @@ import argparse
 import asyncio
 import json
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 import structlog
 
@@ -37,6 +37,7 @@ from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+
 
 logger = structlog.get_logger()
 
@@ -138,10 +139,15 @@ def create_progress_callback(total: int, start_time: float) -> Callable[[BatchSt
     Returns:
         Progress callback function.
     """
+
     def progress(stats: BatchStats):
         elapsed = time.time() - start_time
         remaining_decisions = total - stats.processed_decisions
-        eta_seconds = (elapsed / stats.processed_decisions * remaining_decisions) if stats.processed_decisions > 0 else 0
+        eta_seconds = (
+            (elapsed / stats.processed_decisions * remaining_decisions)
+            if stats.processed_decisions > 0
+            else 0
+        )
 
         logger.info(
             "processing_progress",
@@ -255,7 +261,7 @@ async def main_async(args: argparse.Namespace):
 
     # Get unembedded decisions
     intimation_ids = get_unembedded_decisions(
-        limit=args.max_decisions if args.max_decisions > 0 else None
+        limit=args.max_decisions if args.max_decisions > 0 else None,
     )
 
     if not intimation_ids:
@@ -263,7 +269,7 @@ async def main_async(args: argparse.Namespace):
         print("\n✅ No decisions need embedding - all caught up!\n")
         return
 
-    print(f"\n🚀 Starting continuous embedding generation")
+    print("\n🚀 Starting continuous embedding generation")
     print(f"   Decisions to process: {len(intimation_ids):,}")
     print(f"   Max concurrency: {args.max_concurrency}")
     print(f"   Timeout: {args.timeout_minutes} minutes")
@@ -319,7 +325,7 @@ async def main_async(args: argparse.Namespace):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Continuous embedding generation for high-throughput processing"
+        description="Continuous embedding generation for high-throughput processing",
     )
 
     parser.add_argument(

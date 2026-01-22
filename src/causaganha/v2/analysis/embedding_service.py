@@ -11,8 +11,9 @@ from causaganha.v2.analysis.embedding_service_v2 import (
     TaskType,
 )
 
+
 __all__ = [
+    "CONTEXTUAL_PREFIX",
     "EmbeddingService",
     "TaskType",
-    "CONTEXTUAL_PREFIX",
 ]

@@ -90,7 +90,8 @@ async def main() -> None:
     logger.info("Running Collection Stage...")
 
     with patch(
-        "causaganha.api.client.PJeAPIClient.get_intimations_by_court", new_callable=AsyncMock
+        "causaganha.api.client.PJeAPIClient.get_intimations_by_court",
+        new_callable=AsyncMock,
     ) as mock_get:
         mock_get.return_value = [mock_intimation]
 

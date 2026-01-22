@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Testar acurácia do RAG com k-NN usando ground truth."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -12,8 +14,9 @@ import duckdb
 import google.generativeai as genai
 import lancedb
 from rich.console import Console
-from rich.table import Table
 from rich.progress import track
+from rich.table import Table
+
 
 console = Console()
 
@@ -61,7 +64,7 @@ def classify_with_knn(
     query_text: str,
     table: lancedb.table.Table,
     k: int = 5,
-    exclude_id: int | None = None
+    exclude_id: int | None = None,
 ) -> dict:
     """Classificar usando k-NN."""
     # Chunk e embedar query
@@ -149,7 +152,8 @@ def main():
         correct = 0
 
         for intimation_id, true_outcome, texto in track(
-            test_set, description=f"Testando k={k}"
+            test_set,
+            description=f"Testando k={k}",
         ):
             # Classificar (excluindo a própria decisão - cross-validation)
             prediction = classify_with_knn(texto, table, k=k, exclude_id=intimation_id)
@@ -160,20 +164,24 @@ def main():
             if match:
                 correct += 1
 
-            results.append({
-                "intimation_id": intimation_id,
-                "true": true_outcome,
-                "predicted": predicted_outcome,
-                "confidence": prediction["confidence"],
-                "match": match,
-                "votes": prediction["votes"],
-            })
+            results.append(
+                {
+                    "intimation_id": intimation_id,
+                    "true": true_outcome,
+                    "predicted": predicted_outcome,
+                    "confidence": prediction["confidence"],
+                    "match": match,
+                    "votes": prediction["votes"],
+                }
+            )
 
         # Calcular métricas
         accuracy = (correct / len(test_set)) * 100
 
         # Mostrar resultados
-        console.print(f"\n[bold]Acurácia com k={k}: {accuracy:.1f}% ({correct}/{len(test_set)})[/bold]\n")
+        console.print(
+            f"\n[bold]Acurácia com k={k}: {accuracy:.1f}% ({correct}/{len(test_set)})[/bold]\n"
+        )
 
         # Matriz de confusão
         confusion = {}
@@ -235,21 +243,28 @@ def main():
     baseline_table.add_row("LLM (Gemini Flash)", "~85%", "$2.43")
 
     # Calcular melhor k
-    best_k = max(k_values, key=lambda k: sum(
-        1 for intimation_id, true_outcome, texto in test_set
-        if classify_with_knn(texto, table, k=k, exclude_id=intimation_id)["outcome"] == true_outcome
-    ))
+    best_k = max(
+        k_values,
+        key=lambda k: sum(
+            1
+            for intimation_id, true_outcome, texto in test_set
+            if classify_with_knn(texto, table, k=k, exclude_id=intimation_id)["outcome"]
+            == true_outcome
+        ),
+    )
 
     best_correct = sum(
-        1 for intimation_id, true_outcome, texto in test_set
-        if classify_with_knn(texto, table, k=best_k, exclude_id=intimation_id)["outcome"] == true_outcome
+        1
+        for intimation_id, true_outcome, texto in test_set
+        if classify_with_knn(texto, table, k=best_k, exclude_id=intimation_id)["outcome"]
+        == true_outcome
     )
     best_accuracy = (best_correct / len(test_set)) * 100
 
     baseline_table.add_row(
         f"[bold]RAG k-NN (k={best_k})[/bold]",
         f"[bold green]{best_accuracy:.1f}%[/bold green]",
-        "[bold green]$0.09[/bold green]"
+        "[bold green]$0.09[/bold green]",
     )
 
     console.print(baseline_table)

@@ -47,7 +47,8 @@ async def test_embedding_storage():
     print()
 
     # Simulate a legal decision (long text)
-    sample_decision = """
+    sample_decision = (
+        """
     ACÓRDÃO
 
     Vistos, relatados e discutidos os autos, acordam os Desembargadores da Turma Julgadora,
@@ -67,7 +68,9 @@ async def test_embedding_storage():
 
     Desembargador João da Silva
     Relator
-    """ * 5  # Repeat to make it longer
+    """
+        * 5
+    )  # Repeat to make it longer
 
     # Generate embeddings with chunking
     print("Generating embeddings for decision...")
@@ -124,7 +127,7 @@ async def test_embedding_storage():
         text_preview="Short decision text",
     )
 
-    print(f"✅ Saved 768D embedding for intimation 67890")
+    print("✅ Saved 768D embedding for intimation 67890")
     print()
 
     # Load from database
@@ -161,15 +164,15 @@ async def test_embedding_storage():
     print()
 
     print("By provider:")
-    for item in stats['by_provider']:
+    for item in stats["by_provider"]:
         print(f"  - {item['provider']}: {item['count']} embeddings")
     print()
 
     print("By model:")
-    for item in stats['by_model']:
+    for item in stats["by_model"]:
         print(
             f"  - {item['provider']}/{item['model_name']} "
-            f"({item['dimension']}D): {item['count']} embeddings"
+            f"({item['dimension']}D): {item['count']} embeddings",
         )
     print()
 

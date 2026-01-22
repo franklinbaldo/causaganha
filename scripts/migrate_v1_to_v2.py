@@ -57,7 +57,7 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
 
         # Fetch all ratings
         ratings = v1_con.execute(
-            "SELECT advogado_id, mu, sigma, total_partidas FROM ratings"
+            "SELECT advogado_id, mu, sigma, total_partidas FROM ratings",
         ).fetchall()
         logger.info(f"Found {len(ratings)} ratings in V1")
 

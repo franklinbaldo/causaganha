@@ -1,6 +1,7 @@
 import re
-from typing import Any, Dict, List, Optional
+
 from repo.core.client import TeamClient
+
 
 class EmailPoller:
     """Polls Jules session activities for new mail files and delivers them."""
@@ -53,16 +54,16 @@ class EmailPoller:
 
                 self.processed_activity_names.add(activity_name)
 
-    def _find_mail_files(self, patch: str) -> List[tuple[str, str]]:
+    def _find_mail_files(self, patch: str) -> list[tuple[str, str]]:
         """Parses unidiff for files added to mail/new/ and extracts content."""
         results = []
         # Look for the start of a new file diff in the personas mail directory
         # Format: +++ b/.team/personas/<id>/mail/new/<filename>
         file_sep = re.compile(r"^\+\+\+ b/\.team/personas/([^/]+)/mail/new/.*$", re.MULTILINE)
-        
+
         # Split patch into sections by file header
         sections = re.split(r"^(?=diff --git )", patch, flags=re.MULTILINE)
-        
+
         for section in sections:
             match = file_sep.search(section)
             if match:
@@ -72,12 +73,12 @@ class EmailPoller:
                 lines = []
                 for line in section.splitlines():
                     if line.startswith("+") and not line.startswith("+++"):
-                        lines.append(line[1:]) # Strip the leading +
-                
+                        lines.append(line[1:])  # Strip the leading +
+
                 if lines:
                     email_content = "\n".join(lines)
                     results.append((recipient_id, email_content))
-        
+
         return results
 
     def _deliver_to_recipient(self, recipient_id: str, email_content: str):
@@ -93,16 +94,16 @@ class EmailPoller:
         # Find latest session where title contains recipient_id
         # We look for "IN_PROGRESS" sessions first
         recipient_sessions = [
-            s for s in sessions 
+            s
+            for s in sessions
             if recipient_id.lower() in s.get("title", "").lower()
             and s.get("state") == "IN_PROGRESS"
         ]
-        
+
         if not recipient_sessions:
             # Fallback to any state if no in-progess session found?
             recipient_sessions = [
-                s for s in sessions 
-                if recipient_id.lower() in s.get("title", "").lower()
+                s for s in sessions if recipient_id.lower() in s.get("title", "").lower()
             ]
 
         if not recipient_sessions:
@@ -110,7 +111,9 @@ class EmailPoller:
             return
 
         # Sort by createTime descending
-        latest_session = sorted(recipient_sessions, key=lambda x: x.get("createTime", ""), reverse=True)[0]
+        latest_session = sorted(
+            recipient_sessions, key=lambda x: x.get("createTime", ""), reverse=True
+        )[0]
         session_id = latest_session["name"].split("/")[-1]
 
         notification = f"""

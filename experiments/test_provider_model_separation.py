@@ -11,9 +11,8 @@ import os
 from causaganha.v2.analysis.embedding_models import (
     GOOGLE_GEMINI_768,
     JINA_V3_1024,
-    JINA_V4_1024,
     JINA_V4_768,
-    get_default_model,
+    JINA_V4_1024,
     list_models,
 )
 from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
@@ -33,7 +32,9 @@ async def test_provider_model_separation():
     print("─" * 80)
     all_models = list_models()
     for model in all_models:
-        print(f"  {model.provider:6s} | {model.name:25s} | {model.dimension:4d}D | {model.max_tokens:6,d} tokens")
+        print(
+            f"  {model.provider:6s} | {model.name:25s} | {model.dimension:4d}D | {model.max_tokens:6,d} tokens"
+        )
     print()
 
     # Test 1: One provider, multiple models
@@ -152,7 +153,7 @@ async def test_provider_model_separation():
             print()
 
         except ValueError as e:
-            print(f"✅ SUCCESS: Correctly rejected mismatch!")
+            print("✅ SUCCESS: Correctly rejected mismatch!")
             print(f"   Error: {e}")
             print()
         except Exception as e:

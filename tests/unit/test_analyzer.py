@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from causaganha.domain.models_analysis import BatchDecisionAnalysis, DecisionAnalysis, Outcome
 from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.domain.models_analysis import DecisionAnalysis, BatchDecisionAnalysis, Outcome
 
 
 @pytest.fixture
@@ -22,11 +22,11 @@ async def test_analyzer_initialization(mock_agent: MagicMock) -> None:
 
     # Check internal agent configuration via mock
     assert mock_agent.call_count == 2
-    
+
     # Call 1: Single agent
     call1 = mock_agent.mock_calls[0]
     assert call1.kwargs.get("model") == "gemini-test"
-    
+
     # Call 2: Batch agent
     call2 = mock_agent.mock_calls[1]
     assert call2.kwargs.get("model") == "gemini-test"
@@ -129,27 +129,27 @@ async def test_analyze_bulk_success(mock_agent: MagicMock) -> None:
         decision_reasoning="Reasoning",
         confidence_score=0.9,
     )
-    
+
     mock_batch_result = BatchDecisionAnalysis(results=[mock_analysis, mock_analysis])
 
     mock_run_result = MagicMock()
     mock_run_result.data = mock_batch_result
-    
+
     instance = mock_agent.return_value
     instance.run = AsyncMock(return_value=mock_run_result)
 
     analyzer = DecisionAnalyzer()
-    
+
     texts = ["decision1", "decision2"]
     results = await analyzer.analyze_bulk(texts)
-    
+
     assert len(results) == 2
     assert results[0] == mock_analysis
     assert results[1] == mock_analysis
-    
+
     # Verify input structure
     call_args = instance.run.call_args
-    args = call_args[0][0] # First arg (user_content list)
-    assert len(args) == 7 # 1 intro + 2 * (start + text + end)
+    args = call_args[0][0]  # First arg (user_content list)
+    assert len(args) == 7  # 1 intro + 2 * (start + text + end)
     assert "DECISION 1 START" in args[1]
     assert "decision1" in args[2]

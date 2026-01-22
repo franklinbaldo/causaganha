@@ -1,10 +1,10 @@
 """Tests for the roster CLI command."""
-import pytest
-from pathlib import Path
-from typer.testing import CliRunner
-from unittest.mock import patch, MagicMock
 
+from pathlib import Path
+
+import pytest
 from repo.cli.roster import app, get_personas_dir
+from typer.testing import CliRunner
 
 
 runner = CliRunner()
@@ -18,7 +18,7 @@ class TestGetPersonasDir:
         personas_dir = tmp_path / ".team" / "personas"
         personas_dir.mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
-        
+
         result = get_personas_dir()
         assert result == Path(".team/personas")
 
@@ -27,14 +27,14 @@ class TestGetPersonasDir:
         personas_dir = tmp_path / "personas"
         personas_dir.mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
-        
+
         result = get_personas_dir()
         assert result == Path("personas")
 
     def test_raises_when_not_found(self, tmp_path, monkeypatch):
         """Should raise FileNotFoundError when no personas dir exists."""
         monkeypatch.chdir(tmp_path)
-        
+
         with pytest.raises(FileNotFoundError, match="Could not find personas directory"):
             get_personas_dir()
 
@@ -47,7 +47,7 @@ class TestRosterList:
         personas_dir = tmp_path / ".team" / "personas"
         refactor_dir = personas_dir / "refactor"
         refactor_dir.mkdir(parents=True)
-        
+
         # Create a minimal persona prompt
         (refactor_dir / "prompt.md.j2").write_text("""---
 id: refactor
@@ -56,10 +56,10 @@ description: "Refactoring specialist"
 ---
 Content here
 """)
-        
+
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["list"])
-        
+
         assert result.exit_code == 0
         assert "refactor" in result.stdout
         assert "🔧" in result.stdout
@@ -69,10 +69,10 @@ Content here
         """Should show error when no personas found."""
         personas_dir = tmp_path / ".team" / "personas"
         personas_dir.mkdir(parents=True)
-        
+
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["list"])
-        
+
         assert result.exit_code == 1
         assert "No personas found" in result.stdout
 
@@ -81,7 +81,7 @@ Content here
         personas_dir = tmp_path / ".team" / "personas"
         curator_dir = personas_dir / "curator"
         curator_dir.mkdir(parents=True)
-        
+
         long_desc = "A" * 100  # 100 char description
         (curator_dir / "prompt.md.j2").write_text(f"""---
 id: curator
@@ -89,10 +89,10 @@ emoji: "🎨"
 description: "{long_desc}"
 ---
 """)
-        
+
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["list"])
-        
+
         assert result.exit_code == 0
         assert "..." in result.stdout  # Truncated
 
@@ -104,10 +104,10 @@ class TestRosterView:
         """Should show error when persona not found."""
         personas_dir = tmp_path / ".team" / "personas"
         personas_dir.mkdir(parents=True)
-        
+
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["view", "nonexistent"])
-        
+
         assert result.exit_code == 1
         assert "not found" in result.stdout
 
@@ -115,7 +115,7 @@ class TestRosterView:
         """Should show error when personas dir doesn't exist."""
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(app, ["view", "any"])
-        
+
         assert result.exit_code == 1
 
 
@@ -124,7 +124,7 @@ class TestRosterIntegration:
 
     @pytest.mark.skipif(
         not Path(".team/personas").exists(),
-        reason="Requires actual personas directory"
+        reason="Requires actual personas directory",
     )
     def test_list_real_personas(self, monkeypatch):
         """Should list real personas when run from repo root."""
@@ -132,10 +132,10 @@ class TestRosterIntegration:
         repo_root = Path(__file__).parent.parent.parent
         if not (repo_root / ".team" / "personas").exists():
             pytest.skip("Not in expected repo structure")
-        
+
         monkeypatch.chdir(repo_root)
         result = runner.invoke(app, ["list"])
-        
+
         assert result.exit_code == 0
         assert "refactor" in result.stdout.lower()
         assert "Total:" in result.stdout

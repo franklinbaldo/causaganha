@@ -20,6 +20,7 @@ import httpx
 import structlog
 from flask import Request, Response
 
+
 # Configure logging
 logger = structlog.get_logger()
 
@@ -54,12 +55,14 @@ def djen_proxy_handler(request: Request) -> Response:
     # Health check endpoint (no auth required)
     if request.path == "/health" or request.path == "/":
         return Response(
-            json.dumps({
-                "status": "healthy",
-                "service": "djen-proxy",
-                "auth_required": REQUIRE_AUTH,
-                "region": "southamerica-east1"
-            }),
+            json.dumps(
+                {
+                    "status": "healthy",
+                    "service": "djen-proxy",
+                    "auth_required": REQUIRE_AUTH,
+                    "region": "southamerica-east1",
+                }
+            ),
             status=200,
             mimetype="application/json",
         )
@@ -148,7 +151,7 @@ def djen_proxy_handler(request: Request) -> Response:
                     "error": "DJEN API error",
                     "status_code": e.response.status_code,
                     "detail": e.response.text[:500],
-                }
+                },
             ),
             status=e.response.status_code,
             mimetype="application/json",

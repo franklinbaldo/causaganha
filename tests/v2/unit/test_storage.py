@@ -4,23 +4,23 @@ from pathlib import Path
 
 import ibis
 from ibis.backends.duckdb import Backend
-import pytest
+
 from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.api.client import Intimation, DestinarioAdvogado, LawyerInfo
+from causaganha.v2.api.client import DestinarioAdvogado, Intimation, LawyerInfo
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.queries import (
+    get_lawyer_name,
+    get_lawyer_rating,
+    get_unanalyzed_intimations,
+    get_unarchived_intimations,
+    get_unrated_analyses,
+    mark_analysis_as_rated,
+    mark_as_analyzed,
+    mark_as_archived,
+    store_analysis,
     store_intimations,
     store_lawyer_associations,
-    get_unanalyzed_intimations,
-    store_analysis,
-    mark_as_analyzed,
-    get_unrated_analyses,
-    get_lawyer_rating,
     update_lawyer_rating,
-    mark_analysis_as_rated,
-    get_lawyer_name,
-    get_unarchived_intimations,
-    mark_as_archived,
 )
 
 
@@ -123,9 +123,9 @@ def test_store_lawyer_associations(db_connection: Backend) -> None:
                 id=1,
                 nome="Advogado Teste",
                 numero_oab="12345",
-                uf_oab="RO"
-            )
-        )
+                uf_oab="RO",
+            ),
+        ),
     ]
 
     count = store_lawyer_associations(db_connection, 1, lawyers)
@@ -255,9 +255,9 @@ def test_mark_as_analyzed_with_fk_constraint(db_connection: Backend) -> None:
                 id=1,
                 nome="Advogado Teste",
                 numero_oab="12345",
-                uf_oab="RO"
-            )
-        )
+                uf_oab="RO",
+            ),
+        ),
     ]
     store_lawyer_associations(db_connection, 999, lawyers)
 
@@ -277,7 +277,7 @@ def test_rating_queries(db_connection: Backend) -> None:
     # 1. Test get_unrated_analyses
     # Need to setup data
     db_connection.con.execute(
-        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal) VALUES (1, '123', '2024-01-01', 'TJRO')"
+        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal) VALUES (1, '123', '2024-01-01', 'TJRO')",
     )
     # Use store_analysis which defaults rated=FALSE (via schema default if not set)
     analysis = DecisionAnalysis(
@@ -308,7 +308,7 @@ def test_rating_queries(db_connection: Backend) -> None:
         mu=26.0,
         sigma=8.0,
         wins=1,
-        losses=0
+        losses=0,
     )
 
     # 3. Test get_lawyer_rating
@@ -336,7 +336,7 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
         mu=25.0,
         sigma=8.333,
         wins=0,
-        losses=0
+        losses=0,
     )
 
     # Verify insert
@@ -353,7 +353,7 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
         mu=26.0,
         sigma=8.0,
         wins=1,
-        losses=0
+        losses=0,
     )
 
     # Verify update (should still be 1 record)
@@ -370,10 +370,10 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
 
     # Insert association
     db_connection.con.execute(
-        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal) VALUES (999, '999', '2024-01-01', 'TJRO')"
+        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal) VALUES (999, '999', '2024-01-01', 'TJRO')",
     )
     db_connection.con.execute(
-        "INSERT INTO intimation_lawyers (intimation_id, oab_number, oab_state, lawyer_name) VALUES (999, '9999', 'RO', 'Stored Name')"
+        "INSERT INTO intimation_lawyers (intimation_id, oab_number, oab_state, lawyer_name) VALUES (999, '9999', 'RO', 'Stored Name')",
     )
     name = get_lawyer_name(db_connection, "9999", "RO")
     assert name == "Stored Name"

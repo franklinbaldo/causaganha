@@ -6,6 +6,7 @@ import types
 
 from repo.features import autofix as _autofix
 
+
 __all__ = [name for name in dir(_autofix) if not name.startswith("__")]
 
 globals().update({name: getattr(_autofix, name) for name in __all__})

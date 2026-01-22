@@ -1,11 +1,11 @@
 """Vector store using LanceDB for decision embeddings."""
+
 import os
 from pathlib import Path
 from typing import Any
 
-import lancedb
 import google.generativeai as genai
-import numpy as np
+import lancedb
 import pandas as pd
 import structlog
 from lancedb.pydantic import LanceModel, Vector
@@ -78,7 +78,10 @@ class DecisionVectorStore:
         return result["embedding"]
 
     def chunk_text(
-        self, text: str, chunk_size: int = 500, overlap: int = 100
+        self,
+        text: str,
+        chunk_size: int = 500,
+        overlap: int = 100,
     ) -> list[str]:
         """Split text into overlapping chunks.
 
@@ -145,7 +148,7 @@ class DecisionVectorStore:
                     "vector": embedding,
                     "chunk_size": len(chunk),
                     "created_at": pd.Timestamp.now().isoformat(),
-                }
+                },
             )
 
         # Add to LanceDB
@@ -188,7 +191,9 @@ class DecisionVectorStore:
         }
 
     def search_similar(
-        self, query_text: str, limit: int = 10
+        self,
+        query_text: str,
+        limit: int = 10,
     ) -> pd.DataFrame:
         """Search for similar chunks.
 
@@ -207,7 +212,10 @@ class DecisionVectorStore:
         return results
 
     def analyze_decision_by_similarity(
-        self, text: str, reference_queries: dict[str, list[str]], top_k: int = 5
+        self,
+        text: str,
+        reference_queries: dict[str, list[str]],
+        top_k: int = 5,
     ) -> dict[str, Any]:
         """Analyze decision outcome by comparing with reference queries.
 
@@ -226,9 +234,7 @@ class DecisionVectorStore:
         self.index_decision(temp_id, text)
 
         # Search for each reference phrase and aggregate scores
-        outcome_scores: dict[str, list[float]] = {
-            outcome: [] for outcome in reference_queries.keys()
-        }
+        outcome_scores: dict[str, list[float]] = {outcome: [] for outcome in reference_queries}
 
         for outcome, queries in reference_queries.items():
             for query in queries:
@@ -246,8 +252,7 @@ class DecisionVectorStore:
 
         # Calculate final scores (max similarity for each outcome)
         final_scores = {
-            outcome: max(scores) if scores else 0.0
-            for outcome, scores in outcome_scores.items()
+            outcome: max(scores) if scores else 0.0 for outcome, scores in outcome_scores.items()
         }
 
         # Clean up temp data
@@ -284,5 +289,7 @@ class DecisionVectorStore:
         return {
             "indexed_decisions": unique_intimations,
             "total_chunks": total_chunks,
-            "avg_chunks_per_decision": total_chunks / unique_intimations if unique_intimations > 0 else 0,
+            "avg_chunks_per_decision": total_chunks / unique_intimations
+            if unique_intimations > 0
+            else 0,
         }

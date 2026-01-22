@@ -2,9 +2,7 @@
 
 import os
 from datetime import datetime, timedelta
-from pathlib import Path
 
-import ibis
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from typer.testing import CliRunner
@@ -239,7 +237,7 @@ def exports_exist_for_all_tribunals(context, date):
         """)
 
 
-@given(parsers.parse("{count:d} exports exist for date \"{date}\""))
+@given(parsers.parse('{count:d} exports exist for date "{date}"'))
 def n_exports_exist_for_date(context, count, date):
     """Create N exports for a date."""
     con = context["con"]
@@ -259,7 +257,7 @@ def n_exports_exist_for_date(context, count, date):
         """)
 
 
-@given(parsers.parse("{count:d} exports have status \"{status}\""))
+@given(parsers.parse('{count:d} exports have status "{status}"'))
 def n_exports_have_status(context, count, status):
     """Update N exports to have specific status."""
     con = context["con"]
@@ -279,7 +277,7 @@ def n_tribunals_are_active(context, count):
     context["active_tribunals"] = count
 
 
-@given(parsers.parse("{count:d} exports are \"{status}\" for date \"{date}\""))
+@given(parsers.parse('{count:d} exports are "{status}" for date "{date}"'))
 def n_exports_are_status_for_date(context, count, status, date):
     """Create N exports with specific status for date."""
     con = context["con"]
@@ -564,7 +562,9 @@ def try_run_migration_again(context, migration_name):
     """Try to run migration again."""
     result = runner.invoke(app, ["db", "migrate"])
     # Check if migration was skipped (output should indicate already exists)
-    context["migration_skipped"] = "already exists" in result.stdout.lower() or result.exit_code == 0
+    context["migration_skipped"] = (
+        "already exists" in result.stdout.lower() or result.exit_code == 0
+    )
 
 
 @when(parsers.parse('I insert an export with filename "{filename}"'))
@@ -585,10 +585,11 @@ def insert_export_with_filename(context, filename):
 
     # Validate filename format
     import re
-    pattern = r'^causaganha-\d{4}-\d{2}-\d{2}-[A-Z]{2,5}\.parquet$'
+
+    pattern = r"^causaganha-\d{4}-\d{2}-\d{2}-[A-Z]{2,5}\.parquet$"
     if not re.match(pattern, filename):
         context["validation_warnings"].append(
-            "Filename does not match expected format: causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet"
+            "Filename does not match expected format: causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet",
         )
 
 
@@ -663,7 +664,9 @@ def query_purgeable_data(context):
     """Query for data ready to purge."""
     con = context["con"]
     current_date = context.get("current_date", datetime.now().strftime("%Y-%m-%d"))
-    cutoff_date = (datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=180)).strftime("%Y-%m-%d")
+    cutoff_date = (datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=180)).strftime(
+        "%Y-%m-%d"
+    )
 
     result = con.raw_sql(f"""
         SELECT DISTINCT partition_date
@@ -747,9 +750,19 @@ def should_have_columns(context):
     actual_columns = {row[0]: {"type": row[1], "nullable": row[2]} for row in result}
 
     # For now, just verify that key columns exist
-    expected_columns = ["id", "tribunal", "partition_date", "ia_item_id", "ia_url",
-                       "parquet_filename", "row_count", "file_size_mb", "uploaded_at",
-                       "status", "error_message"]
+    expected_columns = [
+        "id",
+        "tribunal",
+        "partition_date",
+        "ia_item_id",
+        "ia_url",
+        "parquet_filename",
+        "row_count",
+        "file_size_mb",
+        "uploaded_at",
+        "status",
+        "error_message",
+    ]
 
     for col_name in expected_columns:
         assert col_name in actual_columns, f"Column {col_name} not found"
@@ -791,14 +804,19 @@ def should_query_by_tribunal_and_date(context):
 def insert_should_fail_with_constraint_violation(context):
     """Verify insert failed due to constraint."""
     assert context.get("insert_error") is not None
-    assert "constraint" in context["insert_error"].lower() or "duplicate" in context["insert_error"].lower()
+    assert (
+        "constraint" in context["insert_error"].lower()
+        or "duplicate" in context["insert_error"].lower()
+    )
 
 
 @then(parsers.parse('the error should indicate duplicate key on ("{col1}", "{col2}")'))
 def error_indicates_duplicate_key(context, col1, col2):
     """Verify error message indicates duplicate key."""
     error = context.get("insert_error", "")
-    assert "unique" in error.lower() or "duplicate" in error.lower() or "constraint" in error.lower()
+    assert (
+        "unique" in error.lower() or "duplicate" in error.lower() or "constraint" in error.lower()
+    )
 
 
 @then(parsers.parse("I should get {expected:d} days × 90 tribunals = {total:d} records"))
@@ -980,6 +998,7 @@ def can_find_data_on_ia(context):
 def should_get_dates_before(context, date):
     """Verify purgeable dates are before cutoff."""
     from datetime import datetime
+
     cutoff = datetime.strptime(date, "%Y-%m-%d")
     for purgeable_date in context["purgeable_dates"]:
         assert datetime.strptime(str(purgeable_date), "%Y-%m-%d") < cutoff

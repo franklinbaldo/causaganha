@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import duckdb
 from rich.console import Console
-from rich.table import Table
 from rich.prompt import Confirm
+from rich.table import Table
+
 
 console = Console()
 
@@ -70,6 +73,7 @@ def main():
     table.add_column("Avg Confidence", style="green")
 
     from collections import Counter
+
     outcome_counts = Counter(c[1] for c in candidates)
     outcome_confidence = {}
 
@@ -89,7 +93,7 @@ def main():
     target_per_outcome = 25
     ground_truth_items = []
 
-    for outcome in ['WIN', 'LOSS', 'PARTIAL', 'UNKNOWN']:
+    for outcome in ["WIN", "LOSS", "PARTIAL", "UNKNOWN"]:
         items = [c for c in candidates if c[1] == outcome][:target_per_outcome]
         ground_truth_items.extend(items)
         console.print(f"  {outcome:8s}: {len(items)} decisões")
@@ -110,6 +114,7 @@ def main():
 
     # Confirmar (auto-confirm em modo não-interativo)
     import sys
+
     if sys.stdin.isatty():
         if not Confirm.ask("\n[yellow]Inserir estes dados na tabela ground_truth?[/yellow]"):
             console.print("[red]Operação cancelada[/red]")
@@ -122,12 +127,15 @@ def main():
 
     for item in ground_truth_items:
         intimation_id, outcome, texto, winner, loser, w_oab, l_oab, conf, _ = item
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR REPLACE INTO ground_truth
             (intimation_id, outcome, texto, winner_party, loser_party,
              winner_lawyer_oab, loser_lawyer_oab, confidence_score)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (intimation_id, outcome, texto, winner, loser, w_oab, l_oab, conf))
+        """,
+            (intimation_id, outcome, texto, winner, loser, w_oab, l_oab, conf),
+        )
 
     conn.commit()
 

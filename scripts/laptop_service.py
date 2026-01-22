@@ -29,7 +29,6 @@ import signal
 import sys
 import time
 from datetime import datetime
-from pathlib import Path
 
 import structlog
 
@@ -37,6 +36,7 @@ from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.pipeline.embedding_pipeline import EmbeddingPipeline
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+
 
 logger = structlog.get_logger()
 
@@ -247,7 +247,7 @@ async def continuous_loop(
                     consecutive_errors = 0  # Reset after long sleep
                 else:
                     # Exponential backoff
-                    backoff = 2 ** consecutive_errors
+                    backoff = 2**consecutive_errors
                     await asyncio.sleep(backoff)
 
         except Exception as e:
@@ -264,7 +264,7 @@ async def continuous_loop(
                 break
 
             # Backoff
-            await asyncio.sleep(2 ** consecutive_errors)
+            await asyncio.sleep(2**consecutive_errors)
 
         # Small sleep between iterations
         iteration_duration = time.time() - start_time
@@ -324,7 +324,7 @@ def main():
                 max_concurrency=max_concurrency,
                 idle_sleep=idle_sleep,
                 shutdown=shutdown,
-            )
+            ),
         )
     except KeyboardInterrupt:
         logger.info("keyboard_interrupt")

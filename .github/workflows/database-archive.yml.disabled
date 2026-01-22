@@ -157,11 +157,11 @@ jobs:
           if ia metadata "$ITEM_ID" >/dev/null 2>&1; then
             echo "✅ Archive successfully uploaded and accessible"
             echo "🔗 Archive URL: https://archive.org/details/$ITEM_ID"
-            
+
             # Get item info
             echo "📊 Archive information:"
             ia metadata "$ITEM_ID" | jq -r '.metadata | {title, description, date, creator}'
-            
+
           else
             echo "❌ Archive verification failed"
             echo "Item may still be processing or upload failed"

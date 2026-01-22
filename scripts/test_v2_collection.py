@@ -32,7 +32,10 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Test V2 Collection Pipeline")
     parser.add_argument("--days", type=int, default=1, help="Number of days back to collect")
     parser.add_argument(
-        "--db", type=str, default="test_collection.duckdb", help="Path to DuckDB file"
+        "--db",
+        type=str,
+        default="test_collection.duckdb",
+        help="Path to DuckDB file",
     )
     args = parser.parse_args()
 

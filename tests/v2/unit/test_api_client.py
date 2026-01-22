@@ -146,8 +146,10 @@ async def test_fetch_uses_date_filters() -> None:
     mock_response.raise_for_status = lambda: None
 
     with patch.object(client.client, "get", new_callable=Mock) as mock_get:
+
         async def async_return() -> Mock:
             return mock_response
+
         mock_get.return_value = async_return()
 
         await client.get_intimations_by_court(

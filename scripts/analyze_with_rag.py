@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794)."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -12,9 +14,10 @@ import duckdb
 import google.generativeai as genai
 import lancedb
 from rich.console import Console
-from rich.table import Table
-from rich.progress import track
 from rich.panel import Panel
+from rich.progress import track
+from rich.table import Table
+
 
 console = Console()
 
@@ -137,12 +140,14 @@ def main():
 
     total, analyzed, remaining = stats
 
-    console.print(Panel(
-        f"[cyan]Total:[/cyan] {total:,} intimações\n"
-        f"[green]Analisadas:[/green] {analyzed:,}\n"
-        f"[yellow]Restantes:[/yellow] {remaining:,}",
-        title="Status do Banco"
-    ))
+    console.print(
+        Panel(
+            f"[cyan]Total:[/cyan] {total:,} intimações\n"
+            f"[green]Analisadas:[/green] {analyzed:,}\n"
+            f"[yellow]Restantes:[/yellow] {remaining:,}",
+            title="Status do Banco",
+        )
+    )
 
     if remaining == 0:
         console.print("\n[green]✓ Todas as decisões já foram analisadas![/green]\n")
@@ -150,10 +155,12 @@ def main():
         return
 
     # Perguntar quantas processar
-    console.print(f"\n[bold]RAG Stats:[/bold]")
-    console.print(f"  Acurácia: [green]83.3%[/green] (validada com 30 decisões)")
-    console.print(f"  Custo: [green]$0.000015[/green] por decisão")
-    console.print(f"  Custo total ({remaining:,} decisões): [green]${remaining * 0.000015:.2f}[/green]\n")
+    console.print("\n[bold]RAG Stats:[/bold]")
+    console.print("  Acurácia: [green]83.3%[/green] (validada com 30 decisões)")
+    console.print("  Custo: [green]$0.000015[/green] por decisão")
+    console.print(
+        f"  Custo total ({remaining:,} decisões): [green]${remaining * 0.000015:.2f}[/green]\n"
+    )
 
     # Processar em lote
     batch_size = min(100, remaining)
@@ -182,12 +189,14 @@ def main():
         try:
             prediction = classify_with_knn(texto, table, k=5)
 
-            results.append({
-                "intimation_id": intimation_id,
-                "outcome": prediction["outcome"],
-                "confidence": prediction["confidence"],
-                "votes": prediction["votes"],
-            })
+            results.append(
+                {
+                    "intimation_id": intimation_id,
+                    "outcome": prediction["outcome"],
+                    "confidence": prediction["confidence"],
+                    "votes": prediction["votes"],
+                }
+            )
 
             outcome_counts[prediction["outcome"]] += 1
 
@@ -236,11 +245,15 @@ def main():
     console.print("[yellow]Salvando resultados no banco...[/yellow]")
     for r in results:
         import json
-        conn.execute("""
+
+        conn.execute(
+            """
             INSERT OR REPLACE INTO rag_classifications
             (intimation_id, outcome, confidence_score, votes_json)
             VALUES (?, ?, ?, ?)
-        """, (r["intimation_id"], r["outcome"], r["confidence"], json.dumps(r["votes"])))
+        """,
+            (r["intimation_id"], r["outcome"], r["confidence"], json.dumps(r["votes"])),
+        )
 
     conn.commit()
     console.print("[green]✓ Resultados salvos em 'rag_classifications'[/green]\n")

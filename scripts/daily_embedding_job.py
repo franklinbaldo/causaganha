@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Daily embedding generation job for GitHub Actions.
+"""Daily embedding generation job for GitHub Actions.
 
 Processes decisions from the last N days that don't have embeddings yet.
 Optimized for daily digest processing with caching.
@@ -18,6 +17,7 @@ from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.pipeline.embedding_pipeline import EmbeddingPipeline
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+
 
 logger = structlog.get_logger()
 
@@ -131,7 +131,7 @@ def save_stats(stats, args):
 async def main():
     """Main entry point for daily embedding job."""
     parser = argparse.ArgumentParser(
-        description="Generate embeddings for daily digest"
+        description="Generate embeddings for daily digest",
     )
     parser.add_argument(
         "--days-back",

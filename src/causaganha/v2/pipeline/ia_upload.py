@@ -1,5 +1,4 @@
-"""
-Internet Archive Upload Module
+"""Internet Archive Upload Module
 
 Uploads Parquet files to Internet Archive for permanent, free storage.
 Supports retry logic, metadata generation, and upload verification.
@@ -15,9 +14,9 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import internetarchive as ia
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +72,11 @@ class InternetArchiveUploader:
 
     def __init__(
         self,
-        config: Optional[UploadConfig] = None,
-        access_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
+        config: UploadConfig | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
     ):
-        """
-        Initialize Internet Archive uploader.
+        """Initialize Internet Archive uploader.
 
         Args:
             config: Upload configuration (uses defaults if None)
@@ -104,11 +102,10 @@ class InternetArchiveUploader:
         file_path: Path,
         tribunal: str,
         partition_date: str,
-        file_size_mb: Optional[float] = None,
-        row_count: Optional[int] = None,
+        file_size_mb: float | None = None,
+        row_count: int | None = None,
     ) -> str:
-        """
-        Upload Parquet file to Internet Archive.
+        """Upload Parquet file to Internet Archive.
 
         Args:
             file_path: Path to Parquet file
@@ -130,7 +127,10 @@ class InternetArchiveUploader:
         # Generate item ID and metadata
         item_id = self._generate_item_id(partition_date, tribunal)
         metadata = self._generate_metadata(
-            tribunal, partition_date, file_size_mb, row_count
+            tribunal,
+            partition_date,
+            file_size_mb,
+            row_count,
         )
 
         logger.info(f"Uploading {file_path.name} to IA item: {item_id}")
@@ -156,27 +156,27 @@ class InternetArchiveUploader:
 
             except Exception as e:
                 logger.warning(
-                    f"Upload attempt {attempt + 1}/{self.config.max_retries} failed: {e}"
+                    f"Upload attempt {attempt + 1}/{self.config.max_retries} failed: {e}",
                 )
 
                 if attempt < self.config.max_retries - 1:
                     # Calculate exponential backoff delay
-                    delay = self.config.initial_retry_delay * (
-                        self.config.retry_backoff**attempt
-                    )
+                    delay = self.config.initial_retry_delay * (self.config.retry_backoff**attempt)
                     logger.info(f"Retrying in {delay:.1f} seconds...")
                     await asyncio.sleep(delay)
                 else:
                     # Final attempt failed
-                    raise IOError(
-                        f"Failed to upload after {self.config.max_retries} attempts: {e}"
+                    raise OSError(
+                        f"Failed to upload after {self.config.max_retries} attempts: {e}",
                     )
 
     def _upload_file(
-        self, item_id: str, file_path: Path, metadata: IAMetadata
+        self,
+        item_id: str,
+        file_path: Path,
+        metadata: IAMetadata,
     ) -> None:
-        """
-        Upload file to Internet Archive (blocking call).
+        """Upload file to Internet Archive (blocking call).
 
         Args:
             item_id: IA item identifier
@@ -201,13 +201,12 @@ class InternetArchiveUploader:
 
         # Check response
         if not response[0].status_code == 200:
-            raise IOError(
-                f"Upload failed with status {response[0].status_code}: {response[0].text}"
+            raise OSError(
+                f"Upload failed with status {response[0].status_code}: {response[0].text}",
             )
 
     async def _verify_upload(self, item_id: str, filename: str) -> None:
-        """
-        Verify file was uploaded successfully.
+        """Verify file was uploaded successfully.
 
         Args:
             item_id: IA item identifier
@@ -230,13 +229,12 @@ class InternetArchiveUploader:
                 break
 
         if not file_found:
-            raise IOError(
-                f"Verification failed: File {filename} not found in item {item_id}"
+            raise OSError(
+                f"Verification failed: File {filename} not found in item {item_id}",
             )
 
     def _generate_item_id(self, date: str, tribunal: str) -> str:
-        """
-        Generate Internet Archive item ID.
+        """Generate Internet Archive item ID.
 
         Args:
             date: Partition date (YYYY-MM-DD)
@@ -251,11 +249,10 @@ class InternetArchiveUploader:
         self,
         tribunal: str,
         date: str,
-        file_size_mb: Optional[float] = None,
-        row_count: Optional[int] = None,
+        file_size_mb: float | None = None,
+        row_count: int | None = None,
     ) -> IAMetadata:
-        """
-        Generate metadata for Internet Archive item.
+        """Generate metadata for Internet Archive item.
 
         Args:
             tribunal: Tribunal code (e.g., TJRO)
@@ -308,8 +305,7 @@ class InternetArchiveUploader:
         )
 
     async def check_if_exists(self, tribunal: str, partition_date: str) -> bool:
-        """
-        Check if item already exists on Internet Archive.
+        """Check if item already exists on Internet Archive.
 
         Args:
             tribunal: Tribunal code
@@ -328,8 +324,7 @@ class InternetArchiveUploader:
             return False
 
     async def get_item_url(self, tribunal: str, partition_date: str) -> str:
-        """
-        Get Internet Archive URL for an item.
+        """Get Internet Archive URL for an item.
 
         Args:
             tribunal: Tribunal code

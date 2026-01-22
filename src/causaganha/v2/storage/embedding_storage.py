@@ -25,6 +25,7 @@ from ibis.backends.duckdb import Backend
 from causaganha.v2.analysis.embedding_models import EmbeddingModel
 from causaganha.v2.storage.connection import get_connection
 
+
 logger = structlog.get_logger()
 
 
@@ -157,7 +158,7 @@ class EmbeddingStorage:
         if any(d != model.dimension for d in dims):
             raise ValueError(
                 f"Embedding dimension mismatch: expected {model.dimension}, "
-                f"got {set(dims)} for model {model.name}"
+                f"got {set(dims)} for model {model.name}",
             )
 
         # Prepare data using vectorized operations (pandas DataFrame)
@@ -184,7 +185,7 @@ class EmbeddingStorage:
         # Delete existing embeddings for this intimation
         self.con.con.execute(
             f"DELETE FROM {table_name} WHERE intimation_id = ?",
-            [intimation_id]
+            [intimation_id],
         )
 
         # Register DataFrame and insert
@@ -231,11 +232,7 @@ class EmbeddingStorage:
         table = self.con.table(table_name)
 
         # Query for this intimation (vectorized)
-        query = (
-            table
-            .filter(table.intimation_id == intimation_id)
-            .order_by(table.chunk_index)
-        )
+        query = table.filter(table.intimation_id == intimation_id).order_by(table.chunk_index)
 
         # Execute and fetch
         results = query.execute()
@@ -254,7 +251,7 @@ class EmbeddingStorage:
 
         # Convert to list of dicts (using pandas built-in vectorization)
         embeddings = results[["chunk_index", "embedding", "text_preview", "created_at"]].to_dict(
-            orient="records"
+            orient="records",
         )
 
         logger.debug(
@@ -307,7 +304,7 @@ class EmbeddingStorage:
         if table_name not in self.con.list_tables():
             raise ValueError(
                 f"No embeddings table found for model {model.name} ({model.dimension}D). "
-                f"Expected table: {table_name}"
+                f"Expected table: {table_name}",
             )
 
         # Get table reference
@@ -399,14 +396,14 @@ class EmbeddingStorage:
         # Check if table exists
         if table_name not in self.con.list_tables():
             raise ValueError(
-                f"No embeddings table found for model {model.name} ({model.dimension}D)"
+                f"No embeddings table found for model {model.name} ({model.dimension}D)",
             )
 
         # Validate query embedding dimension
         if len(query_embedding) != model.dimension:
             raise ValueError(
                 f"Query embedding dimension mismatch: expected {model.dimension}, "
-                f"got {len(query_embedding)}"
+                f"got {len(query_embedding)}",
             )
 
         # Get table reference
@@ -438,7 +435,7 @@ class EmbeddingStorage:
         # Execute query
         result = self.con.con.execute(
             query_sql,
-            [query_embedding, query_embedding, min_similarity, top_k]
+            [query_embedding, query_embedding, min_similarity, top_k],
         )
 
         # Fetch results
@@ -447,13 +444,15 @@ class EmbeddingStorage:
         # Convert to list of dicts
         similar_decisions = []
         for row in rows:
-            similar_decisions.append({
-                "intimation_id": row[0],
-                "chunk_index": row[1],
-                "similarity": float(row[2]),
-                "text_preview": row[3],
-                "created_at": row[4],
-            })
+            similar_decisions.append(
+                {
+                    "intimation_id": row[0],
+                    "chunk_index": row[1],
+                    "similarity": float(row[2]),
+                    "text_preview": row[3],
+                    "created_at": row[4],
+                }
+            )
 
         logger.info(
             "similarity_search_complete",
@@ -486,11 +485,13 @@ class EmbeddingStorage:
             # Get unique intimations (vectorized)
             unique_intimations = table.select("intimation_id").distinct().count().execute()
 
-            models.append({
-                "table_name": table_name,
-                "total_embeddings": int(count),
-                "unique_intimations": int(unique_intimations),
-            })
+            models.append(
+                {
+                    "table_name": table_name,
+                    "total_embeddings": int(count),
+                    "unique_intimations": int(unique_intimations),
+                }
+            )
 
         return models
 

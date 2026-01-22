@@ -1,8 +1,8 @@
 # Sprint 1
 
-**Status:** In Progress  
-**Started:** 2026-01-07  
-**Completed:** TBD  
+**Status:** In Progress
+**Started:** 2026-01-07
+**Completed:** TBD
 
 ## Objetivos Gerais
 

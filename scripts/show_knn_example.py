@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Mostra exemplo concreto de como k-NN funciona."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import os
+
 import duckdb
-import lancedb
 import google.generativeai as genai
+import lancedb
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
+
 
 console = Console()
 
@@ -63,12 +67,14 @@ def main():
 
     intimation_id, outcome_real, texto = decisao_exemplo
 
-    console.print(Panel(
-        f"[cyan]ID:[/cyan] {intimation_id}\n"
-        f"[cyan]Outcome Real:[/cyan] {outcome_real}\n"
-        f"[cyan]Texto (preview):[/cyan] {texto[:200]}...",
-        title="📄 Decisão Exemplo"
-    ))
+    console.print(
+        Panel(
+            f"[cyan]ID:[/cyan] {intimation_id}\n"
+            f"[cyan]Outcome Real:[/cyan] {outcome_real}\n"
+            f"[cyan]Texto (preview):[/cyan] {texto[:200]}...",
+            title="📄 Decisão Exemplo",
+        )
+    )
 
     # Criar chunk com prefixo
     chunk = texto[:500]
@@ -111,7 +117,7 @@ def main():
             str(neighbor_id),
             neighbor_outcome,
             f"{similarity:.4f}",
-            match
+            match,
         )
 
         votos[neighbor_outcome] = votos.get(neighbor_outcome, 0) + 1
@@ -139,26 +145,28 @@ def main():
 
     console.print()
     if vencedor == outcome_real:
-        console.print(f"[bold green]✓ Classificação Correta![/bold green]")
+        console.print("[bold green]✓ Classificação Correta![/bold green]")
     else:
-        console.print(f"[bold red]✗ Classificação Incorreta[/bold red]")
+        console.print("[bold red]✗ Classificação Incorreta[/bold red]")
 
     console.print(f"\n[cyan]Outcome Real:[/cyan] {outcome_real}")
     console.print(f"[cyan]Outcome Previsto:[/cyan] {vencedor}")
     console.print(f"[cyan]Confiança:[/cyan] {confianca:.1%}\n")
 
     # Explicação
-    console.print(Panel(
-        "[bold]Como funciona:[/bold]\n\n"
-        "1. Transformamos o texto da decisão em um vetor numérico (embedding)\n"
-        "2. Buscamos as 5 decisões do ground truth com vetores MAIS SIMILARES\n"
-        "3. Votamos pela maioria: o outcome mais comum entre os vizinhos\n"
-        "4. A confiança é a % de vizinhos que concordam\n\n"
-        "[yellow]Hipótese:[/yellow] Decisões com texto similar tendem a ter resultado similar!\n\n"
-        f"Neste exemplo: {votos[vencedor]}/{total_votos} vizinhos eram '{vencedor}', "
-        f"então classificamos como '{vencedor}' com {confianca:.0%} de confiança.",
-        title="💡 Explicação do k-NN"
-    ))
+    console.print(
+        Panel(
+            "[bold]Como funciona:[/bold]\n\n"
+            "1. Transformamos o texto da decisão em um vetor numérico (embedding)\n"
+            "2. Buscamos as 5 decisões do ground truth com vetores MAIS SIMILARES\n"
+            "3. Votamos pela maioria: o outcome mais comum entre os vizinhos\n"
+            "4. A confiança é a % de vizinhos que concordam\n\n"
+            "[yellow]Hipótese:[/yellow] Decisões com texto similar tendem a ter resultado similar!\n\n"
+            f"Neste exemplo: {votos[vencedor]}/{total_votos} vizinhos eram '{vencedor}', "
+            f"então classificamos como '{vencedor}' com {confianca:.0%} de confiança.",
+            title="💡 Explicação do k-NN",
+        )
+    )
 
     # Mostrar trechos dos vizinhos
     console.print("\n[bold]📝 Trechos dos Vizinhos (para comparar similaridade):[/bold]\n")
@@ -169,11 +177,13 @@ def main():
 
         neighbor_text = conn.execute(
             "SELECT texto FROM ground_truth WHERE intimation_id = ?",
-            [neighbor_id]
+            [neighbor_id],
         ).fetchone()
 
         if neighbor_text:
-            console.print(f"[cyan]Vizinho #{idx + 1} (ID {neighbor_id}, {neighbor_outcome}):[/cyan]")
+            console.print(
+                f"[cyan]Vizinho #{idx + 1} (ID {neighbor_id}, {neighbor_outcome}):[/cyan]"
+            )
             console.print(f"[dim]{neighbor_text[0][:300]}...[/dim]\n")
 
     conn.close()

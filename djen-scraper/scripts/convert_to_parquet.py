@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
+"""Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
 
 Optimized version:
 - Direct HTTP download (faster than ia CLI)
@@ -31,7 +30,7 @@ _cpu_count = multiprocessing.cpu_count()
 MAX_WORKERS = int(os.environ.get('MAX_WORKERS', str(min(_cpu_count, 4))))
 
 # UUIDv5 namespace for DJEN
-NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
+NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.jus.br")
 
 
 def generate_uuid(content: str) -> str:
@@ -41,22 +40,26 @@ def generate_uuid(content: str) -> str:
 
 def timed(name):
     """Context manager for timing code blocks."""
+
     class Timer:
         def __init__(self, name):
             self.name = name
+
         def __enter__(self):
             self.start = time.time()
             return self
+
         def __exit__(self, *args):
             self.elapsed = time.time() - self.start
             print(f"    [{self.name}] {self.elapsed:.1f}s")
+
     return Timer(name)
 
 
 def process_item(item_id: str) -> bool:
     """Process a single Internet Archive item."""
     # Parse item_id: djen-raw-2026-01-21-TJSP
-    parts = item_id.replace('djen-raw-', '').rsplit('-', 1)
+    parts = item_id.replace("djen-raw-", "").rsplit("-", 1)
     date = parts[0]
     tribunal = parts[1]
 
@@ -66,7 +69,7 @@ def process_item(item_id: str) -> bool:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        zip_path = tmpdir / 'caderno.zip'
+        zip_path = tmpdir / "caderno.zip"
 
         # Download directly via HTTP (faster than ia CLI)
         url = f"https://archive.org/download/{item_id}/caderno.zip"
@@ -81,28 +84,28 @@ def process_item(item_id: str) -> bool:
                     return False
 
                 downloaded = 0
-                with open(zip_path, 'wb') as f:
-                    for chunk in response.iter_bytes(chunk_size=1024*1024):  # 1MB chunks
+                with open(zip_path, "wb") as f:
+                    for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
                         f.write(chunk)
                         downloaded += len(chunk)
 
             print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
 
         # Stream JSON records from ZIP into a single NDJSON file for DuckDB
-        ndjson_path = tmpdir / 'records.ndjson'
+        ndjson_path = tmpdir / "records.ndjson"
 
         with timed("extract+flatten"):
             total_records = 0
             with zipfile.ZipFile(zip_path) as zf:
-                with open(ndjson_path, 'w') as out:
+                with open(ndjson_path, "w") as out:
                     for name in zf.namelist():
-                        if name.endswith('.json'):
+                        if name.endswith(".json"):
                             with zf.open(name) as f:
                                 data = json.load(f)
                                 # Handle {count, items} wrapper
-                                items = data.get('items', [data] if 'id' in data else [])
+                                items = data.get("items", [data] if "id" in data else [])
                                 for item in items:
-                                    out.write(json.dumps(item) + '\n')
+                                    out.write(json.dumps(item) + "\n")
                                     total_records += 1
 
             print(f"    Flattened {total_records} records to NDJSON")
@@ -234,11 +237,17 @@ def process_item(item_id: str) -> bool:
             """)
 
         # Write Parquet files
-        out_dir = tmpdir / 'parquet'
+        out_dir = tmpdir / "parquet"
         out_dir.mkdir()
 
-        tables = ['comunicacoes', 'textos', 'partes', 'advogados',
-                  'comunicacao_partes', 'comunicacao_advogados']
+        tables = [
+            "comunicacoes",
+            "textos",
+            "partes",
+            "advogados",
+            "comunicacao_partes",
+            "comunicacao_advogados",
+        ]
 
         with timed("write parquet"):
             for table in tables:
@@ -256,30 +265,32 @@ def process_item(item_id: str) -> bool:
         parquet_id = f"djen-parquet-{date}-{tribunal}"
         print(f"  Uploading to IA: {parquet_id}")
 
-        files = list(out_dir.glob('*.parquet'))
+        files = list(out_dir.glob("*.parquet"))
         if not files:
             print("  WARNING: No parquet files to upload")
             return False
 
         with timed("upload"):
             cmd = [
-                'ia', 'upload', parquet_id,
+                "ia",
+                "upload",
+                parquet_id,
                 *[str(f) for f in files],
-                '--metadata=collection:opensource',
-                '--metadata=mediatype:data',
-                f'--metadata=title:DJEN Parquet {tribunal} {date}',
-                f'--metadata=description:Normalized Parquet tables from DJEN {tribunal} {date}',
-                f'--metadata=subject:brazilian-law;djen;legal;judiciary;parquet;{tribunal}',
-                '--metadata=creator:CausaGanha',
-                f'--metadata=date:{date}',
-                f'--metadata=tribunal:{tribunal}',
-                f'--metadata=source_item:{item_id}',
-                f'--metadata=total_comunicacoes:{total_records}',
-                '--retries=3',
-                '--no-derive'
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                f"--metadata=title:DJEN Parquet {tribunal} {date}",
+                f"--metadata=description:Normalized Parquet tables from DJEN {tribunal} {date}",
+                f"--metadata=subject:brazilian-law;djen;legal;judiciary;parquet;{tribunal}",
+                "--metadata=creator:CausaGanha",
+                f"--metadata=date:{date}",
+                f"--metadata=tribunal:{tribunal}",
+                f"--metadata=source_item:{item_id}",
+                f"--metadata=total_comunicacoes:{total_records}",
+                "--retries=3",
+                "--no-derive",
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if result.returncode != 0:
                 print(f"  ERROR: Upload failed: {result.stderr}")
                 return False
@@ -348,5 +359,5 @@ def main():
     sys.exit(0 if failed == 0 else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

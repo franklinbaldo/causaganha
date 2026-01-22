@@ -8,6 +8,7 @@ from ibis.backends.duckdb import Backend
 
 from causaganha.v2.storage.connection import get_connection
 
+
 logger = structlog.get_logger()
 
 MIGRATIONS = [
@@ -134,7 +135,7 @@ def run_migrations(con: Backend | None = None, dry_run: bool = False) -> list[st
             con.con.execute(migration["up"])
             con.con.execute(
                 "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
-                [version, name]
+                [version, name],
             )
             logger.info("migration_applied", version=version, name=name)
             applied_names.append(name)
@@ -225,9 +226,9 @@ if __name__ == "__main__":
             status = migration_status(con)
             print(f"Applied: {status['applied']}/{status['total']}")
             print(f"Pending: {status['pending']}")
-            if status['pending_migrations']:
+            if status["pending_migrations"]:
                 print("\nPending migrations:")
-                for name in status['pending_migrations']:
+                for name in status["pending_migrations"]:
                     print(f"  - {name}")
 
         elif cmd == "dry-run":
@@ -242,7 +243,9 @@ if __name__ == "__main__":
 
         else:
             print(f"Unknown command: {cmd}")
-            print("Usage: python -m causaganha.v2.storage.migrations [status|dry-run|rollback [version]]")
+            print(
+                "Usage: python -m causaganha.v2.storage.migrations [status|dry-run|rollback [version]]"
+            )
 
     else:
         # Default: run migrations

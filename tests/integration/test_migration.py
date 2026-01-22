@@ -32,7 +32,7 @@ def test_migrate_ratings(tmp_path: Path) -> None:
     v1_db_path = tmp_path / "v1_test.duckdb"
     v1_con = duckdb.connect(str(v1_db_path))
     v1_con.execute(
-        "CREATE TABLE ratings (advogado_id VARCHAR, mu DOUBLE, sigma DOUBLE, total_partidas INTEGER, created_at TIMESTAMP, updated_at TIMESTAMP)"
+        "CREATE TABLE ratings (advogado_id VARCHAR, mu DOUBLE, sigma DOUBLE, total_partidas INTEGER, created_at TIMESTAMP, updated_at TIMESTAMP)",
     )
 
     # Insert sample V1 data

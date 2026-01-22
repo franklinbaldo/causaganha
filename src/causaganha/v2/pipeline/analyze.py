@@ -19,6 +19,66 @@ from causaganha.v2.storage.queries import (
 logger = structlog.get_logger()
 
 
+async def _initialize_analyzer(
+    strategy: AnalysisStrategy,
+    confidence_threshold: float,
+) -> Any:
+    """Initialize the appropriate analyzer based on strategy."""
+    if strategy == AnalysisStrategy.LLM:
+        logger.info("using_llm_only_strategy")
+        return DecisionAnalyzer()
+
+    if strategy == AnalysisStrategy.RAG:
+        logger.info("using_rag_only_strategy")
+        return await RAGAnalyzer.create()
+
+    # HYBRID or AUTO
+    logger.info(
+        "using_hybrid_strategy",
+        confidence_threshold=confidence_threshold,
+    )
+    rag_analyzer = await RAGAnalyzer.create()
+    llm_analyzer = DecisionAnalyzer()
+    return HybridAnalyzer(rag_analyzer, llm_analyzer, confidence_threshold)
+
+
+async def _process_batch_results(
+    con: Any,
+    analyses: list[Any],
+    intimation_ids: list[int],
+    stats: dict[str, Any] | None = None,
+) -> tuple[int, int]:
+    """Process and store batch analysis results."""
+    total_analyzed = 0
+    total_failed = 0
+
+    for result, intimation_id in zip(analyses, intimation_ids, strict=True):
+        if isinstance(result, Exception):
+            logger.error(
+                "analysis_failed",
+                intimation_id=intimation_id,
+                error=str(result),
+            )
+            mark_as_analyzed(con, intimation_id, success=False, error=str(result))
+            total_failed += 1
+            continue
+
+        try:
+            store_analysis(con, intimation_id, result)
+            mark_as_analyzed(con, intimation_id, success=True)
+            total_analyzed += 1
+        except Exception as e:
+            logger.exception(
+                "store_failed",
+                intimation_id=intimation_id,
+                error=str(e),
+            )
+            mark_as_analyzed(con, intimation_id, success=False, error=str(e))
+            total_failed += 1
+
+    return total_analyzed, total_failed
+
+
 async def analyze_pending_decisions(
     batch_size: int = 10,
     max_batches: int | None = None,
@@ -36,7 +96,6 @@ async def analyze_pending_decisions(
     Returns:
         Dictionary with statistics including method usage and costs
     """
-    # Convert string to enum if needed
     if isinstance(strategy, str):
         strategy = AnalysisStrategy(strategy)
 
@@ -49,122 +108,78 @@ async def analyze_pending_decisions(
     )
 
     con = get_connection()
-
-    # Initialize analyzer(s) based on strategy
-    if strategy == AnalysisStrategy.LLM:
-        analyzer = DecisionAnalyzer()
-        logger.info("using_llm_only_strategy")
-    elif strategy == AnalysisStrategy.RAG:
-        analyzer = await RAGAnalyzer.create()
-        logger.info("using_rag_only_strategy")
-    else:  # HYBRID or AUTO
-        rag_analyzer = await RAGAnalyzer.create()
-        llm_analyzer = DecisionAnalyzer()
-        analyzer = HybridAnalyzer(rag_analyzer, llm_analyzer, confidence_threshold)
-        logger.info(
-            "using_hybrid_strategy",
-            confidence_threshold=confidence_threshold,
-        )
+    analyzer = await _initialize_analyzer(strategy, confidence_threshold)
 
     total_analyzed = 0
     total_failed = 0
     batches_processed = 0
 
-    # Track method usage for hybrid strategy
-    rag_used = 0
-    llm_used = 0
-    total_cost = 0.0
+    # Track usage statistics
+    usage_stats = {
+        "rag_used": 0,
+        "llm_used": 0,
+        "total_cost": 0.0,
+    }
 
     while True:
-        # Check batch limit
         if max_batches and batches_processed >= max_batches:
             logger.info("batch_limit_reached", batches=batches_processed)
             break
 
-        # Get pending intimations
         pending = get_unanalyzed_intimations(con, limit=batch_size)
-
         if not pending:
             logger.info("no_pending_intimations")
             break
 
-        logger.info(
-            "processing_batch",
-            batch=batches_processed + 1,
-            size=len(pending),
-        )
+        logger.info("processing_batch", batch=batches_processed + 1, size=len(pending))
 
-        # Extract data based on strategy
         intimation_ids = [p["id"] for p in pending]
         pdf_urls = [p["link"] for p in pending]
         texts = [p.get("texto", "") for p in pending]
 
-        # Analyze batch based on strategy
         try:
+            analyses = []
+
             if strategy == AnalysisStrategy.LLM:
-                # LLM only - use PDF URLs
                 analyses = await analyzer.analyze_batch(pdf_urls, intimation_ids)
+                usage_stats["llm_used"] += len(analyses)
+                usage_stats["total_cost"] += len(analyses) * 0.000420
+
             elif strategy == AnalysisStrategy.RAG:
-                # RAG only - use text
                 analyses = await analyzer.analyze_batch(texts, intimation_ids)
+                usage_stats["rag_used"] += len(analyses)
+                usage_stats["total_cost"] += len(analyses) * 0.000008
+
             else:  # HYBRID
-                # Hybrid needs both text and PDF URLs
-                results, stats = await analyzer.analyze_batch(
-                    texts, intimation_ids, pdf_urls
+                analyses, batch_stats = await analyzer.analyze_batch(
+                    texts,
+                    intimation_ids,
+                    pdf_urls,
                 )
-                analyses = results
+                usage_stats["rag_used"] += batch_stats.get("rag_used", 0)
+                usage_stats["llm_used"] += batch_stats.get("llm_used", 0)
+                usage_stats["total_cost"] += batch_stats.get("total_cost", 0.0)
 
-                # Track statistics from hybrid analyzer
-                rag_used += stats.get("rag_used", 0)
-                llm_used += stats.get("llm_used", 0)
-                total_cost += stats.get("total_cost", 0.0)
-
-            # Store results
-            for result, intimation_id in zip(analyses, intimation_ids, strict=True):
-                if isinstance(result, Exception):
-                    logger.error(
-                        "analysis_failed",
-                        intimation_id=intimation_id,
-                        error=str(result),
-                    )
-                    mark_as_analyzed(con, intimation_id, success=False, error=str(result))
-                    total_failed += 1
-                    continue
-
-                try:
-                    store_analysis(con, intimation_id, result)
-                    mark_as_analyzed(con, intimation_id, success=True)
-                    total_analyzed += 1
-                except Exception as e:
-                    logger.error(
-                        "store_failed",
-                        intimation_id=intimation_id,
-                        error=str(e),
-                    )
-                    mark_as_analyzed(con, intimation_id, success=False, error=str(e))
-                    total_failed += 1
+            analyzed, failed = await _process_batch_results(
+                con,
+                analyses,
+                intimation_ids,
+            )
+            total_analyzed += analyzed
+            total_failed += failed
 
         except Exception as e:
-            logger.error("batch_failed", error=str(e))
-            # Mark all as failed
+            logger.exception("batch_failed", error=str(e))
             for intimation_id in intimation_ids:
                 mark_as_analyzed(con, intimation_id, success=False, error=str(e))
             total_failed += len(intimation_ids)
 
         batches_processed += 1
 
-    # Calculate cost for non-hybrid strategies
-    if strategy == AnalysisStrategy.LLM:
-        total_cost = total_analyzed * 0.000420
-        llm_used = total_analyzed
-    elif strategy == AnalysisStrategy.RAG:
-        total_cost = total_analyzed * 0.000008
-        rag_used = total_analyzed
-
-    # Calculate savings vs LLM-only
+    # Calculate savings
     llm_only_cost = total_analyzed * 0.000420
     savings_pct = (
-        ((llm_only_cost - total_cost) / llm_only_cost * 100)
+        ((llm_only_cost - usage_stats["total_cost"]) / llm_only_cost * 100)
         if llm_only_cost > 0
         else 0.0
     )
@@ -175,9 +190,7 @@ async def analyze_pending_decisions(
         analyzed=total_analyzed,
         failed=total_failed,
         strategy=strategy.value,
-        rag_used=rag_used,
-        llm_used=llm_used,
-        total_cost=f"${total_cost:.6f}",
+        **usage_stats,
         savings_vs_llm=f"{savings_pct:.1f}%",
     )
 
@@ -186,10 +199,10 @@ async def analyze_pending_decisions(
         "analyzed": total_analyzed,
         "failed": total_failed,
         "strategy": strategy.value,
-        "rag_used": rag_used,
-        "llm_used": llm_used,
-        "total_cost": total_cost,
-        "cost_per_decision": total_cost / total_analyzed if total_analyzed > 0 else 0.0,
+        **usage_stats,
+        "cost_per_decision": (
+            usage_stats["total_cost"] / total_analyzed if total_analyzed > 0 else 0.0
+        ),
         "savings_vs_llm_pct": savings_pct,
         "status": "success",
     }
