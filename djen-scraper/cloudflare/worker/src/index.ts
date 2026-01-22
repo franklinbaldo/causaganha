@@ -137,14 +137,37 @@ export default {
 
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
+		const corsHeaders = {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type'
+		};
+
+		if (request.method === 'OPTIONS') {
+			return new Response(null, { headers: corsHeaders });
+		}
 
 		if (url.pathname === '/health') {
-			return Response.json({ status: 'ok', timestamp: new Date().toISOString() });
+			return Response.json({ status: 'ok', timestamp: new Date().toISOString() }, { headers: corsHeaders });
 		}
 
 		if (url.pathname === '/state') {
 			const state = await loadState(env);
-			return Response.json(state);
+			return Response.json(state, { headers: corsHeaders });
+		}
+
+		if (url.pathname === '/api/tribunais') {
+			const data = await listTribunaisData(env);
+			return Response.json(data, { headers: corsHeaders });
+		}
+
+		if (url.pathname.startsWith('/api/tribunal/')) {
+			const tribunal = url.pathname.split('/')[3]?.toUpperCase();
+			if (tribunal && TRIBUNAIS.includes(tribunal)) {
+				const data = await getTribunalDetails(env, tribunal);
+				return Response.json(data, { headers: corsHeaders });
+			}
+			return Response.json({ error: 'Tribunal not found' }, { status: 404, headers: corsHeaders });
 		}
 
 		if (url.pathname === '/' || url.pathname === '/dashboard') {
@@ -157,15 +180,15 @@ export default {
 		if (url.pathname === '/trigger' && request.method === 'POST') {
 			const event = {} as ScheduledEvent;
 			await this.scheduled(event, env, { waitUntil: () => {} } as ExecutionContext);
-			return Response.json({ status: 'triggered' });
+			return Response.json({ status: 'triggered' }, { headers: corsHeaders });
 		}
 
 		if (url.pathname === '/reset' && request.method === 'POST') {
 			await env.DJEN_STATE.delete('state');
-			return Response.json({ status: 'reset' });
+			return Response.json({ status: 'reset' }, { headers: corsHeaders });
 		}
 
-		return Response.json({ error: 'Not found' }, { status: 404 });
+		return Response.json({ error: 'Not found' }, { status: 404, headers: corsHeaders });
 	}
 };
 
@@ -486,4 +509,111 @@ function renderDashboard(state: State): string {
 	</div>
 </body>
 </html>`;
+}
+
+interface TribunalSummary {
+	tribunal: string;
+	total_dates: number;
+	total_records: number;
+	total_bytes: number;
+	oldest_date: string | null;
+	newest_date: string | null;
+}
+
+interface TribunalDetail {
+	tribunal: string;
+	dates: {
+		date: string;
+		records: number;
+		bytes: number;
+		version: number;
+		hash: string;
+	}[];
+}
+
+async function listTribunaisData(env: Env): Promise<{ tribunais: TribunalSummary[]; last_updated: string }> {
+	const tribunaisMap = new Map<string, TribunalSummary>();
+
+	// Initialize all tribunals
+	for (const t of TRIBUNAIS) {
+		tribunaisMap.set(t, {
+			tribunal: t,
+			total_dates: 0,
+			total_records: 0,
+			total_bytes: 0,
+			oldest_date: null,
+			newest_date: null
+		});
+	}
+
+	// List all objects in R2
+	let cursor: string | undefined;
+	do {
+		const listed = await env.DJEN_STORAGE.list({ prefix: 'cadernos/', cursor, limit: 1000 });
+
+		for (const obj of listed.objects) {
+			// Parse key: cadernos/2026-01-21/TJSP-D-2026-01-21_v1.zip
+			const match = obj.key.match(/cadernos\/(\d{4}-\d{2}-\d{2})\/([A-Z0-9]+)-D-/);
+			if (!match) continue;
+
+			const [, date, tribunal] = match;
+			const summary = tribunaisMap.get(tribunal);
+			if (!summary) continue;
+
+			summary.total_dates += 1;
+			summary.total_bytes += obj.size;
+
+			// Get records from custom metadata if available
+			if (obj.customMetadata?.total_comunicacoes) {
+				summary.total_records += parseInt(obj.customMetadata.total_comunicacoes, 10);
+			}
+
+			if (!summary.oldest_date || date < summary.oldest_date) {
+				summary.oldest_date = date;
+			}
+			if (!summary.newest_date || date > summary.newest_date) {
+				summary.newest_date = date;
+			}
+		}
+
+		cursor = listed.truncated ? listed.cursor : undefined;
+	} while (cursor);
+
+	return {
+		tribunais: Array.from(tribunaisMap.values()).sort((a, b) => b.total_records - a.total_records),
+		last_updated: new Date().toISOString()
+	};
+}
+
+async function getTribunalDetails(env: Env, tribunal: string): Promise<TribunalDetail> {
+	const dates: TribunalDetail['dates'] = [];
+
+	let cursor: string | undefined;
+	do {
+		const listed = await env.DJEN_STORAGE.list({ prefix: 'cadernos/', cursor, limit: 1000 });
+
+		for (const obj of listed.objects) {
+			// Parse key: cadernos/2026-01-21/TJSP-D-2026-01-21_v1.zip
+			const match = obj.key.match(/cadernos\/(\d{4}-\d{2}-\d{2})\/([A-Z0-9]+)-D-.*_v(\d+)\.zip/);
+			if (!match) continue;
+
+			const [, date, objTribunal, version] = match;
+			if (objTribunal !== tribunal) continue;
+
+			dates.push({
+				date,
+				records: obj.customMetadata?.total_comunicacoes ? parseInt(obj.customMetadata.total_comunicacoes, 10) : 0,
+				bytes: obj.size,
+				version: parseInt(version, 10),
+				hash: obj.customMetadata?.hash || ''
+			});
+		}
+
+		cursor = listed.truncated ? listed.cursor : undefined;
+	} while (cursor);
+
+	return {
+		tribunal,
+		dates: dates.sort((a, b) => b.date.localeCompare(a.date))
+	};
 }
