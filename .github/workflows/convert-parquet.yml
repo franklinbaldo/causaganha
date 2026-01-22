@@ -31,15 +31,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
+        env:
+          IA_ACCESS: ${{ secrets.IA_ACCESS_KEY }}
+          IA_SECRET: ${{ secrets.IA_SECRET_KEY }}
         run: |
-          pip install internetarchive pyarrow pandas
+          pip install internetarchive 'ibis-framework[duckdb]'
 
           mkdir -p ~/.config/internetarchive
-          cat > ~/.config/internetarchive/ia.ini << EOF
-          [s3]
-          access = ${{ secrets.IA_ACCESS_KEY }}
-          secret = ${{ secrets.IA_SECRET_KEY }}
-          EOF
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IA_ACCESS" "$IA_SECRET" > ~/.config/internetarchive/ia.ini
+
+          echo "IA config created"
 
       - name: Find items to convert
         id: find

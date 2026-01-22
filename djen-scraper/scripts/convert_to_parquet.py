@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert DJEN ZIP files from Internet Archive to Parquet tables.
+Convert DJEN ZIP files from Internet Archive to Parquet tables using Ibis + DuckDB.
 
 Usage:
     python convert_to_parquet.py batch.txt
@@ -16,8 +16,8 @@ import uuid
 import zipfile
 from pathlib import Path
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+import ibis
+from ibis import _
 
 # UUIDv5 namespace for DJEN
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
@@ -44,7 +44,7 @@ def extract_zip(zip_path: Path) -> list:
 
 
 def normalize(records: list, date: str, tribunal: str) -> dict:
-    """Normalize records into relational tables."""
+    """Normalize records into relational tables with UUIDv5 deduplication."""
     textos_seen, partes_seen, advogados_seen = {}, {}, {}
     comunicacoes, textos, partes, advogados = [], [], [], []
     comunicacao_partes, comunicacao_advogados = [], []
@@ -72,7 +72,7 @@ def normalize(records: list, date: str, tribunal: str) -> dict:
             'orgao': r.get('orgao', {}).get('nome', '') if isinstance(r.get('orgao'), dict) else str(r.get('orgao', '')),
             'tipo': r.get('tipoComunicacao', '') or r.get('tipo', ''),
             'texto_id': texto_id,
-            'sigiloso': r.get('sigiloso', False),
+            'sigiloso': bool(r.get('sigiloso', False)),
         })
 
         # Partes - deduplicate by nome|documento
@@ -133,11 +133,25 @@ def normalize(records: list, date: str, tribunal: str) -> dict:
     }
 
 
-def write_parquet(data: list, path: Path):
-    """Write data to Parquet with zstd compression."""
-    if data:
-        table = pa.Table.from_pylist(data)
-        pq.write_table(table, path, compression='zstd', row_group_size=10000)
+def write_parquet_ibis(data: list, path: Path, partition_by: list[str] | None = None):
+    """Write data to Parquet using Ibis + DuckDB."""
+    if not data:
+        return 0
+
+    # Create in-memory DuckDB connection
+    con = ibis.duckdb.connect()
+
+    # Create table from data
+    table = ibis.memtable(data)
+
+    # Write to parquet with zstd compression
+    con.to_parquet(
+        table,
+        str(path),
+        compression='zstd',
+    )
+
+    return len(data)
 
 
 def process_item(item_id: str) -> bool:
@@ -169,7 +183,6 @@ def process_item(item_id: str) -> bool:
         # Find ZIP file
         zip_path = tmpdir / item_id / 'caderno.zip'
         if not zip_path.exists():
-            # Try finding any zip
             zips = list((tmpdir / item_id).glob('*.zip'))
             if zips:
                 zip_path = zips[0]
@@ -187,18 +200,18 @@ def process_item(item_id: str) -> bool:
             return False
 
         # Normalize to relational tables
-        print(f"  Normalizing...")
+        print(f"  Normalizing with Ibis...")
         tables = normalize(records, date, tribunal)
 
-        # Write Parquet files
+        # Write Parquet files using Ibis
         out_dir = tmpdir / 'parquet'
         out_dir.mkdir()
 
         for name, data in tables.items():
             if data:
                 path = out_dir / f"{name}.parquet"
-                write_parquet(data, path)
-                print(f"    {name}: {len(data)} rows")
+                rows = write_parquet_ibis(data, path)
+                print(f"    {name}: {rows} rows")
 
         # Upload to Internet Archive
         parquet_id = f"djen-parquet-{date}-{tribunal}"
@@ -243,7 +256,7 @@ def main():
 
     # Read items
     items = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(items)} items")
+    print(f"Processing {len(items)} items using Ibis + DuckDB")
 
     success = 0
     failed = 0

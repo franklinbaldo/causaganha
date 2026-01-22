@@ -31,15 +31,16 @@ jobs:
 
     steps:
       - name: Setup
+        env:
+          IA_ACCESS: ${{ secrets.IA_ACCESS_KEY }}
+          IA_SECRET: ${{ secrets.IA_SECRET_KEY }}
         run: |
           pip install internetarchive
 
           mkdir -p ~/.config/internetarchive
-          cat > ~/.config/internetarchive/ia.ini << EOF
-          [s3]
-          access = ${{ secrets.IA_ACCESS_KEY }}
-          secret = ${{ secrets.IA_SECRET_KEY }}
-          EOF
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IA_ACCESS" "$IA_SECRET" > ~/.config/internetarchive/ia.ini
+
+          echo "IA config created (credentials hidden)"
 
       - name: Find items to archive
         id: find
