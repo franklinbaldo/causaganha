@@ -76,6 +76,10 @@ src/causaganha/
 5.  **Tight Coupling in Pipelines**
     -   *Why:* Pipelines like `analyze.py` and `collect.py` directly instantiate `get_connection()` or `PJeAPIClient`, making them hard to unit test without mocking "the world" (or using the `queries.py` static functions).
 
+6.  **Broken CI & Unrealistic Linting**
+    -   *Why:* The `ruff.toml` configuration enables `ALL` rules with `ignore = []`, resulting in over 4,000 linting errors and a permanently broken CI build.
+    -   *Risk:* Developers ignore CI signals; code quality actually degrades because "everything fails anyway". Prevents merging valid changes.
+
 ---
 
 ## 5. Refactoring Roadmap
