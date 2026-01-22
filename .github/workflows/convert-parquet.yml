@@ -25,7 +25,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
         run: |
           pip install internetarchive pyarrow pandas
 
@@ -39,6 +44,14 @@ jobs:
       - name: Find items to convert
         id: find
         run: |
+          # Handle specific item input
+          if [ -n "${{ inputs.item_id }}" ]; then
+            echo "${{ inputs.item_id }}" > batch.txt
+            echo "batch_size=1" >> $GITHUB_OUTPUT
+            echo "total=1" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           echo "Fetching raw items from IA..."
           ia search 'identifier:djen-raw-*' --itemlist > raw_items.txt 2>/dev/null || touch raw_items.txt
           RAW_COUNT=$(wc -l < raw_items.txt | tr -d ' ')
@@ -69,161 +82,7 @@ jobs:
       - name: Convert batch
         if: steps.find.outputs.batch_size != '0'
         run: |
-          python3 << 'PYTHON'
-          import json
-          import os
-          import subprocess
-          import tempfile
-          import uuid
-          import zipfile
-          from pathlib import Path
-
-          import pyarrow as pa
-          import pyarrow.parquet as pq
-
-          NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
-
-          def generate_uuid(content: str) -> str:
-              return str(uuid.uuid5(NAMESPACE_DJEN, content))
-
-          def extract_zip(zip_path: Path) -> list:
-              records = []
-              with zipfile.ZipFile(zip_path, 'r') as zf:
-                  for name in zf.namelist():
-                      if name.endswith('.json'):
-                          with zf.open(name) as f:
-                              data = json.load(f)
-                              if isinstance(data, list):
-                                  records.extend(data)
-                              else:
-                                  records.append(data)
-              return records
-
-          def normalize(records: list, date: str, tribunal: str) -> dict:
-              textos_seen, partes_seen, advogados_seen = {}, {}, {}
-              comunicacoes, textos, partes, advogados = [], [], [], []
-              comunicacao_partes, comunicacao_advogados = [], []
-
-              for r in records:
-                  cid = r.get('id', generate_uuid(json.dumps(r)))
-
-                  # Texto
-                  texto = r.get('texto', '')
-                  texto_id = generate_uuid(texto) if texto else None
-                  if texto and texto_id not in textos_seen:
-                      textos_seen[texto_id] = True
-                      textos.append({'texto_id': texto_id, 'texto': texto, 'tamanho': len(texto)})
-
-                  # Comunicacao
-                  comunicacoes.append({
-                      'id': cid,
-                      'numero_processo': r.get('numeroProcesso', '') or r.get('numero_processo', ''),
-                      'tribunal': tribunal,
-                      'data_disponibilizacao': date,
-                      'orgao': r.get('orgao', {}).get('nome', '') if isinstance(r.get('orgao'), dict) else str(r.get('orgao', '')),
-                      'tipo': r.get('tipoComunicacao', '') or r.get('tipo', ''),
-                      'texto_id': texto_id,
-                      'sigiloso': r.get('sigiloso', False),
-                  })
-
-                  # Partes
-                  for p in r.get('partes', []):
-                      if isinstance(p, dict):
-                          nome, doc, papel = p.get('nome', ''), p.get('documento', ''), p.get('tipo', '')
-                      else:
-                          nome, doc, papel = str(p), '', ''
-                      if nome:
-                          pid = generate_uuid(f"{nome}|{doc}")
-                          if pid not in partes_seen:
-                              partes_seen[pid] = True
-                              partes.append({'parte_id': pid, 'nome': nome, 'documento': doc})
-                          comunicacao_partes.append({'comunicacao_id': cid, 'parte_id': pid, 'papel': papel})
-
-                  # Advogados
-                  for a in r.get('advogados', []):
-                      if isinstance(a, dict):
-                          nome, oab, uf = a.get('nome', ''), a.get('oab', ''), a.get('uf', '')
-                      else:
-                          nome, oab, uf = str(a), '', ''
-                      if nome or oab:
-                          aid = generate_uuid(f"{oab}|{uf}|{nome}")
-                          if aid not in advogados_seen:
-                              advogados_seen[aid] = True
-                              advogados.append({'advogado_id': aid, 'nome': nome, 'oab': oab, 'uf': uf})
-                          comunicacao_advogados.append({'comunicacao_id': cid, 'advogado_id': aid})
-
-              return {
-                  'comunicacoes': comunicacoes, 'textos': textos, 'partes': partes,
-                  'advogados': advogados, 'comunicacao_partes': comunicacao_partes,
-                  'comunicacao_advogados': comunicacao_advogados
-              }
-
-          def write_parquet(data: list, path: Path):
-              if data:
-                  pq.write_table(pa.Table.from_pylist(data), path, compression='zstd')
-
-          # Process items
-          with open('batch.txt') as f:
-              items = [line.strip() for line in f if line.strip()]
-
-          for item_id in items:
-              print(f"\n{'='*50}")
-              print(f"Processing: {item_id}")
-
-              parts = item_id.replace('djen-raw-', '').rsplit('-', 1)
-              date, tribunal = parts[0], parts[1]
-
-              with tempfile.TemporaryDirectory() as tmpdir:
-                  tmpdir = Path(tmpdir)
-
-                  # Download
-                  print(f"  Downloading...")
-                  subprocess.run(['ia', 'download', item_id, '-d', str(tmpdir)],
-                                capture_output=True, check=True)
-
-                  zip_path = tmpdir / item_id / 'caderno.zip'
-                  if not zip_path.exists():
-                      print(f"  ERROR: ZIP not found")
-                      continue
-
-                  # Extract
-                  print(f"  Extracting...")
-                  records = extract_zip(zip_path)
-                  print(f"  Found {len(records)} records")
-
-                  if not records:
-                      continue
-
-                  # Normalize
-                  print(f"  Normalizing...")
-                  tables = normalize(records, date, tribunal)
-
-                  # Write Parquet
-                  out_dir = tmpdir / 'parquet'
-                  out_dir.mkdir()
-                  for name, data in tables.items():
-                      if data:
-                          write_parquet(data, out_dir / f"{name}.parquet")
-                          print(f"    {name}: {len(data)} rows")
-
-                  # Upload
-                  parquet_id = f"djen-parquet-{date}-{tribunal}"
-                  print(f"  Uploading: {parquet_id}")
-
-                  files = list(out_dir.glob('*.parquet'))
-                  cmd = ['ia', 'upload', parquet_id] + [str(f) for f in files] + [
-                      '--metadata=collection:opensource',
-                      '--metadata=mediatype:data',
-                      f'--metadata=title:DJEN Parquet {tribunal} {date}',
-                      f'--metadata=tribunal:{tribunal}',
-                      f'--metadata=date:{date}',
-                      f'--metadata=source:{item_id}',
-                      '--retries=3', '--no-derive'
-                  ]
-                  subprocess.run(cmd, check=True)
-                  print(f"  ✅ Done!")
-
-          PYTHON
+          python djen-scraper/scripts/convert_to_parquet.py batch.txt
 
       - name: Summary
         run: |
