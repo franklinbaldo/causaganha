@@ -28,19 +28,16 @@ jobs:
   archive:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: dev
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
 
     steps:
       - name: Setup
-        env:
-          IA_ACCESS: ${{ secrets.IA_ACCESS_KEY }}
-          IA_SECRET: ${{ secrets.IA_SECRET_KEY }}
         run: |
           pip install internetarchive
-
-          mkdir -p ~/.config/internetarchive
-          printf '[s3]\naccess = %s\nsecret = %s\n' "$IA_ACCESS" "$IA_SECRET" > ~/.config/internetarchive/ia.ini
-
-          echo "IA config created (credentials hidden)"
+          echo "IA credentials configured via environment variables"
 
       - name: Find items to archive
         id: find
