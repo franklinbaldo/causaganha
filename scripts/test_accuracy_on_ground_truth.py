@@ -23,6 +23,7 @@ from rich.table import Table
 
 from causaganha.config import settings
 from causaganha.v2.analysis.embedding_service import EmbeddingService
+from causaganha.v2.analysis.heuristic_classifier import HeuristicClassifier
 from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
 
 
@@ -48,6 +49,7 @@ async def test_provider_accuracy(
     provider_name: str,
     ground_truth: list[dict],
     db_path: Path,
+    use_heuristic: bool = False,
 ) -> dict:
     """Test accuracy of a single provider against ground truth.
 
@@ -59,14 +61,19 @@ async def test_provider_accuracy(
     Returns:
         Dict with accuracy metrics and predictions
     """
-    console.print(f"\n[cyan]Testing provider: {provider_name}[/cyan]")
+    method = "Heuristic" if use_heuristic else "RAG"
+    console.print(f"\n[cyan]Testing provider: {provider_name} ({method})[/cyan]")
 
     # Initialize embedding service
     service = await EmbeddingService.create(provider=provider_name)
     console.print(f"  • Model: {service.model.name} ({service.model.dimension}D)")
+    console.print(f"  • Method: {method}")
 
-    # Initialize RAG analyzer
-    rag_analyzer = RAGAnalyzer(embedding_service=service)
+    # Initialize analyzer
+    if use_heuristic:
+        classifier = HeuristicClassifier(embedding_service=service)
+    else:
+        rag_analyzer = RAGAnalyzer(embedding_service=service)
 
     # Connect to database
     conn = duckdb.connect(str(db_path), read_only=True)
@@ -102,12 +109,16 @@ async def test_provider_accuracy(
 
             texto = row[0]
 
-            # Run RAG analysis
+            # Run analysis (RAG or Heuristic)
             try:
-                analysis = await rag_analyzer.analyze_text(texto)
-                predicted_outcome = normalize_outcome(analysis.outcome)
+                if use_heuristic:
+                    prediction = await classifier.predict(texto)
+                    predicted_outcome = prediction.outcome
+                else:
+                    analysis = await rag_analyzer.analyze_text(texto)
+                    predicted_outcome = normalize_outcome(analysis.outcome)
             except Exception as e:
-                logger.error("rag_analysis_failed", error=str(e), intimation_id=intimation_id)
+                logger.error("analysis_failed", error=str(e), intimation_id=intimation_id, method=method)
                 predicted_outcome = "ERROR"
 
             # Compare with ground truth
@@ -140,6 +151,7 @@ async def test_provider_accuracy(
         "provider": provider_name,
         "model": service.model.name,
         "dimension": service.model.dimension,
+        "method": method,
         "total_tested": total,
         "correct": correct,
         "accuracy": accuracy,
@@ -154,6 +166,12 @@ def main(
         "--provider",
         "-p",
         help="Embedding providers to test (local, jina, google)",
+    ),
+    use_heuristic: bool = typer.Option(
+        False,
+        "--heuristic",
+        "-h",
+        help="Use heuristic classifier instead of RAG",
     ),
     ground_truth_file: str = typer.Option(
         str(settings.DATA_DIR / "ground_truth_labels.json"),
@@ -210,6 +228,7 @@ def main(
                     provider_name=provider,
                     ground_truth=testable,
                     db_path=Path(db_path),
+                    use_heuristic=use_heuristic,
                 )
                 results.append(result)
             except Exception as e:
@@ -225,6 +244,7 @@ def main(
     table = Table(title="Accuracy Comparison on Ground Truth")
     table.add_column("Provider", style="cyan")
     table.add_column("Model", style="blue")
+    table.add_column("Method", style="magenta")
     table.add_column("Dimension", justify="right")
     table.add_column("Tested", justify="right")
     table.add_column("Correct", justify="right")
@@ -234,6 +254,7 @@ def main(
         table.add_row(
             result['provider'].upper(),
             result['model'],
+            result['method'],
             str(result['dimension']),
             str(result['total_tested']),
             str(result['correct']),
