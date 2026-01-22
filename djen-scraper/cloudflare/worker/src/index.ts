@@ -1,13 +1,13 @@
 /**
  * DJEN Scraper - Cloudflare Worker
  *
- * Coleta comunicações do DJEN via proxy brasileiro (Cloud Run)
- * Armazena dados no R2 e estado no KV
+ * Coleta comunicações do DJEN via bulk download (caderno)
+ * Armazena ZIPs no R2 e estado no KV
  *
- * Estratégia: Paginação inteligente
- * - Processa 1 órgão por vez, várias páginas
- * - Continua de onde parou (last_page)
- * - Quando terminar um órgão, passa para o próximo
+ * Estratégia: Download de cadernos completos
+ * - Usa endpoint /api/v1/caderno/{tribunal}/{date}/D
+ * - Baixa ZIP completo de cada tribunal (sem limite de 10k)
+ * - Processa 1 tribunal por execução
  */
 
 interface Env {
@@ -16,14 +16,26 @@ interface Env {
 	PROXY_URL: string;
 }
 
+interface CadernoInfo {
+	tribunal: string;
+	sigla_tribunal: string;
+	meio: string;
+	status: string;
+	versao: number;
+	data: string;
+	total_comunicacoes: number;
+	numero_paginas: number;
+	tamanho_bytes: number;
+	hash: string;
+	url: string;
+}
+
 interface State {
 	d1: {
 		date: string;
 		status: 'in_progress' | 'complete';
-		current_orgao: string | null;
-		current_page: number;
-		orgaos_done: string[];
-		orgaos_pending: string[];
+		tribunais_done: string[];
+		tribunais_pending: string[];
 		records: number;
 	};
 	backfill: {
@@ -39,8 +51,8 @@ interface State {
 	};
 }
 
-// Lista completa de órgãos DJEN (92 tribunais)
-const ORGAOS = [
+// Lista completa de tribunais DJEN (92)
+const TRIBUNAIS = [
 	// Tribunais Regionais Federais (6)
 	'TRF1', 'TRF2', 'TRF3', 'TRF4', 'TRF5', 'TRF6',
 	// Tribunais Superiores (5)
@@ -63,42 +75,44 @@ const ORGAOS = [
 	'TRESE', 'TRESP', 'TRETO'
 ];
 
-// Quantas páginas buscar por execução (respeitando limite de 50 subrequests)
-const PAGES_PER_BATCH = 10;
-const ITEMS_PER_PAGE = 100;
-
 export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-		console.log('🚀 DJEN Scraper - Iniciando batch', new Date().toISOString());
+		console.log('🚀 DJEN Scraper - Iniciando', new Date().toISOString());
 
 		try {
 			const state = await loadState(env);
 
-			// Determinar órgão e página atual
-			const { orgao, startPage } = getCurrentTarget(state);
+			// Determinar próximo tribunal
+			const tribunal = getNextTribunal(state);
 
-			if (!orgao) {
-				console.log('✅ Todos os órgãos processados para', state.d1.date);
+			if (!tribunal) {
+				console.log('✅ Todos os tribunais processados para', state.d1.date);
 				return;
 			}
 
-			console.log(`📅 Date: ${state.d1.date} | 📁 Órgão: ${orgao} | 📄 Página: ${startPage}`);
+			console.log(`📅 Date: ${state.d1.date} | 🏛️ Tribunal: ${tribunal}`);
 
-			// Buscar várias páginas do mesmo órgão
-			const { items, lastPage, hasMore } = await fetchPages(env, state.d1.date, orgao, startPage);
+			// Buscar info do caderno
+			const cadernoInfo = await fetchCadernoInfo(env, state.d1.date, tribunal);
 
-			// Salvar dados no R2
-			if (items.length > 0) {
-				await saveToR2(env, state.d1.date, orgao, startPage, items);
+			if (!cadernoInfo) {
+				console.log(`⚠️ Caderno não disponível para ${tribunal}`);
+				await markTribunalDone(env, state, tribunal, 0);
+				return;
 			}
 
-			// Atualizar estado
-			await updateState(env, state, orgao, items.length, lastPage, hasMore);
+			console.log(`📦 Caderno: ${cadernoInfo.total_comunicacoes} comunicações, ${(cadernoInfo.tamanho_bytes / 1024 / 1024).toFixed(1)}MB`);
 
-			console.log(`✅ Coletados ${items.length} items | Página ${startPage}-${lastPage} | Mais: ${hasMore}`);
+			// Baixar e salvar ZIP no R2
+			await downloadAndSaveZip(env, state.d1.date, tribunal, cadernoInfo);
+
+			// Marcar tribunal como completo
+			await markTribunalDone(env, state, tribunal, cadernoInfo.total_comunicacoes);
+
+			console.log(`✅ ${tribunal} completo! ${cadernoInfo.total_comunicacoes} comunicações`);
 
 		} catch (error) {
-			console.error('❌ Erro no batch:', error);
+			console.error('❌ Erro:', error);
 			throw error;
 		}
 	},
@@ -142,10 +156,8 @@ async function loadState(env: Env): Promise<State> {
 		d1: {
 			date: yesterday,
 			status: 'in_progress',
-			current_orgao: null,
-			current_page: 1,
-			orgaos_done: [],
-			orgaos_pending: [...ORGAOS],
+			tribunais_done: [],
+			tribunais_pending: [...TRIBUNAIS],
 			records: 0
 		},
 		backfill: {
@@ -162,7 +174,7 @@ async function loadState(env: Env): Promise<State> {
 	};
 }
 
-function getCurrentTarget(state: State): { orgao: string | null; startPage: number } {
+function getNextTribunal(state: State): string | null {
 	const yesterday = getDateString(-1);
 
 	// Se D-1 mudou, resetar
@@ -170,147 +182,102 @@ function getCurrentTarget(state: State): { orgao: string | null; startPage: numb
 		state.d1 = {
 			date: yesterday,
 			status: 'in_progress',
-			current_orgao: null,
-			current_page: 1,
-			orgaos_done: [],
-			orgaos_pending: [...ORGAOS],
+			tribunais_done: [],
+			tribunais_pending: [...TRIBUNAIS],
 			records: 0
 		};
 	}
 
 	// Se já completou
 	if (state.d1.status === 'complete') {
-		return { orgao: null, startPage: 1 };
+		return null;
 	}
 
-	// Se tem órgão em andamento
-	if (state.d1.current_orgao) {
-		return { orgao: state.d1.current_orgao, startPage: state.d1.current_page };
-	}
-
-	// Pegar próximo órgão pendente
-	if (state.d1.orgaos_pending.length > 0) {
-		return { orgao: state.d1.orgaos_pending[0], startPage: 1 };
+	// Pegar próximo tribunal pendente
+	if (state.d1.tribunais_pending.length > 0) {
+		return state.d1.tribunais_pending[0];
 	}
 
 	// Todos processados
 	state.d1.status = 'complete';
-	return { orgao: null, startPage: 1 };
+	return null;
 }
 
-async function fetchPages(
-	env: Env,
-	date: string,
-	orgao: string,
-	startPage: number
-): Promise<{ items: any[]; lastPage: number; hasMore: boolean }> {
+async function fetchCadernoInfo(env: Env, date: string, tribunal: string): Promise<CadernoInfo | null> {
 	const proxyUrl = env.PROXY_URL || 'https://djen-proxy-mhgmawcn3a-rj.a.run.app';
-	const allItems: any[] = [];
-	let currentPage = startPage;
-	let hasMore = true;
+	const url = `${proxyUrl}/api/v1/caderno/${tribunal}/${date}/D`;
 
-	for (let i = 0; i < PAGES_PER_BATCH && hasMore; i++) {
-		try {
-			const url = `${proxyUrl}/api/v1/comunicacao?dataPublicacao=${date}&idOrgao=${orgao}&pagina=${currentPage}&itensPorPagina=${ITEMS_PER_PAGE}`;
+	console.log(`📥 Buscando caderno: ${url}`);
 
-			console.log(`📥 Fetching ${orgao} página ${currentPage}...`);
+	try {
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: { 'Accept': 'application/json' }
+		});
 
-			const response = await fetch(url, {
-				method: 'GET',
-				headers: { 'Accept': 'application/json' }
-			});
-
-			if (!response.ok) {
-				await response.text();
-				console.error(`❌ Erro ${orgao} p${currentPage}: ${response.status}`);
-
-				if (response.status === 429) {
-					console.log('⏸️ Rate limited, parando batch');
-					break;
-				}
-				// 5xx (incluindo 500 para páginas além do range) = fim dos dados
-				if (response.status >= 500) {
-					console.log(`🏁 ${orgao} p${currentPage}: 5xx indica fim dos dados`);
-					hasMore = false;
-					break;
-				}
-				// 4xx: pular para próxima página
-				currentPage++;
-				continue;
-			}
-
-			const data = await response.json();
-			const items = data.items || [];
-
-			console.log(`✅ ${orgao} p${currentPage}: ${items.length} items (total API: ${data.count || 0})`);
-
-			allItems.push(...items);
-
-			// Se retornou menos que o máximo, acabaram as páginas
-			if (items.length < ITEMS_PER_PAGE) {
-				hasMore = false;
-			} else {
-				currentPage++;
-			}
-
-			// Pequeno delay para não sobrecarregar
-			await new Promise(resolve => setTimeout(resolve, 100));
-
-		} catch (error) {
-			console.error(`❌ Erro ${orgao} p${currentPage}:`, error);
-			break;
+		if (!response.ok) {
+			const text = await response.text();
+			console.error(`❌ Erro ao buscar caderno: ${response.status} - ${text}`);
+			return null;
 		}
+
+		const data = await response.json() as CadernoInfo;
+
+		// Verificar se o caderno está processado
+		if (data.status !== 'Processado') {
+			console.log(`⏳ Caderno ${tribunal} status: ${data.status}`);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error(`❌ Erro ao buscar caderno ${tribunal}:`, error);
+		return null;
+	}
+}
+
+async function downloadAndSaveZip(env: Env, date: string, tribunal: string, info: CadernoInfo): Promise<void> {
+	console.log(`📥 Baixando ZIP de ${tribunal}...`);
+
+	// Baixar o ZIP da URL temporária
+	const response = await fetch(info.url);
+
+	if (!response.ok) {
+		throw new Error(`Erro ao baixar ZIP: ${response.status}`);
 	}
 
-	return { items: allItems, lastPage: currentPage, hasMore };
-}
+	// Salvar no R2
+	const key = `cadernos/${date}/${tribunal}-D-${date}_v${info.versao}.zip`;
 
-async function saveToR2(env: Env, date: string, orgao: string, startPage: number, items: any[]): Promise<void> {
-	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-	const key = `data/${date}/${orgao}_p${startPage}_${timestamp}.json`;
-
-	const json = JSON.stringify({ orgao, date, startPage, count: items.length, items }, null, 0);
-
-	await env.DJEN_STORAGE.put(key, json, {
-		httpMetadata: { contentType: 'application/json' }
+	await env.DJEN_STORAGE.put(key, response.body, {
+		httpMetadata: { contentType: 'application/zip' },
+		customMetadata: {
+			tribunal: info.sigla_tribunal,
+			date: date,
+			total_comunicacoes: String(info.total_comunicacoes),
+			hash: info.hash,
+			versao: String(info.versao)
+		}
 	});
 
-	console.log(`💾 Salvou ${key} (${json.length} bytes, ${items.length} items)`);
+	console.log(`💾 Salvou ${key} (${(info.tamanho_bytes / 1024 / 1024).toFixed(1)}MB, ${info.total_comunicacoes} comunicações)`);
 }
 
-async function updateState(
-	env: Env,
-	state: State,
-	orgao: string,
-	itemCount: number,
-	lastPage: number,
-	hasMore: boolean
-): Promise<void> {
-	state.d1.records += itemCount;
-	state.stats.total_records += itemCount;
+async function markTribunalDone(env: Env, state: State, tribunal: string, recordCount: number): Promise<void> {
+	state.d1.tribunais_done.push(tribunal);
+	state.d1.tribunais_pending = state.d1.tribunais_pending.filter(t => t !== tribunal);
+	state.d1.records += recordCount;
+	state.stats.total_records += recordCount;
 	state.stats.last_run = new Date().toISOString();
 
-	if (hasMore) {
-		// Continuar no mesmo órgão, próxima página
-		// lastPage já é o próximo a buscar (currentPage++ ocorre após cada fetch)
-		state.d1.current_orgao = orgao;
-		state.d1.current_page = lastPage;
-	} else {
-		// Órgão completo, passar para o próximo
-		state.d1.orgaos_done.push(orgao);
-		state.d1.orgaos_pending = state.d1.orgaos_pending.filter(o => o !== orgao);
-		state.d1.current_orgao = null;
-		state.d1.current_page = 1;
+	console.log(`🎉 ${tribunal} completo! Restam ${state.d1.tribunais_pending.length} tribunais`);
 
-		console.log(`🎉 ${orgao} completo! Restam ${state.d1.orgaos_pending.length} órgãos`);
-
-		// Se não tem mais órgãos, dia completo
-		if (state.d1.orgaos_pending.length === 0) {
-			state.d1.status = 'complete';
-			state.backfill.completed_dates.push(state.d1.date);
-			state.stats.total_days_archived += 1;
-			console.log(`🏆 Dia ${state.d1.date} completo!`);
-		}
+	// Se não tem mais tribunais, dia completo
+	if (state.d1.tribunais_pending.length === 0) {
+		state.d1.status = 'complete';
+		state.backfill.completed_dates.push(state.d1.date);
+		state.stats.total_days_archived += 1;
+		console.log(`🏆 Dia ${state.d1.date} completo! Total: ${state.d1.records} comunicações`);
 	}
 
 	await env.DJEN_STATE.put('state', JSON.stringify(state));
