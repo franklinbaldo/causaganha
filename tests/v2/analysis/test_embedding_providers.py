@@ -1,54 +1,52 @@
 """Tests for embedding provider implementations."""
 
-import os
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
-import pytest
-
-from causaganha.v2.analysis.embedding_providers import (
-    GoogleEmbeddingProvider,
-    JinaEmbeddingProvider,
-    create_embedding_provider,
+from causaganha.v2.analysis.providers import (
+    GoogleProvider,
+    JinaProvider,
+    create_provider,
+    auto_select_provider,
+)
+from causaganha.v2.analysis.embedding_models import (
+    EmbeddingModel,
+    JINA_V4_1024,
+    GOOGLE_GEMINI_768,
 )
 
 
 class TestGoogleEmbeddingProvider:
-    """Tests for Google embedding provider."""
+    """Test suite for Google embedding provider."""
+
+    def setup_method(self):
+        self.api_key = "test-key"
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": self.api_key}):
+            self.provider = GoogleProvider()
 
     def test_initialization_with_api_key(self):
-        """Test provider initialization with explicit API key."""
-        provider = GoogleEmbeddingProvider(api_key="test-key")
-        assert provider.api_key == "test-key"
-        assert provider.dimension == 768
-        assert provider.model == "text-embedding-004"
+        """Test initialization with explicit API key."""
+        provider = GoogleProvider(api_key="custom-key")
+        assert provider.api_key == "custom-key"
 
-    def test_initialization_from_env(self, monkeypatch):
-        """Test provider initialization from environment variable."""
-        monkeypatch.setenv("GOOGLE_API_KEY", "env-key")
-        provider = GoogleEmbeddingProvider()
-        assert provider.api_key == "env-key"
+    def test_initialization_with_env_var(self):
+        """Test initialization using environment variable."""
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "env-key"}):
+            provider = GoogleProvider()
+            assert provider.api_key == "env-key"
 
-    def test_initialization_without_api_key(self, monkeypatch):
-        """Test provider initialization fails without API key."""
-        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-        with pytest.raises(ValueError, match="Google API key must be provided"):
-            GoogleEmbeddingProvider()
-
-    def test_custom_dimension(self):
-        """Test provider with custom dimension."""
-        provider = GoogleEmbeddingProvider(api_key="test-key", dimension=512)
-        assert provider.dimension == 512
+    def test_initialization_failure(self):
+        """Test initialization fails without API key."""
+        with patch.dict("os.environ", clear=True):
+            with pytest.raises(ValueError):
+                GoogleProvider()
 
     @pytest.mark.asyncio
     async def test_embed_text_success(self):
-        """Test successful text embedding."""
-        provider = GoogleEmbeddingProvider(api_key="test-key")
-
-        # Mock the HTTP response
+        """Test successful embedding generation."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "embedding": {"values": [0.1] * 768}
+            "embedding": {"values": [0.1, 0.2, 0.3]}
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -57,58 +55,45 @@ class TestGoogleEmbeddingProvider:
                 return_value=mock_response
             )
 
-            embedding = await provider.embed_text("test text")
-            assert len(embedding) == 768
-            assert all(v == 0.1 for v in embedding)
+            embedding = await self.provider.embed_text(
+                "test text", model=GOOGLE_GEMINI_768
+            )
+
+            assert embedding == [0.1, 0.2, 0.3]
+
+            # Verify request structure
+            call_args = mock_client.return_value.__aenter__.return_value.post.call_args
+            _, kwargs = call_args
+            assert "key" in kwargs["params"]
+            assert "content" in kwargs["json"]
+            assert kwargs["json"]["taskType"] == "RETRIEVAL_QUERY"
+
+    @pytest.mark.asyncio
+    async def test_embed_text_wrong_model(self):
+        """Test error when using non-Google model."""
+        with pytest.raises(ValueError):
+            await self.provider.embed_text("test", model=JINA_V4_1024)
 
 
 class TestJinaEmbeddingProvider:
-    """Tests for Jina AI embedding provider."""
+    """Test suite for Jina embedding provider."""
+
+    def setup_method(self):
+        self.api_key = "test-key"
+        with patch.dict("os.environ", {"JINA_API_KEY": self.api_key}):
+            self.provider = JinaProvider()
 
     def test_initialization_with_api_key(self):
-        """Test provider initialization with explicit API key."""
-        provider = JinaEmbeddingProvider(api_key="test-key")
-        assert provider.api_key == "test-key"
-        assert provider.dimension == 1024
-        assert provider.model == "jina-embeddings-v3"
-
-    def test_initialization_from_env(self, monkeypatch):
-        """Test provider initialization from environment variable."""
-        monkeypatch.setenv("JINA_API_KEY", "env-key")
-        provider = JinaEmbeddingProvider()
-        assert provider.api_key == "env-key"
-
-    def test_initialization_without_api_key(self, monkeypatch):
-        """Test provider initialization fails without API key."""
-        monkeypatch.delenv("JINA_API_KEY", raising=False)
-        with pytest.raises(ValueError, match="Jina API key must be provided"):
-            JinaEmbeddingProvider()
-
-    def test_custom_dimension(self):
-        """Test provider with custom dimension."""
-        provider = JinaEmbeddingProvider(api_key="test-key", dimension=512)
-        assert provider.dimension == 512
-
-    def test_invalid_dimension(self):
-        """Test provider rejects invalid dimensions."""
-        with pytest.raises(ValueError, match="dimension must be between 256 and 1024"):
-            JinaEmbeddingProvider(api_key="test-key", dimension=128)
-
-    def test_task_mapping(self):
-        """Test task type mapping."""
-        provider = JinaEmbeddingProvider(api_key="test-key")
-        assert provider.TASK_MAPPING["RETRIEVAL_QUERY"] == "retrieval.query"
-        assert provider.TASK_MAPPING["RETRIEVAL_DOCUMENT"] == "retrieval.passage"
+        """Test initialization with explicit API key."""
+        provider = JinaProvider(api_key="custom-key")
+        assert provider.api_key == "custom-key"
 
     @pytest.mark.asyncio
     async def test_embed_text_success(self):
-        """Test successful text embedding."""
-        provider = JinaEmbeddingProvider(api_key="test-key")
-
-        # Mock the HTTP response (Jina uses OpenAI-compatible format)
+        """Test successful embedding generation."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "data": [{"embedding": [0.2] * 1024}]
+            "data": [{"embedding": [0.1] * 1024}]
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -117,45 +102,61 @@ class TestJinaEmbeddingProvider:
                 return_value=mock_response
             )
 
-            embedding = await provider.embed_text("test text")
+            embedding = await self.provider.embed_text(
+                "test text", model=JINA_V4_1024
+            )
+
             assert len(embedding) == 1024
-            assert all(v == 0.2 for v in embedding)
+            assert embedding[0] == 0.1
+
+            # Verify request
+            call_args = mock_client.return_value.__aenter__.return_value.post.call_args
+            _, kwargs = call_args
+            assert "Authorization" in kwargs["headers"]
+            assert kwargs["json"]["model"] == "jina-embeddings-v4"
 
 
 class TestProviderFactory:
-    """Tests for the embedding provider factory function."""
+    """Test suite for provider factory functions."""
 
-    def test_create_google_provider(self):
-        """Test creating Google provider."""
-        provider = create_embedding_provider("google", api_key="test-key")
-        assert isinstance(provider, GoogleEmbeddingProvider)
-        assert provider.api_key == "test-key"
+    def test_create_provider_google(self):
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "key"}):
+            provider = create_provider("google")
+            assert isinstance(provider, GoogleProvider)
 
-    def test_create_jina_provider(self):
-        """Test creating Jina provider."""
-        provider = create_embedding_provider("jina", api_key="test-key")
-        assert isinstance(provider, JinaEmbeddingProvider)
-        assert provider.api_key == "test-key"
+    def test_create_provider_jina(self):
+        with patch.dict("os.environ", {"JINA_API_KEY": "key"}):
+            provider = create_provider("jina")
+            assert isinstance(provider, JinaProvider)
 
-    def test_create_provider_case_insensitive(self):
-        """Test provider name is case-insensitive."""
-        provider1 = create_embedding_provider("GOOGLE", api_key="test-key")
-        provider2 = create_embedding_provider("Google", api_key="test-key")
-        assert isinstance(provider1, GoogleEmbeddingProvider)
-        assert isinstance(provider2, GoogleEmbeddingProvider)
+    def test_create_provider_invalid(self):
+        with pytest.raises(ValueError):
+            create_provider("invalid")
 
-    def test_create_unsupported_provider(self):
-        """Test error for unsupported provider."""
-        with pytest.raises(ValueError, match="Unsupported embedding provider"):
-            create_embedding_provider("openai", api_key="test-key")
+    @pytest.mark.asyncio
+    async def test_auto_select_provider(self):
+        """Test auto-selection logic."""
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "key"}):
+            # Mock Google provider validation to succeed
+            with patch("causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock) as mock_validate:
+                mock_validate.return_value = True
 
-    def test_create_provider_with_kwargs(self):
-        """Test creating provider with additional kwargs."""
-        provider = create_embedding_provider(
-            "jina",
-            api_key="test-key",
-            dimension=768,
-            model="jina-embeddings-v2",
-        )
-        assert provider.dimension == 768
-        assert provider.model == "jina-embeddings-v2"
+                provider = await auto_select_provider(priority=["google"])
+                assert isinstance(provider, GoogleProvider)
+
+    @pytest.mark.asyncio
+    async def test_auto_select_fallback(self):
+        """Test fallback when first provider fails."""
+        with patch.dict("os.environ", {
+            "GOOGLE_API_KEY": "key",
+            "JINA_API_KEY": "key"
+        }):
+            # Mock Jina (priority 1) to fail, Google (priority 2) to succeed
+            with patch("causaganha.v2.analysis.providers.JinaProvider.validate", new_callable=AsyncMock) as mock_jina:
+                mock_jina.return_value = False
+
+                with patch("causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock) as mock_google:
+                    mock_google.return_value = True
+
+                    provider = await auto_select_provider(priority=["jina", "google"])
+                    assert isinstance(provider, GoogleProvider)

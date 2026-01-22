@@ -5,14 +5,12 @@ The old embedding_service.py is maintained for backward compatibility.
 """
 
 import asyncio
-from typing import Literal
 
 import structlog
 
 from causaganha.v2.analysis.embedding_models import (
     EmbeddingModel,
     get_default_model,
-    get_model,
 )
 from causaganha.v2.analysis.providers import (
     EmbeddingProviderBase,
@@ -21,6 +19,7 @@ from causaganha.v2.analysis.providers import (
     create_provider,
 )
 from causaganha.v2.analysis.text_chunker import TextChunker
+
 
 logger = structlog.get_logger()
 
@@ -65,8 +64,9 @@ class EmbeddingService:
         # Validate that provider and model are compatible
         provider_type = provider.provider_name.lower()
         if model.provider != provider_type:
+            msg = f"Provider type '{provider_type}' doesn't match model provider '{model.provider}'"
             raise ValueError(
-                f"Provider type '{provider_type}' doesn't match model provider '{model.provider}'"
+                msg,
             )
 
         self.provider = provider
@@ -116,9 +116,12 @@ class EmbeddingService:
             selected_provider = await auto_select_provider(priority=priority)
 
             if selected_provider is None:
-                raise RuntimeError(
+                msg = (
                     "No valid embedding provider found. Please ensure at least one "
                     "provider API key is set (GOOGLE_API_KEY or JINA_API_KEY) and valid."
+                )
+                raise RuntimeError(
+                    msg,
                 )
 
             # Use provided model or default for selected provider
@@ -127,15 +130,14 @@ class EmbeddingService:
                 model = get_default_model(provider_type)  # type: ignore
 
             return cls(provider=selected_provider, model=model)
-        else:
-            # Create specific provider
-            selected_provider = create_provider(provider=provider, api_key=api_key)
+        # Create specific provider
+        selected_provider = create_provider(provider=provider, api_key=api_key)
 
-            # Use provided model or default
-            if model is None:
-                model = get_default_model(provider)  # type: ignore
+        # Use provided model or default
+        if model is None:
+            model = get_default_model(provider)  # type: ignore
 
-            return cls(provider=selected_provider, model=model)
+        return cls(provider=selected_provider, model=model)
 
     def _add_contextual_prefix(self, text: str) -> str:
         """Add contextual prefix to improve embedding quality.

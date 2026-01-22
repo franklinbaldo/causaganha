@@ -1,6 +1,5 @@
 """Zero-shot RAG analyzer using cosine similarity with generic outcome phrases."""
 
-import asyncio
 from collections import Counter
 from typing import Any
 
@@ -9,6 +8,7 @@ import structlog
 
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 from causaganha.v2.analysis.models import DecisionAnalysis
+
 
 logger = structlog.get_logger()
 
@@ -49,11 +49,11 @@ COST_PER_DECISION = 0.000004  # Approximate for embedding-only approach
 class RAGAnalyzer:
     """Zero-shot decision analyzer using cosine similarity with generic phrases."""
 
-    def __init__(self, embedding_service: EmbeddingService | None = None) -> None:
+    def __init__(self, embedding_service: EmbeddingService) -> None:
         """Initialize the RAG analyzer.
 
         Args:
-            embedding_service: Pre-initialized embedding service. If None, must call create().
+            embedding_service: Initialized EmbeddingService.
         """
         self.embedding_service = embedding_service
         self.outcome_embeddings: dict[str, list[list[float]]] = {}
@@ -62,10 +62,18 @@ class RAGAnalyzer:
         logger.info("rag_analyzer_initialized", mode="zero_shot_similarity")
 
     @classmethod
-    async def create(cls) -> "RAGAnalyzer":
-        """Async factory to create RAGAnalyzer with auto-selected embedding provider."""
-        embedding_service = await EmbeddingService.create()
-        return cls(embedding_service=embedding_service)
+    async def create(cls, api_key: str | None = None) -> "RAGAnalyzer":
+        """Factory method to create RAGAnalyzer with default embedding service.
+
+        Args:
+            api_key: API key for embedding service (optional).
+
+        Returns:
+            Initialized RAGAnalyzer.
+        """
+        # Create embedding service (auto-select provider)
+        embedding_service = await EmbeddingService.create(api_key=api_key)
+        return cls(embedding_service)
 
     async def _initialize_outcome_embeddings(self) -> None:
         """Embed all generic outcome phrases once (cached for reuse)."""
@@ -243,7 +251,7 @@ class RAGAnalyzer:
             return result
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "rag_analysis_failed",
                 intimation_id=intimation_id,
                 error=str(e),
@@ -278,7 +286,7 @@ class RAGAnalyzer:
                 result = await self.analyze_text(text, int_id)
                 results.append(result)
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "batch_analysis_item_failed",
                     intimation_id=int_id,
                     error=str(e),
@@ -291,11 +299,11 @@ class RAGAnalyzer:
                         outcome="UNKNOWN",
                         plaintiff_won=False,
                         confidence_score=0.0,
-                        summary=f"RAG analysis failed: {str(e)}",
+                        summary=f"RAG analysis failed: {e!s}",
                         analysis_method="rag",
                         rag_confidence=0.0,
                         rag_votes={},
-                    )
+                    ),
                 )
 
         successful = sum(1 for r in results if r.confidence_score > 0)

@@ -13,7 +13,8 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from causaganha.v2.analysis.embedding_models import EmbeddingModel
+from causaganha.v2.analysis.embedding_models import EmbeddingModel, get_default_model
+
 
 logger = structlog.get_logger()
 
@@ -56,15 +57,17 @@ class EmbeddingProviderBase(ABC):
         """
         self.api_key = api_key or os.getenv(api_key_env_var)
         if not self.api_key:
+            msg = f"{provider_name} API key must be provided or set in {api_key_env_var} env var"
             raise ValueError(
-                f"{provider_name} API key must be provided or set in {api_key_env_var} env var"
+                msg,
             )
 
         self.base_url = base_url
         self.provider_name = provider_name
 
         logger.info(
-            f"{provider_name.lower()}_provider_initialized",
+            "%s_provider_initialized",
+            provider_name.lower(),
             base_url=base_url,
         )
 
@@ -103,14 +106,16 @@ class EmbeddingProviderBase(ABC):
             # Try to embed a very short test text
             await self.embed_text("test", model=model, task_type="RETRIEVAL_QUERY")
             logger.info(
-                f"{self.provider_name.lower()}_provider_validated",
+                "%s_provider_validated",
+                self.provider_name.lower(),
                 status="success",
                 model=model.name,
             )
             return True
         except Exception as e:
             logger.warning(
-                f"{self.provider_name.lower()}_provider_validation_failed",
+                "%s_provider_validation_failed",
+                self.provider_name.lower(),
                 error=str(e),
                 error_type=type(e).__name__,
                 model=model.name,
@@ -165,8 +170,9 @@ class GoogleProvider(EmbeddingProviderBase):
             httpx.HTTPError: If the API request fails.
         """
         if model.provider != "google":
+            msg = f"GoogleProvider requires a Google model, got {model.provider}/{model.name}"
             raise ValueError(
-                f"GoogleProvider requires a Google model, got {model.provider}/{model.name}"
+                msg,
             )
 
         url = f"{self.base_url}/models/{model.name}:embedContent"
@@ -202,7 +208,7 @@ class GoogleProvider(EmbeddingProviderBase):
                 return embedding
 
             except httpx.HTTPError as e:
-                logger.error(
+                logger.exception(
                     "google_embedding_failed",
                     error=str(e),
                     text_length=len(text),
@@ -265,8 +271,9 @@ class JinaProvider(EmbeddingProviderBase):
             httpx.HTTPError: If the API request fails.
         """
         if model.provider != "jina":
+            msg = f"JinaProvider requires a Jina model, got {model.provider}/{model.name}"
             raise ValueError(
-                f"JinaProvider requires a Jina model, got {model.provider}/{model.name}"
+                msg,
             )
 
         url = f"{self.base_url}/embeddings"
@@ -310,7 +317,7 @@ class JinaProvider(EmbeddingProviderBase):
                 return embedding
 
             except httpx.HTTPError as e:
-                logger.error(
+                logger.exception(
                     "jina_embedding_failed",
                     error=str(e),
                     text_length=len(text),
@@ -339,13 +346,15 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
 
     if provider == "google":
         return GoogleProvider(api_key=api_key)
-    elif provider == "jina":
+    if provider == "jina":
         return JinaProvider(api_key=api_key)
-    else:
-        raise ValueError(
-            f"Unsupported embedding provider: {provider}. "
-            f"Supported providers: google, jina"
-        )
+    msg = (
+        f"Unsupported embedding provider: {provider}. "
+        f"Supported providers: google, jina"
+    )
+    raise ValueError(
+        msg,
+    )
 
 
 async def auto_select_provider(
@@ -367,8 +376,8 @@ async def auto_select_provider(
 
     logger.info("auto_selecting_embedding_provider", priority=priority)
 
-    for provider_name in priority:
-        provider_name = provider_name.lower()
+    for name in priority:
+        provider_name = name.lower()
 
         # Check if API key is available in environment
         if provider_name == "google":
@@ -394,8 +403,6 @@ async def auto_select_provider(
             provider = create_provider(provider=provider_name, api_key=api_key)
 
             # Get default model for validation
-            from causaganha.v2.analysis.embedding_models import get_default_model
-
             default_model = get_default_model(provider_name)  # type: ignore
 
             # Validate authentication
@@ -408,11 +415,10 @@ async def auto_select_provider(
                     dimension=default_model.dimension,
                 )
                 return provider
-            else:
-                logger.warning(
-                    "provider_validation_failed",
-                    provider=provider_name,
-                )
+            logger.warning(
+                "provider_validation_failed",
+                provider=provider_name,
+            )
         except Exception as e:
             logger.warning(
                 "provider_creation_failed",

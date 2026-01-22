@@ -5,9 +5,10 @@ token limit of the embedding model being used.
 """
 
 import re
-from typing import Protocol
+from typing import Any, ClassVar, Protocol
 
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -43,7 +44,7 @@ class TextChunker:
     """Dynamic text chunker that adapts to embedding model token limits."""
 
     # Legal decision section markers (Brazilian Portuguese)
-    SECTION_MARKERS = [
+    SECTION_MARKERS: ClassVar[list[str]] = [
         r"ACÓRDÃO",
         r"SENTENÇA",
         r"DECISÃO",
@@ -59,7 +60,7 @@ class TextChunker:
         max_tokens: int,
         overlap_tokens: int = 128,
         token_counter: TokenCounter | None = None,
-    ):
+    ) -> None:
         """Initialize text chunker.
 
         Args:
@@ -239,11 +240,10 @@ class TextChunker:
         # Chunk with selected strategy
         if strategy == "sections":
             return self.chunk_by_sections(text)
-        else:
-            return self.chunk_by_sliding_window(text)
+        return self.chunk_by_sliding_window(text)
 
 
-def create_chunker_for_provider(provider) -> TextChunker:
+def create_chunker_for_provider(provider: Any) -> TextChunker:
     """Create a TextChunker configured for the given embedding provider.
 
     Args:
@@ -252,7 +252,7 @@ def create_chunker_for_provider(provider) -> TextChunker:
     Returns:
         TextChunker configured with provider's token limit
     """
-    max_tokens = provider.max_token_limit
+    max_tokens = int(provider.max_token_limit)
 
     logger.info(
         "creating_chunker_for_provider",
