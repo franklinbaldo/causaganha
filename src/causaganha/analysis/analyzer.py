@@ -5,7 +5,7 @@ import asyncio
 import structlog
 from pydantic_ai import Agent
 
-from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.analysis.models import DecisionAnalysis
 
 
 logger = structlog.get_logger()

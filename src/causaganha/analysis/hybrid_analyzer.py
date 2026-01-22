@@ -2,9 +2,9 @@
 
 import structlog
 
-from causaganha.v2.analysis.analyzer import DecisionAnalyzer
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
 
 
 logger = structlog.get_logger()

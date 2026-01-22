@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from causaganha.v2.pipeline.analyze_parquet import (
+from causaganha.pipeline.analyze_parquet import (
     ParquetAnalyzer,
     ParquetAnalysisConfig,
     OutputMode,
 )
-from causaganha.v2.analysis.strategy import AnalysisStrategy
-from causaganha.v2.analysis.models import DecisionAnalysis, Outcome, DecisionType
+from causaganha.analysis.strategy import AnalysisStrategy
+from causaganha.analysis.models import DecisionAnalysis, Outcome, DecisionType
 
 
 @pytest.fixture

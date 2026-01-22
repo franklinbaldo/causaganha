@@ -22,8 +22,8 @@ import pandas as pd
 import structlog
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.analysis.embedding_models import EmbeddingModel
-from causaganha.v2.storage.connection import get_connection
+from causaganha.analysis.embedding_models import EmbeddingModel
+from causaganha.storage.connection import get_connection
 
 
 logger = structlog.get_logger()

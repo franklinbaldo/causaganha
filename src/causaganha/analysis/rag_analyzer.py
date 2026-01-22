@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import structlog
 
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.models import DecisionAnalysis
 
 
 logger = structlog.get_logger()

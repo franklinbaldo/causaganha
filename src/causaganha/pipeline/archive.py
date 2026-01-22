@@ -7,8 +7,8 @@ import structlog
 from causaganha.infrastructure.clients.archive import ArchiveService
 from causaganha.infrastructure.clients.document import DocumentService
 from causaganha.infrastructure.clients.preservation import PreservationService
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.queries import (
+from causaganha.storage.connection import get_connection
+from causaganha.storage.queries import (
     get_unarchived_intimations,
     mark_as_archived,
 )

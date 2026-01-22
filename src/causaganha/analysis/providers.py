@@ -13,7 +13,7 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from causaganha.v2.analysis.embedding_models import EmbeddingModel, get_default_model
+from causaganha.analysis.embedding_models import EmbeddingModel, get_default_model
 
 
 logger = structlog.get_logger()

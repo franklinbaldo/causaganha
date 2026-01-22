@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from causaganha.v2.pipeline.archive import archive_documents
+from causaganha.pipeline.archive import archive_documents
 
 
 @pytest.mark.asyncio

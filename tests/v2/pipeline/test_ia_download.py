@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-from causaganha.v2.pipeline.ia_download import (
+from causaganha.pipeline.ia_download import (
     IAParquetDownloader,
     DownloadConfig,
 )

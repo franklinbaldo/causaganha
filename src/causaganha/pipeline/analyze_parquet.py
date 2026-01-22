@@ -30,14 +30,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 
-from causaganha.v2.analysis.analyzer import DecisionAnalyzer
-from causaganha.v2.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
-from causaganha.v2.analysis.strategy import AnalysisStrategy
-from causaganha.v2.pipeline.ia_download import IAParquetDownloader
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.queries import store_analysis
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.strategy import AnalysisStrategy
+from causaganha.pipeline.ia_download import IAParquetDownloader
+from causaganha.storage.connection import get_connection
+from causaganha.storage.queries import store_analysis
 
 
 logger = structlog.get_logger()

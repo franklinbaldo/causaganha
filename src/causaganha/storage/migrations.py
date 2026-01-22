@@ -6,7 +6,7 @@ Run migrations with: uv run python -m causaganha.v2.storage.migrations
 import structlog
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.storage.connection import get_connection
+from causaganha.storage.connection import get_connection
 
 
 logger = structlog.get_logger()

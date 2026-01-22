@@ -7,13 +7,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from causaganha.config import settings
 from causaganha.infrastructure.clients.archive import create_archive_service
 from causaganha.infrastructure.clients.document import DocumentService
-from causaganha.v2.pipeline.analyze import analyze_pending_decisions
-from causaganha.v2.pipeline.archive import archive_documents
+from causaganha.pipeline.analyze import analyze_pending_decisions
+from causaganha.pipeline.archive import archive_documents
 
 # Import V2 pipelines
-from causaganha.v2.pipeline.collect import collect_metadata_for_all_courts
-from causaganha.v2.pipeline.score import calculate_ratings
-from causaganha.v2.storage.connection import get_connection
+from causaganha.pipeline.collect import collect_metadata_for_all_courts
+from causaganha.pipeline.score import calculate_ratings
+from causaganha.storage.connection import get_connection
 
 
 # Configure logging
@@ -331,9 +331,9 @@ def export_parquet(
 
     async def _run() -> None:
         try:
-            from causaganha.v2.pipeline.export_orchestrator import ExportOrchestrator
-            from causaganha.v2.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
-            from causaganha.v2.pipeline.parquet_export import ExportConfig, ParquetExporter
+            from causaganha.pipeline.export_orchestrator import ExportOrchestrator
+            from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+            from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
 
             # Initialize components
             con = get_connection()
@@ -579,7 +579,7 @@ app.add_typer(groundtruth_app, name="groundtruth")
 def groundtruth_status() -> None:
     """Check ground truth vector store status."""
     try:
-        from causaganha.v2.analysis.vector_store import VectorStore
+        from causaganha.analysis.vector_store import VectorStore
 
         store = VectorStore()
         tables = store.list_tables()
@@ -665,7 +665,7 @@ def analyze_parquet_file(
 
     async def _run() -> None:
         try:
-            from causaganha.v2.pipeline.analyze_parquet import analyze_from_parquet
+            from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
             with Progress(
                 SpinnerColumn(),
@@ -734,7 +734,7 @@ def analyze_from_ia(
 
     async def _run() -> None:
         try:
-            from causaganha.v2.pipeline.analyze_parquet import analyze_from_ia as analyze_ia_func
+            from causaganha.pipeline.analyze_parquet import analyze_from_ia as analyze_ia_func
 
             with Progress(
                 SpinnerColumn(),
@@ -796,7 +796,7 @@ def download_parquet(
     async def _run() -> None:
         try:
             from pathlib import Path
-            from causaganha.v2.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+            from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
 
             config = DownloadConfig(cache_dir=Path(cache_dir))
             downloader = IAParquetDownloader(config=config)
@@ -842,7 +842,7 @@ def check_ia_exists(
 
     async def _run() -> None:
         try:
-            from causaganha.v2.pipeline.ia_download import IAParquetDownloader
+            from causaganha.pipeline.ia_download import IAParquetDownloader
 
             downloader = IAParquetDownloader()
             exists = await downloader.check_exists(tribunal, date)
@@ -879,7 +879,7 @@ def clear_parquet_cache(
 
     try:
         from pathlib import Path
-        from causaganha.v2.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+        from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
 
         config = DownloadConfig(cache_dir=Path(cache_dir))
         downloader = IAParquetDownloader(config=config)

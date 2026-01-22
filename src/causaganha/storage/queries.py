@@ -7,8 +7,8 @@ import structlog
 from ibis import _
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.api.client import DestinarioAdvogado, Intimation
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.api.client import DestinarioAdvogado, Intimation
 
 
 logger = structlog.get_logger()

@@ -4,12 +4,12 @@ from typing import Any
 
 import structlog
 
-from causaganha.v2.analysis.analyzer import DecisionAnalyzer
-from causaganha.v2.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
-from causaganha.v2.analysis.strategy import AnalysisStrategy
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.queries import (
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.strategy import AnalysisStrategy
+from causaganha.storage.connection import get_connection
+from causaganha.storage.queries import (
     get_unanalyzed_intimations,
     mark_as_analyzed,
     store_analysis,

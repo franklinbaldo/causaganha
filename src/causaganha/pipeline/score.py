@@ -9,8 +9,8 @@ from causaganha.domain.scoring.openskill import (
     get_openskill_model,
     rate_teams,
 )
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.queries import (
+from causaganha.storage.connection import get_connection
+from causaganha.storage.queries import (
     get_lawyer_name,
     get_lawyer_rating,
     get_unrated_analyses,

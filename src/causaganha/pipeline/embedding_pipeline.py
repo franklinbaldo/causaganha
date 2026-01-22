@@ -14,10 +14,10 @@ from datetime import datetime
 
 import structlog
 
-from causaganha.v2.analysis.embedding_models import EmbeddingModel
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.text_chunker import TextChunker
-from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+from causaganha.analysis.embedding_models import EmbeddingModel
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.text_chunker import TextChunker
+from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
 logger = structlog.get_logger()
@@ -329,7 +329,7 @@ async def process_decisions_batch(
         BatchStats with processing statistics.
 
     Example:
-        from causaganha.v2.analysis.embedding_models import JINA_V4_1024
+        from causaganha.analysis.embedding_models import JINA_V4_1024
 
         def load_text(intimation_id: int) -> str:
             # Load from database

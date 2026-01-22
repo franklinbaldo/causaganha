@@ -6,10 +6,10 @@ from typing import Any
 
 import structlog
 
-from causaganha.v2.api.client import PJeAPIClient
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.migrations import run_migrations
-from causaganha.v2.storage.queries import store_intimations, store_lawyer_associations
+from causaganha.api.client import PJeAPIClient
+from causaganha.storage.connection import get_connection
+from causaganha.storage.migrations import run_migrations
+from causaganha.storage.queries import store_intimations, store_lawyer_associations
 
 
 logger = structlog.get_logger()

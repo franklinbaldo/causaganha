@@ -8,17 +8,17 @@ import asyncio
 
 import structlog
 
-from causaganha.v2.analysis.embedding_models import (
+from causaganha.analysis.embedding_models import (
     EmbeddingModel,
     get_default_model,
 )
-from causaganha.v2.analysis.providers import (
+from causaganha.analysis.providers import (
     EmbeddingProviderBase,
     TaskType,
     auto_select_provider,
     create_provider,
 )
-from causaganha.v2.analysis.text_chunker import TextChunker
+from causaganha.analysis.text_chunker import TextChunker
 
 
 logger = structlog.get_logger()
@@ -40,7 +40,7 @@ class EmbeddingService:
         service = await EmbeddingService.create()
 
         # With specific provider and model
-        from causaganha.v2.analysis.embedding_models import JINA_V4_1024
+        from causaganha.analysis.embedding_models import JINA_V4_1024
         service = await EmbeddingService.create(
             provider="jina",
             model=JINA_V4_1024
@@ -108,7 +108,7 @@ class EmbeddingService:
             service = await EmbeddingService.create()
 
             # Specific provider with custom model
-            from causaganha.v2.analysis.embedding_models import JINA_V4_768
+            from causaganha.analysis.embedding_models import JINA_V4_768
             service = await EmbeddingService.create(provider="jina", model=JINA_V4_768)
         """
         if provider == "auto":

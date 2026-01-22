@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.rag_analyzer import OUTCOME_PHRASES, RAGAnalyzer
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.rag_analyzer import OUTCOME_PHRASES, RAGAnalyzer
 
 
 # Scenarios

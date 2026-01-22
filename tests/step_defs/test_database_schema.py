@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from causaganha.cli import app
 from causaganha.config import DB_PATH
-from causaganha.v2.storage.connection import get_connection
+from causaganha.storage.connection import get_connection
 
 
 runner = CliRunner()
