@@ -209,7 +209,8 @@ def test_session_extraction():
 
         # Try UUID
         uuid_match = re.search(
-            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch
+            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+            branch,
         )
         if uuid_match:
             return uuid_match.group(1)
@@ -303,7 +304,7 @@ def test_scheduler_advancement():
     print("📋 Initial schedule:")
     for row in rows:
         print(
-            f"   [{row['sequence']}] {row['persona']}: session={row['session_id'] or 'none'}, pr_status={row['pr_status'] or 'none'}"
+            f"   [{row['sequence']}] {row['persona']}: session={row['session_id'] or 'none'}, pr_status={row['pr_status'] or 'none'}",
         )
 
     # Step 1: First scheduler run
@@ -343,7 +344,7 @@ def test_scheduler_advancement():
     rows[0]["pr_number"] = "2538"
     rows[0]["pr_status"] = "open"
     print(
-        f"   Updated: [{rows[0]['sequence']}] pr_number={rows[0]['pr_number']}, pr_status={rows[0]['pr_status']}"
+        f"   Updated: [{rows[0]['sequence']}] pr_number={rows[0]['pr_number']}, pr_status={rows[0]['pr_status']}",
     )
 
     # Step 5: PR merges

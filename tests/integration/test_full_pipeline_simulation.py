@@ -127,7 +127,9 @@ class TestFullPipelineSimulation:
         # STEP 1: COLLECT - Simulate PJe API
         # ==========================================
         with patch.object(
-            PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock
+            PJeAPIClient,
+            "get_intimations_by_court",
+            new_callable=AsyncMock,
         ) as mock_api:
             mock_api.return_value = realistic_intimation_data
 
@@ -158,7 +160,9 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService,
+                "upload_file",
+                new_callable=AsyncMock,
             ) as mock_upload,
         ):
             # Mock PDF download
@@ -300,7 +304,9 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService,
+                "upload_file",
+                new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = mock_pdf_content
@@ -339,7 +345,9 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService,
+                "upload_file",
+                new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = mock_pdf_content
@@ -396,7 +404,9 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService,
+                "upload_file",
+                new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = b"fake pdf"

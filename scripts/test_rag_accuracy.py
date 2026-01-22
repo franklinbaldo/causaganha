@@ -172,7 +172,7 @@ def main():
                     "confidence": prediction["confidence"],
                     "match": match,
                     "votes": prediction["votes"],
-                }
+                },
             )
 
         # Calcular métricas
@@ -180,7 +180,7 @@ def main():
 
         # Mostrar resultados
         console.print(
-            f"\n[bold]Acurácia com k={k}: {accuracy:.1f}% ({correct}/{len(test_set)})[/bold]\n"
+            f"\n[bold]Acurácia com k={k}: {accuracy:.1f}% ({correct}/{len(test_set)})[/bold]\n",
         )
 
         # Matriz de confusão

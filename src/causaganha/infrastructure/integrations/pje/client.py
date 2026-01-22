@@ -133,12 +133,16 @@ class PJeAPIClient:
                     if e.response.status_code == 429:
                         wait_time = 60
                         logger.warning(
-                            "rate_limit_hit", wait_seconds=wait_time, attempt=attempt + 1
+                            "rate_limit_hit",
+                            wait_seconds=wait_time,
+                            attempt=attempt + 1,
                         )
                         await asyncio.sleep(wait_time)
                         if attempt == max_retries - 1:
                             logger.exception(
-                                "api_request_failed_after_retries", error=str(e), params=params
+                                "api_request_failed_after_retries",
+                                error=str(e),
+                                params=params,
                             )
                             raise
                         continue
@@ -146,12 +150,16 @@ class PJeAPIClient:
                     if e.response.status_code >= 500:
                         wait_time = 5 * (attempt + 1)
                         logger.warning(
-                            "server_error_retrying", wait_seconds=wait_time, attempt=attempt + 1
+                            "server_error_retrying",
+                            wait_seconds=wait_time,
+                            attempt=attempt + 1,
                         )
                         await asyncio.sleep(wait_time)
                         if attempt == max_retries - 1:
                             logger.exception(
-                                "api_request_failed_after_retries", error=str(e), params=params
+                                "api_request_failed_after_retries",
+                                error=str(e),
+                                params=params,
                             )
                             raise
                         continue

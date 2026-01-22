@@ -270,10 +270,10 @@ async def find_optimal_rate():
         )
         if breaking_point:
             print(
-                f"   • Rate limit threshold around {breaking_point['concurrency']} concurrent requests"
+                f"   • Rate limit threshold around {breaking_point['concurrency']} concurrent requests",
             )
             print(
-                f"   • Recommend staying below {max(1, breaking_point['concurrency'] - 5)} concurrent"
+                f"   • Recommend staying below {max(1, breaking_point['concurrency'] - 5)} concurrent",
             )
         print()
 
@@ -297,21 +297,21 @@ async def find_optimal_rate():
     print(
         f"  • Our max throughput: {optimal['requests_per_second']:.2f} req/s"
         if optimal
-        else "  • Could not determine"
+        else "  • Could not determine",
     )
     print("  • Documented limit: 1.67 req/s (100 RPM)")
     print(
-        f"  • Match: {'✅ Yes' if optimal and optimal['requests_per_second'] < 1.7 else '⚠️ Approaching limit'}"
+        f"  • Match: {'✅ Yes' if optimal and optimal['requests_per_second'] < 1.7 else '⚠️ Approaching limit'}",
     )
     print()
     print(
         f"  • Our optimal concurrency: {optimal['concurrency']}"
         if optimal
-        else "  • Could not determine"
+        else "  • Could not determine",
     )
     print("  • Documented limit: 2 concurrent")
     print(
-        f"  • Match: {'✅ Yes' if optimal and optimal['concurrency'] <= 2 else '❌ Exceeds limit'}"
+        f"  • Match: {'✅ Yes' if optimal and optimal['concurrency'] <= 2 else '❌ Exceeds limit'}",
     )
     print()
     print("💡 CONCLUSION:")

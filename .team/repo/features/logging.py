@@ -12,7 +12,11 @@ class LogManager:
         self.log_file = log_file
 
     def log_use(
-        self, persona: str | None, sequence: str | None, command_path: str, args: dict[str, Any]
+        self,
+        persona: str | None,
+        sequence: str | None,
+        command_path: str,
+        args: dict[str, Any],
     ):
         """Logs a command execution to the CSV log file."""
         # Redact sensitive info
@@ -38,7 +42,7 @@ class LogManager:
                         "sequence": sequence or "unknown",
                         "command": command_path,
                         "args": str(safe_args),
-                    }
+                    },
                 )
         except Exception as e:
             print(f"⚠️ Warning: Could not write to log file: {e}")

@@ -83,7 +83,7 @@ def main():
             f"[cyan]Frase 1 (AUTOR VENCEU):[/cyan]\n{frases['AUTOR_VENCEU']}\n\n"
             f"[yellow]Frase 2 (RÉU VENCEU):[/yellow]\n{frases['REU_VENCEU']}",
             title="Frases de Referência",
-        )
+        ),
     )
 
     # Gerar embeddings das frases-chave
@@ -103,7 +103,7 @@ def main():
     """).fetchall()
 
     console.print(
-        f"[cyan]Testando com {len(decisoes)} decisões do ground truth (WIN e LOSS)[/cyan]\n"
+        f"[cyan]Testando com {len(decisoes)} decisões do ground truth (WIN e LOSS)[/cyan]\n",
     )
 
     # Testar cada decisão
@@ -118,11 +118,11 @@ def main():
 
         # Calcular similaridade máxima com cada frase
         max_sim_autor = max(
-            [cosine_similarity(chunk_emb, emb_autor_venceu) for chunk_emb in chunk_embeddings]
+            [cosine_similarity(chunk_emb, emb_autor_venceu) for chunk_emb in chunk_embeddings],
         )
 
         max_sim_reu = max(
-            [cosine_similarity(chunk_emb, emb_reu_venceu) for chunk_emb in chunk_embeddings]
+            [cosine_similarity(chunk_emb, emb_reu_venceu) for chunk_emb in chunk_embeddings],
         )
 
         # Classificar baseado na maior similaridade
@@ -148,7 +148,7 @@ def main():
                 "sim_reu": max_sim_reu,
                 "diff": abs(max_sim_autor - max_sim_reu),
                 "acertou": acertou,
-            }
+            },
         )
 
     # Calcular acurácia
@@ -199,7 +199,7 @@ def main():
     for r in acertos:
         console.print(f"ID {r['id']}: {r['real']} (previsto: {r['previsto']})")
         console.print(
-            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}\n"
+            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}\n",
         )
 
     console.print("[bold red]✗ Exemplos de ERROS:[/bold red]\n")
@@ -208,7 +208,7 @@ def main():
     for r in erros:
         console.print(f"ID {r['id']}: {r['real']} (previsto ERRADO: {r['previsto']})")
         console.print(
-            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}"
+            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}",
         )
         console.print("  [yellow]Problema: Scores muito próximos![/yellow]\n")
 
@@ -222,7 +222,7 @@ def main():
             "[cyan]LLM (Gemini Flash):[/cyan] ~85% (baseline)\n\n"
             f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > 13.3 else '❌ Não funcionou bem'}",
             title="📊 Comparação",
-        )
+        ),
     )
 
     conn.close()

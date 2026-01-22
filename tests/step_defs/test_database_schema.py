@@ -665,7 +665,7 @@ def query_purgeable_data(context):
     con = context["con"]
     current_date = context.get("current_date", datetime.now().strftime("%Y-%m-%d"))
     cutoff_date = (datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=180)).strftime(
-        "%Y-%m-%d"
+        "%Y-%m-%d",
     )
 
     result = con.raw_sql(f"""

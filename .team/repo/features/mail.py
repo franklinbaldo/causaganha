@@ -171,7 +171,7 @@ class LocalMhBackend(MailboxBackend):
             [
                 ("add", inbox_seq, key),
                 ("add", unread_seq, key),
-            ]
+            ],
         )
 
         # Ensure we return a string
@@ -209,7 +209,7 @@ class LocalMhBackend(MailboxBackend):
                     "from": msg["From"],
                     "read": is_read,
                     "date": msg["Date"],
-                }
+                },
             )
         return results
 
@@ -255,7 +255,7 @@ class LocalMhBackend(MailboxBackend):
             [
                 ("remove", inbox_seq, int_key),
                 ("add", archived_seq, int_key),
-            ]
+            ],
         )
 
     def unarchive(self, persona_id: str, key: str) -> None:
@@ -266,7 +266,7 @@ class LocalMhBackend(MailboxBackend):
             [
                 ("remove", archived_seq, int_key),
                 ("add", inbox_seq, int_key),
-            ]
+            ],
         )
 
     def trash(self, persona_id: str, key: str) -> None:
@@ -279,7 +279,7 @@ class LocalMhBackend(MailboxBackend):
                 ("remove", inbox_seq, int_key),
                 ("remove", archived_seq, int_key),
                 ("add", trash_seq, int_key),
-            ]
+            ],
         )
 
     def restore(self, persona_id: str, key: str) -> None:
@@ -291,7 +291,7 @@ class LocalMhBackend(MailboxBackend):
             [
                 ("remove", trash_seq, int_key),
                 ("add", inbox_seq, int_key),
-            ]
+            ],
         )
 
     def tag_add(self, persona_id: str, key: str, tag: str) -> None:
@@ -436,7 +436,7 @@ class S3MailboxBackend(MailboxBackend):
                                 "from": meta.get("from-id", "Unknown"),
                                 "read": is_seen,
                                 "date": obj["LastModified"].isoformat(),
-                            }
+                            },
                         )
                     except Exception:
                         continue
@@ -528,7 +528,11 @@ def _get_backend() -> MailboxBackend:
 
 
 def send_message(
-    from_id: str, to_id: str, subject: str, body: str, attachments: list[str] | None = None
+    from_id: str,
+    to_id: str,
+    subject: str,
+    body: str,
+    attachments: list[str] | None = None,
 ) -> str:
     if to_id == "all@team":
         # Broadcast to all personas

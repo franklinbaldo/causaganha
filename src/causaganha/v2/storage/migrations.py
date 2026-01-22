@@ -244,7 +244,7 @@ if __name__ == "__main__":
         else:
             print(f"Unknown command: {cmd}")
             print(
-                "Usage: python -m causaganha.v2.storage.migrations [status|dry-run|rollback [version]]"
+                "Usage: python -m causaganha.v2.storage.migrations [status|dry-run|rollback [version]]",
             )
 
     else:

@@ -83,7 +83,8 @@ def list_personas():
 @log_tool_command(prefix="roster")
 def view_persona(
     persona_id: str = typer.Argument(
-        ..., help="The Persona ID to inspect (e.g., refactor, curator)"
+        ...,
+        help="The Persona ID to inspect (e.g., refactor, curator)",
     ),
 ):
     """🔍 VIEW DETAILS.
@@ -115,7 +116,7 @@ def view_persona(
                 f"[bold cyan]Emoji:[/bold cyan] {persona.emoji or '👤'}",
                 title=f"[bold white]PERSONA PROFILE: {persona_id.upper()}[/bold white]",
                 border_style="cyan",
-            )
+            ),
         )
 
         if persona.prompt_body:

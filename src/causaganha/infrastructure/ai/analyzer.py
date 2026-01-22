@@ -23,7 +23,9 @@ class DecisionAnalyzer:
     model_name: str
 
     def __init__(
-        self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash"
+        self,
+        api_key: str | None = None,
+        model: str = "google-gla:gemini-2.5-flash",
     ) -> None:
         """Initialize the DecisionAnalyzer.
 
@@ -44,7 +46,7 @@ class DecisionAnalyzer:
 
         if not self.api_keys:
             raise ValueError(
-                "No API keys available. Set GEMINI_API_KEYS, GEMINI_API_KEY, or GOOGLE_API_KEY"
+                "No API keys available. Set GEMINI_API_KEYS, GEMINI_API_KEY, or GOOGLE_API_KEY",
             )
 
         self.current_key_index = 0
@@ -209,7 +211,8 @@ class DecisionAnalyzer:
         raise RuntimeError("Failed to analyze bulk with all available keys")
 
     async def analyze_batch_concurrent(
-        self, texts: list[str]
+        self,
+        texts: list[str],
     ) -> list[DecisionAnalysis | Exception]:
         """Analyze multiple decisions concurrently (individual calls)."""
         logger.info("starting_concurrent_analysis", count=len(texts))

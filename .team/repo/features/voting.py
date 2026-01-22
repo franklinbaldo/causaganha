@@ -46,7 +46,7 @@ class VoteManager:
                 {
                     "voter_sequence": voter_sequence,
                     "candidates": candidates_array,
-                }
+                },
             )
 
     def _get_roster_size(self) -> int:
@@ -229,7 +229,7 @@ class VoteManager:
                         "winner": winner,
                         "points": tally[winner],
                         "total_votes": sum(tally.values()),
-                    }
+                    },
                 )
             else:
                 # Get scheduled persona if no votes
@@ -242,7 +242,7 @@ class VoteManager:
                             "points": 0,
                             "total_votes": 0,
                             "scheduled": True,
-                        }
+                        },
                     )
         return results
 
@@ -283,6 +283,6 @@ class VoteManager:
                                 "scheduled": scheduled_persona,
                                 "voted_winner": winner,
                                 "winner_points": tally[winner],
-                            }
+                            },
                         )
         return violations

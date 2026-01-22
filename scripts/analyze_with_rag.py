@@ -146,7 +146,7 @@ def main():
             f"[green]Analisadas:[/green] {analyzed:,}\n"
             f"[yellow]Restantes:[/yellow] {remaining:,}",
             title="Status do Banco",
-        )
+        ),
     )
 
     if remaining == 0:
@@ -159,7 +159,7 @@ def main():
     console.print("  Acurácia: [green]83.3%[/green] (validada com 30 decisões)")
     console.print("  Custo: [green]$0.000015[/green] por decisão")
     console.print(
-        f"  Custo total ({remaining:,} decisões): [green]${remaining * 0.000015:.2f}[/green]\n"
+        f"  Custo total ({remaining:,} decisões): [green]${remaining * 0.000015:.2f}[/green]\n",
     )
 
     # Processar em lote
@@ -195,7 +195,7 @@ def main():
                     "outcome": prediction["outcome"],
                     "confidence": prediction["confidence"],
                     "votes": prediction["votes"],
-                }
+                },
             )
 
             outcome_counts[prediction["outcome"]] += 1

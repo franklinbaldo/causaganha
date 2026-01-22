@@ -158,10 +158,10 @@ def analyze(
 
                 if strategy in ["hybrid", "auto"]:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)",
                     )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
@@ -318,7 +318,8 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 @app.command()
 def export_parquet(
     date: str | None = typer.Option(
-        None, help="Date to export (YYYY-MM-DD), defaults to yesterday"
+        None,
+        help="Date to export (YYYY-MM-DD), defaults to yesterday",
     ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
     backfill: bool = typer.Option(False, help="Backfill mode"),
@@ -426,7 +427,7 @@ def export_parquet(
                 typer.echo("\n✅ Daily export complete!")
                 typer.echo(f"  Date: {result['date']}")
                 typer.echo(
-                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)"
+                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)",
                 )
                 typer.echo(f"  Failed: {result['failed']}")
                 typer.echo(f"  Skipped (already exported): {result['skipped']}")

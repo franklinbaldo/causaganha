@@ -190,7 +190,7 @@ def main():
 
     # Estratégia 3: Média ponderada por posição do chunk
     console.print(
-        "\n[yellow]Estratégia 3: Ponderação por POSIÇÃO (chunks iniciais = mais peso)[/yellow]\n"
+        "\n[yellow]Estratégia 3: Ponderação por POSIÇÃO (chunks iniciais = mais peso)[/yellow]\n",
     )
 
     final_scores_weighted = {}

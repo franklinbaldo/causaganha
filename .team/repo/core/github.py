@@ -81,7 +81,11 @@ class GitHubClient:
             return None
 
     def get_file_contents(
-        self, owner: str, repo: str, path: str, ref: str = "main"
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str = "main",
     ) -> dict[str, Any] | None:
         """Get file contents and its SHA."""
         return self._get(f"repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
@@ -197,7 +201,11 @@ class GitHubClient:
         return self._get(url) or []
 
     def create_issue_comment(
-        self, owner: str, repo: str, issue_number: int, body: str
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        body: str,
     ) -> dict[str, Any] | None:
         """Post a comment on a GitHub issue."""
         if not self.token:
@@ -244,7 +252,7 @@ def get_open_prs(owner: str, repo: str) -> list[dict[str, Any]]:
                 "author": {"login": pr["user"]["login"]},
                 "isDraft": pr["draft"],
                 "body": pr["body"] or "",
-            }
+            },
         )
     return mapped_prs
 
@@ -328,16 +336,16 @@ def get_pr_details_via_gh(pr_number: int, repo_path: str = ".") -> dict[str, Any
                 "sha": c["sha"],
                 "message": c["commit"]["message"],
                 "author": {
-                    "login": c["author"]["login"] if c["author"] else c["commit"]["author"]["name"]
+                    "login": c["author"]["login"] if c["author"] else c["commit"]["author"]["name"],
                 },
                 "authors": [
                     {
                         "login": c["author"]["login"]
                         if c["author"]
-                        else c["commit"]["author"]["name"]
-                    }
+                        else c["commit"]["author"]["name"],
+                    },
                 ],  # compat
-            }
+            },
         )
 
     last_commit_author = _get_last_commit_author_login(mapped_commits)
@@ -407,7 +415,8 @@ def _extract_session_id(branch: str, body: str) -> str | None:
 
     # FALLBACK: UUID pattern (for future compatibility, not currently used by Jules)
     uuid_match = re.search(
-        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+        branch,
     )
     if uuid_match:
         return uuid_match.group(1)

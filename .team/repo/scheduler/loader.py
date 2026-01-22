@@ -32,7 +32,7 @@ class PersonaLoader:
                     str(templates_dir),
                     str(personas_dir),
                     ".",  # Allow loading relative to root if needed
-                ]
+                ],
             ),
             undefined=jinja2.Undefined,  # Use lenient Undefined for roster listing
             trim_blocks=True,
@@ -97,7 +97,7 @@ class PersonaLoader:
             # Scan for .md.j2 and .md
             candidates = sorted(
                 list(self.personas_dir.glob("*/prompt.md.j2"))
-                + list(self.personas_dir.glob("*/prompt.md"))
+                + list(self.personas_dir.glob("*/prompt.md")),
             )
 
             for p_file in candidates:

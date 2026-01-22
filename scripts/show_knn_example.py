@@ -73,7 +73,7 @@ def main():
             f"[cyan]Outcome Real:[/cyan] {outcome_real}\n"
             f"[cyan]Texto (preview):[/cyan] {texto[:200]}...",
             title="📄 Decisão Exemplo",
-        )
+        ),
     )
 
     # Criar chunk com prefixo
@@ -165,7 +165,7 @@ def main():
             f"Neste exemplo: {votos[vencedor]}/{total_votos} vizinhos eram '{vencedor}', "
             f"então classificamos como '{vencedor}' com {confianca:.0%} de confiança.",
             title="💡 Explicação do k-NN",
-        )
+        ),
     )
 
     # Mostrar trechos dos vizinhos
@@ -182,7 +182,7 @@ def main():
 
         if neighbor_text:
             console.print(
-                f"[cyan]Vizinho #{idx + 1} (ID {neighbor_id}, {neighbor_outcome}):[/cyan]"
+                f"[cyan]Vizinho #{idx + 1} (ID {neighbor_id}, {neighbor_outcome}):[/cyan]",
             )
             console.print(f"[dim]{neighbor_text[0][:300]}...[/dim]\n")
 

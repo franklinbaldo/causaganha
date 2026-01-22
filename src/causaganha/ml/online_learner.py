@@ -106,7 +106,9 @@ class WinnerPredictor:
         except Exception as e:
             logger.error("prediction_failed", error=str(e))
             return PredictionResult(
-                prediction=None, confidence=0.0, model_version=self.model_version
+                prediction=None,
+                confidence=0.0,
+                model_version=self.model_version,
             )
 
     def update(self, vector: list[float], label: WinnerLabel):

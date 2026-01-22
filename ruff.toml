@@ -1,36 +1,25 @@
 # Ruff configuration for CausaGanha v2
-# Pragmatic mode: Standard rules enabled
+# Strict mode: ALL rules enabled, NO exceptions
 
 # Target Python 3.11+
 target-version = "py311"
 
-# Line length (relaxed to 120, but we also ignore E501 below)
-line-length = 120
+# Line length
+line-length = 100
 
 [lint]
-# Enable standard, useful rules
-# E: pycodestyle errors
-# F: Pyflakes
-# I: isort
-# B: flake8-bugbear
-# UP: pyupgrade
-# PLE: Pylint errors
-select = ["E", "F", "I", "B", "UP", "PLE"]
+# Enable ALL Ruff rules
+select = ["ALL"]
 
-# Ignore conflicting rules or annoyances
-# E501: Line too long
-# F841: Unused variable
-# E402: Module level import not at top of file
-# B904: Raise without from
-# I001: Import block un-sorted
-# B008: Do not perform function call in argument defaults (Typer/FastAPI pattern)
-# F821: Undefined name (ignoring to pass CI on legacy scripts)
-ignore = ["E501", "F841", "E402", "B904", "I001", "B008", "F821"]
+# NO EXCEPTIONS - Do not ignore any rules
+# If Ruff complains, fix the code, don't silence it
+ignore = []
 
-# Per-file ignores
+# NO per-file ignores either
+# Every file must pass all rules
 [lint.per-file-ignores]
-# Allow asserts and magic numbers in tests (recursive)
-"tests/**" = ["S101", "PLR2004"]
+# Allow asserts in tests
+"tests/*" = ["S101"]
 
 [lint.mccabe]
 # Maximum cyclomatic complexity
@@ -50,6 +39,12 @@ lines-after-imports = 2
 inline-quotes = "double"
 multiline-quotes = "double"
 docstring-quotes = "double"
+
+[lint.pylint]
+max-args = 5
+max-branches = 12
+max-returns = 6
+max-statements = 50
 
 [format]
 # Formatting options

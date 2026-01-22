@@ -141,7 +141,8 @@ class TestProviderFactory:
         with patch.dict("os.environ", {"GOOGLE_API_KEY": "key"}):
             # Mock Google provider validation to succeed
             with patch(
-                "causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock
+                "causaganha.v2.analysis.providers.GoogleProvider.validate",
+                new_callable=AsyncMock,
             ) as mock_validate:
                 mock_validate.return_value = True
 
@@ -160,7 +161,8 @@ class TestProviderFactory:
         ):
             # Mock Jina (priority 1) to fail, Google (priority 2) to succeed
             with patch(
-                "causaganha.v2.analysis.providers.JinaProvider.validate", new_callable=AsyncMock
+                "causaganha.v2.analysis.providers.JinaProvider.validate",
+                new_callable=AsyncMock,
             ) as mock_jina:
                 mock_jina.return_value = False
 

@@ -61,7 +61,7 @@ def djen_proxy_handler(request: Request) -> Response:
                     "service": "djen-proxy",
                     "auth_required": REQUIRE_AUTH,
                     "region": "southamerica-east1",
-                }
+                },
             ),
             status=200,
             mimetype="application/json",

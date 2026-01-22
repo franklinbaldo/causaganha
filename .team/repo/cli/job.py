@@ -40,7 +40,9 @@ def login(
 @app.command()
 def journal(
     content: str = typer.Option(
-        ..., "--content", help="Description of how you executed your goals"
+        ...,
+        "--content",
+        help="Description of how you executed your goals",
     ),
     password: str = typer.Option(..., "--password", help="Identity verification"),
 ):

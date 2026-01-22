@@ -10,7 +10,8 @@ logger = structlog.get_logger()
 
 class TeacherResult(BaseModel):
     winner: WinnerLabel = Field(
-        ..., description="Who won the case: plaintiff_won, defendant_won, or unclear."
+        ...,
+        description="Who won the case: plaintiff_won, defendant_won, or unclear.",
     )
 
 

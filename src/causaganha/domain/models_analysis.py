@@ -36,7 +36,8 @@ class DecisionAnalysis(BaseModel):
         ),
     )
     winner_lawyer_state: str | None = Field(
-        None, description="State of the winning lawyer OAB (e.g., 'RO', 'SP')."
+        None,
+        description="State of the winning lawyer OAB (e.g., 'RO', 'SP').",
     )
     winner_party_name: str | None = Field(None, description="Name of the winning party.")
 
@@ -50,7 +51,8 @@ class DecisionAnalysis(BaseModel):
         ),
     )
     loser_lawyer_state: str | None = Field(
-        None, description="State of the losing lawyer OAB (e.g., 'RO', 'SP')."
+        None,
+        description="State of the losing lawyer OAB (e.g., 'RO', 'SP').",
     )
     loser_party_name: str | None = Field(None, description="Name of the losing party.")
 

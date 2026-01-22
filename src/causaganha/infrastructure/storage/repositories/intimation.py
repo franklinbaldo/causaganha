@@ -94,7 +94,7 @@ class IntimationRepository:
                             "polo": "A",  # Default for now, should extract if available
                         }
                         for lawyer in intimation.advogados
-                    ]
+                    ],
                 )
 
         if lawyers_data:
