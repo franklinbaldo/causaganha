@@ -29,14 +29,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
         run: |
-          pip install internetarchive duckdb numpy
+          uv venv
+          uv pip install internetarchive duckdb numpy httpx
           mkdir -p ~/.config/internetarchive
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
           echo "Dependencies installed, IA config created"
@@ -53,12 +52,12 @@ jobs:
           fi
 
           echo "Fetching raw items from IA..."
-          ia search 'identifier:djen-raw-*' --itemlist > raw_items.txt 2>/dev/null || touch raw_items.txt
+          uv run ia search 'identifier:djen-raw-*' --itemlist > raw_items.txt 2>/dev/null || touch raw_items.txt
           RAW_COUNT=$(wc -l < raw_items.txt | tr -d ' ')
           echo "Found $RAW_COUNT raw items"
 
           echo "Fetching parquet items from IA..."
-          ia search 'identifier:djen-parquet-*' --itemlist > parquet_items.txt 2>/dev/null || touch parquet_items.txt
+          uv run ia search 'identifier:djen-parquet-*' --itemlist > parquet_items.txt 2>/dev/null || touch parquet_items.txt
           PARQUET_COUNT=$(wc -l < parquet_items.txt | tr -d ' ')
           echo "Found $PARQUET_COUNT parquet items"
 
@@ -82,7 +81,7 @@ jobs:
       - name: Convert batch
         if: steps.find.outputs.batch_size != '0'
         run: |
-          python djen-scraper/scripts/convert_to_parquet.py batch.txt
+          uv run python djen-scraper/scripts/convert_to_parquet.py batch.txt
 
       - name: Summary
         run: |

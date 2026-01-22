@@ -2,20 +2,26 @@
 """
 Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
 
-Optimized version: reads JSON directly into DuckDB and normalizes with SQL.
+Optimized version:
+- Direct HTTP download (faster than ia CLI)
+- Stream JSON from ZIP without extracting all files
+- Detailed timing for profiling
 
 Usage:
     python convert_to_parquet.py batch.txt
 """
 
+import json
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 import zipfile
 from pathlib import Path
 
 import duckdb
+import httpx
 
 # UUIDv5 namespace for DJEN
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
@@ -24,6 +30,20 @@ NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
 def generate_uuid(content: str) -> str:
     """Generate deterministic UUIDv5 from content."""
     return str(uuid.uuid5(NAMESPACE_DJEN, content))
+
+
+def timed(name):
+    """Context manager for timing code blocks."""
+    class Timer:
+        def __init__(self, name):
+            self.name = name
+        def __enter__(self):
+            self.start = time.time()
+            return self
+        def __exit__(self, *args):
+            self.elapsed = time.time() - self.start
+            print(f"    [{self.name}] {self.elapsed:.1f}s")
+    return Timer(name)
 
 
 def process_item(item_id: str) -> bool:
@@ -39,176 +59,168 @@ def process_item(item_id: str) -> bool:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
+        zip_path = tmpdir / 'caderno.zip'
 
-        # Download from IA
-        print("  Downloading from Internet Archive...")
-        result = subprocess.run(
-            ['ia', 'download', item_id, '--destdir', str(tmpdir)],
-            capture_output=True,
-            text=True
-        )
+        # Download directly via HTTP (faster than ia CLI)
+        url = f"https://archive.org/download/{item_id}/caderno.zip"
+        print(f"  Downloading: {url}")
 
-        if result.returncode != 0:
-            print(f"  ERROR: Download failed: {result.stderr}")
-            return False
+        with timed("download"):
+            # Long timeouts for large files from IA
+            timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
+            with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+                if response.status_code != 200:
+                    print(f"  ERROR: Download failed with status {response.status_code}")
+                    return False
 
-        # Find ZIP file
-        zip_path = tmpdir / item_id / 'caderno.zip'
-        if not zip_path.exists():
-            zips = list((tmpdir / item_id).glob('*.zip'))
-            if zips:
-                zip_path = zips[0]
-            else:
-                print("  ERROR: ZIP not found")
-                return False
+                downloaded = 0
+                with open(zip_path, 'wb') as f:
+                    for chunk in response.iter_bytes(chunk_size=1024*1024):  # 1MB chunks
+                        f.write(chunk)
+                        downloaded += len(chunk)
 
-        # Extract JSON files from ZIP to temp dir for DuckDB to read
-        json_dir = tmpdir / 'json'
-        json_dir.mkdir()
+            print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
 
-        print("  Extracting JSON from ZIP...")
-        with zipfile.ZipFile(zip_path) as zf:
-            json_files = [n for n in zf.namelist() if n.endswith('.json')]
-            for name in json_files:
-                zf.extract(name, json_dir)
+        # Stream JSON records from ZIP into a single NDJSON file for DuckDB
+        ndjson_path = tmpdir / 'records.ndjson'
 
-        if not json_files:
-            print("  WARNING: No JSON files found")
+        with timed("extract+flatten"):
+            total_records = 0
+            with zipfile.ZipFile(zip_path) as zf:
+                with open(ndjson_path, 'w') as out:
+                    for name in zf.namelist():
+                        if name.endswith('.json'):
+                            with zf.open(name) as f:
+                                data = json.load(f)
+                                # Handle {count, items} wrapper
+                                items = data.get('items', [data] if 'id' in data else [])
+                                for item in items:
+                                    out.write(json.dumps(item) + '\n')
+                                    total_records += 1
+
+            print(f"    Flattened {total_records} records to NDJSON")
+
+        if total_records == 0:
+            print("  WARNING: No records found")
             return False
 
         # Create DuckDB connection and register UUID function
         con = duckdb.connect()
         con.create_function('uuid5_djen', generate_uuid, [str], str)
 
-        # Read all JSON files - they have {count, items} wrapper structure
-        print("  Loading JSON into DuckDB...")
-        json_glob = str(json_dir / '*.json')
-
-        # Unnest the items array from the wrapper
-        con.execute(f"""
-            CREATE TABLE raw AS
-            SELECT UNNEST(items) as item
-            FROM read_json_auto('{json_glob}',
-                union_by_name=true,
-                maximum_object_size=104857600,
-                ignore_errors=true
-            )
-        """)
-
-        # Flatten the nested structure
-        con.execute("""
-            CREATE TABLE comunicacoes_raw AS
-            SELECT item.* FROM raw
-        """)
-
-        total_records = con.execute("SELECT COUNT(*) FROM comunicacoes_raw").fetchone()[0]
-        print(f"  Loaded {total_records} records")
-
-        if total_records == 0:
-            print("  WARNING: No records loaded")
-            return False
+        # Load NDJSON directly into DuckDB (very fast)
+        with timed("load json"):
+            con.execute(f"""
+                CREATE TABLE comunicacoes_raw AS
+                SELECT * FROM read_json_auto('{ndjson_path}',
+                    format='newline_delimited',
+                    maximum_object_size=104857600,
+                    ignore_errors=true
+                )
+            """)
+            loaded = con.execute("SELECT COUNT(*) FROM comunicacoes_raw").fetchone()[0]
+            print(f"    Loaded {loaded} records into DuckDB")
 
         # Normalize using SQL
-        print("  Normalizing with SQL...")
-
-        # 1. Comunicacoes (main table)
-        con.execute(f"""
-            CREATE TABLE comunicacoes AS
-            SELECT
-                CAST(id AS VARCHAR) as id,
-                COALESCE(numero_processo, '') as numero_processo,
-                COALESCE(siglaTribunal, '{tribunal}') as tribunal,
-                COALESCE(data_disponibilizacao, '{date}') as data_disponibilizacao,
-                COALESCE(nomeOrgao, '') as orgao,
-                COALESCE(tipoComunicacao, '') as tipo,
-                CASE WHEN texto IS NOT NULL AND texto != ''
-                     THEN uuid5_djen(texto)
-                     ELSE NULL
-                END as texto_id,
-                COALESCE(nomeClasse, '') as classe,
-                COALESCE(numeroComunicacao, '') as numero_comunicacao,
-                COALESCE(status, '') as status
-            FROM comunicacoes_raw
-        """)
-
-        # 2. Textos (deduplicated by content)
-        con.execute("""
-            CREATE TABLE textos AS
-            SELECT DISTINCT
-                uuid5_djen(texto) as texto_id,
-                texto,
-                LENGTH(texto) as tamanho
-            FROM comunicacoes_raw
-            WHERE texto IS NOT NULL AND texto != ''
-        """)
-
-        # 3. Partes from destinatarios (deduplicated by nome)
-        con.execute("""
-            CREATE TABLE partes AS
-            SELECT DISTINCT
-                uuid5_djen(nome) as parte_id,
-                nome,
-                '' as documento
-            FROM (
-                SELECT UNNEST(destinatarios).nome as nome
-                FROM comunicacoes_raw
-                WHERE destinatarios IS NOT NULL
-            )
-            WHERE nome IS NOT NULL AND nome != ''
-        """)
-
-        # 4. Comunicacao-Partes (association)
-        con.execute("""
-            CREATE TABLE comunicacao_partes AS
-            SELECT
-                CAST(c.id AS VARCHAR) as comunicacao_id,
-                uuid5_djen(d.nome) as parte_id,
-                COALESCE(d.polo, '') as papel
-            FROM comunicacoes_raw c,
-                 LATERAL UNNEST(c.destinatarios) as t(d)
-            WHERE c.destinatarios IS NOT NULL
-              AND d.nome IS NOT NULL AND d.nome != ''
-        """)
-
-        # 5. Advogados from destinatarioadvogados.advogado (deduplicated)
-        con.execute("""
-            CREATE TABLE advogados AS
-            SELECT DISTINCT
-                uuid5_djen(CONCAT(
-                    COALESCE(numero_oab, ''), '|',
-                    COALESCE(uf_oab, ''), '|',
-                    COALESCE(nome, '')
-                )) as advogado_id,
-                nome,
-                COALESCE(numero_oab, '') as oab,
-                COALESCE(uf_oab, '') as uf
-            FROM (
+        with timed("normalize"):
+            # 1. Comunicacoes (main table)
+            con.execute(f"""
+                CREATE TABLE comunicacoes AS
                 SELECT
-                    da.advogado.nome as nome,
-                    da.advogado.numero_oab as numero_oab,
-                    da.advogado.uf_oab as uf_oab
+                    CAST(id AS VARCHAR) as id,
+                    COALESCE(numero_processo, '') as numero_processo,
+                    COALESCE(siglaTribunal, '{tribunal}') as tribunal,
+                    COALESCE(data_disponibilizacao, '{date}') as data_disponibilizacao,
+                    COALESCE(nomeOrgao, '') as orgao,
+                    COALESCE(tipoComunicacao, '') as tipo,
+                    CASE WHEN texto IS NOT NULL AND texto != ''
+                         THEN uuid5_djen(texto)
+                         ELSE NULL
+                    END as texto_id,
+                    COALESCE(nomeClasse, '') as classe,
+                    COALESCE(numeroComunicacao, '') as numero_comunicacao,
+                    COALESCE(status, '') as status
+                FROM comunicacoes_raw
+            """)
+
+            # 2. Textos (deduplicated by content)
+            con.execute("""
+                CREATE TABLE textos AS
+                SELECT DISTINCT
+                    uuid5_djen(texto) as texto_id,
+                    texto,
+                    LENGTH(texto) as tamanho
+                FROM comunicacoes_raw
+                WHERE texto IS NOT NULL AND texto != ''
+            """)
+
+            # 3. Partes from destinatarios
+            con.execute("""
+                CREATE TABLE partes AS
+                SELECT DISTINCT
+                    uuid5_djen(nome) as parte_id,
+                    nome,
+                    '' as documento
+                FROM (
+                    SELECT UNNEST(destinatarios).nome as nome
+                    FROM comunicacoes_raw
+                    WHERE destinatarios IS NOT NULL
+                )
+                WHERE nome IS NOT NULL AND nome != ''
+            """)
+
+            # 4. Comunicacao-Partes (association)
+            con.execute("""
+                CREATE TABLE comunicacao_partes AS
+                SELECT
+                    CAST(c.id AS VARCHAR) as comunicacao_id,
+                    uuid5_djen(d.nome) as parte_id,
+                    COALESCE(d.polo, '') as papel
+                FROM comunicacoes_raw c,
+                     LATERAL UNNEST(c.destinatarios) as t(d)
+                WHERE c.destinatarios IS NOT NULL
+                  AND d.nome IS NOT NULL AND d.nome != ''
+            """)
+
+            # 5. Advogados from destinatarioadvogados.advogado
+            con.execute("""
+                CREATE TABLE advogados AS
+                SELECT DISTINCT
+                    uuid5_djen(CONCAT(
+                        COALESCE(numero_oab, ''), '|',
+                        COALESCE(uf_oab, ''), '|',
+                        COALESCE(nome, '')
+                    )) as advogado_id,
+                    nome,
+                    COALESCE(numero_oab, '') as oab,
+                    COALESCE(uf_oab, '') as uf
+                FROM (
+                    SELECT
+                        da.advogado.nome as nome,
+                        da.advogado.numero_oab as numero_oab,
+                        da.advogado.uf_oab as uf_oab
+                    FROM comunicacoes_raw c,
+                         LATERAL UNNEST(c.destinatarioadvogados) as t(da)
+                    WHERE c.destinatarioadvogados IS NOT NULL
+                )
+                WHERE nome IS NOT NULL OR numero_oab IS NOT NULL
+            """)
+
+            # 6. Comunicacao-Advogados (association)
+            con.execute("""
+                CREATE TABLE comunicacao_advogados AS
+                SELECT
+                    CAST(c.id AS VARCHAR) as comunicacao_id,
+                    uuid5_djen(CONCAT(
+                        COALESCE(da.advogado.numero_oab, ''), '|',
+                        COALESCE(da.advogado.uf_oab, ''), '|',
+                        COALESCE(da.advogado.nome, '')
+                    )) as advogado_id
                 FROM comunicacoes_raw c,
                      LATERAL UNNEST(c.destinatarioadvogados) as t(da)
                 WHERE c.destinatarioadvogados IS NOT NULL
-            )
-            WHERE nome IS NOT NULL OR numero_oab IS NOT NULL
-        """)
-
-        # 6. Comunicacao-Advogados (association)
-        con.execute("""
-            CREATE TABLE comunicacao_advogados AS
-            SELECT
-                CAST(c.id AS VARCHAR) as comunicacao_id,
-                uuid5_djen(CONCAT(
-                    COALESCE(da.advogado.numero_oab, ''), '|',
-                    COALESCE(da.advogado.uf_oab, ''), '|',
-                    COALESCE(da.advogado.nome, '')
-                )) as advogado_id
-            FROM comunicacoes_raw c,
-                 LATERAL UNNEST(c.destinatarioadvogados) as t(da)
-            WHERE c.destinatarioadvogados IS NOT NULL
-              AND (da.advogado.nome IS NOT NULL OR da.advogado.numero_oab IS NOT NULL)
-        """)
+                  AND (da.advogado.nome IS NOT NULL OR da.advogado.numero_oab IS NOT NULL)
+            """)
 
         # Write Parquet files
         out_dir = tmpdir / 'parquet'
@@ -217,14 +229,16 @@ def process_item(item_id: str) -> bool:
         tables = ['comunicacoes', 'textos', 'partes', 'advogados',
                   'comunicacao_partes', 'comunicacao_advogados']
 
-        for table in tables:
-            count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            if count > 0:
-                path = out_dir / f"{table}.parquet"
-                con.execute(f"""
-                    COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)
-                """)
-                print(f"    {table}: {count} rows")
+        with timed("write parquet"):
+            for table in tables:
+                count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                if count > 0:
+                    path = out_dir / f"{table}.parquet"
+                    con.execute(f"""
+                        COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)
+                    """)
+                    size_kb = path.stat().st_size / 1024
+                    print(f"    {table}: {count:,} rows ({size_kb:.0f} KB)")
 
         # Upload to Internet Archive
         parquet_id = f"djen-parquet-{date}-{tribunal}"
@@ -235,27 +249,28 @@ def process_item(item_id: str) -> bool:
             print("  WARNING: No parquet files to upload")
             return False
 
-        cmd = [
-            'ia', 'upload', parquet_id,
-            *[str(f) for f in files],
-            '--metadata=collection:opensource',
-            '--metadata=mediatype:data',
-            f'--metadata=title:DJEN Parquet {tribunal} {date}',
-            f'--metadata=description:Normalized Parquet tables from DJEN {tribunal} {date}',
-            f'--metadata=subject:brazilian-law;djen;legal;judiciary;parquet;{tribunal}',
-            '--metadata=creator:CausaGanha',
-            f'--metadata=date:{date}',
-            f'--metadata=tribunal:{tribunal}',
-            f'--metadata=source_item:{item_id}',
-            f'--metadata=total_comunicacoes:{total_records}',
-            '--retries=3',
-            '--no-derive'
-        ]
+        with timed("upload"):
+            cmd = [
+                'ia', 'upload', parquet_id,
+                *[str(f) for f in files],
+                '--metadata=collection:opensource',
+                '--metadata=mediatype:data',
+                f'--metadata=title:DJEN Parquet {tribunal} {date}',
+                f'--metadata=description:Normalized Parquet tables from DJEN {tribunal} {date}',
+                f'--metadata=subject:brazilian-law;djen;legal;judiciary;parquet;{tribunal}',
+                '--metadata=creator:CausaGanha',
+                f'--metadata=date:{date}',
+                f'--metadata=tribunal:{tribunal}',
+                f'--metadata=source_item:{item_id}',
+                f'--metadata=total_comunicacoes:{total_records}',
+                '--retries=3',
+                '--no-derive'
+            ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"  ERROR: Upload failed: {result.stderr}")
-            return False
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"  ERROR: Upload failed: {result.stderr}")
+                return False
 
         print("  Done!")
         return True
@@ -278,6 +293,7 @@ def main():
 
     success = 0
     failed = 0
+    total_start = time.time()
 
     for item_id in items:
         try:
@@ -291,8 +307,9 @@ def main():
             traceback.print_exc()
             failed += 1
 
+    total_elapsed = time.time() - total_start
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {success} success, {failed} failed")
+    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s")
 
     sys.exit(0 if failed == 0 else 1)
 
