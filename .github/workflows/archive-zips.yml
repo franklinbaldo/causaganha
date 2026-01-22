@@ -1,0 +1,122 @@
+name: Archive ZIPs to Internet Archive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:
+
+concurrency:
+  group: archive-zips
+  cancel-in-progress: false  # Don't cancel, just skip new runs
+
+env:
+  WORKER_URL: https://djen-scraper.franklinbaldo.workers.dev
+  MAX_FILES_PER_RUN: 10  # Process max 10 files per run to stay within limits
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check for pending files
+        id: check
+        run: |
+          PENDING=$(curl -s "$WORKER_URL/api/pending")
+          COUNT=$(echo "$PENDING" | jq '.files | length')
+          echo "pending_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Found $COUNT pending files"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No files to archive"
+            exit 0
+          fi
+
+          # Get first N files
+          echo "$PENDING" | jq -c ".files[:$MAX_FILES_PER_RUN]" > pending_files.json
+
+      - name: Install Internet Archive CLI
+        if: steps.check.outputs.pending_count != '0'
+        run: |
+          pip install internetarchive
+
+          # Configure IA with credentials
+          mkdir -p ~/.config/internetarchive
+          cat > ~/.config/internetarchive/ia.ini << EOF
+          [s3]
+          access = ${{ secrets.IA_ACCESS_KEY }}
+          secret = ${{ secrets.IA_SECRET_KEY }}
+          EOF
+
+      - name: Archive files to Internet Archive
+        if: steps.check.outputs.pending_count != '0'
+        run: |
+          set -e
+
+          # Process each file
+          jq -c '.[]' pending_files.json | while read -r file; do
+            DATE=$(echo "$file" | jq -r '.date')
+            TRIBUNAL=$(echo "$file" | jq -r '.tribunal')
+            BYTES=$(echo "$file" | jq -r '.bytes')
+
+            echo "Processing: $DATE / $TRIBUNAL ($BYTES bytes)"
+
+            # Download from R2 via worker
+            echo "  Downloading..."
+            curl -s "$WORKER_URL/api/download/$DATE/$TRIBUNAL" -o "caderno.zip"
+
+            if [ ! -s "caderno.zip" ]; then
+              echo "  ERROR: Download failed or empty file"
+              continue
+            fi
+
+            ACTUAL_SIZE=$(stat -f%z "caderno.zip" 2>/dev/null || stat -c%s "caderno.zip")
+            echo "  Downloaded: $ACTUAL_SIZE bytes"
+
+            # Upload to Internet Archive
+            ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
+            echo "  Uploading to IA: $ITEM_ID"
+
+            ia upload "$ITEM_ID" "caderno.zip" \
+              --metadata="collection:opensource" \
+              --metadata="mediatype:data" \
+              --metadata="title:DJEN Caderno $TRIBUNAL $DATE" \
+              --metadata="description:Diário de Justiça Eletrônico Nacional - Caderno completo do tribunal $TRIBUNAL para $DATE" \
+              --metadata="subject:brazilian-law;djen;legal;judiciary;$TRIBUNAL" \
+              --metadata="creator:CausaGanha" \
+              --metadata="date:$DATE" \
+              --metadata="tribunal:$TRIBUNAL" \
+              --retries=3 \
+              --no-derive
+
+            if [ $? -eq 0 ]; then
+              echo "  Uploaded successfully!"
+
+              # Mark as archived in R2
+              echo "  Marking as archived..."
+              curl -s -X POST "$WORKER_URL/api/mark-archived/$DATE/$TRIBUNAL"
+
+              # Delete from R2
+              echo "  Deleting from R2..."
+              curl -s -X DELETE "$WORKER_URL/api/delete/$DATE/$TRIBUNAL"
+
+              echo "  Done: $TRIBUNAL $DATE"
+            else
+              echo "  ERROR: Upload failed"
+            fi
+
+            # Clean up
+            rm -f caderno.zip
+
+            # Rate limit: 1 upload per second
+            sleep 1
+          done
+
+      - name: Summary
+        if: steps.check.outputs.pending_count != '0'
+        run: |
+          echo "Archive run completed"
+
+          # Check remaining
+          REMAINING=$(curl -s "$WORKER_URL/api/pending" | jq '.files | length')
+          echo "Remaining files: $REMAINING"

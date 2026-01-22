@@ -1,0 +1,100 @@
+name: Convert ZIPs to Parquet
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Specific date to process (YYYY-MM-DD)'
+        required: false
+      tribunal:
+        description: 'Specific tribunal to process'
+        required: false
+
+concurrency:
+  group: convert-parquet
+  cancel-in-progress: false
+
+env:
+  MAX_ITEMS_PER_RUN: 5
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install internetarchive pyarrow pandas
+
+          # Configure IA
+          mkdir -p ~/.config/internetarchive
+          cat > ~/.config/internetarchive/ia.ini << EOF
+          [s3]
+          access = ${{ secrets.IA_ACCESS_KEY }}
+          secret = ${{ secrets.IA_SECRET_KEY }}
+          EOF
+
+      - name: Find items to convert
+        id: find
+        run: |
+          python3 << 'PYTHON'
+          import subprocess
+          import json
+
+          # Search for raw items that don't have corresponding parquet
+          # This is a simple check - we look for djen-raw-* items
+          result = subprocess.run(
+              ['ia', 'search', 'identifier:djen-raw-*', '--itemlist'],
+              capture_output=True, text=True
+          )
+
+          raw_items = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+          print(f"Found {len(raw_items)} raw items")
+
+          # Check which ones have been converted
+          result = subprocess.run(
+              ['ia', 'search', 'identifier:djen-parquet-*', '--itemlist'],
+              capture_output=True, text=True
+          )
+
+          parquet_items = set(line.strip() for line in result.stdout.strip().split('\n') if line.strip())
+
+          # Find items that need conversion
+          to_convert = []
+          for raw in raw_items:
+              # djen-raw-2026-01-21-TJSP -> djen-parquet-2026-01-21-TJSP
+              parquet_id = raw.replace('djen-raw-', 'djen-parquet-')
+              if parquet_id not in parquet_items:
+                  to_convert.append(raw)
+
+          print(f"Items to convert: {len(to_convert)}")
+
+          # Save to file
+          with open('to_convert.json', 'w') as f:
+              json.dump(to_convert[:int("${{ env.MAX_ITEMS_PER_RUN }}")], f)
+
+          # Set output
+          with open("$GITHUB_OUTPUT", 'a') as f:
+              f.write(f"count={len(to_convert)}\n")
+          PYTHON
+
+      - name: Convert to Parquet
+        if: steps.find.outputs.count != '0'
+        run: |
+          python3 djen-scraper/scripts/convert_to_parquet.py
+
+      - name: Summary
+        run: |
+          echo "Conversion completed"
+          echo "Check Internet Archive for djen-parquet-* items"

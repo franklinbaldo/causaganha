@@ -188,6 +188,57 @@ export default {
 			return Response.json({ status: 'reset' }, { headers: corsHeaders });
 		}
 
+		// API for GitHub Actions pipeline
+		// List files pending archive (not yet sent to IA)
+		if (url.pathname === '/api/pending') {
+			const files = await listPendingFiles(env);
+			return Response.json(files, { headers: corsHeaders });
+		}
+
+		// Download a specific ZIP file
+		if (url.pathname.startsWith('/api/download/')) {
+			const parts = url.pathname.split('/');
+			const date = parts[3];
+			const tribunal = parts[4]?.toUpperCase();
+			if (date && tribunal) {
+				const file = await downloadFile(env, date, tribunal);
+				if (file) {
+					return new Response(file.body, {
+						headers: {
+							...corsHeaders,
+							'Content-Type': 'application/zip',
+							'Content-Disposition': `attachment; filename="${tribunal}-${date}.zip"`
+						}
+					});
+				}
+			}
+			return Response.json({ error: 'File not found' }, { status: 404, headers: corsHeaders });
+		}
+
+		// Mark file as archived (after successful IA upload)
+		if (url.pathname.startsWith('/api/mark-archived/') && request.method === 'POST') {
+			const parts = url.pathname.split('/');
+			const date = parts[3];
+			const tribunal = parts[4]?.toUpperCase();
+			if (date && tribunal) {
+				await markAsArchived(env, date, tribunal);
+				return Response.json({ status: 'marked', date, tribunal }, { headers: corsHeaders });
+			}
+			return Response.json({ error: 'Invalid parameters' }, { status: 400, headers: corsHeaders });
+		}
+
+		// Delete file from R2 (after confirmed on IA)
+		if (url.pathname.startsWith('/api/delete/') && request.method === 'DELETE') {
+			const parts = url.pathname.split('/');
+			const date = parts[3];
+			const tribunal = parts[4]?.toUpperCase();
+			if (date && tribunal) {
+				await deleteFile(env, date, tribunal);
+				return Response.json({ status: 'deleted', date, tribunal }, { headers: corsHeaders });
+			}
+			return Response.json({ error: 'Invalid parameters' }, { status: 400, headers: corsHeaders });
+		}
+
 		return Response.json({ error: 'Not found' }, { status: 404, headers: corsHeaders });
 	}
 };
@@ -616,4 +667,98 @@ async function getTribunalDetails(env: Env, tribunal: string): Promise<TribunalD
 		tribunal,
 		dates: dates.sort((a, b) => b.date.localeCompare(a.date))
 	};
+}
+
+// Pipeline API functions
+
+interface PendingFile {
+	date: string;
+	tribunal: string;
+	bytes: number;
+	records: number;
+	key: string;
+	archived: boolean;
+}
+
+async function listPendingFiles(env: Env): Promise<{ files: PendingFile[]; total_bytes: number }> {
+	const files: PendingFile[] = [];
+	let totalBytes = 0;
+
+	let cursor: string | undefined;
+	do {
+		const listed = await env.DJEN_STORAGE.list({ prefix: 'cadernos/', cursor, limit: 1000 });
+
+		for (const obj of listed.objects) {
+			const match = obj.key.match(/cadernos\/(\d{4}-\d{2}-\d{2})\/([A-Z0-9]+)-D-/);
+			if (!match) continue;
+
+			const [, date, tribunal] = match;
+			const archived = obj.customMetadata?.archived === 'true';
+
+			// Only include non-archived files
+			if (!archived) {
+				files.push({
+					date,
+					tribunal,
+					bytes: obj.size,
+					records: obj.customMetadata?.total_comunicacoes ? parseInt(obj.customMetadata.total_comunicacoes, 10) : 0,
+					key: obj.key,
+					archived: false
+				});
+				totalBytes += obj.size;
+			}
+		}
+
+		cursor = listed.truncated ? listed.cursor : undefined;
+	} while (cursor);
+
+	// Sort by date (oldest first for backfill priority)
+	files.sort((a, b) => a.date.localeCompare(b.date) || a.tribunal.localeCompare(b.tribunal));
+
+	return { files, total_bytes: totalBytes };
+}
+
+async function downloadFile(env: Env, date: string, tribunal: string): Promise<R2ObjectBody | null> {
+	// Find the file by listing (handles version suffix)
+	const prefix = `cadernos/${date}/${tribunal}-D-`;
+	const listed = await env.DJEN_STORAGE.list({ prefix, limit: 1 });
+
+	if (listed.objects.length === 0) return null;
+
+	const key = listed.objects[0].key;
+	return await env.DJEN_STORAGE.get(key);
+}
+
+async function markAsArchived(env: Env, date: string, tribunal: string): Promise<void> {
+	// Find the file
+	const prefix = `cadernos/${date}/${tribunal}-D-`;
+	const listed = await env.DJEN_STORAGE.list({ prefix, limit: 1 });
+
+	if (listed.objects.length === 0) return;
+
+	const obj = listed.objects[0];
+	const key = obj.key;
+
+	// Get current object to preserve data
+	const current = await env.DJEN_STORAGE.get(key);
+	if (!current) return;
+
+	// Re-upload with updated metadata (R2 doesn't support metadata-only updates)
+	await env.DJEN_STORAGE.put(key, current.body, {
+		httpMetadata: current.httpMetadata,
+		customMetadata: {
+			...obj.customMetadata,
+			archived: 'true',
+			archived_at: new Date().toISOString()
+		}
+	});
+}
+
+async function deleteFile(env: Env, date: string, tribunal: string): Promise<void> {
+	const prefix = `cadernos/${date}/${tribunal}-D-`;
+	const listed = await env.DJEN_STORAGE.list({ prefix, limit: 1 });
+
+	if (listed.objects.length === 0) return;
+
+	await env.DJEN_STORAGE.delete(listed.objects[0].key);
 }
