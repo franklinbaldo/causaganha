@@ -13,43 +13,71 @@ CausaGanha uses a **multi-parquet architecture** with separate files for differe
 
 ```
 Internet Archive Storage:
-├── causaganha-decisions-YYYY-MM-DD-TRIBUNAL.parquet  ← Decision text, analysis, embeddings
-├── causaganha-lawyers-YYYY-MM-DD.parquet             ← Lawyer profiles and ratings
-└── causaganha-partes-YYYY-MM-DD-TRIBUNAL.parquet     ← Case parties information
+├── causaganha-decisions-YYYY-MM-DD-TRIBUNAL.parquet   ← Decision text, analysis (NO embeddings!)
+├── causaganha-embeddings-YYYY-MM-DD-TRIBUNAL.parquet ← Embeddings ONLY! 🎯 NEW
+├── causaganha-lawyers-YYYY-MM-DD.parquet              ← Lawyer profiles and ratings
+└── causaganha-partes-YYYY-MM-DD-TRIBUNAL.parquet      ← Case parties information
 
 DuckDB Query Engine:
 └── Joins parquet files at query time (no duplication needed!)
 ```
 
-**Key Insight:** Lawyer data is already in separate parquet files, so we DON'T need to embed it in decisions parquet. DuckDB handles joins efficiently at query time.
+**Key Insights:**
+1. **Embeddings are separate:** Stored in their own parquet file with `intimation_id` as join key
+2. **Lawyer data is separate:** Already in lawyers parquet, no need to duplicate
+3. **DuckDB joins efficiently:** Columnar format enables fast joins at query time
+4. **Selective downloads:** Download only what you need (decisions, embeddings, or both)
 
 ## Feature Files
 
 ### Priority 0 (Critical)
 
-#### `01_P0_precomputed_embeddings.feature`
-**Pre-computed Embeddings** - Store Jina v3 embeddings in decisions parquet
+#### `01_P0_precomputed_embeddings.feature` ⚠️ DEPRECATED
+**Pre-computed Embeddings in Decisions Parquet** - Original approach (NOT recommended)
+
+**Status:** SUPERSEDED by `07_separate_embeddings_parquet.feature`
+
+This feature file describes embedding embeddings IN decisions parquet, which is NOT the correct architecture. See `07_separate_embeddings_parquet.feature` for the proper approach (separate embeddings file).
+
+---
+
+#### `07_separate_embeddings_parquet.feature` ✅ RECOMMENDED (NEW)
+**Separate Embeddings Parquet** - Store embeddings in dedicated parquet file
 
 - **Problem:** RAG analysis re-embeds texto every time (slow, expensive)
-- **Solution:** Compute embeddings once during export, cache in parquet
+- **Solution:** Export embeddings to **separate parquet file** with `intimation_id` as join key
+- **Architecture:**
+  ```
+  causaganha-decisions-2025-01-15-TJRO.parquet   (50 MB - NO embeddings)
+  causaganha-embeddings-2025-01-15-TJRO.parquet  (40 MB - ONLY embeddings)
+  ```
 - **Benefits:**
-  - 3-5x faster RAG analysis
-  - $8K/year savings (1M decisions)
-  - Enables similarity search directly on parquet
-  - Offline analysis without embedding API
-- **File Size Impact:** +80% (50MB → 90MB)
+  - ✅ 3-5x faster RAG analysis (cached embeddings)
+  - ✅ $8K/year savings (1M decisions)
+  - ✅ Hydrate vector stores directly from IA
+  - ✅ Regenerate embeddings without touching decisions
+  - ✅ Version embedding models independently
+  - ✅ Selective downloads (decisions only or with embeddings)
+  - ✅ A/B test different embedding models
+- **File Size:** Separate 40 MB file (same total storage, more flexibility!)
 - **ROI:** 6 months payback
 
-**Scenarios:**
-- Export parquet with pre-computed embeddings
-- RAG analysis using cached embeddings from parquet
-- Performance comparison - cached vs generated embeddings
-- Validate embedding quality in parquet
-- Schema v1 backward compatibility
-- Re-export v1 files to v2 with embeddings
-- Track embedding generation costs
-- Enable similarity search on parquet
-- Distributed analysis without embedding API
+**Scenarios (16 total):**
+- Export embeddings to separate parquet file
+- Embeddings and decisions share the same join key
+- Embeddings parquet schema definition
+- Hydrate vector store from IA embeddings
+- RAG analysis using separate embeddings
+- Regenerate embeddings without touching decisions
+- Store multiple embedding model versions
+- Selective download (with/without embeddings)
+- DuckDB query joining decisions + embeddings
+- Validate embeddings match decisions (texto_hash)
+- Storage efficiency comparison
+- Export workflow with separate files
+- Cost tracking for embeddings
+- Handle missing embeddings gracefully
+- Incremental embedding generation
 
 ---
 
@@ -174,28 +202,32 @@ Proper architecture specification:
 
 ---
 
-## Revised Schema v2 Recommendations
+## Revised Schema v2 Recommendations (FINAL)
 
-Based on the multi-parquet architecture:
+Based on the **multi-parquet architecture with separate embeddings file**:
 
 ### ✅ RECOMMENDED (Implement These)
 
-| Priority | Feature | Reason | File Size | Cost/Year |
-|----------|---------|--------|-----------|-----------|
-| **P0** | Pre-computed Embeddings | Can't compute on-the-fly efficiently | +80% | $100 |
-| **P1** | Structured Text Sections | Can't extract on-the-fly efficiently | +10% | $100 |
-| **P2** | Confidence Breakdown | Analysis-specific, can't join from elsewhere | +0.5% | $0 |
+| Priority | Feature | Location | Reason | File Size |
+|----------|---------|----------|--------|-----------|
+| **P0** | Pre-computed Embeddings | **Separate File** 🎯 | Can't compute on-the-fly, enables vector store hydration | 40 MB (separate) |
+| **P1** | Structured Text Sections | Decisions Parquet | Part of text structure, can't extract on-the-fly | +5% (52 MB) |
+| **P2** | Confidence Breakdown | Decisions Parquet | Analysis-specific, can't join from elsewhere | +0.5% (52.25 MB) |
 
-**Total File Size Increase:** ~90% (50MB → 95MB per file)
-**Total Cost:** $200/year
-**Total Savings:** $14K/year (embedding reuse + LLM efficiency)
+**Decisions Parquet:** 52.25 MB (text + sections + confidence, NO embeddings!)
+**Embeddings Parquet:** 40 MB (ONLY embeddings, separate file)
+**Total Storage:** 92.25 MB (same as monolithic, but WAY more flexible!)
+
+**Annual Cost:** $200/year (embedding + section generation)
+**Annual Savings:** $14K/year (embedding reuse + LLM efficiency)
 **Net Benefit:** $13.8K/year 🎉
 
-### ❌ NOT RECOMMENDED (Don't Implement)
+### ❌ NOT RECOMMENDED (Don't Implement in Decisions Parquet)
 
 | Feature | Reason |
 |---------|--------|
-| Lawyer Enrichment | Already in separate lawyers parquet, join at query time with DuckDB |
+| ~~Embeddings in Decisions~~ | Put in **separate embeddings parquet** instead! |
+| Lawyer Enrichment | Already in separate lawyers parquet, join at query time |
 | Partes Details | Already in separate partes parquet |
 | PDF Content | 100x file size increase, not practical |
 
@@ -223,12 +255,18 @@ Based on the multi-parquet architecture:
 
 ## Implementation Order
 
-### Phase 1: P0 - Embeddings (Week 1-2)
-1. Add embedding generation to ParquetExporter
-2. Update schema to include texto_embedding, embedding_model, embedding_generated_at
-3. Modify RAGAnalyzer to use cached embeddings
-4. Add tests for embedding caching
-5. Deploy and validate
+### Phase 1: P0 - Separate Embeddings File (Week 1-2) 🎯 UPDATED
+1. Create EmbeddingsExporter class (separate from ParquetExporter)
+2. Design embeddings parquet schema: intimation_id, texto_embedding, embedding_model, texto_hash
+3. Export embeddings to **separate file**: `causaganha-embeddings-YYYY-MM-DD-TRIBUNAL.parquet`
+4. Upload both decisions and embeddings files to Internet Archive
+5. Modify RAGAnalyzer to join decisions + embeddings or use cached embeddings
+6. Add tests for:
+   - Separate file export
+   - DuckDB joins on intimation_id
+   - Vector store hydration from IA
+   - Selective download (with/without embeddings)
+7. Deploy and validate
 
 ### Phase 2: P1 - Sections (Week 3-4)
 1. Implement heuristic section extractor (regex patterns for Brazilian legal docs)
