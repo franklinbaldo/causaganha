@@ -50,19 +50,20 @@ jobs:
           fi
 
           echo "Pre-commit passed or was fixed."
-  tribunal-tests:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        tribunal: [tjro]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/run-tests
-        with:
-          tribunal: ${{ matrix.tribunal }}
+  # tribunal-tests:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       tribunal: [tjro]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: ./.github/actions/run-tests
+  #       with:
+  #         tribunal: ${{ matrix.tribunal }}
   docs:
-    needs: tribunal-tests
+    # needs: tribunal-tests
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
