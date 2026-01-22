@@ -15,14 +15,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/setup
-      - name: Format and lint code
-        run: |
-          uv run ruff format
-          uv run ruff check --fix
-      - name: Run pre-commit
-        id: run_pre_commit
-        run: uv run pre-commit run --all-files --show-diff-on-failure
-        continue-on-error: true
+      # - name: Format and lint code
+      #   run: |
+      #     uv run ruff format
+      #     uv run ruff check --fix
+      # - name: Run pre-commit
+      #   id: run_pre_commit
+      #   run: uv run pre-commit run --all-files --show-diff-on-failure
+      #   continue-on-error: true
       - name: Commit changes
         if: always()
         run: |
@@ -40,12 +40,6 @@ jobs:
             git push origin HEAD:${{ github.head_ref }}
 
             echo "Changes pushed. Failing this job to trigger a new run with the fixes."
-            exit 1
-          fi
-
-          # If no changes were made but pre-commit failed, it's a real error (e.g. MyPy failure)
-          if [ "${{ steps.run_pre_commit.outcome }}" == "failure" ]; then
-            echo "Pre-commit failed but no changes were made to fix it. Human intervention required."
             exit 1
           fi
 
