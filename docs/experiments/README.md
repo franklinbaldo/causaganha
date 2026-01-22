@@ -28,11 +28,18 @@ This directory contains documentation for experiments and proof-of-concepts cond
 - **Cost Savings:** $0 vs $1,304/year
 - **Critical Finding:** Jina AI is **unsuitable for production** due to severe rate limiting
 
-**Recommendation:** Use local embeddings as default provider
+**⚠️ GROUND TRUTH ACCURACY TESTING (18 manually-labeled documents):**
+- **RAG Classification:** 0% accuracy (0/18 correct)
+- **Critical Finding:** RAG embeddings **cannot handle legal reasoning**
+- **Problem:** Appeal decisions, referenced judgments require LLM reasoning
+- **Recommendation:** Use LLM-based analysis (Gemini), NOT RAG for outcome classification
+
+**Recommendation:** Use local embeddings for search/retrieval, LLM for classification
 
 **Details:**
 - Initial performance analysis: [local-embeddings-experiment.md](./local-embeddings-experiment.md)
-- **Real data validation:** [real-data-test-results.md](./real-data-test-results.md) 🆕
+- Real data validation: [real-data-test-results.md](./real-data-test-results.md)
+- **Ground truth accuracy:** [ground-truth-accuracy-results.md](./ground-truth-accuracy-results.md) 🆕
 - Quality benchmark guide: [embedding-quality-benchmark-guide.md](./embedding-quality-benchmark-guide.md)
 
 **Implementation:**
