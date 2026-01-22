@@ -35,13 +35,15 @@ app = typer.Typer()
 
 def normalize_outcome(outcome: str) -> str:
     """Normalize outcome to WIN/LOSS/PARTIAL."""
-    outcome_lower = outcome.upper()
-    if "PROCEDENTE" in outcome_lower and "PARCIAL" not in outcome_lower:
-        return "WIN"
-    elif "IMPROCEDENTE" in outcome_lower:
+    outcome_upper = outcome.upper()
+    # IMPORTANT: Check IMPROCEDENTE before PROCEDENTE
+    # because "IMPROCEDENTE" contains "PROCEDENTE" substring!
+    if "IMPROCEDENTE" in outcome_upper:
         return "LOSS"
-    elif "PARCIAL" in outcome_lower:
+    elif "PARCIAL" in outcome_upper:
         return "PARTIAL"
+    elif "PROCEDENTE" in outcome_upper:
+        return "WIN"
     else:
         return "UNKNOWN"
 

@@ -17,8 +17,8 @@ import structlog
 
 logger = structlog.get_logger()
 
-# Outcome type
-Outcome = Literal["WIN", "LOSS", "PARTIAL", "UNKNOWN"]
+# Outcome type (must always predict - use confidence to indicate uncertainty)
+Outcome = Literal["WIN", "LOSS", "PARTIAL"]
 
 
 class Situation(str, Enum):
@@ -87,19 +87,20 @@ class SituationClassifier:
     # Situation identification patterns
     SITUATION_PATTERNS = {
         # First instance decisions
-        Situation.FIRST_INSTANCE_PROCEDENTE: [
-            r"julgo\s+procedente(?:\s+o\s+pedido)?",
-            r"procedente\s+o\s+pedido",
-            r"procedentes\s+os\s+pedidos",
-        ],
+        # IMPORTANT: Check IMPROCEDENTE before PROCEDENTE to avoid substring matches
         Situation.FIRST_INSTANCE_IMPROCEDENTE: [
-            r"julgo\s+improcedente(?:\s+o\s+pedido)?",
-            r"improcedente\s+o\s+pedido",
-            r"improcedentes\s+os\s+pedidos",
+            r"\bjulgo\s+improcedente(?:\s+o\s+pedido)?",
+            r"\bimprocedente\s+o\s+pedido",
+            r"\bimprocedentes\s+os\s+pedidos",
         ],
         Situation.FIRST_INSTANCE_PARCIAL: [
-            r"julgo\s+parcialmente\s+procedente",
-            r"parcialmente\s+procedente\s+o\s+pedido",
+            r"\bjulgo\s+parcialmente\s+procedente",
+            r"\bparcialmente\s+procedente\s+o\s+pedido",
+        ],
+        Situation.FIRST_INSTANCE_PROCEDENTE: [
+            r"\bjulgo\s+procedente(?:\s+o\s+pedido)?",
+            r"\bprocedente\s+o\s+pedido",
+            r"\bprocedentes\s+os\s+pedidos",
         ],
         # INSS appeals
         Situation.APPEAL_INSS_DENIED: [
@@ -172,10 +173,10 @@ class SituationClassifier:
         # Enforcement (references prior decision)
         Situation.ENFORCEMENT_WIN_REFERENCED: ("WIN", 0.85, "Enforcement of winning decision"),
         Situation.ENFORCEMENT_LOSS_REFERENCED: ("LOSS", 0.85, "Enforcement of losing decision"),
-        # Administrative
-        Situation.ADMINISTRATIVE_ACT: ("UNKNOWN", 1.0, "Administrative act (no judgment)"),
-        # Unknown
-        Situation.UNKNOWN: ("UNKNOWN", 0.0, "Cannot determine situation"),
+        # Administrative (default to WIN with very low confidence)
+        Situation.ADMINISTRATIVE_ACT: ("WIN", 0.2, "Administrative act (defaulting to WIN)"),
+        # Unknown (default to WIN with very low confidence - most common in dataset)
+        Situation.UNKNOWN: ("WIN", 0.3, "Cannot determine situation (defaulting to WIN)"),
     }
 
     # Party patterns
@@ -255,48 +256,57 @@ class SituationClassifier:
         """Infer who appealed when appeal was denied (generic pattern matched)."""
         # Look for context clues about who appealed
 
-        # Check for INSS as defendant (reu) - if INSS is defendant and appeal denied,
-        # likely INSS appealed and lost
-        if parties.get("reu") == "INSS":
-            # Look for clues that INSS is the appellant
-            if re.search(r"apelante\s+inss", text) or re.search(r"recorrente\s+inss", text):
-                return Situation.APPEAL_INSS_DENIED, base_confidence * 0.9
-            # If we see "apelado" (appellee) referring to author, INSS is appellant
-            if re.search(r"apelad[oa]\s+(?:autor|requerente)", text):
-                return Situation.APPEAL_INSS_DENIED, base_confidence * 0.85
-
-        # Check for author as appellant
-        if re.search(r"apelante\s+(?:autor|requerente)", text):
+        # Check for explicit appellant patterns (including "agravante" for agravo de instrumento)
+        # Author/plaintiff as appellant
+        if re.search(r"(?:apelante|agravante|recorrente)\s+(?:autor|requerente|impetrante)", text):
             return Situation.APPEAL_AUTHOR_DENIED, base_confidence * 0.9
 
-        # Default: if appeal denied and INSS is party, assume INSS appealed
-        # (more common in our dataset)
-        if parties.get("reu") == "INSS":
-            return Situation.APPEAL_INSS_DENIED, base_confidence * 0.7
+        # INSS as appellant
+        if re.search(r"(?:apelante|agravante|recorrente)\s+inss", text):
+            return Situation.APPEAL_INSS_DENIED, base_confidence * 0.9
 
-        # Otherwise keep generic
-        return Situation.APPEAL_DENIED_GENERIC, base_confidence * 0.6
+        # Check for appellee patterns (opposite inference)
+        # If author is appellee, INSS is appellant
+        if re.search(r"(?:apelad[oa]|agravad[oa])\s+(?:autor|requerente)", text):
+            return Situation.APPEAL_INSS_DENIED, base_confidence * 0.85
+
+        # If INSS is appellee, author is appellant (KEY PATTERN for agravo cases)
+        if re.search(r"(?:apelad[oa]|agravad[oa]).*?inss", text, re.DOTALL):
+            return Situation.APPEAL_AUTHOR_DENIED, base_confidence * 0.8
+        if re.search(r"inss.*?(?:apelad[oa]|agravad[oa])", text, re.DOTALL):
+            return Situation.APPEAL_AUTHOR_DENIED, base_confidence * 0.75
+
+        # REMOVED: Default assumption that INSS appealed (was causing errors)
+        # Instead, keep as generic with lower confidence
+        return Situation.APPEAL_DENIED_GENERIC, base_confidence * 0.5
 
     def _infer_appellant_granted(
         self, text: str, parties: dict, base_confidence: float
     ) -> tuple[Situation, float]:
         """Infer who appealed when appeal was granted (generic pattern matched)."""
-        # Similar logic but for granted appeals
-
-        if parties.get("reu") == "INSS":
-            if re.search(r"apelante\s+inss", text) or re.search(r"recorrente\s+inss", text):
-                return Situation.APPEAL_INSS_GRANTED, base_confidence * 0.9
-            if re.search(r"apelad[oa]\s+(?:autor|requerente)", text):
-                return Situation.APPEAL_INSS_GRANTED, base_confidence * 0.85
-
-        if re.search(r"apelante\s+(?:autor|requerente)", text):
+        # Check for explicit appellant patterns (including "agravante" for agravo de instrumento)
+        # Author/plaintiff as appellant
+        if re.search(r"(?:apelante|agravante|recorrente)\s+(?:autor|requerente|impetrante)", text):
             return Situation.APPEAL_AUTHOR_GRANTED, base_confidence * 0.9
 
-        # Default: if appeal granted and INSS is party, assume INSS appealed
-        if parties.get("reu") == "INSS":
-            return Situation.APPEAL_INSS_GRANTED, base_confidence * 0.7
+        # INSS as appellant
+        if re.search(r"(?:apelante|agravante|recorrente)\s+inss", text):
+            return Situation.APPEAL_INSS_GRANTED, base_confidence * 0.9
 
-        return Situation.APPEAL_GRANTED_GENERIC, base_confidence * 0.6
+        # Check for appellee patterns (opposite inference)
+        # If author is appellee, INSS is appellant
+        if re.search(r"(?:apelad[oa]|agravad[oa])\s+(?:autor|requerente)", text):
+            return Situation.APPEAL_INSS_GRANTED, base_confidence * 0.85
+
+        # If INSS is appellee, author is appellant (KEY PATTERN for agravo cases)
+        if re.search(r"(?:apelad[oa]|agravad[oa]).*?inss", text, re.DOTALL):
+            return Situation.APPEAL_AUTHOR_GRANTED, base_confidence * 0.8
+        if re.search(r"inss.*?(?:apelad[oa]|agravad[oa])", text, re.DOTALL):
+            return Situation.APPEAL_AUTHOR_GRANTED, base_confidence * 0.75
+
+        # REMOVED: Default assumption that INSS appealed (was causing errors)
+        # Instead, keep as generic with lower confidence
+        return Situation.APPEAL_GRANTED_GENERIC, base_confidence * 0.5
 
     def predict(self, intimacao_text: str, dependencies: dict | None = None) -> OutcomePrediction:
         """Two-stage prediction: Situation → Outcome.
@@ -331,9 +341,10 @@ class SituationClassifier:
                 final_confidence = situation_id.confidence * 0.5
                 reasoning = "Generic appeal granted (assumed INSS appellant)"
             else:
-                outcome = "UNKNOWN"
-                final_confidence = 0.0
-                reasoning = "Unknown situation"
+                # Default to WIN (most common) with very low confidence
+                outcome = "WIN"
+                final_confidence = 0.3
+                reasoning = "Unknown situation (defaulting to WIN - most common outcome)"
 
         # Determine winner/loser
         winner_party = None
