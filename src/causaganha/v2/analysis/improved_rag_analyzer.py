@@ -3,7 +3,8 @@
 This analyzer combines:
 1. Structured party data from parquet files
 2. Dynamic phrase construction using actual party names
-3. Embedding-based similarity matching (no threshold - always predict)
+3. Sliding window chunking to handle long documents (512 token limit)
+4. Embedding-based similarity matching (no threshold - always predict)
 
 Expected accuracy: 80-90% on Brazilian legal outcome classification.
 """
@@ -18,6 +19,55 @@ from causaganha.v2.analysis.parquet_party_loader import ParquetPartyLoader
 
 
 logger = structlog.get_logger()
+
+
+def chunk_text(text: str, max_tokens: int, overlap_ratio: float = 0.5) -> list[str]:
+    """Split text into overlapping chunks based on model's token limit.
+
+    Args:
+        text: Text to chunk
+        max_tokens: Model's maximum token limit (e.g., 512, 8192)
+        overlap_ratio: Overlap ratio between chunks (default 0.5 = 50%)
+
+    Returns:
+        List of text chunks
+
+    Note:
+        - Dynamically adapts to any model's token limit
+        - Uses word-based chunking (1 word ≈ 1.3 tokens average)
+        - 50% overlap ensures we don't miss outcomes at chunk boundaries
+        - Example: max_tokens=512 → chunk_size≈400 words, overlap≈200 words
+        - Example: max_tokens=8192 → chunk_size≈6400 words, overlap≈3200 words
+    """
+    if not text or not text.strip():
+        return [text]
+
+    # Convert tokens to approximate word count (1 word ≈ 1.3 tokens)
+    # Use 80% of max to leave safety margin for tokenization differences
+    chunk_size_words = int((max_tokens * 0.8) / 1.3)
+    overlap_words = int(chunk_size_words * overlap_ratio)
+
+    words = text.split()
+
+    # If text is short enough, return as-is
+    if len(words) <= chunk_size_words:
+        return [text]
+
+    chunks = []
+    start = 0
+
+    while start < len(words):
+        # Get chunk
+        end = min(start + chunk_size_words, len(words))
+        chunk_words = words[start:end]
+        chunks.append(" ".join(chunk_words))
+
+        # Move window (with overlap)
+        if end >= len(words):
+            break
+        start += (chunk_size_words - overlap_words)
+
+    return chunks
 
 
 class ImprovedRAGAnalyzer:
@@ -43,12 +93,14 @@ class ImprovedRAGAnalyzer:
         comunicacao_id: str | int,
         texto: str,
     ) -> OutcomePrediction:
-        """Analyze legal outcome using party-aware RAG.
+        """Analyze legal outcome using party-aware RAG with sliding window chunking.
 
         Key improvements over basic RAG:
         1. Extracts structured party data (Autor, Réu)
         2. Builds dynamic phrases using actual party names
-        3. Always predicts (no UNKNOWN threshold)
+        3. Sliding window chunking (adapts to model's token limit)
+        4. Max-similarity across all chunks (handles long documents)
+        5. Always predicts (no UNKNOWN threshold)
 
         Args:
             comunicacao_id: Communication ID for party lookup
@@ -80,35 +132,56 @@ class ImprovedRAGAnalyzer:
             total=total_phrases,
         )
 
-        # Step 3: Embed document
-        doc_embedding = await self.embedding_service.embed_text(texto)
+        # Step 3: Chunk document based on model's token limit
+        max_tokens = self.embedding_service.model.max_tokens
+        chunks = chunk_text(texto, max_tokens=max_tokens)
 
-        # Step 4: Calculate similarities for all phrases
+        logger.debug(
+            "text_chunked",
+            comunicacao_id=comunicacao_id,
+            num_chunks=len(chunks),
+            max_tokens=max_tokens,
+            text_length=len(texto),
+        )
+
+        # Step 4: Embed all chunks
+        chunk_embeddings = []
+        for i, chunk in enumerate(chunks):
+            embedding = await self.embedding_service.embed_text(chunk)
+            chunk_embeddings.append(embedding)
+
+        # Step 5: Calculate similarities for all phrases across all chunks
         outcome_scores = {}
         best_phrases = {}
-        all_similarities = {}  # For debugging
+        best_chunk_indices = {}
 
         for outcome, phrases in phrase_dict.items():
             max_similarity = 0.0
             best_phrase = ""
+            best_chunk_idx = 0
 
-            # Calculate similarity for each phrase
+            # Calculate similarity for each phrase against each chunk
             for phrase in phrases:
                 phrase_embedding = await self.embedding_service.embed_text(phrase)
-                similarity = self._cosine_similarity(doc_embedding, phrase_embedding)
 
-                if similarity > max_similarity:
-                    max_similarity = similarity
-                    best_phrase = phrase
+                # Find max similarity across all chunks
+                for chunk_idx, chunk_embedding in enumerate(chunk_embeddings):
+                    similarity = self._cosine_similarity(chunk_embedding, phrase_embedding)
+
+                    if similarity > max_similarity:
+                        max_similarity = similarity
+                        best_phrase = phrase
+                        best_chunk_idx = chunk_idx
 
             outcome_scores[outcome] = max_similarity
             best_phrases[outcome] = best_phrase
-            all_similarities[outcome] = max_similarity
+            best_chunk_indices[outcome] = best_chunk_idx
 
-        # Step 5: Pick highest similarity (NO threshold - always predict)
+        # Step 6: Pick highest similarity (NO threshold - always predict)
         best_outcome = max(outcome_scores, key=outcome_scores.get)
         confidence = outcome_scores[best_outcome]
         best_match = best_phrases[best_outcome]
+        best_chunk = best_chunk_indices[best_outcome]
 
         logger.info(
             "rag_prediction",
@@ -116,14 +189,15 @@ class ImprovedRAGAnalyzer:
             outcome=best_outcome,
             confidence=confidence,
             best_match=best_match[:80],  # Truncate for logging
+            best_chunk=f"{best_chunk + 1}/{len(chunks)}",
             scores=outcome_scores,
             has_parties=parties.has_parties(),
         )
 
         # Build reasoning
         reasoning_parts = [
-            f"Party-aware RAG: '{best_match[:80]}...'",
-            f"(similarity={confidence:.2%})",
+            f"Party-aware RAG: '{best_match[:60]}...'",
+            f"(sim={confidence:.2%}, chunk {best_chunk + 1}/{len(chunks)})",
         ]
 
         if parties.has_parties():
