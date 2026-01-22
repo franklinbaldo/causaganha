@@ -22,7 +22,7 @@ concurrency:
 
 env:
   DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
-  MAX_UPLOADS_PER_RUN: 20  # ~20 uploads at 1/sec = ~20 seconds
+  MAX_UPLOADS_PER_RUN: 5  # Limit to avoid IA rate limiting
 
 jobs:
   archive:
@@ -34,12 +34,24 @@ jobs:
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup
         run: |
           pip install internetarchive
           mkdir -p ~/.config/internetarchive
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
           echo "IA config created"
+
+      - name: Download state
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          name: archive-state
+          path: state/
+          if_no_artifact_found: ignore
+          workflow_conclusion: success
 
       - name: Find items to archive
         id: find
@@ -49,6 +61,14 @@ jobs:
           TRIBUNAIS="$TRIBUNAIS TJAC TJAL TJAM TJAP TJBA TJCE TJDF TJES TJGO TJMA TJMG TJMS TJMT TJPA TJPB TJPE TJPI TJPR TJRJ TJRN TJRO TJRR TJRS TJSC TJSE TJSP TJTO"
           TRIBUNAIS="$TRIBUNAIS TRT1 TRT2 TRT3 TRT4 TRT5 TRT6 TRT7 TRT8 TRT9 TRT10 TRT11 TRT12 TRT13 TRT14 TRT15 TRT16 TRT17 TRT18 TRT19 TRT20 TRT21 TRT22 TRT23 TRT24"
           TRIBUNAIS="$TRIBUNAIS TREAC TREAL TREAM TREAP TREBA TRECE TREDF TREES TREGO TREMA TREMG TREMS TREMT TREPA TREPB TREPE TREPI TREPR TRERJ TRERN TRERO TRERR TRERS TRESC TRESE TRESP TRETO"
+
+          # Load previous state (unavailable items)
+          if [ -f state/unavailable.txt ]; then
+            echo "Loaded $(wc -l < state/unavailable.txt | tr -d ' ') unavailable items from state"
+          else
+            touch state/unavailable.txt
+          fi
+          mkdir -p state
 
           # Get existing items from IA
           echo "Fetching existing items from IA..."
@@ -69,6 +89,11 @@ jobs:
 
               # Check if already on IA
               if grep -q "^${ITEM_ID}$" existing_items.txt; then
+                continue
+              fi
+
+              # Skip if marked unavailable
+              if grep -q "^${ITEM_ID}$" state/unavailable.txt; then
                 continue
               fi
 
@@ -98,8 +123,11 @@ jobs:
             # Get caderno info from DJEN API
             INFO=$(curl -sf "$DJEN_API/api/v1/caderno/$TRIBUNAL/$DATE/D" 2>/dev/null || echo "")
 
+            ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
+
             if [ -z "$INFO" ]; then
-              echo "   ⚠️  No caderno available"
+              echo "   ⚠️  No caderno available (marking unavailable)"
+              echo "$ITEM_ID" >> state/unavailable.txt
               FAILED=$((FAILED + 1))
               continue
             fi
@@ -111,7 +139,8 @@ jobs:
             SIZE_MB=$((SIZE / 1024 / 1024))
 
             if [ -z "$URL" ]; then
-              echo "   ⚠️  No download URL"
+              echo "   ⚠️  No download URL (marking unavailable)"
+              echo "$ITEM_ID" >> state/unavailable.txt
               FAILED=$((FAILED + 1))
               continue
             fi
@@ -136,7 +165,6 @@ jobs:
             fi
 
             # Upload to Internet Archive
-            ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
             echo "   ⬆️  Uploading to IA: $ITEM_ID"
 
             if ia upload "$ITEM_ID" caderno.zip \
@@ -160,8 +188,8 @@ jobs:
 
             rm -f caderno.zip
 
-            # Rate limit
-            sleep 1
+            # Rate limit - IA requires longer delays to avoid spam detection
+            sleep 30
 
           done < batch.txt
 
@@ -170,9 +198,19 @@ jobs:
           echo "📊 Results: $SUCCESS success, $FAILED failed"
           echo "📊 Remaining: $(($(wc -l < to_archive.txt) - SUCCESS - FAILED)) items"
 
+      - name: Save state
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-state
+          path: state/
+          retention-days: 90
+          overwrite: true
+
       - name: Summary
         run: |
+          UNAVAILABLE=$(wc -l < state/unavailable.txt 2>/dev/null | tr -d ' ' || echo "0")
           echo "## Archive Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Total pending: ${{ steps.find.outputs.total }}" >> $GITHUB_STEP_SUMMARY
           echo "- Batch size: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unavailable items tracked: $UNAVAILABLE" >> $GITHUB_STEP_SUMMARY
