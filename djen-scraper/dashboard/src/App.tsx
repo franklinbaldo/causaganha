@@ -64,6 +64,8 @@ export default function App() {
   const [tribunalDetail, setTribunalDetail] = useState<TribunalDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -71,12 +73,21 @@ export default function App() {
           fetch(`${API_BASE}/state`),
           fetch(`${API_BASE}/api/tribunais`)
         ]);
+
+        if (!stateRes.ok || !tribunaisRes.ok) {
+          setError(`API Error: ${stateRes.status} / ${tribunaisRes.status}`);
+          setLoading(false);
+          return;
+        }
+
         const stateData = await stateRes.json();
         const tribunaisData = await tribunaisRes.json();
         setState(stateData);
         setTribunais(tribunaisData.tribunais);
+        setError(null);
       } catch (error) {
         console.error('Failed to fetch data:', error);
+        setError(error instanceof Error ? error.message : 'Unknown error');
       } finally {
         setLoading(false);
       }
@@ -99,15 +110,40 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Text className="text-white">Carregando...</Text>
+        <div className="text-center">
+          <Text className="text-white text-xl mb-2">Carregando...</Text>
+          <Text className="text-slate-400">Conectando ao Cloudflare Worker API</Text>
+        </div>
       </div>
     );
   }
 
-  if (!state) {
+  if (error || !state) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Text className="text-red-400">Erro ao carregar dados</Text>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <Card className="bg-slate-800 border-slate-700 max-w-2xl">
+          <Title className="text-white mb-4">⚠️ Cloudflare Worker API Indisponível</Title>
+          <Text className="text-slate-300 mb-4">
+            O dashboard precisa do Cloudflare Worker backend para funcionar.
+            A API não está respondendo em: <code className="bg-slate-700 px-2 py-1 rounded">{API_BASE}</code>
+          </Text>
+          {error && (
+            <Text className="text-red-400 mb-4">
+              Erro: {error}
+            </Text>
+          )}
+          <div className="bg-slate-900 p-4 rounded border border-slate-700">
+            <Text className="text-slate-400 font-mono text-sm mb-2">Para resolver:</Text>
+            <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
+              <li>Instalar Wrangler CLI: <code className="bg-slate-700 px-2 py-1 rounded">npm install -g wrangler</code></li>
+              <li>Autenticar: <code className="bg-slate-700 px-2 py-1 rounded">wrangler login</code></li>
+              <li>Deploy worker: <code className="bg-slate-700 px-2 py-1 rounded">cd djen-scraper/cloudflare/worker && wrangler deploy</code></li>
+            </ol>
+          </div>
+          <Text className="text-slate-500 mt-4 text-sm">
+            Tentando reconectar automaticamente a cada 30 segundos...
+          </Text>
+        </Card>
       </div>
     );
   }
