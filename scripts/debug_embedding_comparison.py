@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Debug detalhado do processo de comparação de embeddings."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import duckdb
 import numpy as np
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from causaganha.infrastructure.ai.embeddings import EmbeddingAnalyzer
 
@@ -35,7 +37,7 @@ def main():
         WHERE ar.outcome = 'WIN'
           AND LENGTH(i.texto) BETWEEN 1000 AND 2000
         LIMIT 1
-    """
+    """,
     ).fetchone()
 
     if not decision:
@@ -128,7 +130,7 @@ def main():
     # PROBLEMA: Scores muito próximos!
     console.print(
         f"\n[red]⚠️  PROBLEMA: Diferença de apenas {sorted_scores[0][1] - sorted_scores[1][1]:.6f} "
-        f"entre 1º e 2º lugar![/red]"
+        f"entre 1º e 2º lugar![/red]",
     )
 
     # PASSO 5: Testar outras agregações
@@ -155,7 +157,9 @@ def main():
     best_score2 = sorted_scores2[0][1]
 
     for outcome, score in sorted_scores2:
-        diff = score - sorted_scores2[1][1] if outcome == sorted_scores2[0][0] else score - best_score2
+        diff = (
+            score - sorted_scores2[1][1] if outcome == sorted_scores2[0][0] else score - best_score2
+        )
         table2.add_row(outcome, f"{score:.6f}", f"{diff:+.6f}")
 
     console.print(table2)
@@ -166,7 +170,7 @@ def main():
     def softmax(scores_dict):
         values = np.array(list(scores_dict.values()))
         exp_values = np.exp(values - np.max(values))  # Subtract max for numerical stability
-        return dict(zip(scores_dict.keys(), exp_values / exp_values.sum()))
+        return dict(zip(scores_dict.keys(), exp_values / exp_values.sum(), strict=False))
 
     normalized_scores = softmax(final_scores_max)
 
@@ -177,13 +181,17 @@ def main():
 
     for outcome in sorted(normalized_scores.keys(), key=lambda x: -normalized_scores[x]):
         table3.add_row(
-            outcome, f"{final_scores_max[outcome]:.6f}", f"{normalized_scores[outcome]:.4f}"
+            outcome,
+            f"{final_scores_max[outcome]:.6f}",
+            f"{normalized_scores[outcome]:.4f}",
         )
 
     console.print(table3)
 
     # Estratégia 3: Média ponderada por posição do chunk
-    console.print("\n[yellow]Estratégia 3: Ponderação por POSIÇÃO (chunks iniciais = mais peso)[/yellow]\n")
+    console.print(
+        "\n[yellow]Estratégia 3: Ponderação por POSIÇÃO (chunks iniciais = mais peso)[/yellow]\n"
+    )
 
     final_scores_weighted = {}
     for outcome in analyzer.reference_phrases.keys():
@@ -205,7 +213,9 @@ def main():
     best_score4 = sorted_scores4[0][1]
 
     for outcome, score in sorted_scores4:
-        diff = score - sorted_scores4[1][1] if outcome == sorted_scores4[0][0] else score - best_score4
+        diff = (
+            score - sorted_scores4[1][1] if outcome == sorted_scores4[0][0] else score - best_score4
+        )
         table4.add_row(outcome, f"{score:.6f}", f"{diff:+.6f}")
 
     console.print(table4)
@@ -242,7 +252,7 @@ def main():
     console.print(comparison)
 
     console.print(
-        f"\n[bold cyan]LLM classificou como:[/bold cyan] [green]{llm_outcome}[/green]"
+        f"\n[bold cyan]LLM classificou como:[/bold cyan] [green]{llm_outcome}[/green]",
     )
 
     conn.close()

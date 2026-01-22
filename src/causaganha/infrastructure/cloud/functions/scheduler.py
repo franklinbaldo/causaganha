@@ -84,7 +84,7 @@ async def scheduler_tick(request: Any) -> str:
                         "docKey": doc_key,
                         "stage": "ingest",
                         "force": False,
-                    }
+                    },
                 ).encode("utf-8")
 
                 future = publisher.publish(settings.TOPIC_INGEST, message_json)

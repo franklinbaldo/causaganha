@@ -1,7 +1,5 @@
-import os
-import yaml
 from pathlib import Path
-from typing import Dict, Optional
+
 
 PERSONAS_ROOT = Path(".team/personas")
 
@@ -45,6 +43,7 @@ hired_by: {hired_by}
 {{% endblock %}}
 """
 
+
 class HireManager:
     def __init__(self, personas_root: Path = PERSONAS_ROOT):
         self.personas_root = personas_root
@@ -61,18 +60,18 @@ class HireManager:
         constraints: str = "- Follow project conventions",
         guardrails: str = "✅ Always follow BDD principles",
         workflow: str = "1. 🔍 OBSERVE\n2. 🎯 SELECT\n3. 🛠️ IMPLEMENT\n4. ✅ VERIFY",
-        verification: str = "uv run pytest"
+        verification: str = "uv run pytest",
     ) -> Path:
         """Create a new persona folder and prompt file."""
         persona_id = persona_id.lower().strip().replace(" ", "_")
         target_dir = self.personas_root / persona_id
-        
+
         if target_dir.exists():
             raise ValueError(f"Persona '{persona_id}' already exists")
-            
+
         target_dir.mkdir(parents=True)
         prompt_path = target_dir / "prompt.md.j2"
-        
+
         content = HIRE_TEMPLATE.format(
             id=persona_id,
             emoji=emoji,
@@ -84,10 +83,10 @@ class HireManager:
             constraints=constraints,
             guardrails=guardrails,
             workflow=workflow,
-            verification=verification
+            verification=verification,
         )
-        
+
         with open(prompt_path, "w") as f:
             f.write(content)
-            
+
         return prompt_path

@@ -1,4 +1,5 @@
 """Embedding-based decision analysis using Gemini."""
+
 import os
 from typing import Any
 
@@ -73,9 +74,7 @@ class EmbeddingAnalyzer:
         self.reference_embeddings: dict[str, list[np.ndarray]] = {}
         logger.info("precomputing_reference_embeddings")
         for outcome, phrases in self.reference_phrases.items():
-            self.reference_embeddings[outcome] = [
-                self._get_embedding(phrase) for phrase in phrases
-            ]
+            self.reference_embeddings[outcome] = [self._get_embedding(phrase) for phrase in phrases]
         logger.info("reference_embeddings_ready", count=len(self.reference_embeddings))
 
     def _get_embedding(self, text: str) -> np.ndarray:
@@ -144,7 +143,10 @@ class EmbeddingAnalyzer:
         return chunks
 
     def analyze_decision_outcome(
-        self, text: str, chunk_size: int = 500, top_k: int = 3
+        self,
+        text: str,
+        chunk_size: int = 500,
+        top_k: int = 3,
     ) -> dict[str, Any]:
         """Analyze decision outcome using embedding similarity.
 

@@ -1,14 +1,13 @@
 """Step definitions for RAG analysis BDD tests."""
 
 import asyncio
-import os
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from pytest_bdd import given, when, then, scenario, parsers
+from pytest_bdd import given, parsers, scenario, then, when
 
 from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer, OUTCOME_PHRASES
-from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.v2.analysis.rag_analyzer import OUTCOME_PHRASES, RAGAnalyzer
 
 
 # Scenarios
@@ -22,7 +21,9 @@ def test_medium_confidence_rag():
     """Test RAG analysis with medium confidence result."""
 
 
-@pytest.mark.skip(reason="Zero-shot similarity doesn't produce low confidence for this despacho text - needs better test data")
+@pytest.mark.skip(
+    reason="Zero-shot similarity doesn't produce low confidence for this despacho text - needs better test data"
+)
 @scenario("../features/rag_analysis.feature", "Analyze a decision with low confidence using RAG")
 def test_low_confidence_rag():
     """Test RAG analysis with low confidence result."""
@@ -64,24 +65,29 @@ def mock_embedding_service():
         text_lower = text.lower()
 
         # WIN indicators get embeddings close to [1.0, 0, 0, ...]
-        if any(word in text_lower for word in ["procedente", "condeno o réu", "defiro o pedido", "julgo procedente"]):
+        if any(
+            word in text_lower
+            for word in ["procedente", "condeno o réu", "defiro o pedido", "julgo procedente"]
+        ):
             return [1.0] + [0.0] * 767
 
         # LOSS indicators get embeddings close to [0, 1.0, 0, ...]
-        elif any(word in text_lower for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]):
+        if any(
+            word in text_lower
+            for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]
+        ):
             return [0.0] + [1.0] + [0.0] * 766
 
         # PARTIAL indicators get embeddings close to [0, 0, 1.0, ...]
-        elif any(word in text_lower for word in ["parcialmente", "em parte"]):
+        if any(word in text_lower for word in ["parcialmente", "em parte"]):
             return [0.0, 0.0] + [1.0] + [0.0] * 765
 
         # UNKNOWN indicators get embeddings close to [0, 0, 0, 1.0, ...]
-        elif any(word in text_lower for word in ["despacho", "intimação", "aguarde", "certidão"]):
+        if any(word in text_lower for word in ["despacho", "intimação", "aguarde", "certidão"]):
             return [0.0, 0.0, 0.0] + [1.0] + [0.0] * 764
 
         # Default: slightly favor UNKNOWN
-        else:
-            return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
+        return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
 
     async def mock_embed_batch(texts, task_type="RETRIEVAL_QUERY", add_prefix=True):
         results = []
@@ -160,16 +166,23 @@ def decision_text_mixed(context, mock_embedding_service):
         if ("acolho" in text_lower or "trata-se" in text_lower) and "parcialmente" in text_lower:
             return [0.35, 0.30, 0.40, 0.25] + [0.0] * 764
         # For outcome phrases, use distinct embeddings
-        elif any(word in text_lower for word in ["julgo procedente", "condeno o réu", "defiro o pedido"]):
+        if any(
+            word in text_lower for word in ["julgo procedente", "condeno o réu", "defiro o pedido"]
+        ):
             return [1.0] + [0.0] * 767
-        elif any(word in text_lower for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]):
+        if any(
+            word in text_lower
+            for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]
+        ):
             return [0.0] + [1.0] + [0.0] * 766
-        elif "parcialmente procedente" in text_lower or "em parte" in text_lower:
+        if "parcialmente procedente" in text_lower or "em parte" in text_lower:
             return [0.0, 0.0] + [1.0] + [0.0] * 765
-        elif any(word in text_lower for word in ["despacho processual", "intimação para", "aguarde", "certidão"]):
+        if any(
+            word in text_lower
+            for word in ["despacho processual", "intimação para", "aguarde", "certidão"]
+        ):
             return [0.0, 0.0, 0.0] + [1.0] + [0.0] * 764
-        else:
-            return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
+        return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
 
     async def ambiguous_embed_batch(texts, task_type="RETRIEVAL_QUERY", add_prefix=True):
         results = []
@@ -202,16 +215,23 @@ def decision_text_unclear(context, mock_embedding_service):
         if "intime-se" in text_lower or ("apresentar documentos" in text_lower):
             return [0.12, 0.10, 0.15, 0.18] + [0.0] * 764
         # For outcome phrases, use distinct embeddings
-        elif any(word in text_lower for word in ["julgo procedente", "condeno o réu", "defiro o pedido"]):
+        if any(
+            word in text_lower for word in ["julgo procedente", "condeno o réu", "defiro o pedido"]
+        ):
             return [1.0] + [0.0] * 767
-        elif any(word in text_lower for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]):
+        if any(
+            word in text_lower
+            for word in ["improcedente", "condeno o autor", "indefiro", "nego provimento"]
+        ):
             return [0.0] + [1.0] + [0.0] * 766
-        elif "parcialmente procedente" in text_lower or "em parte" in text_lower:
+        if "parcialmente procedente" in text_lower or "em parte" in text_lower:
             return [0.0, 0.0] + [1.0] + [0.0] * 765
-        elif any(word in text_lower for word in ["despacho processual", "intimação para", "aguarde", "certidão"]):
+        if any(
+            word in text_lower
+            for word in ["despacho processual", "intimação para", "aguarde", "certidão"]
+        ):
             return [0.0, 0.0, 0.0] + [1.0] + [0.0] * 764
-        else:
-            return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
+        return [0.1, 0.1, 0.1] + [0.7] + [0.0] * 764
 
     async def unclear_embed_batch(texts, task_type="RETRIEVAL_QUERY", add_prefix=True):
         results = []
@@ -261,9 +281,7 @@ def analyze_multiple_decisions(context, num):
 @given(parsers.parse("I have {num:d} pending decisions to analyze"))
 def pending_decisions(context, num):
     """Create pending decisions for batch analysis."""
-    context["pending_texts"] = [
-        f"Decision text number {i}" for i in range(num)
-    ]
+    context["pending_texts"] = [f"Decision text number {i}" for i in range(num)]
 
 
 # When steps
@@ -275,13 +293,17 @@ def analyze_with_rag(context, rag_analyzer):
     # Run async analysis
     loop = asyncio.get_event_loop()
     result = loop.run_until_complete(
-        rag_analyzer.analyze_text(text, intimation_id=1)
+        rag_analyzer.analyze_text(text, intimation_id=1),
     )
 
     context["analysis_result"] = result
 
 
-@when(parsers.parse("I chunk the text with {chunk_size:d} character chunks and {overlap:d} character overlap"))
+@when(
+    parsers.parse(
+        "I chunk the text with {chunk_size:d} character chunks and {overlap:d} character overlap"
+    )
+)
 def chunk_text_with_params(context, chunk_size, overlap):
     """Chunk text with specific parameters."""
     text = context.get("decision_text", "")
@@ -296,7 +318,7 @@ def generate_embeddings(context, mock_embedding_service):
 
     loop = asyncio.get_event_loop()
     embeddings = loop.run_until_complete(
-        mock_embedding_service.embed_batch(chunks)
+        mock_embedding_service.embed_batch(chunks),
     )
 
     context["embeddings"] = embeddings
@@ -334,7 +356,7 @@ def run_batch_analysis(context, rag_analyzer):
     start_time = loop.time()
 
     results = loop.run_until_complete(
-        rag_analyzer.analyze_batch(texts)
+        rag_analyzer.analyze_batch(texts),
     )
 
     end_time = loop.time()
@@ -356,7 +378,9 @@ def check_outcome(context, outcome):
 def check_confidence_greater(context, threshold):
     """Check confidence is above threshold."""
     result = context.get("analysis_result") or context.get("classification")
-    confidence = result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
+    confidence = (
+        result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
+    )
     assert confidence > threshold, f"Confidence {confidence} not greater than {threshold}"
 
 
@@ -364,15 +388,21 @@ def check_confidence_greater(context, threshold):
 def check_confidence_range(context, min_conf, max_conf):
     """Check confidence is within range."""
     result = context.get("analysis_result") or context.get("classification")
-    confidence = result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
-    assert min_conf <= confidence <= max_conf, f"Confidence {confidence} not in range [{min_conf}, {max_conf}]"
+    confidence = (
+        result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
+    )
+    assert (
+        min_conf <= confidence <= max_conf
+    ), f"Confidence {confidence} not in range [{min_conf}, {max_conf}]"
 
 
 @then(parsers.parse("the confidence score should be less than {threshold:f}"))
 def check_confidence_less(context, threshold):
     """Check confidence is below threshold."""
     result = context.get("analysis_result") or context.get("classification")
-    confidence = result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
+    confidence = (
+        result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
+    )
     assert confidence < threshold, f"Confidence {confidence} not less than {threshold}"
 
 
@@ -408,7 +438,9 @@ def check_chunk_size(context, size):
             # Last chunk can be any size up to chunk_size
             assert len(chunk) <= size + 50, f"Last chunk {i} size {len(chunk)} exceeds {size}"
         else:
-            assert abs(len(chunk) - size) <= 50, f"Chunk {i} size {len(chunk)} not approximately {size}"
+            assert (
+                abs(len(chunk) - size) <= 50
+            ), f"Chunk {i} size {len(chunk)} not approximately {size}"
 
 
 @then("consecutive chunks should have overlapping content")
@@ -425,8 +457,7 @@ def check_chunk_overlap(context):
 
         # Some part of current_end should be in next_start
         has_overlap = any(
-            current_end[j:j+10] in next_start
-            for j in range(0, len(current_end) - 10, 5)
+            current_end[j : j + 10] in next_start for j in range(0, len(current_end) - 10, 5)
         )
 
         assert has_overlap, f"No overlap found between chunks {i} and {i+1}"
@@ -469,7 +500,9 @@ def check_cost(context, expected_cost):
     actual_cost = context.get("total_cost", 0.0)
     # Allow 1% variance
     variance = expected_cost * 0.01
-    assert abs(actual_cost - expected_cost) <= variance, f"Cost {actual_cost} not approximately ${expected_cost}"
+    assert (
+        abs(actual_cost - expected_cost) <= variance
+    ), f"Cost {actual_cost} not approximately ${expected_cost}"
 
 
 @then(parsers.parse("the cost per decision should be ${expected_per:f}"))
@@ -480,7 +513,9 @@ def check_cost_per_decision(context, expected_per):
     per_decision = total_cost / num_decisions if num_decisions > 0 else 0.0
 
     variance = expected_per * 0.01
-    assert abs(per_decision - expected_per) <= variance, f"Cost per decision {per_decision} not approximately ${expected_per}"
+    assert (
+        abs(per_decision - expected_per) <= variance
+    ), f"Cost per decision {per_decision} not approximately ${expected_per}"
 
 
 @then(parsers.parse("all {count:d} decisions should be classified"))
@@ -490,7 +525,7 @@ def check_all_classified(context, count):
     assert len(results) == count, f"Expected {count} results, got {len(results)}"
 
 
-@then("the analysis method for all should be \"rag\"")
+@then('the analysis method for all should be "rag"')
 def check_all_rag_method(context):
     """Check all use RAG method."""
     results = context.get("batch_results", [])

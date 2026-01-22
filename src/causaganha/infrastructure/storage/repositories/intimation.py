@@ -56,7 +56,7 @@ class IntimationRepository:
         ids_to_insert = [d["id"] for d in data]
 
         t_int = self.con.table("intimations")
-        
+
         # Check for existing IDs to avoid duplicates
         try:
             # We fetch existing IDs that match the ones we want to insert
@@ -78,22 +78,24 @@ class IntimationRepository:
         # We delete existing lawyers for these intimations and re-insert to ensure consistency?
         # Or just insert for new intimations?
         # Let's just insert for the NEW intimations to be safe and simple.
-        
+
         new_intimation_ids = {d["id"] for d in new_data}
-        
+
         lawyers_data = []
         for intimation in intimations:
             if intimation.id in new_intimation_ids:
-                lawyers_data.extend([
-                    {
-                        "intimation_id": intimation.id,
-                        "oab_number": lawyer.numero_oab,
-                        "oab_state": lawyer.uf_oab,
-                        "lawyer_name": lawyer.nome,
-                        "polo": "A",  # Default for now, should extract if available
-                    }
-                    for lawyer in intimation.advogados
-                ])
+                lawyers_data.extend(
+                    [
+                        {
+                            "intimation_id": intimation.id,
+                            "oab_number": lawyer.numero_oab,
+                            "oab_state": lawyer.uf_oab,
+                            "lawyer_name": lawyer.nome,
+                            "polo": "A",  # Default for now, should extract if available
+                        }
+                        for lawyer in intimation.advogados
+                    ]
+                )
 
         if lawyers_data:
             t_lawyers = ibis.memtable(lawyers_data)

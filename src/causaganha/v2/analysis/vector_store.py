@@ -1,12 +1,12 @@
 """Vector store manager for LanceDB operations."""
 
-import os
 from pathlib import Path
 from typing import Any
 
 import lancedb
 import structlog
 from lancedb.table import Table
+
 
 logger = structlog.get_logger()
 
@@ -244,7 +244,7 @@ class VectorStore:
         db = self.connect()
         # Use the new list_tables() API which returns a response object
         response = db.list_tables()
-        tables = response.tables if hasattr(response, 'tables') else response
+        tables = response.tables if hasattr(response, "tables") else response
 
         logger.debug("tables_listed", num_tables=len(tables))
 

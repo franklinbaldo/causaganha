@@ -98,7 +98,7 @@ async def ingest_worker(event: dict, context: Any) -> None:
                 "status": "pdf_uploaded",
                 "ia_identifier": ia_identifier,
                 "updated_at": firestore.SERVER_TIMESTAMP,
-            }
+            },
         )
 
         # 5. Emit next stage
@@ -116,6 +116,6 @@ def _publish_next_stage(publisher, doc_key) -> None:
             "docKey": doc_key,
             "stage": "llm",
             "force": False,
-        }
+        },
     ).encode("utf-8")
     publisher.publish(settings.TOPIC_LLM, message_json)

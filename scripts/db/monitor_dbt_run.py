@@ -59,7 +59,7 @@ def parse_run_results(results_path: Path) -> None:
                     "name": node_name,
                     "time": execution_time,
                     "status": status,
-                }
+                },
             )
 
         if node_type in {"model", "snapshot", "seed"}:

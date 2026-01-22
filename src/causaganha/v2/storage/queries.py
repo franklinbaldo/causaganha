@@ -8,7 +8,7 @@ from ibis import _
 from ibis.backends.duckdb import Backend
 
 from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.api.client import Intimation, DestinarioAdvogado
+from causaganha.v2.api.client import DestinarioAdvogado, Intimation
 
 
 logger = structlog.get_logger()
@@ -250,8 +250,7 @@ def get_unrated_analyses(
     analysis = con.table("decision_analysis")
 
     result = (
-        analysis
-        .filter(_.rated == False)  # noqa: E712
+        analysis.filter(_.rated == False)  # noqa: E712
         .order_by(_.created_at.asc())
         .limit(limit)
     )
@@ -279,8 +278,7 @@ def get_lawyer_rating(
     ratings = con.table("lawyer_ratings")
 
     query = (
-        ratings
-        .filter(_.oab_number == oab_number)
+        ratings.filter(_.oab_number == oab_number)
         .filter(_.oab_state == oab_state)
         .filter(_.tribunal == tribunal)
     )
@@ -359,8 +357,8 @@ def update_lawyer_rating(
             total_cases,
             wins,
             losses,
-            tribunal
-        ]
+            tribunal,
+        ],
     )
 
 
@@ -382,7 +380,7 @@ def mark_analysis_as_rated(
             rated_at = NOW()
         WHERE id = ?
         """,
-        [str(analysis_id)]
+        [str(analysis_id)],
     )
 
 
@@ -403,8 +401,7 @@ def get_lawyer_name(
     """
     lawyers = con.table("intimation_lawyers")
     result = (
-        lawyers
-        .filter(_.oab_number == oab_number)
+        lawyers.filter(_.oab_number == oab_number)
         .filter(_.oab_state == oab_state)
         .limit(1)
         .select(_.lawyer_name)
@@ -431,8 +428,7 @@ def get_unarchived_intimations(
     intimations = con.table("intimations")
 
     result = (
-        intimations
-        .filter(_.ia_url.isnull())
+        intimations.filter(_.ia_url.isnull())
         .filter(_.link.notnull())
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)
@@ -460,5 +456,5 @@ def mark_as_archived(
             ia_url = ?
         WHERE id = ?
         """,
-        [ia_url, intimation_id]
+        [ia_url, intimation_id],
     )

@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Testa a ideia original: comparação direta com 2 frases-chave."""
+
 import sys
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import os
+
 import duckdb
 import google.generativeai as genai
 import numpy as np
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import track
+from rich.table import Table
+
 
 console = Console()
 
@@ -71,14 +75,16 @@ def main():
 
     frases = {
         "AUTOR_VENCEU": "O autor da ação judicial venceu a causa e o réu foi condenado a pagar.",
-        "REU_VENCEU": "O réu venceu a ação judicial e o pedido do autor foi negado."
+        "REU_VENCEU": "O réu venceu a ação judicial e o pedido do autor foi negado.",
     }
 
-    console.print(Panel(
-        f"[cyan]Frase 1 (AUTOR VENCEU):[/cyan]\n{frases['AUTOR_VENCEU']}\n\n"
-        f"[yellow]Frase 2 (RÉU VENCEU):[/yellow]\n{frases['REU_VENCEU']}",
-        title="Frases de Referência"
-    ))
+    console.print(
+        Panel(
+            f"[cyan]Frase 1 (AUTOR VENCEU):[/cyan]\n{frases['AUTOR_VENCEU']}\n\n"
+            f"[yellow]Frase 2 (RÉU VENCEU):[/yellow]\n{frases['REU_VENCEU']}",
+            title="Frases de Referência",
+        )
+    )
 
     # Gerar embeddings das frases-chave
     console.print("\n[yellow]Gerando embeddings das frases-chave...[/yellow]")
@@ -96,7 +102,9 @@ def main():
         ORDER BY outcome, intimation_id
     """).fetchall()
 
-    console.print(f"[cyan]Testando com {len(decisoes)} decisões do ground truth (WIN e LOSS)[/cyan]\n")
+    console.print(
+        f"[cyan]Testando com {len(decisoes)} decisões do ground truth (WIN e LOSS)[/cyan]\n"
+    )
 
     # Testar cada decisão
     results = []
@@ -109,15 +117,13 @@ def main():
         chunk_embeddings = [get_embedding(chunk) for chunk in chunks]
 
         # Calcular similaridade máxima com cada frase
-        max_sim_autor = max([
-            cosine_similarity(chunk_emb, emb_autor_venceu)
-            for chunk_emb in chunk_embeddings
-        ])
+        max_sim_autor = max(
+            [cosine_similarity(chunk_emb, emb_autor_venceu) for chunk_emb in chunk_embeddings]
+        )
 
-        max_sim_reu = max([
-            cosine_similarity(chunk_emb, emb_reu_venceu)
-            for chunk_emb in chunk_embeddings
-        ])
+        max_sim_reu = max(
+            [cosine_similarity(chunk_emb, emb_reu_venceu) for chunk_emb in chunk_embeddings]
+        )
 
         # Classificar baseado na maior similaridade
         if max_sim_autor > max_sim_reu:
@@ -133,20 +139,22 @@ def main():
             correct += 1
         total += 1
 
-        results.append({
-            "id": intimation_id,
-            "real": outcome_real,
-            "previsto": outcome_previsto,
-            "sim_autor": max_sim_autor,
-            "sim_reu": max_sim_reu,
-            "diff": abs(max_sim_autor - max_sim_reu),
-            "acertou": acertou
-        })
+        results.append(
+            {
+                "id": intimation_id,
+                "real": outcome_real,
+                "previsto": outcome_previsto,
+                "sim_autor": max_sim_autor,
+                "sim_reu": max_sim_reu,
+                "diff": abs(max_sim_autor - max_sim_reu),
+                "acertou": acertou,
+            }
+        )
 
     # Calcular acurácia
     acuracia = (correct / total) * 100
 
-    console.print(f"\n[bold]📊 Resultado:[/bold]")
+    console.print("\n[bold]📊 Resultado:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
     console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
 
@@ -157,6 +165,7 @@ def main():
     conf_table.add_column("Count", style="green")
 
     from collections import Counter
+
     confusion = Counter([(r["real"], r["previsto"]) for r in results])
 
     for (real, previsto), count in confusion.most_common():
@@ -189,26 +198,32 @@ def main():
     acertos = [r for r in results if r["acertou"]][:3]
     for r in acertos:
         console.print(f"ID {r['id']}: {r['real']} (previsto: {r['previsto']})")
-        console.print(f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}\n")
+        console.print(
+            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}\n"
+        )
 
     console.print("[bold red]✗ Exemplos de ERROS:[/bold red]\n")
 
     erros = [r for r in results if not r["acertou"]][:3]
     for r in erros:
         console.print(f"ID {r['id']}: {r['real']} (previsto ERRADO: {r['previsto']})")
-        console.print(f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}")
-        console.print(f"  [yellow]Problema: Scores muito próximos![/yellow]\n")
+        console.print(
+            f"  Sim AUTOR: {r['sim_autor']:.4f} | Sim RÉU: {r['sim_reu']:.4f} | Diff: {r['diff']:.4f}"
+        )
+        console.print("  [yellow]Problema: Scores muito próximos![/yellow]\n")
 
     # Comparação com outros métodos
-    console.print(Panel(
-        "[bold]Comparação de Métodos:[/bold]\n\n"
-        f"[red]2 Frases Simples:[/red] {acuracia:.1f}% (este teste)\n"
-        "[yellow]Frases Genéricas (múltiplas):[/yellow] 13.3% (teste anterior)\n"
-        "[green]RAG k-NN (ground truth):[/green] 83.3% (validado)\n"
-        "[cyan]LLM (Gemini Flash):[/cyan] ~85% (baseline)\n\n"
-        f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > 13.3 else '❌ Não funcionou bem'}",
-        title="📊 Comparação"
-    ))
+    console.print(
+        Panel(
+            "[bold]Comparação de Métodos:[/bold]\n\n"
+            f"[red]2 Frases Simples:[/red] {acuracia:.1f}% (este teste)\n"
+            "[yellow]Frases Genéricas (múltiplas):[/yellow] 13.3% (teste anterior)\n"
+            "[green]RAG k-NN (ground truth):[/green] 83.3% (validado)\n"
+            "[cyan]LLM (Gemini Flash):[/cyan] ~85% (baseline)\n\n"
+            f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > 13.3 else '❌ Não funcionou bem'}",
+            title="📊 Comparação",
+        )
+    )
 
     conn.close()
 

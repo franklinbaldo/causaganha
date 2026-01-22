@@ -1,12 +1,14 @@
 """Pydantic models for decision analysis."""
 
-from enum import Enum
 import re
+from enum import Enum
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class Outcome(str, Enum):
     """Possible outcomes of a judicial decision."""
+
     PROCEDENTE = "procedente"
     IMPROCEDENTE = "improcedente"
     PARCIALMENTE_PROCEDENTE = "parcialmente procedente"
@@ -15,6 +17,7 @@ class Outcome(str, Enum):
 
 class DecisionType(str, Enum):
     """Types of judicial decisions."""
+
     SENTENCA = "sentença"
     ACORDAO = "acórdão"
     DECISAO_INTERLOCUTORIA = "decisão interlocutória"
@@ -23,8 +26,33 @@ class DecisionType(str, Enum):
 
 # List of valid Brazilian states
 VALID_STATES = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-    "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
 
@@ -172,7 +200,7 @@ class DecisionAnalysis(BaseModel):
         # Try to extract 2-letter state codes using regex boundaries
         # Look for "OAB/SP", "OAB-SP", " SP " etc.
         # This prevents matching "AL" inside "INVALID"
-        matches = re.findall(r'\b([A-Z]{2})\b', v)
+        matches = re.findall(r"\b([A-Z]{2})\b", v)
         for match in matches:
             if match in VALID_STATES:
                 return match

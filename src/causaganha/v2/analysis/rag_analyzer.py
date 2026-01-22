@@ -218,10 +218,9 @@ class RAGAnalyzer:
             confidence = agreeing_chunks / total_chunks if total_chunks > 0 else 0.0
 
             # Average similarity scores for the winning outcome
-            avg_score = np.mean([
-                c["score"] for c in chunk_classifications
-                if c["outcome"] == final_outcome
-            ])
+            avg_score = np.mean(
+                [c["score"] for c in chunk_classifications if c["outcome"] == final_outcome]
+            )
 
             # Combine vote confidence and similarity score
             combined_confidence = (confidence + avg_score) / 2

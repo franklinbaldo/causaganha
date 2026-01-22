@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -68,10 +69,10 @@ def create_sample_data():
                 )
             """)
 
-    print(f"✅ Created sample data:")
+    print("✅ Created sample data:")
     print(f"   - Date: {yesterday}")
     print(f"   - Tribunals: {', '.join(tribunals)}")
-    print(f"   - Intimations per tribunal: 10")
+    print("   - Intimations per tribunal: 10")
     print(f"   - Total intimations: {len(tribunals) * 10}")
     print(f"   - Total analyses: {len(tribunals) * 10}")
 
@@ -85,7 +86,7 @@ def create_sample_data():
         GROUP BY sigla_tribunal
     """).fetchall()
 
-    print(f"\nVerification:")
+    print("\nVerification:")
     for row in result:
         print(f"   - {row[0]}: {row[1]} intimations")
 

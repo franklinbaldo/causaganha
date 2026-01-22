@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Upload Parquet files to Internet Archive.
+"""Upload Parquet files to Internet Archive.
 
 Uploads compressed embedding Parquet files to IA for long-term archival.
 """
@@ -11,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -89,7 +89,7 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
             url=f"https://archive.org/details/{item_id}",
         )
 
-        print(f"✅ Uploaded to Internet Archive")
+        print("✅ Uploaded to Internet Archive")
         print(f"   Item: {item_id}")
         print(f"   URL: https://archive.org/details/{item_id}")
 
@@ -104,7 +104,7 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
 def main():
     """Upload Parquet file to Internet Archive."""
     parser = argparse.ArgumentParser(
-        description="Upload embeddings to Internet Archive"
+        description="Upload embeddings to Internet Archive",
     )
     parser.add_argument(
         "--file",

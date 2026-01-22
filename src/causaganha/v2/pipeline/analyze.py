@@ -152,14 +152,18 @@ async def analyze_pending_decisions(
 
             else:  # HYBRID
                 analyses, batch_stats = await analyzer.analyze_batch(
-                    texts, intimation_ids, pdf_urls,
+                    texts,
+                    intimation_ids,
+                    pdf_urls,
                 )
                 usage_stats["rag_used"] += batch_stats.get("rag_used", 0)
                 usage_stats["llm_used"] += batch_stats.get("llm_used", 0)
                 usage_stats["total_cost"] += batch_stats.get("total_cost", 0.0)
 
             analyzed, failed = await _process_batch_results(
-                con, analyses, intimation_ids,
+                con,
+                analyses,
+                intimation_ids,
             )
             total_analyzed += analyzed
             total_failed += failed

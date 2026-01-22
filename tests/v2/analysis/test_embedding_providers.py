@@ -1,18 +1,18 @@
 """Tests for embedding provider implementations."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from causaganha.v2.analysis.embedding_models import (
+    GOOGLE_GEMINI_768,
+    JINA_V4_1024,
+)
 from causaganha.v2.analysis.providers import (
     GoogleProvider,
     JinaProvider,
-    create_provider,
     auto_select_provider,
-)
-from causaganha.v2.analysis.embedding_models import (
-    EmbeddingModel,
-    JINA_V4_1024,
-    GOOGLE_GEMINI_768,
+    create_provider,
 )
 
 
@@ -46,17 +46,18 @@ class TestGoogleEmbeddingProvider:
         """Test successful embedding generation."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "embedding": {"values": [0.1, 0.2, 0.3]}
+            "embedding": {"values": [0.1, 0.2, 0.3]},
         }
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
+                return_value=mock_response,
             )
 
             embedding = await self.provider.embed_text(
-                "test text", model=GOOGLE_GEMINI_768
+                "test text",
+                model=GOOGLE_GEMINI_768,
             )
 
             assert embedding == [0.1, 0.2, 0.3]
@@ -93,17 +94,18 @@ class TestJinaEmbeddingProvider:
         """Test successful embedding generation."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "data": [{"embedding": [0.1] * 1024}]
+            "data": [{"embedding": [0.1] * 1024}],
         }
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
+                return_value=mock_response,
             )
 
             embedding = await self.provider.embed_text(
-                "test text", model=JINA_V4_1024
+                "test text",
+                model=JINA_V4_1024,
             )
 
             assert len(embedding) == 1024
@@ -138,7 +140,9 @@ class TestProviderFactory:
         """Test auto-selection logic."""
         with patch.dict("os.environ", {"GOOGLE_API_KEY": "key"}):
             # Mock Google provider validation to succeed
-            with patch("causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock) as mock_validate:
+            with patch(
+                "causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock
+            ) as mock_validate:
                 mock_validate.return_value = True
 
                 provider = await auto_select_provider(priority=["google"])
@@ -147,15 +151,23 @@ class TestProviderFactory:
     @pytest.mark.asyncio
     async def test_auto_select_fallback(self):
         """Test fallback when first provider fails."""
-        with patch.dict("os.environ", {
-            "GOOGLE_API_KEY": "key",
-            "JINA_API_KEY": "key"
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "GOOGLE_API_KEY": "key",
+                "JINA_API_KEY": "key",
+            },
+        ):
             # Mock Jina (priority 1) to fail, Google (priority 2) to succeed
-            with patch("causaganha.v2.analysis.providers.JinaProvider.validate", new_callable=AsyncMock) as mock_jina:
+            with patch(
+                "causaganha.v2.analysis.providers.JinaProvider.validate", new_callable=AsyncMock
+            ) as mock_jina:
                 mock_jina.return_value = False
 
-                with patch("causaganha.v2.analysis.providers.GoogleProvider.validate", new_callable=AsyncMock) as mock_google:
+                with patch(
+                    "causaganha.v2.analysis.providers.GoogleProvider.validate",
+                    new_callable=AsyncMock,
+                ) as mock_google:
                     mock_google.return_value = True
 
                     provider = await auto_select_provider(priority=["jina", "google"])

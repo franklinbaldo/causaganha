@@ -1,17 +1,19 @@
+import hashlib
+import shutil
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+
 import joblib
 import numpy as np
-from pathlib import Path
-from sklearn.linear_model import SGDClassifier
-from typing import Optional
 import structlog
-from datetime import datetime, UTC
-import hashlib
-import tempfile
-import shutil
+from sklearn.linear_model import SGDClassifier
 
-from causaganha.ml.types import WinnerLabel, PredictionResult
+from causaganha.ml.types import PredictionResult, WinnerLabel
+
 
 logger = structlog.get_logger()
+
 
 class WinnerPredictor:
     def __init__(self, model_dir: str = ".causaganha/models"):
@@ -20,7 +22,7 @@ class WinnerPredictor:
         self.model_path = self.model_dir / "winner_predictor.joblib"
         self.metadata_path = self.model_dir / "winner_predictor_metadata.joblib"
 
-        self.clf = SGDClassifier(loss="log_loss") # logistic regression
+        self.clf = SGDClassifier(loss="log_loss")  # logistic regression
         self.classes = [WinnerLabel.PLAINTIFF_WON.value, WinnerLabel.DEFENDANT_WON.value]
         self.is_trained = False
         self.training_counter = 0
@@ -57,7 +59,7 @@ class WinnerPredictor:
                 "training_counter": self.training_counter,
                 "model_version": self.model_version,
                 "classes": self.classes,
-                "updated_at": timestamp
+                "updated_at": timestamp,
             }
 
             # Atomic write
@@ -99,11 +101,13 @@ class WinnerPredictor:
             return PredictionResult(
                 prediction=label,
                 confidence=float(max_prob),
-                model_version=self.model_version
+                model_version=self.model_version,
             )
         except Exception as e:
             logger.error("prediction_failed", error=str(e))
-            return PredictionResult(prediction=None, confidence=0.0, model_version=self.model_version)
+            return PredictionResult(
+                prediction=None, confidence=0.0, model_version=self.model_version
+            )
 
     def update(self, vector: list[float], label: WinnerLabel):
         if label == WinnerLabel.UNCLEAR:

@@ -82,7 +82,7 @@ def mock_archive_service():
 @pytest.fixture
 def mock_tasks_client():
     with patch(
-        "causaganha.infrastructure.cloud.functions.llm.tasks_v2.CloudTasksClient"
+        "causaganha.infrastructure.cloud.functions.llm.tasks_v2.CloudTasksClient",
     ) as mock_cls:
         instance = MagicMock()
         mock_cls.return_value = instance

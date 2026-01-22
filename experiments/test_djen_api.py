@@ -17,13 +17,14 @@ import structlog
 
 from causaganha.v2.api.client import PJeAPIClient
 
+
 # Configure logging
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
         structlog.dev.ConsoleRenderer(),
-    ]
+    ],
 )
 
 logger = structlog.get_logger()
@@ -76,7 +77,7 @@ async def test_djen_connectivity():
         start_date = end_date - timedelta(days=1)  # Just 1 day
 
         print(f"  Requesting data from {start_date} to {end_date}")
-        print(f"  Court: TJRO (Tribunal de Justiça de Rondônia)")
+        print("  Court: TJRO (Tribunal de Justiça de Rondônia)")
 
         intimations = await client.get_intimations_by_court(
             sigla_tribunal="TJRO",
@@ -85,7 +86,7 @@ async def test_djen_connectivity():
             data_fim=end_date,
         )
 
-        print(f"✓ Request successful!")
+        print("✓ Request successful!")
         print(f"✓ Retrieved {len(intimations)} intimations")
 
         if intimations:
@@ -132,7 +133,7 @@ async def test_djen_connectivity():
         print(f"✓ With link: {with_link} ({with_link/total*100:.1f}%)")
         print(f"✓ With lawyers: {with_lawyers} ({with_lawyers/total*100:.1f}%)")
         print(
-            f"✓ With process number: {with_process} ({with_process/total*100:.1f}%)"
+            f"✓ With process number: {with_process} ({with_process/total*100:.1f}%)",
         )
         print()
 
@@ -165,7 +166,7 @@ async def test_djen_connectivity():
     print(f"  • API Status: {'Accessible' if intimations is not None else 'Blocked or Down'}")
     print(f"  • Base URL: {client.base_url}")
     print(
-        f"  • Data availability: {len(intimations) if intimations else 0} intimations retrieved"
+        f"  • Data availability: {len(intimations) if intimations else 0} intimations retrieved",
     )
     print("  • Error handling: Working correctly")
     print()

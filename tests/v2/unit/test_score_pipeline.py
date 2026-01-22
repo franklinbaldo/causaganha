@@ -1,11 +1,10 @@
 """Unit tests for the scoring pipeline."""
 
-from unittest.mock import patch, MagicMock
 import pytest
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.pipeline.score import calculate_ratings
 from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.v2.pipeline.score import calculate_ratings
 from causaganha.v2.storage.queries import store_analysis
 
 
@@ -36,7 +35,7 @@ async def test_calculate_ratings(
     # 1. Setup: Insert an analysis record
     # We need an intimation first because of FK
     db_connection.con.execute(
-        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal, analyzed) VALUES (1, '123', '2024-01-01', 'TJRO', TRUE)"
+        "INSERT INTO intimations (id, numero_processo, data_disponibilizacao, sigla_tribunal, analyzed) VALUES (1, '123', '2024-01-01', 'TJRO', TRUE)",
     )
     store_analysis(db_connection, 1, mock_analysis_data)
 

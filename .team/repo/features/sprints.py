@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 class SprintManager:
     """Manages sprint lifecycle and provides context to personas."""
 
@@ -83,7 +84,9 @@ Execute your normal persona responsibilities as defined in your prompt.
 **For Sprint {next_sprint}:**
 """
         if next_plans:
-            prompt += "\n".join([f"- `.team/sprints/sprint-{next_sprint}/{plan}`" for plan in next_plans])
+            prompt += "\n".join(
+                [f"- `.team/sprints/sprint-{next_sprint}/{plan}`" for plan in next_plans]
+            )
         else:
             prompt += f"(No plans created yet for sprint-{next_sprint})"
 
@@ -92,7 +95,9 @@ Execute your normal persona responsibilities as defined in your prompt.
 **For Sprint {plus_2}:**
 """
         if plus_2_plans:
-            prompt += "\n".join([f"- `.team/sprints/sprint-{plus_2}/{plan}`" for plan in plus_2_plans])
+            prompt += "\n".join(
+                [f"- `.team/sprints/sprint-{plus_2}/{plan}`" for plan in plus_2_plans]
+            )
         else:
             prompt += f"(No plans created yet for sprint-{plus_2})"
 
@@ -112,6 +117,7 @@ Create or update your plans for future sprints:
 Use the templates in `.team/sprints/TEMPLATE-*.md` as guides.
 """
         return prompt
+
 
 # Global instance for backward compatibility
 sprint_manager = SprintManager()

@@ -1,11 +1,11 @@
 """Analyzer for judicial decisions."""
+
 import asyncio
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 import structlog
 from pydantic_ai import Agent, BinaryContent
-from pydantic_ai.exceptions import ModelRetry
 
 from causaganha.domain.models_analysis import BatchDecisionAnalysis, DecisionAnalysis
 
@@ -22,7 +22,9 @@ class DecisionAnalyzer:
     current_key_index: int
     model_name: str
 
-    def __init__(self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash") -> None:
+    def __init__(
+        self, api_key: str | None = None, model: str = "google-gla:gemini-2.5-flash"
+    ) -> None:
         """Initialize the DecisionAnalyzer.
 
         Args:
@@ -41,7 +43,9 @@ class DecisionAnalyzer:
             self.api_keys = [single_key] if single_key else []
 
         if not self.api_keys:
-            raise ValueError("No API keys available. Set GEMINI_API_KEYS, GEMINI_API_KEY, or GOOGLE_API_KEY")
+            raise ValueError(
+                "No API keys available. Set GEMINI_API_KEYS, GEMINI_API_KEY, or GOOGLE_API_KEY"
+            )
 
         self.current_key_index = 0
         logger.info("analyzer_initialized", available_keys=len(self.api_keys))
@@ -130,7 +134,11 @@ class DecisionAnalyzer:
             except Exception as e:
                 error_str = str(e)
                 # Check for 429 rate limit error
-                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                if (
+                    "429" in error_str
+                    or "RESOURCE_EXHAUSTED" in error_str
+                    or "quota" in error_str.lower()
+                ):
                     logger.warning(
                         "rate_limit_hit",
                         key_index=self.current_key_index,
@@ -140,12 +148,10 @@ class DecisionAnalyzer:
                     if self._switch_to_next_key():
                         logger.info("retrying_with_next_key")
                         continue
-                    else:
-                        logger.error("all_keys_exhausted")
-                        raise
-                else:
-                    # Not a rate limit error, propagate immediately
+                    logger.error("all_keys_exhausted")
                     raise
+                # Not a rate limit error, propagate immediately
+                raise
 
         # Should not reach here, but for type safety
         raise RuntimeError("Failed to analyze decision with all available keys")
@@ -180,7 +186,11 @@ class DecisionAnalyzer:
             except Exception as e:
                 error_str = str(e)
                 # Check for 429 rate limit error
-                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                if (
+                    "429" in error_str
+                    or "RESOURCE_EXHAUSTED" in error_str
+                    or "quota" in error_str.lower()
+                ):
                     logger.warning(
                         "rate_limit_hit_bulk",
                         key_index=self.current_key_index,
@@ -190,19 +200,18 @@ class DecisionAnalyzer:
                     if self._switch_to_next_key():
                         logger.info("retrying_bulk_with_next_key")
                         continue
-                    else:
-                        logger.error("all_keys_exhausted_bulk")
-                        raise
-                else:
-                    # Not a rate limit error, propagate immediately
+                    logger.error("all_keys_exhausted_bulk")
                     raise
+                # Not a rate limit error, propagate immediately
+                raise
 
         # Should not reach here, but for type safety
         raise RuntimeError("Failed to analyze bulk with all available keys")
 
-    async def analyze_batch_concurrent(self, texts: list[str]) -> list[DecisionAnalysis | Exception]:
+    async def analyze_batch_concurrent(
+        self, texts: list[str]
+    ) -> list[DecisionAnalysis | Exception]:
         """Analyze multiple decisions concurrently (individual calls)."""
-
         logger.info("starting_concurrent_analysis", count=len(texts))
 
         tasks = [self.analyze_decision(text) for text in texts]

@@ -20,7 +20,10 @@ def realistic_intimation_data() -> list[Intimation]:
             id=1001,
             numero_processo="1234567-89.2024.8.22.0001",
             data_disponibilizacao=datetime(
-                2024, 12, 15, tzinfo=UTC,
+                2024,
+                12,
+                15,
+                tzinfo=UTC,
             ),  # type: ignore[arg-type]
             sigla_tribunal="TJRO",
             tipo_comunicacao="Intimação",
@@ -85,15 +88,16 @@ def test_full_lifecycle_e2e(
     mock_analyzer_instance.analyze_bulk.return_value = [mock_llm_analysis]
 
     # We need to patch the classes/factories in causaganha.cli
-    with patch("causaganha.cli.DB_PATH", str(db_path)), \
-         patch("causaganha.cli.PJeAPIClient", return_value=mock_client_instance), \
-         patch("causaganha.cli.DocumentService", return_value=mock_doc_service_instance), \
-         patch(
-             "causaganha.cli.create_archive_service",
-             return_value=mock_archive_service_instance,
-         ), \
-         patch("causaganha.cli.DecisionAnalyzer", return_value=mock_analyzer_instance):
-
+    with (
+        patch("causaganha.cli.DB_PATH", str(db_path)),
+        patch("causaganha.cli.PJeAPIClient", return_value=mock_client_instance),
+        patch("causaganha.cli.DocumentService", return_value=mock_doc_service_instance),
+        patch(
+            "causaganha.cli.create_archive_service",
+            return_value=mock_archive_service_instance,
+        ),
+        patch("causaganha.cli.DecisionAnalyzer", return_value=mock_analyzer_instance),
+    ):
         # 1. Initialize DB
         result_init = runner.invoke(app, ["db", "init"])
         assert result_init.exit_code == 0

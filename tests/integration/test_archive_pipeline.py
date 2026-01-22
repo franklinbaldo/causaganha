@@ -26,7 +26,7 @@ def mock_repository():
                 "url_documento": "https://example.com/doc2.pdf",
                 "link": "https://example.com/doc2.pdf",
             },
-        ]
+        ],
     )
     repo.mark_as_archived = AsyncMock()
     return repo
@@ -65,7 +65,9 @@ async def test_run_archive_success(mock_repository, mock_doc_service, mock_ia_se
 
 @pytest.mark.asyncio
 async def test_run_archive_no_intimations(
-    mock_repository, mock_doc_service, mock_ia_service
+    mock_repository,
+    mock_doc_service,
+    mock_ia_service,
 ) -> None:
     """Test archive pipeline with no intimations."""
     mock_repository.get_unarchived_intimations.return_value = []
@@ -84,7 +86,10 @@ async def test_run_archive_no_intimations(
 
 @pytest.mark.asyncio
 async def test_run_archive_dry_run(
-    mock_repository, mock_doc_service, mock_ia_service, tmp_path
+    mock_repository,
+    mock_doc_service,
+    mock_ia_service,
+    tmp_path,
 ) -> None:
     """Test archive pipeline in dry run mode."""
     # Set up temp directory
@@ -107,7 +112,9 @@ async def test_run_archive_dry_run(
 
 @pytest.mark.asyncio
 async def test_process_intimation_no_url(
-    mock_doc_service, mock_ia_service, mock_repository
+    mock_doc_service,
+    mock_ia_service,
+    mock_repository,
 ) -> None:
     """Test processing intimation without document URL."""
     intimation = {"id": "test-id", "url_documento": None}
@@ -126,7 +133,9 @@ async def test_process_intimation_no_url(
 
 @pytest.mark.asyncio
 async def test_process_intimation_download_failure(
-    mock_doc_service, mock_ia_service, mock_repository
+    mock_doc_service,
+    mock_ia_service,
+    mock_repository,
 ) -> None:
     """Test processing intimation with download failure."""
     intimation = {

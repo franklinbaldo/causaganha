@@ -1,5 +1,4 @@
-"""
-Parquet Data Lake Export Module
+"""Parquet Data Lake Export Module
 
 Exports analyzed judicial decisions from DuckDB to Parquet files
 using hierarchical date+tribunal partitioning for Internet Archive.
@@ -16,11 +15,11 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import ibis
 import pyarrow as pa
 import pyarrow.parquet as pq
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,8 @@ class ExportConfig:
 class ParquetExporter:
     """Exports intimations from DuckDB to Parquet files."""
 
-    def __init__(self, db_connection, config: Optional[ExportConfig] = None):
-        """
-        Initialize Parquet exporter.
+    def __init__(self, db_connection, config: ExportConfig | None = None):
+        """Initialize Parquet exporter.
 
         Args:
             db_connection: Ibis DuckDB connection
@@ -53,14 +51,15 @@ class ParquetExporter:
         self.db = db_connection
         self.config = config or ExportConfig()
         logger.info(
-            f"ParquetExporter initialized with compression={self.config.compression}"
+            f"ParquetExporter initialized with compression={self.config.compression}",
         )
 
     async def export_day_tribunal(
-        self, partition_date: str, tribunal: str
+        self,
+        partition_date: str,
+        tribunal: str,
     ) -> tuple[Path, int]:
-        """
-        Export single day+tribunal partition to Parquet.
+        """Export single day+tribunal partition to Parquet.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -81,7 +80,7 @@ class ParquetExporter:
 
         if row_count == 0:
             raise ValueError(
-                f"No data found for tribunal={tribunal}, date={partition_date}"
+                f"No data found for tribunal={tribunal}, date={partition_date}",
             )
 
         logger.info(f"Found {row_count} rows to export")
@@ -98,16 +97,16 @@ class ParquetExporter:
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         logger.info(
-            f"Exported {row_count} rows to {filename} ({file_size_mb:.2f} MB)"
+            f"Exported {row_count} rows to {filename} ({file_size_mb:.2f} MB)",
         )
 
         return file_path, row_count
 
     async def export_day_all_tribunals(
-        self, partition_date: str
+        self,
+        partition_date: str,
     ) -> list[tuple[str, Path, int]]:
-        """
-        Export all tribunals for a single day.
+        """Export all tribunals for a single day.
 
         Args:
             partition_date: Date in YYYY-MM-DD format
@@ -132,7 +131,8 @@ class ParquetExporter:
         for tribunal in tribunals:
             try:
                 file_path, row_count = await self.export_day_tribunal(
-                    partition_date, tribunal
+                    partition_date,
+                    tribunal,
                 )
                 results.append((tribunal, file_path, row_count))
             except Exception as e:
@@ -141,13 +141,12 @@ class ParquetExporter:
                 continue
 
         logger.info(
-            f"Successfully exported {len(results)}/{len(tribunals)} tribunals"
+            f"Successfully exported {len(results)}/{len(tribunals)} tribunals",
         )
         return results
 
     def _query_intimations(self, date: str, tribunal: str) -> pa.RecordBatch:
-        """
-        Query DuckDB for intimations to export.
+        """Query DuckDB for intimations to export.
 
         Args:
             date: Partition date (YYYY-MM-DD)
@@ -163,11 +162,12 @@ class ParquetExporter:
         # Join intimations with analysis
         query = (
             intimations.left_join(
-                analysis, intimations.id == analysis.intimation_id
+                analysis,
+                intimations.id == analysis.intimation_id,
             )
             .filter(
                 (intimations.data_disponibilizacao == date)
-                & (intimations.sigla_tribunal == tribunal)
+                & (intimations.sigla_tribunal == tribunal),
             )
             .select(
                 # Intimation fields
@@ -203,8 +203,7 @@ class ParquetExporter:
         return query.to_pyarrow()
 
     def _get_tribunals_for_date(self, date: str) -> list[str]:
-        """
-        Get list of tribunals with data for a specific date.
+        """Get list of tribunals with data for a specific date.
 
         Args:
             date: Partition date (YYYY-MM-DD)
@@ -225,8 +224,7 @@ class ParquetExporter:
         return result["sigla_tribunal"].tolist()
 
     def _dataframe_to_arrow(self, df: pa.Table) -> pa.Table:
-        """
-        Convert data to PyArrow table with proper schema.
+        """Convert data to PyArrow table with proper schema.
 
         Args:
             df: PyArrow Table from query (to_pyarrow() returns Table, not RecordBatch)
@@ -239,8 +237,7 @@ class ParquetExporter:
         return df
 
     def _build_parquet_schema(self) -> pa.Schema:
-        """
-        Define Parquet schema with nested structures.
+        """Define Parquet schema with nested structures.
 
         Returns:
             PyArrow schema for Parquet export
@@ -276,12 +273,11 @@ class ParquetExporter:
                 ("year", pa.int32()),
                 ("month", pa.int32()),
                 ("day", pa.int32()),
-            ]
+            ],
         )
 
     def _write_parquet(self, table: pa.Table, file_path: Path) -> None:
-        """
-        Write PyArrow table to Parquet file.
+        """Write PyArrow table to Parquet file.
 
         Args:
             table: PyArrow table to write
@@ -306,8 +302,7 @@ class ParquetExporter:
         logger.debug(f"Wrote Parquet file: {file_path}")
 
     def _generate_filename(self, date: str, tribunal: str) -> str:
-        """
-        Generate Parquet filename following naming convention.
+        """Generate Parquet filename following naming convention.
 
         Args:
             date: Partition date (YYYY-MM-DD)

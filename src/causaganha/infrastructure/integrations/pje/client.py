@@ -104,7 +104,7 @@ class PJeAPIClient:
 
             if data_disponibilizacao_inicio:
                 params["dataDisponibilizacaoInicio"] = data_disponibilizacao_inicio.strftime(
-                    "%Y-%m-%d"
+                    "%Y-%m-%d",
                 )
             if data_disponibilizacao_fim:
                 params["dataDisponibilizacaoFim"] = data_disponibilizacao_fim.strftime("%Y-%m-%d")
@@ -118,7 +118,7 @@ class PJeAPIClient:
 
             data = None
             max_retries = 3
-            
+
             for attempt in range(max_retries):
                 try:
                     response = await self.client.get(
@@ -127,27 +127,35 @@ class PJeAPIClient:
                     )
                     response.raise_for_status()
                     data = response.json()
-                    break # Success
+                    break  # Success
 
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 429:
-                        wait_time = 60 
-                        logger.warning("rate_limit_hit", wait_seconds=wait_time, attempt=attempt+1)
+                        wait_time = 60
+                        logger.warning(
+                            "rate_limit_hit", wait_seconds=wait_time, attempt=attempt + 1
+                        )
                         await asyncio.sleep(wait_time)
                         if attempt == max_retries - 1:
-                            logger.exception("api_request_failed_after_retries", error=str(e), params=params)
+                            logger.exception(
+                                "api_request_failed_after_retries", error=str(e), params=params
+                            )
                             raise
                         continue
-                    
+
                     if e.response.status_code >= 500:
                         wait_time = 5 * (attempt + 1)
-                        logger.warning("server_error_retrying", wait_seconds=wait_time, attempt=attempt+1)
+                        logger.warning(
+                            "server_error_retrying", wait_seconds=wait_time, attempt=attempt + 1
+                        )
                         await asyncio.sleep(wait_time)
                         if attempt == max_retries - 1:
-                            logger.exception("api_request_failed_after_retries", error=str(e), params=params)
+                            logger.exception(
+                                "api_request_failed_after_retries", error=str(e), params=params
+                            )
                             raise
                         continue
-                        
+
                     logger.exception("api_request_failed", error=str(e), params=params)
                     raise
                 except httpx.RequestError as e:

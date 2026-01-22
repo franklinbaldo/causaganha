@@ -21,7 +21,6 @@ Usage:
 import asyncio
 import time
 from datetime import datetime
-from pathlib import Path
 
 import structlog
 
@@ -29,6 +28,7 @@ from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.pipeline.embedding_pipeline import EmbeddingPipeline
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+
 
 logger = structlog.get_logger()
 
@@ -135,7 +135,7 @@ async def process_batch_with_retry(
             return stats
 
         except Exception as e:
-            wait_time = 2 ** attempt  # Exponential backoff
+            wait_time = 2**attempt  # Exponential backoff
             logger.error(
                 "batch_failed",
                 attempt=attempt + 1,
@@ -260,7 +260,7 @@ def main():
             batch_size=batch_size,
             max_concurrency=max_concurrency,
             idle_sleep_seconds=idle_sleep,
-        )
+        ),
     )
 
 

@@ -193,8 +193,7 @@ class EmbeddingService:
         logger.info("embedding_batch_start", count=len(texts))
 
         tasks = [
-            self.embed_text(text, task_type=task_type, add_prefix=add_prefix)
-            for text in texts
+            self.embed_text(text, task_type=task_type, add_prefix=add_prefix) for text in texts
         ]
 
         embeddings = await asyncio.gather(*tasks, return_exceptions=True)

@@ -83,10 +83,11 @@ async def test_full_pipeline_mocked(
     # 2. Mock Analyzer for Analysis
     # We need to mock RAGAnalyzer.create because analyze_pending_decisions calls it.
     # We also mock HybridAnalyzer to control the result and avoid complex logic.
-    with patch("causaganha.v2.pipeline.analyze.RAGAnalyzer") as mock_rag_cls, \
-         patch("causaganha.v2.pipeline.analyze.HybridAnalyzer") as mock_hybrid_cls, \
-         patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer"):
-
+    with (
+        patch("causaganha.v2.pipeline.analyze.RAGAnalyzer") as mock_rag_cls,
+        patch("causaganha.v2.pipeline.analyze.HybridAnalyzer") as mock_hybrid_cls,
+        patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer"),
+    ):
         # Mock RAGAnalyzer.create
         mock_rag_instance = AsyncMock()
         mock_rag_cls.create = AsyncMock(return_value=mock_rag_instance)

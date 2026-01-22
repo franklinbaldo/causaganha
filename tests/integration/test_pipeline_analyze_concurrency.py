@@ -42,7 +42,7 @@ async def test_run_analysis_concurrent_batch(tmp_path: Path) -> None:
                 status="ATIVO",
                 advogados=[],
                 partes=[],
-            )
+            ),
         )
     await repository.store_intimations(intimations)
 

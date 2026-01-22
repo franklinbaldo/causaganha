@@ -1,10 +1,9 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, BeforeValidator
-from typing_extensions import Annotated
+from pydantic import BaseModel, BeforeValidator, Field
 
 
 # Custom type for history keys to ensure they are strings of integers
@@ -13,52 +12,53 @@ HistoryKey = Annotated[str, BeforeValidator(lambda x: str(int(x)))]
 
 class TrackState(BaseModel):
     """State for a single execution track."""
-    persona_id: Optional[str] = None
-    session_id: Optional[str] = None
-    pr_number: Optional[int] = None
-    updated_at: Optional[datetime] = None
+
+    persona_id: str | None = None
+    session_id: str | None = None
+    pr_number: int | None = None
+    updated_at: datetime | None = None
 
     @property
-    def last_persona_id(self) -> Optional[str]:
+    def last_persona_id(self) -> str | None:
         return self.persona_id
 
     @property
-    def last_session_id(self) -> Optional[str]:
+    def last_session_id(self) -> str | None:
         return self.session_id
 
     @property
-    def last_pr_number(self) -> Optional[int]:
+    def last_pr_number(self) -> int | None:
         return self.pr_number
 
 
 class PersistentCycleState(BaseModel):
     """Persistent state for the cycle scheduler.
-    
+
     Supports both legacy single-cycle history and new multi-track state.
     """
 
-    history: Dict[HistoryKey, Dict[str, Any]] = Field(default_factory=dict)
-    tracks: Dict[str, TrackState] = Field(default_factory=dict)
+    history: dict[HistoryKey, dict[str, Any]] = Field(default_factory=dict)
+    tracks: dict[str, TrackState] = Field(default_factory=dict)
 
     @property
-    def sorted_history_keys(self) -> List[str]:
+    def sorted_history_keys(self) -> list[str]:
         """Get history keys sorted as integers in descending order."""
         return sorted(self.history.keys(), key=lambda x: int(x), reverse=True)
 
     @property
-    def persona_id(self) -> Optional[str]:
+    def persona_id(self) -> str | None:
         """Get the persona ID from the most recent session (Legacy/Default)."""
         keys = self.sorted_history_keys
         return self.history[keys[0]].get("persona_id") if keys else None
 
     @property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str | None:
         """Get the session ID from the most recent session (Legacy/Default)."""
         keys = self.sorted_history_keys
         return self.history[keys[0]].get("session_id") if keys else None
 
     @property
-    def pr_number(self) -> Optional[int]:
+    def pr_number(self) -> int | None:
         """Get the PR number from the most recent session (Legacy/Default)."""
         keys = self.sorted_history_keys
         return self.history[keys[0]].get("pr_number") if keys else None
@@ -78,7 +78,7 @@ class PersistentCycleState(BaseModel):
         try:
             with open(path) as f:
                 data = json.load(f)
-            
+
             # Handle legacy list history format
             if isinstance(data, dict) and isinstance(data.get("history"), list):
                 history_list = data.pop("history")
@@ -107,12 +107,11 @@ class PersistentCycleState(BaseModel):
 
     def save(self, path: Path) -> None:
         """Save state to JSON file."""
-        data = self.model_dump(mode='json')
+        data = self.model_dump(mode="json")
         # Ensure history is sorted by keys as integers before saving
         # The model_dump already converts datetimes to strings
         sorted_history_json = {
-            k: data["history"][k]
-            for k in sorted(data["history"].keys(), key=lambda x: int(x))
+            k: data["history"][k] for k in sorted(data["history"].keys(), key=lambda x: int(x))
         }
         data["history"] = sorted_history_json
 
@@ -124,11 +123,11 @@ class PersistentCycleState(BaseModel):
         persona_id: str,
         persona_index: int,
         session_id: str,
-        pr_number: Optional[int] = None,
-        track_name: Optional[str] = None,
+        pr_number: int | None = None,
+        track_name: str | None = None,
     ) -> None:
         """Record a new session in state."""
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         # Add to global audit history using sequential integer keys
         entry = {
@@ -136,15 +135,15 @@ class PersistentCycleState(BaseModel):
             "session_id": session_id,
             "pr_number": pr_number,
             "created_at": timestamp,
-            "track": track_name
+            "track": track_name,
         }
-        
+
         # Find the next sequential index
         if not self.history:
             next_idx = 0
         else:
             next_idx = max(int(k) for k in self.history.keys()) + 1
-        
+
         self.history[str(next_idx)] = entry
 
         # Update track specific state
@@ -155,7 +154,7 @@ class PersistentCycleState(BaseModel):
             track.pr_number = pr_number
             track.updated_at = timestamp
 
-    def update_pr_number(self, pr_number: int, track_name: Optional[str] = None) -> None:
+    def update_pr_number(self, pr_number: int, track_name: str | None = None) -> None:
         """Update the PR number for the last session."""
         keys = self.sorted_history_keys
         if keys:
@@ -185,7 +184,7 @@ def commit_cycle_state(state_path: Path, message: str = "chore: update cycle sta
 
         # Update ONLY the jules branch
         branch = JULES_BRANCH
-        
+
         # Get current file info for SHA
         file_info = client.get_file_contents(owner, repo, path, ref=branch)
         sha = file_info.get("sha") if file_info else None
@@ -197,13 +196,12 @@ def commit_cycle_state(state_path: Path, message: str = "chore: update cycle sta
             content=content,
             message=message,
             branch=branch,
-            sha=sha
+            sha=sha,
         ):
-            print(f"✅ Updated cycle state on branch \'{branch}\' via API")
+            print(f"✅ Updated cycle state on branch '{branch}' via API")
             return True
-        else:
-            print(f"⚠️ Failed to update cycle state on branch \'{branch}\'")
-            return False
+        print(f"⚠️ Failed to update cycle state on branch '{branch}'")
+        return False
 
     except Exception as e:
         print(f"❌ Error persisting cycle state via API: {e}")

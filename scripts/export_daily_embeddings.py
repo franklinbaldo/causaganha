@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""
-Export embeddings to Parquet for Internet Archive upload.
+"""Export embeddings to Parquet for Internet Archive upload.
 
 Creates compressed Parquet files optimized for archival storage.
 """
 
 import argparse
-from datetime import datetime
 from pathlib import Path
 
 import structlog
@@ -15,13 +13,14 @@ from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
 
+
 logger = structlog.get_logger()
 
 
 def main():
     """Export embeddings to Parquet."""
     parser = argparse.ArgumentParser(
-        description="Export embeddings to Parquet"
+        description="Export embeddings to Parquet",
     )
     parser.add_argument(
         "--output",

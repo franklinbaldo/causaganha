@@ -1,9 +1,9 @@
 # Plano: {persona} - Sprint {n}
 
-**Persona:** {persona_name}  
-**Sprint:** {sprint_number}  
-**Criado em:** {date}  
-**Prioridade:** Alta / Média / Baixa  
+**Persona:** {persona_name}
+**Sprint:** {sprint_number}
+**Criado em:** {date}
+**Prioridade:** Alta / Média / Baixa
 
 ## Objetivos
 

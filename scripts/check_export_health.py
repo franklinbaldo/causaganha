@@ -17,6 +17,7 @@ from pathlib import Path
 
 import structlog
 
+
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -85,9 +86,7 @@ def check_problematic_tribunals(threshold_pct: float = 50.0) -> list:
         LIMIT 10
     """).fetchall()
 
-    return [
-        {"tribunal": row[0], "failure_rate": row[1], "last_error": row[2]} for row in result
-    ]
+    return [{"tribunal": row[0], "failure_rate": row[1], "last_error": row[2]} for row in result]
 
 
 def main() -> int:
@@ -118,23 +117,22 @@ def main() -> int:
 
             print(
                 f"OK: {stats['successful']}/{stats['total_exports']} exports successful "
-                f"({success_rate}%)"
+                f"({success_rate}%)",
             )
             return 0
 
-        elif success_rate >= 75.0:
+        if success_rate >= 75.0:
             print(
                 f"WARNING: {stats['failed']}/{stats['total_exports']} exports failed "
-                f"({100 - success_rate}% failure rate)"
+                f"({100 - success_rate}% failure rate)",
             )
             return 1
 
-        else:
-            print(
-                f"CRITICAL: {stats['failed']}/{stats['total_exports']} exports failed "
-                f"({100 - success_rate}% failure rate)"
-            )
-            return 2
+        print(
+            f"CRITICAL: {stats['failed']}/{stats['total_exports']} exports failed "
+            f"({100 - success_rate}% failure rate)",
+        )
+        return 2
 
     except Exception as e:
         logger.error("health_check_error", error=str(e), exc_info=True)

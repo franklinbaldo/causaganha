@@ -1,9 +1,9 @@
 # Feedback: {persona} - Sprint {n}
 
-**Persona:** {persona_name}  
-**Sprint:** {sprint_number}  
-**Data:** {date}  
-**Feedback sobre planos de:** Todas as personas  
+**Persona:** {persona_name}
+**Sprint:** {sprint_number}
+**Data:** {date}
+**Feedback sobre planos de:** Todas as personas
 
 ---
 

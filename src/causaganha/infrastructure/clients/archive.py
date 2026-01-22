@@ -218,7 +218,10 @@ class InternetArchiveService:
             except Exception as e:
                 # Non-transient errors - don't retry
                 logger.exception(
-                    "upload_failed", item_id=item_id, path=str(file_path), error=str(e)
+                    "upload_failed",
+                    item_id=item_id,
+                    path=str(file_path),
+                    error=str(e),
                 )
                 return None
 

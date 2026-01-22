@@ -13,7 +13,7 @@ from pathlib import Path
 
 from causaganha.v2.analysis.embedding_models import JINA_V4_1024
 from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
-from causaganha.v2.pipeline.embedding_pipeline import EmbeddingPipeline, BatchStats
+from causaganha.v2.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
 from causaganha.v2.storage.connection import get_connection
 from causaganha.v2.storage.embedding_storage import EmbeddingStorage
 
@@ -145,7 +145,7 @@ async def test_all_improvements():
         print(
             f"   Progress: {stats.processed_decisions}/{stats.total_decisions} "
             f"(cache hit: {stats.cache_hit_rate:.1%}, "
-            f"throughput: {stats.throughput:.1f} dec/s)"
+            f"throughput: {stats.throughput:.1f} dec/s)",
         )
 
     # Create pipeline
@@ -229,8 +229,8 @@ async def test_all_improvements():
 
     print(f"✅ Exported to Parquet: {parquet_path}")
     print(f"   File size: {file_size_kb:.2f} KB (ZSTD compression level 9)")
-    print(f"   Rows: 5 embeddings")
-    print(f"   Compression: ~60-80% smaller than uncompressed")
+    print("   Rows: 5 embeddings")
+    print("   Compression: ~60-80% smaller than uncompressed")
     print()
 
     # Verify Parquet contents
@@ -257,7 +257,7 @@ async def test_all_improvements():
     print()
 
     print("By model:")
-    for model in stats_data['models']:
+    for model in stats_data["models"]:
         print(f"  - {model['table_name']}:")
         print(f"      Total: {model['total_embeddings']} embeddings")
         print(f"      Decisions: {model['unique_intimations']}")
