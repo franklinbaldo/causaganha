@@ -25,6 +25,7 @@ from causaganha.config import settings
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 from causaganha.v2.analysis.heuristic_classifier import HeuristicClassifier
 from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.v2.analysis.situation_classifier import SituationClassifier
 
 
 logger = structlog.get_logger()
@@ -50,6 +51,7 @@ async def test_provider_accuracy(
     ground_truth: list[dict],
     db_path: Path,
     use_heuristic: bool = False,
+    use_situation: bool = False,
 ) -> dict:
     """Test accuracy of a single provider against ground truth.
 
@@ -61,16 +63,26 @@ async def test_provider_accuracy(
     Returns:
         Dict with accuracy metrics and predictions
     """
-    method = "Heuristic" if use_heuristic else "RAG"
+    if use_situation:
+        method = "Situation"
+    elif use_heuristic:
+        method = "Heuristic"
+    else:
+        method = "RAG"
+
     console.print(f"\n[cyan]Testing provider: {provider_name} ({method})[/cyan]")
 
-    # Initialize embedding service
-    service = await EmbeddingService.create(provider=provider_name)
-    console.print(f"  • Model: {service.model.name} ({service.model.dimension}D)")
+    # Initialize embedding service (only needed for RAG/Heuristic)
+    if not use_situation:
+        service = await EmbeddingService.create(provider=provider_name)
+        console.print(f"  • Model: {service.model.name} ({service.model.dimension}D)")
+
     console.print(f"  • Method: {method}")
 
     # Initialize analyzer
-    if use_heuristic:
+    if use_situation:
+        situation_classifier = SituationClassifier()
+    elif use_heuristic:
         classifier = HeuristicClassifier(embedding_service=service)
     else:
         rag_analyzer = RAGAnalyzer(embedding_service=service)
@@ -109,9 +121,12 @@ async def test_provider_accuracy(
 
             texto = row[0]
 
-            # Run analysis (RAG or Heuristic)
+            # Run analysis (RAG, Heuristic, or Situation)
             try:
-                if use_heuristic:
+                if use_situation:
+                    prediction = situation_classifier.predict(texto)
+                    predicted_outcome = prediction.outcome
+                elif use_heuristic:
                     prediction = await classifier.predict(texto)
                     predicted_outcome = prediction.outcome
                 else:
@@ -147,16 +162,24 @@ async def test_provider_accuracy(
 
     console.print(f"  ✓ Accuracy: {accuracy:.1f}% ({correct}/{total})")
 
-    return {
-        "provider": provider_name,
-        "model": service.model.name,
-        "dimension": service.model.dimension,
+    result = {
+        "provider": provider_name if not use_situation else "none",
         "method": method,
         "total_tested": total,
         "correct": correct,
         "accuracy": accuracy,
         "predictions": results,
     }
+
+    # Add model info if using embeddings
+    if not use_situation:
+        result["model"] = service.model.name
+        result["dimension"] = service.model.dimension
+    else:
+        result["model"] = "N/A (rule-based)"
+        result["dimension"] = 0
+
+    return result
 
 
 @app.command()
@@ -170,8 +193,13 @@ def main(
     use_heuristic: bool = typer.Option(
         False,
         "--heuristic",
-        "-h",
         help="Use heuristic classifier instead of RAG",
+    ),
+    use_situation: bool = typer.Option(
+        False,
+        "--situation",
+        "-s",
+        help="Use situation-based classifier (most accurate)",
     ),
     ground_truth_file: str = typer.Option(
         str(settings.DATA_DIR / "ground_truth_labels.json"),
@@ -229,6 +257,7 @@ def main(
                     ground_truth=testable,
                     db_path=Path(db_path),
                     use_heuristic=use_heuristic,
+                    use_situation=use_situation,
                 )
                 results.append(result)
             except Exception as e:
