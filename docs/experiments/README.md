@@ -9,23 +9,30 @@ This directory contains documentation for experiments and proof-of-concepts cond
 
 **Summary:** Evaluated local CPU-optimized embedding models (sentence-transformers) vs Jina AI API for generating embeddings of Brazilian legal documents.
 
-**Key Findings (Performance):**
+**Key Findings (Performance - Synthetic Data):**
 - **40x faster** latency (15ms vs 606ms)
 - **61x higher** throughput (54 texts/s vs 0.88 texts/s)
 - **Zero API costs** ($0 vs ~$480/year)
 - **Complete data privacy** (LGPD compliant)
 - **No rate limits** (Jina hit limits during testing)
 
-**Key Findings (Quality):**
+**Key Findings (Quality - Synthetic Data):**
 - **Precision@10:** 0.500 (good - 50% relevant results)
 - **Recall@10:** 0.379 (moderate - finds 38% of docs)
 - **NDCG@10:** 0.561 (good ranking quality)
 - **MRR:** 0.728 (first relevant result early)
 
+**✅ VALIDATED ON REAL DATA (260,870 documents from TRF4):**
+- **Reliability:** 100% (Local) vs ~20% (Jina hit rate limits)
+- **Throughput:** 72 texts/s with 13.88ms latency
+- **Cost Savings:** $0 vs $1,304/year
+- **Critical Finding:** Jina AI is **unsuitable for production** due to severe rate limiting
+
 **Recommendation:** Use local embeddings as default provider
 
 **Details:**
-- Performance analysis: [local-embeddings-experiment.md](./local-embeddings-experiment.md)
+- Initial performance analysis: [local-embeddings-experiment.md](./local-embeddings-experiment.md)
+- **Real data validation:** [real-data-test-results.md](./real-data-test-results.md) 🆕
 - Quality benchmark guide: [embedding-quality-benchmark-guide.md](./embedding-quality-benchmark-guide.md)
 
 **Implementation:**
