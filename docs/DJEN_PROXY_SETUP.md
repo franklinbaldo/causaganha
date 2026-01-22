@@ -1,10 +1,44 @@
 # DJEN API Proxy Setup Guide
 
+> **✅ PROXY ATIVO:** `https://djen-proxy-mhgmawcn3a-rj.a.run.app`
+>
+> **Plataforma:** Google Cloud Run (anteriormente Cloud Functions)
+>
+> **Status:** Produção, testado e funcionando
+>
+> **Documentação atualizada:** [DJEN_PROXY_ENDPOINT.md](DJEN_PROXY_ENDPOINT.md)
+
 ## Overview
 
-The PJe DJEN API (`https://comunicaapi.pje.jus.br`) implements geo-blocking and returns `403 Forbidden` when accessed from non-Brazilian IP addresses. This proxy solution bypasses the restriction by deploying a Google Cloud Function in São Paulo, Brazil.
+The PJe DJEN API (`https://comunicaapi.pje.jus.br`) implements geo-blocking and returns `403 Forbidden` when accessed from non-Brazilian IP addresses. This proxy solution bypasses the restriction by deploying a reverse proxy on Google Cloud Run in São Paulo, Brazil.
 
-## Quick Start
+## ⚡ Quick Start (Atualizado - Cloud Run)
+
+### Proxy Já Está Rodando!
+
+O proxy DJEN v4.0 está ativo e funcionando em Cloud Run:
+
+```
+https://djen-proxy-mhgmawcn3a-rj.a.run.app
+```
+
+**Para usar:**
+- Configure no scraper: `PROXY_URL=https://djen-proxy-mhgmawcn3a-rj.a.run.app`
+- Teste: `curl https://djen-proxy-mhgmawcn3a-rj.a.run.app/health`
+- Ver documentação: [DJEN_PROXY_ENDPOINT.md](DJEN_PROXY_ENDPOINT.md)
+
+**Para redeploy:**
+```bash
+./DEPLOY_DJEN_V4.sh
+```
+
+---
+
+## 📜 Instruções Antigas (Cloud Functions)
+
+> ⚠️ **NOTA:** As instruções abaixo são para a versão antiga usando Cloud Functions.
+> A versão atual usa **Cloud Run** e já está deployada.
+> Mantido apenas para referência histórica.
 
 ### Option 1: Interactive Wizard (Recommended)
 

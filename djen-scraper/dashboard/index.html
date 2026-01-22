@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJEN Scraper - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-red: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-badge.online {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-green);
+        }
+
+        .status-badge.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: var(--accent-green);
+        }
+
+        .status-dot.offline {
+            background: var(--accent-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .card-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .progress-section {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--bg-tertiary);
+            margin-bottom: 2rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .progress-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .progress-bar-container {
+            background: var(--bg-tertiary);
+            border-radius: 9999px;
+            height: 1.5rem;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        }
+
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .orgaos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .orgao-chip {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .orgao-chip:hover {
+            transform: scale(1.05);
+        }
+
+        .orgao-chip.done {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-green);
+        }
+
+        .orgao-chip.pending {
+            background: rgba(234, 179, 8, 0.2);
+            color: var(--accent-yellow);
+        }
+
+        .timeline {
+            background: var(--bg-secondary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .timeline-header {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon.success {
+            background: rgba(34, 197, 94, 0.2);
+        }
+
+        .timeline-icon.info {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-time {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .refresh-info {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-red);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            color: var(--accent-red);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--bg-tertiary);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span>DJEN Scraper</span>
+            </h1>
+            <div id="status-badge" class="status-badge offline">
+                <span class="status-dot offline"></span>
+                <span>Carregando...</span>
+            </div>
+        </header>
+
+        <div id="content">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                Dados coletados do <a href="https://comunicaapi.pje.jus.br" target="_blank">DJEN - Diario de Justica Eletronico Nacional</a>
+            </p>
+            <p style="margin-top: 0.5rem;">
+                <a href="https://github.com/franklinbaldo/causaganha" target="_blank">GitHub</a> |
+                Worker: <a href="https://djen-scraper.franklinbaldo.workers.dev/state" target="_blank">API State</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        const API_URL = 'https://djen-scraper.franklinbaldo.workers.dev/state';
+        const REFRESH_INTERVAL = 30000; // 30 segundos
+
+        async function fetchState() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Failed to fetch');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching state:', error);
+                return null;
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('pt-BR').format(num || 0);
+        }
+
+        function renderDashboard(state) {
+            const statusBadge = document.getElementById('status-badge');
+            const content = document.getElementById('content');
+
+            if (!state) {
+                statusBadge.className = 'status-badge offline';
+                statusBadge.innerHTML = '<span class="status-dot offline"></span><span>Offline</span>';
+                content.innerHTML = `
+                    <div class="error-message">
+                        <h2>Erro ao carregar dados</h2>
+                        <p>Nao foi possivel conectar ao Worker. Tente novamente em alguns segundos.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Update status badge
+            const isOnline = state.stats?.last_run &&
+                (Date.now() - new Date(state.stats.last_run).getTime()) < 120000; // 2 min
+            statusBadge.className = `status-badge ${isOnline ? 'online' : 'offline'}`;
+            statusBadge.innerHTML = `
+                <span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>
+                <span>${isOnline ? 'Online' : 'Offline'}</span>
+            `;
+
+            // Calculate progress
+            const totalOrgaos = (state.d1?.orgaos_done?.length || 0) + (state.d1?.orgaos_pending?.length || 0);
+            const doneOrgaos = state.d1?.orgaos_done?.length || 0;
+            const progressPercent = totalOrgaos > 0 ? Math.round((doneOrgaos / totalOrgaos) * 100) : 0;
+
+            content.innerHTML = `
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Total de Registros</span>
+                        </div>
+                        <div class="card-value" style="color: var(--accent-blue)">
+                            ${formatNumber(state.stats?.total_records)}
+                        </div>
+                        <div class="card-subtitle">comunicacoes coletadas</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Dias Arquivados</span>
+                        </div>
+                        <div class="card-value" style="color: var(--accent-green)">
+                            ${formatNumber(state.stats?.total_days_archived)}
+                        </div>
+                        <div class="card-subtitle">dias completos</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Registros Hoje (D-1)</span>
+                        </div>
+                        <div class="card-value" style="color: var(--accent-purple)">
+                            ${formatNumber(state.d1?.records)}
+                        </div>
+                        <div class="card-subtitle">de ${state.d1?.date || '-'}</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Ultima Execucao</span>
+                        </div>
+                        <div class="card-value" style="font-size: 1.5rem; color: var(--accent-yellow)">
+                            ${formatDate(state.stats?.last_run)}
+                        </div>
+                        <div class="card-subtitle">executa a cada minuto</div>
+                    </div>
+                </div>
+
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span class="progress-title">Progresso D-1 (${state.d1?.date || '-'})</span>
+                        <span style="color: ${state.d1?.status === 'complete' ? 'var(--accent-green)' : 'var(--accent-yellow)'}">
+                            ${state.d1?.status === 'complete' ? 'Completo' : 'Em progresso'}
+                        </span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <span>${doneOrgaos} de ${totalOrgaos} orgaos</span>
+                        <span>${progressPercent}%</span>
+                    </div>
+
+                    <div class="orgaos-grid">
+                        ${(state.d1?.orgaos_done || []).map(o =>
+                            `<div class="orgao-chip done">${o}</div>`
+                        ).join('')}
+                        ${(state.d1?.orgaos_pending || []).map(o =>
+                            `<div class="orgao-chip pending">${o}</div>`
+                        ).join('')}
+                    </div>
+                </div>
+
+                <div class="timeline">
+                    <div class="timeline-header">Backfill</div>
+                    <div class="timeline-item">
+                        <div class="timeline-icon info">i</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">Proxima data: ${state.backfill?.next_date || 'Aguardando D-1'}</div>
+                            <div class="timeline-time">Meta: ${state.backfill?.oldest_target || '2020-01-01'}</div>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-icon success">+</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">${state.backfill?.completed_dates?.length || 0} datas completas</div>
+                            <div class="timeline-time">
+                                ${state.backfill?.completed_dates?.slice(-5).join(', ') || 'Nenhuma ainda'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="refresh-info">
+                    Atualiza automaticamente a cada 30 segundos
+                </div>
+            `;
+        }
+
+        async function init() {
+            const state = await fetchState();
+            renderDashboard(state);
+
+            // Auto-refresh
+            setInterval(async () => {
+                const newState = await fetchState();
+                renderDashboard(newState);
+            }, REFRESH_INTERVAL);
+        }
+
+        init();
+    </script>
+</body>
+</html>
