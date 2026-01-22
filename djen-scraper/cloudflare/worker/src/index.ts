@@ -147,6 +147,13 @@ export default {
 			return Response.json(state);
 		}
 
+		if (url.pathname === '/' || url.pathname === '/dashboard') {
+			const state = await loadState(env);
+			return new Response(renderDashboard(state), {
+				headers: { 'Content-Type': 'text/html; charset=utf-8' }
+			});
+		}
+
 		if (url.pathname === '/trigger' && request.method === 'POST') {
 			const event = {} as ScheduledEvent;
 			await this.scheduled(event, env, { waitUntil: () => {} } as ExecutionContext);
@@ -391,4 +398,92 @@ function getDateString(daysOffset: number): string {
 	const date = new Date();
 	date.setDate(date.getDate() + daysOffset);
 	return date.toISOString().split('T')[0];
+}
+
+function renderDashboard(state: State): string {
+	const progress = state.current.tribunais_done.length;
+	const total = progress + state.current.tribunais_pending.length;
+	const pct = total > 0 ? Math.round((progress / total) * 100) : 0;
+	const modeEmoji = state.mode === 'd1' ? '🔴' : '🔵';
+	const modeLabel = state.mode === 'd1' ? 'D-1 (Ontem)' : 'Backfill';
+
+	return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="refresh" content="30">
+	<title>DJEN Scraper Dashboard</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+		.container { max-width: 1200px; margin: 0 auto; }
+		h1 { font-size: 2rem; margin-bottom: 20px; }
+		.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
+		.card { background: #1e293b; border-radius: 12px; padding: 20px; }
+		.card h2 { font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; }
+		.card .value { font-size: 2rem; font-weight: bold; }
+		.card .sub { font-size: 0.85rem; color: #64748b; margin-top: 5px; }
+		.progress-bar { background: #334155; border-radius: 8px; height: 24px; overflow: hidden; margin: 10px 0; }
+		.progress-fill { background: linear-gradient(90deg, #3b82f6, #8b5cf6); height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; }
+		.tribunais { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-top: 15px; }
+		.tribunal { padding: 6px 8px; border-radius: 6px; font-size: 0.75rem; text-align: center; }
+		.done { background: #166534; color: #bbf7d0; }
+		.pending { background: #334155; color: #94a3b8; }
+		.mode-d1 { border-left: 4px solid #ef4444; }
+		.mode-backfill { border-left: 4px solid #3b82f6; }
+		.stats { display: flex; gap: 30px; flex-wrap: wrap; }
+		.stat { text-align: center; }
+		.stat .num { font-size: 1.5rem; font-weight: bold; color: #22c55e; }
+		.stat .label { font-size: 0.8rem; color: #64748b; }
+		footer { margin-top: 30px; text-align: center; color: #64748b; font-size: 0.8rem; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>📊 DJEN Scraper Dashboard</h1>
+
+		<div class="cards">
+			<div class="card ${state.mode === 'd1' ? 'mode-d1' : 'mode-backfill'}">
+				<h2>Modo Atual</h2>
+				<div class="value">${modeEmoji} ${modeLabel}</div>
+				<div class="sub">Data: ${state.current.date}</div>
+			</div>
+
+			<div class="card">
+				<h2>Progresso do Dia</h2>
+				<div class="value">${progress}/${total}</div>
+				<div class="progress-bar">
+					<div class="progress-fill" style="width: ${pct}%">${pct}%</div>
+				</div>
+				<div class="sub">${state.current.records.toLocaleString('pt-BR')} comunicações</div>
+			</div>
+
+			<div class="card">
+				<h2>Total Arquivado</h2>
+				<div class="value">${state.stats.total_records.toLocaleString('pt-BR')}</div>
+				<div class="sub">${state.stats.total_days_archived} dias completos</div>
+			</div>
+
+			<div class="card">
+				<h2>Backfill</h2>
+				<div class="value">${state.backfill.completed_dates.length} dias</div>
+				<div class="sub">Alvo: ${state.backfill.oldest_target}</div>
+			</div>
+		</div>
+
+		<div class="card">
+			<h2>Tribunais - ${state.current.date}</h2>
+			<div class="tribunais">
+				${state.current.tribunais_done.map(t => `<span class="tribunal done">✓ ${t}</span>`).join('')}
+				${state.current.tribunais_pending.map(t => `<span class="tribunal pending">${t}</span>`).join('')}
+			</div>
+		</div>
+
+		<footer>
+			Última execução: ${new Date(state.stats.last_run).toLocaleString('pt-BR')} | Auto-refresh: 30s
+		</footer>
+	</div>
+</body>
+</html>`;
 }
