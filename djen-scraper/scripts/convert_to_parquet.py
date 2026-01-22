@@ -11,17 +11,23 @@ Usage:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import duckdb
 import httpx
 
+# Parallel processing config (adaptive based on CPU)
+import multiprocessing
+_cpu_count = multiprocessing.cpu_count()
+MAX_WORKERS = int(os.environ.get('MAX_WORKERS', str(min(_cpu_count, 4))))
 
 # UUIDv5 namespace for DJEN
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.jus.br")
@@ -108,9 +114,12 @@ def process_item(item_id: str) -> bool:
             print("  WARNING: No records found")
             return False
 
-        # Create DuckDB connection and register UUID function
-        con = duckdb.connect()
-        con.create_function("uuid5_djen", generate_uuid, [str], str)
+        # Create DuckDB connection with optimized settings
+        con = duckdb.connect(config={
+            'threads': '4',
+            'memory_limit': '4GB',
+        })
+        con.create_function('uuid5_djen', generate_uuid, [str], str)
 
         # Load NDJSON directly into DuckDB (very fast)
         with timed("load json"):
@@ -147,30 +156,33 @@ def process_item(item_id: str) -> bool:
                 FROM comunicacoes_raw
             """)
 
-            # 2. Textos (deduplicated by content)
+            # 2. Textos (deduplicated - compute UUID only on unique texts)
             con.execute("""
                 CREATE TABLE textos AS
-                SELECT DISTINCT
+                WITH unique_texts AS (
+                    SELECT DISTINCT texto
+                    FROM comunicacoes_raw
+                    WHERE texto IS NOT NULL AND texto != ''
+                )
+                SELECT
                     uuid5_djen(texto) as texto_id,
                     texto,
                     LENGTH(texto) as tamanho
-                FROM comunicacoes_raw
-                WHERE texto IS NOT NULL AND texto != ''
+                FROM unique_texts
             """)
 
-            # 3. Partes from destinatarios
+            # 3. Partes from destinatarios (optimized with GROUP BY)
             con.execute("""
                 CREATE TABLE partes AS
-                SELECT DISTINCT
-                    uuid5_djen(nome) as parte_id,
-                    nome,
+                SELECT
+                    uuid5_djen(d.nome) as parte_id,
+                    d.nome as nome,
                     '' as documento
-                FROM (
-                    SELECT UNNEST(destinatarios).nome as nome
-                    FROM comunicacoes_raw
-                    WHERE destinatarios IS NOT NULL
-                )
-                WHERE nome IS NOT NULL AND nome != ''
+                FROM comunicacoes_raw c,
+                     LATERAL UNNEST(c.destinatarios) as t(d)
+                WHERE c.destinatarios IS NOT NULL
+                  AND d.nome IS NOT NULL AND d.nome != ''
+                GROUP BY d.nome
             """)
 
             # 4. Comunicacao-Partes (association)
@@ -186,28 +198,26 @@ def process_item(item_id: str) -> bool:
                   AND d.nome IS NOT NULL AND d.nome != ''
             """)
 
-            # 5. Advogados from destinatarioadvogados.advogado
+            # 5. Advogados from destinatarioadvogados.advogado (optimized)
             con.execute("""
                 CREATE TABLE advogados AS
-                SELECT DISTINCT
-                    uuid5_djen(CONCAT(
-                        COALESCE(numero_oab, ''), '|',
-                        COALESCE(uf_oab, ''), '|',
-                        COALESCE(nome, '')
-                    )) as advogado_id,
-                    nome,
-                    COALESCE(numero_oab, '') as oab,
-                    COALESCE(uf_oab, '') as uf
-                FROM (
+                WITH advogado_keys AS (
                     SELECT
                         da.advogado.nome as nome,
-                        da.advogado.numero_oab as numero_oab,
-                        da.advogado.uf_oab as uf_oab
+                        COALESCE(da.advogado.numero_oab, '') as oab,
+                        COALESCE(da.advogado.uf_oab, '') as uf
                     FROM comunicacoes_raw c,
                          LATERAL UNNEST(c.destinatarioadvogados) as t(da)
                     WHERE c.destinatarioadvogados IS NOT NULL
+                      AND (da.advogado.nome IS NOT NULL OR da.advogado.numero_oab IS NOT NULL)
+                    GROUP BY da.advogado.nome, da.advogado.numero_oab, da.advogado.uf_oab
                 )
-                WHERE nome IS NOT NULL OR numero_oab IS NOT NULL
+                SELECT
+                    uuid5_djen(CONCAT(oab, '|', uf, '|', COALESCE(nome, ''))) as advogado_id,
+                    nome,
+                    oab,
+                    uf
+                FROM advogado_keys
             """)
 
             # 6. Comunicacao-Advogados (association)
@@ -241,12 +251,13 @@ def process_item(item_id: str) -> bool:
 
         with timed("write parquet"):
             for table in tables:
-                count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-                if count > 0:
-                    path = out_dir / f"{table}.parquet"
-                    con.execute(f"""
-                        COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)
-                    """)
+                path = out_dir / f"{table}.parquet"
+                # Write with optimized compression (level 3 balances speed/size)
+                con.execute(f"""
+                    COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, COMPRESSION_LEVEL 3)
+                """)
+                if path.exists() and path.stat().st_size > 0:
+                    count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                     size_kb = path.stat().st_size / 1024
                     print(f"    {table}: {count:,} rows ({size_kb:.0f} KB)")
 
@@ -288,6 +299,16 @@ def process_item(item_id: str) -> bool:
         return True
 
 
+def process_item_safe(item_id: str) -> tuple[str, bool, str]:
+    """Wrapper for process_item that catches exceptions."""
+    try:
+        result = process_item(item_id)
+        return (item_id, result, "")
+    except Exception as e:
+        import traceback
+        return (item_id, False, traceback.format_exc())
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python convert_to_parquet.py <batch_file>")
@@ -301,28 +322,39 @@ def main():
 
     # Read items
     items = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(items)} items using DuckDB")
+    print(f"Processing {len(items)} items using DuckDB with {MAX_WORKERS} workers")
 
     success = 0
     failed = 0
     total_start = time.time()
 
-    for item_id in items:
-        try:
-            if process_item(item_id):
-                success += 1
-            else:
-                failed += 1
-        except Exception as e:
-            print(f"  ERROR: {e}")
-            import traceback
-
-            traceback.print_exc()
+    if len(items) == 1:
+        # Single item - no need for parallelism
+        item_id, result, error = process_item_safe(items[0])
+        if result:
+            success += 1
+        else:
             failed += 1
+            if error:
+                print(f"  ERROR: {error}")
+    else:
+        # Multiple items - process in parallel
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(process_item_safe, item_id): item_id for item_id in items}
+
+            for future in as_completed(futures):
+                item_id, result, error = future.result()
+                if result:
+                    success += 1
+                else:
+                    failed += 1
+                    if error:
+                        print(f"  ERROR processing {item_id}: {error}")
 
     total_elapsed = time.time() - total_start
+    avg_time = total_elapsed / len(items) if items else 0
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s")
+    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)")
 
     sys.exit(0 if failed == 0 else 1)
 
