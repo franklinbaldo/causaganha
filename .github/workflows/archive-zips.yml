@@ -37,7 +37,9 @@ jobs:
       - name: Setup
         run: |
           pip install internetarchive
-          echo "IA credentials configured via environment variables"
+          mkdir -p ~/.config/internetarchive
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+          echo "IA config created"
 
       - name: Find items to archive
         id: find
