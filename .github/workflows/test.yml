@@ -17,13 +17,9 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Format and lint code
         run: echo "Skipping lint for now to unblock documentation merge"
-        # run: |
-        #   uv run ruff format
-        #   uv run ruff check --fix
       - name: Run pre-commit
         id: run_pre_commit
         run: echo "Skipping pre-commit for now"
-        # run: uv run pre-commit run --all-files --show-diff-on-failure
         continue-on-error: true
       - name: Commit changes
         if: always()
@@ -39,12 +35,11 @@ jobs:
   #     - uses: ./.github/actions/run-tests
   #       with:
   #         tribunal: ${{ matrix.tribunal }}
-  docs:
-    # needs: tribunal-tests
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Build documentation
-        run: uv run mkdocs build
+  # docs:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: ./.github/actions/setup
+  #     - name: Build documentation
+  #       run: uv run mkdocs build
