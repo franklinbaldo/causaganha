@@ -12,16 +12,21 @@ Usage:
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import time
 import uuid
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import duckdb
 import httpx
+
+# Parallel processing config
+MAX_WORKERS = int(os.environ.get('MAX_WORKERS', '3'))
 
 # UUIDv5 namespace for DJEN
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.jus.br')
@@ -276,6 +281,16 @@ def process_item(item_id: str) -> bool:
         return True
 
 
+def process_item_safe(item_id: str) -> tuple[str, bool, str]:
+    """Wrapper for process_item that catches exceptions."""
+    try:
+        result = process_item(item_id)
+        return (item_id, result, "")
+    except Exception as e:
+        import traceback
+        return (item_id, False, traceback.format_exc())
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python convert_to_parquet.py <batch_file>")
@@ -289,27 +304,39 @@ def main():
 
     # Read items
     items = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(items)} items using DuckDB")
+    print(f"Processing {len(items)} items using DuckDB with {MAX_WORKERS} workers")
 
     success = 0
     failed = 0
     total_start = time.time()
 
-    for item_id in items:
-        try:
-            if process_item(item_id):
-                success += 1
-            else:
-                failed += 1
-        except Exception as e:
-            print(f"  ERROR: {e}")
-            import traceback
-            traceback.print_exc()
+    if len(items) == 1:
+        # Single item - no need for parallelism
+        item_id, result, error = process_item_safe(items[0])
+        if result:
+            success += 1
+        else:
             failed += 1
+            if error:
+                print(f"  ERROR: {error}")
+    else:
+        # Multiple items - process in parallel
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(process_item_safe, item_id): item_id for item_id in items}
+
+            for future in as_completed(futures):
+                item_id, result, error = future.result()
+                if result:
+                    success += 1
+                else:
+                    failed += 1
+                    if error:
+                        print(f"  ERROR processing {item_id}: {error}")
 
     total_elapsed = time.time() - total_start
+    avg_time = total_elapsed / len(items) if items else 0
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s")
+    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)")
 
     sys.exit(0 if failed == 0 else 1)
 
