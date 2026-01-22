@@ -32,8 +32,9 @@ class Settings(BaseSettings):
     FUNCTION_URL: str = "https://region-project.cloudfunctions.net/llm_worker"
 
     # Embedding Provider Configuration
-    EMBEDDING_PROVIDER: str = "auto"  # Options: "auto", "google", "jina"
+    EMBEDDING_PROVIDER: str = "auto"  # Options: "auto", "google", "jina", "local"
     EMBEDDING_PROVIDER_PRIORITY: list[str] = [
+        "local",  # Try local first (no API costs, privacy)
         "jina",
         "google",
     ]  # Priority order for auto-selection

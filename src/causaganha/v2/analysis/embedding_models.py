@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-ProviderType = Literal["jina", "google"]
+ProviderType = Literal["jina", "google", "local"]
 
 
 @dataclass(frozen=True)
@@ -114,9 +114,35 @@ GOOGLE_TEXT_EMBEDDING_004 = EmbeddingModel(
     description="Google text-embedding-004 (deprecated August 2025)",
 )
 
+# Local Models (CPU-optimized with ONNX Runtime)
+LOCAL_MULTILINGUAL_E5_SMALL = EmbeddingModel(
+    provider="local",
+    name="intfloat/multilingual-e5-small",
+    dimension=384,
+    max_tokens=512,
+    description="Local multilingual model (E5-small, 384D, excellent Portuguese support)",
+)
+
+LOCAL_MINILM_MULTILINGUAL = EmbeddingModel(
+    provider="local",
+    name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    dimension=384,
+    max_tokens=128,
+    description="Local multilingual model (MiniLM-L12, 384D, fast and lightweight)",
+)
+
+LOCAL_BERT_PORTUGUESE = EmbeddingModel(
+    provider="local",
+    name="neuralmind/bert-base-portuguese-cased",
+    dimension=768,
+    max_tokens=512,
+    description="Local Portuguese-specific BERT model (768D, legal domain optimized)",
+)
+
 # Default models for each provider
 DEFAULT_JINA_MODEL = JINA_V4_1024
 DEFAULT_GOOGLE_MODEL = GOOGLE_GEMINI_768
+DEFAULT_LOCAL_MODEL = LOCAL_MULTILINGUAL_E5_SMALL  # Best balance of quality and speed
 
 # Model registry for lookup by name and dimension
 JINA_MODELS = {
@@ -134,14 +160,20 @@ GOOGLE_MODELS = {
     ("text-embedding-004", 768): GOOGLE_TEXT_EMBEDDING_004,
 }
 
-ALL_MODELS = {**JINA_MODELS, **GOOGLE_MODELS}
+LOCAL_MODELS = {
+    ("intfloat/multilingual-e5-small", 384): LOCAL_MULTILINGUAL_E5_SMALL,
+    ("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", 384): LOCAL_MINILM_MULTILINGUAL,
+    ("neuralmind/bert-base-portuguese-cased", 768): LOCAL_BERT_PORTUGUESE,
+}
+
+ALL_MODELS = {**JINA_MODELS, **GOOGLE_MODELS, **LOCAL_MODELS}
 
 
 def get_model(provider: ProviderType, name: str, dimension: int) -> EmbeddingModel:
     """Get an embedding model by provider, name, and dimension.
 
     Args:
-        provider: Provider name ('jina' or 'google')
+        provider: Provider name ('jina', 'google', or 'local')
         name: Model name
         dimension: Embedding dimension
 
@@ -157,14 +189,17 @@ def get_model(provider: ProviderType, name: str, dimension: int) -> EmbeddingMod
         model = JINA_MODELS.get(key)
     elif provider == "google":
         model = GOOGLE_MODELS.get(key)
+    elif provider == "local":
+        model = LOCAL_MODELS.get(key)
     else:
         msg = f"Unknown provider: {provider}"
         raise ValueError(msg)
 
     if model is None:
+        available = JINA_MODELS if provider == "jina" else GOOGLE_MODELS if provider == "google" else LOCAL_MODELS
         msg = (
             f"Model not found: {provider}/{name} with {dimension}D. "
-            f"Available models: {list(JINA_MODELS.keys() if provider == 'jina' else GOOGLE_MODELS.keys())}"
+            f"Available models: {list(available.keys())}"
         )
         raise ValueError(
             msg,
@@ -177,7 +212,7 @@ def get_default_model(provider: ProviderType) -> EmbeddingModel:
     """Get the default model for a provider.
 
     Args:
-        provider: Provider name ('jina' or 'google')
+        provider: Provider name ('jina', 'google', or 'local')
 
     Returns:
         Default EmbeddingModel for that provider
@@ -186,6 +221,8 @@ def get_default_model(provider: ProviderType) -> EmbeddingModel:
         return DEFAULT_JINA_MODEL
     if provider == "google":
         return DEFAULT_GOOGLE_MODEL
+    if provider == "local":
+        return DEFAULT_LOCAL_MODEL
     msg = f"Unknown provider: {provider}"
     raise ValueError(msg)
 
@@ -194,7 +231,7 @@ def list_models(provider: ProviderType | None = None) -> list[EmbeddingModel]:
     """List all available models, optionally filtered by provider.
 
     Args:
-        provider: Optional provider filter ('jina', 'google', or None for all)
+        provider: Optional provider filter ('jina', 'google', 'local', or None for all)
 
     Returns:
         List of available EmbeddingModel instances
@@ -205,5 +242,7 @@ def list_models(provider: ProviderType | None = None) -> list[EmbeddingModel]:
         return list(JINA_MODELS.values())
     if provider == "google":
         return list(GOOGLE_MODELS.values())
+    if provider == "local":
+        return list(LOCAL_MODELS.values())
     msg = f"Unknown provider: {provider}"
     raise ValueError(msg)

@@ -7,7 +7,8 @@ Models define configuration like dimensions and token limits.
 
 import os
 from abc import ABC, abstractmethod
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal
 
 import httpx
 import structlog
@@ -329,12 +330,209 @@ class JinaProvider(EmbeddingProviderBase):
                 raise
 
 
+class LocalProvider(EmbeddingProviderBase):
+    """Local embedding provider using CPU-optimized models (ONNX Runtime).
+
+    Supports models:
+    - intfloat/multilingual-e5-small (384D, 512 tokens, multilingual)
+    - sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (384D, 128 tokens)
+    - neuralmind/bert-base-portuguese-cased (768D, 512 tokens, Portuguese-specific)
+
+    Uses sentence-transformers library with ONNX Runtime backend for optimal CPU performance.
+    Models are downloaded once and cached locally (~/.cache/huggingface/).
+    """
+
+    def __init__(
+        self,
+        cache_dir: str | Path | None = None,
+        device: str = "cpu",
+    ) -> None:
+        """Initialize local embedding provider.
+
+        Args:
+            cache_dir: Directory for model cache. If None, uses default (~/.cache/huggingface/).
+            device: Device for inference ('cpu' or 'cuda'). Default: 'cpu'.
+
+        Note:
+            Unlike API providers, LocalProvider doesn't require an API key.
+            Models are loaded on-demand when first used.
+        """
+        # LocalProvider doesn't need API key, so we pass dummy values to parent
+        # The parent's __init__ will not be called with real API key requirements
+        self.cache_dir = Path(cache_dir) if cache_dir else None
+        self.device = device
+        self._models: dict[str, Any] = {}  # Cache for loaded models
+        self.provider_name = "Local"
+
+        logger.info(
+            "local_provider_initialized",
+            cache_dir=str(self.cache_dir) if self.cache_dir else "default",
+            device=device,
+        )
+
+    def _ensure_dependencies(self) -> None:
+        """Ensure required dependencies are available.
+
+        Raises:
+            ImportError: If sentence-transformers is not installed.
+        """
+        try:
+            import sentence_transformers  # noqa: F401
+        except ImportError as e:
+            msg = (
+                "sentence-transformers is required for LocalProvider. "
+                "Install with: pip install sentence-transformers"
+            )
+            raise ImportError(msg) from e
+
+    def _load_model(self, model: EmbeddingModel) -> Any:
+        """Load a model into memory (cached).
+
+        Args:
+            model: EmbeddingModel configuration.
+
+        Returns:
+            Loaded SentenceTransformer model.
+
+        Raises:
+            ImportError: If sentence-transformers is not installed.
+            ValueError: If model cannot be loaded.
+        """
+        if model.name in self._models:
+            return self._models[model.name]
+
+        self._ensure_dependencies()
+
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            logger.info(
+                "loading_local_model",
+                model_name=model.name,
+                cache_dir=str(self.cache_dir) if self.cache_dir else "default",
+            )
+
+            # Load model with optional cache directory
+            kwargs = {"device": self.device}
+            if self.cache_dir:
+                kwargs["cache_folder"] = str(self.cache_dir)
+
+            loaded_model = SentenceTransformer(model.name, **kwargs)
+
+            # Cache the loaded model
+            self._models[model.name] = loaded_model
+
+            logger.info(
+                "local_model_loaded",
+                model_name=model.name,
+                dimension=loaded_model.get_sentence_embedding_dimension(),
+                max_seq_length=loaded_model.max_seq_length,
+            )
+
+            return loaded_model
+
+        except Exception as e:
+            logger.exception(
+                "local_model_load_failed",
+                model_name=model.name,
+                error=str(e),
+            )
+            raise
+
+    async def embed_text(
+        self,
+        text: str,
+        model: EmbeddingModel,
+        task_type: TaskType = "RETRIEVAL_QUERY",
+    ) -> list[float]:
+        """Generate embedding using local CPU-optimized model.
+
+        Args:
+            text: Text to embed.
+            model: EmbeddingModel configuration (must be a local model).
+            task_type: Type of task (RETRIEVAL_QUERY or RETRIEVAL_DOCUMENT).
+                      Note: Some local models don't distinguish between task types.
+
+        Returns:
+            Embedding vector with dimensions specified by model.
+
+        Raises:
+            ValueError: If model is not a local model.
+            ImportError: If sentence-transformers is not installed.
+        """
+        if model.provider != "local":
+            msg = f"LocalProvider requires a local model, got {model.provider}/{model.name}"
+            raise ValueError(msg)
+
+        # Load model (cached)
+        loaded_model = self._load_model(model)
+
+        try:
+            # Generate embedding (synchronous, but fast on CPU)
+            # sentence-transformers encode() returns numpy array
+            embedding_np = loaded_model.encode(
+                text,
+                convert_to_numpy=True,
+                normalize_embeddings=True,  # Important for cosine similarity
+                show_progress_bar=False,
+            )
+
+            # Convert to list of floats
+            embedding = embedding_np.tolist()
+
+            logger.debug(
+                "local_embedding_generated",
+                text_length=len(text),
+                embedding_dim=len(embedding),
+                model=model.name,
+                task_type=task_type,
+            )
+
+            return embedding
+
+        except Exception as e:
+            logger.exception(
+                "local_embedding_failed",
+                error=str(e),
+                text_length=len(text),
+                model=model.name,
+            )
+            raise
+
+    async def validate(self, model: EmbeddingModel) -> bool:
+        """Validate provider by testing model loading and inference.
+
+        Args:
+            model: EmbeddingModel to use for validation.
+
+        Returns:
+            True if model loads and generates embeddings successfully, False otherwise.
+        """
+        try:
+            # Try to load the model and embed test text
+            await self.embed_text("test", model=model, task_type="RETRIEVAL_QUERY")
+            logger.info(
+                "local_provider_validated",
+                status="success",
+                model=model.name,
+            )
+            return True
+        except Exception as e:
+            logger.warning(
+                "local_provider_validation_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                model=model.name,
+            )
+            return False
+
+
 def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProviderBase:
     """Factory function to create an embedding provider.
 
     Args:
-        provider: Provider name ('google' or 'jina').
-        api_key: API key for the provider.
+        provider: Provider name ('google', 'jina', or 'local').
+        api_key: API key for the provider (not required for 'local').
 
     Returns:
         Initialized embedding provider.
@@ -348,7 +546,9 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
         return GoogleProvider(api_key=api_key)
     if provider == "jina":
         return JinaProvider(api_key=api_key)
-    msg = f"Unsupported embedding provider: {provider}. " f"Supported providers: google, jina"
+    if provider == "local":
+        return LocalProvider()
+    msg = f"Unsupported embedding provider: {provider}. " f"Supported providers: google, jina, local"
     raise ValueError(
         msg,
     )
@@ -357,26 +557,57 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
 async def auto_select_provider(
     priority: list[str] | None = None,
 ) -> EmbeddingProviderBase | None:
-    """Automatically select an embedding provider based on priority and API key availability.
+    """Automatically select an embedding provider based on priority and availability.
 
-    Tries providers in the specified priority order, validating API keys and authentication.
-    Returns the first provider that successfully validates.
+    Tries providers in the specified priority order, validating API keys (for cloud providers)
+    or dependencies (for local providers). Returns the first provider that successfully validates.
 
     Args:
-        priority: List of provider names in priority order. Default: ["jina", "google"]
+        priority: List of provider names in priority order. Default: ["local", "jina", "google"]
 
     Returns:
         First successfully validated provider, or None if all fail.
     """
     if priority is None:
-        priority = ["jina", "google"]
+        priority = ["local", "jina", "google"]
 
     logger.info("auto_selecting_embedding_provider", priority=priority)
 
     for name in priority:
         provider_name = name.lower()
 
-        # Check if API key is available in environment
+        # Handle local provider (no API key required)
+        if provider_name == "local":
+            try:
+                logger.info("trying_local_provider")
+                provider = create_provider(provider="local")
+                default_model = get_default_model("local")  # type: ignore
+
+                # Validate by checking if dependencies are available
+                logger.info("validating_provider", provider=provider_name)
+                if await provider.validate(default_model):
+                    logger.info(
+                        "provider_auto_selected",
+                        provider=provider_name,
+                        model=default_model.name,
+                        dimension=default_model.dimension,
+                    )
+                    return provider
+                logger.warning(
+                    "provider_validation_failed",
+                    provider=provider_name,
+                    reason="dependencies_missing",
+                )
+            except Exception as e:
+                logger.warning(
+                    "provider_creation_failed",
+                    provider=provider_name,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+            continue
+
+        # Handle cloud providers (require API keys)
         if provider_name == "google":
             api_key = os.getenv("GOOGLE_API_KEY")
             env_var = "GOOGLE_API_KEY"
