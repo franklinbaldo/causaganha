@@ -81,11 +81,23 @@ uv run pytest tests/features/02_*.feature  # Priority 2
 
 CausaGanha has comprehensive BDD (Behavior-Driven Development) test coverage:
 
-- **329 scenarios** across **10 feature files**
+- **329+ scenarios** across **10+ feature files** (core functionality)
+- **100+ scenarios** for parquet analysis (schema v2 + advanced workflows)
 - **Hierarchical organization** by business priority (P1-P4)
 - **Living documentation** that serves as both spec and test
 
 See [`tests/features/README.md`](tests/features/README.md) for the complete BDD suite and feature hierarchy.
+
+### Parquet Analysis Features
+
+- **Schema v2**: 5 feature files in `tests/features/parquet_schema_v2/`
+- **Advanced**: 6 feature files in `tests/features/parquet_advanced/` (89 scenarios)
+  - Incremental reprocessing (fix historical errors)
+  - DuckDB remote queries (query IA directly)
+  - Data quality monitoring (automated validation)
+  - Vector store hydration (load embeddings from IA)
+  - Time-travel queries (historical comparison)
+  - Cross-tribunal analytics (national insights)
 
 ## Architecture Overview
 
@@ -94,6 +106,72 @@ See [`tests/features/README.md`](tests/features/README.md) for the complete BDD 
 *   **Domain**: `src/causaganha/analysis` (Pure logic)
 *   **Application**: `src/causaganha/pipeline` (Orchestration)
 *   **Infrastructure**: `src/causaganha/storage` (Ibis), `src/causaganha/api` (HTTP)
+
+## 📦 Parquet-Based Analysis Architecture
+
+CausaGanha uses a **multi-parquet architecture** for data storage and analysis, with files hosted on Internet Archive.
+
+### Architecture Overview
+
+```
+Internet Archive Storage:
+├── causaganha-decisions-YYYY-MM-DD-TRIBUNAL.parquet   ← Decision text, analysis (NO embeddings!)
+├── causaganha-embeddings-YYYY-MM-DD-TRIBUNAL.parquet ← Embeddings ONLY! (separate file)
+├── causaganha-lawyers-YYYY-MM-DD.parquet              ← Lawyer profiles and ratings
+└── causaganha-partes-YYYY-MM-DD-TRIBUNAL.parquet      ← Case parties information
+
+Join Key: intimation_id (consistent across all files)
+Query Engine: DuckDB (columnar joins at query time)
+```
+
+### Key Design Principles
+
+1. **Separation of Concerns**: Each entity type in separate parquet file
+2. **Texto-Based Analysis**: Use `intimations.texto` field, NOT PDFs
+3. **Embeddings Separate**: Enables regeneration without touching decisions
+4. **DuckDB Joins**: Efficient columnar joins at query time (no duplication)
+5. **Internet Archive**: Free, unlimited storage for all parquet exports
+
+### Available Workflows
+
+```bash
+# Download parquet from Internet Archive
+uv run causaganha parquet download --tribunal TJRO --date 2025-01-15
+
+# Analyze decisions from local parquet
+uv run causaganha parquet analyze --file decisions-2025-01-15-TJRO.parquet
+
+# Analyze directly from Internet Archive
+uv run causaganha parquet analyze-ia --tribunal TJRO --date 2025-01-15
+
+# Check if parquet exists on IA
+uv run causaganha parquet check --tribunal TJRO --date 2025-01-15
+
+# Clear local parquet cache
+uv run causaganha parquet clear-cache
+```
+
+### Documentation
+
+- **Architecture**: [`docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md`](docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md) - Multi-parquet design
+- **Implementation**: [`docs/plans/parquet-analysis-adaptation.md`](docs/plans/parquet-analysis-adaptation.md) - Parquet pipeline
+- **Texto vs PDF**: [`docs/TEXTO_VS_PDF_CLARIFICATION.md`](docs/TEXTO_VS_PDF_CLARIFICATION.md) - Why texto, not PDFs
+- **BDD Specs**: [`tests/features/parquet_schema_v2/README.md`](tests/features/parquet_schema_v2/README.md) - Schema v2 features
+- **Advanced Features**: [`tests/features/parquet_advanced/`](tests/features/parquet_advanced/) - 89 scenarios for advanced workflows
+
+### Important: Texto-Based Analysis
+
+**Analysis uses the `texto` field, NOT PDFs!**
+
+```python
+# ✅ CORRECT: Use texto field
+llm_result = await self.llm.analyze_text(texto, intimation_id)
+
+# ❌ WRONG: Don't use PDFs
+# llm_result = await self.llm.analyze_pdf(pdf_url, intimation_id)  # DEPRECATED
+```
+
+The `analyze_pdf()` method is deprecated. All analysis should use `analyze_text()` with the texto field.
 
 ## 🧠 Embedding Providers
 

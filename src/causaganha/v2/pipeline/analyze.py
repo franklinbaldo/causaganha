@@ -134,14 +134,14 @@ async def analyze_pending_decisions(
         logger.info("processing_batch", batch=batches_processed + 1, size=len(pending))
 
         intimation_ids = [p["id"] for p in pending]
-        pdf_urls = [p["link"] for p in pending]
         texts = [p.get("texto", "") for p in pending]
 
         try:
             analyses = []
 
             if strategy == AnalysisStrategy.LLM:
-                analyses = await analyzer.analyze_batch(pdf_urls, intimation_ids)
+                # LLM now uses texto (no PDF needed!)
+                analyses = await analyzer.analyze_batch(texts, intimation_ids, input_type="text")
                 usage_stats["llm_used"] += len(analyses)
                 usage_stats["total_cost"] += len(analyses) * 0.000420
 
@@ -151,10 +151,11 @@ async def analyze_pending_decisions(
                 usage_stats["total_cost"] += len(analyses) * 0.000008
 
             else:  # HYBRID
+                # Hybrid uses texto for both RAG and LLM fallback (no PDF!)
                 analyses, batch_stats = await analyzer.analyze_batch(
                     texts,
                     intimation_ids,
-                    pdf_urls,
+                    pdf_urls=None,  # No PDFs needed anymore!
                 )
                 usage_stats["rag_used"] += batch_stats.get("rag_used", 0)
                 usage_stats["llm_used"] += batch_stats.get("llm_used", 0)

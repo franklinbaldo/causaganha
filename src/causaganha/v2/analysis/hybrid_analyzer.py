@@ -88,50 +88,39 @@ class HybridAnalyzer:
 
                 return rag_result
 
-            # Step 3: Low confidence - try LLM fallback if PDF available
-            if pdf_url:
+            # Step 3: Low confidence - use LLM fallback (analyzing same text)
+            logger.info(
+                "hybrid_triggering_llm_fallback",
+                intimation_id=intimation_id,
+                rag_confidence=rag_result.rag_confidence,
+                threshold=self.threshold,
+            )
+
+            try:
+                # Use texto for LLM analysis (no PDF needed!)
+                llm_result = await self.llm.analyze_text(text, intimation_id)
+
+                # Preserve RAG information in the result
+                llm_result.analysis_method = "hybrid"
+                llm_result.rag_confidence = rag_result.rag_confidence
+                llm_result.rag_votes = rag_result.rag_votes
+
                 logger.info(
-                    "hybrid_triggering_llm_fallback",
+                    "hybrid_llm_fallback_success",
                     intimation_id=intimation_id,
-                    rag_confidence=rag_result.rag_confidence,
-                    threshold=self.threshold,
-                )
-
-                try:
-                    llm_result = await self.llm.analyze_pdf(pdf_url, intimation_id)
-
-                    # Preserve RAG information in the result
-                    llm_result.analysis_method = "hybrid"
-                    llm_result.rag_confidence = rag_result.rag_confidence
-                    llm_result.rag_votes = rag_result.rag_votes
-
-                    logger.info(
-                        "hybrid_llm_fallback_success",
-                        intimation_id=intimation_id,
-                        llm_confidence=llm_result.confidence_score,
-                        rag_confidence=rag_result.rag_confidence,
-                    )
-
-                    return llm_result
-
-                except Exception as e:
-                    logger.error(
-                        "hybrid_llm_fallback_failed",
-                        intimation_id=intimation_id,
-                        error=str(e),
-                    )
-                    # Return RAG result as fallback
-                    rag_result.analysis_method = "rag_low_confidence"
-                    return rag_result
-
-            else:
-                # No PDF available for LLM fallback
-                logger.warning(
-                    "hybrid_no_pdf_for_fallback",
-                    intimation_id=intimation_id,
+                    llm_confidence=llm_result.confidence_score,
                     rag_confidence=rag_result.rag_confidence,
                 )
 
+                return llm_result
+
+            except Exception as e:
+                logger.error(
+                    "hybrid_llm_fallback_failed",
+                    intimation_id=intimation_id,
+                    error=str(e),
+                )
+                # Return RAG result as fallback
                 rag_result.analysis_method = "rag_low_confidence"
                 return rag_result
 
@@ -142,18 +131,15 @@ class HybridAnalyzer:
                 error=str(e),
             )
 
-            # RAG failed - try LLM if available
-            if pdf_url:
-                logger.info(
-                    "hybrid_using_llm_due_to_rag_failure",
-                    intimation_id=intimation_id,
-                )
+            # RAG failed - try LLM with same text
+            logger.info(
+                "hybrid_using_llm_due_to_rag_failure",
+                intimation_id=intimation_id,
+            )
 
-                llm_result = await self.llm.analyze_pdf(pdf_url, intimation_id)
-                llm_result.analysis_method = "hybrid"
-                return llm_result
-            # No fallback available
-            raise
+            llm_result = await self.llm.analyze_text(text, intimation_id)
+            llm_result.analysis_method = "hybrid"
+            return llm_result
 
     async def analyze_batch(
         self,

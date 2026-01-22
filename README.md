@@ -44,8 +44,11 @@ O projeto possui documentação abrangente em inglês na pasta `/docs`:
 - [`COMPLIANCE.md`](docs/COMPLIANCE.md) - Requisitos legais e regulatórios (LGPD, OAB)
 
 ### Testes BDD
-- [`tests/features/README.md`](tests/features/README.md) - **459 cenários BDD** organizados por prioridade de negócio
-- 13 arquivos .feature cobrindo todos os aspectos da plataforma
+- [`tests/features/README.md`](tests/features/README.md) - **459+ cenários BDD** organizados por prioridade de negócio
+- 13+ arquivos .feature cobrindo todos os aspectos da plataforma
+- **Parquet Analysis**: 100+ cenários adicionais documentando workflows avançados
+  - [`tests/features/parquet_schema_v2/`](tests/features/parquet_schema_v2/) - Schema v2 com embeddings separados
+  - [`tests/features/parquet_advanced/`](tests/features/parquet_advanced/) - 89 cenários de workflows avançados
 
 ---
 
@@ -92,6 +95,38 @@ uv run causaganha archive --limit 10
 uv run causaganha analyze --limit 5
 uv run causaganha score
 ```
+
+### Análise Baseada em Parquet (Internet Archive)
+
+O CausaGanha utiliza uma **arquitetura multi-parquet** para armazenar e analisar decisões judiciais:
+
+```bash
+# Download de parquet do Internet Archive
+uv run causaganha parquet download --tribunal TJRO --date 2025-01-15
+
+# Analisar decisões de arquivo parquet local
+uv run causaganha parquet analyze --file decisions-2025-01-15-TJRO.parquet
+
+# Analisar diretamente do Internet Archive
+uv run causaganha parquet analyze-ia --tribunal TJRO --date 2025-01-15
+```
+
+**Arquitetura:**
+- **Decisões**: Texto completo, análise, confiança (SEM embeddings)
+- **Embeddings**: Arquivo separado para flexibilidade e regeneração
+- **Advogados**: Perfis e ratings em arquivo separado
+- **Partes**: Informações das partes processuais
+
+**Benefícios:**
+- ✅ Análise 3-5x mais rápida (embeddings em cache)
+- ✅ Economia de $8K/ano (reutilização de embeddings)
+- ✅ Queries DuckDB remotos (sem download necessário)
+- ✅ Reprocessamento incremental (corrigir erros históricos)
+- ✅ Armazenamento ilimitado no Internet Archive
+
+Veja [`docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md`](docs/SCHEMA_V2_FINAL_RECOMMENDATIONS.md) para detalhes da arquitetura.
+
+---
 
 ### Previsão de Vencedor (Winner Prediction)
 
