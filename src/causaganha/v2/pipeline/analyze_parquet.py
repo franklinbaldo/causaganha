@@ -395,14 +395,14 @@ class ParquetAnalyzer:
             )
 
             intimation_ids = [d["intimation_id"] for d in batch]
-            pdf_urls = [d.get("link") for d in batch]
             texts = [d.get("texto", "") for d in batch]
 
             try:
                 analyses = []
 
                 if strategy == AnalysisStrategy.LLM:
-                    analyses = await analyzer.analyze_batch(pdf_urls, intimation_ids)
+                    # LLM now uses texto (no PDF needed!)
+                    analyses = await analyzer.analyze_batch(texts, intimation_ids, input_type="text")
                     usage_stats["llm_used"] += len(analyses)
                     usage_stats["total_cost"] += len(analyses) * 0.000420
 
@@ -412,10 +412,11 @@ class ParquetAnalyzer:
                     usage_stats["total_cost"] += len(analyses) * 0.000008
 
                 else:  # HYBRID
+                    # Hybrid uses texto for both RAG and LLM fallback (no PDF!)
                     analyses, batch_stats = await analyzer.analyze_batch(
                         texts,
                         intimation_ids,
-                        pdf_urls,
+                        pdf_urls=None,  # No PDFs needed anymore!
                     )
                     usage_stats["rag_used"] += batch_stats.get("rag_used", 0)
                     usage_stats["llm_used"] += batch_stats.get("llm_used", 0)
