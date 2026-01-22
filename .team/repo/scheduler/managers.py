@@ -314,7 +314,7 @@ class BranchManager:
                 subprocess.run(["git", "config", "user.email", "jules-bot@google.com"], check=False)
 
                 # Checkout main and merge
-                subprocess.run(  # noqa: S603
+                subprocess.run(
                     ["git", "checkout", "-B", "main", "origin/main"],
                     check=True,
                     capture_output=True,
@@ -324,7 +324,7 @@ class BranchManager:
                     check=True,
                     capture_output=True,
                 )
-                subprocess.run(  # noqa: S603
+                subprocess.run(
                     ["git", "push", "origin", "main"],
                     check=True,
                     capture_output=True,
@@ -384,7 +384,7 @@ class BranchManager:
 
             # 4. Recreate jules branch from main
             # Ensure we have latest main sha
-            sha_result = subprocess.run(  # noqa: S603
+            sha_result = subprocess.run(
                 ["git", "rev-parse", "origin/main"],
                 check=True,
                 capture_output=True,

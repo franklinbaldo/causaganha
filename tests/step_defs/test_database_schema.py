@@ -294,7 +294,7 @@ def n_exports_are_status_for_date(context, count, status, date):
                 'https://archive.org/details/causaganha-{date}-{tribunal}',
                 'causaganha-{date}-{tribunal}.parquet',
                 3000, 1.5, '{date} 02:15:30', '{status}',
-                {'NULL' if error_msg is None else f"'{error_msg}'"}
+                {"NULL" if error_msg is None else f"'{error_msg}'"}
             )
         """)
 

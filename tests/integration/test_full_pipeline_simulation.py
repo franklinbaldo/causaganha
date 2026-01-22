@@ -327,9 +327,9 @@ class TestFullPipelineSimulation:
             .execute()
         )
 
-        assert (
-            result["ia_url"].iloc[0] is None or result["ia_url"].isna().iloc[0]
-        ), "Intimation without link should not be archived"
+        assert result["ia_url"].iloc[0] is None or result["ia_url"].isna().iloc[0], (
+            "Intimation without link should not be archived"
+        )
 
     @pytest.mark.asyncio
     async def test_pipeline_dry_run_mode(

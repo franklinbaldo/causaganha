@@ -37,9 +37,8 @@ class TestGoogleEmbeddingProvider:
 
     def test_initialization_failure(self):
         """Test initialization fails without API key."""
-        with patch.dict("os.environ", clear=True):
-            with pytest.raises(ValueError):
-                GoogleProvider()
+        with patch.dict("os.environ", clear=True), pytest.raises(ValueError):
+            GoogleProvider()
 
     @pytest.mark.asyncio
     async def test_embed_text_success(self):

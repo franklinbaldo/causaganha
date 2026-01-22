@@ -158,10 +158,10 @@ def analyze(
 
                 if strategy in ["hybrid", "auto"]:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)",
+                        f"  RAG used: {result['rag_used']} ({result['rag_used'] / result['analyzed'] * 100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)",
+                        f"  LLM used: {result['llm_used']} ({result['llm_used'] / result['analyzed'] * 100:.1f}%)",
                     )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")

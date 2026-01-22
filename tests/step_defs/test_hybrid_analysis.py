@@ -436,9 +436,9 @@ def check_cost_savings(context, percentage):
     actual_savings = stats.get("savings_vs_llm", 0.0)
 
     variance = 5.0  # Allow 5% variance
-    assert (
-        abs(actual_savings - percentage) <= variance
-    ), f"Savings {actual_savings}% not approximately {percentage}%"
+    assert abs(actual_savings - percentage) <= variance, (
+        f"Savings {actual_savings}% not approximately {percentage}%"
+    )
 
 
 @then(parsers.parse("the RAG usage rate should be {percentage:d}%"))
@@ -450,9 +450,9 @@ def check_rag_usage_rate(context, percentage):
     actual_rate = (rag_used / total * 100) if total > 0 else 0.0
 
     variance = 5.0
-    assert (
-        abs(actual_rate - percentage) <= variance
-    ), f"RAG usage {actual_rate}% not approximately {percentage}%"
+    assert abs(actual_rate - percentage) <= variance, (
+        f"RAG usage {actual_rate}% not approximately {percentage}%"
+    )
 
 
 @then(parsers.parse("the LLM fallback rate should be {percentage:d}%"))
@@ -464,9 +464,9 @@ def check_llm_fallback_rate(context, percentage):
     actual_rate = (llm_used / total * 100) if total > 0 else 0.0
 
     variance = 5.0
-    assert (
-        abs(actual_rate - percentage) <= variance
-    ), f"LLM fallback {actual_rate}% not approximately {percentage}%"
+    assert abs(actual_rate - percentage) <= variance, (
+        f"LLM fallback {actual_rate}% not approximately {percentage}%"
+    )
 
 
 @then(parsers.parse("the average cost per decision should be approximately ${expected:f}"))
@@ -480,9 +480,9 @@ def check_avg_cost_per_decision(context, expected):
     actual_avg = total_cost / total if total > 0 else 0.0
 
     variance = expected * 0.05
-    assert (
-        abs(actual_avg - expected) <= variance
-    ), f"Avg cost ${actual_avg} not approximately ${expected}"
+    assert abs(actual_avg - expected) <= variance, (
+        f"Avg cost ${actual_avg} not approximately ${expected}"
+    )
 
 
 @then(parsers.parse('the analysis method should be "{method}"'))
@@ -542,9 +542,9 @@ def check_rag_confidence_field(context, confidence):
     result = context["analysis_result"]
     assert result.rag_confidence is not None, "RAG confidence not preserved"
     # Allow small variance
-    assert (
-        abs(result.rag_confidence - confidence) <= 0.1
-    ), f"RAG confidence {result.rag_confidence} not approximately {confidence}"
+    assert abs(result.rag_confidence - confidence) <= 0.1, (
+        f"RAG confidence {result.rag_confidence} not approximately {confidence}"
+    )
 
 
 @then("the rag_votes should be preserved")

@@ -391,9 +391,9 @@ def check_confidence_range(context, min_conf, max_conf):
     confidence = (
         result.confidence_score if hasattr(result, "confidence_score") else result["confidence"]
     )
-    assert (
-        min_conf <= confidence <= max_conf
-    ), f"Confidence {confidence} not in range [{min_conf}, {max_conf}]"
+    assert min_conf <= confidence <= max_conf, (
+        f"Confidence {confidence} not in range [{min_conf}, {max_conf}]"
+    )
 
 
 @then(parsers.parse("the confidence score should be less than {threshold:f}"))
@@ -438,9 +438,9 @@ def check_chunk_size(context, size):
             # Last chunk can be any size up to chunk_size
             assert len(chunk) <= size + 50, f"Last chunk {i} size {len(chunk)} exceeds {size}"
         else:
-            assert (
-                abs(len(chunk) - size) <= 50
-            ), f"Chunk {i} size {len(chunk)} not approximately {size}"
+            assert abs(len(chunk) - size) <= 50, (
+                f"Chunk {i} size {len(chunk)} not approximately {size}"
+            )
 
 
 @then("consecutive chunks should have overlapping content")
@@ -460,7 +460,7 @@ def check_chunk_overlap(context):
             current_end[j : j + 10] in next_start for j in range(0, len(current_end) - 10, 5)
         )
 
-        assert has_overlap, f"No overlap found between chunks {i} and {i+1}"
+        assert has_overlap, f"No overlap found between chunks {i} and {i + 1}"
 
 
 @then(parsers.parse("I should receive {count:d} embedding vectors"))
@@ -500,9 +500,9 @@ def check_cost(context, expected_cost):
     actual_cost = context.get("total_cost", 0.0)
     # Allow 1% variance
     variance = expected_cost * 0.01
-    assert (
-        abs(actual_cost - expected_cost) <= variance
-    ), f"Cost {actual_cost} not approximately ${expected_cost}"
+    assert abs(actual_cost - expected_cost) <= variance, (
+        f"Cost {actual_cost} not approximately ${expected_cost}"
+    )
 
 
 @then(parsers.parse("the cost per decision should be ${expected_per:f}"))
@@ -513,9 +513,9 @@ def check_cost_per_decision(context, expected_per):
     per_decision = total_cost / num_decisions if num_decisions > 0 else 0.0
 
     variance = expected_per * 0.01
-    assert (
-        abs(per_decision - expected_per) <= variance
-    ), f"Cost per decision {per_decision} not approximately ${expected_per}"
+    assert abs(per_decision - expected_per) <= variance, (
+        f"Cost per decision {per_decision} not approximately ${expected_per}"
+    )
 
 
 @then(parsers.parse("all {count:d} decisions should be classified"))

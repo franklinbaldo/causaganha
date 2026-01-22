@@ -98,8 +98,14 @@ warn_unused_configs = true
 
 [tool.ruff]
 target-version = "py311"
-line-length = 88
+line-length = 120
 
 [tool.ruff.lint]
+# Enable standard, useful rules
 select = ["E", "F", "I", "B", "UP"]
-ignore = []
+# Ignore conflicting rules or annoyances
+ignore = ["E501", "F841", "E402", "B904", "I001", "B008", "F821"]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow asserts and magic numbers in tests (recursive)
+"tests/**" = ["S101", "PLR2004"]

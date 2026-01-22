@@ -166,14 +166,13 @@ class TestUploadResilience:
             ia_service,
             "_sync_upload",
             return_value="https://archive.org/details/test",
-        ):
-            with patch("causaganha.infrastructure.clients.archive.logger") as mock_logger:
-                await ia_service.upload_file(
-                    temp_file,
-                    "test-item",
-                    {"title": "Test"},
-                )
-                assert mock_logger.info.called or mock_logger.debug.called
+        ), patch("causaganha.infrastructure.clients.archive.logger") as mock_logger:
+            await ia_service.upload_file(
+                temp_file,
+                "test-item",
+                {"title": "Test"},
+            )
+            assert mock_logger.info.called or mock_logger.debug.called
 
     @pytest.mark.asyncio
     async def test_upload_no_retry_on_fatal_error(

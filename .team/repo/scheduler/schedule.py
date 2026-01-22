@@ -253,16 +253,16 @@ def validate_and_fix(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
         # Fix sequence format
         seq = fixed_row["sequence"].strip()
         if not seq:
-            issues.append(f"Row {i+1}: Missing sequence, auto-generating")
-            seq = f"{len(fixed_rows)+1:03d}"
+            issues.append(f"Row {i + 1}: Missing sequence, auto-generating")
+            seq = f"{len(fixed_rows) + 1:03d}"
         elif not seq.isdigit():
-            issues.append(f"Row {i+1}: Invalid sequence '{seq}', fixing")
-            seq = f"{len(fixed_rows)+1:03d}"
+            issues.append(f"Row {i + 1}: Invalid sequence '{seq}', fixing")
+            seq = f"{len(fixed_rows) + 1:03d}"
         fixed_row["sequence"] = f"{int(seq):03d}"
 
         # Skip duplicate sequences
         if fixed_row["sequence"] in seen_sequences:
-            issues.append(f"Row {i+1}: Duplicate sequence {fixed_row['sequence']}, skipping")
+            issues.append(f"Row {i + 1}: Duplicate sequence {fixed_row['sequence']}, skipping")
             continue
         seen_sequences.add(fixed_row["sequence"])
 
@@ -274,19 +274,19 @@ def validate_and_fix(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
             # Check if persona exists in filesystem
             if not validate_persona_exists(persona):
                 issues.append(
-                    f"Row {i+1}: Persona '{persona}' not found in filesystem, marking as closed",
+                    f"Row {i + 1}: Persona '{persona}' not found in filesystem, marking as closed",
                 )
                 fixed_row["pr_status"] = "closed"
             # Warn if persona is not in rotation (but exists in filesystem)
             elif persona not in cycle_personas and persona not in EXCLUDED_PERSONAS:
-                issues.append(f"Row {i+1}: Persona '{persona}' exists but not in rotation")
+                issues.append(f"Row {i + 1}: Persona '{persona}' exists but not in rotation")
 
         fixed_row["persona"] = persona
 
         # Normalize pr_status
         status = fixed_row["pr_status"].strip().lower()
         if status and status not in ["draft", "open", "merged", "closed"]:
-            issues.append(f"Row {i+1}: Invalid pr_status '{status}', clearing")
+            issues.append(f"Row {i + 1}: Invalid pr_status '{status}', clearing")
             status = ""
         fixed_row["pr_status"] = status
 

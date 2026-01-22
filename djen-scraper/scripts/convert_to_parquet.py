@@ -65,7 +65,7 @@ def process_item(item_id: str) -> bool:
     date = parts[0]
     tribunal = parts[1]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Processing: {item_id}")
     print(f"  Date: {date}, Tribunal: {tribunal}")
 
@@ -98,17 +98,16 @@ def process_item(item_id: str) -> bool:
 
         with timed("extract+flatten"):
             total_records = 0
-            with zipfile.ZipFile(zip_path) as zf:
-                with open(ndjson_path, "w") as out:
-                    for name in zf.namelist():
-                        if name.endswith(".json"):
-                            with zf.open(name) as f:
-                                data = json.load(f)
-                                # Handle {count, items} wrapper
-                                items = data.get("items", [data] if "id" in data else [])
-                                for item in items:
-                                    out.write(json.dumps(item) + "\n")
-                                    total_records += 1
+            with zipfile.ZipFile(zip_path) as zf, open(ndjson_path, "w") as out:
+                for name in zf.namelist():
+                    if name.endswith(".json"):
+                        with zf.open(name) as f:
+                            data = json.load(f)
+                            # Handle {count, items} wrapper
+                            items = data.get("items", [data] if "id" in data else [])
+                            for item in items:
+                                out.write(json.dumps(item) + "\n")
+                                total_records += 1
 
             print(f"    Flattened {total_records} records to NDJSON")
 
@@ -358,7 +357,7 @@ def main():
 
     total_elapsed = time.time() - total_start
     avg_time = total_elapsed / len(items) if items else 0
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(
         f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)",
     )
