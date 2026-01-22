@@ -1,10 +1,12 @@
 """PJe Communications API client with httpx."""
 
 import os
-import httpx
 from datetime import date
-from pydantic import BaseModel, ConfigDict, Field
+
+import httpx
 import structlog
+from pydantic import BaseModel, ConfigDict, Field
+
 
 logger = structlog.get_logger()
 
@@ -202,7 +204,7 @@ class PJeAPIClient:
 
                 except httpx.HTTPStatusError as e:
                     if attempt == max_retries - 1:
-                        logger.error(
+                        logger.exception(
                             "api_request_failed_after_retries",
                             offset=offset,
                             error=str(e),
@@ -219,7 +221,7 @@ class PJeAPIClient:
                 except httpx.RequestError as e:
                     consecutive_errors += 1
                     if consecutive_errors >= max_retries:
-                        logger.error(
+                        logger.exception(
                             "too_many_consecutive_errors",
                             offset=offset,
                             error=str(e),
@@ -234,7 +236,8 @@ class PJeAPIClient:
                 logger.error("max_retries_exhausted", offset=offset)
                 if all_intimations:
                     return all_intimations
-                raise RuntimeError(f"Failed to fetch data at offset {offset}")
+                msg = f"Failed to fetch data at offset {offset}"
+                raise RuntimeError(msg)
 
             data = response.json()
 
