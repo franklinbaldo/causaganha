@@ -81,10 +81,38 @@ Generates semantic search queries based on metadata:
 
 ## Usage
 
-### Option 1: With Real Data (Recommended)
+### Option 1: With Real Data from Internet Archive (Recommended)
 
 ```bash
-# Run quality benchmark on your actual PJe data
+# Step 1: Download real data from Internet Archive
+uv run python scripts/download_real_data_from_ia.py \
+  --tribunal TJRO \
+  --limit 10 \
+  --db data/causaganha_real.duckdb
+
+# Step 2: Run quality benchmark on real data
+uv run python scripts/benchmark_embedding_quality.py \
+  --providers local jina \
+  --sample-size 200 \
+  --db data/causaganha_real.duckdb
+
+# Step 3: Run winner/loser accuracy benchmark
+uv run python scripts/benchmark_winner_loser_accuracy.py \
+  --providers local jina \
+  --sample-size 100 \
+  --db data/causaganha_real.duckdb
+```
+
+**Why use real data:**
+- Tests on actual Brazilian legal decisions from PJe API
+- Reflects real-world decision language and structure
+- More accurate quality metrics
+- Validates production readiness
+
+### Option 2: With Local Database (If Already Collecting Data)
+
+```bash
+# Run quality benchmark on your local database
 uv run python scripts/benchmark_embedding_quality.py \
   --providers local jina \
   --sample-size 200 \
@@ -92,14 +120,14 @@ uv run python scripts/benchmark_embedding_quality.py \
 ```
 
 **Requirements:**
-- Database must exist: `data/causaganha.duckdb`
-- Must have analyzed documents with metadata
+- Database must exist with analyzed documents
+- Must have metadata (decision_type, outcome, etc.)
 - Recommended: At least 100 documents with varied decision types
 
-### Option 2: With Synthetic Test Data
+### Option 3: With Synthetic Test Data (Development Only)
 
 ```bash
-# Generate test data (for development/testing)
+# Generate test data (for development/testing ONLY)
 uv run python scripts/generate_test_legal_data.py 200
 
 # Run benchmark on test data
@@ -110,9 +138,10 @@ uv run python scripts/benchmark_embedding_quality.py \
 ```
 
 **Use cases:**
-- Testing benchmark logic without real data
+- Testing benchmark logic without waiting for downloads
 - Development and iteration
 - CI/CD automated testing
+- ⚠️ **NOT for production validation** - use real data!
 
 ### Option 3: Quick Local-Only Test
 

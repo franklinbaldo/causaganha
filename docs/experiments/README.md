@@ -48,13 +48,30 @@ service = await EmbeddingService.create(provider="local")
 embedding = await service.embed_text("Sentença procedente.")
 ```
 
-**Benchmark Results:**
+**Benchmark With Real Data:**
 ```bash
-# Run full benchmark
-uv run python scripts/benchmark_embeddings.py --providers local --providers jina
+# Download real data from Internet Archive
+uv run python scripts/download_real_data_from_ia.py --tribunal TJRO --limit 10
 
-# Quick test
-uv run python scripts/benchmark_embeddings.py --providers local --sample-size 5
+# Run performance benchmark
+uv run python scripts/benchmark_embeddings.py --providers local jina
+
+# Run retrieval quality benchmark
+uv run python scripts/benchmark_embedding_quality.py \
+  --providers local jina \
+  --db data/causaganha_real.duckdb
+
+# Run winner/loser accuracy benchmark (YOUR USE CASE)
+uv run python scripts/benchmark_winner_loser_accuracy.py \
+  --providers local jina \
+  --db data/causaganha_real.duckdb
+```
+
+**Quick Test (Synthetic Data):**
+```bash
+# For development/testing only
+uv run python scripts/generate_test_legal_data.py 100
+uv run python scripts/benchmark_winner_loser_accuracy.py --db data/causaganha_test.duckdb
 ```
 
 ---
