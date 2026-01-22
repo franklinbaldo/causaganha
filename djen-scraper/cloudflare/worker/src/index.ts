@@ -4,10 +4,10 @@
  * Coleta comunicações do DJEN via bulk download (caderno)
  * Armazena ZIPs no R2 e estado no KV
  *
- * Estratégia: Download de cadernos completos
- * - Usa endpoint /api/v1/caderno/{tribunal}/{date}/D
- * - Baixa ZIP completo de cada tribunal (sem limite de 10k)
- * - Processa 1 tribunal por execução
+ * Estratégia:
+ * 1. Prioridade: D-1 (ontem) - sempre processa primeiro
+ * 2. Backfill: Após D-1 completo, volta no tempo até oldest_target
+ * 3. Download de cadernos completos (sem limite de 10k)
  */
 
 interface Env {
@@ -30,19 +30,26 @@ interface CadernoInfo {
 	url: string;
 }
 
+interface DayJob {
+	date: string;
+	status: 'in_progress' | 'complete';
+	tribunais_done: string[];
+	tribunais_pending: string[];
+	records: number;
+}
+
 interface State {
-	d1: {
-		date: string;
-		status: 'in_progress' | 'complete';
-		tribunais_done: string[];
-		tribunais_pending: string[];
-		records: number;
-	};
+	// Job atual (D-1 ou backfill)
+	current: DayJob;
+	// Modo: 'd1' = processando D-1, 'backfill' = processando histórico
+	mode: 'd1' | 'backfill';
+	// Backfill tracking
 	backfill: {
-		next_date: string | null;
 		oldest_target: string;
 		completed_dates: string[];
+		skipped_dates: string[]; // datas sem dados
 	};
+	// Stats globais
 	stats: {
 		total_records: number;
 		total_days_archived: number;
@@ -82,18 +89,29 @@ export default {
 		try {
 			const state = await loadState(env);
 
-			// Determinar próximo tribunal
-			const tribunal = getNextTribunal(state);
+			// Verificar se D-1 mudou (novo dia)
+			const yesterday = getDateString(-1);
+			if (state.mode === 'd1' && state.current.date !== yesterday) {
+				// Novo dia! Resetar para D-1
+				console.log(`📅 Novo dia detectado! Mudando de ${state.current.date} para ${yesterday}`);
+				state.current = createDayJob(yesterday);
+				state.mode = 'd1';
+			}
+
+			// Determinar próximo trabalho
+			const { date, tribunal } = getNextWork(state);
 
 			if (!tribunal) {
-				console.log('✅ Todos os tribunais processados para', state.d1.date);
+				console.log('✅ Nenhum trabalho pendente');
+				await env.DJEN_STATE.put('state', JSON.stringify(state));
 				return;
 			}
 
-			console.log(`📅 Date: ${state.d1.date} | 🏛️ Tribunal: ${tribunal}`);
+			const modeLabel = state.mode === 'd1' ? '🔴 D-1' : '🔵 Backfill';
+			console.log(`${modeLabel} | 📅 ${date} | 🏛️ ${tribunal}`);
 
 			// Buscar info do caderno
-			const cadernoInfo = await fetchCadernoInfo(env, state.d1.date, tribunal);
+			const cadernoInfo = await fetchCadernoInfo(env, date, tribunal);
 
 			if (!cadernoInfo) {
 				console.log(`⚠️ Caderno não disponível para ${tribunal}`);
@@ -104,7 +122,7 @@ export default {
 			console.log(`📦 Caderno: ${cadernoInfo.total_comunicacoes} comunicações, ${(cadernoInfo.tamanho_bytes / 1024 / 1024).toFixed(1)}MB`);
 
 			// Baixar e salvar ZIP no R2
-			await downloadAndSaveZip(env, state.d1.date, tribunal, cadernoInfo);
+			await downloadAndSaveZip(env, date, tribunal, cadernoInfo);
 
 			// Marcar tribunal como completo
 			await markTribunalDone(env, state, tribunal, cadernoInfo.total_comunicacoes);
@@ -144,26 +162,57 @@ export default {
 	}
 };
 
+function createDayJob(date: string): DayJob {
+	return {
+		date,
+		status: 'in_progress',
+		tribunais_done: [],
+		tribunais_pending: [...TRIBUNAIS],
+		records: 0
+	};
+}
+
 async function loadState(env: Env): Promise<State> {
 	const stored = await env.DJEN_STATE.get('state', 'json');
 
 	if (stored) {
-		return stored as State;
+		// Migrar estado antigo se necessário
+		const state = stored as any;
+		if (state.d1 && !state.current) {
+			// Migrar do formato antigo
+			return {
+				current: {
+					date: state.d1.date,
+					status: state.d1.status,
+					tribunais_done: state.d1.tribunais_done || [],
+					tribunais_pending: state.d1.tribunais_pending || [],
+					records: state.d1.records || 0
+				},
+				mode: 'd1',
+				backfill: {
+					oldest_target: state.backfill?.oldest_target || '2020-01-01',
+					completed_dates: state.backfill?.completed_dates || [],
+					skipped_dates: []
+				},
+				stats: state.stats || {
+					total_records: 0,
+					total_days_archived: 0,
+					last_run: new Date().toISOString(),
+					errors_today: 0
+				}
+			};
+		}
+		return state as State;
 	}
 
 	const yesterday = getDateString(-1);
 	return {
-		d1: {
-			date: yesterday,
-			status: 'in_progress',
-			tribunais_done: [],
-			tribunais_pending: [...TRIBUNAIS],
-			records: 0
-		},
+		current: createDayJob(yesterday),
+		mode: 'd1',
 		backfill: {
-			next_date: null,
 			oldest_target: '2020-01-01',
-			completed_dates: []
+			completed_dates: [],
+			skipped_dates: []
 		},
 		stats: {
 			total_records: 0,
@@ -174,33 +223,89 @@ async function loadState(env: Env): Promise<State> {
 	};
 }
 
-function getNextTribunal(state: State): string | null {
-	const yesterday = getDateString(-1);
-
-	// Se D-1 mudou, resetar
-	if (state.d1.date !== yesterday) {
-		state.d1 = {
-			date: yesterday,
-			status: 'in_progress',
-			tribunais_done: [],
-			tribunais_pending: [...TRIBUNAIS],
-			records: 0
+function getNextWork(state: State): { date: string; tribunal: string | null } {
+	// Se job atual tem tribunais pendentes, continuar
+	if (state.current.tribunais_pending.length > 0) {
+		return {
+			date: state.current.date,
+			tribunal: state.current.tribunais_pending[0]
 		};
 	}
 
-	// Se já completou
-	if (state.d1.status === 'complete') {
-		return null;
+	// Job atual completo
+	if (state.current.status !== 'complete') {
+		state.current.status = 'complete';
 	}
 
-	// Pegar próximo tribunal pendente
-	if (state.d1.tribunais_pending.length > 0) {
-		return state.d1.tribunais_pending[0];
+	// Se estava em D-1, iniciar backfill
+	if (state.mode === 'd1') {
+		// Adicionar D-1 às datas completas
+		if (!state.backfill.completed_dates.includes(state.current.date)) {
+			state.backfill.completed_dates.push(state.current.date);
+			state.stats.total_days_archived += 1;
+		}
+
+		// Encontrar próxima data para backfill (D-2, D-3, etc.)
+		const nextBackfillDate = findNextBackfillDate(state);
+
+		if (nextBackfillDate) {
+			console.log(`🔄 D-1 completo! Iniciando backfill: ${nextBackfillDate}`);
+			state.mode = 'backfill';
+			state.current = createDayJob(nextBackfillDate);
+			return {
+				date: nextBackfillDate,
+				tribunal: state.current.tribunais_pending[0]
+			};
+		} else {
+			console.log('🏆 Backfill completo até', state.backfill.oldest_target);
+			return { date: state.current.date, tribunal: null };
+		}
 	}
 
-	// Todos processados
-	state.d1.status = 'complete';
-	return null;
+	// Estava em backfill, encontrar próxima data
+	if (!state.backfill.completed_dates.includes(state.current.date)) {
+		state.backfill.completed_dates.push(state.current.date);
+		state.stats.total_days_archived += 1;
+	}
+
+	const nextBackfillDate = findNextBackfillDate(state);
+
+	if (nextBackfillDate) {
+		console.log(`🔄 Backfill: próxima data ${nextBackfillDate}`);
+		state.current = createDayJob(nextBackfillDate);
+		return {
+			date: nextBackfillDate,
+			tribunal: state.current.tribunais_pending[0]
+		};
+	}
+
+	console.log('🏆 Backfill completo!');
+	return { date: state.current.date, tribunal: null };
+}
+
+function findNextBackfillDate(state: State): string | null {
+	const yesterday = getDateString(-1);
+	const oldestTarget = new Date(state.backfill.oldest_target);
+	const allCompleted = new Set([
+		...state.backfill.completed_dates,
+		...state.backfill.skipped_dates
+	]);
+
+	// Começar de D-2 e ir para trás
+	let checkDate = new Date(yesterday);
+	checkDate.setDate(checkDate.getDate() - 1); // D-2
+
+	while (checkDate >= oldestTarget) {
+		const dateStr = checkDate.toISOString().split('T')[0];
+
+		if (!allCompleted.has(dateStr)) {
+			return dateStr;
+		}
+
+		checkDate.setDate(checkDate.getDate() - 1);
+	}
+
+	return null; // Backfill completo
 }
 
 async function fetchCadernoInfo(env: Env, date: string, tribunal: string): Promise<CadernoInfo | null> {
@@ -264,20 +369,19 @@ async function downloadAndSaveZip(env: Env, date: string, tribunal: string, info
 }
 
 async function markTribunalDone(env: Env, state: State, tribunal: string, recordCount: number): Promise<void> {
-	state.d1.tribunais_done.push(tribunal);
-	state.d1.tribunais_pending = state.d1.tribunais_pending.filter(t => t !== tribunal);
-	state.d1.records += recordCount;
+	state.current.tribunais_done.push(tribunal);
+	state.current.tribunais_pending = state.current.tribunais_pending.filter(t => t !== tribunal);
+	state.current.records += recordCount;
 	state.stats.total_records += recordCount;
 	state.stats.last_run = new Date().toISOString();
 
-	console.log(`🎉 ${tribunal} completo! Restam ${state.d1.tribunais_pending.length} tribunais`);
+	const remaining = state.current.tribunais_pending.length;
+	console.log(`🎉 ${tribunal} completo! Restam ${remaining} tribunais para ${state.current.date}`);
 
 	// Se não tem mais tribunais, dia completo
-	if (state.d1.tribunais_pending.length === 0) {
-		state.d1.status = 'complete';
-		state.backfill.completed_dates.push(state.d1.date);
-		state.stats.total_days_archived += 1;
-		console.log(`🏆 Dia ${state.d1.date} completo! Total: ${state.d1.records} comunicações`);
+	if (remaining === 0) {
+		state.current.status = 'complete';
+		console.log(`🏆 Dia ${state.current.date} completo! Total: ${state.current.records} comunicações`);
 	}
 
 	await env.DJEN_STATE.put('state', JSON.stringify(state));
