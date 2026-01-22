@@ -24,6 +24,8 @@ from rich.table import Table
 from causaganha.config import settings
 from causaganha.v2.analysis.embedding_service import EmbeddingService
 from causaganha.v2.analysis.heuristic_classifier import HeuristicClassifier
+from causaganha.v2.analysis.improved_rag_analyzer import ImprovedRAGAnalyzer
+from causaganha.v2.analysis.parquet_party_loader import ParquetPartyLoader
 from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.v2.analysis.situation_classifier import SituationClassifier
 
@@ -54,6 +56,8 @@ async def test_provider_accuracy(
     db_path: Path,
     use_heuristic: bool = False,
     use_situation: bool = False,
+    use_improved_rag: bool = False,
+    parquet_dir: Path | None = None,
 ) -> dict:
     """Test accuracy of a single provider against ground truth.
 
@@ -61,6 +65,10 @@ async def test_provider_accuracy(
         provider_name: Name of embedding provider (local, jina, google)
         ground_truth: List of documents with manual labels
         db_path: Path to DuckDB database with real data
+        use_heuristic: Use heuristic classifier
+        use_situation: Use situation classifier
+        use_improved_rag: Use improved RAG with structured party data
+        parquet_dir: Path to parquet directory (required for improved RAG)
 
     Returns:
         Dict with accuracy metrics and predictions
@@ -69,12 +77,14 @@ async def test_provider_accuracy(
         method = "Situation"
     elif use_heuristic:
         method = "Heuristic"
+    elif use_improved_rag:
+        method = "ImprovedRAG"
     else:
         method = "RAG"
 
     console.print(f"\n[cyan]Testing provider: {provider_name} ({method})[/cyan]")
 
-    # Initialize embedding service (only needed for RAG/Heuristic)
+    # Initialize embedding service (only needed for RAG/Heuristic/ImprovedRAG)
     if not use_situation:
         service = await EmbeddingService.create(provider=provider_name)
         console.print(f"  • Model: {service.model.name} ({service.model.dimension}D)")
@@ -86,6 +96,15 @@ async def test_provider_accuracy(
         situation_classifier = SituationClassifier()
     elif use_heuristic:
         classifier = HeuristicClassifier(embedding_service=service)
+    elif use_improved_rag:
+        if not parquet_dir:
+            raise ValueError("parquet_dir is required for improved RAG")
+        party_loader = ParquetPartyLoader(parquet_dir)
+        improved_rag_analyzer = ImprovedRAGAnalyzer(
+            embedding_service=service,
+            party_loader=party_loader,
+        )
+        console.print(f"  • Parquet dir: {parquet_dir}")
     else:
         rag_analyzer = RAGAnalyzer(embedding_service=service)
 
@@ -123,13 +142,20 @@ async def test_provider_accuracy(
 
             texto = row[0]
 
-            # Run analysis (RAG, Heuristic, or Situation)
+            # Run analysis (RAG, Heuristic, Situation, or ImprovedRAG)
             try:
                 if use_situation:
                     prediction = situation_classifier.predict(texto)
                     predicted_outcome = prediction.outcome
                 elif use_heuristic:
                     prediction = await classifier.predict(texto)
+                    predicted_outcome = prediction.outcome
+                elif use_improved_rag:
+                    # Improved RAG needs comunicacao_id for party lookup
+                    prediction = await improved_rag_analyzer.analyze(
+                        comunicacao_id=intimation_id,
+                        texto=texto,
+                    )
                     predicted_outcome = prediction.outcome
                 else:
                     analysis = await rag_analyzer.analyze_text(texto)
@@ -203,6 +229,12 @@ def main(
         "-s",
         help="Use situation-based classifier (most accurate)",
     ),
+    use_improved_rag: bool = typer.Option(
+        False,
+        "--improved-rag",
+        "-i",
+        help="Use improved RAG with structured party data",
+    ),
     ground_truth_file: str = typer.Option(
         str(settings.DATA_DIR / "ground_truth_labels.json"),
         "--ground-truth",
@@ -214,6 +246,11 @@ def main(
         "--db",
         "-d",
         help="Path to DuckDB database with real data",
+    ),
+    parquet_dir: str = typer.Option(
+        str(settings.DATA_DIR / "ia_cache" / "djen-parquet-2026-01-21-TRF4"),
+        "--parquet-dir",
+        help="Path to DJEN parquet directory (for improved RAG)",
     ),
     output_file: str = typer.Option(
         str(settings.DATA_DIR / "accuracy_results.json"),
@@ -260,6 +297,8 @@ def main(
                     db_path=Path(db_path),
                     use_heuristic=use_heuristic,
                     use_situation=use_situation,
+                    use_improved_rag=use_improved_rag,
+                    parquet_dir=Path(parquet_dir) if use_improved_rag else None,
                 )
                 results.append(result)
             except Exception as e:
