@@ -8,6 +8,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from html import unescape
 import duckdb
 
 # Paths
@@ -58,17 +59,26 @@ OUTCOME_PATTERNS = {
 
 def extract_outcome(texto: str, intimation_id: str) -> dict:
     """Extract outcome from decision text."""
-    texto_lower = texto.lower()
+    # Decode HTML entities (e.g., &ccedil; -> ç, &atilde; -> ã)
+    texto_clean = unescape(texto)
+
+    # Remove HTML tags
+    texto_clean = re.sub(r'<[^>]+>', ' ', texto_clean)
+
+    # Clean up whitespace
+    texto_clean = re.sub(r'\s+', ' ', texto_clean).strip()
+
+    texto_lower = texto_clean.lower()
 
     # Try to find outcome patterns
     for outcome, patterns in OUTCOME_PATTERNS.items():
         for pattern in patterns:
             match = re.search(pattern, texto_lower, re.IGNORECASE)
             if match:
-                # Extract phrase with context
+                # Extract phrase with context from cleaned text
                 start = max(0, match.start() - 20)
-                end = min(len(texto), match.end() + 80)
-                phrase = texto[start:end].strip()
+                end = min(len(texto_clean), match.end() + 80)
+                phrase = texto_clean[start:end].strip()
 
                 # Clean up phrase (remove extra whitespace)
                 phrase = re.sub(r'\s+', ' ', phrase)

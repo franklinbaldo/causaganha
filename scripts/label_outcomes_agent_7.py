@@ -30,6 +30,29 @@ def load_document_ids():
     return my_ids
 
 
+def strip_html(text):
+    """Remove HTML tags from text."""
+    import re
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # Replace HTML entities
+    text = text.replace('&nbsp;', ' ')
+    text = text.replace('&quot;', '"')
+    text = text.replace('&apos;', "'")
+    text = text.replace('&lt;', '<')
+    text = text.replace('&gt;', '>')
+    text = text.replace('&amp;', '&')
+    text = text.replace('&oacute;', 'ó')
+    text = text.replace('&atilde;', 'ã')
+    text = text.replace('&ccedil;', 'ç')
+    text = text.replace('&eacute;', 'é')
+    text = text.replace('&iacute;', 'í')
+    text = text.replace('&uacute;', 'ú')
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
 def extract_outcome(texto, intimation_id):
     """
     Extract outcome from decision text.
@@ -44,8 +67,9 @@ def extract_outcome(texto, intimation_id):
             "outcome_phrase": "No text available"
         }
 
-    # Normalize text for pattern matching
-    texto_lower = texto.lower()
+    # Strip HTML and normalize text for pattern matching
+    texto_clean = strip_html(texto)
+    texto_lower = texto_clean.lower()
 
     # Pattern 1: Julgo procedente/improcedente
     if re.search(r'julgo\s+procedente', texto_lower):
