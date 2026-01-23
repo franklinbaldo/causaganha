@@ -10,9 +10,9 @@ from causaganha.application.pipeline.analyze import run_analysis
 from causaganha.application.pipeline.archive import run_archive
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
-from causaganha.domain.models import Intimation
 from causaganha.clients.archive import InternetArchiveService
 from causaganha.clients.document import DocumentService
+from causaganha.domain.models import Intimation
 from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
@@ -127,7 +127,7 @@ class TestFullPipelineSimulation:
         # STEP 1: COLLECT - Simulate PJe API
         # ==========================================
         with patch.object(
-            PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock
+            PJeAPIClient, "get_intimations_by_court", new_callable=AsyncMock,
         ) as mock_api:
             mock_api.return_value = realistic_intimation_data
 
@@ -158,7 +158,7 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService, "upload_file", new_callable=AsyncMock,
             ) as mock_upload,
         ):
             # Mock PDF download
@@ -300,7 +300,7 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService, "upload_file", new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = mock_pdf_content
@@ -339,7 +339,7 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService, "upload_file", new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = mock_pdf_content
@@ -396,7 +396,7 @@ class TestFullPipelineSimulation:
         with (
             patch.object(DocumentService, "download_pdf", new_callable=AsyncMock) as mock_download,
             patch.object(
-                InternetArchiveService, "upload_file", new_callable=AsyncMock
+                InternetArchiveService, "upload_file", new_callable=AsyncMock,
             ) as mock_upload,
         ):
             mock_download.return_value = b"fake pdf"

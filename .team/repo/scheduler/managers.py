@@ -216,11 +216,11 @@ class BranchManager:
                 capture_output=True,
             )
             subprocess.run(
-                ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True
-            )  # noqa: S607
+                ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True,
+            )
             subprocess.run(
-                ["git", "push", "origin", self.team_branch], check=True, capture_output=True
-            )  # noqa: S603, S607
+                ["git", "push", "origin", self.team_branch], check=True, capture_output=True,
+            )
             return True
         except subprocess.CalledProcessError as e:
             e.stderr.decode() if isinstance(e.stderr, bytes) else (e.stderr or "")
@@ -505,7 +505,7 @@ class PRManager:
         # GraphQL: CLEAN, BEHIND, BLOCKED, etc.
         # REST API: clean, behind, dirty, unstable, blocked, unknown
         state_status = pr_details.get("mergeStateStatus", "") or pr_details.get(
-            "mergeable_state", ""
+            "mergeable_state", "",
         )
         state_status_upper = state_status.upper() if state_status else ""
 
@@ -590,7 +590,7 @@ class PRManager:
                 return
             except subprocess.CalledProcessError:
                 print(
-                    f"      ⚠️ Rebase merge failed for PR #{pr_number}, falling back to standard merge..."
+                    f"      ⚠️ Rebase merge failed for PR #{pr_number}, falling back to standard merge...",
                 )
 
             # Fallback: Standard Merge
@@ -680,7 +680,7 @@ class PRManager:
                     check=True,
                 )
                 file_count = len(
-                    [line for line in diff_tree_result.stdout.strip().split("\n") if line]
+                    [line for line in diff_tree_result.stdout.strip().split("\n") if line],
                 )
                 commits_ahead = file_count  # Use file count as proxy when no merge-base
             else:
@@ -741,7 +741,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
             return None
 
     def find_by_session_id(
-        self, open_prs: list[dict[str, Any]], session_id: str
+        self, open_prs: list[dict[str, Any]], session_id: str,
     ) -> dict[str, Any] | None:
         """Find a PR matching the given session ID.
 
@@ -762,7 +762,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
         return None
 
     def reconcile_all_jules_prs(
-        self, client: TeamClient, repo_info: dict[str, Any], dry_run: bool = False
+        self, client: TeamClient, repo_info: dict[str, Any], dry_run: bool = False,
     ) -> list[dict]:
         """Overseer: Auto-merge Jules PRs (oldest first), return conflicts for Weaver.
 
@@ -837,7 +837,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                             session = client.get_session(session_id)
                             if session.get("state") == "COMPLETED":
                                 print(
-                                    f"      ✅ Session {session_id} is COMPLETED. Marking PR as ready..."
+                                    f"      ✅ Session {session_id} is COMPLETED. Marking PR as ready...",
                                 )
                                 if not dry_run:
                                     self.mark_ready(pr_number)
@@ -861,7 +861,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                                 if only_jules_files:
                                     # Safe to force-accept new changes, but preserve history!
                                     print(
-                                        "      🔄 PR only touches .team/ files - resolving conflict favoring PR..."
+                                        "      🔄 PR only touches .team/ files - resolving conflict favoring PR...",
                                     )
                                     try:
                                         # 1. Checkout the PR branch
@@ -900,7 +900,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
 
                                         # 4. Push the resolved branch back to origin
                                         subprocess.run(
-                                            ["git", "push"], check=True, capture_output=True
+                                            ["git", "push"], check=True, capture_output=True,
                                         )
 
                                         # 5. Now perform a standard merge (preserves history)
@@ -917,7 +917,7 @@ This PR contains accumulated work from the Jules autonomous development cycle.
                                             capture_output=True,
                                         )
                                         print(
-                                            f"      ✅ Resolved & Merged PR #{pr_number} (history preserved)"
+                                            f"      ✅ Resolved & Merged PR #{pr_number} (history preserved)",
                                         )
 
                                     except Exception as e2:
@@ -999,7 +999,7 @@ class CycleStateManager:
             # If not in open PRs, check all states
             if not pr:
                 pr = get_pr_by_session_id_any_state(
-                    repo_info["owner"], repo_info["repo"], session_id
+                    repo_info["owner"], repo_info["repo"], session_id,
                 )
 
             if not pr:
@@ -1117,7 +1117,7 @@ class SessionOrchestrator:
                 ]:
                     session_id = session.get("name", "").split("/")[-1]
                     print(
-                        f"   🔄 Reusing existing active session for {request.persona_id}: {session_id} ({state})"
+                        f"   🔄 Reusing existing active session for {request.persona_id}: {session_id} ({state})",
                     )
                     return session_id
         except Exception as e:
@@ -1243,7 +1243,7 @@ class ReconciliationManager:
         # Get the PR diff
         gh_client = GitHubClient()
         diff = gh_client.get_pr_diff(
-            self.repo_info["owner"], self.repo_info["repo"], drift_pr_number
+            self.repo_info["owner"], self.repo_info["repo"], drift_pr_number,
         )
 
         if not diff:

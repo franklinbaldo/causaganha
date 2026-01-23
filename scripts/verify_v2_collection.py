@@ -57,7 +57,7 @@ async def main() -> None:
             if "403" in error_msg or "Forbidden" in error_msg:
                 logger.warning("geo_blocking_detected", error=error_msg)
                 print(
-                    f"⚠️ Geo-blocking detected: {error_msg}. This is expected in some environments."
+                    f"⚠️ Geo-blocking detected: {error_msg}. This is expected in some environments.",
                 )
             else:
                 logger.error("collection_failed_unexpectedly", error=error_msg)

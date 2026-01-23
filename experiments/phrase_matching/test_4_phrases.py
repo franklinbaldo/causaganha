@@ -85,7 +85,7 @@ def main():
             f"[yellow]UNKNOWN:[/yellow] {frases['UNKNOWN']}\n\n"
             f"[cyan]PARTIAL:[/cyan] {frases['PARTIAL']}",
             title="4 Frases de Referência",
-        )
+        ),
     )
 
     # Gerar embeddings das frases-chave
@@ -144,7 +144,7 @@ def main():
                 "scores": max_similarities,
                 "max_score": max_score,
                 "acertou": acertou,
-            }
+            },
         )
 
     # Calcular acurácia
@@ -223,7 +223,7 @@ def main():
             f"[bold]Veredicto:[/bold] "
             f"{'✅ Funciona muito bem!' if acuracia >= 70 else '⚠️ Melhor que 2 frases mas ainda abaixo do RAG'}",
             title="📊 Resultado Final",
-        )
+        ),
     )
 
     conn.close()

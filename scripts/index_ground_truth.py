@@ -88,7 +88,7 @@ def main():
 
     if not ground_truth:
         console.print(
-            "[red]Erro: Nenhum dado em ground_truth. Execute prepare_ground_truth.py primeiro[/red]"
+            "[red]Erro: Nenhum dado em ground_truth. Execute prepare_ground_truth.py primeiro[/red]",
         )
         return
 
@@ -124,7 +124,7 @@ def main():
                     "chunk_index": chunk_idx,
                     "chunk_text": prefixed_chunk,  # Armazenar com prefixo
                     "vector": embedding,
-                }
+                },
             )
 
             total_chunks += 1

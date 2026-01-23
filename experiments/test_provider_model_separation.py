@@ -33,7 +33,7 @@ async def test_provider_model_separation():
     all_models = list_models()
     for model in all_models:
         print(
-            f"  {model.provider:6s} | {model.name:25s} | {model.dimension:4d}D | {model.max_tokens:6,d} tokens"
+            f"  {model.provider:6s} | {model.name:25s} | {model.dimension:4d}D | {model.max_tokens:6,d} tokens",
         )
     print()
 

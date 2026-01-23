@@ -85,7 +85,7 @@ Execute your normal persona responsibilities as defined in your prompt.
 """
         if next_plans:
             prompt += "\n".join(
-                [f"- `.team/sprints/sprint-{next_sprint}/{plan}`" for plan in next_plans]
+                [f"- `.team/sprints/sprint-{next_sprint}/{plan}`" for plan in next_plans],
             )
         else:
             prompt += f"(No plans created yet for sprint-{next_sprint})"
@@ -96,7 +96,7 @@ Execute your normal persona responsibilities as defined in your prompt.
 """
         if plus_2_plans:
             prompt += "\n".join(
-                [f"- `.team/sprints/sprint-{plus_2}/{plan}`" for plan in plus_2_plans]
+                [f"- `.team/sprints/sprint-{plus_2}/{plan}`" for plan in plus_2_plans],
             )
         else:
             prompt += f"(No plans created yet for sprint-{plus_2})"

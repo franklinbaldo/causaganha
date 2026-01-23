@@ -1,13 +1,13 @@
 """Tests for Internet Archive Parquet Downloader."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from causaganha.pipeline.ia_download import (
-    IAParquetDownloader,
     DownloadConfig,
+    IAParquetDownloader,
 )
 
 

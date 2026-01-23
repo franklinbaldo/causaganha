@@ -171,7 +171,7 @@ def get_next_sequence(rows: list[dict[str, Any]], current: dict[str, Any]) -> di
 
 
 def update_sequence(
-    rows: list[dict[str, Any]], sequence: str, **updates: Any
+    rows: list[dict[str, Any]], sequence: str, **updates: Any,
 ) -> list[dict[str, Any]]:
     """Update fields for a specific sequence."""
     for row in rows:
@@ -227,7 +227,7 @@ def auto_extend(rows: list[dict[str, Any]], count: int = 50) -> list[dict[str, A
                 "pr_number": "",
                 "pr_status": "",
                 "base_commit": "",
-            }
+            },
         )
         added += 1
 
@@ -272,7 +272,7 @@ def validate_and_fix(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
             # Check if persona exists in filesystem
             if not validate_persona_exists(persona):
                 issues.append(
-                    f"Row {i+1}: Persona '{persona}' not found in filesystem, marking as closed"
+                    f"Row {i+1}: Persona '{persona}' not found in filesystem, marking as closed",
                 )
                 fixed_row["pr_status"] = "closed"
             # Warn if persona is not in rotation (but exists in filesystem)
@@ -376,7 +376,7 @@ def register_oracle_session(session_id: str) -> None:
             "session_id": session_id,
             "created_at": datetime.now(UTC).isoformat(),
             "status": "active",
-        }
+        },
     )
 
     save_oracle_schedule(rows)
@@ -450,7 +450,7 @@ def list_recent_sessions(limit: int = 20) -> None:
         sessions = sessions_data.get("sessions", [])
 
         print(
-            f"\n{'Seq':<5} {'Session ID':<10} {'Persona':<15} {'State':<15} {'Base':<8} {'PR':<5}"
+            f"\n{'Seq':<5} {'Session ID':<10} {'Persona':<15} {'State':<15} {'Base':<8} {'PR':<5}",
         )
         print("-" * 70)
 
@@ -485,7 +485,7 @@ def list_recent_sessions(limit: int = 20) -> None:
                 pr_number = "N/A"
 
             print(
-                f"{seq:<5} {session_short:<10} {persona:<15} {state:<15} {base_commit:<8} {pr_number:<5}"
+                f"{seq:<5} {session_short:<10} {persona:<15} {state:<15} {base_commit:<8} {pr_number:<5}",
             )
 
     except Exception as e:
@@ -577,13 +577,13 @@ def main() -> None:
     parser.add_argument("--extend", type=int, help="Add N more rows to the schedule")
     parser.add_argument("--show", action="store_true", help="Show current schedule status")
     parser.add_argument(
-        "--list-sessions", action="store_true", help="List recent sessions from Jules API"
+        "--list-sessions", action="store_true", help="List recent sessions from Jules API",
     )
     parser.add_argument(
-        "--sync-states", action="store_true", help="Sync session states from Jules API"
+        "--sync-states", action="store_true", help="Sync session states from Jules API",
     )
     parser.add_argument(
-        "--health", action="store_true", help="Run health check on persona configuration"
+        "--health", action="store_true", help="Run health check on persona configuration",
     )
     args = parser.parse_args()
 
@@ -609,7 +609,7 @@ def main() -> None:
         print(f"Schedule: {len(rows)} total rows, {remaining} not started")
         if current:
             print(
-                f"Current: [{current['sequence']}] {current['persona']} - {current['pr_status'] or 'not started'}"
+                f"Current: [{current['sequence']}] {current['persona']} - {current['pr_status'] or 'not started'}",
             )
 
     if args.list_sessions:

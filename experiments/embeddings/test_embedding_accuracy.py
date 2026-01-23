@@ -187,7 +187,7 @@ async def test_embedding_accuracy():
     mismatches = [r for r in results if not r["match"]]
     if mismatches:
         console.print(
-            f"\n[bold yellow]⚠️  Análise de {len(mismatches)} Discrepâncias:[/bold yellow]\n"
+            f"\n[bold yellow]⚠️  Análise de {len(mismatches)} Discrepâncias:[/bold yellow]\n",
         )
 
         for i, result in enumerate(mismatches[:5], 1):

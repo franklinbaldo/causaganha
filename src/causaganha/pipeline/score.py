@@ -78,7 +78,7 @@ async def calculate_ratings(
                 # Create rating objects
                 if winner_data:
                     winner_rating = create_rating(
-                        model, mu=winner_data["mu"], sigma=winner_data["sigma"]
+                        model, mu=winner_data["mu"], sigma=winner_data["sigma"],
                     )
                     winner_wins = winner_data["wins"]
                     winner_losses = winner_data["losses"]
@@ -89,7 +89,7 @@ async def calculate_ratings(
 
                 if loser_data:
                     loser_rating = create_rating(
-                        model, mu=loser_data["mu"], sigma=loser_data["sigma"]
+                        model, mu=loser_data["mu"], sigma=loser_data["sigma"],
                     )
                     loser_wins = loser_data["wins"]
                     loser_losses = loser_data["losses"]

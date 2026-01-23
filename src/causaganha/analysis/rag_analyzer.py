@@ -219,7 +219,7 @@ class RAGAnalyzer:
 
             # Average similarity scores for the winning outcome
             avg_score = np.mean(
-                [c["score"] for c in chunk_classifications if c["outcome"] == final_outcome]
+                [c["score"] for c in chunk_classifications if c["outcome"] == final_outcome],
             )
 
             # Combine vote confidence and similarity score

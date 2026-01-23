@@ -20,7 +20,7 @@ def test_is_persona_pleaded_valid_plead(gov):
     with patch("subprocess.run") as mock_run:
         # Mock persona has a plead commit
         mock_run.return_value = MagicMock(
-            stdout="hash2 [PLEAD] artisan\nhash1 initial\n", returncode=0
+            stdout="hash2 [PLEAD] artisan\nhash1 initial\n", returncode=0,
         )
         assert gov.is_persona_pleaded("artisan") is True
 

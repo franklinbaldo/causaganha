@@ -111,7 +111,7 @@ class SessionManager:
                     "context": self.session_data,
                 },
                 indent=2,
-            )
+            ),
         )
 
         # Create STOP file

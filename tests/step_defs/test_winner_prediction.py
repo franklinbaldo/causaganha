@@ -50,7 +50,7 @@ def mock_analyzer():
             confidence_score=0.9,
             decision_reasoning="Reasoning",
             winner_party_name="Plaintiff Party",  # Matches bootstrap logic
-        )
+        ),
     )
     return analyzer
 
@@ -115,7 +115,7 @@ def db_contains_decisions(context, mock_repositories, count):
                 "decision_reasoning": f"Reasoning {i}",
                 "summary": f"Summary {i}",
                 "winner_party_name": "Plaintiff Party",
-            }
+            },
         )
 
     # Mock the ibis table query for bootstrap

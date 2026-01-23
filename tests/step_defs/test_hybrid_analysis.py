@@ -43,7 +43,7 @@ def test_method_usage_stats():
 
 
 @scenario(
-    "../features/hybrid_analysis.feature", "Hybrid strategy without PDF URL falls back gracefully"
+    "../features/hybrid_analysis.feature", "Hybrid strategy without PDF URL falls back gracefully",
 )
 def test_no_pdf_graceful_fallback():
     """Test hybrid strategy without PDF URL."""
@@ -65,7 +65,7 @@ def test_default_strategy():
 
 
 @scenario(
-    "../features/hybrid_analysis.feature", "Store RAG confidence even when using LLM fallback"
+    "../features/hybrid_analysis.feature", "Store RAG confidence even when using LLM fallback",
 )
 def test_preserve_rag_confidence():
     """Test that RAG confidence is preserved in hybrid results."""
