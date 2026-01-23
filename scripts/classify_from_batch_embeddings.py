@@ -111,7 +111,7 @@ def main():
             embeddings_data.append(record)
 
     console.print(
-        f"[green]✓ Carregados embeddings para {len(embeddings_data):,} decisões[/green]\n"
+        f"[green]✓ Carregados embeddings para {len(embeddings_data):,} decisões[/green]\n",
     )
 
     # Processar classificações
@@ -135,7 +135,7 @@ def main():
                     "outcome": prediction["outcome"],
                     "confidence": prediction["confidence"],
                     "votes": prediction["votes"],
-                }
+                },
             )
 
             outcome_counts[prediction["outcome"]] += 1
@@ -222,7 +222,7 @@ def main():
             f"[bold]Custo por Classificação:[/bold] ${0.045 / total_classified:.6f}\n"
             f"[bold]Economia vs LLM:[/bold] 98.1% (${2.43 - 0.045:.2f} economizados)",
             title="✓ Processamento Completo",
-        )
+        ),
     )
 
     # Comparação com ground truth se disponível

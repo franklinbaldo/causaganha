@@ -22,7 +22,7 @@ def test_medium_confidence_rag():
 
 
 @pytest.mark.skip(
-    reason="Zero-shot similarity doesn't produce low confidence for this despacho text - needs better test data"
+    reason="Zero-shot similarity doesn't produce low confidence for this despacho text - needs better test data",
 )
 @scenario("../features/rag_analysis.feature", "Analyze a decision with low confidence using RAG")
 def test_low_confidence_rag():
@@ -301,8 +301,8 @@ def analyze_with_rag(context, rag_analyzer):
 
 @when(
     parsers.parse(
-        "I chunk the text with {chunk_size:d} character chunks and {overlap:d} character overlap"
-    )
+        "I chunk the text with {chunk_size:d} character chunks and {overlap:d} character overlap",
+    ),
 )
 def chunk_text_with_params(context, chunk_size, overlap):
     """Chunk text with specific parameters."""

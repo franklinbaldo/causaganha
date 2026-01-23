@@ -9,9 +9,9 @@ import pytest
 from causaganha.application.pipeline.analyze import run_analysis
 from causaganha.application.pipeline.collect import run_collection
 from causaganha.application.pipeline.score import run_scoring
+from causaganha.clients.document import DocumentService
 from causaganha.domain.models_analysis import DecisionAnalysis
 from causaganha.infrastructure.ai.analyzer import DecisionAnalyzer
-from causaganha.clients.document import DocumentService
 from causaganha.infrastructure.integrations.pje.client import PJeAPIClient
 from causaganha.infrastructure.storage.connection import get_connection
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository

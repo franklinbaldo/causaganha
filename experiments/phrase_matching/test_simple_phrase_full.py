@@ -81,7 +81,7 @@ def main():
             f"[cyan]Frase AUTOR VENCEU:[/cyan]\n{frases['AUTOR_VENCEU']}\n\n"
             f"[yellow]Frase RÉU VENCEU:[/yellow]\n{frases['REU_VENCEU']}",
             title="Frases de Referência",
-        )
+        ),
     )
 
     # Gerar embeddings das frases-chave
@@ -128,11 +128,11 @@ def main():
 
         # Calcular similaridade máxima com cada frase
         max_sim_autor = max(
-            [cosine_similarity(chunk_emb, emb_autor_venceu) for chunk_emb in chunk_embeddings]
+            [cosine_similarity(chunk_emb, emb_autor_venceu) for chunk_emb in chunk_embeddings],
         )
 
         max_sim_reu = max(
-            [cosine_similarity(chunk_emb, emb_reu_venceu) for chunk_emb in chunk_embeddings]
+            [cosine_similarity(chunk_emb, emb_reu_venceu) for chunk_emb in chunk_embeddings],
         )
 
         # Classificar baseado na maior similaridade
@@ -162,7 +162,7 @@ def main():
                 "sim_reu": max_sim_reu,
                 "diff": diff,
                 "acertou": acertou,
-            }
+            },
         )
 
     # Calcular acurácia
@@ -244,7 +244,7 @@ def main():
             f"[bold]Veredicto:[/bold] "
             f"{'✅ Simples e eficaz!' if acuracia >= 70 else '⚠️ Precisa melhorar para UNKNOWN/PARTIAL'}",
             title="📊 Resultado Final",
-        )
+        ),
     )
 
     conn.close()

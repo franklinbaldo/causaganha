@@ -158,7 +158,7 @@ def parse_prompt_file(filepath: Path, context: dict) -> dict:
     full_context["journal_management"] = env.from_string(JOURNAL_MANAGEMENT).render(**full_context)
     full_context["empty_queue_celebration"] = env.from_string(CELEBRATION).render(**full_context)
     full_context["pre_commit_instructions"] = env.from_string(PRE_COMMIT_INSTRUCTIONS).render(
-        **full_context
+        **full_context,
     )
 
     # Add sprint context to the body
@@ -304,7 +304,7 @@ def get_last_cycle_session(
 
 
 def _get_pr_by_session_id_any_state(
-    owner: str, repo: str, session_id: str
+    owner: str, repo: str, session_id: str,
 ) -> dict[str, Any] | None:
     """Proxy to allow monkeypatching in the compatibility scheduler."""
     scheduler_module = sys.modules.get("repo.scheduler")
@@ -399,7 +399,7 @@ def is_scheduled_drifted() -> bool:
         )
         if result.returncode == 1:
             print(
-                f"Drift detected: Conflicting changes between 'origin/{JULES_BRANCH}' and 'origin/main'."
+                f"Drift detected: Conflicting changes between 'origin/{JULES_BRANCH}' and 'origin/main'.",
             )
             return True
         if result.returncode > 1:
@@ -477,7 +477,7 @@ def update_scheduled_from_main() -> bool:
         )
         print(f"Merging origin/main into '{JULES_BRANCH}'...")
         subprocess.run(
-            ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True
+            ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True,
         )
         subprocess.run(["git", "push", "origin", JULES_BRANCH], check=True, capture_output=True)
         print(f"Successfully updated '{JULES_BRANCH}' from main.")
@@ -617,7 +617,7 @@ def run_cycle_step(
             print(f"Next persona: {next_entry['id']}. Starting from '{JULES_BRANCH}'.")
         else:
             merged_pr = _get_pr_by_session_id_any_state(
-                repo_info["owner"], repo_info["repo"], last_session_id
+                repo_info["owner"], repo_info["repo"], last_session_id,
             )
             if merged_pr and merged_pr.get("mergedAt"):
                 base_pr_number = str(merged_pr.get("number", ""))
@@ -648,7 +648,7 @@ def run_cycle_step(
                     if state == "CANCELLED":
                         # CANCELLED means intentionally stopped - skip to next persona
                         print(
-                            f"Session {last_session_id} was cancelled. Advancing to next persona."
+                            f"Session {last_session_id} was cancelled. Advancing to next persona.",
                         )
                         if last_pid in cycle_ids:
                             idx = cycle_ids.index(last_pid)
@@ -691,7 +691,7 @@ def run_cycle_step(
                         return  # Wait for nudge to take effect
                     else:
                         print(
-                            f"PR for session {last_session_id} not found. Session state: {state}. Waiting."
+                            f"PR for session {last_session_id} not found. Session state: {state}. Waiting.",
                         )
                         return
                 except Exception as e:

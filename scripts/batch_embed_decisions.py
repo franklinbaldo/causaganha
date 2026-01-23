@@ -116,7 +116,7 @@ def main():
             f"[green]Analisadas (LLM):[/green] {analyzed:,}\n"
             f"[yellow]Restantes:[/yellow] {remaining:,}",
             title="Status do Banco",
-        )
+        ),
     )
 
     if remaining == 0:
@@ -192,7 +192,7 @@ def main():
     # Monitorar progresso
     console.print("[bold]Monitorando batch job...[/bold]")
     console.print(
-        "[dim]Jobs normalmente completam em < 24h (frequentemente muito mais rápido)[/dim]\n"
+        "[dim]Jobs normalmente completam em < 24h (frequentemente muito mais rápido)[/dim]\n",
     )
 
     completed_states = {
@@ -230,7 +230,7 @@ def main():
                 console.print("\n[yellow]Interrompido pelo usuário[/yellow]")
                 console.print(f"[dim]Job ID: {job.name}[/dim]")
                 console.print(
-                    f"[dim]Para verificar depois: client.batches.get(name='{job.name}')[/dim]\n"
+                    f"[dim]Para verificar depois: client.batches.get(name='{job.name}')[/dim]\n",
                 )
                 return
             except Exception as e:
@@ -293,11 +293,11 @@ def main():
                                 {
                                     "chunk_idx": chunk_idx,
                                     "embedding": embedding,
-                                }
+                                },
                             )
 
             console.print(
-                f"[green]✓ Processados embeddings para {len(embeddings_by_id):,} decisões[/green]\n"
+                f"[green]✓ Processados embeddings para {len(embeddings_by_id):,} decisões[/green]\n",
             )
 
             # Salvar embeddings estruturados
@@ -314,7 +314,7 @@ def main():
                     f.write(json.dumps(record) + "\n")
 
             console.print(
-                f"[green]✓ Embeddings estruturados salvos em: {structured_output}[/green]\n"
+                f"[green]✓ Embeddings estruturados salvos em: {structured_output}[/green]\n",
             )
 
             console.print("[bold]Próximos passos:[/bold]")

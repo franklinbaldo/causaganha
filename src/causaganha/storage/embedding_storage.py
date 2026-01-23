@@ -451,7 +451,7 @@ class EmbeddingStorage:
                     "similarity": float(row[2]),
                     "text_preview": row[3],
                     "created_at": row[4],
-                }
+                },
             )
 
         logger.info(
@@ -490,7 +490,7 @@ class EmbeddingStorage:
                     "table_name": table_name,
                     "total_embeddings": int(count),
                     "unique_intimations": int(unique_intimations),
-                }
+                },
             )
 
         return models

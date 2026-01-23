@@ -92,7 +92,7 @@ class PulseManager:
         output.append("📡 [bold cyan]SITUATION REPORT (SITREP)[/bold cyan]")
         output.append(f"👤 Persona: [green]{sitrep['persona']}[/green]")
         output.append(
-            f"🔢 Sequence: [yellow]{sitrep['sequence']}[/yellow] (Next: {sitrep['next_persona']})"
+            f"🔢 Sequence: [yellow]{sitrep['sequence']}[/yellow] (Next: {sitrep['next_persona']})",
         )
 
         mail_color = "red" if sitrep["unread_mail_count"] > 0 else "green"

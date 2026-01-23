@@ -4,12 +4,13 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.config import settings
 from causaganha.clients.archive import create_archive_service
+from causaganha.config import settings
+
 # from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
-# from causaganha.pipeline.archive import archive_documents
 
+# from causaganha.pipeline.archive import archive_documents
 # Import V2 pipelines
 # from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
@@ -159,10 +160,10 @@ def analyze(
 
                 if strategy in ["hybrid", "auto"]:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)",
                     )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
@@ -319,7 +320,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 @app.command()
 def export_parquet(
     date: str | None = typer.Option(
-        None, help="Date to export (YYYY-MM-DD), defaults to yesterday"
+        None, help="Date to export (YYYY-MM-DD), defaults to yesterday",
     ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
     backfill: bool = typer.Option(False, help="Backfill mode"),
@@ -427,7 +428,7 @@ def export_parquet(
                 typer.echo("\n✅ Daily export complete!")
                 typer.echo(f"  Date: {result['date']}")
                 typer.echo(
-                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)"
+                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)",
                 )
                 typer.echo(f"  Failed: {result['failed']}")
                 typer.echo(f"  Skipped (already exported): {result['skipped']}")
@@ -695,10 +696,10 @@ def analyze_parquet_file(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -766,10 +767,10 @@ def analyze_from_ia(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -797,7 +798,8 @@ def download_parquet(
     async def _run() -> None:
         try:
             from pathlib import Path
-            from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+            from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
 
             config = DownloadConfig(cache_dir=Path(cache_dir))
             downloader = IAParquetDownloader(config=config)
@@ -851,12 +853,12 @@ def check_ia_exists(
             ia_url = await downloader.get_item_url(tribunal, date)
 
             if exists:
-                typer.echo(f"✅ Parquet file exists on Internet Archive")
+                typer.echo("✅ Parquet file exists on Internet Archive")
                 typer.echo(f"  Tribunal: {tribunal}")
                 typer.echo(f"  Date: {date}")
                 typer.echo(f"  URL: {ia_url}")
             else:
-                typer.echo(f"❌ Parquet file not found on Internet Archive")
+                typer.echo("❌ Parquet file not found on Internet Archive")
                 typer.echo(f"  Tribunal: {tribunal}")
                 typer.echo(f"  Date: {date}")
                 typer.echo(f"  Expected URL: {ia_url}")
@@ -880,7 +882,8 @@ def clear_parquet_cache(
 
     try:
         from pathlib import Path
-        from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+        from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
 
         config = DownloadConfig(cache_dir=Path(cache_dir))
         downloader = IAParquetDownloader(config=config)
@@ -893,6 +896,169 @@ def clear_parquet_cache(
 
     except Exception as e:
         _handle_error(e, "Cache clear failed")
+
+
+# Catalog management commands
+catalog_app = typer.Typer(help="DuckDB metadata catalog management")
+app.add_typer(catalog_app, name="catalog")
+
+
+@catalog_app.command("create")
+def create_catalog(
+    output: str = typer.Option(
+        "causaganha-catalog.duckdb",
+        help="Output path for catalog database",
+    ),
+    month: str | None = typer.Option(
+        None,
+        help="Month pattern (e.g., 2026-01) for versioned catalog",
+    ),
+    include_views: str | None = typer.Option(
+        None,
+        help="Comma-separated list of analytical views to include",
+    ),
+) -> None:
+    """Create a metadata catalog that references remote Parquet files."""
+    logger.info("create_catalog_command", output=output, month=month)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        typer.echo(f"Creating metadata catalog: {output}")
+
+        creator = CatalogCreator(output)
+        creator.create()
+
+        # Add standard views
+        date_pattern = f"{month}-*" if month else None
+        creator.add_standard_views(date_pattern=date_pattern)
+
+        # Validate catalog
+        validation_results = creator.validate()
+
+        # Display results
+        info = creator.get_catalog_info()
+
+        typer.echo("\n✅ Catalog created successfully!")
+        typer.echo(f"  Path: {info['path']}")
+        typer.echo(f"  Size: {info['size_kb']} KB")
+        typer.echo(f"  Views: {info['view_count']}")
+
+        if month:
+            typer.echo(f"  Month: {month}")
+
+        typer.echo("\n📊 Views created:")
+        for view in info["views"]:
+            typer.echo(f"  - {view['name']}")
+
+        # Display validation results
+        typer.echo("\n✓ Validation:")
+        for result in validation_results:
+            status_icon = "✓" if result["status"] == "passed" else "⚠" if result["status"] == "warning" else "✗"
+            typer.echo(f"  {status_icon} {result['check']}: {result['message']}")
+
+    except Exception as e:
+        _handle_error(e, "Catalog creation failed")
+
+
+@catalog_app.command("list")
+def list_catalog_views(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """List all views in a catalog."""
+    logger.info("list_catalog_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        if not os.path.exists(catalog):
+            typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        creator = CatalogCreator(catalog)
+        views = creator.list_views()
+
+        typer.echo(f"\n📋 Views in {catalog}:\n")
+
+        for i, view in enumerate(views, 1):
+            typer.echo(f"{i}. {view['name']}")
+            # Show first 80 chars of SQL
+            sql_preview = view["sql"][:80] + "..." if len(view["sql"]) > 80 else view["sql"]
+            typer.echo(f"   {sql_preview}\n")
+
+        typer.echo(f"Total: {len(views)} views")
+
+    except Exception as e:
+        _handle_error(e, "Failed to list views")
+
+
+@catalog_app.command("info")
+def catalog_info(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """Show detailed catalog information."""
+    logger.info("catalog_info_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        if not os.path.exists(catalog):
+            typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        creator = CatalogCreator(catalog)
+        info = creator.get_catalog_info()
+
+        typer.echo("\n📊 Catalog Information:\n")
+        typer.echo(f"  Path: {info['path']}")
+        typer.echo(f"  Size: {info['size_bytes']:,} bytes ({info['size_kb']} KB)")
+        typer.echo(f"  Views: {info['view_count']}")
+
+        typer.echo("\n📋 Views:")
+        for view in info["views"]:
+            typer.echo(f"  - {view['name']}")
+
+    except Exception as e:
+        _handle_error(e, "Failed to get catalog info")
+
+
+@catalog_app.command("validate")
+def validate_catalog(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """Validate a catalog database."""
+    logger.info("validate_catalog_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        creator = CatalogCreator(catalog)
+        validation_results = creator.validate()
+
+        typer.echo("\n🔍 Catalog Validation:\n")
+
+        all_passed = True
+        for result in validation_results:
+            status = result["status"]
+            check = result["check"]
+            message = result["message"]
+
+            if status == "passed":
+                typer.secho(f"  ✓ {check}: {message}", fg=typer.colors.GREEN)
+            elif status == "warning":
+                typer.secho(f"  ⚠ {check}: {message}", fg=typer.colors.YELLOW)
+                all_passed = False
+            else:
+                typer.secho(f"  ✗ {check}: {message}", fg=typer.colors.RED)
+                all_passed = False
+
+        if all_passed:
+            typer.echo("\n✅ Catalog is valid!")
+        else:
+            typer.echo("\n⚠ Catalog has warnings or errors")
+
+    except Exception as e:
+        _handle_error(e, "Validation failed")
 
 
 if __name__ == "__main__":

@@ -348,7 +348,7 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
         return GoogleProvider(api_key=api_key)
     if provider == "jina":
         return JinaProvider(api_key=api_key)
-    msg = f"Unsupported embedding provider: {provider}. " f"Supported providers: google, jina"
+    msg = f"Unsupported embedding provider: {provider}. Supported providers: google, jina"
     raise ValueError(
         msg,
     )

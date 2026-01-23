@@ -24,10 +24,10 @@ class SkillsManager:
                                 "id": skill_path.name,
                                 "name": post.metadata.get("name", skill_path.name),
                                 "description": post.metadata.get(
-                                    "description", "No description available."
+                                    "description", "No description available.",
                                 ),
                                 "path": str(skill_md.absolute()),
-                            }
+                            },
                         )
                     except Exception:
                         # Fallback if frontmatter fails
@@ -37,6 +37,6 @@ class SkillsManager:
                                 "name": skill_path.name,
                                 "description": "Error reading metadata.",
                                 "path": str(skill_md.absolute()),
-                            }
+                            },
                         )
         return sorted(skills, key=lambda x: x["id"])

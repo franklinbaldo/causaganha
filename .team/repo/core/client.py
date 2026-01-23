@@ -31,7 +31,7 @@ class JulesSession(BaseModel):
     stop=stop_after_attempt(MAX_RETRIES),
     wait=wait_exponential(multiplier=1, min=1, max=10),
     retry=retry_if_exception_type(
-        (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError)
+        (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.RemoteProtocolError),
     ),
     reraise=True,
 )
@@ -54,7 +54,7 @@ def _request_with_retry(
     except httpx.HTTPStatusError as e:
         # Wrap HTTP errors in TeamClientError for clearer domains
         raise TeamClientError(
-            f"Jules API Error: {e.response.status_code} - {e.response.text}"
+            f"Jules API Error: {e.response.status_code} - {e.response.text}",
         ) from e
     except httpx.RequestError as e:
         # Wrap Request errors (that aren't retried or exhausted retries)
@@ -70,7 +70,7 @@ class TeamClient:
         """Initialize the Jules client."""
         self.api_key = api_key or os.environ.get("JULES_API_KEY")
         self.base_url = base_url or os.environ.get(
-            "JULES_BASE_URL", "https://jules.googleapis.com/v1alpha"
+            "JULES_BASE_URL", "https://jules.googleapis.com/v1alpha",
         )
 
     def _get_headers(self) -> dict[str, str]:

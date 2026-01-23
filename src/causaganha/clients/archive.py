@@ -10,7 +10,6 @@ from typing import Any, Protocol
 import internetarchive as ia
 import structlog
 
-from causaganha.config import DATA_DIR
 from causaganha.clients.constants import (
     DEFAULT_RETRY_SLEEP_SECONDS,
     DEFAULT_UPLOAD_RETRIES,
@@ -20,6 +19,7 @@ from causaganha.clients.constants import (
     IA_DEFAULT_MEDIATYPE,
     IA_DEFAULT_SUBJECTS,
 )
+from causaganha.config import DATA_DIR
 
 
 logger = structlog.get_logger()
