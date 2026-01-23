@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from causaganha.api.client import PJeAPIClient
+from causaganha.v2.api.client import PJeAPIClient
 
 
 # TEST 1: Client initialization

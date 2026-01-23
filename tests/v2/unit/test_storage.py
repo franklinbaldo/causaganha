@@ -5,10 +5,10 @@ from pathlib import Path
 import ibis
 from ibis.backends.duckdb import Backend
 
-from causaganha.analysis.models import DecisionAnalysis
-from causaganha.api.client import DestinarioAdvogado, Intimation, LawyerInfo
-from causaganha.storage.connection import get_connection
-from causaganha.storage.queries import (
+from causaganha.v2.analysis.models import DecisionAnalysis
+from causaganha.v2.api.models import DestinarioAdvogado, Intimation, LawyerInfo
+from causaganha.v2.storage.connection import get_connection
+from causaganha.v2.storage.queries import (
     get_lawyer_name,
     get_lawyer_rating,
     get_unanalyzed_intimations,
@@ -82,12 +82,21 @@ def test_store_intimations(db_connection: Backend) -> None:
 
 def test_store_intimations_updates_on_conflict(db_connection: Backend) -> None:
     """Test that storing an existing intimation updates it."""
+    defaults = {
+        "tipoComunicacao": "Intimação",
+        "nomeOrgao": "Vara",
+        "tipoDocumento": "Despacho",
+        "nomeClasse": "Classe",
+        "hash": "hash",
+        "status": "P",
+    }
     intimation1 = Intimation(
         id=1,
         siglaTribunal="TJRO",
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
         texto="Original text",
+        **defaults
     )
     store_intimations(db_connection, [intimation1])
 
@@ -97,6 +106,7 @@ def test_store_intimations_updates_on_conflict(db_connection: Backend) -> None:
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
         texto="Updated text",
+        **defaults
     )
     store_intimations(db_connection, [intimation2])
 
@@ -114,6 +124,13 @@ def test_store_lawyer_associations(db_connection: Backend) -> None:
         siglaTribunal="TJRO",
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
+        texto="text",
+        tipoComunicacao="Intimação",
+        nomeOrgao="Vara",
+        tipoDocumento="Despacho",
+        nomeClasse="Classe",
+        hash="hash",
+        status="P",
     )
     store_intimations(db_connection, [intimation])
 
@@ -141,6 +158,15 @@ def test_store_lawyer_associations(db_connection: Backend) -> None:
 
 def test_get_unanalyzed_intimations(db_connection: Backend) -> None:
     """Test getting unanalyzed intimations."""
+    defaults = {
+        "texto": "text",
+        "tipoComunicacao": "Intimação",
+        "nomeOrgao": "Vara",
+        "tipoDocumento": "Despacho",
+        "nomeClasse": "Classe",
+        "hash": "hash",
+        "status": "P",
+    }
     # Insert intimations directly via store_intimations
     intimation1 = Intimation(
         id=1,
@@ -148,6 +174,7 @@ def test_get_unanalyzed_intimations(db_connection: Backend) -> None:
         numero_processo="123",
         data_disponibilizacao="2024-01-02",
         link="http://example.com/1",
+        **defaults
     )
     intimation2 = Intimation(
         id=2,
@@ -155,6 +182,7 @@ def test_get_unanalyzed_intimations(db_connection: Backend) -> None:
         numero_processo="124",
         data_disponibilizacao="2024-01-01",
         link="http://example.com/2",
+        **{**defaults, "hash": "hash2"}
     )
     # Intimation 3 has no link, should be ignored
     intimation3 = Intimation(
@@ -162,6 +190,7 @@ def test_get_unanalyzed_intimations(db_connection: Backend) -> None:
         siglaTribunal="TJRO",
         numero_processo="125",
         data_disponibilizacao="2024-01-03",
+        **{**defaults, "hash": "hash3"}
     )
 
     store_intimations(db_connection, [intimation1, intimation2, intimation3])
@@ -184,6 +213,13 @@ def test_store_analysis(db_connection: Backend) -> None:
         siglaTribunal="TJRO",
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
+        texto="text",
+        tipoComunicacao="Intimação",
+        nomeOrgao="Vara",
+        tipoDocumento="Despacho",
+        nomeClasse="Classe",
+        hash="hash",
+        status="P",
     )
     store_intimations(db_connection, [intimation])
 
@@ -218,6 +254,13 @@ def test_mark_as_analyzed(db_connection: Backend) -> None:
         siglaTribunal="TJRO",
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
+        texto="text",
+        tipoComunicacao="Intimação",
+        nomeOrgao="Vara",
+        tipoDocumento="Despacho",
+        nomeClasse="Classe",
+        hash="hash",
+        status="P",
     )
     store_intimations(db_connection, [intimation])
 
@@ -245,6 +288,13 @@ def test_mark_as_analyzed_with_fk_constraint(db_connection: Backend) -> None:
         siglaTribunal="TJRO",
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
+        texto="text",
+        tipoComunicacao="Intimação",
+        nomeOrgao="Vara",
+        tipoDocumento="Despacho",
+        nomeClasse="Classe",
+        hash="hash",
+        status="P",
     )
     store_intimations(db_connection, [intimation])
 
@@ -365,8 +415,8 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
 
     # Test getting lawyer name
     name = get_lawyer_name(db_connection, "9999", "RO")
-    # Should be None because we didn't insert into intimation_lawyers
-    assert name is None
+    # Should be Test Lawyer from ratings
+    assert name == "Test Lawyer"
 
     # Insert association
     db_connection.con.execute(
@@ -375,6 +425,7 @@ def test_update_lawyer_rating_global_upsert(db_connection: Backend) -> None:
     db_connection.con.execute(
         "INSERT INTO intimation_lawyers (intimation_id, oab_number, oab_state, lawyer_name) VALUES (999, '9999', 'RO', 'Stored Name')",
     )
+    # Should prioritize intimation_lawyers
     name = get_lawyer_name(db_connection, "9999", "RO")
     assert name == "Stored Name"
 
@@ -388,6 +439,13 @@ def test_archive_queries(db_connection: Backend) -> None:
         numero_processo="123",
         data_disponibilizacao="2024-01-01",
         link="http://example.com/1",
+        texto="text",
+        tipoComunicacao="Intimação",
+        nomeOrgao="Vara",
+        tipoDocumento="Despacho",
+        nomeClasse="Classe",
+        hash="hash",
+        status="P",
     )
     store_intimations(db_connection, [intimation1])
 

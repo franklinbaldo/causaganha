@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.analysis.models import DecisionAnalysis
+from causaganha.v2.analysis.analyzer import DecisionAnalyzer
+from causaganha.v2.analysis.models import DecisionAnalysis
 
 
 @pytest.fixture
