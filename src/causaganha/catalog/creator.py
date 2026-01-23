@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import duckdb
@@ -29,8 +29,8 @@ class CatalogCreator:
             catalog_path: Path where catalog database will be created
         """
         self.catalog_path = catalog_path
-        self.views: List[Dict[str, str]] = []
-        self.validations: List[Dict[str, Any]] = []
+        self.views: list[dict[str, str]] = []
+        self.validations: list[dict[str, Any]] = []
 
     def create(self) -> None:
         """Create an empty catalog database.
@@ -50,7 +50,7 @@ class CatalogCreator:
         self,
         view_name: str,
         parquet_url: str,
-        description: Optional[str] = None,
+        description: str | None = None,
     ) -> None:
         """Add a base view that references remote Parquet files.
 
@@ -71,7 +71,7 @@ class CatalogCreator:
                 "type": "base",
                 "source": parquet_url,
                 "description": description,
-            }
+            },
         )
 
         con.close()
@@ -80,7 +80,7 @@ class CatalogCreator:
         self,
         view_name: str,
         query: str,
-        description: Optional[str] = None,
+        description: str | None = None,
     ) -> None:
         """Add an analytical view that queries other views.
 
@@ -101,12 +101,12 @@ class CatalogCreator:
                 "type": "analytical",
                 "query": query,
                 "description": description,
-            }
+            },
         )
 
         con.close()
 
-    def list_views(self) -> List[Dict[str, str]]:
+    def list_views(self) -> list[dict[str, str]]:
         """List all views in the catalog.
 
         Returns:
@@ -129,7 +129,7 @@ class CatalogCreator:
         con.close()
         return views
 
-    def validate(self) -> List[Dict[str, Any]]:
+    def validate(self) -> list[dict[str, Any]]:
         """Validate the catalog.
 
         Performs various checks:
@@ -150,12 +150,12 @@ class CatalogCreator:
                     "check": "file_exists",
                     "status": "failed",
                     "message": f"Catalog file not found: {self.catalog_path}",
-                }
+                },
             )
             return validation_results
 
         validation_results.append(
-            {"check": "file_exists", "status": "passed", "message": "Catalog file exists"}
+            {"check": "file_exists", "status": "passed", "message": "Catalog file exists"},
         )
 
         # Check file size
@@ -168,7 +168,7 @@ class CatalogCreator:
                     "check": "file_size",
                     "status": "warning",
                     "message": f"Catalog size ({file_size} bytes) exceeds {max_size} bytes",
-                }
+                },
             )
         else:
             validation_results.append(
@@ -176,7 +176,7 @@ class CatalogCreator:
                     "check": "file_size",
                     "status": "passed",
                     "message": f"Catalog size: {file_size} bytes",
-                }
+                },
             )
 
         # Check views are queryable
@@ -196,21 +196,21 @@ class CatalogCreator:
                     "check": "views_accessible",
                     "status": "passed",
                     "message": f"Found {len(views)} views",
-                }
+                },
             )
         except Exception as e:
             validation_results.append(
                 {
                     "check": "views_accessible",
                     "status": "failed",
-                    "message": f"Error accessing views: {str(e)}",
-                }
+                    "message": f"Error accessing views: {e!s}",
+                },
             )
 
         self.validations = validation_results
         return validation_results
 
-    def validate_and_create(self) -> List[Dict[str, Any]]:
+    def validate_and_create(self) -> list[dict[str, Any]]:
         """Validate and create catalog in one step.
 
         Returns:
@@ -222,7 +222,7 @@ class CatalogCreator:
         # Then validate
         return self.validate()
 
-    def get_catalog_info(self) -> Dict[str, Any]:
+    def get_catalog_info(self) -> dict[str, Any]:
         """Get information about the catalog.
 
         Returns:
@@ -287,7 +287,7 @@ class CatalogCreator:
     def add_standard_views(
         self,
         base_url: str = "https://archive.org/download",
-        date_pattern: Optional[str] = None,
+        date_pattern: str | None = None,
     ) -> None:
         """Add standard CausaGanha views to the catalog.
 

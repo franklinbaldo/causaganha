@@ -4,12 +4,13 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.config import settings
 from causaganha.clients.archive import create_archive_service
+from causaganha.config import settings
+
 # from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
-# from causaganha.pipeline.archive import archive_documents
 
+# from causaganha.pipeline.archive import archive_documents
 # Import V2 pipelines
 # from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
@@ -159,10 +160,10 @@ def analyze(
 
                 if strategy in ["hybrid", "auto"]:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)",
                     )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
@@ -319,7 +320,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 @app.command()
 def export_parquet(
     date: str | None = typer.Option(
-        None, help="Date to export (YYYY-MM-DD), defaults to yesterday"
+        None, help="Date to export (YYYY-MM-DD), defaults to yesterday",
     ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
     backfill: bool = typer.Option(False, help="Backfill mode"),
@@ -427,7 +428,7 @@ def export_parquet(
                 typer.echo("\n✅ Daily export complete!")
                 typer.echo(f"  Date: {result['date']}")
                 typer.echo(
-                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)"
+                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)",
                 )
                 typer.echo(f"  Failed: {result['failed']}")
                 typer.echo(f"  Skipped (already exported): {result['skipped']}")
@@ -695,10 +696,10 @@ def analyze_parquet_file(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -766,10 +767,10 @@ def analyze_from_ia(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)"
+                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)"
+                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -797,7 +798,8 @@ def download_parquet(
     async def _run() -> None:
         try:
             from pathlib import Path
-            from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+            from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
 
             config = DownloadConfig(cache_dir=Path(cache_dir))
             downloader = IAParquetDownloader(config=config)
@@ -851,12 +853,12 @@ def check_ia_exists(
             ia_url = await downloader.get_item_url(tribunal, date)
 
             if exists:
-                typer.echo(f"✅ Parquet file exists on Internet Archive")
+                typer.echo("✅ Parquet file exists on Internet Archive")
                 typer.echo(f"  Tribunal: {tribunal}")
                 typer.echo(f"  Date: {date}")
                 typer.echo(f"  URL: {ia_url}")
             else:
-                typer.echo(f"❌ Parquet file not found on Internet Archive")
+                typer.echo("❌ Parquet file not found on Internet Archive")
                 typer.echo(f"  Tribunal: {tribunal}")
                 typer.echo(f"  Date: {date}")
                 typer.echo(f"  Expected URL: {ia_url}")
@@ -880,7 +882,8 @@ def clear_parquet_cache(
 
     try:
         from pathlib import Path
-        from causaganha.pipeline.ia_download import IAParquetDownloader, DownloadConfig
+
+        from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
 
         config = DownloadConfig(cache_dir=Path(cache_dir))
         downloader = IAParquetDownloader(config=config)
@@ -980,7 +983,7 @@ def list_catalog_views(
         for i, view in enumerate(views, 1):
             typer.echo(f"{i}. {view['name']}")
             # Show first 80 chars of SQL
-            sql_preview = view['sql'][:80] + "..." if len(view['sql']) > 80 else view['sql']
+            sql_preview = view["sql"][:80] + "..." if len(view["sql"]) > 80 else view["sql"]
             typer.echo(f"   {sql_preview}\n")
 
         typer.echo(f"Total: {len(views)} views")

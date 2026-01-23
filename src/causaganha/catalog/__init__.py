@@ -6,4 +6,5 @@ that contain only view definitions referencing remote Parquet files on Internet 
 
 from causaganha.catalog.creator import CatalogCreator
 
+
 __all__ = ["CatalogCreator"]

@@ -1,6 +1,5 @@
 """Shared fixtures for tests."""
 
-import pytest
 
 
 def create_mock_intimation_item(item_id: int) -> dict:

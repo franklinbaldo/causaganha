@@ -51,11 +51,7 @@ Feature: DuckDB Metadata Catalog for Remote Parquet Files
   @catalog @versioning
   Scenario: Create versioned catalog snapshots
     Given parquet files are updated monthly on Internet Archive
-    When I create versioned catalogs:
-      | Catalog Name | Month | Parquet Pattern |
-      | causaganha-2026-01.duckdb | January 2026 | djen-parquet-2026-01-*.parquet |
-      | causaganha-2026-02.duckdb | February 2026 | djen-parquet-2026-02-*.parquet |
-      | causaganha-latest.duckdb | Latest | djen-parquet-*.parquet |
+    When I create versioned catalogs
     Then 3 catalog files should be created
     And each catalog should reference specific month's data
     And "causaganha-latest.duckdb" should always point to newest parquet
@@ -65,10 +61,7 @@ Feature: DuckDB Metadata Catalog for Remote Parquet Files
   Scenario: Catalog distributed as read-only for security
     Given a catalog file is created
     When I set read-only mode on the catalog
-    And a user opens the catalog:
-      ```python
-      con = duckdb.connect('causaganha-catalog.duckdb', read_only=True)
-      ```
+    And a user opens the catalog
     Then users can query views
     But users cannot modify views
     And users cannot drop views
@@ -155,13 +148,7 @@ Feature: DuckDB Metadata Catalog for Remote Parquet Files
   @catalog @cli @generation
   Scenario: Generate catalog via CLI command
     Given the causaganha CLI is installed
-    When I run the catalog generation command:
-      ```bash
-      causaganha catalog create \
-        --output causaganha-catalog.duckdb \
-        --month 2026-01 \
-        --include-views top_lawyers,recent_intimations,tribunal_stats
-      ```
+    When I run the catalog generation command
     Then a catalog file should be created
     And the catalog should reference January 2026 parquet files
     And the catalog should include specified analytical views
