@@ -8,7 +8,6 @@ from ibis import _
 from ibis.backends.duckdb import Backend
 
 from causaganha.analysis.models import DecisionAnalysis
-from causaganha.api.client import DestinarioAdvogado, Intimation
 
 
 logger = structlog.get_logger()
@@ -16,7 +15,7 @@ logger = structlog.get_logger()
 
 def store_intimations(
     con: Backend,
-    intimations: list[Intimation],
+    intimations: list[Any],
 ) -> int:
     """Store intimations in database.
 
@@ -80,7 +79,7 @@ def store_intimations(
 def store_lawyer_associations(
     con: Backend,
     intimation_id: int,
-    lawyers: list[DestinarioAdvogado],
+    lawyers: list[Any],
 ) -> int:
     """Store lawyer associations for an intimation."""
     inserted = 0

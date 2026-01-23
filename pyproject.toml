@@ -22,7 +22,7 @@ dependencies = [
     # `pandas` currently requires `dateutil.parser.DEFAULTPARSER`, which is not
     # exported by python-dateutil>=2.9.0.
     "python-dateutil<2.9.0",
-    "pymupdf>=1.26.1",
+#    "pymupdf>=1.26.1",
     "pyparsing==3.1.4",
     "cryptography>=42.0.5",
     "python-json-logger>=3.3.0",
@@ -69,9 +69,9 @@ jules = [
 
 [project.scripts]
 causaganha = "causaganha.cli:app"
-jules = "repo.cli.main:app"
-mail = "repo.cli.mail:app"
-my-tools = "repo.cli.my_tools:app"
+# jules = "repo.cli.main:app"
+# mail = "repo.cli.mail:app"
+# my-tools = "repo.cli.my_tools:app"
 
 [tool.setuptools.packages.find]
 where = ["src", ".team"]

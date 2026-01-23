@@ -2,8 +2,6 @@
 
 import pytest
 
-from causaganha.api.client import PJeAPIClient
-
 
 def create_mock_intimation_item(item_id: int) -> dict:
     """Creates a single mock intimation item compliant with the schema."""
@@ -29,10 +27,3 @@ def create_mock_intimation_item(item_id: int) -> dict:
         "destinatarios": [],
         "destinatarioadvogados": [],
     }
-
-
-@pytest.fixture
-def api_client():
-    """Fixture for PJeAPIClient."""
-    return PJeAPIClient()
-    # No async teardown needed if client is not used in a context manager
