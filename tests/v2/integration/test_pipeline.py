@@ -54,7 +54,7 @@ async def test_full_pipeline_mocked(
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
 
     # 1. Mock API Client for Collection
-    with patch("causaganha.v2.pipeline.collect.PJeAPIClient") as mock_client:
+    with patch("causaganha.pipeline.collect.PJeAPIClient") as mock_client:
         client_instance = mock_client.return_value
         client_instance.get_intimations_by_court = AsyncMock(
             return_value=mock_intimations,
@@ -84,9 +84,9 @@ async def test_full_pipeline_mocked(
     # We need to mock RAGAnalyzer.create because analyze_pending_decisions calls it.
     # We also mock HybridAnalyzer to control the result and avoid complex logic.
     with (
-        patch("causaganha.v2.pipeline.analyze.RAGAnalyzer") as mock_rag_cls,
-        patch("causaganha.v2.pipeline.analyze.HybridAnalyzer") as mock_hybrid_cls,
-        patch("causaganha.v2.pipeline.analyze.DecisionAnalyzer"),
+        patch("causaganha.pipeline.analyze.RAGAnalyzer") as mock_rag_cls,
+        patch("causaganha.pipeline.analyze.HybridAnalyzer") as mock_hybrid_cls,
+        patch("causaganha.pipeline.analyze.DecisionAnalyzer"),
     ):
         # Mock RAGAnalyzer.create
         mock_rag_instance = AsyncMock()
@@ -101,7 +101,7 @@ async def test_full_pipeline_mocked(
         # Run analysis
         analyze_result = await analyze_pending_decisions(
             batch_size=10,
-            strategy="llm",
+            strategy="hybrid",
         )
 
         assert analyze_result["status"] == "success"
