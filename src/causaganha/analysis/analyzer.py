@@ -14,7 +14,7 @@ logger = structlog.get_logger()
 class DecisionAnalyzer:
     """Analyze judicial decisions using Pydantic AI.
 
-    Uses Google Gemini to read PDFs natively and extract
+    Uses Google Gemini to analyze decision text and extract
     structured information about case outcomes.
     """
 
@@ -128,107 +128,33 @@ class DecisionAnalyzer:
             )
             raise
 
-    async def analyze_pdf(
-        self,
-        pdf_url: str,
-        intimation_id: int | None = None,
-    ) -> DecisionAnalysis:
-        """Analyze a single PDF decision document.
-
-        DEPRECATED: Use analyze_text() instead with texto field.
-        This method is kept for backward compatibility with existing code.
-
-        Args:
-            pdf_url: URL to the PDF document.
-            intimation_id: Optional intimation ID for logging.
-
-        Returns:
-            DecisionAnalysis with extracted information.
-
-        Raises:
-            Exception: If analysis fails.
-        """
-        logger.warning(
-            "analyze_pdf_deprecated",
-            message="analyze_pdf() is deprecated, use analyze_text() with texto field",
-            intimation_id=intimation_id,
-        )
-
-        logger.info(
-            "analyzing_pdf",
-            url=pdf_url,
-            intimation_id=intimation_id,
-        )
-
-        try:
-            # Pydantic AI + Gemini reads PDF natively
-            result = await self.agent.run(
-                f"Analyze this judicial decision PDF: {pdf_url}",
-                message_history=[],
-            )
-
-            # Log results
-            logger.info(
-                "analysis_complete",
-                intimation_id=intimation_id,
-                winner_oab=result.data.winner_lawyer_oab,
-                loser_oab=result.data.loser_lawyer_oab,
-                decision_type=result.data.decision_type,
-                outcome=result.data.outcome,
-                confidence=result.data.confidence_score,
-            )
-
-            return result.data
-
-        except Exception as e:
-            logger.error(
-                "analysis_failed",
-                intimation_id=intimation_id,
-                url=pdf_url,
-                error=str(e),
-            )
-            raise
-
     async def analyze_batch(
         self,
-        inputs: list[str],
+        texts: list[str],
         intimation_ids: list[int] | None = None,
-        input_type: str = "text",
     ) -> list[DecisionAnalysis | Exception]:
         """Analyze multiple decisions concurrently.
 
         Args:
-            inputs: List of decision texts or PDF URLs.
+            texts: List of decision texts.
             intimation_ids: Optional list of intimation IDs (same length).
-            input_type: "text" (default, recommended) or "pdf" (deprecated).
 
         Returns:
             List of DecisionAnalysis or Exceptions, matching the input order.
         """
         if intimation_ids is None:
-            intimation_ids = [None] * len(inputs)
+            intimation_ids = [None] * len(texts)
 
         logger.info(
             "batch_analysis_start",
-            total=len(inputs),
-            input_type=input_type,
+            total=len(texts),
         )
 
-        # Create tasks based on input type
-        if input_type == "text":
-            tasks = [
-                self.analyze_text(text, int_id)
-                for text, int_id in zip(inputs, intimation_ids, strict=False)
-            ]
-        else:  # pdf (deprecated)
-            logger.warning(
-                "batch_pdf_analysis_deprecated",
-                message="PDF batch analysis is deprecated, use input_type='text'",
-            )
-            tasks = [
-                self.analyze_pdf(url, int_id)
-                for url, int_id in zip(inputs, intimation_ids, strict=False)
-            ]
+        # Create tasks for text analysis
+        tasks = [
+            self.analyze_text(text, int_id)
+            for text, int_id in zip(texts, intimation_ids, strict=False)
+        ]
 
         # Execute concurrently
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -239,7 +165,7 @@ class DecisionAnalyzer:
 
         logger.info(
             "batch_analysis_complete",
-            total=len(inputs),
+            total=len(texts),
             successful=successful,
             failed=failed,
         )

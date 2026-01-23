@@ -42,17 +42,15 @@ class HybridAnalyzer:
         self,
         text: str,
         intimation_id: int | None = None,
-        pdf_url: str | None = None,
     ) -> DecisionAnalysis:
         """Analyze decision using hybrid strategy.
 
-        Tries RAG first. If confidence is below threshold and PDF URL is available,
+        Tries RAG first. If confidence is below threshold,
         falls back to LLM analysis.
 
         Args:
             text: Decision text to analyze.
             intimation_id: Optional intimation ID for logging.
-            pdf_url: Optional PDF URL for LLM fallback.
 
         Returns:
             DecisionAnalysis with best available result.
@@ -60,7 +58,6 @@ class HybridAnalyzer:
         logger.info(
             "hybrid_analysis_start",
             intimation_id=intimation_id,
-            has_pdf_url=pdf_url is not None,
         )
 
         # Step 1: Try RAG analysis (cheap)
@@ -145,14 +142,12 @@ class HybridAnalyzer:
         self,
         texts: list[str],
         intimation_ids: list[int] | None = None,
-        pdf_urls: list[str | None] | None = None,
     ) -> tuple[list[DecisionAnalysis], dict]:
         """Analyze multiple decisions using hybrid strategy.
 
         Args:
             texts: List of decision texts.
             intimation_ids: Optional list of intimation IDs.
-            pdf_urls: Optional list of PDF URLs for LLM fallback.
 
         Returns:
             Tuple of:
@@ -161,8 +156,6 @@ class HybridAnalyzer:
         """
         if intimation_ids is None:
             intimation_ids = [None] * len(texts)
-        if pdf_urls is None:
-            pdf_urls = [None] * len(texts)
 
         logger.info("hybrid_batch_analysis_start", total=len(texts))
 
@@ -176,14 +169,13 @@ class HybridAnalyzer:
             "cost_llm": 0.0,
         }
 
-        for text, int_id, pdf_url in zip(
+        for text, int_id in zip(
             texts,
             intimation_ids,
-            pdf_urls,
             strict=False,
         ):
             try:
-                result = await self.analyze_text(text, int_id, pdf_url)
+                result = await self.analyze_text(text, int_id)
                 results.append(result)
 
                 # Track statistics
