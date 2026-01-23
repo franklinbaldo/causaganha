@@ -4,11 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.v2.analysis.embedding_models import (
+from causaganha.analysis.embedding_models import (
     GOOGLE_GEMINI_768,
     JINA_V4_1024,
 )
-from causaganha.v2.analysis.providers import (
+from causaganha.analysis.providers import (
     GoogleProvider,
     JinaProvider,
     auto_select_provider,

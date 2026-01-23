@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 
-from causaganha.v2.analysis.analyzer import DecisionAnalyzer
-from causaganha.v2.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
-from causaganha.v2.analysis.strategy import AnalysisStrategy
+from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.strategy import AnalysisStrategy
 
 
 # Scenarios

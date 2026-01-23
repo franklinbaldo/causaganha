@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from causaganha.infrastructure.clients.archive import (
+from causaganha.clients.archive import (
     ArchiveService,
     InternetArchiveService,
     LocalArchiveService,
 )
-from causaganha.infrastructure.clients.document import DocumentService
+from causaganha.clients.document import DocumentService
 from causaganha.infrastructure.storage.repositories.intimation import IntimationRepository
 
 
@@ -278,7 +278,7 @@ class TestLocalArchiveHierarchicalStorage:
 
     @pytest.fixture
     def local_service(self, tmp_path: Path) -> LocalArchiveService:
-        from causaganha.infrastructure.clients.archive import LocalArchiveService
+        from causaganha.clients.archive import LocalArchiveService
 
         return LocalArchiveService(archive_root=tmp_path)
 
