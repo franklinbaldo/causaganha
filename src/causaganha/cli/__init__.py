@@ -895,5 +895,168 @@ def clear_parquet_cache(
         _handle_error(e, "Cache clear failed")
 
 
+# Catalog management commands
+catalog_app = typer.Typer(help="DuckDB metadata catalog management")
+app.add_typer(catalog_app, name="catalog")
+
+
+@catalog_app.command("create")
+def create_catalog(
+    output: str = typer.Option(
+        "causaganha-catalog.duckdb",
+        help="Output path for catalog database",
+    ),
+    month: str | None = typer.Option(
+        None,
+        help="Month pattern (e.g., 2026-01) for versioned catalog",
+    ),
+    include_views: str | None = typer.Option(
+        None,
+        help="Comma-separated list of analytical views to include",
+    ),
+) -> None:
+    """Create a metadata catalog that references remote Parquet files."""
+    logger.info("create_catalog_command", output=output, month=month)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        typer.echo(f"Creating metadata catalog: {output}")
+
+        creator = CatalogCreator(output)
+        creator.create()
+
+        # Add standard views
+        date_pattern = f"{month}-*" if month else None
+        creator.add_standard_views(date_pattern=date_pattern)
+
+        # Validate catalog
+        validation_results = creator.validate()
+
+        # Display results
+        info = creator.get_catalog_info()
+
+        typer.echo("\n✅ Catalog created successfully!")
+        typer.echo(f"  Path: {info['path']}")
+        typer.echo(f"  Size: {info['size_kb']} KB")
+        typer.echo(f"  Views: {info['view_count']}")
+
+        if month:
+            typer.echo(f"  Month: {month}")
+
+        typer.echo("\n📊 Views created:")
+        for view in info["views"]:
+            typer.echo(f"  - {view['name']}")
+
+        # Display validation results
+        typer.echo("\n✓ Validation:")
+        for result in validation_results:
+            status_icon = "✓" if result["status"] == "passed" else "⚠" if result["status"] == "warning" else "✗"
+            typer.echo(f"  {status_icon} {result['check']}: {result['message']}")
+
+    except Exception as e:
+        _handle_error(e, "Catalog creation failed")
+
+
+@catalog_app.command("list")
+def list_catalog_views(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """List all views in a catalog."""
+    logger.info("list_catalog_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        if not os.path.exists(catalog):
+            typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        creator = CatalogCreator(catalog)
+        views = creator.list_views()
+
+        typer.echo(f"\n📋 Views in {catalog}:\n")
+
+        for i, view in enumerate(views, 1):
+            typer.echo(f"{i}. {view['name']}")
+            # Show first 80 chars of SQL
+            sql_preview = view['sql'][:80] + "..." if len(view['sql']) > 80 else view['sql']
+            typer.echo(f"   {sql_preview}\n")
+
+        typer.echo(f"Total: {len(views)} views")
+
+    except Exception as e:
+        _handle_error(e, "Failed to list views")
+
+
+@catalog_app.command("info")
+def catalog_info(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """Show detailed catalog information."""
+    logger.info("catalog_info_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        if not os.path.exists(catalog):
+            typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        creator = CatalogCreator(catalog)
+        info = creator.get_catalog_info()
+
+        typer.echo("\n📊 Catalog Information:\n")
+        typer.echo(f"  Path: {info['path']}")
+        typer.echo(f"  Size: {info['size_bytes']:,} bytes ({info['size_kb']} KB)")
+        typer.echo(f"  Views: {info['view_count']}")
+
+        typer.echo("\n📋 Views:")
+        for view in info["views"]:
+            typer.echo(f"  - {view['name']}")
+
+    except Exception as e:
+        _handle_error(e, "Failed to get catalog info")
+
+
+@catalog_app.command("validate")
+def validate_catalog(
+    catalog: str = typer.Argument(..., help="Path to catalog database"),
+) -> None:
+    """Validate a catalog database."""
+    logger.info("validate_catalog_command", catalog=catalog)
+
+    try:
+        from causaganha.catalog.creator import CatalogCreator
+
+        creator = CatalogCreator(catalog)
+        validation_results = creator.validate()
+
+        typer.echo("\n🔍 Catalog Validation:\n")
+
+        all_passed = True
+        for result in validation_results:
+            status = result["status"]
+            check = result["check"]
+            message = result["message"]
+
+            if status == "passed":
+                typer.secho(f"  ✓ {check}: {message}", fg=typer.colors.GREEN)
+            elif status == "warning":
+                typer.secho(f"  ⚠ {check}: {message}", fg=typer.colors.YELLOW)
+                all_passed = False
+            else:
+                typer.secho(f"  ✗ {check}: {message}", fg=typer.colors.RED)
+                all_passed = False
+
+        if all_passed:
+            typer.echo("\n✅ Catalog is valid!")
+        else:
+            typer.echo("\n⚠ Catalog has warnings or errors")
+
+    except Exception as e:
+        _handle_error(e, "Validation failed")
+
+
 if __name__ == "__main__":
     app()
