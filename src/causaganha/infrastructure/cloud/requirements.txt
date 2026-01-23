@@ -1,9 +1,0 @@
-google-cloud-firestore
-google-cloud-pubsub
-google-cloud-tasks
-pydantic
-structlog
-httpx
-internetarchive
-pydantic-ai
-functions-framework

@@ -20,7 +20,7 @@ from rich.console import Console
 from rich.table import Table
 
 from causaganha.config import settings
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
 
 
 logger = structlog.get_logger()

@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.api.client import Intimation, LawyerInfo
-from causaganha.v2.pipeline.analyze import analyze_pending_decisions
-from causaganha.v2.pipeline.collect import collect_metadata_for_court
-from causaganha.v2.pipeline.score import calculate_ratings
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.api.client import Intimation, LawyerInfo
+from causaganha.pipeline.analyze import analyze_pending_decisions
+from causaganha.pipeline.collect import collect_metadata_for_court
+from causaganha.pipeline.score import calculate_ratings
 
 
 @pytest.fixture

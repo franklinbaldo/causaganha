@@ -18,9 +18,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from causaganha.config import settings
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.improved_rag_analyzer import ImprovedRAGAnalyzer
-from causaganha.v2.analysis.parquet_party_loader import ParquetPartyLoader
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.improved_rag_analyzer import ImprovedRAGAnalyzer
+from causaganha.analysis.parquet_party_loader import ParquetPartyLoader
 
 console = Console()
 logger = structlog.get_logger()

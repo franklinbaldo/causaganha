@@ -10,8 +10,8 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from causaganha.v2.pipeline.parquet_export import ExportConfig, ParquetExporter
-from causaganha.v2.storage.connection import get_connection
+from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
+from causaganha.storage.connection import get_connection
 
 
 async def test_export():

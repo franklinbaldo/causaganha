@@ -3,9 +3,9 @@
 import pytest
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.pipeline.score import calculate_ratings
-from causaganha.v2.storage.queries import store_analysis
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.pipeline.score import calculate_ratings
+from causaganha.storage.queries import store_analysis
 
 
 @pytest.fixture

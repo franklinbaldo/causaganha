@@ -22,12 +22,12 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from causaganha.v2.analysis.embedding_models import (
+from causaganha.analysis.embedding_models import (
     DEFAULT_GOOGLE_MODEL,
     DEFAULT_JINA_MODEL,
     DEFAULT_LOCAL_MODEL,
 )
-from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.analysis.embedding_service_v2 import EmbeddingService
 
 
 logger = structlog.get_logger()

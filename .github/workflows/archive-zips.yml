@@ -22,7 +22,7 @@ concurrency:
 
 env:
   DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
-  MAX_UPLOADS_PER_RUN: 5  # Limit to avoid IA rate limiting
+  MAX_UPLOADS_PER_RUN: 5  # Limit per run
 
 jobs:
   archive:
@@ -167,7 +167,7 @@ jobs:
             # Upload to Internet Archive
             echo "   ⬆️  Uploading to IA: $ITEM_ID"
 
-            if ia upload "$ITEM_ID" caderno.zip \
+            UPLOAD_OUTPUT=$(ia upload "$ITEM_ID" caderno.zip \
               --metadata="collection:opensource" \
               --metadata="mediatype:data" \
               --metadata="title:DJEN $TRIBUNAL $DATE" \
@@ -178,18 +178,29 @@ jobs:
               --metadata="tribunal:$TRIBUNAL" \
               --metadata="total_comunicacoes:$TOTAL" \
               --retries=3 \
-              --no-derive 2>&1; then
+              --no-derive 2>&1)
+            UPLOAD_STATUS=$?
+
+            if [ $UPLOAD_STATUS -eq 0 ]; then
               echo "   ✅ Done!"
               SUCCESS=$((SUCCESS + 1))
             else
+              echo "$UPLOAD_OUTPUT"
+              # Check for rate limiting / spam detection
+              if echo "$UPLOAD_OUTPUT" | grep -qi "spam\|rate"; then
+                echo "   🚫 Rate limited by IA - stopping batch to avoid further blocks"
+                FAILED=$((FAILED + 1))
+                rm -f caderno.zip
+                break  # Exit loop, don't retry - wait for next workflow run
+              fi
               echo "   ❌ Upload failed"
               FAILED=$((FAILED + 1))
             fi
 
             rm -f caderno.zip
 
-            # Rate limit - IA requires longer delays to avoid spam detection
-            sleep 30
+            # IA rate limit: 2 seconds minimum between uploads
+            sleep 5
 
           done < batch.txt
 

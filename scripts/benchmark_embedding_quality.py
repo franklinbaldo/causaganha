@@ -22,7 +22,7 @@ from rich.console import Console
 from rich.table import Table
 
 from causaganha.config import settings
-from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.analysis.embedding_service_v2 import EmbeddingService
 
 
 logger = structlog.get_logger()

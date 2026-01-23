@@ -14,7 +14,7 @@ import duckdb
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from causaganha.v2.analysis.procedural_doc_filter import ProceduralDocumentFilter
+from causaganha.analysis.procedural_doc_filter import ProceduralDocumentFilter
 from causaganha.config import settings
 
 

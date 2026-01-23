@@ -2,7 +2,7 @@
 
 import pytest
 
-from causaganha.v2.api.client import PJeAPIClient
+from causaganha.api.client import PJeAPIClient
 
 
 def create_mock_intimation_item(item_id: int) -> dict:

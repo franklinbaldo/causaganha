@@ -5,10 +5,10 @@ from pathlib import Path
 import ibis
 from ibis.backends.duckdb import Backend
 
-from causaganha.v2.analysis.models import DecisionAnalysis
-from causaganha.v2.api.client import DestinarioAdvogado, Intimation, LawyerInfo
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.queries import (
+from causaganha.analysis.models import DecisionAnalysis
+from causaganha.api.client import DestinarioAdvogado, Intimation, LawyerInfo
+from causaganha.storage.connection import get_connection
+from causaganha.storage.queries import (
     get_lawyer_name,
     get_lawyer_rating,
     get_unanalyzed_intimations,

@@ -22,12 +22,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from causaganha.config import settings
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.heuristic_classifier import HeuristicClassifier
-from causaganha.v2.analysis.improved_rag_analyzer import ImprovedRAGAnalyzer
-from causaganha.v2.analysis.parquet_party_loader import ParquetPartyLoader
-from causaganha.v2.analysis.rag_analyzer import RAGAnalyzer
-from causaganha.v2.analysis.situation_classifier import SituationClassifier
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.heuristic_classifier import HeuristicClassifier
+from causaganha.analysis.improved_rag_analyzer import ImprovedRAGAnalyzer
+from causaganha.analysis.parquet_party_loader import ParquetPartyLoader
+from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.situation_classifier import SituationClassifier
 
 
 logger = structlog.get_logger()
