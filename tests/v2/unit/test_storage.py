@@ -6,7 +6,7 @@ import ibis
 from ibis.backends.duckdb import Backend
 
 from causaganha.analysis.models import DecisionAnalysis
-from causaganha.api.client import DestinarioAdvogado, Intimation, LawyerInfo
+from causaganha.api.models import DestinatarioAdvogado, Intimation, LawyerInfo
 from causaganha.storage.connection import get_connection
 from causaganha.storage.queries import (
     get_lawyer_name,
@@ -118,7 +118,7 @@ def test_store_lawyer_associations(db_connection: Backend) -> None:
     store_intimations(db_connection, [intimation])
 
     lawyers = [
-        DestinarioAdvogado(
+        DestinatarioAdvogado(
             advogado=LawyerInfo(
                 id=1,
                 nome="Advogado Teste",
@@ -250,7 +250,7 @@ def test_mark_as_analyzed_with_fk_constraint(db_connection: Backend) -> None:
 
     # 2. Store Lawyer (creates FK reference in intimation_lawyers)
     lawyers = [
-        DestinarioAdvogado(
+        DestinatarioAdvogado(
             advogado=LawyerInfo(
                 id=1,
                 nome="Advogado Teste",

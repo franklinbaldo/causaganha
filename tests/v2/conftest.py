@@ -26,11 +26,11 @@ def db_connection() -> Generator[Backend, None, None]:
     import causaganha.storage.connection
 
     # Reset singleton
-    causaganha.v2.storage.connection._connection = None
+    causaganha.storage.connection._connection = None
 
     con = get_connection(":memory:")
     yield con
 
     # Cleanup
     con.disconnect()
-    causaganha.v2.storage.connection._connection = None
+    causaganha.storage.connection._connection = None
