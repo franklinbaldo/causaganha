@@ -63,12 +63,12 @@ jobs:
           TRIBUNAIS="$TRIBUNAIS TREAC TREAL TREAM TREAP TREBA TRECE TREDF TREES TREGO TREMA TREMG TREMS TREMT TREPA TREPB TREPE TREPI TREPR TRERJ TRERN TRERO TRERR TRERS TRESC TRESE TRESP TRETO"
 
           # Load previous state (unavailable items)
+          mkdir -p state
           if [ -f state/unavailable.txt ]; then
             echo "Loaded $(wc -l < state/unavailable.txt | tr -d ' ') unavailable items from state"
           else
             touch state/unavailable.txt
           fi
-          mkdir -p state
 
           # Get existing items from IA
           echo "Fetching existing items from IA..."
