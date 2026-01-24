@@ -14,7 +14,7 @@ on:
       backfill_days:
         description: 'Days to backfill from today'
         required: false
-        default: '7'
+        default: '365'
 
 concurrency:
   group: archive-djen
@@ -22,7 +22,7 @@ concurrency:
 
 env:
   DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
-  MAX_UPLOADS_PER_RUN: 5  # Limit per run
+  MAX_UPLOADS_PER_RUN: 10  # Limit per run (balanced for IA rate limits)
 
 jobs:
   archive:
@@ -220,8 +220,18 @@ jobs:
       - name: Summary
         run: |
           UNAVAILABLE=$(wc -l < state/unavailable.txt 2>/dev/null | tr -d ' ' || echo "0")
+          EXISTING=$(wc -l < existing_items.txt 2>/dev/null | tr -d ' ' || echo "0")
+          PENDING="${{ steps.find.outputs.total }}"
+          TOTAL_TARGET=$((91 * 260))  # ~91 tribunais × ~260 weekdays/year
+
           echo "## Archive Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Total pending: ${{ steps.find.outputs.total }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Progress" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Archived: $EXISTING items" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏳ Pending: $PENDING items" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Unavailable: $UNAVAILABLE items" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### This Run" >> $GITHUB_STEP_SUMMARY
           echo "- Batch size: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Unavailable items tracked: $UNAVAILABLE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Workflow runs every 5 minutes, 10 items per run (~2,880 items/day)_" >> $GITHUB_STEP_SUMMARY
