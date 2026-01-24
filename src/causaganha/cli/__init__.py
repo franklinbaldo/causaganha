@@ -15,6 +15,8 @@ from causaganha.pipeline.analyze import analyze_pending_decisions
 # from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
+from causaganha.analysis.ground_truth import GroundTruthManager
+from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 
 # Configure logging
@@ -608,8 +610,6 @@ def groundtruth_init(
 ) -> None:
     """Initialize ground truth vector store."""
     try:
-        from causaganha.analysis.ground_truth import GroundTruthManager
-
         manager = GroundTruthManager()
         manager.init_store(overwrite=overwrite)
         typer.echo("✅ Ground truth vector store initialized.")
@@ -627,8 +627,6 @@ def groundtruth_sync(
 
     async def _run() -> None:
         try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
             con = get_connection()
             manager = GroundTruthManager()
 
@@ -667,8 +665,6 @@ def groundtruth_search(
 
     async def _run() -> None:
         try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
             manager = GroundTruthManager()
 
             with Progress(
@@ -772,8 +768,6 @@ def analyze_parquet_file(
 
     async def _run() -> None:
         try:
-            from causaganha.pipeline.analyze_parquet import analyze_from_parquet
-
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
