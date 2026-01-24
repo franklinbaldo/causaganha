@@ -10,7 +10,7 @@ from causaganha.scoring.openskill import (
     rate_teams,
 )
 from causaganha.storage.connection import get_connection
-from causaganha.storage.queries import (
+from causaganha.storage.repositories import (
     get_lawyer_name,
     get_lawyer_rating,
     get_unrated_analyses,

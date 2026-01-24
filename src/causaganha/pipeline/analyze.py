@@ -9,7 +9,7 @@ from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
 from causaganha.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.analysis.strategy import AnalysisStrategy
 from causaganha.storage.connection import get_connection
-from causaganha.storage.queries import (
+from causaganha.storage.repositories import (
     get_unanalyzed_intimations,
     mark_as_analyzed,
     store_analysis,
