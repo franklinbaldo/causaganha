@@ -15,6 +15,8 @@ from causaganha.pipeline.analyze import analyze_pending_decisions
 # from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
+from causaganha.analysis.ground_truth import GroundTruthManager
+from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 
 # Configure logging
@@ -602,6 +604,105 @@ def groundtruth_status() -> None:
         _handle_error(e, "Failed to check ground truth status")
 
 
+@groundtruth_app.command("init")
+def groundtruth_init(
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing table"),
+) -> None:
+    """Initialize ground truth vector store."""
+    try:
+        manager = GroundTruthManager()
+        manager.init_store(overwrite=overwrite)
+        typer.echo("✅ Ground truth vector store initialized.")
+    except Exception as e:
+        _handle_error(e, "Failed to initialize ground truth")
+
+
+@groundtruth_app.command("sync")
+def groundtruth_sync(
+    min_confidence: float = typer.Option(0.90, help="Minimum confidence threshold"),
+    limit: int = typer.Option(100, help="Maximum records to sync"),
+) -> None:
+    """Sync high-confidence analyses from DuckDB to vector store."""
+    logger.info("groundtruth_sync_command", min_confidence=min_confidence, limit=limit)
+
+    async def _run() -> None:
+        try:
+            con = get_connection()
+            manager = GroundTruthManager()
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Syncing Ground Truth...", total=None)
+                result = await manager.sync_from_db(
+                    con,
+                    min_confidence=min_confidence,
+                    limit=limit,
+                )
+
+            if result["status"] == "success":
+                typer.echo(f"✅ Sync complete! Added {result['synced']} new examples.")
+            elif result["status"] == "no_data":
+                typer.echo("ℹ️ No high-confidence records found in database.")
+            elif result["status"] == "already_synced":
+                typer.echo("ℹ️ All available records are already in the vector store.")
+
+        except Exception as e:
+            _handle_error(e, "Sync failed")
+
+    asyncio.run(_run())
+
+
+@groundtruth_app.command("search")
+def groundtruth_search(
+    query: str = typer.Argument(..., help="Text to search for"),
+    k: int = typer.Option(5, help="Number of results"),
+) -> None:
+    """Search for similar examples in ground truth."""
+    logger.info("groundtruth_search_command", k=k)
+
+    async def _run() -> None:
+        try:
+            manager = GroundTruthManager()
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Searching...", total=None)
+                results = await manager.search(query, k=k)
+
+            if not results:
+                typer.echo("No matching examples found.")
+                return
+
+            typer.echo(f"\n🔍 Top {len(results)} matches for: '{query}'\n")
+
+            for i, res in enumerate(results, 1):
+                outcome = res.get("outcome", "UNKNOWN")
+                score = 1 - res.get("_distance", 1.0)  # Convert L2 distance to approx similarity
+                int_id = res.get("intimation_id", "N/A")
+                text = res.get("text", "")[:120].replace("\n", " ")
+
+                color = typer.colors.GREEN if outcome == "WIN" else \
+                        typer.colors.RED if outcome == "LOSS" else \
+                        typer.colors.YELLOW if outcome == "PARTIAL" else \
+                        typer.colors.WHITE
+
+                typer.echo(f"{i}. ", nl=False)
+                typer.secho(f"[{outcome}]", fg=color, bold=True, nl=False)
+                typer.echo(f" ID: {int_id} | Similarity: {score:.3f}")
+                typer.echo(f"    {text}...")
+
+        except Exception as e:
+            _handle_error(e, "Search failed")
+
+    asyncio.run(_run())
+
+
 @groundtruth_app.command("info")
 def groundtruth_info() -> None:
     """Show detailed ground truth information."""
@@ -667,8 +768,6 @@ def analyze_parquet_file(
 
     async def _run() -> None:
         try:
-            from causaganha.pipeline.analyze_parquet import analyze_from_parquet
-
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),

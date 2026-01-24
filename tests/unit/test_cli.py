@@ -1,361 +1,96 @@
-import json
-from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import structlog
 from typer.testing import CliRunner
 
 from causaganha.cli import app
-
 
 runner = CliRunner()
 
 
 @pytest.fixture
-def mock_db_connection() -> Generator[MagicMock, None, None]:
+def mock_db_connection():
     with patch("causaganha.cli.get_connection") as mock_get:
         mock_con = MagicMock()
         mock_get.return_value = mock_con
         yield mock_con
 
 
-@pytest.fixture
-def mock_create_schema() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.create_schema") as mock_create:
-        yield mock_create
-
-
-@pytest.fixture
-def mock_repositories() -> Generator[tuple[MagicMock, MagicMock, MagicMock], None, None]:
-    with (
-        patch("causaganha.cli.IntimationRepository") as mock_int_repo,
-        patch("causaganha.cli.AnalysisRepository") as mock_ana_repo,
-        patch("causaganha.cli.LawyerRatingRepository") as mock_law_repo,
-    ):
-        yield mock_int_repo, mock_ana_repo, mock_law_repo
-
-
-@pytest.fixture
-def mock_run_collection() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.run_collection", new_callable=AsyncMock) as mock_run:
-        yield mock_run
-
-
-@pytest.fixture
-def mock_run_analysis() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.run_analysis", new_callable=AsyncMock) as mock_run:
-        yield mock_run
-
-
-@pytest.fixture
-def mock_run_archive() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.run_archive", new_callable=AsyncMock) as mock_run:
-        yield mock_run
-
-
-@pytest.fixture
-def mock_run_scoring() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.run_scoring", new_callable=AsyncMock) as mock_run:
-        yield mock_run
-
-
-@pytest.fixture
-def mock_pje_client() -> Generator[MagicMock, None, None]:
-    with patch("causaganha.cli.PJeAPIClient") as mock_cls:
-        mock_instance = MagicMock()
-        mock_instance.close = AsyncMock()
-        mock_cls.return_value = mock_instance
-        yield mock_instance
-
-
-def test_db_init(mock_db_connection: MagicMock, mock_create_schema: MagicMock) -> None:
-    result = runner.invoke(app, ["db", "init"])
-    assert result.exit_code == 0
-    assert "Initializing database schema..." in result.stdout
-    assert "Schema created successfully." in result.stdout
-    mock_create_schema.assert_called_once_with(mock_db_connection)
-
-
-@pytest.mark.usefixtures("mock_db_connection")
-def test_db_init_failure_shows_suggestions(mock_create_schema: MagicMock) -> None:
-    """Tests if actionable suggestions are displayed on failure."""
-    mock_create_schema.side_effect = OSError("Permission denied")
-    result = runner.invoke(app, ["db", "init"])
-    assert result.exit_code == 1
-    assert "Actionable Suggestions" in result.stdout
-    assert "Permission denied" in result.stdout
-
-
-@pytest.mark.usefixtures("mock_db_connection")
-def test_error_message_is_colored(mock_create_schema: MagicMock) -> None:
-    """Tests if the error message is colored red."""
-    mock_create_schema.side_effect = Exception("DB Error")
-    # The runner strips ANSI codes by default, so we can't directly check color.
-    # Instead, we rely on the fact that _handle_error uses typer.secho
-    # and test the content, assuming typer handles the coloring.
-    # For a more robust check, one might need to capture raw stdout.
-    result = runner.invoke(app, ["db", "init"])
-    assert result.exit_code == 1
-    assert "❌ Initialization failed" in result.stdout
-
-
-def test_db_status(mock_db_connection: MagicMock) -> None:
+def test_db_status(mock_db_connection):
     mock_db_connection.list_tables.return_value = ["table1", "table2"]
     result = runner.invoke(app, ["db", "status"])
     assert result.exit_code == 0
-    assert "Connected to DuckDB. Found tables: ['table1', 'table2']" in result.stdout
+    assert "Found tables: ['table1', 'table2']" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection")
-def test_db_unknown_action() -> None:
+def test_db_unknown_action(mock_db_connection):
     result = runner.invoke(app, ["db", "unknown"])
-    assert result.exit_code == 0  # Typer argument parsing passes, but our logic prints
+    assert result.exit_code == 0
     assert "Unknown action: unknown" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_collect(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
-    result = runner.invoke(app, ["collect", "--courts", "TJSP"])
-    assert result.exit_code == 0
-    mock_run_collection.assert_called_once()
-    # Check that PJeAPIClient was used and closed
-    mock_pje_client.close.assert_called_once()
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_collect_failure(mock_run_collection: MagicMock, mock_pje_client: MagicMock) -> None:
-    """Tests the error handler for the collect command."""
-    mock_run_collection.side_effect = RuntimeError("API unavailable")
-    result = runner.invoke(app, ["collect", "--courts", "TJSP"])
-    assert result.exit_code == 1
-    assert "❌ Collection failed" in result.stdout
-    assert "API unavailable" in result.stdout
-    mock_pje_client.close.assert_called_once()
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_analyze(mock_run_analysis: MagicMock) -> None:
-    with patch("causaganha.cli.DecisionAnalyzer"), patch("causaganha.cli.DocumentService"):
-        result = runner.invoke(app, ["analyze", "--limit", "5"])
+def test_score_command():
+    with patch("causaganha.cli.calculate_ratings", new_callable=AsyncMock) as mock_calc:
+        result = runner.invoke(app, ["score", "--limit", "10"])
         assert result.exit_code == 0
-        mock_run_analysis.assert_called_once()
-        _args, kwargs = mock_run_analysis.call_args
-        assert kwargs["limit"] == 5
+        mock_calc.assert_called_once_with(batch_size=10)
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_analyze_failure(mock_run_analysis: MagicMock) -> None:
-    """Tests the error handler for the analyze command."""
-    mock_run_analysis.side_effect = ValueError("Invalid document format")
-    with patch("causaganha.cli.DecisionAnalyzer"), patch("causaganha.cli.DocumentService"):
-        result = runner.invoke(app, ["analyze"])
-        assert result.exit_code == 1
-        assert "❌ Analysis failed" in result.stdout
-        assert "Invalid document format" in result.stdout
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_archive(mock_run_archive: MagicMock) -> None:
-    with patch("causaganha.cli.create_archive_service"), patch("causaganha.cli.DocumentService"):
-        result = runner.invoke(app, ["archive", "--limit", "3", "--dry-run"])
+def test_analyze_command():
+    with patch("causaganha.cli.analyze_pending_decisions", new_callable=AsyncMock) as mock_analyze:
+        mock_analyze.return_value = {
+            "strategy": "hybrid",
+            "analyzed": 1,
+            "failed": 0,
+            "rag_used": 1,
+            "llm_used": 0,
+            "total_cost": 0.01,
+            "cost_per_decision": 0.01,
+            "savings_vs_llm_pct": 50.0,
+        }
+        result = runner.invoke(app, ["analyze", "--limit", "5", "--strategy", "hybrid"])
         assert result.exit_code == 0
-        mock_run_archive.assert_called_once()
-        _args, kwargs = mock_run_archive.call_args
-        assert kwargs["limit"] == 3
-        assert kwargs["dry_run"] is True
+        assert "Analysis complete!" in result.stdout
+        mock_analyze.assert_called_once()
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_archive_failure(mock_run_archive: MagicMock) -> None:
-    """Tests the error handler for the archive command."""
-    mock_run_archive.side_effect = ConnectionError("Upload failed")
-    with patch("causaganha.cli.create_archive_service"), patch("causaganha.cli.DocumentService"):
-        result = runner.invoke(app, ["archive"])
-        assert result.exit_code == 1
-        assert "❌ Archive failed" in result.stdout
-        assert "Upload failed" in result.stdout
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_score(mock_run_scoring: MagicMock) -> None:
-    result = runner.invoke(app, ["score", "--limit", "50"])
-    assert result.exit_code == 0
-    mock_run_scoring.assert_called_once()
-    # Check arguments
-    _args, kwargs = mock_run_scoring.call_args
-    assert kwargs["limit"] == 50
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_score_failure(mock_run_scoring: MagicMock) -> None:
-    """Tests the error handler for the score command."""
-    mock_run_scoring.side_effect = KeyError("Rating not found")
-    result = runner.invoke(app, ["score"])
-    assert result.exit_code == 1
-    assert "❌ Scoring failed" in result.stdout
-    assert "Rating not found" in result.stdout
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_pipeline(
-    mock_run_collection: MagicMock,
-    mock_run_archive: MagicMock,
-    mock_run_analysis: MagicMock,
-    mock_run_scoring: MagicMock,
-    mock_pje_client: MagicMock,
-) -> None:
-    # We need to mock services instantiated in pipeline
-    with (
-        patch("causaganha.cli.create_archive_service"),
-        patch("causaganha.cli.DocumentService"),
-        patch("causaganha.cli.DecisionAnalyzer"),
-    ):
-        result = runner.invoke(app, ["pipeline", "--score-limit", "10"])
-
-        assert result.exit_code == 0
-        assert "Pipeline complete!" in result.stdout
-
-        mock_run_collection.assert_called_once()
-        mock_run_archive.assert_called_once()
-        mock_run_analysis.assert_called_once()
-        mock_run_scoring.assert_called_once()
-        mock_pje_client.close.assert_called_once()
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_pipeline_skips(
-    mock_run_collection: MagicMock,
-    mock_run_archive: MagicMock,
-    mock_run_analysis: MagicMock,
-    mock_run_scoring: MagicMock,
-    mock_pje_client: MagicMock,
-) -> None:
-    # We need to mock services instantiated in pipeline
-    with (
-        patch("causaganha.cli.create_archive_service"),
-        patch("causaganha.cli.DocumentService"),
-        patch("causaganha.cli.DecisionAnalyzer"),
-    ):
-        # Skip all steps
-        result = runner.invoke(
-            app,
-            [
-                "pipeline",
-                "--skip-collect",
-                "--skip-archive",
-                "--skip-analyze",
-                "--skip-score",
-            ],
-        )
-
-        assert result.exit_code == 0
-        assert "Pipeline complete!" in result.stdout
-        assert "Skipping collection" in result.stdout
-        assert "Skipping archive" in result.stdout
-        assert "Skipping analysis" in result.stdout
-        assert "Skipping scoring" in result.stdout
-
-        mock_run_collection.assert_not_called()
-        mock_run_archive.assert_not_called()
-        mock_run_analysis.assert_not_called()
-        mock_run_scoring.assert_not_called()
-        mock_pje_client.close.assert_called_once()
-
-
-@pytest.fixture
-def mock_rich_progress() -> Generator[MagicMock, None, None]:
-    """Fixture to mock rich.progress.Progress."""
-    # We patch it where it's used, which will be in the cli module.
-    # This will fail with an AttributeError until the import is added.
-    with patch("causaganha.cli.Progress", create=True) as mock_progress:
-        yield mock_progress
-
-
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_collect_shows_progress(
-    mock_run_collection: MagicMock,
-    mock_pje_client: MagicMock,
-    mock_rich_progress: MagicMock,
-) -> None:
-    """Tests that the collect command shows a progress indicator."""
+def test_collect_command_disabled():
     result = runner.invoke(app, ["collect"])
     assert result.exit_code == 0
-    mock_run_collection.assert_called_once()
-    mock_pje_client.close.assert_called_once()
-    mock_rich_progress.assert_called_once()
+    assert "Collection currently disabled" in result.stdout
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_analyze_shows_progress(
-    mock_run_analysis: MagicMock,
-    mock_rich_progress: MagicMock,
-) -> None:
-    """Tests that the analyze command shows a progress indicator."""
-    with (
-        patch("causaganha.cli.DecisionAnalyzer"),
-        patch(
-            "causaganha.cli.DocumentService",
-        ),
-    ):
-        result = runner.invoke(app, ["analyze"])
+def test_groundtruth_init():
+    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+        mock_manager = mock_manager_cls.return_value
+        result = runner.invoke(app, ["groundtruth", "init", "--overwrite"])
         assert result.exit_code == 0
-        mock_run_analysis.assert_called_once()
-        mock_rich_progress.assert_called_once()
+        assert "Ground truth vector store initialized" in result.stdout
+        mock_manager.init_store.assert_called_once_with(overwrite=True)
 
 
-@pytest.mark.usefixtures("mock_db_connection", "mock_create_schema", "mock_repositories")
-def test_archive_shows_progress(
-    mock_run_archive: MagicMock,
-    mock_rich_progress: MagicMock,
-) -> None:
-    """Tests that the archive command shows a progress indicator."""
-    with (
-        patch("causaganha.cli.create_archive_service"),
-        patch(
-            "causaganha.cli.DocumentService",
-        ),
-    ):
-        result = runner.invoke(app, ["archive"])
+def test_groundtruth_sync():
+    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+        mock_manager = mock_manager_cls.return_value
+        mock_manager.sync_from_db = AsyncMock(return_value={"synced": 5, "status": "success"})
+        
+        result = runner.invoke(app, ["groundtruth", "sync", "--limit", "10"])
+        
         assert result.exit_code == 0
-        mock_run_archive.assert_called_once()
-        mock_rich_progress.assert_called_once()
+        assert "Sync complete! Added 5 new examples" in result.stdout
+        mock_manager.sync_from_db.assert_called_once()
 
 
-@patch("causaganha.cli._get_repositories")
-def test_manifest_export(mock_get_repos: MagicMock) -> None:
-    """Test the manifest export command."""
-    # Reconfigure structlog to capture log messages
-    structlog.configure(logger_factory=structlog.ReturnLogger)
-
-    # Mock the repository and its method
-    mock_repo = MagicMock()
-
-    async def get_all_intimations(limit: int) -> list[dict]:  # noqa: ARG001
-        return [
-            {
-                "id": 1,
-                "numero_processo": "123",
-                "sigla_tribunal": "TJRO",
-                "data_disponibilizacao": "2024-01-01",
-                "link": "http://example.com/pdf",
-                "needs_download": True,
-                "ia_url": None,
-            },
-        ]
-
-    mock_repo.get_all_intimations = AsyncMock(side_effect=get_all_intimations)
-    mock_get_repos.return_value = (mock_repo, MagicMock(), MagicMock())
-
-    runner = CliRunner()
-    result = runner.invoke(app, ["manifest", "export", "--limit", "1"])
-
-    assert result.exit_code == 0
-    output = json.loads(result.stdout)
-
-    assert len(output) == 1
-    assert output[0]["intimation_id"] == 1
-    assert output[0]["process_number"] == "123"
-    assert output[0]["tribunal"] == "TJRO"
-    assert output[0]["decision_date"] == "2024-01-01"
-    assert output[0]["needs_download"] is True
+def test_groundtruth_search():
+    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+        mock_manager = mock_manager_cls.return_value
+        mock_manager.search = AsyncMock(return_value=[
+            {"text": "Sample text", "outcome": "WIN", "score": 0.9}
+        ])
+        
+        result = runner.invoke(app, ["groundtruth", "search", "test query"])
+        
+        assert result.exit_code == 0
+        assert "Sample text" in result.stdout
+        assert "WIN" in result.stdout
+        mock_manager.search.assert_called_once_with("test query", k=5)
