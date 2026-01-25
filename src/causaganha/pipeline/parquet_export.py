@@ -13,8 +13,9 @@ Usage:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import ibis
 import pyarrow as pa
@@ -33,7 +34,7 @@ class ExportConfig:
     row_group_size: int = 10_000  # Rows per row group
     schema_version: str = "v1"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Ensure output directory exists."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -41,7 +42,9 @@ class ExportConfig:
 class ParquetExporter:
     """Exports intimations from DuckDB to Parquet files."""
 
-    def __init__(self, db_connection, config: ExportConfig | None = None):
+    def __init__(
+        self, db_connection: Any, config: ExportConfig | None = None
+    ) -> None:
         """Initialize Parquet exporter.
 
         Args:
@@ -185,7 +188,7 @@ class ParquetExporter:
 
         return file_path, row_count
 
-    def _query_intimations(self, date: str, tribunal: str) -> pa.RecordBatch:
+    def _query_intimations(self, date: str, tribunal: str) -> pa.Table:
         """Query DuckDB for intimations to export.
 
         Args:
@@ -193,7 +196,7 @@ class ParquetExporter:
             tribunal: Tribunal code
 
         Returns:
-            PyArrow RecordBatch with intimation data
+            PyArrow Table with intimation data
         """
         # Build Ibis query
         intimations = self.db.table("intimations")
@@ -452,5 +455,5 @@ class ParquetExporter:
     @staticmethod
     def get_yesterday() -> str:
         """Get yesterday's date in YYYY-MM-DD format."""
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         return yesterday.strftime("%Y-%m-%d")

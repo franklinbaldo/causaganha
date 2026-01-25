@@ -29,7 +29,7 @@ class CatalogCreator:
             catalog_path: Path where catalog database will be created
         """
         self.catalog_path = catalog_path
-        self.views: list[dict[str, str]] = []
+        self.views: list[dict[str, Any]] = []
         self.validations: list[dict[str, Any]] = []
 
     def create(self) -> None:

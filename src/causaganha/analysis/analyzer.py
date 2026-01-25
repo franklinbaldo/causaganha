@@ -111,14 +111,14 @@ class DecisionAnalyzer:
             logger.info(
                 "analysis_complete",
                 intimation_id=intimation_id,
-                winner_oab=result.data.winner_lawyer_oab,
-                loser_oab=result.data.loser_lawyer_oab,
-                decision_type=result.data.decision_type,
-                outcome=result.data.outcome,
-                confidence=result.data.confidence_score,
+                winner_oab=result.output.winner_lawyer_oab,
+                loser_oab=result.output.loser_lawyer_oab,
+                decision_type=result.output.decision_type,
+                outcome=result.output.outcome,
+                confidence=result.output.confidence_score,
             )
 
-            return result.data
+            return result.output
 
         except Exception as e:
             logger.error(

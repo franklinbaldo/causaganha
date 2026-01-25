@@ -1,3 +1,6 @@
+"""Tests for CLI commands."""
+
+from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,34 +13,39 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def mock_db_connection():
+def mock_db_connection() -> Generator[MagicMock, None, None]:
+    """Mock DB connection fixture."""
     with patch("causaganha.cli.get_connection") as mock_get:
         mock_con = MagicMock()
         mock_get.return_value = mock_con
         yield mock_con
 
 
-def test_db_status(mock_db_connection):
+def test_db_status(mock_db_connection: MagicMock) -> None:
+    """Test db status command."""
     mock_db_connection.list_tables.return_value = ["table1", "table2"]
     result = runner.invoke(app, ["db", "status"])
     assert result.exit_code == 0
     assert "Found tables: ['table1', 'table2']" in result.stdout
 
 
-def test_db_unknown_action(mock_db_connection):
+def test_db_unknown_action(mock_db_connection: MagicMock) -> None:
+    """Test db command with unknown action."""
     result = runner.invoke(app, ["db", "unknown"])
     assert result.exit_code == 0
     assert "Unknown action: unknown" in result.stdout
 
 
-def test_score_command():
+def test_score_command() -> None:
+    """Test score command."""
     with patch("causaganha.cli.calculate_ratings", new_callable=AsyncMock) as mock_calc:
         result = runner.invoke(app, ["score", "--limit", "10"])
         assert result.exit_code == 0
         mock_calc.assert_called_once_with(batch_size=10)
 
 
-def test_analyze_command():
+def test_analyze_command() -> None:
+    """Test analyze command."""
     with patch("causaganha.cli.analyze_pending_decisions", new_callable=AsyncMock) as mock_analyze:
         mock_analyze.return_value = {
             "strategy": "hybrid",
@@ -55,7 +63,8 @@ def test_analyze_command():
         mock_analyze.assert_called_once()
 
 
-def test_collect_command_disabled():
+def test_collect_command_disabled() -> None:
+    """Test collect command prints disabled message."""
     result = runner.invoke(app, ["collect"])
     assert result.exit_code == 0
     assert "Collection currently disabled" in result.stdout

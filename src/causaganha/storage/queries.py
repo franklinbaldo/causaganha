@@ -1,5 +1,6 @@
 """Common analytical queries using Ibis."""
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -122,7 +123,7 @@ def get_unanalyzed_intimations(
     intimations = con.table("intimations")
 
     result = (
-        intimations.filter(_.analyzed == False)  # noqa: E712
+        intimations.filter(~_.analyzed)
         .filter(_.link.notnull())
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)
@@ -137,8 +138,6 @@ def store_analysis(
     analysis: DecisionAnalysis,
 ) -> None:
     """Store analysis results (supports both LLM and RAG analysis)."""
-    import json
-
     # Determine model info based on analysis method
     if analysis.analysis_method == "rag":
         model_used = "rag-embedding-004"
@@ -249,7 +248,7 @@ def get_unrated_analyses(
     analysis = con.table("decision_analysis")
 
     result = (
-        analysis.filter(_.rated == False)  # noqa: E712
+        analysis.filter(~_.rated)
         .order_by(_.created_at.asc())
         .limit(limit)
     )

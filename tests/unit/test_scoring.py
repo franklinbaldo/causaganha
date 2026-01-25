@@ -1,3 +1,5 @@
+"""Tests for scoring module using OpenSkill."""
+
 import pytest
 from openskill.models import PlackettLuce
 from openskill.models.weng_lin.plackett_luce import PlackettLuceRating as OpenSkillRating
@@ -8,22 +10,34 @@ from causaganha.scoring.openskill import (
     rate_teams,
 )
 
+DEFAULT_MU = 25.0
+DEFAULT_SIGMA = 25.0 / 3.0
+CUSTOM_MU = 30.0
+CUSTOM_SIGMA = 5.0
+CUSTOM_RATING_SIGMA = 2.0
+BETA = 2.0
+TAU = 0.1
+EPSILON = 0.001
+
 
 def test_get_openskill_model_defaults() -> None:
+    """Test creating OpenSkill model with default parameters."""
     model = get_openskill_model()
     assert isinstance(model, PlackettLuce)
-    assert model.mu == 25.0
-    assert model.sigma == 25.0 / 3.0
+    assert model.mu == DEFAULT_MU
+    assert model.sigma == DEFAULT_SIGMA
 
 
 def test_get_openskill_model_custom() -> None:
-    config = {"mu": 30.0, "sigma": 5.0, "beta": 2.0, "tau": 0.1}
+    """Test creating OpenSkill model with custom parameters."""
+    config = {"mu": CUSTOM_MU, "sigma": CUSTOM_SIGMA, "beta": BETA, "tau": TAU}
     model = get_openskill_model(config)
-    assert model.mu == 30.0
-    assert model.sigma == 5.0
+    assert model.mu == CUSTOM_MU
+    assert model.sigma == CUSTOM_SIGMA
 
 
 def test_create_rating_default() -> None:
+    """Test creating rating with default model values."""
     model = get_openskill_model()
     rating = create_rating(model, name="Player1")
     assert isinstance(rating, OpenSkillRating)
@@ -33,13 +47,17 @@ def test_create_rating_default() -> None:
 
 
 def test_create_rating_custom() -> None:
+    """Test creating rating with custom values."""
     model = get_openskill_model()
-    rating = create_rating(model, mu=30.0, sigma=2.0, name="Player2")
-    assert rating.mu == 30.0
-    assert rating.sigma == 2.0
+    rating = create_rating(
+        model, mu=CUSTOM_MU, sigma=CUSTOM_RATING_SIGMA, name="Player2"
+    )
+    assert rating.mu == CUSTOM_MU
+    assert rating.sigma == CUSTOM_RATING_SIGMA
 
 
 def test_rate_teams_win() -> None:
+    """Test rating update for a win."""
     model = get_openskill_model()
     r1 = create_rating(model, name="Winner")
     r2 = create_rating(model, name="Loser")
@@ -57,6 +75,7 @@ def test_rate_teams_win() -> None:
 
 
 def test_rate_teams_draw() -> None:
+    """Test rating update for a draw."""
     model = get_openskill_model()
     r1 = create_rating(model, name="P1")
     r2 = create_rating(model, name="P2")
@@ -65,13 +84,14 @@ def test_rate_teams_draw() -> None:
     new_r1, new_r2 = rate_teams(model, [r1], [r2], "draw")
 
     # Should be symmetric for identical initial ratings
-    assert abs(new_r1[0].mu - new_r2[0].mu) < 0.001
+    assert abs(new_r1[0].mu - new_r2[0].mu) < EPSILON
 
 
 def test_rate_teams_invalid_result() -> None:
+    """Test error handling for invalid match result."""
     model = get_openskill_model()
     r1 = create_rating(model)
     r2 = create_rating(model)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unknown match result"):
         rate_teams(model, [r1], [r2], "invalid_result")

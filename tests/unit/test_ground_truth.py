@@ -1,17 +1,26 @@
+"""Tests for ground truth management."""
+
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from causaganha.analysis.ground_truth import GroundTruthManager
 
+VECTOR_DIM = 1024
+DUMMY_ID = 0
+TEST_SCORE = 0.9
+
 
 @pytest.fixture
-def mock_vector_store():
+def mock_vector_store() -> MagicMock:
+    """Mock VectorStore."""
     return MagicMock()
 
 
 @pytest.fixture
-def mock_embedding_service():
+def mock_embedding_service() -> MagicMock:
+    """Mock EmbeddingService."""
     service = MagicMock()
     service.embed_batch = AsyncMock()
     service.embed_text = AsyncMock()
@@ -19,14 +28,20 @@ def mock_embedding_service():
 
 
 @pytest.fixture
-def manager(mock_vector_store, mock_embedding_service):
+def manager(
+    mock_vector_store: MagicMock, mock_embedding_service: MagicMock
+) -> GroundTruthManager:
+    """Create GroundTruthManager with mocks."""
     return GroundTruthManager(
         vector_store=mock_vector_store,
         embedding_service=mock_embedding_service,
     )
 
 
-def test_init_store_creates_table(manager, mock_vector_store):
+def test_init_store_creates_table(
+    manager: GroundTruthManager, mock_vector_store: MagicMock
+) -> None:
+    """Test table creation when not exists."""
     mock_vector_store.table_exists.return_value = False
 
     manager.init_store()
@@ -35,10 +50,13 @@ def test_init_store_creates_table(manager, mock_vector_store):
     args, _ = mock_vector_store.create_table.call_args
     assert args[0] == "ground_truth"
     assert len(args[1]) == 1
-    assert args[1][0]["intimation_id"] == 0
+    assert args[1][0]["intimation_id"] == DUMMY_ID
 
 
-def test_init_store_skips_if_exists(manager, mock_vector_store):
+def test_init_store_skips_if_exists(
+    manager: GroundTruthManager, mock_vector_store: MagicMock
+) -> None:
+    """Test skipping creation if table exists."""
     mock_vector_store.table_exists.return_value = True
 
     manager.init_store()
@@ -46,7 +64,10 @@ def test_init_store_skips_if_exists(manager, mock_vector_store):
     mock_vector_store.create_table.assert_not_called()
 
 
-def test_init_store_overwrites(manager, mock_vector_store):
+def test_init_store_overwrites(
+    manager: GroundTruthManager, mock_vector_store: MagicMock
+) -> None:
+    """Test overwrite mode."""
     mock_vector_store.table_exists.return_value = False
 
     manager.init_store(overwrite=True)
@@ -56,9 +77,14 @@ def test_init_store_overwrites(manager, mock_vector_store):
 
 
 @pytest.mark.asyncio
-async def test_search_calls_vector_store(manager, mock_vector_store, mock_embedding_service):
-    mock_embedding_service.embed_text.return_value = [0.1] * 1024
-    mock_vector_store.search.return_value = [{"text": "result", "score": 0.9}]
+async def test_search_calls_vector_store(
+    manager: GroundTruthManager,
+    mock_vector_store: MagicMock,
+    mock_embedding_service: MagicMock,
+) -> None:
+    """Test search functionality."""
+    mock_embedding_service.embed_text.return_value = [0.1] * VECTOR_DIM
+    mock_vector_store.search.return_value = [{"text": "result", "score": TEST_SCORE}]
 
     results = await manager.search("query text", k=3)
 
@@ -69,11 +95,14 @@ async def test_search_calls_vector_store(manager, mock_vector_store, mock_embedd
         task_type="RETRIEVAL_QUERY",
         add_prefix=True,
     )
-    mock_vector_store.search.assert_called_once_with("ground_truth", [0.1] * 1024, k=3)
+    mock_vector_store.search.assert_called_once_with(
+        "ground_truth", [0.1] * VECTOR_DIM, k=3
+    )
 
 
 @pytest.mark.asyncio
-async def test_sync_from_db_no_records(manager):
+async def test_sync_from_db_no_records(manager: GroundTruthManager) -> None:
+    """Test sync with no data in DB."""
     con = MagicMock()
     con.con.execute.return_value.fetchall.return_value = []
 
@@ -84,7 +113,12 @@ async def test_sync_from_db_no_records(manager):
 
 
 @pytest.mark.asyncio
-async def test_sync_from_db_successful_sync(manager, mock_vector_store, mock_embedding_service):
+async def test_sync_from_db_successful_sync(
+    manager: GroundTruthManager,
+    mock_vector_store: MagicMock,
+    mock_embedding_service: MagicMock,
+) -> None:
+    """Test successful sync."""
     con = MagicMock()
     # Mock DuckDB records: (id, text, outcome)
     con.con.execute.return_value.fetchall.return_value = [
@@ -103,7 +137,7 @@ async def test_sync_from_db_successful_sync(manager, mock_vector_store, mock_emb
     mock_table.to_pandas.return_value = mock_df
     mock_vector_store.get_table.return_value = mock_table
 
-    mock_embedding_service.embed_batch.return_value = [[0.2] * 1024]
+    mock_embedding_service.embed_batch.return_value = [[0.2] * VECTOR_DIM]
 
     result = await manager.sync_from_db(con)
 

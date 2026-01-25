@@ -35,59 +35,6 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-groundtruth_app = typer.Typer(name="groundtruth", help="Manage ground truth vector store")
-app.add_typer(groundtruth_app, name="groundtruth")
-
-
-@groundtruth_app.command("init")
-def groundtruth_init(
-    overwrite: bool = typer.Option(False, help="Overwrite existing table"),
-) -> None:
-    """Initialize the ground truth vector store to ready state."""
-    manager = GroundTruthManager()
-    manager.init_store(overwrite=overwrite)
-    typer.echo("✅ Ground truth vector store initialized")
-
-
-@groundtruth_app.command("sync")
-def groundtruth_sync(
-    min_confidence: float = typer.Option(0.9, help="Minimum confidence score"),
-    limit: int = typer.Option(100, help="Max records to sync"),
-) -> None:
-    """Sync high-confidence analyses from DuckDB."""
-
-    async def _run() -> None:
-        try:
-            conn = get_connection()
-            manager = GroundTruthManager()
-            result = await manager.sync_from_db(conn, min_confidence, limit)
-            typer.echo(f"✅ Sync complete! Added {result['synced']} new examples")
-        except Exception as e:
-            _handle_error(e, "Sync failed")
-
-    asyncio.run(_run())
-
-
-@groundtruth_app.command("search")
-def groundtruth_search(
-    query: str = typer.Argument(..., help="Text to search for"),
-    k: int = typer.Option(5, help="Number of results"),
-) -> None:
-    """Search for matching examples."""
-
-    async def _run() -> None:
-        try:
-            manager = GroundTruthManager()
-            results = await manager.search(query, k=k)
-            for res in results:
-                typer.echo(f"Outcome: {res['outcome']}")
-                typer.echo(f"Text: {res['text'][:200]}...")
-                typer.echo("---")
-        except Exception as e:
-            _handle_error(e, "Search failed")
-
-    asyncio.run(_run())
-
 
 logger = structlog.get_logger()
 
@@ -434,7 +381,8 @@ def export_parquet(
 
             elif tribunal:
                 # Single tribunal export
-                typer.echo(f"Exporting {tribunal} for {date or 'yesterday'}...")
+                export_date = date or ParquetExporter.get_yesterday()
+                typer.echo(f"Exporting {tribunal} for {export_date}...")
 
                 with Progress(
                     SpinnerColumn(),
@@ -442,7 +390,7 @@ def export_parquet(
                     transient=True,
                 ) as progress:
                     progress.add_task(description=f"Exporting {tribunal}...", total=None)
-                    file_path, row_count = await exporter.export_day_tribunal(date, tribunal)
+                    file_path, row_count = await exporter.export_day_tribunal(export_date, tribunal)
 
                     file_size_mb = file_path.stat().st_size / (1024 * 1024)
 
@@ -450,7 +398,7 @@ def export_parquet(
                     ia_url = await uploader.upload_parquet(
                         file_path,
                         tribunal,
-                        date,
+                        export_date,
                         file_size_mb,
                         row_count,
                     )
