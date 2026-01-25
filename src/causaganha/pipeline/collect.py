@@ -5,6 +5,7 @@ import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from types import SimpleNamespace
 
 import httpx
 import structlog
@@ -74,28 +75,27 @@ async def collect_metadata_for_court(
                                 data = json.load(f)
                                 items = data.get("items", [data] if "id" in data else [])
                                 for item in items:
+                                    if not isinstance(item, dict):
+                                        continue
+                                        
                                     # Wrap in a simple object for store_intimations
-                                    # Using a simple class to support dot access
-                                    class Item:
-                                        def __init__(self, d):
-                                            self.__dict__.update(d)
-                                            # Fix field names for V2 schema if necessary
-                                            self.id = d.get("id")
-                                            self.numero_processo = d.get("numero_processo") or d.get("numeroProcesso")
-                                            self.data_disponibilizacao = d.get("data_disponibilizacao") or d.get("dataDisponibilizacao")
-                                            self.sigla_tribunal = d.get("sigla_tribunal") or d.get("siglaTribunal")
-                                            self.id_orgao = d.get("id_orgao") or d.get("idOrgao")
-                                            self.tipo_comunicacao = d.get("tipo_comunicacao") or d.get("tipoComunicacao")
-                                            self.nome_orgao = d.get("nome_orgao") or d.get("nomeOrgao")
-                                            self.texto = d.get("texto")
-                                            self.link = d.get("link")
-                                            self.tipo_documento = d.get("tipo_documento") or d.get("tipoDocumento")
-                                            self.nome_classe = d.get("nome_classe") or d.get("nomeClasse")
-                                            self.codigo_classe = d.get("codigo_classe") or d.get("codigoClasse")
-                                            self.hash = d.get("hash")
-                                            self.status = d.get("status")
+                                    obj = SimpleNamespace()
+                                    obj.id = item.get("id")
+                                    obj.numero_processo = item.get("numero_processo") or item.get("numeroProcesso")
+                                    obj.data_disponibilizacao = item.get("data_disponibilizacao") or item.get("dataDisponibilizacao")
+                                    obj.sigla_tribunal = item.get("sigla_tribunal") or item.get("siglaTribunal")
+                                    obj.id_orgao = item.get("id_orgao") or item.get("idOrgao")
+                                    obj.tipo_comunicacao = item.get("tipo_comunicacao") or item.get("tipoComunicacao")
+                                    obj.nome_orgao = item.get("nome_orgao") or item.get("nomeOrgao")
+                                    obj.texto = item.get("texto")
+                                    obj.link = item.get("link")
+                                    obj.tipo_documento = item.get("tipo_documento") or item.get("tipoDocumento")
+                                    obj.nome_classe = item.get("nome_classe") or item.get("nomeClasse")
+                                    obj.codigo_classe = item.get("codigo_classe") or item.get("codigoClasse")
+                                    obj.hash = item.get("hash")
+                                    obj.status = item.get("status")
 
-                                    intimations.append(Item(item))
+                                    intimations.append(obj)
                 
                 # 4. Store in DuckDB
                 if intimations:
