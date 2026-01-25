@@ -113,7 +113,7 @@ export default function App() {
         const sortedFeed = Object.values(archiveFeedMap).sort((a, b) =>
           new Date(b.addeddate).getTime() - new Date(a.addeddate).getTime()
         );
-        setRecentArchives(sortedFeed.slice(0, 15));
+        setRecentArchives(sortedFeed.slice(0, 30));
 
         const totalTarget = 91 * 260 * 4;
         const progressPct = Math.min(((iaDataJson.response.numFound / totalTarget) * 100), 100).toFixed(1);
@@ -321,8 +321,8 @@ export default function App() {
                   <div key={run.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-4 min-w-0">
                       <div className={`p-1.5 rounded-full ${run.conclusion === 'success' ? 'bg-emerald-100 text-emerald-600' :
-                          run.status === 'in_progress' ? 'bg-amber-100 text-amber-600 animate-pulse' :
-                            'bg-red-100 text-red-600'
+                        run.status === 'in_progress' ? 'bg-amber-100 text-amber-600 animate-pulse' :
+                          'bg-red-100 text-red-600'
                         }`}>
                         {run.conclusion === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                       </div>
