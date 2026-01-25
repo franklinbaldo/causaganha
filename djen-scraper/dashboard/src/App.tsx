@@ -168,24 +168,13 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Detail fetching disabled in IA mode for now
-  /*
-  useEffect(() => {
-    if (selectedTribunal) {
-      fetch(`${API_BASE}/api/tribunal/${selectedTribunal}`)
-        .then(res => res.json())
-        .then(setTribunalDetail)
-        .catch(console.error);
-    }
-  }, [selectedTribunal]);
-  */
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Text className="text-white text-xl mb-2">Carregando...</Text>
-          <Text className="text-slate-400">Conectando ao Cloudflare Worker API</Text>
+          <Text className="text-slate-400">Conectando ao GitHub & Internet Archive</Text>
         </div>
       </div>
     );
