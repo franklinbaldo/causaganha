@@ -253,7 +253,7 @@ def process_item(item_id: str) -> bool:
 
         with timed("write parquet"):
             for table in tables:
-                filename = f"{table}-{date}-{tribunal}.parquet"
+                filename = f"{tribunal}-{date}-{table}.parquet"
                 path = out_dir / filename
                 # Write with optimized compression (level 3 balances speed/size)
                 con.execute(f"""
