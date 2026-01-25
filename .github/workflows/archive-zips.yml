@@ -153,39 +153,38 @@ jobs:
             # Extract download URL
             URL=$(echo "$INFO" | jq -r '.url // empty')
             TOTAL=$(echo "$INFO" | jq -r '.total_comunicacoes // 0')
-            SIZE=$(echo "$INFO" | jq -r '.tamanho_bytes // 0')
-            SIZE_MB=$((SIZE / 1024 / 1024))
+            # Extract version
+            VERSAO=$(echo "$INFO" | jq -r '.versao // 1')
+            ZIP_NAME="${TRIBUNAL}-D-${DATE}_v${VERSAO}.zip"
 
-            if [ -z "$URL" ]; then
-              echo "   ⚠️  No download URL (marking unavailable)"
-              echo "$ITEM_ID" >> state/unavailable.txt
-              FAILED=$((FAILED + 1))
-              continue
-            fi
+            echo "   📊 $TOTAL comunicações, ${SIZE_MB}MB, Versão: $VERSAO"
 
-            echo "   📊 $TOTAL comunicações, ${SIZE_MB}MB"
+            # Filename pattern: TRIBUNAL-DATE.zip (standardized across systems)
+            ZIP_NAME="${TRIBUNAL}-${DATE}.zip"
+
+            echo "   📊 $TOTAL comunicações, Versão: $VERSAO"
 
             # Download ZIP
             echo "   ⬇️  Downloading..."
-            if ! curl -sfL "$URL" -o caderno.zip; then
+            if ! curl -sfL "$URL" -o "$ZIP_NAME"; then
               echo "   ❌ Download failed"
               FAILED=$((FAILED + 1))
               continue
             fi
 
             # Verify file
-            ACTUAL=$(stat -c%s caderno.zip 2>/dev/null || stat -f%z caderno.zip)
+            ACTUAL=$(stat -c%s "$ZIP_NAME" 2>/dev/null || stat -f%z "$ZIP_NAME")
             if [ "$ACTUAL" -lt 100 ]; then
               echo "   ❌ File too small ($ACTUAL bytes)"
-              rm -f caderno.zip
+              rm -f "$ZIP_NAME"
               FAILED=$((FAILED + 1))
               continue
             fi
 
             # Upload to Internet Archive
-            echo "   ⬆️  Uploading to IA: $ITEM_ID"
+            echo "   ⬆️  Uploading to IA: $ITEM_ID ($ZIP_NAME)"
 
-            UPLOAD_OUTPUT=$(ia upload "$ITEM_ID" caderno.zip \
+            UPLOAD_OUTPUT=$(ia upload "$ITEM_ID" "$ZIP_NAME" \
               --metadata="collection:opensource" \
               --metadata="mediatype:data" \
               --metadata="title:DJEN $TRIBUNAL $DATE" \
@@ -195,27 +194,28 @@ jobs:
               --metadata="date:$DATE" \
               --metadata="tribunal:$TRIBUNAL" \
               --metadata="total_comunicacoes:$TOTAL" \
+              --metadata="versao:$VERSAO" \
               --retries=3 \
               --no-derive 2>&1)
             UPLOAD_STATUS=$?
 
             if [ $UPLOAD_STATUS -eq 0 ]; then
-              echo "   ✅ Done!"
+              echo "   ✅ Success!"
               SUCCESS=$((SUCCESS + 1))
+              rm -f "$ZIP_NAME"
             else
-              echo "$UPLOAD_OUTPUT"
-              # Check for rate limiting / spam detection
-              if echo "$UPLOAD_OUTPUT" | grep -qi "spam\|rate"; then
-                echo "   🚫 Rate limited by IA - stopping batch to avoid further blocks"
-                FAILED=$((FAILED + 1))
-                rm -f caderno.zip
-                break  # Exit loop, don't retry - wait for next workflow run
-              fi
               echo "   ❌ Upload failed"
+              echo "$UPLOAD_OUTPUT" | head -n 5
               FAILED=$((FAILED + 1))
+              rm -f "$ZIP_NAME"
+#              # Check for rate limiting / spam detection
+#              if echo "$UPLOAD_OUTPUT" | grep -qi "spam\|rate"; then
+#                echo "   🚫 Rate limited by IA - stopping batch to avoid further blocks"
+#                break  # Exit loop, don't retry - wait for next workflow run
+#              fi
             fi
 
-            rm -f caderno.zip
+            rm -f "$ZIP_NAME"
 
             # IA rate limit: 2 seconds minimum between uploads
             sleep 5

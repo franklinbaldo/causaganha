@@ -28,14 +28,12 @@ graph TD
 2. **Conversão (`convert-parquet.yml`):** Monitora novos itens brutos, os baixa, converte para Parquet usando DuckDB e faz upload de volta para o *mesmo* item no Internet Archive.
 3. **Análise:** O Dashboard e notebooks podem consumir os arquivos Parquet diretamente do Internet Archive via HTTP/Range requests.
 
-## 📂 Estrutura de Dados
-
 No Internet Archive, cada dia/tribunal é um item:
 **Item ID:** `djen-raw-2025-01-20-TJRO`
 
 Arquivos contidos:
 
-- 📦 `caderno.zip`: Dados brutos (JSON)
+- 📦 `TJRO-2025-01-20.zip`: Dados brutos (JSON)
 - 📊 `TJRO-2025-01-20-diarios.parquet`: Tabela principal
 - 📊 `TJRO-2025-01-20-processos.parquet`: Metadados de processos
 - 📊 `TJRO-2025-01-20-movimentos.parquet`: Movimentações

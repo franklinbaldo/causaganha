@@ -71,7 +71,7 @@ uv pip install -e .
  ```text
  Internet Archive Storage:
  ├── djen-raw-YYYY-MM-DD-TRIB/         ← Item ID (Consolidated)
- │   ├── caderno.zip                   ← Raw JSON source
+ │   ├── TRIB-YYYY-MM-DD.zip           ← Raw JSON source (Standardized)
  │   ├── TRIB-YYYY-MM-DD-diarios.parquet
  │   ├── TRIB-YYYY-MM-DD-processos.parquet
  │   └── TRIB-YYYY-MM-DD-movimentos.parquet

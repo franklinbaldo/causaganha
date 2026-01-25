@@ -71,27 +71,41 @@ def process_item(item_id: str) -> bool:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        zip_path = tmpdir / "caderno.zip"
+        zip_path = tmpdir / "caderno.zip" # Placeholder path, will be overwritten
 
-        # Download directly via HTTP (faster than ia CLI)
-        url = f"https://archive.org/download/{item_id}/caderno.zip"
-        print(f"  Downloading: {url}")
+        # Try to download the ZIP file
+        # We try multiple patterns for backward compatibility:
+        # 1. New pattern: {tribunal}-{date}.zip
+        # 2. Legacy pattern: caderno.zip
+        zip_filenames = [f"{tribunal}-{date}.zip", "caderno.zip"]
+        download_success = False
+        
+        for zip_filename in zip_filenames:
+            url = f"https://archive.org/download/{item_id}/{zip_filename}"
+            print(f"  Attempting download: {url}")
+            
+            with timed(f"download ({zip_filename})"):
+                try:
+                    # Long timeouts for large files from IA
+                    timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
+                    with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+                        if response.status_code == 200:
+                            downloaded = 0
+                            with open(zip_path, "wb") as f:
+                                for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
+                                    f.write(chunk)
+                                    downloaded += len(chunk)
+                            print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
+                            download_success = True
+                            break
+                        else:
+                            print(f"    [Skip] {zip_filename} not found (status {response.status_code})")
+                except Exception as e:
+                    print(f"    [Error] Failed to download {zip_filename}: {e}")
 
-        with timed("download"):
-            # Long timeouts for large files from IA
-            timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
-            with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
-                if response.status_code != 200:
-                    print(f"  ERROR: Download failed with status {response.status_code}")
-                    return False
-
-                downloaded = 0
-                with open(zip_path, "wb") as f:
-                    for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
-                        f.write(chunk)
-                        downloaded += len(chunk)
-
-            print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
+        if not download_success:
+            print(f"  ERROR: Could not find or download any ZIP file for {item_id}")
+            return False
 
         # Stream JSON records from ZIP into a single NDJSON file for DuckDB
         ndjson_path = tmpdir / "records.ndjson"
