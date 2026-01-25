@@ -84,26 +84,40 @@ jobs:
           BACKFILL_DAYS="${{ inputs.backfill_days }}"
           BACKFILL_DAYS=${BACKFILL_DAYS:-7}
 
+          # Handle specific date if provided
+          SPECIFIC_DATE="${{ inputs.date }}"
+          SPECIFIC_TRIBUNAL="${{ inputs.tribunal }}"
+
           > to_archive.txt
-          for i in $(seq 1 $BACKFILL_DAYS); do
-            DATE=$(date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
+          if [ -n "$SPECIFIC_DATE" ]; then
+            if [ -n "$SPECIFIC_TRIBUNAL" ]; then
+              echo "${SPECIFIC_DATE}|${SPECIFIC_TRIBUNAL}" >> to_archive.txt
+            else
+              for TRIBUNAL in $TRIBUNAIS; do
+                echo "${SPECIFIC_DATE}|${TRIBUNAL}" >> to_archive.txt
+              done
+            fi
+          else
+            for i in $(seq 1 $BACKFILL_DAYS); do
+              DATE=$(date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
 
-            for TRIBUNAL in $TRIBUNAIS; do
-              ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
+              for TRIBUNAL in $TRIBUNAIS; do
+                ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
 
-              # Check if already on IA
-              if grep -q "^${ITEM_ID}$" existing_items.txt; then
-                continue
-              fi
+                # Check if already on IA
+                if grep -q "^${ITEM_ID}$" existing_items.txt; then
+                  continue
+                fi
 
-              # Skip if marked unavailable
-              if grep -q "^${ITEM_ID}$" state/unavailable.txt; then
-                continue
-              fi
+                # Skip if marked unavailable
+                if grep -q "^${ITEM_ID}$" state/unavailable.txt; then
+                  continue
+                fi
 
-              echo "${DATE}|${TRIBUNAL}" >> to_archive.txt
+                echo "${DATE}|${TRIBUNAL}" >> to_archive.txt
+              done
             done
-          done
+          fi
 
           TOTAL=$(wc -l < to_archive.txt | tr -d ' ')
           echo "Found $TOTAL items to archive"
