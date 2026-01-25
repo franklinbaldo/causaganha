@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, Title, Text, Metric, Flex, ProgressBar, Grid, Badge, Table, TableHead, TableHeaderCell, TableBody, TableRow, TableCell, AreaChart } from '@tremor/react';
 
-const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&rows=1000&output=json";
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&sort[]=addeddate+desc&rows=1000&output=json";
+const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
+const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
 interface State {
   current: {
@@ -35,12 +37,17 @@ interface TribunalSummary {
 }
 interface ActionRun {
   databaseId: number;
-  workflowName: string;
+  id: number;
+  workflowName?: string;
+  name: string;
   status: string;
   conclusion: string;
   createdAt: string;
-  displayTitle: string;
+  created_at: string;
+  displayTitle?: string;
+  display_title: string;
   url: string;
+  html_url: string;
 }
 
 
@@ -60,6 +67,7 @@ export default function App() {
   const [state, setState] = useState<State | null>(null);
   const [tribunais, setTribunais] = useState<TribunalSummary[]>([]);
   const [runs, setRuns] = useState<ActionRun[]>([]);
+  const [recentArchives, setRecentArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
@@ -68,79 +76,83 @@ export default function App() {
     const fetchData = async () => {
       try {
         const [iaRes, runsRes] = await Promise.all([
-          fetch(IA_SEARCH_URL),
-          fetch('/causaganha/run_stats.json')
+          fetch(IA_SEARCH_URL).catch(() => null),
+          fetch(GITHUB_RUNS_URL).catch(() => null)
         ]);
 
-        if (!iaRes.ok) {
-          setError(`IA API Error: ${iaRes.status}`);
-          setLoading(false);
-          return;
+        if (iaRes && iaRes.ok) {
+          const data = await iaRes.json();
+          const docs = data.response.docs;
+
+          // Process IA docs into Dashboard State
+          const tribunalsMap: Record<string, TribunalSummary> = {};
+          let totalRecords = 0;
+          let newestDate = '2000-01-01';
+
+          docs.forEach((doc: any) => {
+            const trib = doc.tribunal || doc.identifier.split('-').pop();
+            const date = (doc.date || '').split('T')[0];
+            const records = parseInt(doc.total_comunicacoes || '0', 10);
+
+            if (date > newestDate) newestDate = date;
+            totalRecords += records;
+
+            if (!tribunalsMap[trib]) {
+              tribunalsMap[trib] = {
+                tribunal: trib,
+                total_dates: 0,
+                total_records: 0,
+                total_bytes: 0,
+                oldest_date: date,
+                newest_date: date,
+              };
+            }
+
+            const summary = tribunalsMap[trib];
+            summary.total_dates += 1;
+            summary.total_records += records;
+            if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
+            if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+          });
+
+          const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
+          setTribunais(tribunaisArray);
+          setRecentArchives(docs.slice(0, 10)); // Top 10 recent
+
+          setState({
+            current: {
+              date: newestDate,
+              status: 'complete',
+              tribunais_done: tribunaisArray.filter(t => t.newest_date === newestDate).map(t => t.tribunal),
+              tribunais_pending: [],
+              records: tribunaisArray.filter(t => t.newest_date === newestDate).reduce((acc, t) => acc + t.total_records, 0),
+            },
+            mode: 'backfill',
+            backfill: {
+              oldest_target: '2020-01-01',
+              completed_dates: [...new Set(docs.map((d: any) => d.date?.split('T')[0]))] as string[],
+              skipped_dates: [],
+            },
+            stats: {
+              total_records: totalRecords,
+              total_days_archived: data.response.numFound,
+              last_run: new Date().toISOString(),
+              errors_today: 0,
+            },
+          });
         }
 
-        const data = await iaRes.json();
-        const docs = data.response.docs;
-
-        if (runsRes.ok) {
+        if (runsRes && runsRes.ok) {
           const runsData = await runsRes.json();
-          setRuns(runsData);
-        }
-
-        // Process IA docs into Dashboard State
-        const tribunalsMap: Record<string, TribunalSummary> = {};
-        let totalRecords = 0;
-        let newestDate = '2000-01-01';
-
-        docs.forEach((doc: any) => {
-          const trib = doc.tribunal || doc.identifier.split('-').pop();
-          const date = (doc.date || '').split('T')[0];
-          const records = parseInt(doc.total_comunicacoes || '0', 10);
-
-          if (date > newestDate) newestDate = date;
-          totalRecords += records;
-
-          if (!tribunalsMap[trib]) {
-            tribunalsMap[trib] = {
-              tribunal: trib,
-              total_dates: 0,
-              total_records: 0,
-              total_bytes: 0,
-              oldest_date: date,
-              newest_date: date,
-            };
+          setRuns(runsData.workflow_runs || []);
+        } else {
+          // Fallback to local
+          const localRes = await fetch(LOCAL_RUNS_URL).catch(() => null);
+          if (localRes && localRes.ok) {
+            const localData = await localRes.json();
+            setRuns(localData);
           }
-
-          const summary = tribunalsMap[trib];
-          summary.total_dates += 1;
-          summary.total_records += records;
-          if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
-          if (date > (summary.newest_date || '0000')) summary.newest_date = date;
-        });
-
-        const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
-
-        setTribunais(tribunaisArray);
-        setState({
-          current: {
-            date: newestDate,
-            status: 'complete',
-            tribunais_done: tribunaisArray.filter(t => t.newest_date === newestDate).map(t => t.tribunal),
-            tribunais_pending: [],
-            records: tribunaisArray.filter(t => t.newest_date === newestDate).reduce((acc, t) => acc + t.total_records, 0),
-          },
-          mode: 'backfill',
-          backfill: {
-            oldest_target: '2020-01-01',
-            completed_dates: [...new Set(docs.map((d: any) => d.date?.split('T')[0]))] as string[],
-            skipped_dates: [],
-          },
-          stats: {
-            total_records: totalRecords,
-            total_days_archived: data.response.numFound,
-            last_run: new Date().toISOString(),
-            errors_today: 0,
-          },
-        });
+        }
 
         setError(null);
       } catch (error) {
@@ -230,7 +242,9 @@ export default function App() {
         <Flex justifyContent="between" alignItems="center" className="mb-8">
           <div>
             <Title className="text-white text-2xl md:text-3xl">CausaGanha Scraper Status</Title>
-            Baseado em GitHub Actions + Internet Archive
+            <Text className="text-slate-400">
+              Última execução: {runs.length > 0 ? new Date(runs[0].createdAt).toLocaleString('pt-BR') : '...'}
+            </Text>
           </div>
           <Badge color={state.mode === 'd1' ? 'red' : 'blue'} size="lg">
             {state.mode === 'd1' ? 'D-1 (Ontem)' : 'Backfill'}
@@ -301,6 +315,45 @@ export default function App() {
           </Card>
         )}
 
+        {/* Recent Archives Table */}
+        <Card className="bg-slate-800 border-slate-700 mb-8">
+          <Title className="text-white mb-4">Arquivamentos Recentes (IA)</Title>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell className="text-slate-400">Item</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Tribunal</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Data Caderno</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Comunicações</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Arquivado em</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {recentArchives.map((doc) => (
+                <TableRow key={doc.identifier}>
+                  <TableCell className="text-blue-400 font-mono text-xs">
+                    <a href={`https://archive.org/details/${doc.identifier}`} target="_blank" rel="noopener noreferrer">
+                      {doc.identifier}
+                    </a>
+                  </TableCell>
+                  <TableCell>
+                    <Badge color="emerald">{doc.tribunal || doc.identifier.split('-').pop()}</Badge>
+                  </TableCell>
+                  <TableCell className="text-white">
+                    {doc.date?.split('T')[0] || '-'}
+                  </TableCell>
+                  <TableCell className="text-white text-right">
+                    {formatNumber(parseInt(doc.total_comunicacoes || '0', 10))}
+                  </TableCell>
+                  <TableCell className="text-slate-400 text-xs">
+                    {new Date(doc.addeddate).toLocaleString('pt-BR')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+
         {/* Workflow Runs Table */}
         <Card className="bg-slate-800 border-slate-700 mb-8">
           <Title className="text-white mb-4">Execuções do GitHub Actions</Title>
@@ -315,21 +368,21 @@ export default function App() {
             </TableHead>
             <TableBody>
               {runs.map((run) => (
-                <TableRow key={run.databaseId}>
+                <TableRow key={run.id || run.databaseId}>
                   <TableCell className="text-white font-medium">
-                    {run.workflowName}
+                    {run.display_title || run.displayTitle || run.name || run.workflowName}
                   </TableCell>
                   <TableCell>
-                    <Badge color={run.conclusion === 'success' ? 'emerald' : 'red'}>
+                    <Badge color={run.conclusion === 'success' ? 'emerald' : run.status === 'in_progress' ? 'blue' : 'red'}>
                       {run.conclusion || run.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-slate-300 text-sm">
-                    {new Date(run.createdAt).toLocaleString('pt-BR')}
+                    {new Date(run.created_at || run.createdAt).toLocaleString('pt-BR')}
                   </TableCell>
                   <TableCell>
                     <a
-                      href={run.url}
+                      href={run.html_url || run.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-400 hover:text-blue-300 text-sm underline"

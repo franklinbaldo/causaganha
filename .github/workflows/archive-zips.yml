@@ -83,7 +83,13 @@ jobs:
           > to_archive.txt
           for i in $(seq 1 $BACKFILL_DAYS); do
             DATE=$(date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
-
+            
+            # Skip weekends (Saturday=6, Sunday=7 or 0)
+            DOW=$(date -d "$DATE" +%u)
+            if [ "$DOW" -ge 6 ]; then
+              continue
+            fi
+            
             for TRIBUNAL in $TRIBUNAIS; do
               ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
 
