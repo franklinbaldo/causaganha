@@ -33,6 +33,15 @@ interface TribunalSummary {
   oldest_date: string | null;
   newest_date: string | null;
 }
+interface ActionRun {
+  databaseId: number;
+  workflowName: string;
+  status: string;
+  conclusion: string;
+  createdAt: string;
+  displayTitle: string;
+  url: string;
+}
 
 
 function formatBytes(bytes: number): string {
@@ -50,6 +59,7 @@ function formatNumber(n: number): string {
 export default function App() {
   const [state, setState] = useState<State | null>(null);
   const [tribunais, setTribunais] = useState<TribunalSummary[]>([]);
+  const [runs, setRuns] = useState<ActionRun[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +67,24 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(IA_SEARCH_URL);
-        if (!response.ok) {
-          setError(`IA API Error: ${response.status}`);
+        const [iaRes, runsRes] = await Promise.all([
+          fetch(IA_SEARCH_URL),
+          fetch('/causaganha/run_stats.json')
+        ]);
+
+        if (!iaRes.ok) {
+          setError(`IA API Error: ${iaRes.status}`);
           setLoading(false);
           return;
         }
 
-        const data = await response.json();
+        const data = await iaRes.json();
         const docs = data.response.docs;
+
+        if (runsRes.ok) {
+          const runsData = await runsRes.json();
+          setRuns(runsData);
+        }
 
         // Process IA docs into Dashboard State
         const tribunalsMap: Record<string, TribunalSummary> = {};
@@ -281,6 +300,48 @@ export default function App() {
             />
           </Card>
         )}
+
+        {/* Workflow Runs Table */}
+        <Card className="bg-slate-800 border-slate-700 mb-8">
+          <Title className="text-white mb-4">Execuções do GitHub Actions</Title>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell className="text-slate-400">Workflow</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Status</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Data/Hora</TableHeaderCell>
+                <TableHeaderCell className="text-slate-400">Link</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {runs.map((run) => (
+                <TableRow key={run.databaseId}>
+                  <TableCell className="text-white font-medium">
+                    {run.workflowName}
+                  </TableCell>
+                  <TableCell>
+                    <Badge color={run.conclusion === 'success' ? 'emerald' : 'red'}>
+                      {run.conclusion || run.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-slate-300 text-sm">
+                    {new Date(run.createdAt).toLocaleString('pt-BR')}
+                  </TableCell>
+                  <TableCell>
+                    <a
+                      href={run.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 text-sm underline"
+                    >
+                      Ver Run
+                    </a>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
 
         {/* Tribunais Table */}
         <Card className="bg-slate-800 border-slate-700 mb-8">
