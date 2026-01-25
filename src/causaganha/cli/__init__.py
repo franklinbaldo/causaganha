@@ -5,7 +5,7 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from causaganha.analysis.ground_truth import GroundTruthManager
+# from causaganha.analysis.ground_truth import GroundTruthManager
 from causaganha.clients.archive import create_archive_service
 from causaganha.config import settings
 
@@ -14,7 +14,7 @@ from causaganha.pipeline.analyze import analyze_pending_decisions
 from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 # from causaganha.pipeline.archive import archive_documents
-from causaganha.pipeline.collect import collect_metadata_for_all_courts
+# from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
 
@@ -44,6 +44,7 @@ def groundtruth_init(
     overwrite: bool = typer.Option(False, help="Overwrite existing table"),
 ) -> None:
     """Initialize the ground truth vector store to ready state."""
+    from causaganha.analysis.ground_truth import GroundTruthManager
     manager = GroundTruthManager()
     manager.init_store(overwrite=overwrite)
     typer.echo("✅ Ground truth vector store initialized")
@@ -58,9 +59,9 @@ def groundtruth_sync(
 
     async def _run() -> None:
         try:
-            conn = get_connection()
+            from causaganha.analysis.ground_truth import GroundTruthManager
             manager = GroundTruthManager()
-            result = await manager.sync_from_db(conn, min_confidence, limit)
+            result = await manager.sync(min_confidence=min_confidence, limit=limit)
             typer.echo(f"✅ Sync complete! Added {result['synced']} new examples")
         except Exception as e:
             _handle_error(e, "Sync failed")
@@ -77,6 +78,7 @@ def groundtruth_search(
 
     async def _run() -> None:
         try:
+            from causaganha.analysis.ground_truth import GroundTruthManager
             manager = GroundTruthManager()
             results = await manager.search(query, k=k)
             for res in results:
@@ -121,13 +123,14 @@ def collect(
 
     async def _run() -> None:
         try:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                transient=True,
-            ) as progress:
-                progress.add_task(description="Collecting intimations...", total=None)
-                await collect_metadata_for_all_courts(court_list, days_back)
+            # with Progress(
+            #     SpinnerColumn(),
+            #     TextColumn("[progress.description]{task.description}"),
+            #     transient=True,
+            # ) as progress:
+            #     progress.add_task(description="Collecting intimations...", total=None)
+            #     await collect_metadata_for_all_courts(court_list, days_back)
+            typer.echo("⊘ Collection currently disabled (switching to DJEN scraper).")
         except Exception as e:
             _handle_error(e, "Collection failed")
 
