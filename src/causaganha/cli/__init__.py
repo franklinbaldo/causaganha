@@ -14,7 +14,7 @@ from causaganha.pipeline.analyze import analyze_pending_decisions
 from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 # from causaganha.pipeline.archive import archive_documents
-# from causaganha.pipeline.collect import collect_metadata_for_all_courts
+from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
 
@@ -126,14 +126,14 @@ def collect(
 
     async def _run() -> None:
         try:
-            # with Progress(
-            #     SpinnerColumn(),
-            #     TextColumn("[progress.description]{task.description}"),
-            #     transient=True,
-            # ) as progress:
-            #     progress.add_task(description="Collecting intimations...", total=None)
-            #     await collect_metadata_for_all_courts(court_list, days_back)
-            typer.echo("⊘ Collection currently disabled (switching to DJEN scraper).")
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Collecting intimations...", total=None)
+                await collect_metadata_for_all_courts(court_list, days_back)
+            # typer.echo("⊘ Collection currently disabled (switching to DJEN scraper).")
         except Exception as e:
             _handle_error(e, "Collection failed")
 
