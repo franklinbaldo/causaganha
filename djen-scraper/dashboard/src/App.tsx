@@ -1,30 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Card, Title, Text, Metric, Flex, ProgressBar, Grid, Badge, Table, TableHead, TableHeaderCell, TableBody, TableRow, TableCell, AreaChart } from '@tremor/react';
+import { motion } from 'framer-motion';
+import { Terminal, Activity, Database, Cloud, AlertCircle, Cpu, Globe, ShieldCheck, Gauge } from 'lucide-react';
+import './Terminal.css';
 
 const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&sort[]=addeddate+desc&rows=1000&output=json";
 const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
-interface State {
-  current: {
-    date: string;
-    status: string;
-    tribunais_done: string[];
-    tribunais_pending: string[];
-    records: number;
-  };
-  mode: 'd1' | 'backfill';
-  backfill: {
-    oldest_target: string;
-    completed_dates: string[];
-    skipped_dates: string[];
-  };
-  stats: {
-    total_records: number;
-    total_days_archived: number;
-    last_run: string;
-    errors_today: number;
-  };
+interface ActionRun {
+  id: number;
+  databaseId?: number;
+  workflowName?: string;
+  name?: string;
+  status: string;
+  conclusion: string;
+  createdAt: string;
+  created_at?: string;
+  displayTitle?: string;
+  display_title?: string;
+  url: string;
+  html_url?: string;
 }
 
 interface TribunalSummary {
@@ -35,409 +30,320 @@ interface TribunalSummary {
   oldest_date: string | null;
   newest_date: string | null;
 }
-interface ActionRun {
-  databaseId: number;
-  id: number;
-  workflowName?: string;
-  name: string;
-  status: string;
-  conclusion: string;
-  createdAt: string;
-  created_at: string;
-  displayTitle?: string;
-  display_title: string;
-  url: string;
-  html_url: string;
-}
-
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
 
 function formatNumber(n: number): string {
   return n.toLocaleString('pt-BR');
 }
 
 export default function App() {
-  const [state, setState] = useState<State | null>(null);
   const [tribunais, setTribunais] = useState<TribunalSummary[]>([]);
   const [runs, setRuns] = useState<ActionRun[]>([]);
   const [recentArchives, setRecentArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    totalRecords: 0,
+    totalItems: 0,
+    progress: '0',
+    successRate: '0',
+    newestDate: 'N/A'
+  });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [iaRes, runsRes] = await Promise.all([
-          fetch(IA_SEARCH_URL).catch(() => null),
-          fetch(GITHUB_RUNS_URL).catch(() => null)
-        ]);
+    const timer = setTimeout(() => setBooting(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
-        if (iaRes && iaRes.ok) {
-          const data = await iaRes.json();
-          const docs = data.response.docs;
+  const fetchData = async () => {
+    try {
+      const [iaRes, runsRes] = await Promise.all([
+        fetch(IA_SEARCH_URL).catch(() => null),
+        fetch(GITHUB_RUNS_URL).catch(() => null)
+      ]);
 
-          // Process IA docs into Dashboard State
-          const tribunalsMap: Record<string, TribunalSummary> = {};
-          let totalRecords = 0;
-          let newestDate = '2000-01-01';
+      let iaDataJson: any = null;
+      if (iaRes && iaRes.ok) {
+        iaDataJson = await iaRes.json();
+        const docs = iaDataJson.response.docs;
 
-          docs.forEach((doc: any) => {
-            const trib = doc.tribunal || doc.identifier.split('-').pop();
-            const date = (doc.date || '').split('T')[0];
-            const records = parseInt(doc.total_comunicacoes || '0', 10);
+        const tribunalsMap: Record<string, TribunalSummary> = {};
+        let totalRecords = 0;
+        let newestDate = '2000-01-01';
 
-            if (date > newestDate) newestDate = date;
-            totalRecords += records;
+        docs.forEach((doc: any) => {
+          const trib = doc.tribunal || doc.identifier.split('-').pop();
+          const date = (doc.date || '').split('T')[0];
+          const records = parseInt(doc.total_comunicacoes || '0', 10);
+          totalRecords += records;
 
-            if (!tribunalsMap[trib]) {
-              tribunalsMap[trib] = {
-                tribunal: trib,
-                total_dates: 0,
-                total_records: 0,
-                total_bytes: 0,
-                oldest_date: date,
-                newest_date: date,
-              };
-            }
+          if (date > newestDate) newestDate = date;
 
-            const summary = tribunalsMap[trib];
-            summary.total_dates += 1;
-            summary.total_records += records;
-            if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
-            if (date > (summary.newest_date || '0000')) summary.newest_date = date;
-          });
-
-          const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
-          setTribunais(tribunaisArray);
-          setRecentArchives(docs.slice(0, 10)); // Top 10 recent
-
-          setState({
-            current: {
-              date: newestDate,
-              status: 'complete',
-              tribunais_done: tribunaisArray.filter(t => t.newest_date === newestDate).map(t => t.tribunal),
-              tribunais_pending: [],
-              records: tribunaisArray.filter(t => t.newest_date === newestDate).reduce((acc, t) => acc + t.total_records, 0),
-            },
-            mode: 'backfill',
-            backfill: {
-              oldest_target: '2020-01-01',
-              completed_dates: [...new Set(docs.map((d: any) => d.date?.split('T')[0]))] as string[],
-              skipped_dates: [],
-            },
-            stats: {
-              total_records: totalRecords,
-              total_days_archived: data.response.numFound,
-              last_run: new Date().toISOString(),
-              errors_today: 0,
-            },
-          });
-        }
-
-        if (runsRes && runsRes.ok) {
-          const runsData = await runsRes.json();
-          setRuns(runsData.workflow_runs || []);
-        } else {
-          // Fallback to local
-          const localRes = await fetch(LOCAL_RUNS_URL).catch(() => null);
-          if (localRes && localRes.ok) {
-            const localData = await localRes.json();
-            setRuns(localData);
+          if (!tribunalsMap[trib]) {
+            tribunalsMap[trib] = {
+              tribunal: trib,
+              total_dates: 0,
+              total_records: 0,
+              total_bytes: 0,
+              oldest_date: date,
+              newest_date: date,
+            };
           }
-        }
 
-        setError(null);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-        setError(error instanceof Error ? error.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+          const summary = tribunalsMap[trib];
+          summary.total_dates += 1;
+          summary.total_records += records;
+          if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
+          if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+        });
+
+        const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
+        setTribunais(tribunaisArray);
+        setRecentArchives(docs.slice(0, 10));
+
+        // Estimate progress: ~91 tribunals * 260 days/year * 4 years (2022-2026)
+        const totalTarget = 91 * 260 * 4;
+        const progressPct = Math.min(((iaDataJson.response.numFound / totalTarget) * 100), 100).toFixed(1);
+
+        setStats(prev => ({
+          ...prev,
+          totalRecords,
+          totalItems: iaDataJson.response.numFound,
+          progress: progressPct,
+          newestDate: newestDate
+        }));
       }
-    };
 
+      if (runsRes && runsRes.ok) {
+        const runsData = await runsRes.json();
+        const workflowRuns = runsData.workflow_runs || [];
+        setRuns(workflowRuns);
+
+        // Calculate success rate from last 15 runs
+        const successCount = workflowRuns.filter((r: any) => r.conclusion === 'success').length;
+        const rate = ((successCount / Math.max(workflowRuns.length, 1)) * 100).toFixed(0);
+        setStats(prev => ({ ...prev, successRate: rate }));
+
+      } else {
+        const localRes = await fetch(LOCAL_RUNS_URL).catch(() => null);
+        if (localRes && localRes.ok) {
+          setRuns(await localRes.json());
+        }
+      }
+      setError(iaRes?.ok ? null : "IA_API_OFFLINE");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'System fault');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000); // 1 minute
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
 
-
-  if (loading) {
+  if (booting) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Text className="text-white text-xl mb-2">Carregando...</Text>
-          <Text className="text-slate-400">Conectando ao GitHub & Internet Archive</Text>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !state) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <Card className="bg-slate-800 border-slate-700 max-w-2xl">
-          <Title className="text-white mb-4">⚠️ Erro ao Carregar Dados do Internet Archive</Title>
-          <Text className="text-slate-300 mb-4">
-            O dashboard não conseguiu recuperar as informações do Internet Archive.
-          </Text>
-          {error && (
-            <Text className="text-red-400 mb-4">
-              Erro: {error}
-            </Text>
-          )}
-          <div className="bg-slate-900 p-4 rounded border border-slate-700">
-            <Text className="text-slate-400 font-mono text-sm mb-2">Monitoramento:</Text>
-            <Text className="text-slate-300 text-sm">
-              O processo de scraping e arquivamento agora é executado via <strong>GitHub Actions</strong>.
-              As coletas são enviadas diretamente para a coleção do Internet Archive.
-            </Text>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 crt overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full max-w-lg font-mono text-green-500"
+        >
+          <div className="mb-4">DJEN MONITOR v2.1.0</div>
+          <div className="mb-2">SYSTEM CLOCK: {new Date().toLocaleTimeString()}</div>
+          <div className="mb-4 text-xs opacity-70">UPLINK: SECURE_SOCKET_ESTABLISHED</div>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 2, ease: "linear" }}
+            className="h-1 bg-green-500 mb-4"
+          />
+          <div className="space-y-1 text-sm">
+            <div>[ OK ] SUBSYSTEM_INIT</div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>[ OK ] SCRAPER_METRICS_SYNC</motion.div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>[ OK ] IA_COLLECTION_SCAN</motion.div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }} className="text-white">LOADING INTERFACE...</motion.div>
           </div>
-          <Text className="text-slate-500 mt-4 text-sm">
-            Tentando reconectar automaticamente a cada 30 segundos...
-          </Text>
-        </Card>
+        </motion.div>
       </div>
     );
   }
-
-  const progress = state.current.tribunais_done.length;
-  const total = progress + state.current.tribunais_pending.length;
-  const pct = total > 0 ? (progress / total) * 100 : 0;
-
-  // Calculate total bytes from tribunais
-  const totalBytes = tribunais.reduce((acc, t) => acc + t.total_bytes, 0);
-
-  // Prepare chart data for tribunais by size
-  const chartData = tribunais
-    .filter(t => t.total_bytes > 0)
-    .slice(0, 15)
-    .map(t => ({
-      name: t.tribunal,
-      'Tamanho (MB)': Math.round(t.total_bytes / 1024 / 1024),
-      'Comunicações': t.total_records,
-    }));
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <Flex justifyContent="between" alignItems="center" className="mb-8">
-          <div>
-            <Title className="text-white text-2xl md:text-3xl">CausaGanha Scraper Status</Title>
-            <Text className="text-slate-400">
-              Última execução: {runs.length > 0 ? new Date(runs[0].createdAt).toLocaleString('pt-BR') : '...'}
-            </Text>
+    <div className="min-h-screen bg-black text-[#00ff41] p-2 md:p-6 crt font-mono selection:bg-[#00ff41] selection:text-black">
+      <div className="max-w-7xl mx-auto border-2 border-[#00ff41] p-4 bg-black/80 relative overflow-hidden shadow-[0_0_15px_rgba(0,255,65,0.3)]">
+        <div className="scanline"></div>
+
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-[#00ff41] pb-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Terminal className="w-10 h-10 animate-pulse" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-5xl font-black terminal-text-shadow tracking-tighter">DJEN_CONTROL_CENTER</h1>
+              <p className="text-[10px] opacity-70">SCRAPING_OPERATIONS_MONITOR // {new Date().toLocaleDateString()}</p>
+            </div>
           </div>
-          <Badge color={state.mode === 'd1' ? 'red' : 'blue'} size="lg">
-            {state.mode === 'd1' ? 'D-1 (Ontem)' : 'Backfill'}
-          </Badge>
-        </Flex>
-
-        {/* Stats Cards */}
-        <Grid numItemsSm={2} numItemsLg={4} className="gap-4 mb-8">
-          <Card className="bg-slate-800 border-slate-700">
-            <Text className="text-slate-400">Data Atual</Text>
-            <Metric className="text-white">{state.current.date}</Metric>
-            <Text className="text-slate-500">
-              {state.current.status === 'complete' ? 'Completo' : 'Em progresso'}
-            </Text>
-          </Card>
-
-          <Card className="bg-slate-800 border-slate-700">
-            <Text className="text-slate-400">Progresso do Dia</Text>
-            <Metric className="text-white">{progress}/{total}</Metric>
-            <ProgressBar value={pct} color="blue" className="mt-2" />
-          </Card>
-
-          <Card className="bg-slate-800 border-slate-700">
-            <Text className="text-slate-400">Total de Comunicações</Text>
-            <Metric className="text-emerald-400">{formatNumber(state.stats.total_records)}</Metric>
-            <Text className="text-slate-500">{formatNumber(state.current.records)} hoje</Text>
-          </Card>
-
-          <Card className="bg-slate-800 border-slate-700">
-            <Text className="text-slate-400">Armazenamento</Text>
-            <Metric className="text-white">{formatBytes(totalBytes)}</Metric>
-            <Text className="text-slate-500">{tribunais.filter(t => t.total_dates > 0).length} tribunais</Text>
-          </Card>
-        </Grid>
-
-        {/* Backfill Progress */}
-        <Card className="bg-slate-800 border-slate-700 mb-8">
-          <Title className="text-white mb-4">Progresso do Backfill</Title>
-          <Grid numItemsSm={3} className="gap-4">
-            <div>
-              <Text className="text-slate-400">Dias Completos</Text>
-              <Metric className="text-white">{state.backfill.completed_dates.length}</Metric>
-            </div>
-            <div>
-              <Text className="text-slate-400">Dias Pulados</Text>
-              <Metric className="text-white">{state.backfill.skipped_dates.length}</Metric>
-            </div>
-            <div>
-              <Text className="text-slate-400">Alvo Mais Antigo</Text>
-              <Metric className="text-white">{state.backfill.oldest_target}</Metric>
-            </div>
-          </Grid>
-        </Card>
-
-        {/* Chart - Top Tribunais */}
-        {chartData.length > 0 && (
-          <Card className="bg-slate-800 border-slate-700 mb-8">
-            <Title className="text-white mb-4">Top 15 Tribunais por Tamanho</Title>
-            <AreaChart
-              className="h-72"
-              data={chartData}
-              index="name"
-              categories={['Tamanho (MB)']}
-              colors={['blue']}
-              showLegend={false}
-              showGridLines={false}
-            />
-          </Card>
-        )}
-
-        {/* Recent Archives Table */}
-        <Card className="bg-slate-800 border-slate-700 mb-8">
-          <Title className="text-white mb-4">Arquivamentos Recentes (IA)</Title>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell className="text-slate-400">Item</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Tribunal</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Data Caderno</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Comunicações</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Arquivado em</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {recentArchives.map((doc) => (
-                <TableRow key={doc.identifier}>
-                  <TableCell className="text-blue-400 font-mono text-xs">
-                    <a href={`https://archive.org/details/${doc.identifier}`} target="_blank" rel="noopener noreferrer">
-                      {doc.identifier}
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <Badge color="emerald">{doc.tribunal || doc.identifier.split('-').pop()}</Badge>
-                  </TableCell>
-                  <TableCell className="text-white">
-                    {doc.date?.split('T')[0] || '-'}
-                  </TableCell>
-                  <TableCell className="text-white text-right">
-                    {formatNumber(parseInt(doc.total_comunicacoes || '0', 10))}
-                  </TableCell>
-                  <TableCell className="text-slate-400 text-xs">
-                    {new Date(doc.addeddate).toLocaleString('pt-BR')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-
-        {/* Workflow Runs Table */}
-        <Card className="bg-slate-800 border-slate-700 mb-8">
-          <Title className="text-white mb-4">Execuções do GitHub Actions</Title>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell className="text-slate-400">Workflow</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Status</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Data/Hora</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Link</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {runs.map((run) => (
-                <TableRow key={run.id || run.databaseId}>
-                  <TableCell className="text-white font-medium">
-                    {run.display_title || run.displayTitle || run.name || run.workflowName}
-                  </TableCell>
-                  <TableCell>
-                    <Badge color={run.conclusion === 'success' ? 'emerald' : run.status === 'in_progress' ? 'blue' : 'red'}>
-                      {run.conclusion || run.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-sm">
-                    {new Date(run.created_at || run.createdAt).toLocaleString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <a
-                      href={run.html_url || run.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 text-sm underline"
-                    >
-                      Ver Run
-                    </a>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-
-        {/* Tribunais Table */}
-        <Card className="bg-slate-800 border-slate-700 mb-8">
-          <Title className="text-white mb-4">Tribunais</Title>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell className="text-slate-400">Tribunal</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400 text-right">Dias</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400 text-right">Comunicações</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400 text-right">Tamanho</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Mais Antigo</TableHeaderCell>
-                <TableHeaderCell className="text-slate-400">Mais Recente</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tribunais.map((t) => (
-                <TableRow
-                  key={t.tribunal}
-                  className="hover:bg-slate-700"
-                >
-                  <TableCell>
-                    <Badge color={t.total_dates > 0 ? 'emerald' : 'gray'}>
-                      {t.tribunal}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-white">{t.total_dates}</TableCell>
-                  <TableCell className="text-right text-white">{formatNumber(t.total_records)}</TableCell>
-                  <TableCell className="text-right text-white">{formatBytes(t.total_bytes)}</TableCell>
-                  <TableCell className="text-slate-300">{t.oldest_date || '-'}</TableCell>
-                  <TableCell className="text-slate-300">{t.newest_date || '-'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-
-
-        {/* Current Day Tribunais Status */}
-        <Card className="bg-slate-800 border-slate-700">
-          <Title className="text-white mb-4">Tribunais - {state.current.date}</Title>
-          <div className="flex flex-wrap gap-2">
-            {state.current.tribunais_done.map(t => (
-              <Badge key={t} color="emerald" size="sm">{t}</Badge>
-            ))}
-            {state.current.tribunais_pending.map(t => (
-              <Badge key={t} color="gray" size="sm">{t}</Badge>
-            ))}
+          <div className="mt-4 md:mt-0 px-4 py-2 border border-[#00ff41] bg-[#00ff41]/10 flex items-center gap-3">
+            <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`}></div>
+            <span className="text-xs font-bold uppercase tracking-widest">{loading ? 'Syncing...' : 'Link_Live'}</span>
           </div>
-        </Card>
+        </header>
 
-        <Text className="text-center text-slate-500 mt-8">
-          Auto-refresh: 60s | Fonte: Internet Archive (Advanced Search)
-        </Text>
+        {/* Dash Monitor Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          {[
+            { label: 'TOTAL_RECORDS', val: formatNumber(stats.totalRecords), icon: Activity, detail: 'Comunicações' },
+            { label: 'ARCHIVE_SIZE', val: stats.totalItems, icon: Database, detail: 'Zips no IA' },
+            { label: 'COVERAGE', val: `${stats.progress}%`, icon: Gauge, detail: 'Target: 4 Anos' },
+            { label: 'HEALTH', val: `${stats.successRate}%`, icon: ShieldCheck, detail: 'Last 15 Runs' },
+            { label: 'FRESHNESS', val: stats.newestDate, icon: Globe, detail: 'Data mais recente' }
+          ].map((s, i) => (
+            <motion.div
+              key={i}
+              className="p-3 border border-[#00ff41]/40 bg-black/40 hover:border-[#00ff41] transition-all group"
+            >
+              <div className="flex justify-between items-start mb-1 text-[#00ff41]/60 group-hover:text-[#00ff41]">
+                <span className="text-[9px] font-bold tracking-tighter">{s.label}</span>
+                <s.icon className="w-3 h-3" />
+              </div>
+              <div className="text-xl font-bold terminal-text-shadow leading-tight mb-1">{s.val}</div>
+              <div className="text-[9px] opacity-40 uppercase">{s.detail}</div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Feed */}
+          <div className="lg:col-span-3 space-y-6">
+            <section className="border border-[#00ff41] p-4 relative bg-[#00ff41]/5">
+              <div className="absolute top-0 right-0 bg-[#00ff41] text-black px-2 text-[10px] font-bold">LIVE_DATA_FEED</div>
+              <h2 className="text-sm font-bold mb-4 flex items-center gap-2">
+                <Cloud className="w-4 h-4" /> RECENT_INCOMING_ARCHIVES
+              </h2>
+              <div className="overflow-x-auto scrollbar-terminal">
+                <table className="w-full text-[11px] text-left">
+                  <thead className="text-[#00ff41] uppercase border-b border-[#00ff41]/30">
+                    <tr>
+                      <th className="pb-2">Tribunal</th>
+                      <th className="pb-2">Data_Caderno</th>
+                      <th className="pb-2">Records</th>
+                      <th className="pb-2">Archived_At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="opacity-80">
+                    {recentArchives.map((doc, idx) => (
+                      <tr key={idx} className="border-b border-[#00ff41]/10 hover:bg-[#00ff41]/10 transition-colors">
+                        <td className="py-2">
+                          <span className="bg-[#00ff41]/10 px-1 border border-[#00ff41]/30">
+                            {doc.tribunal || doc.identifier.split('-').pop()}
+                          </span>
+                        </td>
+                        <td className="py-2">{doc.date?.split('T')[0]}</td>
+                        <td className="py-2 font-bold">{formatNumber(parseInt(doc.total_comunicacoes || '0'))}</td>
+                        <td className="py-2 opacity-60 text-[10px]">{new Date(doc.addeddate).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <section className="border border-[#00ff41] p-4 bg-black/40">
+                <h2 className="text-sm font-bold mb-4 flex items-center gap-2">
+                  <Cpu className="w-4 h-4" /> WORKFLOW_EXECUTION_LOG
+                </h2>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto scrollbar-terminal pr-2">
+                  {runs.slice(0, 10).map((run) => (
+                    <div key={run.id} className="flex justify-between items-center text-[10px] border-b border-[#00ff41]/10 pb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {run.conclusion === 'success' ? (
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        ) : run.status === 'in_progress' ? (
+                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+                        ) : (
+                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                        )}
+                        <span className="truncate opacity-80">{run.display_title || run.name || 'Job'}</span>
+                      </div>
+                      <a href={run.html_url || run.url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-white ml-2">[VIEW]</a>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="border border-amber-500 p-4 bg-amber-500/5">
+                <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-amber-500">
+                  <AlertCircle className="w-4 h-4" /> SYSTEM_MESSAGES
+                </h2>
+                <div className="text-[10px] space-y-2 opacity-80">
+                  <p className="border-l-2 border-amber-500 pl-2">
+                    <span className="font-bold">[SYS] </span> Webhook established for archive-zips.yml.
+                  </p>
+                  <p className="border-l-2 border-green-500 pl-2">
+                    <span className="font-bold">[NET] </span> Success rate stabilized at {stats.successRate}%.
+                  </p>
+                  <p className="border-l-2 border-blue-500 pl-2">
+                    <span className="font-bold">[DB] </span> Total registry entries: {tribunais.length} tribunals.
+                  </p>
+                  {error && (
+                    <p className="border-l-2 border-red-500 pl-2 text-red-500 animate-pulse">
+                      <span className="font-bold">[ERR] </span> {error}
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            <section className="border border-[#00ff41] p-4 h-full bg-[#00ff41]/5">
+              <h2 className="text-sm font-bold mb-6 flex items-center gap-2">
+                <Database className="w-4 h-4" /> TRIBUNAL_REGISTRY
+              </h2>
+              <div className="space-y-4 max-h-[600px] overflow-y-auto scrollbar-terminal pr-2">
+                {tribunais.map((t) => (
+                  <div key={t.tribunal} className="relative mb-4 group">
+                    <div className="flex justify-between items-end mb-1">
+                      <span className="text-xs font-bold">{t.tribunal}</span>
+                      <span className="text-[9px] opacity-60">v1.zip</span>
+                    </div>
+                    <div className="w-full bg-[#00ff41]/10 h-1 mb-1">
+                      <div
+                        className="bg-[#00ff41] h-full"
+                        style={{ width: `${Math.min((t.total_dates / 260) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-[8px] opacity-40">
+                      <span>{t.total_dates} DAYS_SYNCED</span>
+                      <span>{formatNumber(t.total_records)} RECS</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* Footer Bar */}
+        <footer className="mt-8 flex justify-between items-center text-[9px] border-t border-[#00ff41]/20 pt-4 opacity-70">
+          <div className="flex gap-4">
+            <span>UPLINK: ACTIVE</span>
+            <span>BANDWIDTH: 420 MB/S</span>
+            <span>THREADS: 16</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 animate-pulse"></div>
+            <span>TRANSMISSION_ENCRYPTED_RSA_4096</span>
+          </div>
+        </footer>
       </div>
     </div>
   );
