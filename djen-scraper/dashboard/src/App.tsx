@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Terminal, Activity, Database, Cloud, AlertCircle, Cpu, Globe, ShieldCheck, Gauge } from 'lucide-react';
 import './Terminal.css';
 
-const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&sort[]=addeddate+desc&rows=1000&output=json";
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=(identifier:djen-raw-*) OR (identifier:djen-parquet-*)&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&sort[]=addeddate+desc&rows=1000&output=json";
 const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
@@ -68,38 +68,65 @@ export default function App() {
         const docs = iaDataJson.response.docs;
 
         const tribunalsMap: Record<string, TribunalSummary> = {};
+        const archiveFeedMap: Record<string, any> = {};
         let totalRecords = 0;
         let newestDate = '2000-01-01';
 
         docs.forEach((doc: any) => {
+          const isParquet = doc.identifier.includes('parquet');
           const trib = doc.tribunal || doc.identifier.split('-').pop();
           const date = (doc.date || '').split('T')[0];
-          const records = parseInt(doc.total_comunicacoes || '0', 10);
-          totalRecords += records;
+          const feedKey = `${date}-${trib}`;
 
-          if (date > newestDate) newestDate = date;
+          if (!isParquet) {
+            const records = parseInt(doc.total_comunicacoes || '0', 10);
+            totalRecords += records;
+            if (date > newestDate) newestDate = date;
 
-          if (!tribunalsMap[trib]) {
-            tribunalsMap[trib] = {
+            if (!tribunalsMap[trib]) {
+              tribunalsMap[trib] = {
+                tribunal: trib,
+                total_dates: 0,
+                total_records: 0,
+                total_bytes: 0,
+                oldest_date: date,
+                newest_date: date,
+              };
+            }
+
+            const summary = tribunalsMap[trib];
+            summary.total_dates += 1;
+            summary.total_records += records;
+            if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
+            if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+          }
+
+          if (!archiveFeedMap[feedKey]) {
+            archiveFeedMap[feedKey] = {
               tribunal: trib,
-              total_dates: 0,
-              total_records: 0,
-              total_bytes: 0,
-              oldest_date: date,
-              newest_date: date,
+              date: date,
+              addeddate: doc.addeddate,
+              comms: doc.total_comunicacoes,
+              zipId: null,
+              parquetId: null
             };
           }
 
-          const summary = tribunalsMap[trib];
-          summary.total_dates += 1;
-          summary.total_records += records;
-          if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
-          if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+          if (isParquet) {
+            archiveFeedMap[feedKey].parquetId = doc.identifier;
+          } else {
+            archiveFeedMap[feedKey].zipId = doc.identifier;
+            if (!archiveFeedMap[feedKey].comms) archiveFeedMap[feedKey].comms = doc.total_comunicacoes;
+          }
         });
 
-        const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
-        setTribunais(tribunaisArray);
-        setRecentArchives(docs.slice(0, 10));
+        setTribunais(Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records));
+
+        // Sort feed by addeddate desc
+        const sortedFeed = Object.values(archiveFeedMap).sort((a, b) =>
+          new Date(b.addeddate).getTime() - new Date(a.addeddate).getTime()
+        );
+        setRecentArchives(sortedFeed.slice(0, 15));
 
         // Estimate progress: ~91 tribunals * 260 days/year * 4 years (2022-2026)
         const totalTarget = 91 * 260 * 4;
@@ -233,6 +260,7 @@ export default function App() {
                       <th className="pb-2">Tribunal</th>
                       <th className="pb-2">Data_Caderno</th>
                       <th className="pb-2">Records</th>
+                      <th className="pb-2">Artifacts</th>
                       <th className="pb-2">Archived_At</th>
                     </tr>
                   </thead>
@@ -241,11 +269,23 @@ export default function App() {
                       <tr key={idx} className="border-b border-[#00ff41]/10 hover:bg-[#00ff41]/10 transition-colors">
                         <td className="py-2">
                           <span className="bg-[#00ff41]/10 px-1 border border-[#00ff41]/30">
-                            {doc.tribunal || doc.identifier.split('-').pop()}
+                            {doc.tribunal}
                           </span>
                         </td>
-                        <td className="py-2">{doc.date?.split('T')[0]}</td>
-                        <td className="py-2 font-bold">{formatNumber(parseInt(doc.total_comunicacoes || '0'))}</td>
+                        <td className="py-2">{doc.date}</td>
+                        <td className="py-2 font-bold">{formatNumber(parseInt(doc.comms || '0'))}</td>
+                        <td className="py-2 flex gap-2">
+                          {doc.zipId && (
+                            <a href={`https://archive.org/details/${doc.zipId}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-white underline">
+                              [ZIP]
+                            </a>
+                          )}
+                          {doc.parquetId && (
+                            <a href={`https://archive.org/details/${doc.parquetId}`} target="_blank" rel="noreferrer" className="text-amber-500 hover:text-white underline">
+                              [PARQUET]
+                            </a>
+                          )}
+                        </td>
                         <td className="py-2 opacity-60 text-[10px]">{new Date(doc.addeddate).toLocaleString()}</td>
                       </tr>
                     ))}
