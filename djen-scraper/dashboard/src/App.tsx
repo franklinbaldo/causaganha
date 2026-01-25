@@ -149,6 +149,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Detail fetching disabled in IA mode for now
+  /*
   useEffect(() => {
     if (selectedTribunal) {
       fetch(`${API_BASE}/api/tribunal/${selectedTribunal}`)
@@ -157,6 +159,7 @@ export default function App() {
         .catch(console.error);
     }
   }, [selectedTribunal]);
+  */
 
   if (loading) {
     return (
