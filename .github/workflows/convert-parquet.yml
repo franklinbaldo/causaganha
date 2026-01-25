@@ -56,19 +56,8 @@ jobs:
           RAW_COUNT=$(wc -l < raw_items.txt | tr -d ' ')
           echo "Found $RAW_COUNT raw items"
 
-          echo "Fetching parquet items from IA..."
-          uv run ia search 'identifier:djen-parquet-*' --itemlist > parquet_items.txt 2>/dev/null || touch parquet_items.txt
-          PARQUET_COUNT=$(wc -l < parquet_items.txt | tr -d ' ')
-          echo "Found $PARQUET_COUNT parquet items"
-
-          # Find items without parquet version
-          > to_convert.txt
-          while read -r RAW_ID; do
-            PARQUET_ID="${RAW_ID/djen-raw-/djen-parquet-}"
-            if ! grep -q "^${PARQUET_ID}$" parquet_items.txt; then
-              echo "$RAW_ID" >> to_convert.txt
-            fi
-          done < raw_items.txt
+          echo "Fetching raw items from IA..."
+          uv run ia search 'identifier:djen-raw-* AND NOT format:Parquet' --itemlist > to_convert.txt 2>/dev/null || touch to_convert.txt
 
           TOTAL=$(wc -l < to_convert.txt | tr -d ' ')
           echo "Found $TOTAL items to convert"

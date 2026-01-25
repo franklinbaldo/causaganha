@@ -253,7 +253,8 @@ def process_item(item_id: str) -> bool:
 
         with timed("write parquet"):
             for table in tables:
-                path = out_dir / f"{table}.parquet"
+                filename = f"{table}-{date}-{tribunal}.parquet"
+                path = out_dir / filename
                 # Write with optimized compression (level 3 balances speed/size)
                 con.execute(f"""
                     COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, COMPRESSION_LEVEL 3)
@@ -263,9 +264,8 @@ def process_item(item_id: str) -> bool:
                     size_kb = path.stat().st_size / 1024
                     print(f"    {table}: {count:,} rows ({size_kb:.0f} KB)")
 
-        # Upload to Internet Archive
-        parquet_id = f"djen-parquet-{date}-{tribunal}"
-        print(f"  Uploading to IA: {parquet_id}")
+        # Upload to Internet Archive (existing item)
+        print(f"  Uploading to IA item: {item_id}")
 
         files = list(out_dir.glob("*.parquet"))
         if not files:
@@ -276,18 +276,8 @@ def process_item(item_id: str) -> bool:
             cmd = [
                 "ia",
                 "upload",
-                parquet_id,
+                item_id,
                 *[str(f) for f in files],
-                "--metadata=collection:opensource",
-                "--metadata=mediatype:data",
-                f"--metadata=title:DJEN Parquet {tribunal} {date}",
-                f"--metadata=description:Normalized Parquet tables from DJEN {tribunal} {date}",
-                f"--metadata=subject:brazilian-law;djen;legal;judiciary;parquet;{tribunal}",
-                "--metadata=creator:CausaGanha",
-                f"--metadata=date:{date}",
-                f"--metadata=tribunal:{tribunal}",
-                f"--metadata=source_item:{item_id}",
-                f"--metadata=total_comunicacoes:{total_records}",
                 "--retries=3",
                 "--no-derive",
             ]
