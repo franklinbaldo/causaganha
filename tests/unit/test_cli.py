@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from causaganha.cli import app
 
+
 runner = CliRunner()
 
 
@@ -60,8 +61,9 @@ def test_collect_command_disabled():
     assert "Collection currently disabled" in result.stdout
 
 
-def test_groundtruth_init():
-    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+def test_groundtruth_init() -> None:
+    """Test groundtruth init command."""
+    with patch("causaganha.analysis.ground_truth.GroundTruthManager") as mock_manager_cls:
         mock_manager = mock_manager_cls.return_value
         result = runner.invoke(app, ["groundtruth", "init", "--overwrite"])
         assert result.exit_code == 0
@@ -69,27 +71,31 @@ def test_groundtruth_init():
         mock_manager.init_store.assert_called_once_with(overwrite=True)
 
 
-def test_groundtruth_sync():
-    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+def test_groundtruth_sync() -> None:
+    """Test groundtruth sync command."""
+    with patch("causaganha.analysis.ground_truth.GroundTruthManager") as mock_manager_cls:
         mock_manager = mock_manager_cls.return_value
         mock_manager.sync_from_db = AsyncMock(return_value={"synced": 5, "status": "success"})
-        
+
         result = runner.invoke(app, ["groundtruth", "sync", "--limit", "10"])
-        
+
         assert result.exit_code == 0
         assert "Sync complete! Added 5 new examples" in result.stdout
         mock_manager.sync_from_db.assert_called_once()
 
 
-def test_groundtruth_search():
-    with patch("causaganha.cli.GroundTruthManager") as mock_manager_cls:
+def test_groundtruth_search() -> None:
+    """Test groundtruth search command."""
+    with patch("causaganha.analysis.ground_truth.GroundTruthManager") as mock_manager_cls:
         mock_manager = mock_manager_cls.return_value
-        mock_manager.search = AsyncMock(return_value=[
-            {"text": "Sample text", "outcome": "WIN", "score": 0.9}
-        ])
-        
+        mock_manager.search = AsyncMock(
+            return_value=[
+                {"text": "Sample text", "outcome": "WIN", "score": 0.9},
+            ],
+        )
+
         result = runner.invoke(app, ["groundtruth", "search", "test query"])
-        
+
         assert result.exit_code == 0
         assert "Sample text" in result.stdout
         assert "WIN" in result.stdout

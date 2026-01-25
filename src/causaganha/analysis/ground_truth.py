@@ -8,6 +8,7 @@ from ibis.backends.duckdb import Backend
 from causaganha.analysis.embedding_service import EmbeddingService
 from causaganha.analysis.vector_store import VectorStore
 
+
 logger = structlog.get_logger()
 
 
@@ -56,7 +57,7 @@ class GroundTruthManager:
                 "intimation_id": 0,
                 "text": "Initial placeholder",
                 "outcome": "UNKNOWN",
-            }
+            },
         ]
         self.vector_store.create_table(self.table_name, dummy_data)
         logger.info("ground_truth_initialized")

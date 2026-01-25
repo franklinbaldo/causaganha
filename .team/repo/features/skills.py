@@ -24,7 +24,8 @@ class SkillsManager:
                                 "id": skill_path.name,
                                 "name": post.metadata.get("name", skill_path.name),
                                 "description": post.metadata.get(
-                                    "description", "No description available.",
+                                    "description",
+                                    "No description available.",
                                 ),
                                 "path": str(skill_md.absolute()),
                             },

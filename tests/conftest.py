@@ -1,7 +1,6 @@
 """Shared fixtures for tests."""
 
 
-
 def create_mock_intimation_item(item_id: int) -> dict:
     """Creates a single mock intimation item compliant with the schema."""
     return {

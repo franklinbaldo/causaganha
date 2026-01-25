@@ -170,7 +170,9 @@ def read(
 
         rprint(
             Panel(
-                Markdown(content), title=f"Message: {key}", subtitle="JULES Internal Communication",
+                Markdown(content),
+                title=f"Message: {key}",
+                subtitle="JULES Internal Communication",
             ),
         )
     except Exception as e:

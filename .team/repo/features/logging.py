@@ -12,7 +12,11 @@ class LogManager:
         self.log_file = log_file
 
     def log_use(
-        self, persona: str | None, sequence: str | None, command_path: str, args: dict[str, Any],
+        self,
+        persona: str | None,
+        sequence: str | None,
+        command_path: str,
+        args: dict[str, Any],
     ):
         """Logs a command execution to the CSV log file."""
         # Redact sensitive info

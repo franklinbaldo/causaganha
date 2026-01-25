@@ -304,7 +304,9 @@ def get_last_cycle_session(
 
 
 def _get_pr_by_session_id_any_state(
-    owner: str, repo: str, session_id: str,
+    owner: str,
+    repo: str,
+    session_id: str,
 ) -> dict[str, Any] | None:
     """Proxy to allow monkeypatching in the compatibility scheduler."""
     scheduler_module = sys.modules.get("repo.scheduler")
@@ -477,7 +479,9 @@ def update_scheduled_from_main() -> bool:
         )
         print(f"Merging origin/main into '{JULES_BRANCH}'...")
         subprocess.run(
-            ["git", "merge", "origin/main", "--no-edit"], check=True, capture_output=True,
+            ["git", "merge", "origin/main", "--no-edit"],
+            check=True,
+            capture_output=True,
         )
         subprocess.run(["git", "push", "origin", JULES_BRANCH], check=True, capture_output=True)
         print(f"Successfully updated '{JULES_BRANCH}' from main.")
@@ -617,7 +621,9 @@ def run_cycle_step(
             print(f"Next persona: {next_entry['id']}. Starting from '{JULES_BRANCH}'.")
         else:
             merged_pr = _get_pr_by_session_id_any_state(
-                repo_info["owner"], repo_info["repo"], last_session_id,
+                repo_info["owner"],
+                repo_info["repo"],
+                last_session_id,
             )
             if merged_pr and merged_pr.get("mergedAt"):
                 base_pr_number = str(merged_pr.get("number", ""))

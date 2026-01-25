@@ -209,7 +209,8 @@ def test_session_extraction():
 
         # Try UUID
         uuid_match = re.search(
-            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch,
+            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+            branch,
         )
         if uuid_match:
             return uuid_match.group(1)

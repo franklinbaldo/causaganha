@@ -171,7 +171,9 @@ def get_next_sequence(rows: list[dict[str, Any]], current: dict[str, Any]) -> di
 
 
 def update_sequence(
-    rows: list[dict[str, Any]], sequence: str, **updates: Any,
+    rows: list[dict[str, Any]],
+    sequence: str,
+    **updates: Any,
 ) -> list[dict[str, Any]]:
     """Update fields for a specific sequence."""
     for row in rows:
@@ -577,13 +579,19 @@ def main() -> None:
     parser.add_argument("--extend", type=int, help="Add N more rows to the schedule")
     parser.add_argument("--show", action="store_true", help="Show current schedule status")
     parser.add_argument(
-        "--list-sessions", action="store_true", help="List recent sessions from Jules API",
+        "--list-sessions",
+        action="store_true",
+        help="List recent sessions from Jules API",
     )
     parser.add_argument(
-        "--sync-states", action="store_true", help="Sync session states from Jules API",
+        "--sync-states",
+        action="store_true",
+        help="Sync session states from Jules API",
     )
     parser.add_argument(
-        "--health", action="store_true", help="Run health check on persona configuration",
+        "--health",
+        action="store_true",
+        help="Run health check on persona configuration",
     )
     args = parser.parse_args()
 

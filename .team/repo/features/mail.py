@@ -528,7 +528,11 @@ def _get_backend() -> MailboxBackend:
 
 
 def send_message(
-    from_id: str, to_id: str, subject: str, body: str, attachments: list[str] | None = None,
+    from_id: str,
+    to_id: str,
+    subject: str,
+    body: str,
+    attachments: list[str] | None = None,
 ) -> str:
     if to_id == "all@team":
         # Broadcast to all personas

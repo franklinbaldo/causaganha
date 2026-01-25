@@ -1,21 +1,22 @@
 import asyncio
+import os
 
 import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from causaganha.analysis.ground_truth import GroundTruthManager
 from causaganha.clients.archive import create_archive_service
 from causaganha.config import settings
 
 # from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
+from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 # from causaganha.pipeline.archive import archive_documents
-# Import V2 pipelines
 # from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
-from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 
 # Configure logging
@@ -33,6 +34,60 @@ app = typer.Typer(
     help="CausaGanha V2: Judicial Analysis Platform",
     no_args_is_help=True,
 )
+
+groundtruth_app = typer.Typer(name="groundtruth", help="Manage ground truth vector store")
+app.add_typer(groundtruth_app, name="groundtruth")
+
+
+@groundtruth_app.command("init")
+def groundtruth_init(
+    overwrite: bool = typer.Option(False, help="Overwrite existing table"),
+) -> None:
+    """Initialize the ground truth vector store to ready state."""
+    manager = GroundTruthManager()
+    manager.init_store(overwrite=overwrite)
+    typer.echo("✅ Ground truth vector store initialized")
+
+
+@groundtruth_app.command("sync")
+def groundtruth_sync(
+    min_confidence: float = typer.Option(0.9, help="Minimum confidence score"),
+    limit: int = typer.Option(100, help="Max records to sync"),
+) -> None:
+    """Sync high-confidence analyses from DuckDB."""
+
+    async def _run() -> None:
+        try:
+            conn = get_connection()
+            manager = GroundTruthManager()
+            result = await manager.sync_from_db(conn, min_confidence, limit)
+            typer.echo(f"✅ Sync complete! Added {result['synced']} new examples")
+        except Exception as e:
+            _handle_error(e, "Sync failed")
+
+    asyncio.run(_run())
+
+
+@groundtruth_app.command("search")
+def groundtruth_search(
+    query: str = typer.Argument(..., help="Text to search for"),
+    k: int = typer.Option(5, help="Number of results"),
+) -> None:
+    """Search for matching examples."""
+
+    async def _run() -> None:
+        try:
+            manager = GroundTruthManager()
+            results = await manager.search(query, k=k)
+            for res in results:
+                typer.echo(f"Outcome: {res['outcome']}")
+                typer.echo(f"Text: {res['text'][:200]}...")
+                typer.echo("---")
+        except Exception as e:
+            _handle_error(e, "Search failed")
+
+    asyncio.run(_run())
+
 
 logger = structlog.get_logger()
 
@@ -321,7 +376,8 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 @app.command()
 def export_parquet(
     date: str | None = typer.Option(
-        None, help="Date to export (YYYY-MM-DD), defaults to yesterday",
+        None,
+        help="Date to export (YYYY-MM-DD), defaults to yesterday",
     ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
     backfill: bool = typer.Option(False, help="Backfill mode"),
@@ -610,6 +666,7 @@ def groundtruth_init(
     """Initialize ground truth vector store."""
     try:
         from causaganha.analysis.ground_truth import GroundTruthManager
+
         manager = GroundTruthManager()
         manager.init_store(overwrite=overwrite)
         typer.echo("✅ Ground truth vector store initialized.")
@@ -628,6 +685,7 @@ def groundtruth_sync(
     async def _run() -> None:
         try:
             from causaganha.analysis.ground_truth import GroundTruthManager
+
             con = get_connection()
             manager = GroundTruthManager()
 
@@ -667,6 +725,7 @@ def groundtruth_search(
     async def _run() -> None:
         try:
             from causaganha.analysis.ground_truth import GroundTruthManager
+
             manager = GroundTruthManager()
 
             with Progress(
@@ -689,10 +748,15 @@ def groundtruth_search(
                 int_id = res.get("intimation_id", "N/A")
                 text = res.get("text", "")[:120].replace("\n", " ")
 
-                color = typer.colors.GREEN if outcome == "WIN" else \
-                        typer.colors.RED if outcome == "LOSS" else \
-                        typer.colors.YELLOW if outcome == "PARTIAL" else \
-                        typer.colors.WHITE
+                color = (
+                    typer.colors.GREEN
+                    if outcome == "WIN"
+                    else typer.colors.RED
+                    if outcome == "LOSS"
+                    else typer.colors.YELLOW
+                    if outcome == "PARTIAL"
+                    else typer.colors.WHITE
+                )
 
                 typer.echo(f"{i}. ", nl=False)
                 typer.secho(f"[{outcome}]", fg=color, bold=True, nl=False)
@@ -1055,7 +1119,13 @@ def create_catalog(
         # Display validation results
         typer.echo("\n✓ Validation:")
         for result in validation_results:
-            status_icon = "✓" if result["status"] == "passed" else "⚠" if result["status"] == "warning" else "✗"
+            status_icon = (
+                "✓"
+                if result["status"] == "passed"
+                else "⚠"
+                if result["status"] == "warning"
+                else "✗"
+            )
             typer.echo(f"  {status_icon} {result['check']}: {result['message']}")
 
     except Exception as e:

@@ -154,7 +154,10 @@ def loop_break(
 @log_tool_command()
 def vote(
     personas: list[str] | None = typer.Option(
-        None, "--persona", "-p", help="Persona IDs in order of preference",
+        None,
+        "--persona",
+        "-p",
+        help="Persona IDs in order of preference",
     ),
     password: str | None = typer.Option(None, "--password", help="Identity verification"),
 ):
@@ -196,7 +199,8 @@ def vote(
 
                     # Get upcoming winners
                     upcoming = vote_manager.get_upcoming_winners(
-                        voter_sequence, count=target_seq - int(voter_sequence) + 2,
+                        voter_sequence,
+                        count=target_seq - int(voter_sequence) + 2,
                     )
                     schedule_info = upcoming
         except Exception:
@@ -214,7 +218,8 @@ def vote(
         # Display current schedule panel
         if schedule_info:
             sched_table = Table(
-                title="📅 Current Schedule (leading up to your vote)", header_style="bold cyan",
+                title="📅 Current Schedule (leading up to your vote)",
+                header_style="bold cyan",
             )
             sched_table.add_column("Seq", style="cyan", justify="center")
             sched_table.add_column("Persona", style="green")
@@ -374,13 +379,19 @@ def hire(
     goal: str = typer.Option(..., "--goal", help="Persona's primary goal"),
     context: str = typer.Option("TBD", "--context", help="Initial context for the persona"),
     constraints: str = typer.Option(
-        "- Follow project conventions", "--constraints", help="Persona constraints",
+        "- Follow project conventions",
+        "--constraints",
+        help="Persona constraints",
     ),
     guardrails: str = typer.Option(
-        "✅ Always follow BDD principles", "--guardrails", help="Persona guardrails",
+        "✅ Always follow BDD principles",
+        "--guardrails",
+        help="Persona guardrails",
     ),
     verification: str = typer.Option(
-        "uv run pytest", "--verification", help="Verification command",
+        "uv run pytest",
+        "--verification",
+        help="Verification command",
     ),
     workflow: str = typer.Option(
         "1. 🔍 OBSERVE\n2. 🎯 SELECT\n3. 🛠️ IMPLEMENT\n4. ✅ VERIFY",

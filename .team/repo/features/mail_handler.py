@@ -43,14 +43,20 @@ class MailHandler:
 
                 print(f"🚀 Syncing local message {msg['key']} (for {user_id}) to GitHub...")
                 issue = self.gh.create_issue(
-                    self.owner, self.repo, title, body, labels=["persona-mail"],
+                    self.owner,
+                    self.repo,
+                    title,
+                    body,
+                    labels=["persona-mail"],
                 )
 
                 if issue:
                     issue_number = issue["number"]
                     self.backend.tag_add(user_id, msg["key"], self.sync_tag)
                     self.backend.tag_add(
-                        user_id, msg["key"], f"{self.issue_tag_prefix}{issue_number}",
+                        user_id,
+                        msg["key"],
+                        f"{self.issue_tag_prefix}{issue_number}",
                     )
                     print(f"✅ Created GitHub Issue #{issue_number} for local message {msg['key']}")
 

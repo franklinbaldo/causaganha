@@ -389,8 +389,7 @@ class ParquetAnalyzer:
             batch = decisions[i : i + self.config.batch_size]
 
             logger.info(
-                f"Processing batch {i // self.config.batch_size + 1} "
-                f"({len(batch)} decisions)",
+                f"Processing batch {i // self.config.batch_size + 1} ({len(batch)} decisions)",
             )
 
             intimation_ids = [d["intimation_id"] for d in batch]
@@ -401,7 +400,11 @@ class ParquetAnalyzer:
 
                 if strategy == AnalysisStrategy.LLM:
                     # LLM now uses texto (no PDF needed!)
-                    analyses = await analyzer.analyze_batch(texts, intimation_ids, input_type="text")
+                    analyses = await analyzer.analyze_batch(
+                        texts,
+                        intimation_ids,
+                        input_type="text",
+                    )
                     usage_stats["llm_used"] += len(analyses)
                     usage_stats["total_cost"] += len(analyses) * 0.000420
 

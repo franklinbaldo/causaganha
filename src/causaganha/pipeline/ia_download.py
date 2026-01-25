@@ -134,9 +134,7 @@ class IAParquetDownloader:
 
                 if attempt < self.config.max_retries - 1:
                     # Calculate exponential backoff delay
-                    delay = self.config.initial_retry_delay * (
-                        self.config.retry_backoff**attempt
-                    )
+                    delay = self.config.initial_retry_delay * (self.config.retry_backoff**attempt)
                     logger.info(f"Retrying in {delay:.1f} seconds...")
                     await asyncio.sleep(delay)
                 else:
@@ -389,9 +387,7 @@ class IAParquetDownloader:
             return None
 
         # Check if cache is expired
-        file_age_days = (
-            datetime.now() - datetime.fromtimestamp(cache_path.stat().st_mtime)
-        ).days
+        file_age_days = (datetime.now() - datetime.fromtimestamp(cache_path.stat().st_mtime)).days
 
         if file_age_days > self.config.cache_ttl_days:
             logger.info(

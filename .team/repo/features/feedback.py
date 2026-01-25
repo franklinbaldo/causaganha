@@ -199,7 +199,8 @@ def run_feedback_loop(dry_run: bool = False, author_filter: str = "app/google-la
                         "🤖 Feedback sent to Jules session. \n<!-- # Task: Fix Pull Request -->"
                     )
                     subprocess.run(
-                        ["gh", "pr", "comment", str(pr_num), "--body", marker_body], check=True,
+                        ["gh", "pr", "comment", str(pr_num), "--body", marker_body],
+                        check=True,
                     )
 
                 except Exception:

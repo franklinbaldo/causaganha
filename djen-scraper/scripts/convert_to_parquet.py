@@ -117,10 +117,12 @@ def process_item(item_id: str) -> bool:
             return False
 
         # Create DuckDB connection with optimized settings
-        con = duckdb.connect(config={
-            "threads": "4",
-            "memory_limit": "4GB",
-        })
+        con = duckdb.connect(
+            config={
+                "threads": "4",
+                "memory_limit": "4GB",
+            },
+        )
         con.create_function("uuid5_djen", generate_uuid, [str], str)
 
         # Load NDJSON directly into DuckDB (very fast)
@@ -298,6 +300,7 @@ def process_item_safe(item_id: str) -> tuple[str, bool, str]:
         return (item_id, result, "")
     except Exception:
         import traceback
+
         return (item_id, False, traceback.format_exc())
 
 
@@ -346,7 +349,9 @@ def main():
     total_elapsed = time.time() - total_start
     avg_time = total_elapsed / len(items) if items else 0
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)")
+    print(
+        f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)",
+    )
 
     sys.exit(0 if failed == 0 else 1)
 

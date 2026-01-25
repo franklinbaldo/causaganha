@@ -112,7 +112,9 @@ class EmailPoller:
 
         # Sort by createTime descending
         latest_session = sorted(
-            recipient_sessions, key=lambda x: x.get("createTime", ""), reverse=True,
+            recipient_sessions,
+            key=lambda x: x.get("createTime", ""),
+            reverse=True,
         )[0]
         session_id = latest_session["name"].split("/")[-1]
 

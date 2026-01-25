@@ -45,17 +45,18 @@ uv pip install -e .
 
 ## Core Commands
 
-```bash
-# Run CLI
-causaganha --help
+ ```bash
+ # Run CLI
+ causaganha --help
 
-# Database management
-causaganha db init
-causaganha db status
+ # Ground Truth Management
+ causaganha groundtruth init
+ causaganha groundtruth sync
+ causaganha groundtruth search "query"
 
-# Pipeline execution
-causaganha pipeline --help
-```
+ # Database status
+ causaganha db status
+ ```
 
 ## 🧪 Testing Strategy
 
@@ -65,13 +66,15 @@ causaganha pipeline --help
 
 ## 📦 Data Architecture
 
-CausaGanha uses a **multi-parquet architecture** for data storage, with files hosted on Internet Archive.
+ CausaGanha uses a **multi-parquet architecture** for data storage, with files hosted on Internet Archive.
 
-```text
-Internet Archive Storage:
-├── djen-parquet-YYYY-MM-DD-TRIBUNAL.parquet   ← Main communications (Structured)
-├── djen-lawyers-YYYY-MM-DD.parquet              ← Lawyer profiles and ratings
-└── djen-partes-YYYY-MM-DD-TRIBUNAL.parquet      ← Case parties information
-```
+ ```text
+ Internet Archive Storage:
+ ├── djen-raw-YYYY-MM-DD-TRIB/         ← Item ID (Consolidated)
+ │   ├── caderno.zip                   ← Raw JSON source
+ │   ├── TRIB-YYYY-MM-DD-diarios.parquet
+ │   ├── TRIB-YYYY-MM-DD-processos.parquet
+ │   └── TRIB-YYYY-MM-DD-movimentos.parquet
+ ```
 
 **Query Engine**: DuckDB (columnar joins at query time).

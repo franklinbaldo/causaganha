@@ -81,7 +81,11 @@ class GitHubClient:
             return None
 
     def get_file_contents(
-        self, owner: str, repo: str, path: str, ref: str = "main",
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str = "main",
     ) -> dict[str, Any] | None:
         """Get file contents and its SHA."""
         return self._get(f"repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
@@ -197,7 +201,11 @@ class GitHubClient:
         return self._get(url) or []
 
     def create_issue_comment(
-        self, owner: str, repo: str, issue_number: int, body: str,
+        self,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        body: str,
     ) -> dict[str, Any] | None:
         """Post a comment on a GitHub issue."""
         if not self.token:
@@ -407,7 +415,8 @@ def _extract_session_id(branch: str, body: str) -> str | None:
 
     # FALLBACK: UUID pattern (for future compatibility, not currently used by Jules)
     uuid_match = re.search(
-        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch,
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+        branch,
     )
     if uuid_match:
         return uuid_match.group(1)
