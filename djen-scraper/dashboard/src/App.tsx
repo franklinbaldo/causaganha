@@ -6,7 +6,7 @@ import {
   BarChart3, RefreshCw, Layers
 } from 'lucide-react';
 
-const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=(identifier:djen-raw-*) OR (identifier:djen-parquet-*)&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&sort[]=addeddate+desc&rows=1000&output=json";
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=(identifier:djen-raw-*) OR (identifier:djen-parquet-*)&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
 const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
@@ -67,12 +67,14 @@ export default function App() {
         let newestDate = '2000-01-01';
 
         docs.forEach((doc: any) => {
-          const isParquet = doc.identifier.includes('parquet');
+          const isParquetItem = doc.identifier.includes('parquet');
+          const hasParquetFormat = doc.format && (Array.isArray(doc.format) ? doc.format.includes('Parquet') : doc.format === 'Parquet');
+
           const trib = doc.tribunal || doc.identifier.split('-').pop();
           const date = (doc.date || '').split('T')[0];
           const feedKey = `${date}-${trib}`;
 
-          if (!isParquet) {
+          if (!isParquetItem) {
             const records = parseInt(doc.total_comunicacoes || '0', 10);
             totalRecords += records;
             if (date > newestDate) newestDate = date;
@@ -102,11 +104,30 @@ export default function App() {
               addeddate: doc.addeddate,
               comms: doc.total_comunicacoes,
               zipId: null,
-              parquetId: null
+              parquetId: null,
+              zipUrl: null,
+              parquetUrl: null
             };
           }
-          if (isParquet) archiveFeedMap[feedKey].parquetId = doc.identifier;
-          else archiveFeedMap[feedKey].zipId = doc.identifier;
+
+          const entry = archiveFeedMap[feedKey];
+
+          if (isParquetItem) {
+            // Legacy separate item
+            entry.parquetId = doc.identifier;
+            entry.parquetUrl = `https://archive.org/details/${doc.identifier}`;
+          } else {
+            // Raw item (ZIP) + potentially embedded Parquet
+            entry.zipId = doc.identifier;
+            entry.zipUrl = `https://archive.org/details/${doc.identifier}`;
+
+            if (hasParquetFormat) {
+              // New single-item style: same ID, but link to parquet file listing
+              entry.parquetId = doc.identifier;
+              // Helper link to see files inside
+              entry.parquetUrl = `https://archive.org/download/${doc.identifier}/parquet/`;
+            }
+          }
         });
 
         setTribunais(Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records));
@@ -277,9 +298,9 @@ export default function App() {
                         <td className="px-6 py-4 text-slate-600">{formatNumber(parseInt(doc.comms || '0'))}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            {doc.zipId && (
+                            {doc.zipId && doc.zipUrl && (
                               <a
-                                href={`https://archive.org/details/${doc.zipId}`}
+                                href={doc.zipUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-semibold text-xs group"
@@ -288,9 +309,9 @@ export default function App() {
                                 <span className="bg-indigo-100 p-1 rounded px-1.5 py-0.5">ZIP</span>
                               </a>
                             )}
-                            {doc.parquetId && (
+                            {doc.parquetId && doc.parquetUrl && (
                               <a
-                                href={`https://archive.org/details/${doc.parquetId}`}
+                                href={doc.parquetUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="flex items-center gap-1.5 text-emerald-600 hover:text-emerald-800 font-semibold text-xs group"
