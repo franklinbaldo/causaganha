@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Title, Text, Metric, Flex, ProgressBar, Grid, Badge, Table, TableHead, TableHeaderCell, TableBody, TableRow, TableCell, AreaChart } from '@tremor/react';
 
-const API_BASE = 'https://djen-scraper.franklinbaldo.workers.dev';
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&rows=1000&output=json";
 
 interface State {
   current: {
@@ -69,21 +69,72 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [stateRes, tribunaisRes] = await Promise.all([
-          fetch(`${API_BASE}/state`),
-          fetch(`${API_BASE}/api/tribunais`)
-        ]);
-
-        if (!stateRes.ok || !tribunaisRes.ok) {
-          setError(`API Error: ${stateRes.status} / ${tribunaisRes.status}`);
+        const response = await fetch(IA_SEARCH_URL);
+        if (!response.ok) {
+          setError(`IA API Error: ${response.status}`);
           setLoading(false);
           return;
         }
 
-        const stateData = await stateRes.json();
-        const tribunaisData = await tribunaisRes.json();
-        setState(stateData);
-        setTribunais(tribunaisData.tribunais);
+        const data = await response.json();
+        const docs = data.response.docs;
+
+        // Process IA docs into Dashboard State
+        const tribunalsMap: Record<string, TribunalSummary> = {};
+        let totalRecords = 0;
+        let newestDate = '2000-01-01';
+
+        docs.forEach((doc: any) => {
+          const trib = doc.tribunal || doc.identifier.split('-').pop();
+          const date = (doc.date || '').split('T')[0];
+          const records = parseInt(doc.total_comunicacoes || '0', 10);
+
+          if (date > newestDate) newestDate = date;
+          totalRecords += records;
+
+          if (!tribunalsMap[trib]) {
+            tribunalsMap[trib] = {
+              tribunal: trib,
+              total_dates: 0,
+              total_records: 0,
+              total_bytes: 0,
+              oldest_date: date,
+              newest_date: date,
+            };
+          }
+
+          const summary = tribunalsMap[trib];
+          summary.total_dates += 1;
+          summary.total_records += records;
+          if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
+          if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+        });
+
+        const tribunaisArray = Object.values(tribunalsMap).sort((a, b) => b.total_records - a.total_records);
+
+        setTribunais(tribunaisArray);
+        setState({
+          current: {
+            date: newestDate,
+            status: 'complete',
+            tribunais_done: tribunaisArray.filter(t => t.newest_date === newestDate).map(t => t.tribunal),
+            tribunais_pending: [],
+            records: tribunaisArray.filter(t => t.newest_date === newestDate).reduce((acc, t) => acc + t.total_records, 0),
+          },
+          mode: 'backfill',
+          backfill: {
+            oldest_target: '2020-01-01',
+            completed_dates: [...new Set(docs.map((d: any) => d.date?.split('T')[0]))] as string[],
+            skipped_dates: [],
+          },
+          stats: {
+            total_records: totalRecords,
+            total_days_archived: data.response.numFound,
+            last_run: new Date().toISOString(),
+            errors_today: 0,
+          },
+        });
+
         setError(null);
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -94,7 +145,7 @@ export default function App() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 60000); // 1 minute
     return () => clearInterval(interval);
   }, []);
 
@@ -122,10 +173,9 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <Card className="bg-slate-800 border-slate-700 max-w-2xl">
-          <Title className="text-white mb-4">⚠️ Cloudflare Worker API Indisponível</Title>
+          <Title className="text-white mb-4">⚠️ Erro ao Carregar Dados do Internet Archive</Title>
           <Text className="text-slate-300 mb-4">
-            O dashboard precisa do Cloudflare Worker backend para funcionar.
-            A API não está respondendo em: <code className="bg-slate-700 px-2 py-1 rounded">{API_BASE}</code>
+            O dashboard não conseguiu recuperar as informações do Internet Archive.
           </Text>
           {error && (
             <Text className="text-red-400 mb-4">
@@ -133,12 +183,11 @@ export default function App() {
             </Text>
           )}
           <div className="bg-slate-900 p-4 rounded border border-slate-700">
-            <Text className="text-slate-400 font-mono text-sm mb-2">Para resolver:</Text>
-            <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
-              <li>Instalar Wrangler CLI: <code className="bg-slate-700 px-2 py-1 rounded">npm install -g wrangler</code></li>
-              <li>Autenticar: <code className="bg-slate-700 px-2 py-1 rounded">wrangler login</code></li>
-              <li>Deploy worker: <code className="bg-slate-700 px-2 py-1 rounded">cd djen-scraper/cloudflare/worker && wrangler deploy</code></li>
-            </ol>
+            <Text className="text-slate-400 font-mono text-sm mb-2">Monitoramento:</Text>
+            <Text className="text-slate-300 text-sm">
+              O processo de scraping e arquivamento agora é executado via <strong>GitHub Actions</strong>.
+              As coletas são enviadas diretamente para a coleção do Internet Archive.
+            </Text>
           </div>
           <Text className="text-slate-500 mt-4 text-sm">
             Tentando reconectar automaticamente a cada 30 segundos...
@@ -170,10 +219,8 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <Flex justifyContent="between" alignItems="center" className="mb-8">
           <div>
-            <Title className="text-white text-2xl md:text-3xl">DJEN Scraper Dashboard</Title>
-            <Text className="text-slate-400">
-              Última atualização: {new Date(state.stats.last_run).toLocaleString('pt-BR')}
-            </Text>
+            <Title className="text-white text-2xl md:text-3xl">CausaGanha Scraper Status</Title>
+            Baseado em GitHub Actions + Internet Archive
           </div>
           <Badge color={state.mode === 'd1' ? 'red' : 'blue'} size="lg">
             {state.mode === 'd1' ? 'D-1 (Ontem)' : 'Backfill'}
@@ -335,7 +382,7 @@ export default function App() {
         </Card>
 
         <Text className="text-center text-slate-500 mt-8">
-          Auto-refresh: 30s | API: {API_BASE}
+          Auto-refresh: 60s | Fonte: Internet Archive (Advanced Search)
         </Text>
       </div>
     </div>
