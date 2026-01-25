@@ -42,10 +42,12 @@ dependencies = [
     "python-frontmatter>=1.1",
     "pyyaml>=6.0",
     "tenacity>=9.1",
-    "lancedb>=0.4.0",
 ]
 
 [project.optional-dependencies]
+embeddings = [
+    "lancedb>=0.4.0",
+]
 dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",

@@ -45,6 +45,7 @@ def groundtruth_init(
 ) -> None:
     """Initialize the ground truth vector store to ready state."""
     from causaganha.analysis.ground_truth import GroundTruthManager
+
     manager = GroundTruthManager()
     manager.init_store(overwrite=overwrite)
     typer.echo("✅ Ground truth vector store initialized")
@@ -60,6 +61,7 @@ def groundtruth_sync(
     async def _run() -> None:
         try:
             from causaganha.analysis.ground_truth import GroundTruthManager
+
             manager = GroundTruthManager()
             result = await manager.sync(min_confidence=min_confidence, limit=limit)
             typer.echo(f"✅ Sync complete! Added {result['synced']} new examples")
@@ -79,6 +81,7 @@ def groundtruth_search(
     async def _run() -> None:
         try:
             from causaganha.analysis.ground_truth import GroundTruthManager
+
             manager = GroundTruthManager()
             results = await manager.search(query, k=k)
             for res in results:
