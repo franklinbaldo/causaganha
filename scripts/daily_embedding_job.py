@@ -13,10 +13,10 @@ from pathlib import Path
 
 import structlog
 
-from causaganha.v2.analysis.embedding_models import JINA_V4_1024
-from causaganha.v2.pipeline.embedding_pipeline import EmbeddingPipeline
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+from causaganha.analysis.embedding_models import JINA_V4_1024
+from causaganha.pipeline.embedding_pipeline import EmbeddingPipeline
+from causaganha.storage.connection import get_connection
+from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
 logger = structlog.get_logger()
@@ -34,7 +34,7 @@ def get_decisions_to_process(days_back: int = 1) -> list[int]:
     con = get_connection("data/causaganha.duckdb")
 
     # Get table name for checking existing embeddings
-    from causaganha.v2.storage.embedding_storage import _get_table_name
+    from causaganha.storage.embedding_storage import _get_table_name
 
     table_name = _get_table_name(JINA_V4_1024)
 
@@ -160,7 +160,7 @@ async def main():
     if not decision_ids:
         logger.info("no_decisions_to_process")
         # Create empty stats file
-        from causaganha.v2.pipeline.embedding_pipeline import BatchStats
+        from causaganha.pipeline.embedding_pipeline import BatchStats
 
         empty_stats = BatchStats(
             total_decisions=0,

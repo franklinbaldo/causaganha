@@ -15,7 +15,7 @@ from datetime import date, timedelta
 import httpx
 import structlog
 
-from causaganha.v2.api.client import PJeAPIClient
+from causaganha.api.client import PJeAPIClient
 
 
 # Configure logging

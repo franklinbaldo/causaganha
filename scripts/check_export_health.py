@@ -21,7 +21,7 @@ import structlog
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from causaganha.v2.storage.connection import get_connection
+from causaganha.storage.connection import get_connection
 
 
 logger = structlog.get_logger()

@@ -13,8 +13,8 @@ import structlog
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.v2.pipeline.collect import collect_metadata_for_court
-from causaganha.v2.storage.connection import get_connection
+from causaganha.pipeline.collect import collect_metadata_for_court
+from causaganha.storage.connection import get_connection
 
 
 # Configure logging

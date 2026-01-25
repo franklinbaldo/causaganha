@@ -10,8 +10,8 @@ provider token limits:
 import asyncio
 import os
 
-from causaganha.v2.analysis.embedding_service import EmbeddingService
-from causaganha.v2.analysis.text_chunker import create_chunker_for_provider
+from causaganha.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.text_chunker import create_chunker_for_provider
 
 
 # Sample long legal decision text (simulated)

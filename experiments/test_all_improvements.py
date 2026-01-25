@@ -11,11 +11,11 @@ This script demonstrates:
 import asyncio
 from pathlib import Path
 
-from causaganha.v2.analysis.embedding_models import JINA_V4_1024
-from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
-from causaganha.v2.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+from causaganha.analysis.embedding_models import JINA_V4_1024
+from causaganha.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
+from causaganha.storage.connection import get_connection
+from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
 # Sample legal decision texts

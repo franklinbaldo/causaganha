@@ -33,10 +33,10 @@ from pathlib import Path
 
 import structlog
 
-from causaganha.v2.analysis.embedding_models import JINA_V4_1024
-from causaganha.v2.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+from causaganha.analysis.embedding_models import JINA_V4_1024
+from causaganha.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
+from causaganha.storage.connection import get_connection
+from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
 logger = structlog.get_logger()

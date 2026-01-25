@@ -23,10 +23,10 @@ import structlog
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from causaganha.v2.pipeline.export_orchestrator import ExportOrchestrator
-from causaganha.v2.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
-from causaganha.v2.pipeline.parquet_export import ExportConfig, ParquetExporter
-from causaganha.v2.storage.connection import get_connection
+from causaganha.pipeline.export_orchestrator import ExportOrchestrator
+from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
+from causaganha.storage.connection import get_connection
 
 
 logger = structlog.get_logger()

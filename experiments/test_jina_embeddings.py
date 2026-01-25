@@ -15,7 +15,7 @@ from typing import Any
 
 import structlog
 
-from causaganha.v2.analysis.embedding_service import EmbeddingService
+from causaganha.analysis.embedding_service import EmbeddingService
 
 
 # Configure logging

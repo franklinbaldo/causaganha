@@ -8,15 +8,15 @@ This script demonstrates how the new architecture separates:
 import asyncio
 import os
 
-from causaganha.v2.analysis.embedding_models import (
+from causaganha.analysis.embedding_models import (
     GOOGLE_GEMINI_768,
     JINA_V3_1024,
     JINA_V4_768,
     JINA_V4_1024,
     list_models,
 )
-from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
-from causaganha.v2.analysis.providers import JinaProvider
+from causaganha.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.analysis.providers import JinaProvider
 
 
 async def test_provider_model_separation():

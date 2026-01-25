@@ -9,10 +9,10 @@ This script demonstrates:
 import asyncio
 from pathlib import Path
 
-from causaganha.v2.analysis.embedding_models import JINA_V4_1024
-from causaganha.v2.analysis.embedding_service_v2 import EmbeddingService
-from causaganha.v2.storage.connection import get_connection
-from causaganha.v2.storage.embedding_storage import EmbeddingStorage
+from causaganha.analysis.embedding_models import JINA_V4_1024
+from causaganha.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.storage.connection import get_connection
+from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
 async def test_embedding_storage():
@@ -91,7 +91,7 @@ async def test_embedding_storage():
     intimation_id = 12345  # Simulated intimation ID
 
     # Split decision into chunks for text preview
-    from causaganha.v2.analysis.text_chunker import TextChunker
+    from causaganha.analysis.text_chunker import TextChunker
 
     chunker = TextChunker(max_tokens=service.model.max_tokens)
     text_chunks = chunker.chunk_text(sample_decision, strategy="auto")
@@ -109,7 +109,7 @@ async def test_embedding_storage():
     # Save another intimation with different model (simulate mixed models)
     print("Saving embeddings for another decision with different dimension...")
 
-    from causaganha.v2.analysis.embedding_models import JINA_V4_768
+    from causaganha.analysis.embedding_models import JINA_V4_768
 
     # Generate with 768D model
     service_768 = await EmbeddingService.create(
