@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import zipfile
@@ -88,29 +89,29 @@ async def collect_metadata_for_court(
                                     obj = SimpleNamespace()
                                     obj.id = item.get("id")
                                     obj.numero_processo = item.get("numero_processo") or item.get(
-                                        "numeroProcesso"
+                                        "numeroProcesso",
                                     )
                                     obj.data_disponibilizacao = item.get(
-                                        "data_disponibilizacao"
+                                        "data_disponibilizacao",
                                     ) or item.get("dataDisponibilizacao")
                                     obj.sigla_tribunal = item.get("sigla_tribunal") or item.get(
-                                        "siglaTribunal"
+                                        "siglaTribunal",
                                     )
                                     obj.id_orgao = item.get("id_orgao") or item.get("idOrgao")
                                     obj.tipo_comunicacao = item.get("tipo_comunicacao") or item.get(
-                                        "tipoComunicacao"
+                                        "tipoComunicacao",
                                     )
                                     obj.nome_orgao = item.get("nome_orgao") or item.get("nomeOrgao")
                                     obj.texto = item.get("texto")
                                     obj.link = item.get("link")
                                     obj.tipo_documento = item.get("tipo_documento") or item.get(
-                                        "tipoDocumento"
+                                        "tipoDocumento",
                                     )
                                     obj.nome_classe = item.get("nome_classe") or item.get(
-                                        "nomeClasse"
+                                        "nomeClasse",
                                     )
                                     obj.codigo_classe = item.get("codigo_classe") or item.get(
-                                        "codigoClasse"
+                                        "codigoClasse",
                                     )
                                     obj.hash = item.get("hash")
                                     obj.status = item.get("status")
@@ -122,12 +123,15 @@ async def collect_metadata_for_court(
                     new_count = store_intimations(con, intimations)
                     total_new += new_count
                     results.append(
-                        {"date": target_date, "count": len(intimations), "new": new_count}
+                        {"date": target_date, "count": len(intimations), "new": new_count},
                     )
 
             except Exception as e:
                 logger.exception(
-                    "collection_error", tribunal=tribunal, date=target_date, error=str(e)
+                    "collection_error",
+                    tribunal=tribunal,
+                    date=target_date,
+                    error=str(e),
                 )
                 continue
 
@@ -145,17 +149,22 @@ async def collect_metadata_for_all_courts(
     max_concurrency: int = 5,
 ) -> None:
     """Collect for multiple courts in parallel.
-    
+
     Uses a semaphore to limit concurrent requests to the proxy/API.
     """
     if not courts:
         courts = settings.COURTS
-        
-    logger.info("starting_multi_court_collection", count=len(courts), days_back=days_back, concurrency=max_concurrency)
-    
+
+    logger.info(
+        "starting_multi_court_collection",
+        count=len(courts),
+        days_back=days_back,
+        concurrency=max_concurrency,
+    )
+
     semaphore = asyncio.Semaphore(max_concurrency)
-    
-    async def _collect_with_semaphore(court: str):
+
+    async def _collect_with_semaphore(court: str) -> None:
         async with semaphore:
             try:
                 await collect_metadata_for_court(court, days_back)
