@@ -34,16 +34,6 @@ interface TribunalSummary {
   newest_date: string | null;
 }
 
-interface TribunalDetail {
-  tribunal: string;
-  dates: {
-    date: string;
-    records: number;
-    bytes: number;
-    version: number;
-    hash: string;
-  }[];
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -60,8 +50,6 @@ function formatNumber(n: number): string {
 export default function App() {
   const [state, setState] = useState<State | null>(null);
   const [tribunais, setTribunais] = useState<TribunalSummary[]>([]);
-  const [selectedTribunal, setSelectedTribunal] = useState<string | null>(null);
-  const [tribunalDetail, setTribunalDetail] = useState<TribunalDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
@@ -312,8 +300,7 @@ export default function App() {
               {tribunais.map((t) => (
                 <TableRow
                   key={t.tribunal}
-                  className="cursor-pointer hover:bg-slate-700"
-                  onClick={() => setSelectedTribunal(t.tribunal)}
+                  className="hover:bg-slate-700"
                 >
                   <TableCell>
                     <Badge color={t.total_dates > 0 ? 'emerald' : 'gray'}>
@@ -331,45 +318,6 @@ export default function App() {
           </Table>
         </Card>
 
-        {/* Tribunal Detail Modal/Panel */}
-        {selectedTribunal && tribunalDetail && (
-          <Card className="bg-slate-800 border-slate-700 mb-8">
-            <Flex justifyContent="between" alignItems="center" className="mb-4">
-              <Title className="text-white">Detalhes: {selectedTribunal}</Title>
-              <button
-                onClick={() => setSelectedTribunal(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                Fechar
-              </button>
-            </Flex>
-
-            <Text className="text-slate-400 mb-4">
-              {tribunalDetail.dates.length} dias baixados
-            </Text>
-
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell className="text-slate-400">Data</TableHeaderCell>
-                  <TableHeaderCell className="text-slate-400 text-right">Comunicações</TableHeaderCell>
-                  <TableHeaderCell className="text-slate-400 text-right">Tamanho</TableHeaderCell>
-                  <TableHeaderCell className="text-slate-400 text-right">Versão</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {tribunalDetail.dates.map((d) => (
-                  <TableRow key={d.date}>
-                    <TableCell className="text-white">{d.date}</TableCell>
-                    <TableCell className="text-right text-white">{formatNumber(d.records)}</TableCell>
-                    <TableCell className="text-right text-white">{formatBytes(d.bytes)}</TableCell>
-                    <TableCell className="text-right text-slate-300">v{d.version}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
 
         {/* Current Day Tribunais Status */}
         <Card className="bg-slate-800 border-slate-700">
