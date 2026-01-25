@@ -4,6 +4,8 @@
 
 **CausaGanha** is a judicial analytics platform that uses structured data from the DJEN (Diário de Justiça Eletrônico Nacional) to provide transparent lawyer performance ratings.
 
+## 📊 [Live Dashboard & Status](https://franklinbaldo.github.io/causaganha/)
+
 ## 🎯 Vision
 
 Identify top-performing lawyers using real judicial outcomes, eliminating information asymmetry in the legal market.
