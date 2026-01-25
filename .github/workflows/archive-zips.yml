@@ -22,7 +22,7 @@ concurrency:
 
 env:
   DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
-  MAX_UPLOADS_PER_RUN: 10  # Limit per run (balanced for IA rate limits)
+  MAX_UPLOADS_PER_RUN: 50  # Increased for faster backfill (balanced for IA rate limits)
 
 jobs:
   archive:

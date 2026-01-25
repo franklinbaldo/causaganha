@@ -28,7 +28,7 @@ jobs:
           uv pip install -e .
 
       - name: Run Collection
-        run: uv run causaganha collect --courts TJRO
+        run: uv run causaganha collect --days-back 7
         env:
           LOG_LEVEL: INFO
           # NOTE: In a real distributed setup, we would need to:
