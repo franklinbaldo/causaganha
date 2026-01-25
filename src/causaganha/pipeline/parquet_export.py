@@ -3,8 +3,8 @@
 Exports analyzed judicial decisions from DuckDB to Parquet files
 using hierarchical date+tribunal partitioning for Internet Archive.
 
-Naming Convention: causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet
-Example: causaganha-2025-01-15-TJRO.parquet
+Naming Convention: {TRIBUNAL}-{YYYY}-{MM}-{DD}-comunicacoes.parquet
+Example: TJRO-2025-01-15-comunicacoes.parquet
 
 Usage:
     exporter = ParquetExporter(db_connection, ExportConfig())
@@ -145,6 +145,46 @@ class ParquetExporter:
         )
         return results
 
+    async def export_lawyers(
+        self,
+        partition_date: str,
+        tribunal: str,
+    ) -> tuple[Path, int]:
+        """Export lawyers for a single day+tribunal partition.
+
+        Args:
+            partition_date: Date in YYYY-MM-DD format
+            tribunal: Tribunal code
+
+        Returns:
+            Tuple of (file_path, row_count)
+        """
+        logger.info(f"Exporting lawyers for {tribunal} {partition_date}")
+
+        # Query data
+        df = self._query_lawyers(partition_date, tribunal)
+        row_count = len(df)
+
+        # Filename
+        filename = f"{tribunal}-{partition_date}-advogados.parquet"
+        file_path = self.config.output_dir / filename
+
+        if row_count > 0:
+            self._write_parquet(df, file_path)
+
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            logger.info(
+                f"Exported {row_count} lawyers to {filename} ({file_size_mb:.2f} MB)",
+            )
+        else:
+            logger.info(f"No lawyers found for {tribunal} {partition_date}")
+            # Ensure empty file is not created or handle as needed.
+            # For consistency, we might want to return 0 and not create file,
+            # or create empty file. Let's create it if empty to keep set complete?
+            # Actually, usually better not to upload empty files.
+
+        return file_path, row_count
+
     def _query_intimations(self, date: str, tribunal: str) -> pa.RecordBatch:
         """Query DuckDB for intimations to export.
 
@@ -200,6 +240,102 @@ class ParquetExporter:
         )
 
         # Execute and convert to PyArrow
+        return query.to_pyarrow()
+
+    def _query_lawyers(self, date: str, tribunal: str) -> pa.Table:
+        """Query lawyers associated with intimations for date/tribunal."""
+        intimations = self.db.table("intimations")
+        lawyers = self.db.table("intimation_lawyers")
+
+        query = (
+            lawyers.join(
+                intimations,
+                lawyers.intimation_id == intimations.id,
+            )
+            .filter(
+                (intimations.data_disponibilizacao == date)
+                & (intimations.sigla_tribunal == tribunal),
+            )
+            .select(
+                lawyers.intimation_id,
+                lawyers.oab_number,
+                lawyers.oab_state,
+                lawyers.lawyer_name,
+                lawyers.polo,
+                # Include metadata for context if needed, but schema suggests normalized
+            )
+        )
+        return query.to_pyarrow()
+
+    async def export_parties(
+        self,
+        partition_date: str,
+        tribunal: str,
+    ) -> tuple[Path, int]:
+        """Export parties for a single day+tribunal partition.
+
+        Args:
+            partition_date: Date found YYYY-MM-DD
+            tribunal: Tribunal code
+
+        Returns:
+            Tuple (file_path, row_count)
+        """
+        logger.info(f"Exporting parties for {tribunal} {partition_date}")
+
+        df = self._query_parties(partition_date, tribunal)
+        row_count = len(df)
+
+        filename = f"{tribunal}-{partition_date}-partes.parquet"
+        file_path = self.config.output_dir / filename
+
+        if row_count > 0:
+            self._write_parquet(df, file_path)
+            file_size_mb = file_path.stat().st_size / (1024 * 1024)
+            logger.info(
+                f"Exported {row_count} parties to {filename} ({file_size_mb:.2f} MB)",
+            )
+        else:
+            logger.info(f"No parties found for {tribunal} {partition_date}")
+
+        return file_path, row_count
+
+    def _query_parties(self, date: str, tribunal: str) -> pa.Table:
+        """Query parties from decision_analysis and intimations (if any specific table exists).
+
+        Since we don't have a normalized parties table, we'll extract from decision_analysis.
+        This allows us to have a dedicated 'Parties' dataset.
+        """
+        intimations = self.db.table("intimations")
+        analysis = self.db.table("decision_analysis")
+
+        # We want to pivot winner/loser or just export the analysis rows with party info
+        # But 'Parties' implies a normalized list of parties involved.
+        # Let's export rows from decision_analysis that contain party names, associated with intimation_id.
+
+        query = (
+            analysis.join(
+                intimations,
+                analysis.intimation_id == intimations.id,
+            )
+            .filter(
+                (intimations.data_disponibilizacao == date)
+                & (intimations.sigla_tribunal == tribunal),
+            )
+            .select(
+                analysis.intimation_id,
+                analysis.winner_party_name,
+                analysis.loser_party_name,
+                # analysis.winner_lawyer_oab, # Linked in other table
+                # analysis.loser_lawyer_oab
+            )
+        )
+        # Note: Ideally we would unpivot this to (intimation_id, party_name, role)
+        # but Ibis unpivot support depends on backend. DuckDB supports UNPIVOT.
+        # For simple export, let's keep it wide or let the user decide.
+        # User asked for "AND PARTS", likely mimicking the V4 architecture which implies separated tables.
+        # Given I don't have a `parties` table, extracting from analysis is best effort.
+
         return query.to_pyarrow()
 
     def _get_tribunals_for_date(self, date: str) -> list[str]:
@@ -311,7 +447,7 @@ class ParquetExporter:
         Returns:
             Filename: causaganha-{YYYY}-{MM}-{DD}-{TRIBUNAL}.parquet
         """
-        return f"causaganha-{date}-{tribunal}.parquet"
+        return f"{tribunal}-{date}-comunicacoes.parquet"
 
     @staticmethod
     def get_yesterday() -> str:

@@ -268,6 +268,8 @@ class EmbeddingStorage:
         output_path: str | Path,
         model: EmbeddingModel,
         intimation_id: int | None = None,
+        tribunal: str | None = None,
+        date: str | None = None,
     ) -> Path:
         """Export embeddings to Parquet file for Internet Archive upload.
 
@@ -277,23 +279,11 @@ class EmbeddingStorage:
             output_path: Path to save Parquet file.
             model: EmbeddingModel to export (determines which table to query).
             intimation_id: Optional filter by intimation ID.
+            tribunal: Optional filter by tribunal (requires join).
+            date: Optional filter by date (YYYY-MM-DD, requires join).
 
         Returns:
             Path to the exported Parquet file.
-
-        Example:
-            # Export all Jina v4 1024D embeddings
-            storage.export_to_parquet(
-                "embeddings_jina_v4_1024.parquet",
-                model=JINA_V4_1024
-            )
-
-            # Export embeddings for specific intimation
-            storage.export_to_parquet(
-                "intimation_12345_embeddings.parquet",
-                model=JINA_V4_1024,
-                intimation_id=12345
-            )
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -309,15 +299,29 @@ class EmbeddingStorage:
 
         # Get table reference
         table = self.con.table(table_name)
-
-        # Build query (vectorized filtering)
         query = table
 
-        # Apply filter
+        # Join if filtering by tribunal or date
+        if tribunal or date:
+            intimations = self.con.table("intimations")
+            query = query.join(
+                intimations,
+                table.intimation_id == intimations.id,
+            )
+
+            if tribunal:
+                query = query.filter(intimations.sigla_tribunal == tribunal)
+            if date:
+                query = query.filter(intimations.data_disponibilizacao == date)
+
+            # Select only embedding columns after join
+            query = query.select(table)
+
+        # Apply simple filter
         if intimation_id is not None:
             query = query.filter(table.intimation_id == intimation_id)
 
-        # Order by intimation_id and chunk_index
+        # Order by using the table columns directly
         query = query.order_by([table.intimation_id, table.chunk_index])
 
         # Export to Parquet (vectorized - no Python iteration)

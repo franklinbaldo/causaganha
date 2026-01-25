@@ -176,7 +176,7 @@ class ExportOrchestrator:
         # Mark as pending
         await self._record_export_pending(partition_date, tribunal)
 
-        # 1. Export to Parquet
+        # 1. Export Comunicacoes to Parquet
         logger.info(f"Exporting {tribunal} for {partition_date}...")
         file_path, row_count = await self.exporter.export_day_tribunal(
             partition_date,
@@ -185,7 +185,7 @@ class ExportOrchestrator:
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
 
-        # 2. Upload to Internet Archive
+        # 2. Upload Comunicacoes to Internet Archive
         logger.info(f"Uploading {file_path.name} to Internet Archive...")
         ia_url = await self.uploader.upload_parquet(
             file_path,
@@ -195,7 +195,105 @@ class ExportOrchestrator:
             row_count,
         )
 
-        # 3. Record in database
+        # 3. Export & Upload Embeddings (if available)
+        try:
+            from causaganha.analysis.embedding_models import JINA_V4_1024
+            from causaganha.storage.embedding_storage import get_embedding_storage
+
+            emb_storage = get_embedding_storage(self.db)
+            emb_filename = f"{tribunal}-{partition_date}-embeddings.parquet"
+            emb_path = file_path.parent / emb_filename
+
+            logger.info(f"Exporting embeddings for {tribunal} {partition_date}...")
+
+            # Export using the new filtering capabilities
+            # We assume JINA_V4_1024 is the primary model for now
+            # In future we might want to iterate over active models
+            try:
+                emb_storage.export_to_parquet(
+                    output_path=emb_path,
+                    model=JINA_V4_1024,
+                    tribunal=tribunal,
+                    date=partition_date,
+                )
+
+                # Check if file has content
+                if emb_path.exists() and emb_path.stat().st_size > 0:
+                    emb_size_mb = emb_path.stat().st_size / (1024 * 1024)
+                    emb_row_count = (
+                        0  # ParquetExporter calculates this, but here we can read it or skip
+                    )
+
+                    logger.info(f"Uploading {emb_filename} to Internet Archive...")
+                    await self.uploader.upload_parquet(
+                        emb_path,
+                        tribunal,
+                        partition_date,
+                        emb_size_mb,
+                        # We don't track row count for embeddings in metadata yet effectively
+                        # unless we read the file
+                    )
+
+                    if cleanup_files:
+                        emb_path.unlink()
+
+                else:
+                    logger.warning("Embeddings export resulted in empty file, skipping upload.")
+
+            except ValueError as e:
+                # Table not found or no data - valid case if no embeddings generated yet
+                logger.info(f"No embeddings found to export: {e}")
+
+        except Exception as e:
+            logger.warning(f"Failed to process embeddings export: {e}", exc_info=True)
+
+        # 4. Export & Upload Lawyers
+        try:
+            logger.info(f"Exporting lawyers for {tribunal} {partition_date}...")
+            lawyers_path, lawyers_rows = await self.exporter.export_lawyers(
+                partition_date,
+                tribunal,
+            )
+
+            if lawyers_rows > 0:
+                lawyers_size_mb = lawyers_path.stat().st_size / (1024 * 1024)
+                logger.info(f"Uploading {lawyers_path.name} to Internet Archive...")
+                await self.uploader.upload_parquet(
+                    lawyers_path,
+                    tribunal,
+                    partition_date,
+                    lawyers_size_mb,
+                    lawyers_rows,
+                )
+                if cleanup_files:
+                    lawyers_path.unlink()
+        except Exception as e:
+            logger.warning(f"Failed to export lawyers: {e}", exc_info=True)
+
+        # 5. Export & Upload Parties
+        try:
+            logger.info(f"Exporting parties for {tribunal} {partition_date}...")
+            parties_path, parties_rows = await self.exporter.export_parties(
+                partition_date,
+                tribunal,
+            )
+
+            if parties_rows > 0:
+                parties_size_mb = parties_path.stat().st_size / (1024 * 1024)
+                logger.info(f"Uploading {parties_path.name} to Internet Archive...")
+                await self.uploader.upload_parquet(
+                    parties_path,
+                    tribunal,
+                    partition_date,
+                    parties_size_mb,
+                    parties_rows,
+                )
+                if cleanup_files:
+                    parties_path.unlink()
+        except Exception as e:
+            logger.warning(f"Failed to export parties: {e}", exc_info=True)
+
+        # 6. Record in database (continuing with main flow)
         await self._record_export_success(
             partition_date,
             tribunal,
@@ -205,7 +303,7 @@ class ExportOrchestrator:
             file_size_mb,
         )
 
-        # 4. Clean up local file if requested
+        # 7. Clean up local main file if requested
         if cleanup_files:
             file_path.unlink()
             logger.debug(f"Removed local file: {file_path}")
