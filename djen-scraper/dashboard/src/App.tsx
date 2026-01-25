@@ -6,7 +6,8 @@ import {
   BarChart3, RefreshCw, Layers
 } from 'lucide-react';
 
-const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=(identifier:djen-raw-*) OR (identifier:djen-parquet-*)&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
+// Search only for djen-raw items. Parquet files are now inside them.
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
 const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
@@ -30,6 +31,7 @@ interface TribunalSummary {
   total_bytes: number;
   oldest_date: string | null;
   newest_date: string | null;
+  parquet_coverage: number; // Percentage of items that have Parquet
 }
 
 function formatNumber(n: number): string {
@@ -67,35 +69,37 @@ export default function App() {
         let newestDate = '2000-01-01';
 
         docs.forEach((doc: any) => {
-          const isParquetItem = doc.identifier.includes('parquet');
-          const hasParquetFormat = doc.format && (Array.isArray(doc.format) ? doc.format.includes('Parquet') : doc.format === 'Parquet');
+          // Check if item has parquet files (new architecture: consolidated in raw item)
+          const hasParquet = doc.format && (Array.isArray(doc.format) ? doc.format.includes('Parquet') : doc.format === 'Parquet');
 
           const trib = doc.tribunal || doc.identifier.split('-').pop();
           const date = (doc.date || '').split('T')[0];
           const feedKey = `${date}-${trib}`;
 
-          if (!isParquetItem) {
-            const records = parseInt(doc.total_comunicacoes || '0', 10);
-            totalRecords += records;
-            if (date > newestDate) newestDate = date;
+          // Always process item stats
+          const records = parseInt(doc.total_comunicacoes || '0', 10);
+          totalRecords += records;
+          if (date > newestDate) newestDate = date;
 
-            if (!tribunalsMap[trib]) {
-              tribunalsMap[trib] = {
-                tribunal: trib,
-                total_dates: 0,
-                total_records: 0,
-                total_bytes: 0,
-                oldest_date: date,
-                newest_date: date,
-              };
-            }
-
-            const summary = tribunalsMap[trib];
-            summary.total_dates += 1;
-            summary.total_records += records;
-            if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
-            if (date > (summary.newest_date || '0000')) summary.newest_date = date;
+          if (!tribunalsMap[trib]) {
+            tribunalsMap[trib] = {
+              tribunal: trib,
+              total_dates: 0,
+              total_records: 0,
+              total_bytes: 0,
+              oldest_date: date,
+              newest_date: date,
+              parquet_coverage: 0,
+            };
           }
+
+          const summary = tribunalsMap[trib];
+          summary.total_dates += 1;
+          summary.total_records += records;
+          if (hasParquet) summary.parquet_coverage += 1;
+
+          if (date < (summary.oldest_date || '9999')) summary.oldest_date = date;
+          if (date > (summary.newest_date || '0000')) summary.newest_date = date;
 
           if (!archiveFeedMap[feedKey]) {
             archiveFeedMap[feedKey] = {
@@ -103,30 +107,11 @@ export default function App() {
               date: date,
               addeddate: doc.addeddate,
               comms: doc.total_comunicacoes,
-              zipId: null,
-              parquetId: null,
-              zipUrl: null,
-              parquetUrl: null
+              zipId: doc.identifier,
+              parquetId: hasParquet ? doc.identifier : null,
+              zipUrl: `https://archive.org/details/${doc.identifier}`,
+              parquetUrl: hasParquet ? `https://archive.org/download/${doc.identifier}/${trib}-${date}-diarios.parquet` : null
             };
-          }
-
-          const entry = archiveFeedMap[feedKey];
-
-          if (isParquetItem) {
-            // Legacy separate item
-            entry.parquetId = doc.identifier;
-            entry.parquetUrl = `https://archive.org/details/${doc.identifier}`;
-          } else {
-            // Raw item (ZIP) + potentially embedded Parquet
-            entry.zipId = doc.identifier;
-            entry.zipUrl = `https://archive.org/details/${doc.identifier}`;
-
-            if (hasParquetFormat) {
-              // New single-item style: same ID, but link to parquet file listing
-              entry.parquetId = doc.identifier;
-              // Helper link to see files inside
-              entry.parquetUrl = `https://archive.org/download/${doc.identifier}/parquet/`;
-            }
           }
         });
 

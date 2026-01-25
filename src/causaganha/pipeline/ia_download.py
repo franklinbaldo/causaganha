@@ -5,7 +5,7 @@ Supports local caching, batch downloads, and retry logic.
 
 Usage:
     downloader = IAParquetDownloader(cache_dir="./cache")
-    file_path = await downloader.download(tribunal="TJRO", date="2025-01-15")
+    file_path = await downloader.download(tribunal="TJRO", date="2025-01-15", table="diarios")
 """
 
 import asyncio
@@ -73,6 +73,7 @@ class IAParquetDownloader:
         self,
         tribunal: str,
         date: str,
+        table: str = "diarios",
         force_refresh: bool = False,
     ) -> Path:
         """Download parquet file for a specific date and tribunal.
@@ -80,6 +81,7 @@ class IAParquetDownloader:
         Args:
             tribunal: Tribunal code (e.g., TJRO, TJSP)
             date: Date in YYYY-MM-DD format
+            table: Table name (e.g., diarios, processos)
             force_refresh: Skip cache and force re-download
 
         Returns:
@@ -97,14 +99,14 @@ class IAParquetDownloader:
 
         # Check cache first
         if not force_refresh:
-            cached_file = self._get_cached_file(tribunal, date)
+            cached_file = self._get_cached_file(tribunal, date, table)
             if cached_file:
                 logger.info(f"Using cached file: {cached_file}")
                 return cached_file
 
         # Generate IA item ID and filename
         item_id = self._generate_item_id(date, tribunal)
-        filename = self._generate_filename(date, tribunal)
+        filename = self._generate_filename(date, tribunal, table)
 
         logger.info(f"Downloading {filename} from IA item: {item_id}")
 
@@ -148,6 +150,7 @@ class IAParquetDownloader:
         start_date: str,
         end_date: str,
         tribunal: str,
+        table: str = "diarios",
         skip_missing: bool = True,
     ) -> list[Path]:
         """Download parquet files for a date range.
@@ -156,6 +159,7 @@ class IAParquetDownloader:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format (inclusive)
             tribunal: Tribunal code (e.g., TJRO)
+            table: Table name (e.g., diarios)
             skip_missing: Continue if some dates are missing
 
         Returns:
@@ -177,7 +181,7 @@ class IAParquetDownloader:
             raise ValueError("start_date must be before or equal to end_date")
 
         logger.info(
-            f"Downloading {tribunal} parquet files from {start_date} to {end_date}",
+            f"Downloading {tribunal} {table} parquet files from {start_date} to {end_date}",
         )
 
         # Generate date range
@@ -195,7 +199,7 @@ class IAParquetDownloader:
 
         for date in dates:
             try:
-                file_path = await self.download(tribunal, date)
+                file_path = await self.download(tribunal, date, table)
                 downloaded_files.append(file_path)
             except Exception as e:
                 logger.error(f"Failed to download {tribunal} for {date}: {e}")
@@ -218,18 +222,24 @@ class IAParquetDownloader:
 
         return downloaded_files
 
-    async def check_exists(self, tribunal: str, date: str) -> bool:
+    async def check_exists(
+        self,
+        tribunal: str,
+        date: str,
+        table: str = "diarios",
+    ) -> bool:
         """Check if parquet file exists on Internet Archive.
 
         Args:
             tribunal: Tribunal code
             date: Date in YYYY-MM-DD format
+            table: Table name
 
         Returns:
             True if item exists, False otherwise
         """
         item_id = self._generate_item_id(date, tribunal)
-        filename = self._generate_filename(date, tribunal)
+        filename = self._generate_filename(date, tribunal, table)
 
         try:
             item = await asyncio.to_thread(ia.get_item, item_id)
@@ -356,17 +366,23 @@ class IAParquetDownloader:
 
         return await asyncio.to_thread(_calculate)
 
-    def _get_cached_file(self, tribunal: str, date: str) -> Path | None:
+    def _get_cached_file(
+        self,
+        tribunal: str,
+        date: str,
+        table: str = "diarios",
+    ) -> Path | None:
         """Check if file exists in cache and is not expired.
 
         Args:
             tribunal: Tribunal code
             date: Date in YYYY-MM-DD format
+            table: Table name
 
         Returns:
             Path to cached file if valid, None otherwise
         """
-        filename = self._generate_filename(date, tribunal)
+        filename = self._generate_filename(date, tribunal, table)
         cache_path = self.config.cache_dir / filename
 
         if not cache_path.exists():
@@ -396,7 +412,7 @@ class IAParquetDownloader:
         """
         deleted = 0
 
-        for file_path in self.config.cache_dir.glob("causaganha-*.parquet"):
+        for file_path in self.config.cache_dir.glob("*.parquet"):
             if older_than_days is None:
                 file_path.unlink()
                 deleted += 1
@@ -420,21 +436,22 @@ class IAParquetDownloader:
             tribunal: Tribunal code
 
         Returns:
-            Item ID: causaganha-2025-01-15-TJRO
+            Item ID: djen-raw-2025-01-15-TJRO
         """
-        return f"causaganha-{date}-{tribunal}"
+        return f"djen-raw-{date}-{tribunal}"
 
-    def _generate_filename(self, date: str, tribunal: str) -> str:
+    def _generate_filename(self, date: str, tribunal: str, table: str) -> str:
         """Generate parquet filename.
 
         Args:
             date: Partition date (YYYY-MM-DD)
             tribunal: Tribunal code
+            table: Table name
 
         Returns:
-            Filename: causaganha-2025-01-15-TJRO.parquet
+            Filename: TJRO-2025-01-15-diarios.parquet
         """
-        return f"causaganha-{date}-{tribunal}.parquet"
+        return f"{tribunal}-{date}-{table}.parquet"
 
     async def get_item_url(self, tribunal: str, date: str) -> str:
         """Get Internet Archive URL for an item.
