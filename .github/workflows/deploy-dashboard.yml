@@ -1,4 +1,4 @@
-name: Deploy Dashboard to GitHub Pages
+name: Deploy CausaGanha Homepage (Dashboard)
 
 on:
   push:
