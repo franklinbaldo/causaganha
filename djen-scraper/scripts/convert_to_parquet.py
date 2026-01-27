@@ -15,7 +15,6 @@ import json
 # Parallel processing config (adaptive based on CPU)
 import multiprocessing
 import os
-import subprocess
 import sys
 import tempfile
 import time
@@ -26,6 +25,7 @@ from pathlib import Path
 
 import duckdb
 import httpx
+import internetarchive as ia  # type: ignore
 
 
 _cpu_count = multiprocessing.cpu_count()
@@ -40,7 +40,7 @@ def generate_uuid(content: str) -> str:
     return str(uuid.uuid5(NAMESPACE_DJEN, content))
 
 
-def timed(name):
+def timed(name: str):
     """Context manager for timing code blocks."""
 
     class Timer:
@@ -71,7 +71,7 @@ def process_item(item_id: str) -> bool:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        zip_path = tmpdir / "caderno.zip" # Placeholder path, will be overwritten
+        zip_path = tmpdir / "caderno.zip"  # Placeholder path, will be overwritten
 
         # Try to download the ZIP file
         # We try multiple patterns for backward compatibility:
@@ -79,27 +79,35 @@ def process_item(item_id: str) -> bool:
         # 2. Legacy pattern: caderno.zip
         zip_filenames = [f"{tribunal}-{date}.zip", "caderno.zip"]
         download_success = False
-        
+
         for zip_filename in zip_filenames:
             url = f"https://archive.org/download/{item_id}/{zip_filename}"
             print(f"  Attempting download: {url}")
-            
+
             with timed(f"download ({zip_filename})"):
                 try:
                     # Long timeouts for large files from IA
                     timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
-                    with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+                    with httpx.stream(
+                        "GET",
+                        url,
+                        timeout=timeout,
+                        follow_redirects=True,
+                    ) as response:
                         if response.status_code == 200:
                             downloaded = 0
                             with open(zip_path, "wb") as f:
-                                for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
+                                for chunk in response.iter_bytes(
+                                    chunk_size=1024 * 1024,
+                                ):  # 1MB chunks
                                     f.write(chunk)
                                     downloaded += len(chunk)
                             print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
                             download_success = True
                             break
-                        else:
-                            print(f"    [Skip] {zip_filename} not found (status {response.status_code})")
+                        print(
+                            f"    [Skip] {zip_filename} not found (status {response.status_code})",
+                        )
                 except Exception as e:
                     print(f"    [Error] Failed to download {zip_filename}: {e}")
 
@@ -289,18 +297,16 @@ def process_item(item_id: str) -> bool:
             return False
 
         with timed("upload"):
-            cmd = [
-                "ia",
-                "upload",
-                item_id,
-                *[str(f) for f in files],
-                "--retries=3",
-                "--no-derive",
-            ]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-            if result.returncode != 0:
-                print(f"  ERROR: Upload failed: {result.stderr}")
+            try:
+                item = ia.get_item(item_id)
+                item.upload(
+                    [str(f) for f in files],
+                    queue_derive=False,
+                    verbose=False,
+                    retries=3,
+                )
+            except Exception as e:
+                print(f"  ERROR: Upload failed: {e}")
                 return False
 
         print("  Done!")
@@ -318,7 +324,7 @@ def process_item_safe(item_id: str) -> tuple[str, bool, str]:
         return (item_id, False, traceback.format_exc())
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python convert_to_parquet.py <batch_file>")
         print("  batch_file: file with one item ID per line")
