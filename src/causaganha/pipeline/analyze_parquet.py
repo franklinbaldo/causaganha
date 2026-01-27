@@ -36,7 +36,7 @@ from causaganha.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.analysis.strategy import AnalysisStrategy
 from causaganha.pipeline.ia_download import IAParquetDownloader
 from causaganha.storage.connection import get_connection
-from causaganha.storage.queries import store_analysis
+from causaganha.storage.repositories.analysis import store_analysis
 
 
 logger = structlog.get_logger()

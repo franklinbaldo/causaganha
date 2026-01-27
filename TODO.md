@@ -82,3 +82,10 @@
     - [x] Verify `score` command
 - [x] **Verify E2E**
     - [x] Ensure `tests/e2e/test_full_lifecycle.py` passes with V2 components
+
+## Phase 6: Architecture Refactoring (✅ Completed)
+- [x] **Refactor Storage Layer**
+    - [x] Create `tests/unit/test_storage.py` (Safety Net)
+    - [x] Split `queries.py` into `storage/repositories/` (`intimation.py`, `analysis.py`, `rating.py`)
+    - [x] Update all pipelines (`collect`, `analyze`, `score`) to use new repositories
+    - [x] Remove God Object `queries.py`

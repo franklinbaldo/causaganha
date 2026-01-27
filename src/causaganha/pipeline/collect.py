@@ -10,7 +10,7 @@ import httpx
 import structlog
 
 from causaganha.config import settings
-from causaganha.storage.queries import store_intimations
+from causaganha.storage.repositories.intimation import store_intimations
 
 
 logger = structlog.get_logger()
