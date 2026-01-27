@@ -1,0 +1,405 @@
+collect	UNKNOWN STEP	﻿2026-01-25T02:51:02.3652699Z Current runner version: '2.331.0'
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3685204Z ##[group]Runner Image Provisioner
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3686552Z Hosted Compute Agent
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3687427Z Version: 20260115.477
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3688301Z Commit: 4b342d620503cbe250a3154040964899ea7c9b00
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3689575Z Build Date: 2026-01-15T22:32:41Z
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3690640Z Worker ID: {1903389a-3f7c-494d-912f-4cbf151acf60}
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3691948Z Azure Region: eastus
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3692981Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3694990Z ##[group]Operating System
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3695912Z Ubuntu
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3696833Z 24.04.3
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3697560Z LTS
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3698202Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3699115Z ##[group]Runner Image
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3700021Z Image: ubuntu-24.04
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3700750Z Version: 20260119.4.1
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3703000Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260119.4/images/ubuntu/Ubuntu2404-Readme.md
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3705578Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260119.4
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3707081Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3708655Z ##[group]GITHUB_TOKEN Permissions
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3712141Z Contents: write
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3713014Z Metadata: read
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3713730Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3717122Z Secret source: Actions
+collect	UNKNOWN STEP	2026-01-25T02:51:02.3718428Z Prepare workflow directory
+collect	UNKNOWN STEP	2026-01-25T02:51:02.4182883Z Prepare all required actions
+collect	UNKNOWN STEP	2026-01-25T02:51:02.4239290Z Getting action download info
+collect	UNKNOWN STEP	2026-01-25T02:51:02.6729091Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+collect	UNKNOWN STEP	2026-01-25T02:51:02.7647252Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+collect	UNKNOWN STEP	2026-01-25T02:51:02.9529121Z Complete job name: collect
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0218327Z ##[group]Run actions/checkout@v4
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0219158Z with:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0219577Z   repository: franklinbaldo/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0220270Z   token: ***
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0220664Z   ssh-strict: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0221220Z   ssh-user: git
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0221636Z   persist-credentials: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0222097Z   clean: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0222506Z   sparse-checkout-cone-mode: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0222998Z   fetch-depth: 1
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0223383Z   fetch-tags: false
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0223789Z   show-progress: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0224190Z   lfs: false
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0224561Z   submodules: false
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0224976Z   set-safe-directory: true
+collect	UNKNOWN STEP	2026-01-25T02:51:03.0225662Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1322639Z Syncing repository: franklinbaldo/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1324441Z ##[group]Getting Git version info
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1325297Z Working directory is '/home/runner/work/causaganha/causaganha'
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1326570Z [command]/usr/bin/git version
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1395380Z git version 2.52.0
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1422941Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1437391Z Temporarily overriding HOME='/home/runner/work/_temp/59c7021f-25df-4299-a378-578b4c5b9650' before making global git config changes
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1439674Z Adding repository directory to the temporary git global config as a safe directory
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1442506Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/causaganha/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1491180Z Deleting the contents of '/home/runner/work/causaganha/causaganha'
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1494790Z ##[group]Initializing the repository
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1498569Z [command]/usr/bin/git init /home/runner/work/causaganha/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1607513Z hint: Using 'master' as the name for the initial branch. This default branch name
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1610053Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1613167Z hint: to use in all of your new repositories, which will suppress this warning,
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1615442Z hint: call:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1616343Z hint:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1617107Z hint: 	git config --global init.defaultBranch <name>
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1618066Z hint:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1618962Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1621213Z hint: 'development'. The just-created branch can be renamed via this command:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1622143Z hint:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1622577Z hint: 	git branch -m <name>
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1623101Z hint:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1623801Z hint: Disable this message with "git config set advice.defaultBranchName false"
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1625037Z Initialized empty Git repository in /home/runner/work/causaganha/causaganha/.git/
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1627351Z [command]/usr/bin/git remote add origin https://github.com/franklinbaldo/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1660032Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1660952Z ##[group]Disabling automatic garbage collection
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1664228Z [command]/usr/bin/git config --local gc.auto 0
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1692527Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1693380Z ##[group]Setting up auth
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1698934Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+collect	UNKNOWN STEP	2026-01-25T02:51:03.1729422Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2073854Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2104790Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2335920Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2377580Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2609066Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2644783Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2645742Z ##[group]Fetching the repository
+collect	UNKNOWN STEP	2026-01-25T02:51:03.2653592Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +4d2d49644154de0980d80ba9212980e9b289825a:refs/remotes/origin/main
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5258039Z From https://github.com/franklinbaldo/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5260655Z  * [new ref]         4d2d49644154de0980d80ba9212980e9b289825a -> origin/main
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5294264Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5295217Z ##[group]Determining the checkout info
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5298042Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5304940Z [command]/usr/bin/git sparse-checkout disable
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5348269Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5376732Z ##[group]Checking out the ref
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5381464Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5927314Z Switched to a new branch 'main'
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5929184Z branch 'main' set up to track 'origin/main'.
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5940476Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.5981670Z [command]/usr/bin/git log -1 --format=%H
+collect	UNKNOWN STEP	2026-01-25T02:51:03.6005939Z 4d2d49644154de0980d80ba9212980e9b289825a
+collect	UNKNOWN STEP	2026-01-25T02:51:03.6214086Z ##[group]Run curl -LsSf https://astral.sh/uv/install.sh | sh
+collect	UNKNOWN STEP	2026-01-25T02:51:03.6214992Z [36;1mcurl -LsSf https://astral.sh/uv/install.sh | sh[0m
+collect	UNKNOWN STEP	2026-01-25T02:51:03.6252003Z shell: /usr/bin/bash -e {0}
+collect	UNKNOWN STEP	2026-01-25T02:51:03.6252543Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:03.7640408Z downloading uv 0.9.26 x86_64-unknown-linux-gnu
+collect	UNKNOWN STEP	2026-01-25T02:51:03.9284829Z no checksums to verify
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3434478Z installing to /home/runner/.local/bin
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3480384Z   uv
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3502691Z   uvx
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3503514Z everything's installed!
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3688741Z ##[group]Run actions/setup-python@v5
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3689132Z with:
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3689386Z   python-version: 3.12
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3689682Z   check-latest: false
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3690109Z   token: ***
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3690383Z   update-environment: true
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3690690Z   allow-prereleases: false
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3691235Z   freethreaded: false
+collect	UNKNOWN STEP	2026-01-25T02:51:04.3691577Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5406036Z ##[group]Installed versions
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5506911Z Successfully set up CPython (3.12.12)
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5508078Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5624669Z ##[group]Run uv venv
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5625051Z [36;1muv venv[0m
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5625377Z [36;1muv pip install -e .[0m
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5674933Z shell: /usr/bin/bash -e {0}
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5675352Z env:
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5675797Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5676563Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5677318Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5677970Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5678619Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5679282Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+collect	UNKNOWN STEP	2026-01-25T02:51:04.5679850Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:04.6961716Z Using CPython 3.12.12 interpreter at: /opt/hostedtoolcache/Python/3.12.12/x64/bin/python3.12
+collect	UNKNOWN STEP	2026-01-25T02:51:04.6962718Z Creating virtual environment at: .venv
+collect	UNKNOWN STEP	2026-01-25T02:51:04.6968037Z Activate with: source .venv/bin/activate
+collect	UNKNOWN STEP	2026-01-25T02:51:05.5957858Z Resolved 186 packages in 823ms
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6021426Z    Building causaganha @ file:///home/runner/work/causaganha/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6169896Z Downloading hf-xet (3.2MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6171689Z Downloading openai (1.0MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6174077Z Downloading tokenizers (3.1MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6176316Z Downloading numpy (15.6MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6178709Z Downloading aiohttp (1.7MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6190801Z Downloading pygments (1.2MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6220320Z Downloading botocore (13.9MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6232235Z Downloading cryptography (4.3MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6239586Z Downloading ibis-framework (1.8MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6247574Z Downloading pyarrow (45.4MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6252412Z Downloading grpcio (6.3MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6255004Z Downloading pydantic-core (2.0MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6260160Z Downloading google-api-python-client (14.2MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6262832Z Downloading beartype (1.3MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6265650Z Downloading pandas (11.8MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6268328Z Downloading duckdb (19.5MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6271369Z Downloading lupa (2.0MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6274103Z Downloading temporalio (11.6MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6279185Z Downloading tiktoken (1.1MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6331402Z Downloading fastavro (3.3MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:05.6334739Z Downloading google-ai-generativelanguage (1.3MiB)
+collect	UNKNOWN STEP	2026-01-25T02:51:06.3704128Z  Downloaded tiktoken
+collect	UNKNOWN STEP	2026-01-25T02:51:06.5302891Z  Downloaded aiohttp
+collect	UNKNOWN STEP	2026-01-25T02:51:06.5486570Z  Downloaded pygments
+collect	UNKNOWN STEP	2026-01-25T02:51:06.5680610Z  Downloaded pydantic-core
+collect	UNKNOWN STEP	2026-01-25T02:51:06.6080581Z  Downloaded lupa
+collect	UNKNOWN STEP	2026-01-25T02:51:06.6857467Z  Downloaded google-ai-generativelanguage
+collect	UNKNOWN STEP	2026-01-25T02:51:06.7427411Z  Downloaded tokenizers
+collect	UNKNOWN STEP	2026-01-25T02:51:06.7689589Z  Downloaded hf-xet
+collect	UNKNOWN STEP	2026-01-25T02:51:06.7865729Z  Downloaded beartype
+collect	UNKNOWN STEP	2026-01-25T02:51:06.8164201Z  Downloaded fastavro
+collect	UNKNOWN STEP	2026-01-25T02:51:06.9714099Z  Downloaded cryptography
+collect	UNKNOWN STEP	2026-01-25T02:51:07.0942213Z  Downloaded grpcio
+collect	UNKNOWN STEP	2026-01-25T02:51:07.2029748Z  Downloaded openai
+collect	UNKNOWN STEP	2026-01-25T02:51:07.7285279Z  Downloaded temporalio
+collect	UNKNOWN STEP	2026-01-25T02:51:07.7470653Z  Downloaded google-api-python-client
+collect	UNKNOWN STEP	2026-01-25T02:51:07.8981422Z  Downloaded numpy
+collect	UNKNOWN STEP	2026-01-25T02:51:08.0071429Z  Downloaded duckdb
+collect	UNKNOWN STEP	2026-01-25T02:51:08.1543531Z  Downloaded botocore
+collect	UNKNOWN STEP	2026-01-25T02:51:08.1864784Z  Downloaded pandas
+collect	UNKNOWN STEP	2026-01-25T02:51:08.2069923Z  Downloaded ibis-framework
+collect	UNKNOWN STEP	2026-01-25T02:51:08.2505843Z  Downloaded pyarrow
+collect	UNKNOWN STEP	2026-01-25T02:51:08.4508846Z       Built causaganha @ file:///home/runner/work/causaganha/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:08.4519293Z Prepared 186 packages in 2.85s
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7139499Z Installed 186 packages in 261ms
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7142106Z  + ag-ui-protocol==0.1.10
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7143022Z  + aiohappyeyeballs==2.6.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7143601Z  + aiohttp==3.13.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7144102Z  + aiosignal==1.4.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7145011Z  + annotated-types==0.7.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7145768Z  + anthropic==0.76.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7146284Z  + anyio==4.12.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7146773Z  + argcomplete==3.6.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7147296Z  + atpublic==7.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7147821Z  + attrs==25.4.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7148308Z  + authlib==1.6.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7148792Z  + beartype==0.22.9
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7149325Z  + boto3==1.42.34
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7228069Z  + botocore==1.42.34
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7228637Z  + cachetools==6.2.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7229221Z  + causaganha==1.0.0 (from file:///home/runner/work/causaganha/causaganha)
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7229845Z  + certifi==2026.1.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7230183Z  + cffi==2.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7230482Z  + charset-normalizer==3.4.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7230955Z  + click==8.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7231589Z  + cloudpickle==3.1.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7232038Z  + cohere==5.20.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7232491Z  + colorama==0.4.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7232930Z  + cryptography==46.0.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7233367Z  + cyclopts==4.5.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7233671Z  + diskcache==5.6.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7234048Z  + distro==1.9.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7234354Z  + dnspython==2.8.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7234744Z  + docstring-parser==0.17.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7235171Z  + docutils==0.22.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7235567Z  + duckdb==1.4.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7235914Z  + email-validator==2.3.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7236390Z  + eval-type-backport==0.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7236848Z  + exceptiongroup==1.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7237224Z  + executing==2.2.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7237584Z  + fakeredis==2.33.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7237941Z  + fastavro==1.12.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7238316Z  + fastmcp==2.14.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7238740Z  + filelock==3.20.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7239193Z  + frozenlist==1.8.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7239584Z  + fsspec==2026.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7240027Z  + genai-prices==0.0.51
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7240579Z  + google-ai-generativelanguage==0.6.15
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7241426Z  + google-api-core==2.29.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7242006Z  + google-api-python-client==2.188.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7242638Z  + google-auth==2.47.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7243165Z  + google-auth-httplib2==0.3.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7243775Z  + google-cloud-core==2.5.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7244381Z  + google-cloud-firestore==2.23.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7245044Z  + google-cloud-pubsub==2.34.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7245614Z  + google-cloud-tasks==2.21.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7246060Z  + google-genai==1.60.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7246507Z  + google-generativeai==0.8.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7246978Z  + googleapis-common-protos==1.72.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7247472Z  + griffe==1.15.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7247820Z  + groq==1.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7248168Z  + grpc-google-iam-v1==0.14.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7248613Z  + grpcio==1.76.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7248928Z  + grpcio-status==1.71.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7249275Z  + h11==0.16.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7249555Z  + hf-xet==1.2.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7249884Z  + httpcore==1.0.9
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7250203Z  + httplib2==0.31.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7250538Z  + httpx==0.28.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7250861Z  + httpx-sse==0.4.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7251403Z  + huggingface-hub==0.36.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7251669Z  + ibis-framework==11.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7251889Z  + idna==3.11
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7252097Z  + importlib-metadata==8.7.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7252343Z  + internetarchive==5.7.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7252830Z  + invoke==2.2.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7253036Z  + jaraco-classes==3.4.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7253261Z  + jaraco-context==6.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7253506Z  + jaraco-functools==4.4.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7253730Z  + jeepney==0.9.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7253925Z  + jinja2==3.1.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7254109Z  + jiter==0.12.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7254305Z  + jmespath==1.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7254498Z  + jsonpatch==1.33
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7254742Z  + jsonpointer==3.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7254948Z  + jsonref==1.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7255151Z  + jsonschema==4.26.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7255367Z  + jsonschema-path==0.3.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7255777Z  + jsonschema-specifications==2025.9.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7256060Z  + keyring==25.7.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7256254Z  + logfire==4.19.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7256457Z  + logfire-api==4.19.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7256660Z  + lupa==2.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7256857Z  + markdown-it-py==4.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7257076Z  + markupsafe==3.0.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7257279Z  + mcp==1.26.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7257465Z  + mdurl==0.1.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7257662Z  + mistralai==1.9.11
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7257876Z  + more-itertools==10.8.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7258105Z  + multidict==6.7.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7258311Z  + nexus-rpc==1.2.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7258501Z  + numpy==2.4.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7258687Z  + openai==2.15.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7258890Z  + openapi-pydantic==0.5.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7259129Z  + openskill==5.0.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7259336Z  + opentelemetry-api==1.39.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7259648Z  + opentelemetry-exporter-otlp-proto-common==1.39.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7260048Z  + opentelemetry-exporter-otlp-proto-http==1.39.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7260417Z  + opentelemetry-exporter-prometheus==0.60b1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7260746Z  + opentelemetry-instrumentation==0.60b1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7261283Z  + opentelemetry-instrumentation-httpx==0.60b1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7261621Z  + opentelemetry-proto==1.39.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7261879Z  + opentelemetry-sdk==1.39.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7262170Z  + opentelemetry-semantic-conventions==0.60b1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7262503Z  + opentelemetry-util-http==0.60b1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7262771Z  + packaging==25.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7262971Z  + pandas==2.3.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7263163Z  + parsy==2.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7263382Z  + pathable==0.4.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7263590Z  + pathvalidate==3.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7263812Z  + platformdirs==4.5.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7264033Z  + prometheus-client==0.24.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7264284Z  + prompt-toolkit==3.0.52
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7264511Z  + propcache==0.4.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7264717Z  + proto-plus==1.27.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7264923Z  + protobuf==5.29.5
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7265133Z  + py-key-value-aio==0.3.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7265375Z  + py-key-value-shared==0.3.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7265611Z  + pyarrow==23.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7265812Z  + pyarrow-hotfix==0.7
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7266016Z  + pyasn1==0.6.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7266217Z  + pyasn1-modules==0.4.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7266436Z  + pycparser==3.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7266640Z  + pydantic==2.12.5
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7266838Z  + pydantic-ai==1.47.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7267059Z  + pydantic-ai-slim==1.47.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7267295Z  + pydantic-core==2.41.5
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7267524Z  + pydantic-evals==1.47.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7267756Z  + pydantic-graph==1.47.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7267983Z  + pydantic-settings==2.12.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7268219Z  + pydocket==0.16.6
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7268413Z  + pygments==2.19.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7268613Z  + pyjwt==2.10.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7268801Z  + pyparsing==3.1.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7269001Z  + pyperclip==1.11.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7269214Z  + python-dateutil==2.8.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7269449Z  + python-dotenv==1.2.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7269679Z  + python-frontmatter==1.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7269927Z  + python-json-logger==4.0.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7270174Z  + python-multipart==0.0.21
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7270398Z  + pytz==2025.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7270590Z  + pyyaml==6.0.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7270918Z  + redis==7.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7271292Z  + referencing==0.36.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7271501Z  + regex==2026.1.15
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7271705Z  + requests==2.32.5
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7271893Z  + rich==14.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7272080Z  + rich-rst==1.3.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7272272Z  + rpds-py==0.30.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7272465Z  + rsa==4.9.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7272649Z  + s3transfer==0.16.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7272869Z  + secretstorage==3.5.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7273090Z  + shellingham==1.5.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7273291Z  + six==1.17.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7273479Z  + sniffio==1.3.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7273798Z  + sortedcontainers==2.4.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7274035Z  + sqlglot==28.6.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7274232Z  + sse-starlette==3.2.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7274453Z  + starlette==0.52.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7274653Z  + structlog==25.5.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7274860Z  + temporalio==1.20.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7275060Z  + tenacity==9.1.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7275256Z  + tiktoken==0.12.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7275453Z  + tokenizers==0.22.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7275657Z  + toolz==1.1.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7275846Z  + tqdm==4.67.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7276025Z  + typer==0.21.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7276232Z  + types-protobuf==6.32.1.20251210
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7276494Z  + types-requests==2.32.4.20260107
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7276753Z  + typing-extensions==4.15.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7276993Z  + typing-inspection==0.4.2
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7277218Z  + tzdata==2025.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7277406Z  + uritemplate==4.2.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7277610Z  + urllib3==2.6.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7277794Z  + uvicorn==0.40.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7277991Z  + wcwidth==0.3.4
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7278187Z  + websockets==15.0.1
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7278387Z  + wrapt==1.17.3
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7278577Z  + xai-sdk==1.5.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7278760Z  + yarl==1.22.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7278945Z  + zipp==3.23.0
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7455484Z ##[group]Run uv run causaganha collect --courts TJRO
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7455961Z [36;1muv run causaganha collect --courts TJRO[0m
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7491171Z shell: /usr/bin/bash -e {0}
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7491488Z env:
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7491831Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7492428Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7493036Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7493561Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7494087Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7494625Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7495064Z   LOG_LEVEL: INFO
+collect	UNKNOWN STEP	2026-01-25T02:51:08.7495309Z ##[endgroup]
+collect	UNKNOWN STEP	2026-01-25T02:51:09.7248332Z Uninstalled 1 package in 1ms
+collect	UNKNOWN STEP	2026-01-25T02:51:09.7263738Z Installed 1 package in 1ms
+collect	UNKNOWN STEP	2026-01-25T02:51:14.5828008Z [2m2026-01-25T02:51:14.582273Z[0m [[32m[1minfo     [0m] [1mcollect_command_start         [0m
+collect	UNKNOWN STEP	2026-01-25T02:51:14.5829947Z ⊘ Collection currently disabled (switching to DJEN scraper).
+collect	UNKNOWN STEP	2026-01-25T02:51:14.9800497Z Post job cleanup.
+collect	UNKNOWN STEP	2026-01-25T02:51:15.1551821Z Post job cleanup.
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2549218Z [command]/usr/bin/git version
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2593736Z git version 2.52.0
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2643770Z Temporarily overriding HOME='/home/runner/work/_temp/2a5e87f4-f080-4589-8e02-5d4f3b415075' before making global git config changes
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2645217Z Adding repository directory to the temporary git global config as a safe directory
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2650771Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/causaganha/causaganha
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2687438Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2719348Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2966285Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+collect	UNKNOWN STEP	2026-01-25T02:51:15.2991981Z http.https://github.com/.extraheader
+collect	UNKNOWN STEP	2026-01-25T02:51:15.3008315Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+collect	UNKNOWN STEP	2026-01-25T02:51:15.3043609Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+collect	UNKNOWN STEP	2026-01-25T02:51:15.3280446Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+collect	UNKNOWN STEP	2026-01-25T02:51:15.3313704Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+collect	UNKNOWN STEP	2026-01-25T02:51:15.3680904Z Cleaning up orphan processes
