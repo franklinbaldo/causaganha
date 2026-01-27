@@ -2,7 +2,7 @@ name: Convert ZIPs to Parquet
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
     inputs:
       item_id:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAX_ITEMS_PER_RUN: 10
+  MAX_ITEMS_PER_RUN: 50
 
 jobs:
   convert:
