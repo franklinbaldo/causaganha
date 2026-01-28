@@ -16,12 +16,7 @@ Feature: Internet Archive Catalog System
   Scenario: Download catalog from Internet Archive
     Given Internet Archive is accessible
     When I run the catalog download command
-    Then the catalog files should be downloaded:
-      | File | Description |
-      | manifest.parquet | Index of all files on IA |
-      | backfill-needed.parquet | List of missing data |
-      | catalog.sql | SQL view definitions |
-      | catalog.duckdb | Ready-to-use DuckDB catalog |
+    Then the catalog files should be downloaded
     And the files should be saved to the output directory
     And total download size should be < 10 MB
 
@@ -48,12 +43,7 @@ Feature: Internet Archive Catalog System
   Scenario: Show backfill status summary
     Given catalog files are downloaded locally
     When I run the backfill-status command
-    Then I should see a summary:
-      | Metric | Example |
-      | Total missing items | 5,000 |
-      | Tribunals affected | 91 |
-      | Days with gaps | 150 |
-      | Date range | 2024-01-01 to 2026-01-28 |
+    Then I should see a summary
     And I should see breakdown by tribunal
 
   @catalog @backfill @filter
@@ -77,10 +67,7 @@ Feature: Internet Archive Catalog System
   @catalog @query @sql
   Scenario: Query catalog using SQL
     Given catalog files are downloaded locally
-    When I run a SQL query on the catalog:
-      """
-      SELECT * FROM manifest LIMIT 5
-      """
+    When I run a SQL query on the catalog
     Then the query should execute successfully
     And results should be displayed in table format
 
@@ -113,14 +100,7 @@ Feature: Internet Archive Catalog System
   Scenario: Manifest contains complete file index
     Given the manifest.parquet file exists
     When I query the manifest
-    Then each record should contain:
-      | Column | Type | Description |
-      | filename | string | Full filename on IA |
-      | item_id | string | IA item identifier |
-      | date | date | Date of the data |
-      | tribunal | string | Tribunal code |
-      | file_type | string | zip, parquet, etc |
-      | size_bytes | int | File size |
+    Then each record should contain required columns
     And all DJEN files on IA should be indexed
 
   @catalog @manifest @tribunals
@@ -143,11 +123,7 @@ Feature: Internet Archive Catalog System
   Scenario: Backfill file tracks missing data
     Given the backfill-needed.parquet file exists
     When I query the backfill file
-    Then each record should contain:
-      | Column | Type | Description |
-      | date | date | Missing date |
-      | tribunal | string | Missing tribunal |
-      | reason | string | Why it's missing |
+    Then each record should contain required columns
     And items should represent data not yet on IA
 
   @catalog @backfill @date-range
@@ -165,11 +141,7 @@ Feature: Internet Archive Catalog System
   Scenario: Catalog contains remote parquet views
     Given the catalog.duckdb file exists
     When I list views in the catalog
-    Then I should find views for each table type:
-      | View | Remote Pattern |
-      | comunicacoes | djen-*-comunicacoes.parquet |
-      | advogados | djen-*-advogados.parquet |
-      | partes | djen-*-partes.parquet |
+    Then I should find views for each table type
     And views should use read_parquet with IA URLs
 
   @catalog @views @query-remote

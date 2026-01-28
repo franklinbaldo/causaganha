@@ -13,14 +13,13 @@ Usage:
 """
 
 import argparse
-import json
 import subprocess
-import tempfile
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -56,7 +55,7 @@ IA_CATALOG_ITEM = "causaganha-catalog"
 def run_ia_command(args: list[str]) -> str:
     """Run ia CLI command and return output."""
     result = subprocess.run(
-        ["ia"] + args,
+        ["ia", *args],
         capture_output=True,
         text=True,
         timeout=300,
@@ -83,7 +82,7 @@ def list_item_files(item_id: str) -> list[dict]:
             continue
         # ia list output format varies, parse filename
         filename = line.strip().split()[-1] if line.strip() else ""
-        if filename.endswith(".zip") or filename.endswith(".parquet"):
+        if filename.endswith((".zip", ".parquet")):
             files.append({"name": filename, "item": item_id})
 
     return files
@@ -152,7 +151,7 @@ def generate_manifest(items: list[str]) -> list[dict]:
         for f in files:
             parsed = parse_filename(f["name"], item_id)
             if parsed:
-                parsed["created_at"] = datetime.utcnow().isoformat()
+                parsed["created_at"] = datetime.now(tz=UTC).isoformat()
                 manifest.append(parsed)
 
     logger.info("manifest_complete", files=len(manifest))
@@ -184,7 +183,7 @@ def generate_backfill_list(manifest: list[dict], start_date: date, end_date: dat
                         "date": date_str,
                         "tribunal": tribunal,
                         "reason": "not_collected",
-                        "last_checked": datetime.utcnow().isoformat(),
+                        "last_checked": datetime.now(tz=UTC).isoformat(),
                     })
         current += timedelta(days=1)
 
@@ -208,7 +207,7 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
     sql_parts = [
         "-- ============================================",
         "-- CausaGanha Remote Catalog",
-        f"-- Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC",
+        f"-- Generated: {datetime.now(tz=UTC).strftime('%Y-%m-%d %H:%M:%S')} UTC",
         "-- ============================================",
         "",
         "-- Install and load httpfs for remote access",
@@ -239,9 +238,9 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
             sql_parts.extend([
                 f"-- {table_name}: {len(urls)} files",
                 f"CREATE OR REPLACE VIEW {table_name} AS",
-                f"SELECT * FROM read_parquet([",
+                "SELECT * FROM read_parquet([",
                 f"    {urls_str}",
-                f"]);",
+                "]);",
                 "",
             ])
 
@@ -306,7 +305,7 @@ def create_catalog_duckdb(manifest: list[dict], backfill: list[dict], sql: str, 
         con.execute(
             "INSERT INTO manifest VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [m["date"], m["tribunal"], m["file_type"], m["table_name"],
-             m["file_name"], m["ia_item"], m["ia_url"], m["created_at"]]
+             m["file_name"], m["ia_item"], m["ia_url"], m["created_at"]],
         )
 
     # Create backfill table
@@ -322,7 +321,7 @@ def create_catalog_duckdb(manifest: list[dict], backfill: list[dict], sql: str, 
     for b in backfill:
         con.execute(
             "INSERT INTO backfill_needed VALUES (?, ?, ?, ?)",
-            [b["date"], b["tribunal"], b["reason"], b["last_checked"]]
+            [b["date"], b["tribunal"], b["reason"], b["last_checked"]],
         )
 
     # Create helper views
@@ -405,9 +404,8 @@ def upload_to_ia(files: list[Path]) -> bool:
         if result.returncode == 0:
             logger.info("upload_success")
             return True
-        else:
-            logger.error("upload_failed", stderr=result.stderr)
-            return False
+        logger.error("upload_failed", stderr=result.stderr)
+        return False
 
     except subprocess.TimeoutExpired:
         logger.error("upload_timeout")
@@ -435,7 +433,7 @@ def main():
         if args.end_date else date.today() - timedelta(days=1)
     )
 
-    print(f"Generating catalog...")
+    print("Generating catalog...")
     print(f"  Output: {output_dir}")
     print(f"  Backfill range: {start_date} to {end_date}")
     print()
@@ -497,12 +495,12 @@ def main():
     total_expected = len(backfill) + zip_count
     percent_complete = (zip_count / total_expected * 100) if total_expected > 0 else 0
 
-    print(f"Collected:")
+    print("Collected:")
     print(f"  - {zip_count} ZIP files")
     print(f"  - {parquet_count} Parquet files")
     print(f"  - {dates_collected} unique dates")
     print()
-    print(f"Backfill needed:")
+    print("Backfill needed:")
     print(f"  - {len(backfill)} date/tribunal combinations")
     print()
     print(f"Progress: {percent_complete:.1f}% complete")

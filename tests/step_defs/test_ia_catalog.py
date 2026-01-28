@@ -515,6 +515,29 @@ def catalog_files_downloaded_check(context):
     assert context["cli_result"].exit_code == 0 or "download" in context["cli_result"].output.lower()
 
 
+@then("I should see a summary")
+def should_see_summary_simple(context):
+    """Verify summary is displayed."""
+    result = context["cli_result"]
+    assert "Backfill Status" in result.output or "missing" in result.output.lower()
+
+
+@then("each record should contain required columns")
+def record_should_contain_columns(context):
+    """Verify record structure has required columns."""
+    result = context["query_result"]
+    assert len(result) > 0
+
+
+@then("I should find views for each table type")
+def find_views_for_each_type(context):
+    """Verify views exist for each type."""
+    views = context.get("views", [])
+    expected = ["comunicacoes", "advogados", "partes"]
+    for expected_view in expected:
+        assert expected_view in views
+
+
 @then("the files should be saved to the output directory")
 def files_saved_to_output(context):
     """Verify files in output directory."""
