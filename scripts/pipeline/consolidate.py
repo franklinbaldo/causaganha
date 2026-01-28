@@ -29,12 +29,114 @@ import ibis
 import structlog
 
 
+# All 91 Brazilian courts
+TRIBUNAIS = [
+    # Federal Regional (6)
+    "TRF1",
+    "TRF2",
+    "TRF3",
+    "TRF4",
+    "TRF5",
+    "TRF6",
+    # Superior (8)
+    "STF",
+    "STJ",
+    "TST",
+    "TSE",
+    "STM",
+    "CNJ",
+    "CNMP",
+    "TNU",
+    # State (27)
+    "TJAC",
+    "TJAL",
+    "TJAM",
+    "TJAP",
+    "TJBA",
+    "TJCE",
+    "TJDF",
+    "TJES",
+    "TJGO",
+    "TJMA",
+    "TJMG",
+    "TJMS",
+    "TJMT",
+    "TJPA",
+    "TJPB",
+    "TJPE",
+    "TJPI",
+    "TJPR",
+    "TJRJ",
+    "TJRN",
+    "TJRO",
+    "TJRR",
+    "TJRS",
+    "TJSC",
+    "TJSE",
+    "TJSP",
+    "TJTO",
+    # Labor (24)
+    "TRT1",
+    "TRT2",
+    "TRT3",
+    "TRT4",
+    "TRT5",
+    "TRT6",
+    "TRT7",
+    "TRT8",
+    "TRT9",
+    "TRT10",
+    "TRT11",
+    "TRT12",
+    "TRT13",
+    "TRT14",
+    "TRT15",
+    "TRT16",
+    "TRT17",
+    "TRT18",
+    "TRT19",
+    "TRT20",
+    "TRT21",
+    "TRT22",
+    "TRT23",
+    "TRT24",
+    # Electoral (27)
+    "TREAC",
+    "TREAL",
+    "TREAM",
+    "TREAP",
+    "TREBA",
+    "TRECE",
+    "TREDF",
+    "TREES",
+    "TREGO",
+    "TREMA",
+    "TREMG",
+    "TREMS",
+    "TREMT",
+    "TREPA",
+    "TREPB",
+    "TREPE",
+    "TREPI",
+    "TREPR",
+    "TRERJ",
+    "TRERN",
+    "TRERO",
+    "TRERR",
+    "TRERS",
+    "TRESC",
+    "TRESE",
+    "TRESP",
+    "TRETO",
+]
+
+
 logger = structlog.get_logger()
 
 # Table types to consolidate - Defined below via TABLE_SCHEMAS
 
 
-def list_zips_for_date(date: str) -> list[dict[str, Any]]:
+def list_zips_for_date(date: str) -> tuple[list[dict[str, Any]], int]:
     """Find all ZIP files for a specific date on IA using HTTP API."""
     logger.info("listing_zips", date=date)
     item_id = f"djen-{date}"
@@ -47,28 +149,36 @@ def list_zips_for_date(date: str) -> list[dict[str, Any]]:
 
         if response.status_code == 200:
             data = response.json()
-            for file_info in data.get("files", []):
+            files = data.get("files", [])
+
+            # Identify what's on IA
+            present = set()
+            for file_info in files:
                 filename = file_info.get("name", "")
-                if filename.endswith(".zip"):
-                    # Extract tribunal from filename: djen-2026-01-27-TJSP.zip -> TJSP
-                    parts = filename.replace(".zip", "").split("-")
+                if filename.endswith((".zip", ".absent")):
+                    parts = filename.replace(".zip", "").replace(".absent", "").split("-")
                     tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
-                    zips.append(
-                        {
-                            "filename": filename,
-                            "tribunal": tribunal,
-                            "item_id": item_id,
-                            "size": file_info.get("size", 0),
-                        },
-                    )
-        else:
-            logger.warning("metadata_fetch_failed", item_id=item_id, status=response.status_code)
+                    present.add(tribunal)
+
+                    if filename.endswith(".zip"):
+                        zips.append(
+                            {
+                                "filename": filename,
+                                "tribunal": tribunal,
+                                "item_id": item_id,
+                                "size": file_info.get("size", 0),
+                            },
+                        )
+
+            # Return both zip list and completion status
+            return zips, len(present)
+        logger.warning("metadata_fetch_failed", item_id=item_id, status=response.status_code)
 
     except Exception as e:
         logger.warning("list_failed", item_id=item_id, error=str(e))
 
     logger.info("zips_found", count=len(zips), date=date)
-    return zips
+    return zips, 0
 
 
 def download_zip(item_id: str, filename: str, output_path: Path) -> bool:
@@ -388,15 +498,27 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
-def consolidate_date(date: str, *, dry_run: bool = False) -> dict[str, int]:
+def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files."""
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
     item_id = f"djen-{date}"
 
-    # Find all ZIPs for this date
-    zips = list_zips_for_date(date)
+    # Find all ZIPs and check if day's matrix is complete
+    zips, present_count = list_zips_for_date(date)
+
+    expected_count = len(TRIBUNAIS)
+    if not force and present_count < expected_count:
+        logger.warning(
+            "day_not_complete_skipping",
+            date=date,
+            present=present_count,
+            expected=expected_count,
+            missing=expected_count - present_count,
+        )
+        return stats
+
     if not zips:
-        logger.warning("no_zips_found", date=date)
+        logger.info("nothing_to_consolidate", date=date)
         return stats
 
     # Use Ibis with DuckDB backend
@@ -406,9 +528,10 @@ def consolidate_date(date: str, *, dry_run: bool = False) -> dict[str, int]:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
 
-        for i, zip_info in enumerate(zips):
-            filename = zip_info["filename"]
-            tribunal = zip_info["tribunal"]
+        for i, zip_entry in enumerate(zips):
+            zip_info: dict[str, Any] = zip_entry
+            filename = str(zip_info["filename"])
+            tribunal = str(zip_info["tribunal"])
 
             logger.info(
                 "processing_zip",
@@ -486,6 +609,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Consolidate DJEN ZIPs to daily Parquets")
     parser.add_argument("--date", required=True, help="Date to consolidate (YYYY-MM-DD)")
     parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Consolidate even if day is not complete",
+    )
     args = parser.parse_args()
 
     print(f"Consolidating DJEN data for {args.date}...")
@@ -494,7 +622,7 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(args.date, dry_run=args.dry_run)
+        stats = consolidate_date(args.date, dry_run=args.dry_run, force=args.force)
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback

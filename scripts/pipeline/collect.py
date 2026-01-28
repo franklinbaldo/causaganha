@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import structlog
@@ -33,31 +34,109 @@ logger = structlog.get_logger()
 # All 91 Brazilian courts
 TRIBUNAIS = [
     # Federal Regional (6)
-    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
+    "TRF1",
+    "TRF2",
+    "TRF3",
+    "TRF4",
+    "TRF5",
+    "TRF6",
     # Superior (8)
-    "STF", "STJ", "TST", "TSE", "STM", "CNJ", "CNMP", "TNU",
+    "STF",
+    "STJ",
+    "TST",
+    "TSE",
+    "STM",
+    "CNJ",
+    "CNMP",
+    "TNU",
     # State (27)
-    "TJAC", "TJAL", "TJAM", "TJAP", "TJBA", "TJCE", "TJDF", "TJES",
-    "TJGO", "TJMA", "TJMG", "TJMS", "TJMT", "TJPA", "TJPB", "TJPE",
-    "TJPI", "TJPR", "TJRJ", "TJRN", "TJRO", "TJRR", "TJRS", "TJSC",
-    "TJSE", "TJSP", "TJTO",
+    "TJAC",
+    "TJAL",
+    "TJAM",
+    "TJAP",
+    "TJBA",
+    "TJCE",
+    "TJDF",
+    "TJES",
+    "TJGO",
+    "TJMA",
+    "TJMG",
+    "TJMS",
+    "TJMT",
+    "TJPA",
+    "TJPB",
+    "TJPE",
+    "TJPI",
+    "TJPR",
+    "TJRJ",
+    "TJRN",
+    "TJRO",
+    "TJRR",
+    "TJRS",
+    "TJSC",
+    "TJSE",
+    "TJSP",
+    "TJTO",
     # Labor (24)
-    "TRT1", "TRT2", "TRT3", "TRT4", "TRT5", "TRT6", "TRT7", "TRT8",
-    "TRT9", "TRT10", "TRT11", "TRT12", "TRT13", "TRT14", "TRT15",
-    "TRT16", "TRT17", "TRT18", "TRT19", "TRT20", "TRT21", "TRT22",
-    "TRT23", "TRT24",
+    "TRT1",
+    "TRT2",
+    "TRT3",
+    "TRT4",
+    "TRT5",
+    "TRT6",
+    "TRT7",
+    "TRT8",
+    "TRT9",
+    "TRT10",
+    "TRT11",
+    "TRT12",
+    "TRT13",
+    "TRT14",
+    "TRT15",
+    "TRT16",
+    "TRT17",
+    "TRT18",
+    "TRT19",
+    "TRT20",
+    "TRT21",
+    "TRT22",
+    "TRT23",
+    "TRT24",
     # Electoral (27)
-    "TREAC", "TREAL", "TREAM", "TREAP", "TREBA", "TRECE", "TREDF",
-    "TREES", "TREGO", "TREMA", "TREMG", "TREMS", "TREMT", "TREPA",
-    "TREPB", "TREPE", "TREPI", "TREPR", "TRERJ", "TRERN", "TRERO",
-    "TRERR", "TRERS", "TRESC", "TRESE", "TRESP", "TRETO",
+    "TREAC",
+    "TREAL",
+    "TREAM",
+    "TREAP",
+    "TREBA",
+    "TRECE",
+    "TREDF",
+    "TREES",
+    "TREGO",
+    "TREMA",
+    "TREMG",
+    "TREMS",
+    "TREMT",
+    "TREPA",
+    "TREPB",
+    "TREPE",
+    "TREPI",
+    "TREPR",
+    "TRERJ",
+    "TRERN",
+    "TRERO",
+    "TRERR",
+    "TRERS",
+    "TRESC",
+    "TRESE",
+    "TRESP",
+    "TRETO",
 ]
 
 
 def get_existing_files_on_ia() -> set[str]:
     """Get list of ZIP files already on Internet Archive."""
     logger.info("fetching_existing_files")
-    existing = set()
+    existing: set[str] = set()
 
     try:
         # List all djen-* items
@@ -78,7 +157,7 @@ def get_existing_files_on_ia() -> set[str]:
         for item_id in items:
             try:
                 list_result = subprocess.run(
-                    ["ia", "list", item_id, "--glob", "*.zip"],
+                    ["ia", "list", item_id, "--glob", "*.{zip,absent}"],
                     capture_output=True,
                     text=True,
                     timeout=30,
@@ -99,15 +178,32 @@ def get_existing_files_on_ia() -> set[str]:
     return existing
 
 
-def get_caderno_info(proxy_url: str, tribunal: str, date_str: str) -> dict | None:
-    """Get caderno (journal) info from DJEN API."""
+def get_caderno_info(proxy_url: str, tribunal: str, date_str: str) -> dict[str, Any] | str | None:
+    """Get caderno (journal) info from DJEN API.
+
+    Returns:
+        dict: Success (journal data)
+        "NOT_FOUND": Valid response but no journal for this day
+        None: Transient error (timeout, 5xx, etc.)
+    """
     url = f"{proxy_url}/api/v1/caderno/{tribunal}/{date_str}/D"
 
     try:
         with httpx.Client(timeout=30) as client:
             response = client.get(url)
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                if isinstance(data, dict) and (data.get("url") or data.get("items")):
+                    return data
+                return "NOT_FOUND"
+            if response.status_code == 404:
+                return "NOT_FOUND"
+            logger.warning(
+                "caderno_api_error",
+                tribunal=tribunal,
+                date=date_str,
+                status=response.status_code,
+            )
             return None
     except Exception as e:
         logger.debug("caderno_fetch_failed", tribunal=tribunal, date=date_str, error=str(e))
@@ -138,7 +234,10 @@ def upload_to_ia(item_id: str, file_path: Path, date_str: str) -> bool:
     try:
         result = subprocess.run(
             [
-                "ia", "upload", item_id, str(file_path),
+                "ia",
+                "upload",
+                item_id,
+                str(file_path),
                 "--metadata=collection:opensource",
                 "--metadata=mediatype:data",
                 f"--metadata=title:DJEN Data - {date_str}",
@@ -168,7 +267,7 @@ def collect_data(
     target_tribunal: str | None = None,
     max_items: int = 50,
     backfill_days: int = 7,
-) -> dict:
+) -> dict[str, int]:
     """Main collection function."""
     stats = {"success": 0, "failed": 0, "skipped": 0}
 
@@ -203,9 +302,10 @@ def collect_data(
         if processed >= max_items:
             break
 
-        # Check if already exists
+        # Check if already exists (either .zip or .absent marker)
         zip_name = f"djen-{date_str}-{tribunal}.zip"
-        if zip_name in existing_files:
+        absent_marker = f"djen-{date_str}-{tribunal}.absent"
+        if zip_name in existing_files or absent_marker in existing_files:
             stats["skipped"] += 1
             continue
 
@@ -213,8 +313,23 @@ def collect_data(
 
         # Get caderno info
         info = get_caderno_info(proxy_url, tribunal, date_str)
-        if not info:
-            logger.debug("no_caderno", date=date_str, tribunal=tribunal)
+
+        if info == "NOT_FOUND":
+            # Mark as absent to complete the day's matrix
+            logger.info("no_caderno_found", date=date_str, tribunal=tribunal)
+            item_id = f"djen-{date_str}"
+            with tempfile.TemporaryDirectory() as tmpdir:
+                marker_path = Path(tmpdir) / absent_marker
+                marker_path.write_text(f"No journal for {tribunal} on {date_str}")
+                if upload_to_ia(item_id, marker_path, date_str):
+                    stats["success"] += 1
+                else:
+                    stats["failed"] += 1
+            processed += 1
+            continue
+
+        if not isinstance(info, dict):
+            logger.warning("caderno_fetch_error_format", date=date_str, tribunal=tribunal)
             stats["failed"] += 1
             processed += 1
             continue
@@ -247,7 +362,7 @@ def collect_data(
     return stats
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Collect DJEN data")
     parser.add_argument("--proxy-url", default="https://djen-proxy-mhgmawcn3a-rj.a.run.app")
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
