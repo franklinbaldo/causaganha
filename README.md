@@ -133,6 +133,7 @@ erDiagram
         string comunicacao_id FK
         string advogado_id FK
         string parte_nome "Denormalized for performance"
+        string polo "Active/Passive"
     }
 
     textos {
