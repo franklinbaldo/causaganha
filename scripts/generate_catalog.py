@@ -52,46 +52,129 @@ DJEN_START_DATE = date(2024, 1, 1)
 IA_CATALOG_ITEM = "causaganha-catalog"
 
 
-def run_ia_command(args: list[str]) -> str:
-    """Run ia CLI command and return output."""
-    result = subprocess.run(
-        ["ia", *args],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    return result.stdout
+def run_ia_command(args: list[str], timeout: int = 300) -> str:
+    """Run ia CLI command and return output.
+
+    Returns empty string on error instead of raising exception.
+    """
+    try:
+        result = subprocess.run(
+            ["ia", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            logger.warning("ia_command_failed", args=args, stderr=result.stderr[:200])
+            return ""
+        return result.stdout
+    except subprocess.TimeoutExpired:
+        logger.warning("ia_command_timeout", args=args)
+        return ""
+    except FileNotFoundError:
+        logger.error("ia_cli_not_found")
+        return ""
+    except Exception as e:
+        logger.warning("ia_command_error", error=str(e))
+        return ""
 
 
 def list_ia_items() -> list[str]:
-    """List all djen-* items from Internet Archive."""
+    """List all djen-* items from Internet Archive.
+
+    Returns empty list on error - caller should handle gracefully.
+    """
     logger.info("listing_ia_items")
     output = run_ia_command(["search", "identifier:djen-20*", "--itemlist"])
+
+    if not output:
+        logger.warning("no_items_found_or_error")
+        return []
+
     items = [line.strip() for line in output.splitlines() if line.strip()]
-    logger.info("found_items", count=len(items))
-    return items
+
+    # Validate item format
+    valid_items = [item for item in items if item.startswith("djen-")]
+    if len(valid_items) < len(items):
+        logger.warning("filtered_invalid_items", original=len(items), valid=len(valid_items))
+
+    logger.info("found_items", count=len(valid_items))
+    return valid_items
 
 
 def list_item_files(item_id: str) -> list[dict]:
-    """List all files in an IA item with metadata."""
+    """List all files in an IA item with metadata.
+
+    Returns empty list on error - allows processing to continue with other items.
+    """
+    if not item_id or not item_id.startswith("djen-"):
+        logger.warning("invalid_item_id", item_id=item_id)
+        return []
+
     output = run_ia_command(["list", item_id, "--all", "--glob", "*.{zip,parquet}"])
+
+    if not output:
+        logger.debug("no_files_for_item", item_id=item_id)
+        return []
 
     files = []
     for line in output.splitlines():
         if not line.strip():
             continue
-        # ia list output format varies, parse filename
-        filename = line.strip().split()[-1] if line.strip() else ""
-        if filename.endswith((".zip", ".parquet")):
-            files.append({"name": filename, "item": item_id})
+        try:
+            # ia list output format varies, parse filename safely
+            parts = line.strip().split()
+            filename = parts[-1] if parts else ""
+            if filename and filename.endswith((".zip", ".parquet")):
+                files.append({"name": filename, "item": item_id})
+        except Exception:
+            # Skip malformed lines
+            continue
 
     return files
 
 
+def _validate_date_str(date_str: str) -> bool:
+    """Validate date string is a valid YYYY-MM-DD date."""
+    import re
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        return False
+    try:
+        year, month, day = map(int, date_str.split("-"))
+        # Basic sanity checks
+        if year < 2020 or year > 2030:
+            return False
+        if month < 1 or month > 12:
+            return False
+        if day < 1 or day > 31:
+            return False
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_tribunal_code(tribunal: str) -> bool:
+    """Validate tribunal code format."""
+    import re
+    # Tribunal codes: 2-10 uppercase letters/numbers
+    return bool(re.match(r"^[A-Z0-9]{2,10}$", tribunal.upper()))
+
+
 def parse_filename(filename: str, item_id: str) -> dict | None:
-    """Parse filename to extract date, tribunal, file_type, table_name."""
+    """Parse filename to extract date, tribunal, file_type, table_name.
+
+    Returns None for invalid/malformed filenames - allows processing to continue.
+    """
+    # Basic validation
+    if not filename or not isinstance(filename, str):
+        return None
+
     # Expected: djen-2026-01-15-TJSP.zip or djen-2026-01-15-TJSP-comunicacoes.parquet
     if not filename.startswith("djen-"):
+        return None
+
+    # Validate file extension
+    if not filename.endswith((".zip", ".parquet")):
         return None
 
     parts = filename.replace("djen-", "").replace(".zip", "").replace(".parquet", "")
@@ -100,11 +183,21 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
         try:
             # Format: YYYY-MM-DD-TRIBUNAL
-            date_str = "-".join(parts.split("-")[:3])
-            tribunal = parts.split("-")[3]
+            split_parts = parts.split("-")
+            if len(split_parts) < 4:
+                return None
+            date_str = "-".join(split_parts[:3])
+            tribunal = split_parts[3]
+
+            # Validate date and tribunal
+            if not _validate_date_str(date_str):
+                return None
+            if not _validate_tribunal_code(tribunal):
+                return None
+
             return {
                 "date": date_str,
-                "tribunal": tribunal,
+                "tribunal": tribunal.upper(),
                 "file_type": "zip",
                 "table_name": None,
                 "file_name": filename,
@@ -118,14 +211,26 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         # djen-2026-01-15-TJSP-comunicacoes.parquet
         try:
             # Format: YYYY-MM-DD-TRIBUNAL-table
-            date_str = "-".join(parts.split("-")[:3])
-            rest = "-".join(parts.split("-")[3:])
-            # rest = TJSP-comunicacoes
-            tribunal = rest.split("-")[0]
-            table_name = "-".join(rest.split("-")[1:])
+            split_parts = parts.split("-")
+            if len(split_parts) < 5:
+                return None
+            date_str = "-".join(split_parts[:3])
+            tribunal = split_parts[3]
+            table_name = "-".join(split_parts[4:])
+
+            # Validate date and tribunal
+            if not _validate_date_str(date_str):
+                return None
+            if not _validate_tribunal_code(tribunal):
+                return None
+
+            # Validate table_name is not empty
+            if not table_name:
+                return None
+
             return {
                 "date": date_str,
-                "tribunal": tribunal,
+                "tribunal": tribunal.upper(),
                 "file_type": "parquet",
                 "table_name": table_name,
                 "file_name": filename,
@@ -275,108 +380,146 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
     return "\n".join(sql_parts)
 
 
-def create_catalog_duckdb(manifest: list[dict], backfill: list[dict], sql: str, output_dir: Path) -> Path:
-    """Create ready-to-use DuckDB file."""
+def create_catalog_duckdb(manifest: list[dict], backfill: list[dict], sql: str, output_dir: Path) -> Path | None:
+    """Create ready-to-use DuckDB file.
+
+    Returns None on error - caller should handle gracefully.
+    """
     logger.info("creating_catalog_duckdb")
 
     db_path = output_dir / "catalog.duckdb"
 
-    con = duckdb.connect(str(db_path))
+    try:
+        con = duckdb.connect(str(db_path))
+    except Exception as e:
+        logger.error("duckdb_connection_failed", path=str(db_path), error=str(e))
+        return None
 
-    # Install httpfs
-    con.execute("INSTALL httpfs;")
-    con.execute("LOAD httpfs;")
+    try:
+        # Install httpfs
+        con.execute("INSTALL httpfs;")
+        con.execute("LOAD httpfs;")
 
-    # Create manifest table from data
-    con.execute("""
-        CREATE TABLE manifest (
-            date VARCHAR,
-            tribunal VARCHAR,
-            file_type VARCHAR,
-            table_name VARCHAR,
-            file_name VARCHAR,
-            ia_item VARCHAR,
-            ia_url VARCHAR,
-            created_at VARCHAR
-        )
-    """)
+        # Create manifest table from data
+        con.execute("""
+            CREATE TABLE manifest (
+                date VARCHAR,
+                tribunal VARCHAR,
+                file_type VARCHAR,
+                table_name VARCHAR,
+                file_name VARCHAR,
+                ia_item VARCHAR,
+                ia_url VARCHAR,
+                created_at VARCHAR
+            )
+        """)
 
-    for m in manifest:
-        con.execute(
-            "INSERT INTO manifest VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [m["date"], m["tribunal"], m["file_type"], m["table_name"],
-             m["file_name"], m["ia_item"], m["ia_url"], m["created_at"]],
-        )
+        for m in manifest:
+            # Safe extraction with defaults for missing keys
+            con.execute(
+                "INSERT INTO manifest VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    m.get("date", ""),
+                    m.get("tribunal", ""),
+                    m.get("file_type", ""),
+                    m.get("table_name"),
+                    m.get("file_name", ""),
+                    m.get("ia_item", ""),
+                    m.get("ia_url", ""),
+                    m.get("created_at", ""),
+                ],
+            )
 
-    # Create backfill table
-    con.execute("""
-        CREATE TABLE backfill_needed (
-            date VARCHAR,
-            tribunal VARCHAR,
-            reason VARCHAR,
-            last_checked VARCHAR
-        )
-    """)
+        # Create backfill table
+        con.execute("""
+            CREATE TABLE backfill_needed (
+                date VARCHAR,
+                tribunal VARCHAR,
+                reason VARCHAR,
+                last_checked VARCHAR
+            )
+        """)
 
-    for b in backfill:
-        con.execute(
-            "INSERT INTO backfill_needed VALUES (?, ?, ?, ?)",
-            [b["date"], b["tribunal"], b["reason"], b["last_checked"]],
-        )
+        for b in backfill:
+            con.execute(
+                "INSERT INTO backfill_needed VALUES (?, ?, ?, ?)",
+                [
+                    b.get("date", ""),
+                    b.get("tribunal", ""),
+                    b.get("reason", ""),
+                    b.get("last_checked", ""),
+                ],
+            )
 
-    # Create helper views
-    con.execute("""
-        CREATE VIEW collection_status AS
-        SELECT
-            date,
-            COUNT(DISTINCT tribunal) as tribunals_collected,
-            SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) as zip_files,
-            SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files
-        FROM manifest
-        GROUP BY date
-        ORDER BY date DESC
-    """)
+        # Create helper views
+        con.execute("""
+            CREATE VIEW collection_status AS
+            SELECT
+                date,
+                COUNT(DISTINCT tribunal) as tribunals_collected,
+                SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) as zip_files,
+                SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files
+            FROM manifest
+            GROUP BY date
+            ORDER BY date DESC
+        """)
 
-    con.execute("""
-        CREATE VIEW backfill_progress AS
-        SELECT
-            (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') as collected,
-            (SELECT COUNT(*) FROM backfill_needed) as pending,
-            ROUND(100.0 * (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') /
-                NULLIF((SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') +
-                 (SELECT COUNT(*) FROM backfill_needed), 0), 2) as percent_complete
-    """)
+        con.execute("""
+            CREATE VIEW backfill_progress AS
+            SELECT
+                (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') as collected,
+                (SELECT COUNT(*) FROM backfill_needed) as pending,
+                ROUND(100.0 * (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') /
+                    NULLIF((SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') +
+                     (SELECT COUNT(*) FROM backfill_needed), 0), 2) as percent_complete
+        """)
 
-    con.close()
-
-    logger.info("duckdb_created", path=str(db_path))
-    return db_path
-
-
-def save_parquet(data: list[dict], output_path: Path) -> None:
-    """Save data as parquet using DuckDB."""
-    if not data:
-        # Create empty parquet with schema
-        con = duckdb.connect()
-        con.execute(f"COPY (SELECT NULL as dummy WHERE FALSE) TO '{output_path}' (FORMAT PARQUET)")
         con.close()
-        return
+        logger.info("duckdb_created", path=str(db_path))
+        return db_path
 
-    con = duckdb.connect()
+    except Exception as e:
+        logger.error("duckdb_creation_failed", error=str(e))
+        try:
+            con.close()
+        except Exception:
+            pass
+        return None
 
-    # Create table from dict
-    columns = list(data[0].keys())
-    placeholders = ", ".join(["?" for _ in columns])
-    col_defs = ", ".join([f"{c} VARCHAR" for c in columns])
 
-    con.execute(f"CREATE TABLE temp ({col_defs})")
+def save_parquet(data: list[dict], output_path: Path) -> bool:
+    """Save data as parquet using DuckDB.
 
-    for row in data:
-        values = [row.get(c) for c in columns]
-        con.execute(f"INSERT INTO temp VALUES ({placeholders})", values)
+    Returns True on success, False on error.
+    """
+    try:
+        if not data:
+            # Create empty parquet with schema
+            con = duckdb.connect()
+            con.execute(f"COPY (SELECT NULL as dummy WHERE FALSE) TO '{output_path}' (FORMAT PARQUET)")
+            con.close()
+            return True
 
-    con.execute(f"COPY temp TO '{output_path}' (FORMAT PARQUET)")
-    con.close()
+        con = duckdb.connect()
+
+        # Create table from dict
+        columns = list(data[0].keys())
+        placeholders = ", ".join(["?" for _ in columns])
+        col_defs = ", ".join([f"{c} VARCHAR" for c in columns])
+
+        con.execute(f"CREATE TABLE temp ({col_defs})")
+
+        for row in data:
+            values = [str(row.get(c, "")) if row.get(c) is not None else None for c in columns]
+            con.execute(f"INSERT INTO temp VALUES ({placeholders})", values)
+
+        con.execute(f"COPY temp TO '{output_path}' (FORMAT PARQUET)")
+        con.close()
+        return True
+
+    except Exception as e:
+        logger.error("save_parquet_failed", path=str(output_path), error=str(e))
+        return False
 
 
 def upload_to_ia(files: list[Path]) -> bool:
@@ -421,17 +564,39 @@ def main():
     args = parser.parse_args()
 
     output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        print(f"Error: Cannot create output directory {output_dir} (permission denied)")
+        return 1
+    except OSError as e:
+        print(f"Error: Cannot create output directory {output_dir}: {e}")
+        return 1
 
-    # Date range for backfill calculation
-    start_date = (
-        datetime.strptime(args.start_date, "%Y-%m-%d").date()
-        if args.start_date else DJEN_START_DATE
-    )
-    end_date = (
-        datetime.strptime(args.end_date, "%Y-%m-%d").date()
-        if args.end_date else date.today() - timedelta(days=1)
-    )
+    # Date range for backfill calculation with validation
+    try:
+        if args.start_date:
+            if not _validate_date_str(args.start_date):
+                print(f"Error: Invalid start date format: {args.start_date} (expected YYYY-MM-DD)")
+                return 1
+            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
+        else:
+            start_date = DJEN_START_DATE
+
+        if args.end_date:
+            if not _validate_date_str(args.end_date):
+                print(f"Error: Invalid end date format: {args.end_date} (expected YYYY-MM-DD)")
+                return 1
+            end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
+        else:
+            end_date = date.today() - timedelta(days=1)
+    except ValueError as e:
+        print(f"Error: Invalid date: {e}")
+        return 1
+
+    if start_date > end_date:
+        print(f"Error: Start date {start_date} is after end date {end_date}")
+        return 1
 
     print("Generating catalog...")
     print(f"  Output: {output_dir}")
@@ -458,16 +623,28 @@ def main():
     backfill_path = output_dir / "backfill-needed.parquet"
     sql_path = output_dir / "catalog.sql"
 
-    save_parquet(manifest, manifest_path)
-    save_parquet(backfill, backfill_path)
-    sql_path.write_text(sql)
-
+    if not save_parquet(manifest, manifest_path):
+        print(f"Error: Failed to save {manifest_path}")
+        return 1
     print(f"Saved: {manifest_path}")
+
+    if not save_parquet(backfill, backfill_path):
+        print(f"Error: Failed to save {backfill_path}")
+        return 1
     print(f"Saved: {backfill_path}")
-    print(f"Saved: {sql_path}")
+
+    try:
+        sql_path.write_text(sql)
+        print(f"Saved: {sql_path}")
+    except OSError as e:
+        print(f"Error: Failed to save {sql_path}: {e}")
+        return 1
 
     # 6. Create DuckDB
     db_path = create_catalog_duckdb(manifest, backfill, sql, output_dir)
+    if db_path is None:
+        print("Error: Failed to create DuckDB catalog")
+        return 1
     print(f"Saved: {db_path}")
 
     # 7. Upload if requested

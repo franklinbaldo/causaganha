@@ -16,8 +16,14 @@ select = ["ALL"]
 ignore = []
 
 [lint.per-file-ignores]
-# Allow asserts in tests
-"tests/*" = ["S101"]
+# Allow asserts and common test patterns in tests
+"tests/*" = [
+    "S101",     # assert allowed in tests
+    "PLC0415",  # imports in functions OK for test isolation
+    "PLR2004",  # magic values OK in tests
+    "COM812",   # trailing comma optional in tests
+    "ANN",      # type annotations optional in tests
+]
 # Scripts are CLI tools - allow print, subprocess, section comments
 "scripts/*.py" = [
     "T201",     # print() allowed in CLI scripts
@@ -34,6 +40,7 @@ ignore = []
     "C401",     # set comprehension style OK
     "PLR0912",  # too many branches OK
     "PLR0915",  # too many statements OK
+    "PLR0911",  # too many return statements OK (error handling)
     "PERF401",  # list.append in loop OK
     "D100",     # missing docstring at top OK
     "D103",     # missing docstring in functions OK
@@ -43,6 +50,12 @@ ignore = []
     "DTZ",      # datetime timezone OK (dates only)
     "ARG001",   # unused args OK (API compatibility)
     "RUF005",   # list concatenation style OK
+    "BLE001",   # blind exception OK (resilience to bad data)
+    "S110",     # try-except-pass OK (graceful error handling)
+    "S112",     # try-except-continue OK (skip malformed data)
+    "PLC0415",  # import in function OK (lazy loading)
+    "SIM103",   # return condition simplification - clarity OK
+    "SIM105",   # contextlib.suppress - explicit try OK
 ]
 
 [lint.mccabe]
