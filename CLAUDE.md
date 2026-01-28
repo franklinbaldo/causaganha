@@ -16,7 +16,7 @@ DJEN provides **structured data** directly (lawyer names, OAB numbers, parties, 
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                      DATA PIPELINE                              │
 └─────────────────────────────────────────────────────────────────┘
@@ -25,30 +25,31 @@ DJEN API (geo-blocked) → DJEN Proxy (Cloud Run, São Paulo)
                               │
                               ▼
                     GitHub Actions (5 min)
-                    Download ZIP → Upload IA
+                    Download ZIP/Absent → Upload IA
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   INTERNET ARCHIVE                              │
 │                                                                 │
 │  djen-YYYY-MM-DD/                    ← One item per day         │
-│  ├── djen-YYYY-MM-DD-TJSP.zip                                  │
-│  ├── djen-YYYY-MM-DD-TJSP-comunicacoes.parquet                 │
-│  ├── djen-YYYY-MM-DD-TJSP-advogados.parquet                    │
-│  ├── djen-YYYY-MM-DD-TJSP-partes.parquet                       │
-│  ├── djen-YYYY-MM-DD-TJRO.zip                                  │
-│  └── ... (all 91 courts)                                       │
+│  ├── djen-YYYY-MM-DD-TRIBUNAL.zip     ← Raw source (JSON)       │
+│  ├── djen-YYYY-MM-DD-TRIBUNAL.absent  ← Empty journal marker    │
+│  ├── comunicacoes.parquet             ← Consolidated (91 courts)│
+│  ├── advogados.parquet                ← Deduplicated lawyers    │
+│  ├── representacoes.parquet           ← Lawyer-Party links      │
+│  ├── processos.parquet                ← Fast timeline index     │
+│  └── textos.parquet                   ← Deduplicated texts      │
 │                                                                 │
 │  causaganha-catalog/                 ← Master catalog           │
-│  ├── catalog.duckdb                                            │
-│  ├── catalog.sql                                               │
-│  └── manifest.parquet                                          │
+│  ├── catalog.duckdb                                             │
+│  ├── manifest.parquet                                           │
+│  └── backfill-needed.parquet                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Directory Structure
 
-```
+```text
 src/causaganha/
 ├── cli/                 # Typer CLI (single entry point)
 ├── pipeline/            # Data orchestration
@@ -79,7 +80,7 @@ src/causaganha/
 
 djen-scraper/            # Scraping infrastructure (separate)
 ├── dashboard/           # Status dashboard (React)
-└── scripts/             # convert_to_parquet.py
+└── scripts/             # consolidate.py
 
 .github/workflows/       # Automated pipelines
 ├── pipeline.yml         # Main data pipeline (collect/convert/embed/catalog)
@@ -88,8 +89,8 @@ djen-scraper/            # Scraping infrastructure (separate)
 scripts/
 ├── generate_catalog.py  # Catalog generation script
 └── pipeline/            # Pipeline step scripts
-    ├── collect.py       # Download from DJEN → upload to IA
-    ├── convert.py       # ZIP → Parquet conversion
+    ├── collect.py       # Download from DJEN → upload ZIP/Absent to IA
+    ├── consolidate.py   # Atomic ZIP → Parquet consolidation
     └── embed.py         # Generate embeddings
 ```
 
@@ -146,14 +147,15 @@ uv run pytest --cov=causaganha
 
 ## Internet Archive Structure
 
-```
+```text
 djen-YYYY-MM-DD/                       ← Item per day
 ├── djen-YYYY-MM-DD-TRIBUNAL.zip       ← Raw JSON (source)
-├── djen-YYYY-MM-DD-TRIBUNAL-comunicacoes.parquet
-├── djen-YYYY-MM-DD-TRIBUNAL-advogados.parquet
-├── djen-YYYY-MM-DD-TRIBUNAL-partes.parquet
-├── djen-YYYY-MM-DD-TRIBUNAL-comunicacao_partes.parquet
-└── djen-YYYY-MM-DD-TRIBUNAL-comunicacao_advogados.parquet
+├── djen-YYYY-MM-DD-TRIBUNAL.absent    ← Completion marker
+├── comunicacoes.parquet               ← Consolidated communications
+├── advogados.parquet                  ← Global lawyer identifiers
+├── representacoes.parquet             ← Materialized associations
+├── processos.parquet                  ← Daily process activity index
+└── textos.parquet                     ← Content-addressed judicial texts
 
 causaganha-catalog/                    ← Master catalog
 ├── catalog.duckdb                     ← DuckDB with remote views

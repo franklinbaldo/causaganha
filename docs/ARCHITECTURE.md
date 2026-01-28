@@ -6,26 +6,25 @@ CausaGanha has transitioned from an LLM-heavy "doc-reading" pipeline to a **stru
 
 ```mermaid
 graph TD
-    A[DJEN API] -->|Daily Scraping| B(Distributed Cloud Scraper)
-    B -->|Structured JSON| C[Cloud Run Proxy]
-    C -->|Internal Buffer| D[(Cloudflare R2)]
-    D -->|Daily Batch| E[Normalization Pipeline]
-    E -->|Clean Parquet| F[Internet Archive]
-    F -->|Querying| G[Ibis + DuckDB]
-    G -->|Analysis| H[Outcome Classification]
-    H -->|Scoring| I[OpenSkill Ratings]
+    A[DJEN API] -->|Daily Scraping| B(GitHub Actions)
+    B -->|ZIP/Absent| C[Internet Archive]
+    C -->|Completion Check| D[Consolidation Job]
+    D -->|Daily Parquets| C
+    C -->|Remote Query| E[Ibis + DuckDB]
+    E -->|Analysis| F[Outcome Classification]
+    F -->|Scoring| G[OpenSkill Ratings]
 ```
 
-## 🧩 Components
+### 1. Ingestion & Storage (Internet Archive)
 
-### 1. Ingestion (djen-scraper)
+The pipeline uses **GitHub Actions** to query the DJEN API every 5 minutes.
 
-A distributed scraper (hosted on Cloudflare Workers/Cloud Run) that queries the DJEN API for daily judicial communications. It avoids IP blocking and ensures continuous data flow.
+- **Raw ZIPs**: Downloaded directly and uploaded to Internet Archive.
+- **Absent Markers**: If a court has no journal for the day, an `.absent` file is uploaded to maintain a 91-item completion matrix.
 
-### 2. Storage & Buffer (R2 + IA)
+### 2. Atomic Consolidation
 
-- **R2**: Serves as a fast, transient buffer for raw JSON responses.
-- **Internet Archive (IA)**: The primary long-term storage for normalized **Parquet** files. This keeps infrastructure costs near zero while maintaining public transparency.
+A dedicated consolidation job waits for all 91 courts to be present (ZIP or Absent) then merges them into **Atomic Daily Parquets**. This optimizes query performance by reducing metadata overhead and enabling national-level deduplication.
 
 ### 3. Data Layer (Ibis + DuckDB)
 

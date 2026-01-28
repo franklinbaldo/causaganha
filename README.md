@@ -80,14 +80,17 @@ We're building a **complete historical archive** of DJEN data:
 
 Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
 
-```
+```text
 
 djen-2026-01-27/
 ├── djen-2026-01-27-TJSP.zip   ← Raw source
 ├── djen-2026-01-27-TJRS.zip   ← Raw source
+├── djen-2026-01-27-TJRS.absent ← Marker for empty journals
 ├── comunicacoes.parquet       ← Consolidated (all 91 courts)
 ├── advogados.parquet          ← Global identifiers (OAB+UF+Name)
 ├── representacoes.parquet     ← Materialized Lawyer-Party links
+├── processos.parquet          ← Fast timeline index
+├── textos.parquet             ← Content-addressed texts
 └── ...
 
 ```
@@ -155,8 +158,8 @@ All data processing is handled by a single consolidated workflow (`.github/workf
 
 | Job | Frequency | Description |
 | :-- | :-------- | :---------- |
-| **Collect** | Every 5 min | Download from DJEN → Upload ZIP to IA |
-| **Convert** | Every 10 min | ZIP → Parquet conversion |
+| **Collect** | Every 5 min | Download from DJEN → Upload ZIP/Absent to IA |
+| **Consolidate** | Every 10 min | Atomic consolidation (waits for 91 markers) |
 | **Embed** | Hourly | Generate vector embeddings |
 | **Catalog** | Daily | Update master catalog |
 
@@ -164,8 +167,8 @@ Each job calls a Python script that can be run locally:
 
 ```bash
 # Run locally for testing/debugging
-uv run python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
-uv run python scripts/pipeline/convert.py --max-items 10
+uv run python scripts/pipeline/collect.py --date 2026-01-27
+uv run python scripts/pipeline/consolidate.py --date 2026-01-27
 uv run python scripts/pipeline/embed.py --max-decisions 100
 uv run python scripts/generate_catalog.py --upload
 ```
@@ -262,7 +265,7 @@ All data is publicly archived on Internet Archive:
 
 | Item Pattern | Contents |
 | :----------- | :------- |
-| `djen-YYYY-MM-DD` | Raw ZIPs + Parquet files for one day |
+| `djen-YYYY-MM-DD` | ZIPs, Parquets, and .absent markers for one day |
 | `causaganha-catalog` | Master DuckDB catalog + manifest |
 | `causaganha-embeddings-*` | Embedding vectors for semantic search |
 
