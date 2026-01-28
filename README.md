@@ -136,6 +136,12 @@ erDiagram
         string polo "Active/Passive"
     }
 
+    processos {
+        string numero_processo PK
+        string tribunal
+        string data "Timeline of activity"
+    }
+
     textos {
         string id PK "UUIDv5 (Full Text Content)"
         string tribunal "Source (first occurrence)"

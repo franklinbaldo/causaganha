@@ -151,6 +151,7 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
         "comunicacao_advogados": [],
         "textos": [],
         "representacoes": [],
+        "processos": [],
     }
 
     processed_at = datetime.now().isoformat()
@@ -274,6 +275,19 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                             },
                         )
 
+        # Process Summary for high-speed indexing
+        tables["processos"].append(
+            {
+                "numero_processo": _str(
+                    record.get("numero_processo") or record.get("numeroProcesso"),
+                ),
+                "tribunal": tribunal_s,
+                "data": _str(
+                    record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
+                ),
+            },
+        )
+
     return tables
 
 
@@ -341,6 +355,13 @@ TABLE_SCHEMAS = {
             "advogado_id": "string",
             "parte_nome": "string",
             "polo": "string",
+        },
+    ),
+    "processos": ibis.schema(
+        {
+            "numero_processo": "string",
+            "tribunal": "string",
+            "data": "string",
         },
     ),
 }
