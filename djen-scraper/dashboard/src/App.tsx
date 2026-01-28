@@ -8,8 +8,25 @@ import {
 
 // Search only for djen-raw items. Parquet files are now inside them.
 const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
-const GITHUB_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=15";
+// Monitor both workflows for complete health picture
+const ARCHIVE_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=10";
+const CONVERT_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=convert-parquet.yml&per_page=10";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
+
+// Helper to calculate days delay from a date string
+function getDaysDelay(dateStr: string | null): number {
+  if (!dateStr) return 999;
+  const date = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now.getTime() - date.getTime()) / 86400000);
+}
+
+// Helper to get delay status color
+function getDelayColor(days: number): string {
+  if (days === 0) return 'bg-emerald-500';
+  if (days === 1) return 'bg-amber-500';
+  return 'bg-red-500';
+}
 
 interface ActionRun {
   id: number;
@@ -54,9 +71,11 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      const [iaRes, runsRes] = await Promise.all([
+      // Fetch from all three sources: IA, archive workflow, and convert workflow
+      const [iaRes, archiveRunsRes, convertRunsRes] = await Promise.all([
         fetch(IA_SEARCH_URL).catch(() => null),
-        fetch(GITHUB_RUNS_URL).catch(() => null)
+        fetch(ARCHIVE_RUNS_URL).catch(() => null),
+        fetch(CONVERT_RUNS_URL).catch(() => null)
       ]);
 
       if (iaRes && iaRes.ok) {
@@ -136,14 +155,41 @@ export default function App() {
         setError("Internet Archive API Indisponível");
       }
 
-      if (runsRes && runsRes.ok) {
-        const runsData = await runsRes.json();
-        const workflowRuns = runsData.workflow_runs || [];
-        setRuns(workflowRuns);
-        const successCount = workflowRuns.filter((r: any) => r.conclusion === 'success').length;
-        const rate = ((successCount / Math.max(workflowRuns.length, 1)) * 100).toFixed(0);
+      // Combine runs from both workflows for complete health picture
+      const allRuns: ActionRun[] = [];
+      let totalRuns = 0;
+      let successCount = 0;
+
+      if (archiveRunsRes && archiveRunsRes.ok) {
+        const archiveData = await archiveRunsRes.json();
+        const archiveRuns = (archiveData.workflow_runs || []).map((r: any) => ({
+          ...r,
+          workflowName: 'Archive ZIPs'
+        }));
+        allRuns.push(...archiveRuns);
+        totalRuns += archiveRuns.length;
+        successCount += archiveRuns.filter((r: ActionRun) => r.conclusion === 'success').length;
+      }
+
+      if (convertRunsRes && convertRunsRes.ok) {
+        const convertData = await convertRunsRes.json();
+        const convertRuns = (convertData.workflow_runs || []).map((r: any) => ({
+          ...r,
+          workflowName: 'Convert Parquet'
+        }));
+        allRuns.push(...convertRuns);
+        totalRuns += convertRuns.length;
+        successCount += convertRuns.filter((r: ActionRun) => r.conclusion === 'success').length;
+      }
+
+      if (allRuns.length > 0) {
+        // Sort by creation date, newest first
+        allRuns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setRuns(allRuns);
+        const rate = ((successCount / Math.max(totalRuns, 1)) * 100).toFixed(0);
         setStats(prev => ({ ...prev, successRate: rate }));
       } else {
+        // Fallback to local stats if both APIs fail
         const localRes = await fetch(LOCAL_RUNS_URL).catch(() => null);
         if (localRes && localRes.ok) setRuns(await localRes.json());
       }
@@ -333,9 +379,16 @@ export default function App() {
                         {run.conclusion === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-700 truncate">
-                          {run.display_title || run.displayTitle || run.name || 'Operação de Dados'}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-700 truncate">
+                            {run.display_title || run.displayTitle || run.name || 'Operação de Dados'}
+                          </p>
+                          {run.workflowName && (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${run.workflowName === 'Archive ZIPs' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                              {run.workflowName}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">{new Date(run.createdAt).toLocaleString('pt-BR')}</p>
                       </div>
                     </div>
@@ -354,25 +407,39 @@ export default function App() {
                 <Database className="w-5 h-5 text-indigo-400" /> Registro por Tribunal
               </h3>
               <div className="space-y-5 max-h-[700px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 pr-2">
-                {tribunais.map((t) => (
-                  <div key={t.tribunal} className="border-b border-white/5 pb-4 last:border-0">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold text-sm tracking-tight">{t.tribunal}</span>
-                      <span className="text-[10px] font-black bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded uppercase tracking-widest">{t.total_dates} Dias</span>
+                {tribunais.map((t) => {
+                  const daysDelay = getDaysDelay(t.newest_date);
+                  const delayColor = getDelayColor(daysDelay);
+                  return (
+                    <div key={t.tribunal} className="border-b border-white/5 pb-4 last:border-0">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${delayColor}`}></div>
+                          <span className="font-bold text-sm tracking-tight">{t.tribunal}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {daysDelay > 0 && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${daysDelay > 1 ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                              {daysDelay} {daysDelay === 1 ? 'DIA' : 'DIAS'} ATRASO
+                            </span>
+                          )}
+                          <span className="text-[10px] font-black bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded uppercase tracking-widest">{t.total_dates} Dias</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-white/5 h-1 rounded-full mb-2 overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min((t.total_dates / 260) * 100, 100)}%` }}
+                          className="bg-indigo-50 h-full rounded-full"
+                        ></motion.div>
+                      </div>
+                      <div className="flex justify-between items-end text-[10px] text-slate-400">
+                        <span>SINCRONIA: {t.oldest_date?.split('-')[0]} - {t.newest_date?.split('-')[0]}</span>
+                        <span className="font-bold text-white uppercase">{formatNumber(t.total_records)} Atos</span>
+                      </div>
                     </div>
-                    <div className="w-full bg-white/5 h-1 rounded-full mb-2 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min((t.total_dates / 260) * 100, 100)}%` }}
-                        className="bg-indigo-50 h-full rounded-full"
-                      ></motion.div>
-                    </div>
-                    <div className="flex justify-between items-end text-[10px] text-slate-400">
-                      <span>SINCRONIA: {t.oldest_date?.split('-')[0]} - {t.newest_date?.split('-')[0]}</span>
-                      <span className="font-bold text-white uppercase">{formatNumber(t.total_records)} Atos</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
