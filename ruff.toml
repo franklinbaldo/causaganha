@@ -25,7 +25,7 @@ ignore = []
     "ANN",      # type annotations optional in tests
 ]
 # Scripts are CLI tools - allow print, subprocess, section comments
-"scripts/*.py" = [
+"scripts/**/*.py" = [
     "T201",     # print() allowed in CLI scripts
     "S603",     # subprocess calls OK (controlled input)
     "S607",     # partial executable path OK
@@ -44,6 +44,7 @@ ignore = []
     "PERF401",  # list.append in loop OK
     "D100",     # missing docstring at top OK
     "D103",     # missing docstring in functions OK
+    "D104",     # missing docstring in package OK
     "ANN",      # type annotations optional in scripts
     "INP001",   # implicit namespace package OK
     "E501",     # line length OK in scripts
@@ -56,6 +57,7 @@ ignore = []
     "PLC0415",  # import in function OK (lazy loading)
     "SIM103",   # return condition simplification - clarity OK
     "SIM105",   # contextlib.suppress - explicit try OK
+    "PLW2901",  # loop variable overwritten OK (common pattern)
 ]
 
 [lint.mccabe]
