@@ -347,31 +347,29 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
     elif action == "migrate":
         try:
             typer.echo("Running migrations...")
+            from causaganha.storage.migrations import migration_status, run_migrations
+
             con = get_connection()
-            from pathlib import Path
 
-            migrations_dir = Path("src/causaganha/v2/storage/migrations")
-            migration_files = sorted(migrations_dir.glob("*.sql"))
+            # Show current status
+            status = migration_status(con)
+            typer.echo(f"  Current: {status['applied']}/{status['total']} applied")
 
-            if not migration_files:
-                typer.echo(f"❌ No migration files found in {migrations_dir}")
+            if status["pending"] == 0:
+                typer.echo("✅ All migrations already applied.")
                 return
 
-            for migration_file in migration_files:
-                typer.echo(f"  Applying {migration_file.name}...")
-                with open(migration_file) as f:
-                    sql = f.read()
-                    # Split by semicolon and execute each statement
-                    for statement in sql.split(";"):
-                        if statement.strip():
-                            try:
-                                con.con.execute(statement)
-                            except Exception as e:
-                                # Ignore errors for columns/tables that already exist
-                                if "already exists" not in str(e).lower():
-                                    typer.echo(f"Warning: {e}")
+            typer.echo(f"  Pending: {status['pending']} migrations")
 
-            typer.echo("✅ All migrations applied successfully.")
+            # Run pending migrations
+            applied = run_migrations(con)
+
+            if applied:
+                typer.echo(f"✅ Applied {len(applied)} migrations:")
+                for name in applied:
+                    typer.echo(f"    - {name}")
+            else:
+                typer.echo("✅ No migrations to apply.")
         except Exception as e:
             _handle_error(e, "Migration failed")
     else:
