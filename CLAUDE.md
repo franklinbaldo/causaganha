@@ -78,7 +78,6 @@ src/causaganha/
 └── config.py            # Pydantic Settings
 
 djen-scraper/            # Scraping infrastructure (separate)
-├── cloudflare/          # Cloudflare Worker (TypeScript)
 ├── dashboard/           # Status dashboard (React)
 └── scripts/             # convert_to_parquet.py
 

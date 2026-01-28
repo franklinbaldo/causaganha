@@ -1283,21 +1283,77 @@ def download_catalog(
                     try:
                         response = await client.get(url)
                         if response.status_code == 200:
-                            output_path.write_bytes(response.content)
-                            size_kb = len(response.content) / 1024
-                            typer.echo(f" ({size_kb:.1f} KB)")
-                        else:
-                            typer.echo(f" (not found: {response.status_code})")
-                    except Exception as e:
-                        typer.echo(f" (error: {e})")
+                            content = response.content
 
-            typer.echo("\n✅ Catalog download complete!")
-            typer.echo(f"  Location: {output_dir}")
+                            # Basic validation: check file is not empty
+                            if len(content) < 100:
+                                typer.echo(f" (warning: file too small, may be corrupted)")
+                                continue
+
+                            # Validate parquet files have correct magic bytes
+                            if filename.endswith(".parquet"):
+                                # Parquet magic bytes: PAR1 at start and end
+                                if not (content[:4] == b"PAR1" or content[-4:] == b"PAR1"):
+                                    typer.echo(f" (warning: invalid parquet file)")
+                                    continue
+
+                            # Validate DuckDB files
+                            if filename.endswith(".duckdb"):
+                                # DuckDB files should start with specific header
+                                if len(content) < 1024:
+                                    typer.echo(f" (warning: duckdb file too small)")
+                                    continue
+
+                            output_path.write_bytes(content)
+                            size_kb = len(content) / 1024
+                            typer.echo(f" ({size_kb:.1f} KB)")
+                        elif response.status_code == 404:
+                            typer.echo(f" (not found - catalog may not exist yet)")
+                        else:
+                            typer.echo(f" (HTTP {response.status_code})")
+                    except httpx.TimeoutException:
+                        typer.echo(f" (timeout - try again later)")
+                    except httpx.ConnectError:
+                        typer.echo(f" (connection error - check internet)")
+                    except Exception as e:
+                        typer.echo(f" (error: {type(e).__name__})")
+
+            # Verify at least some files were downloaded
+            downloaded = [f for f in files_to_download if (output_dir / f).exists()]
+            if not downloaded:
+                typer.secho("\n⚠ No files were downloaded.", fg=typer.colors.YELLOW)
+                typer.echo("The catalog may not exist yet on Internet Archive.")
+            else:
+                typer.echo(f"\n✅ Downloaded {len(downloaded)}/{len(files_to_download)} files")
+                typer.echo(f"  Location: {output_dir}")
 
         except Exception as e:
             _handle_error(e, "Download failed")
 
     asyncio.run(_run())
+
+
+def _validate_tribunal_code(tribunal: str | None) -> str | None:
+    """Validate tribunal code to prevent SQL injection and invalid values."""
+    if tribunal is None:
+        return None
+
+    # Tribunal codes are uppercase alphanumeric, max 10 chars
+    import re
+    if not re.match(r"^[A-Z0-9-]{2,10}$", tribunal.upper()):
+        return None
+
+    return tribunal.upper()
+
+
+def _validate_parquet_schema(con: duckdb.DuckDBPyConnection, path: str, required_cols: list[str]) -> bool:
+    """Check if parquet file has required columns."""
+    try:
+        schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()
+        columns = {row[0].lower() for row in schema}
+        return all(col.lower() in columns for col in required_cols)
+    except Exception:
+        return False
 
 
 @catalog_app.command("backfill-status")
@@ -1325,22 +1381,54 @@ def backfill_status(
             typer.echo("Run 'causaganha catalog download' first.")
             raise typer.Exit(code=1)
 
+        # Validate tribunal parameter to prevent SQL injection
+        validated_tribunal = _validate_tribunal_code(tribunal)
+        if tribunal and not validated_tribunal:
+            typer.secho(
+                f"❌ Invalid tribunal code: {tribunal}",
+                fg=typer.colors.RED,
+            )
+            typer.echo("Tribunal codes should be 2-10 uppercase alphanumeric characters.")
+            raise typer.Exit(code=1)
+
         con = duckdb.connect(":memory:")
 
-        # Build query with optional tribunal filter
-        where_clause = f"WHERE tribunal = '{tribunal}'" if tribunal else ""
+        # Validate parquet schema before querying
+        required_cols = ["date", "tribunal"]
+        if not _validate_parquet_schema(con, str(backfill_path), required_cols):
+            typer.secho(
+                f"❌ Malformed backfill file: missing required columns {required_cols}",
+                fg=typer.colors.RED,
+            )
+            typer.echo("The file may be corrupted. Try re-downloading with --force.")
+            con.close()
+            raise typer.Exit(code=1)
 
-        # Get summary stats
-        stats = con.execute(f"""
-            SELECT
-                COUNT(*) as total_missing,
-                COUNT(DISTINCT tribunal) as tribunals,
-                COUNT(DISTINCT date) as days,
-                MIN(date) as earliest,
-                MAX(date) as latest
-            FROM read_parquet('{backfill_path}')
-            {where_clause}
-        """).fetchone()
+        # Build query with parameterized filter (safe from injection)
+        where_clause = f"WHERE tribunal = '{validated_tribunal}'" if validated_tribunal else ""
+
+        # Get summary stats with error handling for empty/malformed data
+        try:
+            stats = con.execute(f"""
+                SELECT
+                    COUNT(*) as total_missing,
+                    COUNT(DISTINCT tribunal) as tribunals,
+                    COUNT(DISTINCT date) as days,
+                    MIN(date) as earliest,
+                    MAX(date) as latest
+                FROM read_parquet('{backfill_path}')
+                {where_clause}
+            """).fetchone()
+        except duckdb.Error as e:
+            typer.secho(f"❌ Error reading backfill file: {e}", fg=typer.colors.RED)
+            typer.echo("The file may be corrupted. Try re-downloading with --force.")
+            con.close()
+            raise typer.Exit(code=1)
+
+        if stats is None or stats[0] == 0:
+            typer.echo("\n✅ No backfill needed!" if not validated_tribunal else f"\n✅ No backfill needed for {validated_tribunal}!")
+            con.close()
+            return
 
         total, tribunals, days, earliest, latest = stats
 
@@ -1350,8 +1438,8 @@ def backfill_status(
         typer.echo(f"  Days: {days}")
         typer.echo(f"  Date range: {earliest} to {latest}")
 
-        if tribunal:
-            typer.echo(f"  Filter: {tribunal}")
+        if validated_tribunal:
+            typer.echo(f"  Filter: {validated_tribunal}")
 
         # Get breakdown by tribunal
         typer.echo("\n📋 Missing by Tribunal:")
@@ -1369,7 +1457,11 @@ def backfill_status(
         """).fetchall()
 
         for trib, missing, early, late in breakdown:
-            typer.echo(f"  {trib:6}: {missing:4} items ({early} to {late})")
+            # Handle None values gracefully
+            trib_str = str(trib) if trib else "UNKNOWN"
+            early_str = str(early) if early else "N/A"
+            late_str = str(late) if late else "N/A"
+            typer.echo(f"  {trib_str:6}: {missing:4} items ({early_str} to {late_str})")
 
         if len(breakdown) >= limit:
             typer.echo(f"  ... (showing top {limit}, use --limit to see more)")
@@ -1396,6 +1488,16 @@ def query_catalog(
     try:
         from pathlib import Path
 
+        # Validate format parameter
+        valid_formats = ["table", "csv", "json"]
+        if format not in valid_formats:
+            typer.secho(
+                f"❌ Invalid format: {format}",
+                fg=typer.colors.RED,
+            )
+            typer.echo(f"Valid formats: {', '.join(valid_formats)}")
+            raise typer.Exit(code=1)
+
         catalog_path = Path(catalog_dir) / "catalog.duckdb"
 
         if not catalog_path.exists():
@@ -1406,38 +1508,97 @@ def query_catalog(
             typer.echo("Run 'causaganha catalog download' first.")
             raise typer.Exit(code=1)
 
-        con = duckdb.connect(str(catalog_path), read_only=True)
+        # Try to open catalog file - may be corrupted
+        try:
+            con = duckdb.connect(str(catalog_path), read_only=True)
+        except duckdb.Error as e:
+            typer.secho(
+                f"❌ Catalog file is corrupted: {e}",
+                fg=typer.colors.RED,
+            )
+            typer.echo("Try re-downloading with: causaganha catalog download --force")
+            raise typer.Exit(code=1)
 
         # Add LIMIT if not present
         if "LIMIT" not in query.upper():
             query = f"{query} LIMIT {limit}"
 
-        result = con.execute(query)
-        columns = [desc[0] for desc in result.description]
+        # Execute query with error handling
+        try:
+            result = con.execute(query)
+        except duckdb.ParserException as e:
+            typer.secho(f"❌ SQL syntax error: {e}", fg=typer.colors.RED)
+            con.close()
+            raise typer.Exit(code=1)
+        except duckdb.CatalogException as e:
+            typer.secho(f"❌ Table or column not found: {e}", fg=typer.colors.RED)
+            typer.echo("\nAvailable tables: manifest, backfill_needed")
+            con.close()
+            raise typer.Exit(code=1)
+        except duckdb.Error as e:
+            typer.secho(f"❌ Query error: {e}", fg=typer.colors.RED)
+            con.close()
+            raise typer.Exit(code=1)
+
+        columns = [desc[0] for desc in result.description] if result.description else []
         rows = result.fetchall()
+
+        # Handle empty results gracefully
+        if not rows:
+            typer.echo("\n(0 rows - no data matches your query)")
+            con.close()
+            return
+
+        # Helper to safely convert values to strings
+        def safe_str(v) -> str:
+            if v is None:
+                return "NULL"
+            try:
+                return str(v)
+            except Exception:
+                return "<error>"
 
         if format == "csv":
             import csv
             import sys
             writer = csv.writer(sys.stdout)
             writer.writerow(columns)
-            writer.writerows(rows)
+            # Safely convert all values
+            for row in rows:
+                writer.writerow([safe_str(v) for v in row])
         elif format == "json":
             import json
-            data = [dict(zip(columns, row)) for row in rows]
+            # Safely build data with error handling for malformed values
+            data = []
+            for row in rows:
+                row_dict = {}
+                for col, val in zip(columns, row):
+                    try:
+                        # Handle non-serializable types
+                        if hasattr(val, "isoformat"):
+                            row_dict[col] = val.isoformat()
+                        else:
+                            row_dict[col] = val
+                    except Exception:
+                        row_dict[col] = None
+                data.append(row_dict)
             typer.echo(json.dumps(data, indent=2, default=str))
         else:
-            # Table format
+            # Table format with safe string conversion
             typer.echo("\n" + " | ".join(columns))
             typer.echo("-" * (len(" | ".join(columns)) + 10))
             for row in rows:
-                typer.echo(" | ".join(str(v) for v in row))
+                typer.echo(" | ".join(safe_str(v) for v in row))
 
         typer.echo(f"\n({len(rows)} rows)")
         con.close()
 
     except duckdb.Error as e:
         _handle_error(e, "Query failed")
+    except Exception as e:
+        # Catch any unexpected errors and provide helpful message
+        typer.secho(f"⚠ Unexpected error: {e}", fg=typer.colors.YELLOW)
+        typer.echo("The data may contain unexpected values. Try a simpler query.")
 
 
 if __name__ == "__main__":

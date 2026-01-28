@@ -6,9 +6,59 @@
 
 ## [Live Dashboard](https://franklinbaldo.github.io/causaganha/)
 
-## Vision
+## Why This Matters
 
-Eliminate information asymmetry in the Brazilian legal market through transparent, data-driven lawyer performance ratings based on real judicial outcomes.
+### The Problem: Information Asymmetry
+
+In Brazil's legal market, clients have no way to objectively evaluate lawyer performance before hiring. The information asymmetry is stark:
+
+- **Lawyers know** their track record, specializations, and typical outcomes
+- **Clients don't know** if a lawyer wins cases, how long cases take, or their expertise areas
+- **Result**: Clients rely on referrals, advertising, or luck—not data
+
+This asymmetry harms consumers and protects underperforming lawyers from market accountability.
+
+### The Solution: Public Data, Made Accessible
+
+DJEN (Diário de Justiça Eletrônico Nacional) publishes **every judicial communication** from all 91 Brazilian courts—thousands of documents daily. This data includes:
+
+- Lawyer names and OAB (bar association) numbers
+- Case outcomes: wins, losses, settlements
+- Which parties lawyers represent
+- Timeline of case progression
+
+**This data is already public.** But it's scattered across 91 different court systems, published daily in formats designed for lawyers—not for analysis. No one has aggregated it to answer simple questions like "What is this lawyer's win rate?"
+
+### Our Strategy: Archive Everything, Analyze Later
+
+We're building a **complete historical archive** of DJEN data:
+
+1. **Collect Daily**: Every 5 minutes, download judicial communications from all 91 courts
+2. **Archive Permanently**: Upload to Internet Archive—free, permanent, public storage
+3. **Convert to Analytics Format**: Transform raw data into Parquet (columnar, compressed, queryable)
+4. **Build the Index**: Master catalog enables querying without downloading everything
+
+**Why Internet Archive?**
+- Free, unlimited storage
+- Permanent URLs (data doesn't disappear)
+- Public access (anyone can verify our data)
+- Supports remote queries via HTTP range requests
+
+**Why archive first, analyze later?**
+- Data that isn't collected is lost forever
+- Storage is cheap; re-collection is impossible
+- Analysis methods improve; raw data doesn't
+- Regulatory changes could restrict access
+
+### Data Coverage
+
+| Metric | Value |
+|--------|-------|
+| Courts monitored | 91 (all Brazilian jurisdictions) |
+| Collection frequency | Every 5 minutes |
+| Data format | JSON (raw) → Parquet (analytics) |
+| Storage | Internet Archive (permanent) |
+| Historical data | Building from 2024 onwards |
 
 ## Architecture
 
@@ -156,7 +206,6 @@ causaganha/
 │   ├── catalog/             # DuckDB catalog generator
 │   └── clients/             # External service clients
 ├── djen-scraper/            # DJEN scraping infrastructure
-│   ├── cloudflare/          # Cloudflare Worker (TypeScript)
 │   ├── dashboard/           # Status dashboard (React)
 │   └── scripts/             # Conversion scripts
 ├── .github/workflows/       # GitHub Actions pipelines
