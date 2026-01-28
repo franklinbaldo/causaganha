@@ -6,11 +6,10 @@ import {
   BarChart3, RefreshCw, Layers
 } from 'lucide-react';
 
-// Search only for djen-raw items. Parquet files are now inside them.
-const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-raw-*&fl[]=identifier&fl[]=date&fl[]=tribunal&fl[]=total_comunicacoes&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
-// Monitor both workflows for complete health picture
-const ARCHIVE_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=archive-zips.yml&per_page=10";
-const CONVERT_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?workflow_id=convert-parquet.yml&per_page=10";
+// Search for new djen-DATE items (format: djen-YYYY-MM-DD)
+const IA_SEARCH_URL = "https://archive.org/advancedsearch.php?q=identifier:djen-20*&fl[]=identifier&fl[]=date&fl[]=addeddate&fl[]=format&sort[]=addeddate+desc&rows=1000&output=json";
+// Monitor the unified Data Pipeline workflow (pipeline.yml)
+const PIPELINE_RUNS_URL = "https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/pipeline.yml/runs?per_page=20";
 const LOCAL_RUNS_URL = "/causaganha/run_stats.json";
 
 // Helper to calculate days delay from a date string
@@ -71,11 +70,10 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      // Fetch from all three sources: IA, archive workflow, and convert workflow
-      const [iaRes, archiveRunsRes, convertRunsRes] = await Promise.all([
+      // Fetch from IA and the unified pipeline workflow
+      const [iaRes, pipelineRunsRes] = await Promise.all([
         fetch(IA_SEARCH_URL).catch(() => null),
-        fetch(ARCHIVE_RUNS_URL).catch(() => null),
-        fetch(CONVERT_RUNS_URL).catch(() => null)
+        fetch(PIPELINE_RUNS_URL).catch(() => null)
       ]);
 
       if (iaRes && iaRes.ok) {
@@ -155,41 +153,25 @@ export default function App() {
         setError("Internet Archive API Indisponível");
       }
 
-      // Combine runs from both workflows for complete health picture
-      const allRuns: ActionRun[] = [];
-      let totalRuns = 0;
-      let successCount = 0;
-
-      if (archiveRunsRes && archiveRunsRes.ok) {
-        const archiveData = await archiveRunsRes.json();
-        const archiveRuns = (archiveData.workflow_runs || []).map((r: any) => ({
+      // Process pipeline runs for health metrics
+      if (pipelineRunsRes && pipelineRunsRes.ok) {
+        const pipelineData = await pipelineRunsRes.json();
+        const pipelineRuns: ActionRun[] = (pipelineData.workflow_runs || []).map((r: any) => ({
           ...r,
-          workflowName: 'Archive ZIPs'
+          workflowName: 'Data Pipeline'
         }));
-        allRuns.push(...archiveRuns);
-        totalRuns += archiveRuns.length;
-        successCount += archiveRuns.filter((r: ActionRun) => r.conclusion === 'success').length;
-      }
 
-      if (convertRunsRes && convertRunsRes.ok) {
-        const convertData = await convertRunsRes.json();
-        const convertRuns = (convertData.workflow_runs || []).map((r: any) => ({
-          ...r,
-          workflowName: 'Convert Parquet'
-        }));
-        allRuns.push(...convertRuns);
-        totalRuns += convertRuns.length;
-        successCount += convertRuns.filter((r: ActionRun) => r.conclusion === 'success').length;
-      }
-
-      if (allRuns.length > 0) {
         // Sort by creation date, newest first
-        allRuns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setRuns(allRuns);
-        const rate = ((successCount / Math.max(totalRuns, 1)) * 100).toFixed(0);
+        pipelineRuns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setRuns(pipelineRuns);
+
+        // Calculate success rate from recent runs
+        const recentRuns = pipelineRuns.slice(0, 20);
+        const successCount = recentRuns.filter((r: ActionRun) => r.conclusion === 'success').length;
+        const rate = ((successCount / Math.max(recentRuns.length, 1)) * 100).toFixed(0);
         setStats(prev => ({ ...prev, successRate: rate }));
       } else {
-        // Fallback to local stats if both APIs fail
+        // Fallback to local stats if API fails
         const localRes = await fetch(LOCAL_RUNS_URL).catch(() => null);
         if (localRes && localRes.ok) setRuns(await localRes.json());
       }
