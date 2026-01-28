@@ -379,7 +379,7 @@ def main() -> None:
                         print(f"  ERROR processing {entry}: {error}")
 
     total_elapsed = time.time() - total_start
-    avg_time = total_elapsed / len(items) if items else 0
+    avg_time = total_elapsed / len(entries) if entries else 0
     print(f"\n{'='*60}")
     print(
         f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)",
