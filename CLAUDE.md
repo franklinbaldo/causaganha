@@ -85,7 +85,7 @@ djen-scraper/            # Scraping infrastructure (separate)
 ├── archive-zips.yml     # Collection (every 5 min)
 ├── convert-parquet.yml  # Conversion (every 10 min)
 ├── update-catalog.yml   # Catalog generation (daily)
-├── daily-embeddings.yml # Embedding generation
+├── continuous-embeddings.yml  # Embedding generation (hourly)
 └── test.yml             # CI/CD
 
 scripts/
