@@ -99,36 +99,26 @@ We're building a **complete historical archive** of DJEN data:
 
 ## Data Pipeline
 
-### 1. Collection (Every 5 minutes)
+All data processing is handled by a single consolidated workflow (`.github/workflows/pipeline.yml`) that runs every 5 minutes with conditional job execution:
 
-GitHub Actions downloads judicial communications from DJEN for all 91 Brazilian courts and uploads raw ZIPs to Internet Archive.
+| Job | Frequency | Description |
+|-----|-----------|-------------|
+| **Collect** | Every 5 min | Download from DJEN → Upload ZIP to IA |
+| **Convert** | Every 10 min | ZIP → Parquet conversion |
+| **Embed** | Hourly | Generate vector embeddings |
+| **Catalog** | Daily | Update master catalog |
 
-```bash
-# Trigger: .github/workflows/archive-zips.yml
-# Structure: djen-YYYY-MM-DD/djen-YYYY-MM-DD-TRIBUNAL.zip
-```
-
-### 2. Conversion (Every 10 minutes)
-
-Converts ZIPs to optimized Parquet files (ZSTD compressed) and uploads to the same IA item.
+Each job calls a Python script that can be run locally:
 
 ```bash
-# Trigger: .github/workflows/convert-parquet.yml
-# Output: djen-YYYY-MM-DD-TRIBUNAL-{comunicacoes,partes,advogados,...}.parquet
+# Run locally for testing/debugging
+uv run python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
+uv run python scripts/pipeline/convert.py --max-items 10
+uv run python scripts/pipeline/embed.py --max-decisions 100
+uv run python scripts/generate_catalog.py --upload
 ```
 
-### 3. Analysis (Daily)
-
-- Generates embeddings for semantic search
-- Classifies case outcomes (win/loss/partial)
-- Calculates lawyer ratings using OpenSkill algorithm
-
-### 4. Catalog Update (Daily)
-
-Updates the master DuckDB catalog with:
-- Views pointing to all remote Parquet files (query without downloading)
-- Manifest of all files on Internet Archive
-- Backfill tracking (what data needs to be collected)
+See the workflow file for detailed documentation on architecture and configuration.
 
 ## DJEN API
 

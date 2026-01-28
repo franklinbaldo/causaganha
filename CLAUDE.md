@@ -82,14 +82,15 @@ djen-scraper/            # Scraping infrastructure (separate)
 └── scripts/             # convert_to_parquet.py
 
 .github/workflows/       # Automated pipelines
-├── archive-zips.yml     # Collection (every 5 min)
-├── convert-parquet.yml  # Conversion (every 10 min)
-├── update-catalog.yml   # Catalog generation (daily)
-├── daily-embeddings.yml # Embedding generation
+├── pipeline.yml         # Main data pipeline (collect/convert/embed/catalog)
 └── test.yml             # CI/CD
 
 scripts/
-└── generate_catalog.py  # Catalog generation script
+├── generate_catalog.py  # Catalog generation script
+└── pipeline/            # Pipeline step scripts
+    ├── collect.py       # Download from DJEN → upload to IA
+    ├── convert.py       # ZIP → Parquet conversion
+    └── embed.py         # Generate embeddings
 ```
 
 ## Development Setup

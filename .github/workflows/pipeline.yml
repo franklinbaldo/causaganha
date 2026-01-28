@@ -1,0 +1,317 @@
+# ============================================================================
+# CAUSAGANHA DATA PIPELINE
+# ============================================================================
+#
+# This is the main data pipeline workflow that handles all data acquisition,
+# processing, and archival for the CausaGanha project.
+#
+# ARCHITECTURE OVERVIEW:
+# ----------------------
+# The pipeline collects judicial communication data from DJEN (Diário de
+# Justiça Eletrônico Nacional), converts it to analytics-friendly formats,
+# generates embeddings for semantic search, and maintains a master catalog.
+#
+#   DJEN API → Collect → Convert → Embed → Catalog → Internet Archive
+#
+# SCHEDULE:
+# ---------
+# The workflow runs every 5 minutes but not all jobs run every time:
+#
+#   Job          | Frequency    | Condition
+#   -------------|--------------|------------------------------------------
+#   collect      | Every 5 min  | Always runs
+#   convert      | Every 10 min | Runs on even 10-minute marks (0,10,20...)
+#   embed        | Every hour   | Runs at minute 0 of each hour
+#   catalog      | Daily 6 AM   | Runs once per day at 06:00 UTC
+#
+# DATA FLOW:
+# ----------
+# 1. COLLECT: Download ZIPs from DJEN API → Upload to Internet Archive
+#    - Checks what's already on IA to avoid duplicates
+#    - Handles 91 Brazilian courts (TRFs, TJs, TRTs, TREs, Superior courts)
+#    - Structure: djen-YYYY-MM-DD/djen-YYYY-MM-DD-TRIBUNAL.zip
+#
+# 2. CONVERT: Download ZIPs from IA → Convert to Parquet → Upload to IA
+#    - Extracts structured data: comunicacoes, advogados, partes
+#    - ZSTD compression for efficient storage and queries
+#    - Same IA item as source ZIP
+#
+# 3. EMBED: Generate vector embeddings for semantic search
+#    - Uses Jina/Google embedding APIs
+#    - Stores in DuckDB with vector extension
+#    - Exports to Parquet for archival
+#
+# 4. CATALOG: Build master index of all data on Internet Archive
+#    - manifest.parquet: Index of all files
+#    - backfill-needed.parquet: What's missing
+#    - catalog.duckdb: Ready-to-query DuckDB with remote views
+#
+# SECRETS REQUIRED:
+# -----------------
+# - IA_ACCESS_KEY: Internet Archive S3 access key
+# - IA_SECRET_KEY: Internet Archive S3 secret key
+# - JINA_API_KEY: Jina AI API key (for embeddings)
+# - GOOGLE_API_KEY: Google AI API key (for embeddings, optional)
+#
+# MANUAL TRIGGERS:
+# ----------------
+# You can trigger specific jobs manually via workflow_dispatch:
+#   - job: Which job to run (collect, convert, embed, catalog, all)
+#   - date: Specific date to process (YYYY-MM-DD)
+#   - tribunal: Specific tribunal to process (e.g., TJSP)
+#
+# LOCAL DEVELOPMENT:
+# ------------------
+# Each job calls a Python script that can be run locally:
+#   uv run python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
+#   uv run python scripts/pipeline/convert.py --date 2026-01-27
+#   uv run python scripts/pipeline/embed.py --max-decisions 100
+#   uv run python scripts/pipeline/catalog.py --upload
+#
+# ============================================================================
+
+name: Data Pipeline
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which job to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - collect
+          - convert
+          - embed
+          - catalog
+      date:
+        description: 'Specific date (YYYY-MM-DD)'
+        required: false
+      tribunal:
+        description: 'Specific tribunal (e.g., TJSP)'
+        required: false
+
+# Minimal permissions for security
+permissions:
+  contents: read
+
+# Only one pipeline run at a time
+concurrency:
+  group: data-pipeline
+  cancel-in-progress: false
+
+env:
+  DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  # ==========================================================================
+  # JOB: COLLECT
+  # ==========================================================================
+  # Downloads judicial communications from DJEN and uploads to Internet Archive.
+  # Runs every 5 minutes to catch new publications quickly.
+  # ==========================================================================
+  collect:
+    name: Collect DJEN Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+
+    # Always run on schedule, or when manually triggered with job=collect|all
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.job == 'collect' ||
+      github.event.inputs.job == 'all'
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv sync --no-dev
+
+      - name: Configure Internet Archive
+        run: |
+          mkdir -p ~/.config/internetarchive
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+
+      - name: Run collection
+        run: |
+          uv run python scripts/pipeline/collect.py \
+            --proxy-url "$DJEN_PROXY_URL" \
+            --max-items 50 \
+            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }} \
+            ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
+
+  # ==========================================================================
+  # JOB: CONVERT
+  # ==========================================================================
+  # Converts ZIP files to Parquet format for efficient analytics.
+  # Runs every 10 minutes (skips odd 5-minute intervals).
+  # ==========================================================================
+  convert:
+    name: Convert to Parquet
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    needs: collect
+
+    # Run every 10 minutes (when minute is 0, 10, 20, 30, 40, 50)
+    # Or when manually triggered with job=convert|all
+    if: |
+      (github.event_name == 'schedule' && contains('0,10,20,30,40,50', format('{0}', github.run_number))) ||
+      github.event.inputs.job == 'convert' ||
+      github.event.inputs.job == 'all'
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv sync --no-dev
+
+      - name: Configure Internet Archive
+        run: |
+          mkdir -p ~/.config/internetarchive
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+
+      - name: Run conversion
+        run: |
+          uv run python scripts/pipeline/convert.py \
+            --max-items 20 \
+            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }}
+
+  # ==========================================================================
+  # JOB: EMBED
+  # ==========================================================================
+  # Generates vector embeddings for semantic search.
+  # Runs hourly (at minute 0 of each hour).
+  # ==========================================================================
+  embed:
+    name: Generate Embeddings
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    needs: convert
+
+    # Run hourly (when minute is approximately 0)
+    # GitHub Actions cron doesn't guarantee exact timing, so we check run_number
+    # Or when manually triggered with job=embed|all
+    if: |
+      (github.event_name == 'schedule' && contains('0,12,24,36,48,60,72,84,96,108,120', format('{0}', github.run_number))) ||
+      github.event.inputs.job == 'embed' ||
+      github.event.inputs.job == 'all'
+
+    env:
+      JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv sync --no-dev
+
+      - name: Restore embedding cache
+        uses: actions/cache@v4
+        with:
+          path: data/embeddings.duckdb
+          key: embeddings-${{ github.run_number }}
+          restore-keys: embeddings-
+
+      - name: Run embedding generation
+        run: |
+          uv run python scripts/pipeline/embed.py \
+            --max-decisions 500 \
+            --timeout-minutes 50
+
+      - name: Save embedding cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/embeddings.duckdb
+          key: embeddings-${{ github.run_number }}
+
+  # ==========================================================================
+  # JOB: CATALOG
+  # ==========================================================================
+  # Builds master catalog of all data on Internet Archive.
+  # Runs daily at 6 AM UTC (approximately every 288 runs).
+  # ==========================================================================
+  catalog:
+    name: Update Catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    needs: convert
+
+    # Run daily (approximately - check if hour is 6 and minute is 0)
+    # Or when manually triggered with job=catalog|all
+    if: |
+      (github.event_name == 'schedule' && contains('0,288,576,864', format('{0}', github.run_number))) ||
+      github.event.inputs.job == 'catalog' ||
+      github.event.inputs.job == 'all'
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install uv internetarchive
+          uv sync --no-dev
+
+      - name: Configure Internet Archive
+        run: |
+          mkdir -p ~/.config/internetarchive
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+
+      - name: Run catalog generation
+        run: |
+          uv run python scripts/generate_catalog.py --upload
+
+      - name: Summary
+        run: |
+          echo "## Catalog Updated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Catalog URL: https://archive.org/download/causaganha-catalog/catalog.duckdb" >> $GITHUB_STEP_SUMMARY
