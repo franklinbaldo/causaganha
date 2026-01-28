@@ -97,6 +97,10 @@ on:
         description: 'Specific tribunal (e.g., TJSP)'
         required: false
 
+# Minimal permissions for security
+permissions:
+  contents: read
+
 # Only one pipeline run at a time
 concurrency:
   group: data-pipeline
