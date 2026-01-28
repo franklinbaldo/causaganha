@@ -210,15 +210,16 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
         current_destinatarios = []
         for dest in record.get("destinatarios") or []:
             if isinstance(dest, dict):
-                nome = _str(dest.get("nome"))
+                p_nome = _str(dest.get("nome"))
+                p_polo = _str(dest.get("polo"))
                 dest_data = {
                     "comunicacao_id": com_id,
                     "tribunal": tribunal_s,
-                    "nome": nome,
-                    "polo": _str(dest.get("polo")),
+                    "nome": p_nome,
+                    "polo": p_polo,
                 }
                 tables["destinatarios"].append(dest_data)
-                current_destinatarios.append(nome)
+                current_destinatarios.append({"nome": p_nome, "polo": p_polo})
 
         # Advogados (via destinatarioadvogados)
         for dest_adv in record.get("destinatarioadvogados") or []:
@@ -262,13 +263,14 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                     )
 
                     # Create explicit representation mapping (Lawyer -> Party)
-                    for party_name in current_destinatarios:
+                    for party in current_destinatarios:
                         tables["representacoes"].append(
                             {
                                 "comunicacao_id": com_id,
                                 "tribunal": tribunal_s,
                                 "advogado_id": adv_global_id,
-                                "parte_nome": party_name,
+                                "parte_nome": party["nome"],
+                                "polo": party["polo"],
                             },
                         )
 
@@ -338,6 +340,7 @@ TABLE_SCHEMAS = {
             "tribunal": "string",
             "advogado_id": "string",
             "parte_nome": "string",
+            "polo": "string",
         },
     ),
 }
