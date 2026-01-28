@@ -1,0 +1,489 @@
+#!/usr/bin/env python3
+"""Consolidate DJEN ZIP files into daily Parquet files.
+
+This script downloads all ZIP files for a specific date from Internet Archive,
+converts them to consolidated Parquet files (one per table type, all tribunals),
+and uploads them back to IA.
+
+Usage:
+    # Consolidate specific date
+    python scripts/pipeline/consolidate.py --date 2026-01-27
+
+    # Dry run (don't upload)
+    python scripts/pipeline/consolidate.py --date 2026-01-27 --dry-run
+"""
+
+import argparse
+import json
+import subprocess
+import tempfile
+import time
+import uuid
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import httpx
+import ibis
+import structlog
+
+
+logger = structlog.get_logger()
+
+# Table types to consolidate - Defined below via TABLE_SCHEMAS
+
+
+def list_zips_for_date(date: str) -> list[dict[str, Any]]:
+    """Find all ZIP files for a specific date on IA using HTTP API."""
+    logger.info("listing_zips", date=date)
+    item_id = f"djen-{date}"
+    zips: list[dict[str, Any]] = []
+
+    try:
+        # Use IA metadata API
+        url = f"https://archive.org/metadata/{item_id}"
+        response = httpx.get(url, timeout=60)
+
+        if response.status_code == 200:
+            data = response.json()
+            for file_info in data.get("files", []):
+                filename = file_info.get("name", "")
+                if filename.endswith(".zip"):
+                    # Extract tribunal from filename: djen-2026-01-27-TJSP.zip -> TJSP
+                    parts = filename.replace(".zip", "").split("-")
+                    tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
+                    zips.append(
+                        {
+                            "filename": filename,
+                            "tribunal": tribunal,
+                            "item_id": item_id,
+                            "size": file_info.get("size", 0),
+                        },
+                    )
+        else:
+            logger.warning("metadata_fetch_failed", item_id=item_id, status=response.status_code)
+
+    except Exception as e:
+        logger.warning("list_failed", item_id=item_id, error=str(e))
+
+    logger.info("zips_found", count=len(zips), date=date)
+    return zips
+
+
+def download_zip(item_id: str, filename: str, output_path: Path) -> bool:
+    """Download ZIP from Internet Archive using httpx with retries."""
+    url = f"https://archive.org/download/{item_id}/{filename}"
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with httpx.stream("GET", url, follow_redirects=True, timeout=300) as response:
+                if response.status_code == 200:
+                    with output_path.open("wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            f.write(chunk)
+                    return output_path.exists() and output_path.stat().st_size > 0
+                if response.status_code in [502, 503, 504]:
+                    logger.warning(
+                        "download_server_error",
+                        filename=filename,
+                        status=response.status_code,
+                        attempt=attempt + 1,
+                    )
+                    time.sleep(2**attempt)  # Exponential backoff
+                    continue
+                logger.warning(
+                    "download_http_error",
+                    filename=filename,
+                    status=response.status_code,
+                )
+                return False
+        except Exception as e:
+            logger.warning("download_failed", filename=filename, error=str(e), attempt=attempt + 1)
+            time.sleep(2**attempt)
+    return False
+
+
+def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
+    """Extract and parse JSON data from ZIP file."""
+    records: list[dict[str, Any]] = []
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for name in zf.namelist():
+                if name.endswith(".json"):
+                    try:
+                        content = zf.read(name).decode("utf-8")
+                        data = json.loads(content)
+                        if isinstance(data, list):
+                            records.extend(data)
+                        elif isinstance(data, dict):
+                            # Handle wrapped items or direct communication
+                            if "items" in data and isinstance(data["items"], list):
+                                records.extend(data["items"])
+                            else:
+                                records.append(data)
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        continue
+    except zipfile.BadZipFile:
+        logger.warning("bad_zip_file", path=str(zip_path))
+    return records
+
+
+def _str(val: Any) -> str:
+    """Safe string conversion."""
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
+def _uuid5(data: dict[str, Any]) -> str:
+    """Generate deterministic UUIDv5 from dictionary."""
+    canonical = json.dumps(data, sort_keys=True)
+    return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
+
+
+def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, list[dict[str, Any]]]:
+    """Parse JSON records into structured tables based on official DJEN schema."""
+    tables: dict[str, list[dict[str, Any]]] = {
+        "comunicacoes": [],
+        "advogados": [],
+        "destinatarios": [],
+        "comunicacao_advogados": [],
+        "textos": [],
+        "representacoes": [],
+    }
+
+    processed_at = datetime.now().isoformat()
+
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+
+        # Generate deterministic UUIDv5 for the communication
+        # Includes tribunal to ensure uniqueness across sources
+        com_id = _uuid5({**record, "tribunal": tribunal})
+        orig_com_id = _str(record.get("id"))
+        tribunal_s = _str(tribunal)
+
+        # Main communication record
+        tables["comunicacoes"].append(
+            {
+                "id": com_id,
+                "original_id": orig_com_id,
+                "tribunal": tribunal_s,
+                "numero_processo": _str(
+                    record.get("numero_processo") or record.get("numeroProcesso"),
+                ),
+                "numero_processo_mascara": _str(record.get("numeroprocessocommascara")),
+                "data_disponibilizacao": _str(
+                    record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
+                ),
+                "tipo_comunicacao": _str(record.get("tipoComunicacao")),
+                "nome_orgao": _str(record.get("nomeOrgao") or record.get("orgao")),
+                "meio": _str(record.get("meio")),
+                "link": _str(record.get("link")),
+                "tipo_documento": _str(record.get("tipoDocumento")),
+                "nome_classe": _str(record.get("nomeClasse")),
+                "codigo_classe": _str(record.get("codigoClasse")),
+                "numero_comunicacao": _str(record.get("numeroComunicacao")),
+                "hash": _str(record.get("hash")),
+                "processed_at": processed_at,
+            },
+        )
+
+        # Text
+        texto = record.get("texto")
+        if texto:
+            tables["textos"].append(
+                {
+                    "comunicacao_id": com_id,
+                    "tribunal": tribunal_s,
+                    "texto": _str(texto),
+                },
+            )
+
+        # Destinatarios (Parties)
+        current_destinatarios = []
+        for dest in record.get("destinatarios") or []:
+            if isinstance(dest, dict):
+                nome = _str(dest.get("nome"))
+                dest_data = {
+                    "comunicacao_id": com_id,
+                    "tribunal": tribunal_s,
+                    "nome": nome,
+                    "polo": _str(dest.get("polo")),
+                }
+                tables["destinatarios"].append(dest_data)
+                current_destinatarios.append(nome)
+
+        # Advogados (via destinatarioadvogados)
+        for dest_adv in record.get("destinatarioadvogados") or []:
+            if isinstance(dest_adv, dict):
+                adv = dest_adv.get("advogado") or {}
+                orig_adv_id = _str(adv.get("id") or dest_adv.get("advogado_id"))
+
+                # Global Lawyer ID: Deterministic across tribunals
+                # Based on Name, OAB and UF
+                adv_nome = _str(adv.get("nome"))
+                adv_oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
+                adv_uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
+
+                # If we have OAB/UF, use them for a very stable key
+                # Otherwise fallback to Name + Tribunal (less stable but safe)
+                if adv_oab and adv_uf:
+                    adv_global_id = _uuid5({"nome": adv_nome, "oab": adv_oab, "uf": adv_uf})
+                else:
+                    adv_global_id = _uuid5(
+                        {"nome": adv_nome, "tribunal": tribunal_s, "orig_id": orig_adv_id},
+                    )
+
+                tables["comunicacao_advogados"].append(
+                    {
+                        "comunicacao_id": com_id,
+                        "tribunal": tribunal_s,
+                        "advogado_id": adv_global_id,
+                    },
+                )
+
+                if adv:
+                    tables["advogados"].append(
+                        {
+                            "id": adv_global_id,
+                            "original_id": orig_adv_id,
+                            "tribunal": tribunal_s,
+                            "nome": adv_nome,
+                            "numero_oab": adv_oab,
+                            "uf_oab": adv_uf,
+                        },
+                    )
+
+                    # Create explicit representation mapping (Lawyer -> Party)
+                    for party_name in current_destinatarios:
+                        tables["representacoes"].append(
+                            {
+                                "comunicacao_id": com_id,
+                                "tribunal": tribunal_s,
+                                "advogado_id": adv_global_id,
+                                "parte_nome": party_name,
+                            },
+                        )
+
+    return tables
+
+
+# Explicit Schema Definitions using Ibis
+NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
+
+TABLE_SCHEMAS = {
+    "comunicacoes": ibis.schema(
+        {
+            "id": "string",
+            "original_id": "string",
+            "tribunal": "string",
+            "numero_processo": "string",
+            "numero_processo_mascara": "string",
+            "data_disponibilizacao": "string",
+            "tipo_comunicacao": "string",
+            "nome_orgao": "string",
+            "meio": "string",
+            "link": "string",
+            "tipo_documento": "string",
+            "nome_classe": "string",
+            "codigo_classe": "string",
+            "numero_comunicacao": "string",
+            "hash": "string",
+            "processed_at": "string",
+        },
+    ),
+    "advogados": ibis.schema(
+        {
+            "id": "string",
+            "original_id": "string",
+            "tribunal": "string",
+            "nome": "string",
+            "numero_oab": "string",
+            "uf_oab": "string",
+        },
+    ),
+    "destinatarios": ibis.schema(
+        {
+            "comunicacao_id": "string",
+            "tribunal": "string",
+            "nome": "string",
+            "polo": "string",
+        },
+    ),
+    "comunicacao_advogados": ibis.schema(
+        {
+            "comunicacao_id": "string",
+            "tribunal": "string",
+            "advogado_id": "string",
+        },
+    ),
+    "textos": ibis.schema(
+        {
+            "comunicacao_id": "string",
+            "tribunal": "string",
+            "texto": "string",
+        },
+    ),
+    "representacoes": ibis.schema(
+        {
+            "comunicacao_id": "string",
+            "tribunal": "string",
+            "advogado_id": "string",
+            "parte_nome": "string",
+        },
+    ),
+}
+TABLES = list(TABLE_SCHEMAS.keys())
+
+
+def init_tables(con: ibis.BaseBackend) -> None:
+    """Initialize tables with correct schema using Ibis."""
+    for table, schema in TABLE_SCHEMAS.items():
+        con.create_table(table, schema=schema, overwrite=True)
+
+
+def upload_to_ia(item_id: str, file_path: Path) -> bool:
+    """Upload file to Internet Archive using IA CLI."""
+    try:
+        logger.info("uploading_to_ia", item_id=item_id, file=file_path.name)
+        cmd = ["ia", "upload", item_id, str(file_path), "--metadata", "mediatype:data"]
+        # In a real environment, we'd ensure IAS3 keys are set
+        # This assumes the environment is already configured or keys are in ~/.ia
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.returncode == 0
+    except Exception as e:
+        logger.error("upload_failed", item_id=item_id, file=file_path.name, error=str(e))
+        return False
+
+
+def consolidate_date(date: str, *, dry_run: bool = False) -> dict[str, int]:
+    """Consolidate all tribunals for a date into single Parquet files."""
+    stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
+    item_id = f"djen-{date}"
+
+    # Find all ZIPs for this date
+    zips = list_zips_for_date(date)
+    if not zips:
+        logger.warning("no_zips_found", date=date)
+        return stats
+
+    # Use Ibis with DuckDB backend
+    con = ibis.duckdb.connect()
+    init_tables(con)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+
+        for i, zip_info in enumerate(zips):
+            filename = zip_info["filename"]
+            tribunal = zip_info["tribunal"]
+
+            logger.info(
+                "processing_zip",
+                filename=filename,
+                tribunal=tribunal,
+                progress=f"{i+1}/{len(zips)}",
+            )
+
+            # Download ZIP
+            zip_path = tmp_path / filename
+            if not download_zip(item_id, filename, zip_path):
+                logger.warning("download_failed", filename=filename)
+                continue
+
+            # Extract and parse JSON
+            records = extract_json_from_zip(zip_path)
+            if not records:
+                logger.warning("no_records_found", filename=filename)
+                zip_path.unlink()
+                continue
+
+            # Parse into tables
+            tables = parse_records(records, tribunal)
+
+            # Insert into DuckDB immediately to free Python memory
+            for table_name, rows in tables.items():
+                if rows:
+                    # Use ibis memtable with explicit schema for validation
+                    data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
+                    con.insert(table_name, data)
+
+            stats["zips_processed"] += 1
+            stats["records"] += len(records)
+
+            # Clean up to save disk space
+            zip_path.unlink()
+
+        # Write consolidated Parquet files
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        for table_name in TABLES:
+            t = con.table(table_name)
+            count = t.count().to_pandas()  # to_pandas() is used here just for the scalar count
+            if count == 0:
+                continue
+
+            output_path = output_dir / f"{table_name}.parquet"
+            try:
+                # Use DuckDB raw export via Ibis for ZSTD compression support
+                # Ibis doesn't expose all Parquet options directly in a unified way easily for ZSTD
+                con.raw_sql(
+                    f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+                )
+                stats["parquets_created"] += 1
+                size_mb = output_path.stat().st_size / (1024 * 1024)
+                logger.info(
+                    "parquet_created",
+                    table=table_name,
+                    rows=count,
+                    size_mb=f"{size_mb:.1f}",
+                )
+
+                # Upload if not dry run
+                if not dry_run and upload_to_ia(item_id, output_path):
+                    stats["uploaded"] += 1
+                    logger.info("uploaded", table=table_name)
+            except Exception as e:
+                logger.error("parquet_export_failed", table=table_name, error=str(e))
+
+    return stats
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Consolidate DJEN ZIPs to daily Parquets")
+    parser.add_argument("--date", required=True, help="Date to consolidate (YYYY-MM-DD)")
+    parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
+    args = parser.parse_args()
+
+    print(f"Consolidating DJEN data for {args.date}...")
+    if args.dry_run:
+        print("(DRY RUN - will not upload)")
+    print()
+
+    try:
+        stats = consolidate_date(args.date, dry_run=args.dry_run)
+    except Exception as e:
+        logger.error("consolidation_aborted", error=str(e))
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
+    print()
+    print("=" * 40)
+    print("CONSOLIDATION SUMMARY")
+    print("=" * 40)
+    print(f"  ZIPs processed:   {stats['zips_processed']}")
+    print(f"  Records:          {stats['records']}")
+    print(f"  Parquets created: {stats['parquets_created']}")
+    print(f"  Uploaded:         {stats['uploaded']}")
+
+    return 0 if stats["parquets_created"] > 0 else 1
+
+
+if __name__ == "__main__":
+    exit(main())

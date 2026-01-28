@@ -160,13 +160,13 @@ jobs:
             ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
 
   # ==========================================================================
-  # JOB: CONVERT
+  # JOB: CONSOLIDATE
   # ==========================================================================
-  # Converts ZIP files to Parquet format for efficient analytics.
+  # Consolidates ZIP files to single Parquet files per day (all tribunals).
   # Runs every 10 minutes (skips odd 5-minute intervals).
   # ==========================================================================
-  convert:
-    name: Convert to Parquet
+  consolidate:
+    name: Consolidate to Parquet
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: dev
@@ -201,10 +201,9 @@ jobs:
           mkdir -p ~/.config/internetarchive
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
 
-      - name: Run conversion
+      - name: Run consolidation
         run: |
-          uv run python scripts/pipeline/convert.py \
-            --max-items 20 \
+          uv run python scripts/pipeline/consolidate.py \
             ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }}
 
   # ==========================================================================
@@ -217,7 +216,7 @@ jobs:
     name: Generate Embeddings
     runs-on: ubuntu-latest
     timeout-minutes: 55
-    needs: convert
+    needs: consolidate
 
     # Run hourly (when minute is approximately 0)
     # GitHub Actions cron doesn't guarantee exact timing, so we check run_number
@@ -275,7 +274,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev
-    needs: convert
+    needs: consolidate
 
     # Run daily (approximately - check if hour is 6 and minute is 0)
     # Or when manually triggered with job=catalog|all

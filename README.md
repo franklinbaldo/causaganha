@@ -39,12 +39,14 @@ We're building a **complete historical archive** of DJEN data:
 4. **Build the Index**: Master catalog enables querying without downloading everything
 
 **Why Internet Archive?**
+
 - Free, unlimited storage
 - Permanent URLs (data doesn't disappear)
 - Public access (anyone can verify our data)
 - Supports remote queries via HTTP range requests
 
 **Why archive first, analyze later?**
+
 - Data that isn't collected is lost forever
 - Storage is cheap; re-collection is impossible
 - Analysis methods improve; raw data doesn't
@@ -53,7 +55,7 @@ We're building a **complete historical archive** of DJEN data:
 ### Data Coverage
 
 | Metric | Value |
-|--------|-------|
+| :----- | :---- |
 | Courts monitored | 91 (all Brazilian jurisdictions) |
 | Collection frequency | Every 5 minutes |
 | Data format | JSON (raw) → Parquet (analytics) |
@@ -62,8 +64,9 @@ We're building a **complete historical archive** of DJEN data:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
+
 │                           CAUSAGANHA PIPELINE                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -73,28 +76,68 @@ We're building a **complete historical archive** of DJEN data:
 └──────────────┘     └──────────────┘     └──────────────────────────────────┘
                                                          │
                                                          ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                         INTERNET ARCHIVE (Data Lake)                         │
-│                                                                              │
-│  djen-2026-01-01/                    djen-2026-01-02/                        │
-│  ├── djen-2026-01-01-TJSP.zip        ├── djen-2026-01-02-TJSP.zip           │
-│  ├── djen-2026-01-01-TJSP-*.parquet  ├── djen-2026-01-02-TJSP-*.parquet     │
-│  ├── djen-2026-01-01-TJRO.zip        └── ...                                │
-│  └── ...                                                                     │
-│                                                                              │
-│  causaganha-catalog/                                                         │
-│  ├── catalog.duckdb          ← Master catalog with remote views             │
-│  ├── catalog.sql             ← SQL definition (portable)                    │
-│  ├── manifest.parquet        ← Index of all available files                 │
-│  └── backfill-needed.parquet ← What data needs to be collected              │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                          │
-              ┌───────────────────────────┼───────────────────────────┐
-              ▼                           ▼                           ▼
-┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
-│  Convert to Parquet  │   │  Generate Embeddings │   │   Analyze & Score    │
-│   (GitHub Actions)   │   │   (GitHub Actions)   │   │    (OpenSkill)       │
-└──────────────────────┘   └──────────────────────┘   └──────────────────────┘
+### Internet Archive (Consolidated Data Lake)
+
+Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
+
+```
+
+djen-2026-01-27/
+├── djen-2026-01-27-TJSP.zip   ← Raw source
+├── djen-2026-01-27-TJRS.zip   ← Raw source
+├── comunicacoes.parquet       ← Consolidated (all 91 courts)
+├── advogados.parquet          ← Global identifiers (OAB+UF+Name)
+├── representacoes.parquet     ← Materialized Lawyer-Party links
+└── ...
+
+```
+
+## Data Schema
+
+The consolidated data lake follows a future-proofed schema using deterministic **UUIDv5** identifiers for both communications and lawyers, enabling national-level deduplication and stable cross-referencing.
+
+```mermaid
+erDiagram
+    comunicacoes ||--o{ destinatarios : "has"
+    comunicacoes ||--o{ textos : "has"
+    comunicacoes ||--o{ comunicacao_advogados : "notifies"
+    comunicacoes ||--o{ representacoes : "m:n relationship"
+    advogados ||--o{ comunicacao_advogados : "receives"
+    advogados ||--o{ representacoes : "represents"
+
+    comunicacoes {
+        string id PK "UUIDv5 (Canonical JSON + Tribunal)"
+        string original_id "Source ID"
+        string tribunal
+        string numero_processo
+        string data_disponibilizacao
+        string processed_at "ISO-8601"
+    }
+
+    advogados {
+        string id PK "UUIDv5 (Name + OAB + UF)"
+        string original_id "Source ID"
+        string nome
+        string numero_oab
+        string uf_oab
+    }
+
+    destinatarios {
+        string comunicacao_id FK
+        string nome "Party Name"
+        string polo "Active/Passive"
+    }
+
+    representacoes {
+        string comunicacao_id FK
+        string advogado_id FK
+        string parte_nome "Denormalized for performance"
+    }
+
+    textos {
+        string comunicacao_id FK
+        string texto "Full document body"
+    }
 ```
 
 ## Data Pipeline
@@ -102,7 +145,7 @@ We're building a **complete historical archive** of DJEN data:
 All data processing is handled by a single consolidated workflow (`.github/workflows/pipeline.yml`) that runs every 5 minutes with conditional job execution:
 
 | Job | Frequency | Description |
-|-----|-----------|-------------|
+| :-- | :-------- | :---------- |
 | **Collect** | Every 5 min | Download from DJEN → Upload ZIP to IA |
 | **Convert** | Every 10 min | ZIP → Parquet conversion |
 | **Embed** | Hourly | Generate vector embeddings |
@@ -185,8 +228,9 @@ See [docs/CATALOG.md](docs/CATALOG.md) for detailed documentation.
 
 ## Project Structure
 
-```
+```text
 causaganha/
+
 ├── src/causaganha/          # Main Python package
 │   ├── cli/                 # Typer CLI commands
 │   ├── pipeline/            # Data pipeline (collect, analyze, score)
@@ -208,7 +252,7 @@ causaganha/
 All data is publicly archived on Internet Archive:
 
 | Item Pattern | Contents |
-|--------------|----------|
+| :----------- | :------- |
 | `djen-YYYY-MM-DD` | Raw ZIPs + Parquet files for one day |
 | `causaganha-catalog` | Master DuckDB catalog + manifest |
 | `causaganha-embeddings-*` | Embedding vectors for semantic search |
