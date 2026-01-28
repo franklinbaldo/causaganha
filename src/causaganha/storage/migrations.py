@@ -1,6 +1,7 @@
-"""Database migrations for CausaGanha v2.
+"""Database migrations for CausaGanha.
 
-Run migrations with: uv run python -m causaganha.v2.storage.migrations
+Run migrations with: causaganha db migrate
+Or directly: uv run python -m causaganha.storage.migrations
 """
 
 import structlog
@@ -244,7 +245,7 @@ if __name__ == "__main__":
         else:
             print(f"Unknown command: {cmd}")
             print(
-                "Usage: python -m causaganha.v2.storage.migrations [status|dry-run|rollback [version]]",
+                "Usage: python -m causaganha.storage.migrations [status|dry-run|rollback [version]]",
             )
 
     else:
