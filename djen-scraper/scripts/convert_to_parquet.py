@@ -58,15 +58,25 @@ def timed(name: str):
     return Timer(name)
 
 
-def process_item(item_id: str) -> bool:
-    """Process a single Internet Archive item."""
-    # Parse item_id: djen-raw-2026-01-21-TJSP
-    parts = item_id.replace("djen-raw-", "").rsplit("-", 1)
-    date = parts[0]
-    tribunal = parts[1]
+def process_item(entry: str) -> bool:
+    """Process a single ZIP file from Internet Archive.
+
+    Args:
+        entry: Either "DATE|TRIBUNAL" format or legacy "djen-raw-DATE-TRIBUNAL" item_id
+    """
+    # Support both new format (DATE|TRIBUNAL) and legacy format (djen-raw-DATE-TRIBUNAL)
+    if "|" in entry:
+        date, tribunal = entry.split("|", 1)
+        item_id = f"djen-raw-{date}"
+    else:
+        # Legacy format: djen-raw-2026-01-21-TJSP
+        parts = entry.replace("djen-raw-", "").rsplit("-", 1)
+        date = parts[0]
+        tribunal = parts[1]
+        item_id = f"djen-raw-{date}"
 
     print(f"\n{'='*60}")
-    print(f"Processing: {item_id}")
+    print(f"Processing: {tribunal} from {item_id}")
     print(f"  Date: {date}, Tribunal: {tribunal}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -313,21 +323,21 @@ def process_item(item_id: str) -> bool:
         return True
 
 
-def process_item_safe(item_id: str) -> tuple[str, bool, str]:
+def process_item_safe(entry: str) -> tuple[str, bool, str]:
     """Wrapper for process_item that catches exceptions."""
     try:
-        result = process_item(item_id)
-        return (item_id, result, "")
+        result = process_item(entry)
+        return (entry, result, "")
     except Exception:
         import traceback
 
-        return (item_id, False, traceback.format_exc())
+        return (entry, False, traceback.format_exc())
 
 
 def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python convert_to_parquet.py <batch_file>")
-        print("  batch_file: file with one item ID per line")
+        print("  batch_file: file with DATE|TRIBUNAL entries per line")
         sys.exit(1)
 
     batch_file = Path(sys.argv[1])
@@ -335,17 +345,17 @@ def main() -> None:
         print(f"ERROR: File not found: {batch_file}")
         sys.exit(1)
 
-    # Read items
-    items = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(items)} items using DuckDB with {MAX_WORKERS} workers")
+    # Read entries (DATE|TRIBUNAL format)
+    entries = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
+    print(f"Processing {len(entries)} entries using DuckDB with {MAX_WORKERS} workers")
 
     success = 0
     failed = 0
     total_start = time.time()
 
-    if len(items) == 1:
-        # Single item - no need for parallelism
-        item_id, result, error = process_item_safe(items[0])
+    if len(entries) == 1:
+        # Single entry - no need for parallelism
+        entry, result, error = process_item_safe(entries[0])
         if result:
             success += 1
         else:
@@ -353,18 +363,18 @@ def main() -> None:
             if error:
                 print(f"  ERROR: {error}")
     else:
-        # Multiple items - process in parallel
+        # Multiple entries - process in parallel
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(process_item_safe, item_id): item_id for item_id in items}
+            futures = {executor.submit(process_item_safe, entry): entry for entry in entries}
 
             for future in as_completed(futures):
-                item_id, result, error = future.result()
+                entry, result, error = future.result()
                 if result:
                     success += 1
                 else:
                     failed += 1
                     if error:
-                        print(f"  ERROR processing {item_id}: {error}")
+                        print(f"  ERROR processing {entry}: {error}")
 
     total_elapsed = time.time() - total_start
     avg_time = total_elapsed / len(items) if items else 0

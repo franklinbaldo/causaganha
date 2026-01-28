@@ -5,8 +5,11 @@ on:
     - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
     inputs:
-      item_id:
-        description: 'Specific item to convert (e.g., djen-raw-2026-01-21-TJSP)'
+      date:
+        description: 'Specific date to convert (YYYY-MM-DD)'
+        required: false
+      tribunal:
+        description: 'Specific tribunal (e.g., TJSP) - optional'
         required: false
 
 concurrency:
@@ -14,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAX_ITEMS_PER_RUN: 50
+  MAX_FILES_PER_RUN: 50
 
 jobs:
   convert:
@@ -40,30 +43,78 @@ jobs:
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
           echo "Dependencies installed, IA config created"
 
-      - name: Find items to convert
+      - name: Find ZIPs to convert
         id: find
         run: |
-          # Handle specific item input
-          if [ -n "${{ inputs.item_id }}" ]; then
-            echo "${{ inputs.item_id }}" > batch.txt
-            echo "batch_size=1" >> $GITHUB_OUTPUT
-            echo "total=1" >> $GITHUB_OUTPUT
-            exit 0
+          # Handle specific date/tribunal input
+          SPECIFIC_DATE="${{ inputs.date }}"
+          SPECIFIC_TRIBUNAL="${{ inputs.tribunal }}"
+
+          if [ -n "$SPECIFIC_DATE" ]; then
+            ITEM_ID="djen-raw-${SPECIFIC_DATE}"
+            echo "Processing specific item: $ITEM_ID"
+
+            # List ZIPs in the item
+            uv run ia list "$ITEM_ID" 2>/dev/null | grep '\.zip$' > all_zips.txt || touch all_zips.txt
+
+            # List existing Parquets
+            uv run ia list "$ITEM_ID" 2>/dev/null | grep '\.parquet$' > existing_parquets.txt || touch existing_parquets.txt
+
+            # Find ZIPs without corresponding parquets
+            > to_convert.txt
+            while read -r ZIP; do
+              # Extract tribunal from ZIP name (e.g., TJSP-2026-01-21.zip -> TJSP)
+              TRIBUNAL=$(echo "$ZIP" | cut -d'-' -f1)
+
+              # Filter by specific tribunal if provided
+              if [ -n "$SPECIFIC_TRIBUNAL" ] && [ "$TRIBUNAL" != "$SPECIFIC_TRIBUNAL" ]; then
+                continue
+              fi
+
+              # Check if parquet exists (look for comunicacoes parquet as indicator)
+              PARQUET="${TRIBUNAL}-${SPECIFIC_DATE}-comunicacoes.parquet"
+              if ! grep -q "^${PARQUET}$" existing_parquets.txt; then
+                echo "${SPECIFIC_DATE}|${TRIBUNAL}" >> to_convert.txt
+              fi
+            done < all_zips.txt
+          else
+            echo "Finding all items with unconverted ZIPs..."
+
+            # Get all djen-raw items
+            uv run ia search 'identifier:djen-raw-*' --itemlist > items.txt 2>/dev/null || touch items.txt
+
+            > to_convert.txt
+            while read -r ITEM_ID; do
+              # Extract date from item ID (djen-raw-2026-01-21 -> 2026-01-21)
+              DATE=$(echo "$ITEM_ID" | sed 's/djen-raw-//')
+
+              # List files in item
+              uv run ia list "$ITEM_ID" 2>/dev/null > item_files.txt || continue
+
+              # Find ZIPs
+              grep '\.zip$' item_files.txt > item_zips.txt 2>/dev/null || continue
+
+              # Find existing Parquets
+              grep '\.parquet$' item_files.txt > item_parquets.txt 2>/dev/null || touch item_parquets.txt
+
+              # Check each ZIP
+              while read -r ZIP; do
+                TRIBUNAL=$(echo "$ZIP" | cut -d'-' -f1)
+                PARQUET="${TRIBUNAL}-${DATE}-comunicacoes.parquet"
+
+                if ! grep -q "^${PARQUET}$" item_parquets.txt; then
+                  echo "${DATE}|${TRIBUNAL}" >> to_convert.txt
+                fi
+              done < item_zips.txt
+
+            done < items.txt
           fi
 
-          echo "Fetching raw items from IA..."
-          uv run ia search 'identifier:djen-raw-*' --itemlist > raw_items.txt 2>/dev/null || touch raw_items.txt
-          RAW_COUNT=$(wc -l < raw_items.txt | tr -d ' ')
-          echo "Found $RAW_COUNT raw items"
-
-          echo "Fetching raw items from IA..."
-          uv run ia search 'identifier:djen-raw-* AND NOT format:Parquet' --itemlist > to_convert.txt 2>/dev/null || touch to_convert.txt
-
           TOTAL=$(wc -l < to_convert.txt | tr -d ' ')
-          echo "Found $TOTAL items to convert"
+          echo "Found $TOTAL ZIPs to convert"
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
 
-          head -n $MAX_ITEMS_PER_RUN to_convert.txt > batch.txt
+          head -n $MAX_FILES_PER_RUN to_convert.txt > batch.txt
           BATCH_SIZE=$(wc -l < batch.txt | tr -d ' ')
           echo "batch_size=$BATCH_SIZE" >> $GITHUB_OUTPUT
 
@@ -77,3 +128,7 @@ jobs:
           echo "## Convert Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Total pending: ${{ steps.find.outputs.total }}" >> $GITHUB_STEP_SUMMARY
           echo "- Batch processed: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Structure" >> $GITHUB_STEP_SUMMARY
+          echo "- Parquets uploaded to same item as source ZIP" >> $GITHUB_STEP_SUMMARY
+          echo "- Item: \`djen-raw-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
