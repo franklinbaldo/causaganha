@@ -75,12 +75,12 @@ jobs:
           echo "Loaded $(wc -l < state/unavailable.txt | tr -d ' ') unavailable items from state"
 
           # Get existing files from IA (check which ZIPs already exist)
-          # Structure: one item per day (djen-raw-YYYY-MM-DD), multiple files per item
+          # Structure: one item per day (djen-YYYY-MM-DD), multiple files per item
           echo "Fetching existing files from IA..."
           > existing_files.txt
 
           # Get list of items first
-          ia search 'identifier:djen-raw-*' --itemlist 2>/dev/null | while read -r ITEM_ID; do
+          ia search 'identifier:djen-20*' --itemlist 2>/dev/null | while read -r ITEM_ID; do
             # For each item, list its files (ZIPs only)
             ia list "$ITEM_ID" 2>/dev/null | grep '\.zip$' >> existing_files.txt || true
           done
@@ -111,7 +111,7 @@ jobs:
 
               for TRIBUNAL in $TRIBUNAIS; do
                 # Check if ZIP file already exists on IA
-                ZIP_NAME="${TRIBUNAL}-${DATE}.zip"
+                ZIP_NAME="djen-${DATE}-${TRIBUNAL}.zip"
                 if grep -q "^${ZIP_NAME}$" existing_files.txt; then
                   continue
                 fi
@@ -146,7 +146,7 @@ jobs:
             echo "📥 $TRIBUNAL $DATE"
 
             # Item ID is per day (all tribunals for that day go in same item)
-            ITEM_ID="djen-raw-${DATE}"
+            ITEM_ID="djen-${DATE}"
 
             # Get caderno info from DJEN API
             INFO=$(curl -sf "$DJEN_API/api/v1/caderno/$TRIBUNAL/$DATE/D" 2>/dev/null || echo "")
@@ -163,8 +163,8 @@ jobs:
             TOTAL=$(echo "$INFO" | jq -r '.total_comunicacoes // 0')
             VERSAO=$(echo "$INFO" | jq -r '.versao // 1')
 
-            # Filename pattern: TRIBUNAL-DATE.zip (standardized)
-            ZIP_NAME="${TRIBUNAL}-${DATE}.zip"
+            # Filename pattern: djen-DATE-TRIBUNAL.zip (standardized)
+            ZIP_NAME="djen-${DATE}-${TRIBUNAL}.zip"
 
             echo "   📊 $TOTAL comunicacoes, Versao: $VERSAO"
 
@@ -191,9 +191,9 @@ jobs:
             UPLOAD_OUTPUT=$(ia upload "$ITEM_ID" "$ZIP_NAME" \
               --metadata="collection:opensource" \
               --metadata="mediatype:data" \
-              --metadata="title:DJEN Raw Data - ${DATE}" \
-              --metadata="description:Diario de Justica Eletronico Nacional - Raw ZIP files for ${DATE}. Contains judicial communications from all Brazilian courts." \
-              --metadata="subject:brazilian-law;djen;legal;judiciary;open-data" \
+              --metadata="title:DJEN Data - ${DATE}" \
+              --metadata="description:Diario de Justica Eletronico Nacional - Data for ${DATE}. Contains judicial communications (ZIPs and Parquets) from all Brazilian courts." \
+              --metadata="subject:brazilian-law;djen;legal;judiciary;open-data;parquet" \
               --metadata="creator:CausaGanha" \
               --metadata="date:$DATE" \
               --retries=3 \
@@ -243,7 +243,8 @@ jobs:
           echo "- ⚠️ Unavailable: $UNAVAILABLE tribunal/date combos" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Structure" >> $GITHUB_STEP_SUMMARY
-          echo "- One IA item per day: \`djen-raw-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- One IA item per day: \`djen-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Files: \`djen-YYYY-MM-DD-TRIBUNAL.zip\`" >> $GITHUB_STEP_SUMMARY
           echo "- All tribunals for that day in same item" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### This Run" >> $GITHUB_STEP_SUMMARY

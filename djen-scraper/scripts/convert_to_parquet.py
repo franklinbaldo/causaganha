@@ -64,16 +64,17 @@ def process_item(entry: str) -> bool:
     Args:
         entry: Either "DATE|TRIBUNAL" format or legacy "djen-raw-DATE-TRIBUNAL" item_id
     """
-    # Support both new format (DATE|TRIBUNAL) and legacy format (djen-raw-DATE-TRIBUNAL)
+    # Support both new format (DATE|TRIBUNAL) and legacy format (djen-DATE-TRIBUNAL)
     if "|" in entry:
         date, tribunal = entry.split("|", 1)
-        item_id = f"djen-raw-{date}"
+        item_id = f"djen-{date}"
     else:
-        # Legacy format: djen-raw-2026-01-21-TJSP
-        parts = entry.replace("djen-raw-", "").rsplit("-", 1)
+        # Legacy format: djen-2026-01-21-TJSP or djen-raw-2026-01-21-TJSP
+        entry = entry.replace("djen-raw-", "djen-")
+        parts = entry.replace("djen-", "").rsplit("-", 1)
         date = parts[0]
         tribunal = parts[1]
-        item_id = f"djen-raw-{date}"
+        item_id = f"djen-{date}"
 
     print(f"\n{'='*60}")
     print(f"Processing: {tribunal} from {item_id}")
@@ -85,9 +86,10 @@ def process_item(entry: str) -> bool:
 
         # Try to download the ZIP file
         # We try multiple patterns for backward compatibility:
-        # 1. New pattern: {tribunal}-{date}.zip
-        # 2. Legacy pattern: caderno.zip
-        zip_filenames = [f"{tribunal}-{date}.zip", "caderno.zip"]
+        # 1. New pattern: djen-{date}-{tribunal}.zip
+        # 2. Old pattern: {tribunal}-{date}.zip
+        # 3. Legacy pattern: caderno.zip
+        zip_filenames = [f"djen-{date}-{tribunal}.zip", f"{tribunal}-{date}.zip", "caderno.zip"]
         download_success = False
 
         for zip_filename in zip_filenames:
@@ -287,7 +289,7 @@ def process_item(entry: str) -> bool:
 
         with timed("write parquet"):
             for table in tables:
-                filename = f"{tribunal}-{date}-{table}.parquet"
+                filename = f"djen-{date}-{tribunal}-{table}.parquet"
                 path = out_dir / filename
                 # Write with optimized compression (level 3 balances speed/size)
                 con.execute(f"""

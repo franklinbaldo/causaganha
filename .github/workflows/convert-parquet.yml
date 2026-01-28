@@ -51,7 +51,7 @@ jobs:
           SPECIFIC_TRIBUNAL="${{ inputs.tribunal }}"
 
           if [ -n "$SPECIFIC_DATE" ]; then
-            ITEM_ID="djen-raw-${SPECIFIC_DATE}"
+            ITEM_ID="djen-${SPECIFIC_DATE}"
             echo "Processing specific item: $ITEM_ID"
 
             # List ZIPs in the item
@@ -63,8 +63,8 @@ jobs:
             # Find ZIPs without corresponding parquets
             > to_convert.txt
             while read -r ZIP; do
-              # Extract tribunal from ZIP name (e.g., TJSP-2026-01-21.zip -> TJSP)
-              TRIBUNAL=$(echo "$ZIP" | cut -d'-' -f1)
+              # Extract tribunal from ZIP name (e.g., djen-2026-01-21-TJSP.zip -> TJSP)
+              TRIBUNAL=$(echo "$ZIP" | sed 's/djen-[0-9-]*-//' | sed 's/\.zip$//')
 
               # Filter by specific tribunal if provided
               if [ -n "$SPECIFIC_TRIBUNAL" ] && [ "$TRIBUNAL" != "$SPECIFIC_TRIBUNAL" ]; then
@@ -72,7 +72,7 @@ jobs:
               fi
 
               # Check if parquet exists (look for comunicacoes parquet as indicator)
-              PARQUET="${TRIBUNAL}-${SPECIFIC_DATE}-comunicacoes.parquet"
+              PARQUET="djen-${SPECIFIC_DATE}-${TRIBUNAL}-comunicacoes.parquet"
               if ! grep -q "^${PARQUET}$" existing_parquets.txt; then
                 echo "${SPECIFIC_DATE}|${TRIBUNAL}" >> to_convert.txt
               fi
@@ -80,13 +80,13 @@ jobs:
           else
             echo "Finding all items with unconverted ZIPs..."
 
-            # Get all djen-raw items
-            uv run ia search 'identifier:djen-raw-*' --itemlist > items.txt 2>/dev/null || touch items.txt
+            # Get all djen items (djen-YYYY-MM-DD format)
+            uv run ia search 'identifier:djen-20*' --itemlist > items.txt 2>/dev/null || touch items.txt
 
             > to_convert.txt
             while read -r ITEM_ID; do
-              # Extract date from item ID (djen-raw-2026-01-21 -> 2026-01-21)
-              DATE=$(echo "$ITEM_ID" | sed 's/djen-raw-//')
+              # Extract date from item ID (djen-2026-01-21 -> 2026-01-21)
+              DATE=$(echo "$ITEM_ID" | sed 's/djen-//')
 
               # List files in item
               uv run ia list "$ITEM_ID" 2>/dev/null > item_files.txt || continue
@@ -99,8 +99,9 @@ jobs:
 
               # Check each ZIP
               while read -r ZIP; do
-                TRIBUNAL=$(echo "$ZIP" | cut -d'-' -f1)
-                PARQUET="${TRIBUNAL}-${DATE}-comunicacoes.parquet"
+                # Extract tribunal from ZIP name (djen-2026-01-21-TJSP.zip -> TJSP)
+                TRIBUNAL=$(echo "$ZIP" | sed 's/djen-[0-9-]*-//' | sed 's/\.zip$//')
+                PARQUET="djen-${DATE}-${TRIBUNAL}-comunicacoes.parquet"
 
                 if ! grep -q "^${PARQUET}$" item_parquets.txt; then
                   echo "${DATE}|${TRIBUNAL}" >> to_convert.txt
@@ -131,4 +132,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Structure" >> $GITHUB_STEP_SUMMARY
           echo "- Parquets uploaded to same item as source ZIP" >> $GITHUB_STEP_SUMMARY
-          echo "- Item: \`djen-raw-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Item: \`djen-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Files: \`djen-YYYY-MM-DD-TRIBUNAL-*.parquet\`" >> $GITHUB_STEP_SUMMARY
