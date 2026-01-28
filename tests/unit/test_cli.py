@@ -55,10 +55,11 @@ def test_analyze_command():
         mock_analyze.assert_called_once()
 
 
-def test_collect_command_disabled():
-    result = runner.invoke(app, ["collect"])
-    assert result.exit_code == 0
-    assert "Collection currently disabled" in result.stdout
+def test_collect_command():
+    with patch("causaganha.cli.collect_metadata_for_all_courts", new_callable=AsyncMock) as mock_collect:
+        result = runner.invoke(app, ["collect", "--days-back", "1"])
+        assert result.exit_code == 0
+        mock_collect.assert_called_once()
 
 
 def test_groundtruth_init() -> None:

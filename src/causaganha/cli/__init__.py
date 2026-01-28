@@ -15,7 +15,7 @@ from causaganha.pipeline.analyze import analyze_pending_decisions
 from causaganha.pipeline.analyze_parquet import analyze_from_parquet
 
 # from causaganha.pipeline.archive import archive_documents
-from causaganha.pipeline.collect import collect_metadata_for_all_courts
+from causaganha.v2.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
 

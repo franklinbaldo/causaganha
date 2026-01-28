@@ -122,6 +122,34 @@ def test_store_lawyer_associations(con: Backend) -> None:
     assert count_2 == 1
 
 
+def test_store_lawyer_associations_batch(con: Backend) -> None:
+    """Test storing lawyer associations in batch."""
+    intimation_1 = 1
+    intimation_2 = 2
+    lawyer_1 = MockLawyerWrapper(
+        advogado=MockLawyer(numero_oab="111", uf_oab="SP", nome="Lawyer 1"),
+    )
+    lawyer_2 = MockLawyerWrapper(
+        advogado=MockLawyer(numero_oab="222", uf_oab="SP", nome="Lawyer 2"),
+    )
+
+    items = [
+        (intimation_1, [lawyer_1]),
+        (intimation_2, [lawyer_2]),
+    ]
+
+    from causaganha.storage.repositories.intimation import (
+        store_lawyer_associations_batch,
+    )
+
+    count = store_lawyer_associations_batch(con, items)
+    assert count == 2
+
+    t = con.table("intimation_lawyers")
+    res = t.filter(t.intimation_id.isin([intimation_1, intimation_2])).to_pandas()
+    assert len(res) == 2
+
+
 def test_get_lawyer_name(con: Backend) -> None:
     """Test getting lawyer name."""
     intimation_id = 111

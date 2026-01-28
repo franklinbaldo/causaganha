@@ -236,3 +236,40 @@ def mark_as_archived(
         """,
         [ia_url, intimation_id],
     )
+
+
+def store_lawyer_associations_batch(
+    con: Backend,
+    items: list[tuple[int, list[Any]]],
+) -> int:
+    """Store lawyer associations for multiple intimations in batch."""
+    if not items:
+        return 0
+
+    flat_data = []
+    for intimation_id, lawyers in items:
+        for lawyer_data in lawyers:
+            advogado = lawyer_data.advogado
+            flat_data.append(
+                (intimation_id, advogado.numero_oab, advogado.uf_oab, advogado.nome)
+            )
+
+    if not flat_data:
+        return 0
+
+    try:
+        con.con.executemany(
+            """
+            INSERT INTO intimation_lawyers (
+                intimation_id, oab_number, oab_state, lawyer_name
+            ) VALUES (
+                ?, ?, ?, ?
+            )
+            ON CONFLICT DO NOTHING
+            """,
+            flat_data,
+        )
+        return len(flat_data)
+    except Exception as e:
+        logger.error("lawyer_association_batch_failed", error=str(e))
+        return 0
