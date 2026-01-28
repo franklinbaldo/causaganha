@@ -33,9 +33,10 @@ Eliminate information asymmetry in the Brazilian legal market through transparen
 │  └── ...                                                                     │
 │                                                                              │
 │  causaganha-catalog/                                                         │
-│  ├── catalog.duckdb        ← Master catalog with remote views               │
-│  ├── catalog.sql           ← SQL definition (portable)                      │
-│  └── manifest.parquet      ← Index of all available files                   │
+│  ├── catalog.duckdb          ← Master catalog with remote views             │
+│  ├── catalog.sql             ← SQL definition (portable)                    │
+│  ├── manifest.parquet        ← Index of all available files                 │
+│  └── backfill-needed.parquet ← What data needs to be collected              │
 └──────────────────────────────────────────────────────────────────────────────┘
                                           │
               ┌───────────────────────────┼───────────────────────────┐
@@ -72,9 +73,12 @@ Converts ZIPs to optimized Parquet files (ZSTD compressed) and uploads to the sa
 - Classifies case outcomes (win/loss/partial)
 - Calculates lawyer ratings using OpenSkill algorithm
 
-### 4. Catalog Update (Weekly)
+### 4. Catalog Update (Daily)
 
-Updates the master DuckDB catalog with views pointing to all remote Parquet files, enabling direct queries without downloading data.
+Updates the master DuckDB catalog with:
+- Views pointing to all remote Parquet files (query without downloading)
+- Manifest of all files on Internet Archive
+- Backfill tracking (what data needs to be collected)
 
 ## DJEN API
 
@@ -111,6 +115,33 @@ causaganha db status
 causaganha parquet download TJRO 2026-01-15
 causaganha parquet analyze TJRO 2026-01-15
 ```
+
+## Catalog System
+
+The master catalog provides an index of all DJEN data on Internet Archive:
+
+```bash
+# Download catalog (< 10 MB)
+causaganha catalog download
+
+# Check what data is missing
+causaganha catalog backfill-status
+
+# Query the catalog
+causaganha catalog query "SELECT * FROM manifest WHERE tribunal = 'TJSP' LIMIT 10"
+```
+
+Query remote data directly (no download needed):
+
+```sql
+-- Open catalog in DuckDB
+duckdb causaganha-catalog/catalog.duckdb
+
+-- Query remote Parquet files on Internet Archive
+SELECT tribunal, COUNT(*) FROM comunicacoes GROUP BY tribunal;
+```
+
+See [docs/CATALOG.md](docs/CATALOG.md) for detailed documentation.
 
 ## Project Structure
 

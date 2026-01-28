@@ -85,8 +85,12 @@ djen-scraper/            # Scraping infrastructure (separate)
 .github/workflows/       # Automated pipelines
 ├── archive-zips.yml     # Collection (every 5 min)
 ├── convert-parquet.yml  # Conversion (every 10 min)
+├── update-catalog.yml   # Catalog generation (daily)
 ├── daily-embeddings.yml # Embedding generation
 └── test.yml             # CI/CD
+
+scripts/
+└── generate_catalog.py  # Catalog generation script
 ```
 
 ## Development Setup
@@ -117,7 +121,12 @@ causaganha groundtruth init
 causaganha groundtruth sync
 causaganha groundtruth search "query"
 
-# Catalog management
+# Catalog management (Internet Archive)
+causaganha catalog download                    # Download catalog from IA
+causaganha catalog backfill-status             # Show what data is missing
+causaganha catalog query "SELECT * FROM manifest LIMIT 10"
+
+# Catalog management (Local)
 causaganha catalog create --output catalog.duckdb
 causaganha catalog validate catalog.duckdb
 ```
@@ -149,7 +158,8 @@ djen-YYYY-MM-DD/                       ← Item per day
 causaganha-catalog/                    ← Master catalog
 ├── catalog.duckdb                     ← DuckDB with remote views
 ├── catalog.sql                        ← SQL definition (portable)
-└── manifest.parquet                   ← Index of all files
+├── manifest.parquet                   ← Index of all files on IA
+└── backfill-needed.parquet            ← What data needs to be collected
 ```
 
 ## DJEN Proxy
@@ -163,6 +173,7 @@ The DJEN API is geo-blocked to Brazilian IPs. We use a proxy on Google Cloud Run
 ## Key Documentation
 
 - `README.md` - Project overview
+- `docs/CATALOG.md` - Catalog system and backfill tracking
 - `docs/DJEN_API.md` - DJEN API endpoints and data structures
 - `docs/DJEN_PROXY.md` - Proxy documentation
 - `DJEN_INFRASTRUCTURE.md` - Full infrastructure details
