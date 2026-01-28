@@ -158,6 +158,8 @@ export default function App() {
         const pipelineData = await pipelineRunsRes.json();
         const pipelineRuns: ActionRun[] = (pipelineData.workflow_runs || []).map((r: any) => ({
           ...r,
+          // Map snake_case GitHub API fields to camelCase
+          createdAt: r.created_at || r.createdAt,
           workflowName: 'Data Pipeline'
         }));
 
