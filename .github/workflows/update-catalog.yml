@@ -1,0 +1,108 @@
+name: Update Catalog
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      force_regenerate:
+        description: 'Force full catalog regeneration'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: update-catalog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: dev
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install internetarchive duckdb pyarrow httpx
+          mkdir -p ~/.config/internetarchive
+          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+          echo "Dependencies installed, IA config created"
+
+      - name: Generate catalog
+        run: |
+          mkdir -p output
+          uv run python scripts/generate_catalog.py --output-dir output
+
+          echo "## Generated Files" >> $GITHUB_STEP_SUMMARY
+          ls -lh output/ >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload catalog to Internet Archive
+        run: |
+          cd output
+
+          # Upload all catalog files to causaganha-catalog item
+          uv run ia upload causaganha-catalog \
+            manifest.parquet \
+            backfill-needed.parquet \
+            catalog.sql \
+            catalog.duckdb \
+            --metadata="collection:opensource" \
+            --metadata="mediatype:data" \
+            --metadata="title:CausaGanha Catalog" \
+            --metadata="description:Master catalog for CausaGanha DJEN data. Contains manifest of all files, backfill tracking, and DuckDB catalog with remote views." \
+            --no-derive
+
+          echo "## Upload Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Catalog uploaded to: https://archive.org/details/causaganha-catalog" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate summary
+        run: |
+          echo "## Catalog Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Count items and files from manifest
+          uv run python -c "
+          import duckdb
+          con = duckdb.connect('output/catalog.duckdb')
+
+          # Total files
+          total = con.execute('SELECT COUNT(*) FROM manifest').fetchone()[0]
+          print(f'- Total files indexed: {total}')
+
+          # By type
+          by_type = con.execute('''
+            SELECT
+              CASE
+                WHEN filename LIKE ''%.zip'' THEN ''ZIP''
+                WHEN filename LIKE ''%.parquet'' THEN ''Parquet''
+                ELSE ''Other''
+              END as type,
+              COUNT(*) as count
+            FROM manifest
+            GROUP BY 1
+          ''').fetchall()
+          for t, c in by_type:
+            print(f'  - {t}: {c}')
+
+          # Backfill needed
+          backfill = con.execute('SELECT COUNT(*) FROM backfill_needed').fetchone()[0]
+          print(f'- Backfill needed: {backfill} items')
+
+          # Date range
+          dates = con.execute('''
+            SELECT MIN(date), MAX(date) FROM manifest WHERE date IS NOT NULL
+          ''').fetchone()
+          if dates[0]:
+            print(f'- Date range: {dates[0]} to {dates[1]}')
+          " >> $GITHUB_STEP_SUMMARY

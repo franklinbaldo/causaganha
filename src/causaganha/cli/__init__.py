@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+import duckdb
 import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -1233,6 +1234,210 @@ def validate_catalog(
 
     except Exception as e:
         _handle_error(e, "Validation failed")
+
+
+@catalog_app.command("download")
+def download_catalog(
+    output: str = typer.Option(
+        "./causaganha-catalog",
+        help="Output directory for downloaded catalog files",
+    ),
+    force: bool = typer.Option(False, help="Force re-download even if files exist"),
+) -> None:
+    """Download master catalog from Internet Archive."""
+    logger.info("download_catalog_command", output=output)
+
+    async def _run() -> None:
+        try:
+            import httpx
+            from pathlib import Path
+
+            IA_CATALOG_ITEM = "causaganha-catalog"
+            BASE_URL = f"https://archive.org/download/{IA_CATALOG_ITEM}"
+
+            files_to_download = [
+                "manifest.parquet",
+                "backfill-needed.parquet",
+                "catalog.sql",
+                "catalog.duckdb",
+            ]
+
+            output_dir = Path(output)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            typer.echo(f"Downloading catalog from Internet Archive...")
+            typer.echo(f"  Item: {IA_CATALOG_ITEM}")
+            typer.echo(f"  Output: {output_dir}\n")
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                for filename in files_to_download:
+                    output_path = output_dir / filename
+
+                    if output_path.exists() and not force:
+                        typer.echo(f"  ⏭ {filename} (exists, use --force to re-download)")
+                        continue
+
+                    url = f"{BASE_URL}/{filename}"
+                    typer.echo(f"  ⬇ {filename}...", nl=False)
+
+                    try:
+                        response = await client.get(url)
+                        if response.status_code == 200:
+                            output_path.write_bytes(response.content)
+                            size_kb = len(response.content) / 1024
+                            typer.echo(f" ({size_kb:.1f} KB)")
+                        else:
+                            typer.echo(f" (not found: {response.status_code})")
+                    except Exception as e:
+                        typer.echo(f" (error: {e})")
+
+            typer.echo("\n✅ Catalog download complete!")
+            typer.echo(f"  Location: {output_dir}")
+
+        except Exception as e:
+            _handle_error(e, "Download failed")
+
+    asyncio.run(_run())
+
+
+@catalog_app.command("backfill-status")
+def backfill_status(
+    catalog_dir: str = typer.Option(
+        "./causaganha-catalog",
+        help="Directory containing catalog files",
+    ),
+    tribunal: str | None = typer.Option(None, help="Filter by tribunal"),
+    limit: int = typer.Option(20, help="Maximum items to show"),
+) -> None:
+    """Show what data needs to be backfilled from DJEN."""
+    logger.info("backfill_status_command", catalog_dir=catalog_dir)
+
+    try:
+        from pathlib import Path
+
+        backfill_path = Path(catalog_dir) / "backfill-needed.parquet"
+
+        if not backfill_path.exists():
+            typer.secho(
+                f"❌ Backfill file not found: {backfill_path}",
+                fg=typer.colors.RED,
+            )
+            typer.echo("Run 'causaganha catalog download' first.")
+            raise typer.Exit(code=1)
+
+        con = duckdb.connect(":memory:")
+
+        # Build query with optional tribunal filter
+        where_clause = f"WHERE tribunal = '{tribunal}'" if tribunal else ""
+
+        # Get summary stats
+        stats = con.execute(f"""
+            SELECT
+                COUNT(*) as total_missing,
+                COUNT(DISTINCT tribunal) as tribunals,
+                COUNT(DISTINCT date) as days,
+                MIN(date) as earliest,
+                MAX(date) as latest
+            FROM read_parquet('{backfill_path}')
+            {where_clause}
+        """).fetchone()
+
+        total, tribunals, days, earliest, latest = stats
+
+        typer.echo("\n📊 Backfill Status:\n")
+        typer.echo(f"  Total missing: {total:,} items")
+        typer.echo(f"  Tribunals: {tribunals}")
+        typer.echo(f"  Days: {days}")
+        typer.echo(f"  Date range: {earliest} to {latest}")
+
+        if tribunal:
+            typer.echo(f"  Filter: {tribunal}")
+
+        # Get breakdown by tribunal
+        typer.echo("\n📋 Missing by Tribunal:")
+        breakdown = con.execute(f"""
+            SELECT
+                tribunal,
+                COUNT(*) as missing,
+                MIN(date) as earliest,
+                MAX(date) as latest
+            FROM read_parquet('{backfill_path}')
+            {where_clause}
+            GROUP BY tribunal
+            ORDER BY missing DESC
+            LIMIT {limit}
+        """).fetchall()
+
+        for trib, missing, early, late in breakdown:
+            typer.echo(f"  {trib:6}: {missing:4} items ({early} to {late})")
+
+        if len(breakdown) >= limit:
+            typer.echo(f"  ... (showing top {limit}, use --limit to see more)")
+
+        con.close()
+
+    except duckdb.Error as e:
+        _handle_error(e, "Failed to read backfill status")
+
+
+@catalog_app.command("query")
+def query_catalog(
+    query: str = typer.Argument(..., help="SQL query to execute"),
+    catalog_dir: str = typer.Option(
+        "./causaganha-catalog",
+        help="Directory containing catalog files",
+    ),
+    format: str = typer.Option("table", help="Output format: table, csv, json"),
+    limit: int = typer.Option(100, help="Maximum rows to return"),
+) -> None:
+    """Query the catalog using SQL."""
+    logger.info("query_catalog_command", catalog_dir=catalog_dir)
+
+    try:
+        from pathlib import Path
+
+        catalog_path = Path(catalog_dir) / "catalog.duckdb"
+
+        if not catalog_path.exists():
+            typer.secho(
+                f"❌ Catalog not found: {catalog_path}",
+                fg=typer.colors.RED,
+            )
+            typer.echo("Run 'causaganha catalog download' first.")
+            raise typer.Exit(code=1)
+
+        con = duckdb.connect(str(catalog_path), read_only=True)
+
+        # Add LIMIT if not present
+        if "LIMIT" not in query.upper():
+            query = f"{query} LIMIT {limit}"
+
+        result = con.execute(query)
+        columns = [desc[0] for desc in result.description]
+        rows = result.fetchall()
+
+        if format == "csv":
+            import csv
+            import sys
+            writer = csv.writer(sys.stdout)
+            writer.writerow(columns)
+            writer.writerows(rows)
+        elif format == "json":
+            import json
+            data = [dict(zip(columns, row)) for row in rows]
+            typer.echo(json.dumps(data, indent=2, default=str))
+        else:
+            # Table format
+            typer.echo("\n" + " | ".join(columns))
+            typer.echo("-" * (len(" | ".join(columns)) + 10))
+            for row in rows:
+                typer.echo(" | ".join(str(v) for v in row))
+
+        typer.echo(f"\n({len(rows)} rows)")
+        con.close()
+
+    except duckdb.Error as e:
+        _handle_error(e, "Query failed")
 
 
 if __name__ == "__main__":
