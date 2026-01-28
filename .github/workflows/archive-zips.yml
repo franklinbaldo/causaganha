@@ -22,7 +22,7 @@ concurrency:
 
 env:
   DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app  # Proxy to bypass geofencing
-  MAX_UPLOADS_PER_RUN: 100  # Increased for faster backfill (balanced for IA rate limits)
+  MAX_UPLOADS_PER_RUN: 100  # Balanced for IA rate limits
 
 jobs:
   archive:
@@ -67,18 +67,26 @@ jobs:
           TRIBUNAIS="$TRIBUNAIS TRT1 TRT2 TRT3 TRT4 TRT5 TRT6 TRT7 TRT8 TRT9 TRT10 TRT11 TRT12 TRT13 TRT14 TRT15 TRT16 TRT17 TRT18 TRT19 TRT20 TRT21 TRT22 TRT23 TRT24"
           TRIBUNAIS="$TRIBUNAIS TREAC TREAL TREAM TREAP TREBA TRECE TREDF TREES TREGO TREMA TREMG TREMS TREMT TREPA TREPB TREPE TREPI TREPR TRERJ TRERN TRERO TRERR TRERS TRESC TRESE TRESP TRETO"
 
-          # Load previous state (unavailable items)
+          # Load previous state (unavailable date|tribunal combinations)
           mkdir -p state
           if [ ! -f state/unavailable.txt ]; then
             touch state/unavailable.txt
           fi
           echo "Loaded $(wc -l < state/unavailable.txt | tr -d ' ') unavailable items from state"
 
-          # Get existing items from IA
-          echo "Fetching existing items from IA..."
-          ia search 'identifier:djen-raw-*' --itemlist > existing_items.txt 2>/dev/null || touch existing_items.txt
-          EXISTING_COUNT=$(wc -l < existing_items.txt | tr -d ' ')
-          echo "Found $EXISTING_COUNT existing items on IA"
+          # Get existing files from IA (check which ZIPs already exist)
+          # Structure: one item per day (djen-YYYY-MM-DD), multiple files per item
+          echo "Fetching existing files from IA..."
+          > existing_files.txt
+
+          # Get list of items first
+          ia search 'identifier:djen-20*' --itemlist 2>/dev/null | while read -r ITEM_ID; do
+            # For each item, list its files (ZIPs only)
+            ia list "$ITEM_ID" 2>/dev/null | grep '\.zip$' >> existing_files.txt || true
+          done
+
+          EXISTING_COUNT=$(wc -l < existing_files.txt | tr -d ' ')
+          echo "Found $EXISTING_COUNT existing ZIP files on IA"
 
           # Generate dates to check (D-1 to D-N)
           BACKFILL_DAYS="${{ inputs.backfill_days }}"
@@ -102,15 +110,14 @@ jobs:
               DATE=$(date -d "-$i days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
 
               for TRIBUNAL in $TRIBUNAIS; do
-                ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
-
-                # Check if already on IA
-                if grep -q "^${ITEM_ID}$" existing_items.txt; then
+                # Check if ZIP file already exists on IA
+                ZIP_NAME="djen-${DATE}-${TRIBUNAL}.zip"
+                if grep -q "^${ZIP_NAME}$" existing_files.txt; then
                   continue
                 fi
 
                 # Skip if marked unavailable
-                if grep -q "^${ITEM_ID}$" state/unavailable.txt; then
+                if grep -q "^${DATE}|${TRIBUNAL}$" state/unavailable.txt; then
                   continue
                 fi
 
@@ -138,14 +145,15 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "📥 $TRIBUNAL $DATE"
 
+            # Item ID is per day (all tribunals for that day go in same item)
+            ITEM_ID="djen-${DATE}"
+
             # Get caderno info from DJEN API
             INFO=$(curl -sf "$DJEN_API/api/v1/caderno/$TRIBUNAL/$DATE/D" 2>/dev/null || echo "")
 
-            ITEM_ID="djen-raw-${DATE}-${TRIBUNAL}"
-
             if [ -z "$INFO" ]; then
               echo "   ⚠️  No caderno available (marking unavailable)"
-              echo "$ITEM_ID" >> state/unavailable.txt
+              echo "${DATE}|${TRIBUNAL}" >> state/unavailable.txt
               FAILED=$((FAILED + 1))
               continue
             fi
@@ -153,16 +161,12 @@ jobs:
             # Extract download URL
             URL=$(echo "$INFO" | jq -r '.url // empty')
             TOTAL=$(echo "$INFO" | jq -r '.total_comunicacoes // 0')
-            # Extract version
             VERSAO=$(echo "$INFO" | jq -r '.versao // 1')
-            ZIP_NAME="${TRIBUNAL}-D-${DATE}_v${VERSAO}.zip"
 
-            echo "   📊 $TOTAL comunicações, ${SIZE_MB}MB, Versão: $VERSAO"
+            # Filename pattern: djen-DATE-TRIBUNAL.zip (standardized)
+            ZIP_NAME="djen-${DATE}-${TRIBUNAL}.zip"
 
-            # Filename pattern: TRIBUNAL-DATE.zip (standardized across systems)
-            ZIP_NAME="${TRIBUNAL}-${DATE}.zip"
-
-            echo "   📊 $TOTAL comunicações, Versão: $VERSAO"
+            echo "   📊 $TOTAL comunicacoes, Versao: $VERSAO"
 
             # Download ZIP
             echo "   ⬇️  Downloading..."
@@ -181,20 +185,17 @@ jobs:
               continue
             fi
 
-            # Upload to Internet Archive
-            echo "   ⬆️  Uploading to IA: $ITEM_ID ($ZIP_NAME)"
+            # Upload to Internet Archive (item per day, file per tribunal)
+            echo "   ⬆️  Uploading to IA: $ITEM_ID / $ZIP_NAME"
 
             UPLOAD_OUTPUT=$(ia upload "$ITEM_ID" "$ZIP_NAME" \
               --metadata="collection:opensource" \
               --metadata="mediatype:data" \
-              --metadata="title:DJEN $TRIBUNAL $DATE" \
-              --metadata="description:Diário de Justiça Eletrônico Nacional - Caderno $TRIBUNAL $DATE - $TOTAL comunicações" \
-              --metadata="subject:brazilian-law;djen;legal;judiciary;$TRIBUNAL" \
+              --metadata="title:DJEN Data - ${DATE}" \
+              --metadata="description:Diario de Justica Eletronico Nacional - Data for ${DATE}. Contains judicial communications (ZIPs and Parquets) from all Brazilian courts." \
+              --metadata="subject:brazilian-law;djen;legal;judiciary;open-data;parquet" \
               --metadata="creator:CausaGanha" \
               --metadata="date:$DATE" \
-              --metadata="tribunal:$TRIBUNAL" \
-              --metadata="total_comunicacoes:$TOTAL" \
-              --metadata="versao:$VERSAO" \
               --retries=3 \
               --no-derive 2>&1)
             UPLOAD_STATUS=$?
@@ -202,23 +203,16 @@ jobs:
             if [ $UPLOAD_STATUS -eq 0 ]; then
               echo "   ✅ Success!"
               SUCCESS=$((SUCCESS + 1))
-              rm -f "$ZIP_NAME"
             else
               echo "   ❌ Upload failed"
               echo "$UPLOAD_OUTPUT" | head -n 5
               FAILED=$((FAILED + 1))
-              rm -f "$ZIP_NAME"
-#              # Check for rate limiting / spam detection
-#              if echo "$UPLOAD_OUTPUT" | grep -qi "spam\|rate"; then
-#                echo "   🚫 Rate limited by IA - stopping batch to avoid further blocks"
-#                break  # Exit loop, don't retry - wait for next workflow run
-#              fi
             fi
 
             rm -f "$ZIP_NAME"
 
-            # IA rate limit: 2 seconds minimum between uploads
-            sleep 5
+            # IA rate limit
+            sleep 3
 
           done < batch.txt
 
@@ -238,18 +232,20 @@ jobs:
       - name: Summary
         run: |
           UNAVAILABLE=$(wc -l < state/unavailable.txt 2>/dev/null | tr -d ' ' || echo "0")
-          EXISTING=$(wc -l < existing_items.txt 2>/dev/null | tr -d ' ' || echo "0")
+          EXISTING=$(wc -l < existing_files.txt 2>/dev/null | tr -d ' ' || echo "0")
           PENDING="${{ steps.find.outputs.total }}"
-          TOTAL_TARGET=$((91 * 260))  # ~91 tribunais × ~260 weekdays/year
 
           echo "## Archive Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Progress" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Archived: $EXISTING items" >> $GITHUB_STEP_SUMMARY
-          echo "- ⏳ Pending: $PENDING items" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Unavailable: $UNAVAILABLE items" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Archived: $EXISTING ZIP files" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏳ Pending: $PENDING files" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Unavailable: $UNAVAILABLE tribunal/date combos" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Structure" >> $GITHUB_STEP_SUMMARY
+          echo "- One IA item per day: \`djen-YYYY-MM-DD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Files: \`djen-YYYY-MM-DD-TRIBUNAL.zip\`" >> $GITHUB_STEP_SUMMARY
+          echo "- All tribunals for that day in same item" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### This Run" >> $GITHUB_STEP_SUMMARY
           echo "- Batch size: ${{ steps.find.outputs.batch_size }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_Workflow runs every 5 minutes, 10 items per run (~2,880 items/day)_" >> $GITHUB_STEP_SUMMARY
