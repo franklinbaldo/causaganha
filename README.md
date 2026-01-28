@@ -99,7 +99,7 @@ The consolidated data lake follows a future-proofed schema using deterministic *
 ```mermaid
 erDiagram
     comunicacoes ||--o{ destinatarios : "has"
-    comunicacoes ||--o{ textos : "has"
+    comunicacoes ||--o{ textos : "links to"
     comunicacoes ||--o{ comunicacao_advogados : "notifies"
     comunicacoes ||--o{ representacoes : "m:n relationship"
     advogados ||--o{ comunicacao_advogados : "receives"
@@ -112,6 +112,7 @@ erDiagram
         string numero_processo
         string data_disponibilizacao
         string processed_at "ISO-8601"
+        string texto_id FK "Link to deduplicated text"
     }
 
     advogados {
@@ -135,7 +136,8 @@ erDiagram
     }
 
     textos {
-        string comunicacao_id FK
+        string id PK "UUIDv5 (Full Text Content)"
+        string tribunal "Source (first occurrence)"
         string texto "Full document body"
     }
 ```

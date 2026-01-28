@@ -165,6 +165,20 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
         orig_com_id = _str(record.get("id"))
         tribunal_s = _str(tribunal)
 
+        # Text deduplication via UUIDv5 of content
+        texto_content = record.get("texto")
+        texto_id = ""
+        if texto_content:
+            texto_s = _str(texto_content)
+            texto_id = _uuid5({"texto": texto_s})
+            tables["textos"].append(
+                {
+                    "id": texto_id,
+                    "tribunal": tribunal_s,
+                    "texto": texto_s,
+                },
+            )
+
         # Main communication record
         tables["comunicacoes"].append(
             {
@@ -188,19 +202,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                 "numero_comunicacao": _str(record.get("numeroComunicacao")),
                 "hash": _str(record.get("hash")),
                 "processed_at": processed_at,
+                "texto_id": texto_id,
             },
         )
-
-        # Text
-        texto = record.get("texto")
-        if texto:
-            tables["textos"].append(
-                {
-                    "comunicacao_id": com_id,
-                    "tribunal": tribunal_s,
-                    "texto": _str(texto),
-                },
-            )
 
         # Destinatarios (Parties)
         current_destinatarios = []
@@ -293,6 +297,7 @@ TABLE_SCHEMAS = {
             "numero_comunicacao": "string",
             "hash": "string",
             "processed_at": "string",
+            "texto_id": "string",
         },
     ),
     "advogados": ibis.schema(
@@ -322,7 +327,7 @@ TABLE_SCHEMAS = {
     ),
     "textos": ibis.schema(
         {
-            "comunicacao_id": "string",
+            "id": "string",
             "tribunal": "string",
             "texto": "string",
         },
