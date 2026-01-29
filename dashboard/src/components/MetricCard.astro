@@ -1,0 +1,45 @@
+---
+interface Props {
+  title: string;
+  subtitle: string;
+  value?: string | number;
+  loading?: boolean;
+  icon?: string;
+  color?: 'green' | 'yellow' | 'red' | 'blue' | 'default';
+}
+
+const { title, subtitle, value, loading = false, color = 'default' } = Astro.props;
+
+const colorClasses = {
+  green: 'text-accent-green',
+  yellow: 'text-accent-yellow',
+  red: 'text-accent-red',
+  blue: 'text-accent-blue',
+  default: 'text-text-primary',
+};
+---
+
+<div class="bg-card border border-border rounded-xl p-6 card-glow transition-all duration-200 hover:border-border-hover animate-fade-in">
+  <div class="space-y-2">
+    <!-- Label -->
+    <p class="text-xs font-medium uppercase tracking-wide text-text-muted">
+      {title}
+    </p>
+
+    <!-- Value -->
+    <div class="h-10 flex items-baseline">
+      {loading ? (
+        <div class="skeleton h-8 w-24 rounded"></div>
+      ) : (
+        <p class={`text-3xl font-mono font-bold tabular-nums ${colorClasses[color]}`}>
+          {value ?? '—'}
+        </p>
+      )}
+    </div>
+
+    <!-- Subtitle -->
+    <p class="text-sm text-text-muted">
+      {subtitle}
+    </p>
+  </div>
+</div>

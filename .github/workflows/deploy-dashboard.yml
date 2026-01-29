@@ -1,11 +1,10 @@
-name: Deploy CausaGanha Homepage (Dashboard)
+name: Deploy Dashboard
 
 on:
   push:
     branches: [main]
     paths:
-      - 'djen-scraper/dashboard/**'
-      - '.github/workflows/deploy-dashboard.yml'
+      - 'dashboard/**'
   workflow_dispatch:
 
 permissions:
@@ -14,8 +13,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  group: 'pages'
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -24,28 +23,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: djen-scraper/dashboard/package-lock.json
+          cache-dependency-path: dashboard/package-lock.json
 
       - name: Install dependencies
-        working-directory: djen-scraper/dashboard
         run: npm ci
+        working-directory: dashboard
 
-      - name: Build
-        working-directory: djen-scraper/dashboard
+      - name: Build Astro site
         run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+        working-directory: dashboard
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: djen-scraper/dashboard/dist
+          path: dashboard/dist
 
   deploy:
     environment:
