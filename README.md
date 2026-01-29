@@ -76,6 +76,8 @@ We're building a **complete historical archive** of DJEN data:
 └──────────────┘     └──────────────┘     └──────────────────────────────────┘
                                                          │
                                                          ▼
+```
+
 ### Internet Archive (Consolidated Data Lake)
 
 Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
