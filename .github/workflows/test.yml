@@ -15,42 +15,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: ./.github/actions/setup
-      - name: Format and lint code
+      - name: Check formatting and linting
         run: |
           uv pip install ruff
-          uv run ruff format
-          uv run ruff check --fix
+          uv run ruff format --check
+          uv run ruff check
       - name: Run pre-commit
         id: run_pre_commit
         run: uv run pre-commit run --all-files --show-diff-on-failure
-        continue-on-error: true
-      - name: Commit changes
-        if: always()
-        run: |
-          # check if there are any changes
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Changes detected by pre-commit hooks. Committing and pushing..."
-            git config user.email "actions@github.com"
-            git config user.name "GitHub Actions"
-
-            # Add all changes (including untracked files if any)
-            git add .
-            git commit -m "chore(ci): auto-fix linting"
-
-            # Push to the branch explicitly to handle detached HEAD
-            git push origin HEAD:${{ github.head_ref }}
-
-            echo "Changes pushed. Failing this job to trigger a new run with the fixes."
-            exit 1
-          fi
-
-          # If no changes were made but pre-commit failed, it's a real error (e.g. MyPy failure)
-          if [ "${{ steps.run_pre_commit.outcome }}" == "failure" ]; then
-            echo "Pre-commit failed but no changes were made to fix it. Human intervention required."
-            exit 1
-          fi
-
-          echo "Pre-commit passed or was fixed."
   tribunal-tests:
     needs: build
     runs-on: ubuntu-latest
