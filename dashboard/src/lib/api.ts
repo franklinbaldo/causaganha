@@ -6,6 +6,39 @@ const CACHE_KEY_PREFIX = 'causaganha_cache_';
 const CACHE_TTL_HISTORICAL = 24 * 60 * 60 * 1000; // 24 hours
 const CACHE_TTL_TODAY = 5 * 60 * 1000; // 5 minutes
 
+// Pre-built cache URLs (generated during pipeline runs)
+const STATIC_CACHE_URL = '/causaganha/cache/';
+const IA_CACHE_URL = 'https://archive.org/download/djen-dashboard-cache/cache.json';
+
+// Types for pre-built cache
+export interface PreBuiltCache {
+    meta: { version: string; generated_at: string };
+    today: {
+        date: string;
+        files_today: number;
+        size_today: number;
+        tribunal_status: Record<string, { status: string; size?: number }>;
+        days_archived: number;
+        health: number;
+    };
+    runs: {
+        runs: Array<{
+            id: number;
+            name: string;
+            run_number: number;
+            status: string;
+            conclusion: string | null;
+            created_at: string;
+            html_url: string;
+        }>;
+        health: number;
+    };
+    calendar: {
+        days: Record<string, { size: number; tribunal_count: number; exists: boolean; level: number }>;
+        stats: { total_size: number; days_with_data: number };
+    };
+}
+
 interface CacheEntry<T> {
     data: T;
     timestamp: number;
@@ -163,4 +196,79 @@ export async function fetchMultipleDates(dates: string[]): Promise<Map<string, D
     }
 
     return results;
+}
+
+/**
+ * Fetch pre-built cache (generated during pipeline runs)
+ * Tries local static cache first, falls back to IA-hosted cache
+ */
+export async function fetchPreBuiltCache(): Promise<PreBuiltCache | null> {
+    const CACHE_KEY = 'prebuilt_cache';
+    const CACHE_TTL = 60 * 1000; // 1 minute - short since we want fresh data
+
+    // Check localStorage first for recently fetched cache
+    const cached = getFromCache<PreBuiltCache>(CACHE_KEY, CACHE_TTL);
+    if (cached) {
+        console.log('[Cache] Using localStorage pre-built cache');
+        return cached;
+    }
+
+    // Try local static cache first (faster, served with the site)
+    try {
+        const response = await fetch(`${STATIC_CACHE_URL}today.json`, { cache: 'no-cache' });
+        if (response.ok) {
+            // Load all cache parts
+            const [todayRes, runsRes, calendarRes, metaRes] = await Promise.all([
+                response.json(),
+                fetch(`${STATIC_CACHE_URL}runs.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
+                fetch(`${STATIC_CACHE_URL}calendar.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
+                fetch(`${STATIC_CACHE_URL}meta.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
+            ]);
+
+            const cache: PreBuiltCache = {
+                meta: metaRes || { version: '2.0', generated_at: new Date().toISOString() },
+                today: todayRes,
+                runs: runsRes || { runs: [], health: 0 },
+                calendar: calendarRes || { days: {}, stats: { total_size: 0, days_with_data: 0 } },
+            };
+
+            console.log('[Cache] Loaded from static files');
+            saveToCache(CACHE_KEY, cache);
+            return cache;
+        }
+    } catch (error) {
+        console.log('[Cache] Static cache not available, trying IA...');
+    }
+
+    // Fall back to Internet Archive hosted cache
+    try {
+        const response = await fetch(IA_CACHE_URL, { cache: 'no-cache' });
+        if (response.ok) {
+            const cache: PreBuiltCache = await response.json();
+            console.log('[Cache] Loaded from Internet Archive');
+            saveToCache(CACHE_KEY, cache);
+            return cache;
+        }
+    } catch (error) {
+        console.error('[Cache] Failed to load from IA:', error);
+    }
+
+    return null;
+}
+
+/**
+ * Get cache age in human-readable format
+ */
+export function getCacheAge(generatedAt: string): string {
+    const generated = new Date(generatedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - generated.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'agora';
+    if (diffMins < 60) return `há ${diffMins}min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `há ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `há ${diffDays}d`;
 }
