@@ -22,12 +22,11 @@ export const ALL_TRIBUNALS = [
     ...TRIBUNALS.tjs,
 ];
 
-// API endpoints
-export const API = {
-    IA_METADATA: (date: string) => `https://archive.org/metadata/djen-${date}`,
+// Links (for external navigation only, not data fetching)
+export const LINKS = {
     IA_DETAILS: (date: string) => `https://archive.org/details/djen-${date}`,
-    GH_RUNS: 'https://api.github.com/repos/franklinbaldo/causaganha/actions/runs?per_page=10',
     GH_ACTIONS: 'https://github.com/franklinbaldo/causaganha/actions',
+    IA_SEARCH: 'https://archive.org/search?query=creator%3ACausaGanha',
 } as const;
 
 // Colors (matching tailwind.config.mjs)

@@ -111,7 +111,7 @@ def list_item_files(item_id: str) -> list[dict]:
         logger.warning("invalid_item_id", item_id=item_id)
         return []
 
-    output = run_ia_command(["list", item_id, "--all", "--glob", "*.{zip,parquet}"])
+    output = run_ia_command(["list", item_id, "--all", "--glob", "*.{zip,parquet,absent}"])
 
     if not output:
         logger.debug("no_files_for_item", item_id=item_id)
@@ -125,7 +125,7 @@ def list_item_files(item_id: str) -> list[dict]:
             # ia list output format varies, parse filename safely
             parts = line.strip().split()
             filename = parts[-1] if parts else ""
-            if filename and filename.endswith((".zip", ".parquet")):
+            if filename and filename.endswith((".zip", ".parquet", ".absent")):
                 files.append({"name": filename, "item": item_id})
         except Exception:
             # Skip malformed lines
@@ -174,10 +174,10 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         return None
 
     # Validate file extension
-    if not filename.endswith((".zip", ".parquet")):
+    if not filename.endswith((".zip", ".parquet", ".absent")):
         return None
 
-    parts = filename.replace("djen-", "").replace(".zip", "").replace(".parquet", "")
+    parts = filename.replace("djen-", "").replace(".zip", "").replace(".parquet", "").replace(".absent", "")
 
     if filename.endswith(".zip"):
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
@@ -199,6 +199,32 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 "date": date_str,
                 "tribunal": tribunal.upper(),
                 "file_type": "zip",
+                "table_name": None,
+                "file_name": filename,
+                "ia_item": item_id,
+                "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+            }
+        except (IndexError, ValueError):
+            return None
+
+    elif filename.endswith(".absent"):
+        # djen-2026-01-15-TJSP.absent -> date=2026-01-15, tribunal=TJSP
+        try:
+            split_parts = parts.split("-")
+            if len(split_parts) < 4:
+                return None
+            date_str = "-".join(split_parts[:3])
+            tribunal = split_parts[3]
+
+            if not _validate_date_str(date_str):
+                return None
+            if not _validate_tribunal_code(tribunal):
+                return None
+
+            return {
+                "date": date_str,
+                "tribunal": tribunal.upper(),
+                "file_type": "absent",
                 "table_name": None,
                 "file_name": filename,
                 "ia_item": item_id,
@@ -267,10 +293,10 @@ def generate_backfill_list(manifest: list[dict], start_date: date, end_date: dat
     """Determine what's missing from DJEN."""
     logger.info("generating_backfill_list", start=start_date, end=end_date)
 
-    # Build set of collected (date, tribunal) pairs
+    # Build set of collected (date, tribunal) pairs (zip or absent = collected)
     collected = set()
     for m in manifest:
-        if m["file_type"] == "zip":
+        if m["file_type"] in ("zip", "absent"):
             collected.add((m["date"], m["tribunal"]))
 
     logger.info("collected_combinations", count=len(collected))

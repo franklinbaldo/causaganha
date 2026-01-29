@@ -8,7 +8,7 @@ import ActivityCalendar from '../components/ActivityCalendar';
 import TribunalHeatmap from '../components/TribunalHeatmap';
 import RecentRuns from '../components/RecentRuns';
 import RecentDays from '../components/RecentDays';
-import { LABELS, API } from '../lib/constants';
+import { LABELS, LINKS } from '../lib/constants';
 ---
 
 <Layout title="CausaGanha - Monitor do Pipeline DJEN">
@@ -35,7 +35,7 @@ import { LABELS, API } from '../lib/constants';
       <div class="grid md:grid-cols-2 gap-6">
         <Section
           title={LABELS.runs.title}
-          rightLink={{ text: LABELS.runs.viewAll, href: API.GH_ACTIONS }}
+          rightLink={{ text: LABELS.runs.viewAll, href: LINKS.GH_ACTIONS }}
         >
           <RecentRuns client:visible />
         </Section>

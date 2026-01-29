@@ -1,72 +1,76 @@
-import { API, ALL_TRIBUNALS } from './constants';
-import type { IAMetadata, GHActionsResponse, DaySummary, TribunalStatus } from './types';
-import { parseTribunalFromFilename, getFileStatus } from './utils';
+import type { GHWorkflowRun, TribunalStatus } from './types';
 
 const CACHE_KEY_PREFIX = 'causaganha_cache_';
-const CACHE_TTL_HISTORICAL = 24 * 60 * 60 * 1000; // 24 hours
-const CACHE_TTL_TODAY = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 60 * 1000; // 1 minute
 
-// Pre-built cache URL (generated during dashboard deployment)
+// Pre-built cache URL (generated from catalog manifest during deploy/pipeline)
 const STATIC_CACHE_URL = '/causaganha/cache/';
 
-// Types for pre-built cache
-export interface PreBuiltCache {
-    meta: { version: string; generated_at: string };
-    today: {
-        date: string;
-        files_today: number;
-        size_today: number;
-        tribunal_status: Record<string, { status: string; size?: number }>;
-        days_archived: number;
-        health: number;
-    };
-    runs: {
-        runs: Array<{
-            id: number;
-            name: string;
-            run_number: number;
-            status: string;
-            conclusion: string | null;
-            created_at: string;
-            html_url: string;
-        }>;
-        health: number;
-    };
-    calendar: {
-        days: Record<string, { size: number; tribunal_count: number; exists: boolean; level: number }>;
-        stats: { total_size: number; days_with_data: number };
-    };
+// --- Cache types (match generate_dashboard_cache.py output) ---
+
+export interface CacheMeta {
+    version: string;
+    generated_at: string;
+    source: string;
 }
+
+export interface CacheToday {
+    date: string;
+    files_today: number;
+    size_today: number;
+    tribunal_status: Record<string, { status: string; size?: number | null }>;
+    days_archived: number;
+    health: number;
+}
+
+export interface CacheRuns {
+    runs: Array<{
+        id: number;
+        name: string;
+        run_number: number;
+        status: string;
+        conclusion: string | null;
+        created_at: string;
+        html_url: string;
+    }>;
+    health: number;
+}
+
+export interface CacheCalendar {
+    days: Record<string, { size: number; tribunal_count: number; exists: boolean; level: number }>;
+    stats: { total_size: number; days_with_data: number; biggest_day: string | null; biggest_size: number };
+}
+
+export interface DashboardCache {
+    meta: CacheMeta;
+    today: CacheToday;
+    runs: CacheRuns;
+    calendar: CacheCalendar;
+}
+
+// --- localStorage cache layer ---
 
 interface CacheEntry<T> {
     data: T;
     timestamp: number;
 }
 
-/**
- * Get cached data if valid
- */
-function getFromCache<T>(key: string, ttl: number): T | null {
+function getFromLocalStorage<T>(key: string): T | null {
     try {
         const raw = localStorage.getItem(CACHE_KEY_PREFIX + key);
         if (!raw) return null;
-
         const entry: CacheEntry<T> = JSON.parse(raw);
-        if (Date.now() - entry.timestamp > ttl) {
+        if (Date.now() - entry.timestamp > CACHE_TTL) {
             localStorage.removeItem(CACHE_KEY_PREFIX + key);
             return null;
         }
-
         return entry.data;
     } catch {
         return null;
     }
 }
 
-/**
- * Save data to cache
- */
-function saveToCache<T>(key: string, data: T): void {
+function saveToLocalStorage<T>(key: string, data: T): void {
     try {
         const entry: CacheEntry<T> = { data, timestamp: Date.now() };
         localStorage.setItem(CACHE_KEY_PREFIX + key, JSON.stringify(entry));
@@ -75,171 +79,99 @@ function saveToCache<T>(key: string, data: T): void {
     }
 }
 
-/**
- * Fetch Internet Archive metadata for a specific date
- */
-export async function fetchIAMetadata(date: string): Promise<IAMetadata | null> {
-    const isToday = date === new Date().toISOString().split('T')[0];
-    const ttl = isToday ? CACHE_TTL_TODAY : CACHE_TTL_HISTORICAL;
+// --- Public API ---
 
-    // Check cache first
-    const cached = getFromCache<IAMetadata>(`ia_${date}`, ttl);
+/**
+ * Fetch the full dashboard cache (all data from static JSON files).
+ * This is the single data source for all dashboard components.
+ */
+export async function fetchDashboardCache(): Promise<DashboardCache | null> {
+    const CACHE_KEY = 'dashboard_cache';
+
+    // Check localStorage first
+    const cached = getFromLocalStorage<DashboardCache>(CACHE_KEY);
     if (cached) return cached;
 
+    // Fetch all cache files in parallel from GitHub Pages
     try {
-        const response = await fetch(API.IA_METADATA(date));
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`HTTP ${response.status}`);
-        }
+        const [todayRes, runsRes, calendarRes, metaRes] = await Promise.all([
+            fetch(`${STATIC_CACHE_URL}today.json`, { cache: 'no-cache' }),
+            fetch(`${STATIC_CACHE_URL}runs.json`, { cache: 'no-cache' }),
+            fetch(`${STATIC_CACHE_URL}calendar.json`, { cache: 'no-cache' }),
+            fetch(`${STATIC_CACHE_URL}meta.json`, { cache: 'no-cache' }),
+        ]);
 
-        const data: IAMetadata = await response.json();
-        saveToCache(`ia_${date}`, data);
-        return data;
+        if (!todayRes.ok) return null;
+
+        const [today, runs, calendar, meta] = await Promise.all([
+            todayRes.json(),
+            runsRes.ok ? runsRes.json() : { runs: [], health: 0 },
+            calendarRes.ok ? calendarRes.json() : { days: {}, stats: { total_size: 0, days_with_data: 0, biggest_day: null, biggest_size: 0 } },
+            metaRes.ok ? metaRes.json() : { version: '3.0', generated_at: new Date().toISOString(), source: 'unknown' },
+        ]);
+
+        const cache: DashboardCache = { meta, today, runs, calendar };
+        saveToLocalStorage(CACHE_KEY, cache);
+        return cache;
     } catch (error) {
-        console.error(`Failed to fetch IA metadata for ${date}:`, error);
+        console.error('[Cache] Failed to load:', error);
         return null;
     }
 }
 
 /**
- * Parse IA metadata into DaySummary
+ * Extract tribunal status for TribunalHeatmap from cache.
  */
-export function parseIAMetadata(date: string, metadata: IAMetadata | null): DaySummary {
-    if (!metadata || !metadata.files) {
-        return {
-            date,
-            itemSize: 0,
-            tribunalCount: 0,
-            tribunals: [],
-            exists: false,
+export function extractTribunalStatus(cache: DashboardCache): {
+    date: string;
+    status: Record<string, TribunalStatus>;
+} {
+    const statusMap: Record<string, TribunalStatus> = {};
+    for (const [tribunal, info] of Object.entries(cache.today.tribunal_status)) {
+        statusMap[tribunal] = {
+            tribunal,
+            status: info.status as TribunalStatus['status'],
+            size: info.size ?? undefined,
         };
     }
-
-    const tribunalStatuses: TribunalStatus[] = [];
-    const seenTribunals = new Set<string>();
-
-    // Parse files to get tribunal statuses
-    for (const file of metadata.files) {
-        const tribunal = parseTribunalFromFilename(file.name);
-        const status = getFileStatus(file.name);
-
-        if (tribunal && status) {
-            seenTribunals.add(tribunal);
-            tribunalStatuses.push({
-                tribunal,
-                status,
-                size: status === 'ok' ? parseInt(file.size, 10) : undefined,
-                fileCount: file.filecount ? parseInt(file.filecount, 10) : undefined,
-            });
-        }
-    }
-
-    // Add pending status for missing tribunals
-    for (const tribunal of ALL_TRIBUNALS) {
-        if (!seenTribunals.has(tribunal)) {
-            tribunalStatuses.push({
-                tribunal,
-                status: 'pending',
-            });
-        }
-    }
-
-    const zipCount = tribunalStatuses.filter(t => t.status === 'ok').length;
-
-    return {
-        date,
-        itemSize: metadata.item_size || 0,
-        tribunalCount: zipCount,
-        tribunals: tribunalStatuses,
-        exists: true,
-    };
+    return { date: cache.today.date, status: statusMap };
 }
 
 /**
- * Fetch GitHub Actions workflow runs
+ * Extract recent days for RecentDays from cache.
  */
-export async function fetchGHRuns(): Promise<GHActionsResponse | null> {
-    try {
-        const response = await fetch(API.GH_RUNS);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Failed to fetch GitHub Actions runs:', error);
-        return null;
-    }
+export function extractRecentDays(cache: DashboardCache, count: number = 5): Array<{
+    date: string;
+    size: number;
+    tribunalCount: number;
+    exists: boolean;
+}> {
+    const days = Object.entries(cache.calendar.days)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .slice(0, count)
+        .map(([date, data]) => ({
+            date,
+            size: data.size,
+            tribunalCount: data.tribunal_count,
+            exists: data.exists,
+        }));
+    return days;
 }
 
 /**
- * Fetch data for multiple dates (for calendar)
+ * Extract workflow runs for RecentRuns from cache.
  */
-export async function fetchMultipleDates(dates: string[]): Promise<Map<string, DaySummary>> {
-    const results = new Map<string, DaySummary>();
-
-    // Fetch in batches to avoid overwhelming the API
-    const batchSize = 5;
-    for (let i = 0; i < dates.length; i += batchSize) {
-        const batch = dates.slice(i, i + batchSize);
-        const promises = batch.map(async (date) => {
-            const metadata = await fetchIAMetadata(date);
-            return { date, summary: parseIAMetadata(date, metadata) };
-        });
-
-        const batchResults = await Promise.all(promises);
-        for (const { date, summary } of batchResults) {
-            results.set(date, summary);
-        }
-    }
-
-    return results;
-}
-
-/**
- * Fetch pre-built cache (generated during dashboard deployment)
- * Served directly from GitHub Pages for fast loading
- */
-export async function fetchPreBuiltCache(): Promise<PreBuiltCache | null> {
-    const CACHE_KEY = 'prebuilt_cache';
-    const CACHE_TTL = 60 * 1000; // 1 minute - short since we want fresh data
-
-    // Check localStorage first for recently fetched cache
-    const cached = getFromCache<PreBuiltCache>(CACHE_KEY, CACHE_TTL);
-    if (cached) {
-        console.log('[Cache] Using localStorage pre-built cache');
-        return cached;
-    }
-
-    // Load cache from GitHub Pages (generated during deploy)
-    try {
-        const response = await fetch(`${STATIC_CACHE_URL}today.json`, { cache: 'no-cache' });
-        if (response.ok) {
-            // Load all cache parts in parallel
-            const [todayRes, runsRes, calendarRes, metaRes] = await Promise.all([
-                response.json(),
-                fetch(`${STATIC_CACHE_URL}runs.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
-                fetch(`${STATIC_CACHE_URL}calendar.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
-                fetch(`${STATIC_CACHE_URL}meta.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null),
-            ]);
-
-            const cache: PreBuiltCache = {
-                meta: metaRes || { version: '2.0', generated_at: new Date().toISOString() },
-                today: todayRes,
-                runs: runsRes || { runs: [], health: 0 },
-                calendar: calendarRes || { days: {}, stats: { total_size: 0, days_with_data: 0 } },
-            };
-
-            console.log('[Cache] Loaded from static files');
-            saveToCache(CACHE_KEY, cache);
-            return cache;
-        }
-    } catch (error) {
-        console.log('[Cache] Static cache not available:', error);
-    }
-
-    return null;
+export function extractRuns(cache: DashboardCache): GHWorkflowRun[] {
+    return cache.runs.runs.map(r => ({
+        id: r.id,
+        name: r.name,
+        run_number: r.run_number,
+        status: r.status as GHWorkflowRun['status'],
+        conclusion: r.conclusion as GHWorkflowRun['conclusion'],
+        created_at: r.created_at,
+        html_url: r.html_url,
+        display_title: r.name,
+    }));
 }
 
 /**

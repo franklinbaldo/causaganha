@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { API, LABELS } from '../lib/constants';
-import { formatBytes, getToday } from '../lib/utils';
-import { fetchPreBuiltCache, getCacheAge } from '../lib/api';
+import { LABELS } from '../lib/constants';
+import { formatBytes } from '../lib/utils';
+import { fetchDashboardCache, getCacheAge } from '../lib/api';
 
 interface MetricsData {
     filesToday: number;
@@ -14,12 +14,10 @@ interface MetricsData {
 export default function MetricsGrid() {
     const [data, setData] = useState<MetricsData>({ filesToday: 0, sizeToday: 0, daysArchived: 0, health: 0 });
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
-        // Step 1: Load pre-built cache immediately (instant data)
-        async function loadCache() {
-            const cache = await fetchPreBuiltCache();
+        async function loadData() {
+            const cache = await fetchDashboardCache();
             if (cache) {
                 setData({
                     filesToday: cache.today.files_today,
@@ -28,59 +26,10 @@ export default function MetricsGrid() {
                     health: cache.today.health,
                     cacheAge: getCacheAge(cache.meta.generated_at),
                 });
-                setLoading(false);
             }
+            setLoading(false);
         }
-
-        // Step 2: Fetch live data in background
-        async function fetchLiveMetrics() {
-            setRefreshing(true);
-            try {
-                // Fetch today's IA metadata
-                const todayRes = await fetch(API.IA_METADATA(getToday()));
-                let filesToday = data.filesToday;
-                let sizeToday = data.sizeToday;
-
-                if (todayRes.ok) {
-                    const todayData = await todayRes.json();
-                    const zipFiles = (todayData.files || []).filter((f: any) => f.name.endsWith('.zip'));
-                    filesToday = zipFiles.length;
-                    sizeToday = todayData.item_size || 0;
-                }
-
-                // Fetch GitHub Actions health
-                const ghRes = await fetch(API.GH_RUNS);
-                let health = data.health;
-                if (ghRes.ok) {
-                    const ghData = await ghRes.json();
-                    const runs = ghData.workflow_runs || [];
-                    const successful = runs.filter((r: any) => r.conclusion === 'success').length;
-                    health = runs.length > 0 ? Math.round((successful / runs.length) * 100) : 0;
-                }
-
-                setData(prev => ({
-                    ...prev,
-                    filesToday,
-                    sizeToday,
-                    health,
-                    cacheAge: undefined // Clear cache age when showing live data
-                }));
-            } catch (error) {
-                console.error('Failed to fetch live metrics:', error);
-            } finally {
-                setLoading(false);
-                setRefreshing(false);
-            }
-        }
-
-        // Load cache first (fast), then fetch live data (slow)
-        loadCache().then(() => {
-            fetchLiveMetrics();
-        });
-
-        // Refresh live data every 5 minutes
-        const interval = setInterval(fetchLiveMetrics, 5 * 60 * 1000);
-        return () => clearInterval(interval);
+        loadData();
     }, []);
 
     const metrics = [
