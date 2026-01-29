@@ -30,6 +30,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: dashboard/package-lock.json
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate dashboard cache
+        run: |
+          pip install uv
+          uv sync --no-dev
+          mkdir -p dashboard/public/cache
+          python scripts/generate_dashboard_cache.py
+          echo "Cache files generated:"
+          ls -la dashboard/public/cache/
+        continue-on-error: true  # Don't fail deploy if cache generation fails (can use IA fallback)
+
       - name: Install dependencies
         run: npm ci
         working-directory: dashboard
