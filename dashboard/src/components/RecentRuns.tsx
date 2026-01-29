@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { API, LABELS } from '../lib/constants';
+import { LABELS, LINKS } from '../lib/constants';
 import { timeAgo } from '../lib/utils';
+import { fetchDashboardCache, extractRuns } from '../lib/api';
 import type { GHWorkflowRun } from '../lib/types';
 
 const STATUS_ICONS = {
@@ -33,23 +34,17 @@ export default function RecentRuns() {
     const [error, setError] = useState(false);
 
     useEffect(() => {
-        async function fetchRuns() {
-            try {
-                const res = await fetch(API.GH_RUNS);
-                if (!res.ok) throw new Error('Failed to fetch');
-                const data = await res.json();
-                setRuns((data.workflow_runs || []).slice(0, 8));
+        async function loadData() {
+            const cache = await fetchDashboardCache();
+            if (cache) {
+                setRuns(extractRuns(cache).slice(0, 8));
                 setError(false);
-            } catch {
+            } else {
                 setError(true);
-            } finally {
-                setLoading(false);
             }
+            setLoading(false);
         }
-
-        fetchRuns();
-        const interval = setInterval(fetchRuns, 2 * 60 * 1000); // Refresh every 2 minutes
-        return () => clearInterval(interval);
+        loadData();
     }, []);
 
     const getStatusIcon = (run: GHWorkflowRun) => {

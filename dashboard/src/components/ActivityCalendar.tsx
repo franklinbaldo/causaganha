@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { API, LABELS, CALENDAR_WEEKS } from '../lib/constants';
+import { LABELS, CALENDAR_WEEKS, LINKS } from '../lib/constants';
 import { formatBytes, formatDate, getCalendarLevel, chunk } from '../lib/utils';
-import type { DaySummary } from '../lib/types';
+import { fetchDashboardCache } from '../lib/api';
 
 interface CalendarCell {
     date: string;
@@ -49,54 +49,38 @@ export default function ActivityCalendar() {
         return result;
     }, []);
 
-    // Fetch data for all dates
+    // Load data from pre-built cache
     useEffect(() => {
-        async function fetchAllDates() {
+        async function loadFromCache() {
             setLoading(true);
             const today = formatDate(new Date());
-            const dataMap = new Map<string, { size: number; count: number }>();
+            const cache = await fetchDashboardCache();
 
-            // Sample every 3rd day to reduce API calls, plus always include recent days
-            const datesToFetch = dates.filter((date, i) => {
-                const daysAgo = dates.length - 1 - i;
-                return daysAgo <= 7 || i % 3 === 0;
-            });
-
-            // Fetch in parallel batches
-            const batchSize = 5;
-            for (let i = 0; i < datesToFetch.length; i += batchSize) {
-                const batch = datesToFetch.slice(i, i + batchSize);
-                const results = await Promise.all(
-                    batch.map(async (date) => {
-                        try {
-                            const res = await fetch(API.IA_METADATA(date));
-                            if (!res.ok) return { date, size: 0, count: 0 };
-                            const data = await res.json();
-                            const zipFiles = (data.files || []).filter((f: any) => f.name.endsWith('.zip'));
-                            return { date, size: data.item_size || 0, count: zipFiles.length };
-                        } catch {
-                            return { date, size: 0, count: 0 };
-                        }
-                    })
-                );
-                results.forEach(r => dataMap.set(r.date, { size: r.size, count: r.count }));
+            if (!cache) {
+                setLoading(false);
+                return;
             }
 
+            const calendarDays = cache.calendar.days;
+
             // Calculate max size for level scaling
-            const allSizes = Array.from(dataMap.values()).map(d => d.size);
+            const allSizes = Object.values(calendarDays).map(d => d.size);
             const maxSize = Math.max(...allSizes, 1);
 
-            // Build cells
+            // Build cells from cache data
             const newCells: CalendarCell[] = dates.map(date => {
-                const data = dataMap.get(date) || { size: 0, count: 0 };
+                const data = calendarDays[date];
                 const isFuture = date > today;
-                return {
-                    date,
-                    level: isFuture ? 0 : getCalendarLevel(data.size, maxSize),
-                    size: data.size,
-                    tribunalCount: data.count,
-                    isFuture,
-                };
+                if (data) {
+                    return {
+                        date,
+                        level: isFuture ? 0 : getCalendarLevel(data.size, maxSize),
+                        size: data.size,
+                        tribunalCount: data.tribunal_count,
+                        isFuture,
+                    };
+                }
+                return { date, level: 0, size: 0, tribunalCount: 0, isFuture };
             });
 
             // Calculate stats
@@ -113,7 +97,7 @@ export default function ActivityCalendar() {
             setLoading(false);
         }
 
-        fetchAllDates();
+        loadFromCache();
     }, [dates]);
 
     // Group cells by week (columns)
@@ -145,7 +129,7 @@ export default function ActivityCalendar() {
 
     const handleCellClick = (cell: CalendarCell) => {
         if (cell.size > 0) {
-            window.open(API.IA_DETAILS(cell.date), '_blank');
+            window.open(LINKS.IA_DETAILS(cell.date), '_blank');
         }
     };
 

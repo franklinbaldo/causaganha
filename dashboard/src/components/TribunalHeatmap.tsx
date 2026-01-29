@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { API, TRIBUNALS, LABELS } from '../lib/constants';
-import { formatBytes, getToday, getDaysAgo } from '../lib/utils';
+import { TRIBUNALS, LABELS } from '../lib/constants';
+import { formatBytes } from '../lib/utils';
+import { fetchDashboardCache, extractTribunalStatus } from '../lib/api';
 import type { TribunalStatus } from '../lib/types';
 
 const STATUS_COLORS = {
@@ -28,65 +29,15 @@ export default function TribunalHeatmap() {
     const [tooltip, setTooltip] = useState<{ x: number; y: number; tribunal: TribunalStatus } | null>(null);
 
     useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
-
-            // Try today first, then recent days
-            for (let i = 0; i <= 5; i++) {
-                const date = i === 0 ? getToday() : getDaysAgo(i);
-                try {
-                    const res = await fetch(API.IA_METADATA(date));
-                    if (!res.ok) continue;
-
-                    const metadata = await res.json();
-                    if (!metadata.files || metadata.files.length === 0) continue;
-
-                    const statusMap: Record<string, TribunalStatus> = {};
-
-                    // Parse files
-                    for (const file of metadata.files) {
-                        const match = file.name.match(/djen-\d{4}-\d{2}-\d{2}-([A-Z0-9]+)\.(zip|absent)$/);
-                        if (match) {
-                            const tribunal = match[1];
-                            const status = match[2] === 'zip' ? 'ok' : 'absent';
-                            statusMap[tribunal] = {
-                                tribunal,
-                                status,
-                                size: status === 'ok' ? parseInt(file.size, 10) : undefined,
-                                fileCount: file.filecount ? parseInt(file.filecount, 10) : undefined,
-                            };
-                        }
-                    }
-
-                    // Mark missing tribunals as pending/error
-                    const allTribunals = [
-                        ...TRIBUNALS.superiores,
-                        ...TRIBUNALS.trfs,
-                        ...TRIBUNALS.trts,
-                        ...TRIBUNALS.tjs,
-                    ];
-
-                    for (const tribunal of allTribunals) {
-                        if (!statusMap[tribunal]) {
-                            statusMap[tribunal] = {
-                                tribunal,
-                                status: i === 0 ? 'pending' : 'error', // pending for today, error for past
-                            };
-                        }
-                    }
-
-                    setData({ status: statusMap, date });
-                    setLoading(false);
-                    return;
-                } catch {
-                    continue;
-                }
+        async function loadData() {
+            const cache = await fetchDashboardCache();
+            if (cache) {
+                const { date, status } = extractTribunalStatus(cache);
+                setData({ date, status });
             }
-
             setLoading(false);
         }
-
-        fetchData();
+        loadData();
     }, []);
 
     const handleMouseEnter = (e: React.MouseEvent, tribunal: TribunalStatus) => {

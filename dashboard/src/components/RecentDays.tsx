@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { API, LABELS } from '../lib/constants';
-import { formatBytes, getToday, getDaysAgo } from '../lib/utils';
+import { LINKS, LABELS } from '../lib/constants';
+import { formatBytes } from '../lib/utils';
+import { fetchDashboardCache, extractRecentDays } from '../lib/api';
 
 interface DayData {
     date: string;
@@ -14,36 +15,14 @@ export default function RecentDays() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        async function fetchDays() {
-            const results: DayData[] = [];
-
-            // Fetch last 5 days
-            for (let i = 0; i < 5; i++) {
-                const date = i === 0 ? getToday() : getDaysAgo(i);
-                try {
-                    const res = await fetch(API.IA_METADATA(date));
-                    if (res.ok) {
-                        const data = await res.json();
-                        const zipFiles = (data.files || []).filter((f: any) => f.name.endsWith('.zip'));
-                        results.push({
-                            date,
-                            size: data.item_size || 0,
-                            tribunalCount: zipFiles.length,
-                            exists: true,
-                        });
-                    } else {
-                        results.push({ date, size: 0, tribunalCount: 0, exists: false });
-                    }
-                } catch {
-                    results.push({ date, size: 0, tribunalCount: 0, exists: false });
-                }
+        async function loadData() {
+            const cache = await fetchDashboardCache();
+            if (cache) {
+                setDays(extractRecentDays(cache, 5));
             }
-
-            setDays(results);
             setLoading(false);
         }
-
-        fetchDays();
+        loadData();
     }, []);
 
     if (loading) {
@@ -64,7 +43,7 @@ export default function RecentDays() {
             {days.map((day) => (
                 <a
                     key={day.date}
-                    href={day.exists ? API.IA_DETAILS(day.date) : undefined}
+                    href={day.exists ? LINKS.IA_DETAILS(day.date) : undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`

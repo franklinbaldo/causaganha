@@ -31,40 +31,6 @@ export function formatDate(date: Date): string {
 }
 
 /**
- * Get today's date in YYYY-MM-DD format
- */
-export function getToday(): string {
-    return formatDate(new Date());
-}
-
-/**
- * Get date N days ago in YYYY-MM-DD format
- */
-export function getDaysAgo(n: number): string {
-    const date = new Date();
-    date.setDate(date.getDate() - n);
-    return formatDate(date);
-}
-
-/**
- * Parse tribunal code from filename
- * e.g., "djen-2026-01-28-TJSP.zip" -> "TJSP"
- */
-export function parseTribunalFromFilename(filename: string): string | null {
-    const match = filename.match(/djen-\d{4}-\d{2}-\d{2}-([A-Z0-9]+)\.(zip|absent)$/);
-    return match ? match[1] : null;
-}
-
-/**
- * Determine file status from filename
- */
-export function getFileStatus(filename: string): 'ok' | 'absent' | null {
-    if (filename.endsWith('.zip')) return 'ok';
-    if (filename.endsWith('.absent')) return 'absent';
-    return null;
-}
-
-/**
  * Calculate calendar level based on size relative to max
  */
 export function getCalendarLevel(size: number, maxSize: number): 0 | 1 | 2 | 3 | 4 {
@@ -75,50 +41,6 @@ export function getCalendarLevel(size: number, maxSize: number): 0 | 1 | 2 | 3 |
     if (ratio >= 0.26) return 2;
     if (ratio > 0) return 1;
     return 0;
-}
-
-/**
- * Calculate pipeline health percentage from workflow runs
- */
-export function calculateHealth(runs: { conclusion: string | null }[]): number {
-    if (runs.length === 0) return 0;
-    const successful = runs.filter(r => r.conclusion === 'success').length;
-    return Math.round((successful / runs.length) * 100);
-}
-
-/**
- * Get health status based on percentage
- */
-export function getHealthStatus(health: number): 'operational' | 'degraded' | 'failure' {
-    if (health >= 80) return 'operational';
-    if (health >= 50) return 'degraded';
-    return 'failure';
-}
-
-/**
- * Generate an array of dates for the calendar (last N weeks)
- */
-export function generateCalendarDates(weeks: number): string[] {
-    const dates: string[] = [];
-    const today = new Date();
-    const totalDays = weeks * 7;
-
-    // Start from the beginning of the week (Monday)
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - totalDays + 1);
-
-    // Adjust to Monday
-    const dayOfWeek = startDate.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    startDate.setDate(startDate.getDate() - daysToMonday);
-
-    for (let i = 0; i < totalDays; i++) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + i);
-        dates.push(formatDate(date));
-    }
-
-    return dates;
 }
 
 /**

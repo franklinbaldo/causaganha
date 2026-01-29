@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-"""Generate dashboard cache JSON files from IA and GitHub APIs.
+"""Generate dashboard cache JSON files from the catalog manifest.
+
+Reads manifest.parquet (the catalog's index of all IA files) and derives
+all dashboard data from it, instead of making per-date IA API calls.
+
+Data sources:
+  - manifest.parquet from causaganha-catalog (one HTTP fetch via DuckDB httpfs)
+  - IA search API for item sizes (one HTTP call)
+  - GitHub API for workflow runs (one HTTP call)
 
 Usage:
-  python generate_dashboard_cache.py           # Generate local cache only
-  python generate_dashboard_cache.py --upload  # Generate and upload to IA
+  python generate_dashboard_cache.py                     # Generate local cache
+  python generate_dashboard_cache.py --manifest ./m.parquet  # Use local manifest
 
-Outputs (local):
-  - public/cache/meta.json     # Version and timestamp
-  - public/cache/today.json    # Today's metrics and tribunal status
-  - public/cache/runs.json     # Recent GitHub Actions runs
-  - public/cache/calendar.json # Historical calendar data (120 days)
-
-Outputs (IA):
-  - https://archive.org/download/djen-dashboard-cache/cache.json
+Outputs:
+  - dashboard/public/cache/meta.json     # Version and timestamp
+  - dashboard/public/cache/today.json    # Today's metrics and tribunal status
+  - dashboard/public/cache/runs.json     # Recent GitHub Actions runs
+  - dashboard/public/cache/calendar.json # Historical calendar data
 """
 
 import argparse
@@ -24,152 +29,137 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 
 # Configuration
 CALENDAR_DAYS = 120
 GITHUB_REPO = "franklinbaldo/causaganha"
 OUTPUT_DIR = Path(__file__).parent.parent / "dashboard" / "public" / "cache"
+MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+IA_SEARCH_URL = (
+    "https://archive.org/advancedsearch.php"
+    "?q=identifier:djen-20*"
+    "&fl[]=identifier&fl[]=item_size"
+    "&rows=10000&output=json"
+)
 
 TRIBUNALS = [
-    "STF",
-    "STJ",
-    "TST",
-    "TSE",
-    "STM",
-    "CNJ",
-    "TRF1",
-    "TRF2",
-    "TRF3",
-    "TRF4",
-    "TRF5",
-    "TRF6",
-    "TRT1",
-    "TRT2",
-    "TRT3",
-    "TRT4",
-    "TRT5",
-    "TRT6",
-    "TRT7",
-    "TRT8",
-    "TRT9",
-    "TRT10",
-    "TRT11",
-    "TRT12",
-    "TRT13",
-    "TRT14",
-    "TRT15",
-    "TRT16",
-    "TRT17",
-    "TRT18",
-    "TRT19",
-    "TRT20",
-    "TRT21",
-    "TRT22",
-    "TRT23",
-    "TRT24",
-    "TJAC",
-    "TJAL",
-    "TJAM",
-    "TJAP",
-    "TJBA",
-    "TJCE",
-    "TJDFT",
-    "TJES",
-    "TJGO",
-    "TJMA",
-    "TJMG",
-    "TJMS",
-    "TJMT",
-    "TJPA",
-    "TJPB",
-    "TJPE",
-    "TJPI",
-    "TJPR",
-    "TJRJ",
-    "TJRN",
-    "TJRO",
-    "TJRR",
-    "TJRS",
-    "TJSC",
-    "TJSE",
-    "TJSP",
-    "TJTO",
+    "STF", "STJ", "TST", "TSE", "STM", "CNJ",
+    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
+    "TRT1", "TRT2", "TRT3", "TRT4", "TRT5", "TRT6", "TRT7", "TRT8",
+    "TRT9", "TRT10", "TRT11", "TRT12", "TRT13", "TRT14", "TRT15",
+    "TRT16", "TRT17", "TRT18", "TRT19", "TRT20", "TRT21", "TRT22",
+    "TRT23", "TRT24",
+    "TJAC", "TJAL", "TJAM", "TJAP", "TJBA", "TJCE", "TJDFT", "TJES",
+    "TJGO", "TJMA", "TJMG", "TJMS", "TJMT", "TJPA", "TJPB", "TJPE",
+    "TJPI", "TJPR", "TJRJ", "TJRN", "TJRO", "TJRR", "TJRS", "TJSC",
+    "TJSE", "TJSP", "TJTO",
 ]
 
 
-def fetch_json(url: str, timeout: int = 10) -> dict[str, Any] | None:
+def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
     """Fetch JSON from URL with error handling."""
     try:
         req = urllib.request.Request(  # noqa: S310
             url,
-            headers={"User-Agent": "CausaGanha-Dashboard/2.0"},
+            headers={"User-Agent": "CausaGanha-Dashboard/3.0"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:  # noqa: S310
             data: dict[str, Any] = json.loads(response.read().decode())
             return data
     except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
-        print(f"  ⚠ Failed to fetch {url}: {e}", file=sys.stderr)
+        print(f"  Warning: Failed to fetch {url}: {e}", file=sys.stderr)
         return None
 
 
-def fetch_ia_metadata(date: str) -> dict[str, Any] | None:
-    """Fetch Internet Archive metadata for a specific date."""
-    url = f"https://archive.org/metadata/djen-{date}"
-    return fetch_json(url)
+def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> bool:
+    """Load manifest.parquet into DuckDB, from local path or remote URL."""
+    source = manifest_path or MANIFEST_URL
+
+    if manifest_path:
+        print(f"  Loading manifest from local file: {source}")
+    else:
+        print(f"  Loading manifest from IA: {source}")
+
+    try:
+        con.execute(f"""
+            CREATE TABLE manifest AS
+            SELECT * FROM read_parquet('{source}')
+        """)
+        count = con.execute("SELECT COUNT(*) FROM manifest").fetchone()
+        print(f"  Loaded {count[0]} manifest entries")
+        return True
+    except Exception as e:
+        print(f"  Error loading manifest: {e}", file=sys.stderr)
+        return False
 
 
-def parse_tribunal_status(metadata: dict[str, Any] | None, date: str) -> dict[str, dict[str, Any]]:
-    """Parse IA metadata into tribunal status dict."""
-    if not metadata or "files" not in metadata:
+def fetch_item_sizes() -> dict[str, int]:
+    """Fetch item sizes from IA search API (one bulk request)."""
+    print("  Fetching item sizes from IA search API...")
+    data = fetch_json(IA_SEARCH_URL)
+    if not data or "response" not in data:
+        print("  Warning: Could not fetch item sizes", file=sys.stderr)
         return {}
 
-    status: dict[str, dict[str, Any]] = {}
-    for file in metadata.get("files", []):
-        name = file.get("name", "")
-        # Match pattern: djen-YYYY-MM-DD-TRIBUNAL.zip or .absent
-        if name.startswith(f"djen-{date}-") and name.endswith((".zip", ".absent")):
-            parts = name.replace(f"djen-{date}-", "").rsplit(".", 1)
-            if len(parts) == 2:
-                tribunal = parts[0]
-                ext = parts[1]
-                status[tribunal] = {
-                    "status": "ok" if ext == "zip" else "absent",
-                    "size": int(file.get("size", 0)) if ext == "zip" else None,
-                }
-    return status
+    sizes: dict[str, int] = {}
+    for doc in data["response"].get("docs", []):
+        identifier = doc.get("identifier", "")
+        item_size = doc.get("item_size", 0)
+        # Extract date from identifier: djen-YYYY-MM-DD -> YYYY-MM-DD
+        if identifier.startswith("djen-") and len(identifier) >= 15:
+            date_str = identifier[5:15]  # "YYYY-MM-DD"
+            sizes[date_str] = int(item_size) if item_size else 0
+
+    print(f"  Got sizes for {len(sizes)} dates")
+    return sizes
 
 
-def generate_today_cache() -> dict[str, Any]:
-    """Generate today's metrics and tribunal status."""
+def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
+    """Generate today's metrics and tribunal status from manifest."""
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    print(f"📊 Fetching today's data ({today})...")
+    print(f"  Generating today's data ({today})...")
 
-    # Try today, fall back to yesterday
-    metadata = fetch_ia_metadata(today)
+    # Query manifest for today's tribunal statuses
+    result = con.execute("""
+        SELECT tribunal, file_type
+        FROM manifest
+        WHERE date = ? AND file_type IN ('zip', 'absent')
+    """, [today]).fetchall()
+
     date_used = today
-
-    if not metadata or not metadata.get("files"):
-        print(f"  → No data for today, trying yesterday ({yesterday})...")
-        metadata = fetch_ia_metadata(yesterday)
+    if not result:
+        print(f"  No data for today, trying yesterday ({yesterday})...")
+        result = con.execute("""
+            SELECT tribunal, file_type
+            FROM manifest
+            WHERE date = ? AND file_type IN ('zip', 'absent')
+        """, [yesterday]).fetchall()
         date_used = yesterday
 
-    tribunal_status = parse_tribunal_status(metadata, date_used)
-
-    # Calculate metrics
-    zip_files = [t for t in tribunal_status.values() if t["status"] == "ok"]
-    files_today = len(zip_files)
-    size_today = sum(t.get("size", 0) or 0 for t in zip_files)
+    # Build tribunal status map
+    tribunal_status: dict[str, dict[str, Any]] = {}
+    for tribunal, file_type in result:
+        tribunal_status[tribunal] = {
+            "status": "ok" if file_type == "zip" else "absent",
+            "size": None,  # Per-tribunal sizes not in manifest
+        }
 
     # Mark missing tribunals as pending
     for tribunal in TRIBUNALS:
         if tribunal not in tribunal_status:
             tribunal_status[tribunal] = {"status": "pending", "size": None}
 
+    # Calculate metrics
+    zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")
+    size_today = sizes.get(date_used, 0)
+
     return {
         "date": date_used,
-        "files_today": files_today,
+        "files_today": zip_count,
         "size_today": size_today,
         "tribunal_status": tribunal_status,
     }
@@ -177,7 +167,7 @@ def generate_today_cache() -> dict[str, Any]:
 
 def generate_runs_cache() -> dict[str, Any]:
     """Fetch recent GitHub Actions runs."""
-    print("🔄 Fetching GitHub Actions runs...")
+    print("  Fetching GitHub Actions runs...")
 
     url = f"https://api.github.com/repos/{GITHUB_REPO}/actions/runs?per_page=10"
     data = fetch_json(url)
@@ -207,41 +197,40 @@ def generate_runs_cache() -> dict[str, Any]:
     return {"runs": runs, "health": health}
 
 
-def generate_calendar_cache(existing_calendar: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Generate calendar data for last N days (incremental update)."""
-    print(f"📅 Generating calendar data ({CALENDAR_DAYS} days)...")
+def generate_calendar_cache(
+    con: duckdb.DuckDBPyConnection,
+    sizes: dict[str, int],
+) -> dict[str, Any]:
+    """Generate calendar data for last N days from manifest."""
+    print(f"  Generating calendar data ({CALENDAR_DAYS} days)...")
 
-    existing_data = existing_calendar.get("days", {}) if existing_calendar else {}
+    # Query manifest for zip counts per date
+    result = con.execute("""
+        SELECT date, COUNT(DISTINCT tribunal) as tribunal_count
+        FROM manifest
+        WHERE file_type = 'zip'
+          AND date >= ?
+        GROUP BY date
+    """, [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")]).fetchall()
+
+    date_tribunals: dict[str, int] = {row[0]: row[1] for row in result}
+
+    # Build calendar data
     calendar_data: dict[str, dict[str, Any]] = {}
     max_size = 0
 
     for i in range(CALENDAR_DAYS):
         date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        size = sizes.get(date, 0)
+        tribunal_count = date_tribunals.get(date, 0)
+        exists = tribunal_count > 0 or size > 0
 
-        # Skip if we already have this historical date (not today/yesterday)
-        if date in existing_data and i > 1:
-            calendar_data[date] = existing_data[date]
-            max_size = max(max_size, existing_data[date].get("size", 0))
-            continue
-
-        metadata = fetch_ia_metadata(date)
-
-        if metadata and metadata.get("files"):
-            zip_files = [f for f in metadata["files"] if f.get("name", "").endswith(".zip")]
-            size = metadata.get("item_size", 0) or 0
-            tribunal_count = len(zip_files)
-            calendar_data[date] = {
-                "size": size,
-                "tribunal_count": tribunal_count,
-                "exists": True,
-            }
-            max_size = max(max_size, size)
-        else:
-            calendar_data[date] = {"size": 0, "tribunal_count": 0, "exists": False}
-
-        # Rate limit
-        if i % 10 == 9:
-            print(f"  → Processed {i + 1}/{CALENDAR_DAYS} days...")
+        calendar_data[date] = {
+            "size": size,
+            "tribunal_count": tribunal_count,
+            "exists": exists,
+        }
+        max_size = max(max_size, size)
 
     # Calculate levels based on max size
     for data in calendar_data.values():
@@ -300,7 +289,6 @@ def generate_rss_feed(
     size_today = today_data.get("size_today", 0)
     health = today_data.get("health", 0)
 
-    # Build RSS
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
@@ -309,10 +297,9 @@ def generate_rss_feed(
   <description>Status updates from the CausaGanha judicial data collection pipeline</description>
   <language>pt-BR</language>
   <lastBuildDate>{now.strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
-  <atom:link href="https://archive.org/download/djen-dashboard-cache/feed.xml" rel="self" type="application/rss+xml"/>
 
   <item>
-    <title>📊 {date_str}: {files_today} tribunais, {format_bytes(size_today)}</title>
+    <title>{date_str}: {files_today} tribunais, {format_bytes(size_today)}</title>
     <link>https://archive.org/details/djen-{date_str}</link>
     <description>
       Pipeline Status: {health}% healthy
@@ -328,95 +315,54 @@ def generate_rss_feed(
 </rss>"""
 
 
-def upload_to_ia(cache_data: dict[str, Any], rss_content: str) -> bool:
-    """Upload cache.json and feed.xml to Internet Archive."""
-    import tempfile
-
-    try:
-        from internetarchive import upload
-    except ImportError:
-        print("  ⚠ internetarchive library not installed. Run: pip install internetarchive")
-        return False
-
-    print("📤 Uploading to Internet Archive...")
-
-    item_id = "djen-dashboard-cache"
-    metadata = {
-        "title": "CausaGanha Dashboard Cache",
-        "description": "Auto-generated cache for the CausaGanha dashboard. Updated every pipeline run.",
-        "creator": "CausaGanha",
-        "mediatype": "data",
-        "collection": "opensource_media",
-    }
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cache_path = Path(tmpdir) / "cache.json"
-        rss_path = Path(tmpdir) / "feed.xml"
-
-        with cache_path.open("w") as f:
-            json.dump(cache_data, f, separators=(",", ":"))
-
-        with rss_path.open("w") as f:
-            f.write(rss_content)
-
-        try:
-            upload(
-                item_id,
-                files=[str(cache_path), str(rss_path)],
-                metadata=metadata,
-                retries=3,
-            )
-            print(f"  ✓ Uploaded to https://archive.org/download/{item_id}/")
-            return True
-        except Exception as e:
-            print(f"  ⚠ Upload failed: {e}")
-            return False
-
-
 def main() -> None:
-    """Generate all cache files."""
-    parser = argparse.ArgumentParser(description="Generate dashboard cache")
-    parser.add_argument("--upload", action="store_true", help="Upload to Internet Archive")
+    """Generate all cache files from catalog manifest."""
+    parser = argparse.ArgumentParser(description="Generate dashboard cache from catalog manifest")
     parser.add_argument(
-        "--local-only",
-        action="store_true",
-        help="Skip calendar fetch, use existing",
+        "--manifest",
+        type=str,
+        default=None,
+        help="Path to local manifest.parquet (default: download from IA)",
     )
     args = parser.parse_args()
 
-    print("🚀 Generating dashboard cache...")
+    print("Generating dashboard cache from catalog manifest...")
     print(f"   Output: {OUTPUT_DIR}\n")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load existing calendar for incremental update
-    calendar_path = OUTPUT_DIR / "calendar.json"
-    existing_calendar = None
-    if calendar_path.exists():
-        try:
-            with calendar_path.open() as f:
-                existing_calendar = json.load(f)
-        except json.JSONDecodeError:
-            pass
+    # Initialize DuckDB with httpfs for remote parquet access
+    con = duckdb.connect()
+    if not args.manifest:
+        con.execute("INSTALL httpfs; LOAD httpfs;")
 
-    # Generate all caches
-    today_data = generate_today_cache()
+    # Step 1: Load manifest (one HTTP request or local file)
+    print("[1/3] Loading manifest...")
+    if not load_manifest(con, args.manifest):
+        print("Error: Could not load manifest. Aborting.", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 2: Fetch item sizes from IA search API (one HTTP request)
+    print("[2/3] Fetching item sizes...")
+    sizes = fetch_item_sizes()
+
+    # Step 3: Generate all caches
+    print("[3/3] Generating cache files...")
+    today_data = generate_today_cache(con, sizes)
     runs_data = generate_runs_cache()
+    calendar_data = generate_calendar_cache(con, sizes)
 
-    if args.local_only and existing_calendar:
-        print("📅 Using existing calendar data (--local-only)")
-        calendar_data = existing_calendar
-    else:
-        calendar_data = generate_calendar_cache(existing_calendar)
+    con.close()
 
-    # Add days_archived to today data
+    # Add days_archived and health to today data
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
     today_data["health"] = runs_data["health"]
 
     # Generate metadata
     meta = {
-        "version": "2.0",
+        "version": "3.0",
         "generated_at": datetime.now().isoformat() + "Z",
+        "source": "manifest.parquet",
         "calendar_days": CALENDAR_DAYS,
     }
 
@@ -431,32 +377,20 @@ def main() -> None:
     for filename, data in files.items():
         path = OUTPUT_DIR / filename
         with path.open("w") as f:
-            json.dump(data, f, separators=(",", ":"))  # Compact JSON
+            json.dump(data, f, separators=(",", ":"))
         size = path.stat().st_size
-        print(f"  ✓ {filename}: {size:,} bytes")
-
-    # Generate combined cache for IA
-    combined_cache = {
-        "meta": meta,
-        "today": today_data,
-        "runs": runs_data,
-        "calendar": calendar_data,
-    }
+        print(f"  {filename}: {size:,} bytes")
 
     # Generate RSS feed
     rss_content = generate_rss_feed(today_data, runs_data, calendar_data)
     rss_path = OUTPUT_DIR / "feed.xml"
     with rss_path.open("w") as f:
         f.write(rss_content)
-    print(f"  ✓ feed.xml: {rss_path.stat().st_size:,} bytes")
+    print(f"  feed.xml: {rss_path.stat().st_size:,} bytes")
 
-    print("\n✅ Cache generation complete!")
-
-    # Upload to IA if requested
-    if args.upload:
-        upload_to_ia(combined_cache, rss_content)
-    else:
-        print("   (Use --upload to push to Internet Archive)")
+    print("\nCache generation complete!")
+    print(f"  Data source: manifest.parquet ({calendar_data['stats']['days_with_data']} days)")
+    print(f"  HTTP requests: 3 (manifest + IA sizes + GH runs)")
 
 
 if __name__ == "__main__":
