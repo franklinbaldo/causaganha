@@ -79,7 +79,7 @@ def _create_table_for_model(con: Backend, model: EmbeddingModel) -> str:
     # Create table with native FLOAT array (much faster than JSON)
     con.raw_sql(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
-            intimation_id BIGINT NOT NULL,
+            texto_id VARCHAR NOT NULL,
             chunk_index INTEGER NOT NULL,
 
             -- Embedding data (native FLOAT array, fixed dimension for this table)
@@ -93,12 +93,12 @@ def _create_table_for_model(con: Backend, model: EmbeddingModel) -> str:
             text_preview TEXT,
             created_at TIMESTAMP DEFAULT NOW(),
 
-            PRIMARY KEY (intimation_id, chunk_index)
+            PRIMARY KEY (texto_id, chunk_index)
         );
 
         -- Index for lookups
-        CREATE INDEX IF NOT EXISTS idx_{table_name}_intimation
-            ON {table_name}(intimation_id);
+        CREATE INDEX IF NOT EXISTS idx_{table_name}_texto
+            ON {table_name}(texto_id);
 
         -- Index for created_at (for cleanup/archival)
         CREATE INDEX IF NOT EXISTS idx_{table_name}_created
@@ -134,7 +134,7 @@ class EmbeddingStorage:
 
     def save_embeddings_batch(
         self,
-        intimation_id: int,
+        texto_id: str,
         embeddings: list[list[float]],
         model: EmbeddingModel,
         text_chunks: list[str] | None = None,
@@ -142,7 +142,7 @@ class EmbeddingStorage:
         """Save multiple embeddings (chunks) for one document using vectorized operation.
 
         Args:
-            intimation_id: Intimation ID this embedding belongs to.
+            texto_id: Content-addressed text ID (UUIDv5).
             embeddings: List of embedding vectors (one per chunk).
             model: EmbeddingModel that generated these embeddings.
             text_chunks: Optional list of text chunks (for preview).
@@ -165,7 +165,7 @@ class EmbeddingStorage:
         num_chunks = len(embeddings)
 
         data = {
-            "intimation_id": [intimation_id] * num_chunks,
+            "texto_id": [texto_id] * num_chunks,
             "chunk_index": list(range(num_chunks)),
             "embedding": embeddings,  # Native list → FLOAT[] (no JSON conversion needed!)
             "embedding_version": ["1.0"] * num_chunks,
@@ -182,10 +182,10 @@ class EmbeddingStorage:
         # Bulk insert using DuckDB's efficient INSERT from DataFrame
         # Native FLOAT[] arrays are 2-5x faster than JSON
 
-        # Delete existing embeddings for this intimation
+        # Delete existing embeddings for this text
         self.con.con.execute(
-            f"DELETE FROM {table_name} WHERE intimation_id = ?",
-            [intimation_id],
+            f"DELETE FROM {table_name} WHERE texto_id = ?",
+            [texto_id],
         )
 
         # Register DataFrame and insert
@@ -198,20 +198,20 @@ class EmbeddingStorage:
 
         logger.info(
             "embeddings_batch_saved",
-            intimation_id=intimation_id,
+            texto_id=texto_id,
             num_chunks=len(embeddings),
             table=table_name,
         )
 
     def load_embeddings(
         self,
-        intimation_id: int,
+        texto_id: str,
         model: EmbeddingModel,
     ) -> list[dict[str, Any]] | None:
         """Load embeddings for a document using vectorized query.
 
         Args:
-            intimation_id: Intimation ID to load embeddings for.
+            texto_id: Content-addressed text ID (UUIDv5).
             model: EmbeddingModel to load (determines which table to query).
 
         Returns:
@@ -224,15 +224,15 @@ class EmbeddingStorage:
             logger.debug(
                 "embeddings_table_not_found",
                 table=table_name,
-                intimation_id=intimation_id,
+                texto_id=texto_id,
             )
             return None
 
         # Get table reference
         table = self.con.table(table_name)
 
-        # Query for this intimation (vectorized)
-        query = table.filter(table.intimation_id == intimation_id).order_by(table.chunk_index)
+        # Query for this text (vectorized)
+        query = table.filter(table.texto_id == texto_id).order_by(table.chunk_index)
 
         # Execute and fetch
         results = query.execute()
@@ -240,7 +240,7 @@ class EmbeddingStorage:
         if results.empty:
             logger.debug(
                 "embeddings_not_found",
-                intimation_id=intimation_id,
+                texto_id=texto_id,
                 table=table_name,
             )
             return None
@@ -256,7 +256,7 @@ class EmbeddingStorage:
 
         logger.debug(
             "embeddings_loaded",
-            intimation_id=intimation_id,
+            texto_id=texto_id,
             num_chunks=len(embeddings),
             table=table_name,
         )
@@ -267,9 +267,7 @@ class EmbeddingStorage:
         self,
         output_path: str | Path,
         model: EmbeddingModel,
-        intimation_id: int | None = None,
-        tribunal: str | None = None,
-        date: str | None = None,
+        texto_id: str | None = None,
     ) -> Path:
         """Export embeddings to Parquet file for Internet Archive upload.
 
@@ -278,9 +276,7 @@ class EmbeddingStorage:
         Args:
             output_path: Path to save Parquet file.
             model: EmbeddingModel to export (determines which table to query).
-            intimation_id: Optional filter by intimation ID.
-            tribunal: Optional filter by tribunal (requires join).
-            date: Optional filter by date (YYYY-MM-DD, requires join).
+            texto_id: Optional filter by text ID.
 
         Returns:
             Path to the exported Parquet file.
@@ -301,28 +297,12 @@ class EmbeddingStorage:
         table = self.con.table(table_name)
         query = table
 
-        # Join if filtering by tribunal or date
-        if tribunal or date:
-            intimations = self.con.table("intimations")
-            query = query.join(
-                intimations,
-                table.intimation_id == intimations.id,
-            )
-
-            if tribunal:
-                query = query.filter(intimations.sigla_tribunal == tribunal)
-            if date:
-                query = query.filter(intimations.data_disponibilizacao == date)
-
-            # Select only embedding columns after join
-            query = query.select(table)
-
-        # Apply simple filter
-        if intimation_id is not None:
-            query = query.filter(table.intimation_id == intimation_id)
+        # Apply filter
+        if texto_id is not None:
+            query = query.filter(table.texto_id == texto_id)
 
         # Order by using the table columns directly
-        query = query.order_by([table.intimation_id, table.chunk_index])
+        query = query.order_by([table.texto_id, table.chunk_index])
 
         # Export to Parquet (vectorized - no Python iteration)
         df = query.execute()
@@ -332,7 +312,7 @@ class EmbeddingStorage:
                 "export_no_data",
                 output_path=str(output_path),
                 table=table_name,
-                intimation_id=intimation_id,
+                texto_id=texto_id,
             )
             raise ValueError(f"No embeddings found in table {table_name}")
 
@@ -356,21 +336,21 @@ class EmbeddingStorage:
             num_rows=len(df),
             file_size_mb=round(file_size_mb, 2),
             table=table_name,
-            intimation_id=intimation_id,
+            texto_id=texto_id,
             compression="zstd",
         )
 
         return output_path
 
-    def find_similar_decisions(
+    def find_similar_texts(
         self,
         query_embedding: list[float],
         model: EmbeddingModel,
         top_k: int = 10,
         min_similarity: float = 0.7,
-        exclude_intimation_ids: list[int] | None = None,
+        exclude_texto_ids: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Find similar decisions using cosine similarity.
+        """Find similar texts using cosine similarity.
 
         Uses DuckDB's native list_cosine_similarity for fast vector search.
 
@@ -379,21 +359,10 @@ class EmbeddingStorage:
             model: EmbeddingModel to search in.
             top_k: Number of top results to return.
             min_similarity: Minimum similarity threshold (0-1).
-            exclude_intimation_ids: Optional list of intimation IDs to exclude.
+            exclude_texto_ids: Optional list of texto IDs to exclude.
 
         Returns:
-            List of similar decisions with similarity scores.
-
-        Example:
-            # Find decisions similar to a query
-            query_emb = await service.embed_text("Contract dispute case")
-            similar = storage.find_similar_decisions(
-                query_emb,
-                model=JINA_V4_1024,
-                top_k=10
-            )
-            for result in similar:
-                print(f"Intimation {result['intimation_id']}: {result['similarity']:.3f}")
+            List of similar texts with similarity scores.
         """
         table_name = _get_table_name(model)
 
@@ -415,21 +384,21 @@ class EmbeddingStorage:
 
         # Build exclusion filter
         exclusion_sql = ""
-        if exclude_intimation_ids:
-            excluded_ids = ",".join(str(id) for id in exclude_intimation_ids)
-            exclusion_sql = f"AND intimation_id NOT IN ({excluded_ids})"
+        if exclude_texto_ids:
+            placeholders = ",".join(f"'{tid}'" for tid in exclude_texto_ids)
+            exclusion_sql = f"AND texto_id NOT IN ({placeholders})"
 
         # Use DuckDB's native list_cosine_similarity for fast vector search
-        # Query only chunk_index=0 to get one result per decision
+        # Query only chunk_index=0 to get one result per text
         query_sql = f"""
             SELECT
-                intimation_id,
+                texto_id,
                 chunk_index,
                 list_cosine_similarity(embedding, ?::FLOAT[{model.dimension}]) as similarity,
                 text_preview,
                 created_at
             FROM {table_name}
-            WHERE chunk_index = 0  -- Only first chunk per decision
+            WHERE chunk_index = 0  -- Only first chunk per text
                 {exclusion_sql}
                 AND list_cosine_similarity(embedding, ?::FLOAT[{model.dimension}]) >= ?
             ORDER BY similarity DESC
@@ -446,11 +415,11 @@ class EmbeddingStorage:
         rows = result.fetchall()
 
         # Convert to list of dicts
-        similar_decisions = []
+        similar_texts = []
         for row in rows:
-            similar_decisions.append(
+            similar_texts.append(
                 {
-                    "intimation_id": row[0],
+                    "texto_id": row[0],
                     "chunk_index": row[1],
                     "similarity": float(row[2]),
                     "text_preview": row[3],
@@ -462,12 +431,12 @@ class EmbeddingStorage:
             "similarity_search_complete",
             table=table_name,
             query_dim=len(query_embedding),
-            results_found=len(similar_decisions),
+            results_found=len(similar_texts),
             top_k=top_k,
             min_similarity=min_similarity,
         )
 
-        return similar_decisions
+        return similar_texts
 
     def list_models(self) -> list[dict[str, Any]]:
         """List all models that have embeddings stored (vectorized aggregation).
@@ -486,14 +455,14 @@ class EmbeddingStorage:
             table = self.con.table(table_name)
             count = table.count().execute()
 
-            # Get unique intimations (vectorized)
-            unique_intimations = table.select("intimation_id").distinct().count().execute()
+            # Get unique texts (vectorized)
+            unique_texts = table.select("texto_id").distinct().count().execute()
 
             models.append(
                 {
                     "table_name": table_name,
                     "total_embeddings": int(count),
-                    "unique_intimations": int(unique_intimations),
+                    "unique_texts": int(unique_texts),
                 },
             )
 
@@ -509,11 +478,11 @@ class EmbeddingStorage:
 
         # Vectorized sum using pandas
         total_embeddings = sum(m["total_embeddings"] for m in models)
-        unique_intimations = sum(m["unique_intimations"] for m in models)
+        unique_texts = sum(m["unique_texts"] for m in models)
 
         return {
             "total_embeddings": total_embeddings,
-            "unique_intimations": unique_intimations,
+            "unique_texts": unique_texts,
             "models": models,
         }
 

@@ -120,6 +120,44 @@ CREATE TABLE IF NOT EXISTS lawyer_ratings (
     UNIQUE(oab_number, oab_state, tribunal)
 );
 
+-- Rating history (OpenSkill snapshots per rated communication)
+CREATE TABLE IF NOT EXISTS ratings_history (
+    advogado_id VARCHAR NOT NULL,        -- UUIDv5 (OAB+UF)
+    comunicacao_id VARCHAR NOT NULL,      -- UUIDv5 of the communication that triggered this update
+    oab_number VARCHAR(20) NOT NULL,
+    oab_state VARCHAR(2) NOT NULL,
+    mu_before FLOAT NOT NULL,
+    sigma_before FLOAT NOT NULL,
+    mu_after FLOAT NOT NULL,
+    sigma_after FLOAT NOT NULL,
+    rating_after FLOAT NOT NULL,         -- mu_after - 3 * sigma_after
+    wins INTEGER NOT NULL,
+    losses INTEGER NOT NULL,
+    rated_at TIMESTAMP DEFAULT NOW(),
+
+    PRIMARY KEY (advogado_id, comunicacao_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ratings_history_advogado
+    ON ratings_history(advogado_id, rated_at);
+
+-- Classificacoes (outcome labels per unique text)
+CREATE TABLE IF NOT EXISTS classificacoes (
+    texto_id VARCHAR NOT NULL,
+    metodo VARCHAR(30) NOT NULL,          -- 'llm', 'rag', 'hybrid', 'manual'
+    outcome VARCHAR(50),                  -- 'procedente', 'improcedente', 'parcialmente procedente', 'unknown'
+    decision_type VARCHAR(50),            -- 'sentença', 'acórdão', 'decisão interlocutória'
+    winner_advogado_id VARCHAR,           -- UUIDv5 FK to advogados
+    loser_advogado_id VARCHAR,            -- UUIDv5 FK to advogados
+    confidence FLOAT CHECK (confidence BETWEEN 0 AND 1),
+    classified_at TIMESTAMP DEFAULT NOW(),
+
+    PRIMARY KEY (texto_id, metodo)
+);
+
+CREATE INDEX IF NOT EXISTS idx_classificacoes_outcome
+    ON classificacoes(outcome);
+
 -- Sync/processing log
 CREATE TABLE IF NOT EXISTS sync_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

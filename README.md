@@ -87,10 +87,13 @@ djen-2026-01-27/
 ├── djen-2026-01-27-TJRS.zip   ← Raw source
 ├── djen-2026-01-27-TJRS.absent ← Marker for empty journals
 ├── comunicacoes.parquet       ← Consolidated (all 91 courts)
-├── advogados.parquet          ← Global identifiers (OAB+UF+Name)
+├── advogados.parquet          ← Global identifiers (OAB+UF)
+├── advogado_nomes.parquet     ← Lawyer name aliases
 ├── representacoes.parquet     ← Materialized Lawyer-Party links
-├── processos.parquet          ← Fast timeline index
+├── processos.parquet          ← Process activity index
 ├── textos.parquet             ← Content-addressed texts
+├── partes.parquet             ← Normalized party dimension
+├── classificacoes.parquet     ← Outcome labels per text
 └── ...
 
 ```
@@ -102,52 +105,83 @@ The consolidated data lake follows a future-proofed schema using deterministic *
 ```mermaid
 erDiagram
     comunicacoes ||--o{ destinatarios : "has"
-    comunicacoes ||--o{ textos : "links to"
+    comunicacoes ||--o| textos : "links to"
     comunicacoes ||--o{ comunicacao_advogados : "notifies"
     comunicacoes ||--o{ representacoes : "m:n relationship"
+    comunicacoes ||--o{ processos : "activity index"
     advogados ||--o{ comunicacao_advogados : "receives"
+    advogados ||--o{ advogado_nomes : "aliases"
     advogados ||--o{ representacoes : "represents"
+    partes ||--o{ destinatarios : "identifies"
+    partes ||--o{ representacoes : "identifies"
+    textos ||--o{ classificacoes : "classified by"
 
     comunicacoes {
         string id PK "UUIDv5 (Canonical JSON + Tribunal)"
         string original_id "Source ID"
         string tribunal
         string numero_processo
-        string data_disponibilizacao
-        string processed_at "ISO-8601"
+        date data_disponibilizacao
+        timestamp processed_at
         string texto_id FK "Link to deduplicated text"
     }
 
     advogados {
-        string id PK "UUIDv5 (Name + OAB + UF)"
+        string id PK "UUIDv5 (OAB + UF)"
         string original_id "Source ID"
-        string nome
+        string nome "Last seen name"
         string numero_oab
         string uf_oab
+    }
+
+    advogado_nomes {
+        string advogado_id FK
+        string nome "Name variant"
+        string tribunal "Source tribunal"
+        date first_seen
     }
 
     destinatarios {
         string comunicacao_id FK
         string nome "Party Name"
         string polo "Active/Passive"
+        string parte_id FK "Normalized party"
+    }
+
+    partes {
+        string id PK "UUIDv5 (Normalized Name)"
+        string nome_normalizado "Uppercase, no accents"
+        string nome_original "First occurrence"
     }
 
     representacoes {
         string comunicacao_id FK
         string advogado_id FK
-        string parte_nome "Denormalized for performance"
+        string parte_id FK "Normalized party"
         string polo "Active/Passive"
     }
 
     processos {
-        string numero_processo PK
+        string numero_processo
         string tribunal
-        string data "Timeline of activity"
+        date data "Event date"
+        string comunicacao_id FK "Source communication"
     }
 
     textos {
         string id PK "UUIDv5 (Full Text Content)"
         string texto "Full document body"
+    }
+
+    classificacoes {
+        string texto_id FK
+        string metodo "llm / rag / hybrid / manual"
+        string outcome "procedente / improcedente / ..."
+        string decision_type "sentenca / acordao / ..."
+        string winner_advogado_id FK
+        string loser_advogado_id FK
+        float confidence
+        timestamp classified_at
     }
 ```
 

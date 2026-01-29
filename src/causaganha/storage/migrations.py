@@ -76,6 +76,48 @@ MIGRATIONS = [
         "up": "ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP",
         "down": "ALTER TABLE analysis_results DROP COLUMN IF EXISTS rated_at",
     },
+    # Migration 10: Create ratings_history table
+    {
+        "version": 10,
+        "name": "create_ratings_history",
+        "up": """
+            CREATE TABLE IF NOT EXISTS ratings_history (
+                advogado_id VARCHAR NOT NULL,
+                comunicacao_id VARCHAR NOT NULL,
+                oab_number VARCHAR(20) NOT NULL,
+                oab_state VARCHAR(2) NOT NULL,
+                mu_before FLOAT NOT NULL,
+                sigma_before FLOAT NOT NULL,
+                mu_after FLOAT NOT NULL,
+                sigma_after FLOAT NOT NULL,
+                rating_after FLOAT NOT NULL,
+                wins INTEGER NOT NULL,
+                losses INTEGER NOT NULL,
+                rated_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (advogado_id, comunicacao_id)
+            )
+        """,
+        "down": "DROP TABLE IF EXISTS ratings_history",
+    },
+    # Migration 11: Create classificacoes table
+    {
+        "version": 11,
+        "name": "create_classificacoes",
+        "up": """
+            CREATE TABLE IF NOT EXISTS classificacoes (
+                texto_id VARCHAR NOT NULL,
+                metodo VARCHAR(30) NOT NULL,
+                outcome VARCHAR(50),
+                decision_type VARCHAR(50),
+                winner_advogado_id VARCHAR,
+                loser_advogado_id VARCHAR,
+                confidence FLOAT,
+                classified_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (texto_id, metodo)
+            )
+        """,
+        "down": "DROP TABLE IF EXISTS classificacoes",
+    },
 ]
 
 
