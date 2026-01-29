@@ -147,7 +147,6 @@ erDiagram
 
     textos {
         string id PK "UUIDv5 (Full Text Content)"
-        string tribunal "Source (first occurrence)"
         string texto "Full document body"
     }
 ```
