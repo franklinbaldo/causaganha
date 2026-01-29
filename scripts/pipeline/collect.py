@@ -332,19 +332,16 @@ def collect_data(
 
         logger.info("processing", date=date_str, tribunal=tribunal)
 
-        # Get caderno info (with retries for transient errors)
-        attempts: list[dict[str, Any]] = []
+        # Get caderno info
         info = get_caderno_info(proxy_url, tribunal, date_str)
-        if isinstance(info, AbsentReason):
-            attempts.append(asdict(info))
 
-        if attempts:
+        if isinstance(info, AbsentReason):
             # Mark as absent to complete the day's matrix
             logger.info("no_caderno_found", date=date_str, tribunal=tribunal)
             item_id = f"djen-{date_str}"
             with tempfile.TemporaryDirectory() as tmpdir:
                 marker_path = Path(tmpdir) / absent_marker
-                marker_path.write_text(json.dumps(attempts, ensure_ascii=False))
+                marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
                 if upload_to_ia(item_id, marker_path, date_str):
                     stats["success"] += 1
                 else:
