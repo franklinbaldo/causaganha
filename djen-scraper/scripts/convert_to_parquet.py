@@ -132,17 +132,16 @@ def process_item(entry: str) -> bool:
 
         with timed("extract+flatten"):
             total_records = 0
-            with zipfile.ZipFile(zip_path) as zf:
-                with open(ndjson_path, "w") as out:
-                    for name in zf.namelist():
-                        if name.endswith(".json"):
-                            with zf.open(name) as f:
-                                data = json.load(f)
-                                # Handle {count, items} wrapper
-                                items = data.get("items", [data] if "id" in data else [])
-                                for item in items:
-                                    out.write(json.dumps(item) + "\n")
-                                    total_records += 1
+            with zipfile.ZipFile(zip_path) as zf, open(ndjson_path, "w") as out:
+                for name in zf.namelist():
+                    if name.endswith(".json"):
+                        with zf.open(name) as f:
+                            data = json.load(f)
+                            # Handle {count, items} wrapper
+                            items = data.get("items", [data] if "id" in data else [])
+                            for item in items:
+                                out.write(json.dumps(item) + "\n")
+                                total_records += 1
 
             print(f"    Flattened {total_records} records to NDJSON")
 

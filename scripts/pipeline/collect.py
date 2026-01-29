@@ -411,9 +411,8 @@ def main() -> int:
     if stats["failed"] / total_processed <= failure_threshold:
         print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
         return 0
-    else:
-        print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
-        return 1
+    print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
+    return 1
 
 
 if __name__ == "__main__":

@@ -1249,8 +1249,9 @@ def download_catalog(
 
     async def _run() -> None:
         try:
-            import httpx
             from pathlib import Path
+
+            import httpx
 
             IA_CATALOG_ITEM = "causaganha-catalog"
             BASE_URL = f"https://archive.org/download/{IA_CATALOG_ITEM}"
@@ -1265,7 +1266,7 @@ def download_catalog(
             output_dir = Path(output)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            typer.echo(f"Downloading catalog from Internet Archive...")
+            typer.echo("Downloading catalog from Internet Archive...")
             typer.echo(f"  Item: {IA_CATALOG_ITEM}")
             typer.echo(f"  Output: {output_dir}\n")
 
@@ -1287,34 +1288,34 @@ def download_catalog(
 
                             # Basic validation: check file is not empty
                             if len(content) < 100:
-                                typer.echo(f" (warning: file too small, may be corrupted)")
+                                typer.echo(" (warning: file too small, may be corrupted)")
                                 continue
 
                             # Validate parquet files have correct magic bytes
                             if filename.endswith(".parquet"):
                                 # Parquet magic bytes: PAR1 at start and end
                                 if not (content[:4] == b"PAR1" or content[-4:] == b"PAR1"):
-                                    typer.echo(f" (warning: invalid parquet file)")
+                                    typer.echo(" (warning: invalid parquet file)")
                                     continue
 
                             # Validate DuckDB files
                             if filename.endswith(".duckdb"):
                                 # DuckDB files should start with specific header
                                 if len(content) < 1024:
-                                    typer.echo(f" (warning: duckdb file too small)")
+                                    typer.echo(" (warning: duckdb file too small)")
                                     continue
 
                             output_path.write_bytes(content)
                             size_kb = len(content) / 1024
                             typer.echo(f" ({size_kb:.1f} KB)")
                         elif response.status_code == 404:
-                            typer.echo(f" (not found - catalog may not exist yet)")
+                            typer.echo(" (not found - catalog may not exist yet)")
                         else:
                             typer.echo(f" (HTTP {response.status_code})")
                     except httpx.TimeoutException:
-                        typer.echo(f" (timeout - try again later)")
+                        typer.echo(" (timeout - try again later)")
                     except httpx.ConnectError:
-                        typer.echo(f" (connection error - check internet)")
+                        typer.echo(" (connection error - check internet)")
                     except Exception as e:
                         typer.echo(f" (error: {type(e).__name__})")
 

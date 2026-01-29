@@ -1,13 +1,12 @@
 """BDD step definitions for Internet Archive catalog system."""
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import given, scenario, then, when
 
 
 # ==============================================================================
