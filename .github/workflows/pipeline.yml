@@ -155,7 +155,8 @@ jobs:
         run: |
           uv run python scripts/pipeline/collect.py \
             --proxy-url "$DJEN_PROXY_URL" \
-            --max-items 50 \
+            --max-items 200 \
+            --workers 6 \
             ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }} \
             ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
 

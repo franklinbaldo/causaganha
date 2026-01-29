@@ -16,12 +16,16 @@ Usage:
 
     # Limit number of items
     python scripts/pipeline/collect.py --max-items 10
+
+    # Control parallelism (default: 6 workers)
+    python scripts/pipeline/collect.py --workers 8
 """
 
 import argparse
 import json
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -145,8 +149,27 @@ TRIBUNAIS = [
 ]
 
 
-def get_existing_files_on_ia() -> set[str]:
-    """Get list of ZIP files already on Internet Archive."""
+def _list_item_files(item_id: str) -> list[str]:
+    """List zip/absent files for a single IA item. Thread-safe."""
+    try:
+        result = subprocess.run(
+            ["ia", "list", item_id, "--glob", "*.{zip,absent}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
+    except subprocess.TimeoutExpired:
+        pass
+    return []
+
+
+def get_existing_files_on_ia(workers: int = 8) -> set[str]:
+    """Get list of ZIP/absent files already on Internet Archive.
+
+    Uses parallel queries to speed up metadata fetching.
+    """
     logger.info("fetching_existing_files")
     existing: set[str] = set()
 
@@ -164,22 +187,16 @@ def get_existing_files_on_ia() -> set[str]:
             return existing
 
         items = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        logger.info("ia_items_found", count=len(items))
 
-        # For each item, list ZIP files
-        for item_id in items:
-            try:
-                list_result = subprocess.run(
-                    ["ia", "list", item_id, "--glob", "*.{zip,absent}"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                if list_result.returncode == 0:
-                    for filename in list_result.stdout.splitlines():
-                        if filename.strip():
-                            existing.add(filename.strip())
-            except subprocess.TimeoutExpired:
-                continue
+        # Query file listings in parallel instead of sequentially
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(_list_item_files, item_id): item_id for item_id in items
+            }
+            for future in as_completed(futures):
+                for filename in future.result():
+                    existing.add(filename)
 
     except subprocess.TimeoutExpired:
         logger.warning("ia_search_timeout")
@@ -191,9 +208,15 @@ def get_existing_files_on_ia() -> set[str]:
 
 
 def get_caderno_info(
-    proxy_url: str, tribunal: str, date_str: str
+    client: httpx.Client, proxy_url: str, tribunal: str, date_str: str,
 ) -> dict[str, Any] | AbsentReason | None:
     """Get caderno (journal) info from DJEN API.
+
+    Args:
+        client: Shared httpx client for connection pooling.
+        proxy_url: Base URL of the DJEN proxy.
+        tribunal: Court identifier (e.g. TJSP).
+        date_str: Date in YYYY-MM-DD format.
 
     Returns:
         dict: Success (journal data)
@@ -203,50 +226,58 @@ def get_caderno_info(
     url = f"{proxy_url}/api/v1/caderno/{tribunal}/{date_str}/D"
 
     try:
-        with httpx.Client(timeout=30) as client:
-            response = client.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, dict) and (data.get("url") or data.get("items")):
-                    return data
-                return AbsentReason(
-                    status_code=200,
-                    reason="empty_response",
-                    response_snippet=response.text[:200],
-                )
-            if response.status_code == 404:
-                return AbsentReason(
-                    status_code=404,
-                    reason="not_found",
-                )
-            logger.warning(
-                "caderno_api_error",
-                tribunal=tribunal,
-                date=date_str,
-                status=response.status_code,
+        response = client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, dict) and (data.get("url") or data.get("items")):
+                return data
+            return AbsentReason(
+                status_code=200,
+                reason="empty_response",
+                response_snippet=response.text[:200],
             )
-            return None
+        if response.status_code == 404:
+            return AbsentReason(
+                status_code=404,
+                reason="not_found",
+            )
+        logger.warning(
+            "caderno_api_error",
+            tribunal=tribunal,
+            date=date_str,
+            status=response.status_code,
+        )
+        return None
     except Exception as e:
         logger.debug("caderno_fetch_failed", tribunal=tribunal, date=date_str, error=str(e))
         return None
 
 
-def download_zip(url: str, output_path: Path) -> bool:
-    """Download ZIP file from DJEN."""
+def download_zip(client: httpx.Client, url: str, output_path: Path) -> bool:
+    """Download ZIP file from DJEN using streaming to reduce memory usage.
+
+    Args:
+        client: Shared httpx client for connection pooling.
+        url: Download URL for the ZIP file.
+        output_path: Local path to write the downloaded file.
+    """
     try:
-        with httpx.Client(timeout=120, follow_redirects=True) as client:
-            response = client.get(url)
-            if response.status_code == 200:
-                output_path.write_bytes(response.content)
-                # Verify file size
-                if output_path.stat().st_size < 100:
-                    logger.warning("file_too_small", path=str(output_path))
-                    output_path.unlink()
-                    return False
-                return True
+        with client.stream("GET", url) as response:
+            if response.status_code != 200:
+                return False
+            with output_path.open("wb") as f:
+                for chunk in response.iter_bytes(chunk_size=65536):
+                    f.write(chunk)
+        # Verify file size
+        if output_path.stat().st_size < 100:
+            logger.warning("file_too_small", path=str(output_path))
+            output_path.unlink()
             return False
+        return True
     except Exception as e:
         logger.warning("download_failed", url=url[:100], error=str(e))
+        if output_path.exists():
+            output_path.unlink()
         return False
 
 
@@ -282,21 +313,75 @@ def upload_to_ia(item_id: str, file_path: Path, date_str: str) -> bool:
         return False
 
 
-def collect_data(
+def _process_item(
+    api_client: httpx.Client,
+    dl_client: httpx.Client,
+    proxy_url: str,
+    date_str: str,
+    tribunal: str,
+) -> str:
+    """Process a single (date, tribunal) pair. Thread-safe.
+
+    Returns:
+        'success' or 'failed' for stats aggregation.
+    """
+    zip_name = f"djen-{date_str}-{tribunal}.zip"
+    absent_marker = f"djen-{date_str}-{tribunal}.absent"
+
+    logger.info("processing", date=date_str, tribunal=tribunal)
+
+    # Get caderno info
+    info = get_caderno_info(api_client, proxy_url, tribunal, date_str)
+
+    if isinstance(info, AbsentReason):
+        # Mark as absent to complete the day's matrix
+        logger.info("no_caderno_found", date=date_str, tribunal=tribunal)
+        item_id = f"djen-{date_str}"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            marker_path = Path(tmpdir) / absent_marker
+            marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
+            return "success" if upload_to_ia(item_id, marker_path, date_str) else "failed"
+
+    if not isinstance(info, dict):
+        # API returned None - transient error (timeout, 4xx/5xx, network issue)
+        logger.warning("caderno_api_transient_error", date=date_str, tribunal=tribunal)
+        return "failed"
+
+    download_url = info.get("url")
+    if not download_url:
+        return "failed"
+
+    # Download and upload
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir) / zip_name
+
+        if not download_zip(dl_client, download_url, zip_path):
+            return "failed"
+
+        # Upload to IA (one item per day)
+        item_id = f"djen-{date_str}"
+        if upload_to_ia(item_id, zip_path, date_str):
+            logger.info("uploaded", item_id=item_id, file=zip_name)
+            return "success"
+        return "failed"
+
+
+def collect_data(  # noqa: PLR0913
     proxy_url: str,
     target_date: str | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
     backfill_days: int = 7,
+    workers: int = 6,
 ) -> dict[str, int]:
-    """Main collection function."""
-    stats = {"success": 0, "failed": 0, "skipped": 0}
+    """Main collection function with parallel processing."""
+    stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Get existing files to avoid duplicates
-    existing_files = get_existing_files_on_ia()
+    # Get existing files to avoid duplicates (parallel metadata queries)
+    existing_files = get_existing_files_on_ia(workers=workers)
 
     # Build list of (date, tribunal) pairs to process
-    to_process = []
+    to_process: list[tuple[str, str]] = []
 
     if target_date:
         # Specific date
@@ -315,71 +400,59 @@ def collect_data(
             for tribunal in TRIBUNAIS:
                 to_process.append((date_str, tribunal))
 
-    logger.info("items_to_process", total=len(to_process), max_items=max_items)
-
-    # Process items
-    processed = 0
+    # Pre-filter already-existing items, then apply max_items limit
+    pending: list[tuple[str, str]] = []
     for date_str, tribunal in to_process:
-        if processed >= max_items:
-            break
-
-        # Check if already exists (either .zip or .absent marker)
         zip_name = f"djen-{date_str}-{tribunal}.zip"
         absent_marker = f"djen-{date_str}-{tribunal}.absent"
         if zip_name in existing_files or absent_marker in existing_files:
             stats["skipped"] += 1
-            continue
+        else:
+            pending.append((date_str, tribunal))
 
-        logger.info("processing", date=date_str, tribunal=tribunal)
+    pending = pending[:max_items]
 
-        # Get caderno info
-        info = get_caderno_info(proxy_url, tribunal, date_str)
+    logger.info(
+        "items_to_process",
+        total=len(to_process),
+        pending=len(pending),
+        skipped=stats["skipped"],
+        max_items=max_items,
+        workers=workers,
+    )
 
-        if isinstance(info, AbsentReason):
-            # Mark as absent to complete the day's matrix
-            logger.info("no_caderno_found", date=date_str, tribunal=tribunal)
-            item_id = f"djen-{date_str}"
-            with tempfile.TemporaryDirectory() as tmpdir:
-                marker_path = Path(tmpdir) / absent_marker
-                marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-                if upload_to_ia(item_id, marker_path, date_str):
-                    stats["success"] += 1
-                else:
-                    stats["failed"] += 1
-            processed += 1
-            continue
+    if not pending:
+        return stats
 
-        if not isinstance(info, dict):
-            # API returned None - transient error (timeout, 4xx/5xx, network issue)
-            logger.warning("caderno_api_transient_error", date=date_str, tribunal=tribunal)
-            stats["failed"] += 1
-            processed += 1
-            continue
+    # Shared HTTP clients with connection pooling
+    api_timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+    dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+    pool_limits = httpx.Limits(
+        max_connections=workers * 2,
+        max_keepalive_connections=workers,
+    )
 
-        download_url = info.get("url")
-        if not download_url:
-            stats["failed"] += 1
-            processed += 1
-            continue
-
-        # Download and upload
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir) / zip_name
-
-            if not download_zip(download_url, zip_path):
+    with (
+        httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
+        httpx.Client(
+            timeout=dl_timeout, limits=pool_limits, follow_redirects=True,
+        ) as dl_client,
+        ThreadPoolExecutor(max_workers=workers) as executor,
+    ):
+        futures = {
+            executor.submit(
+                _process_item, api_client, dl_client, proxy_url, date_str, tribunal,
+            ): (date_str, tribunal)
+            for date_str, tribunal in pending
+        }
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                stats[result] += 1
+            except Exception:
+                dt, trib = futures[future]
+                logger.exception("worker_error", date=dt, tribunal=trib)
                 stats["failed"] += 1
-                processed += 1
-                continue
-
-            # Upload to IA (one item per day)
-            item_id = f"djen-{date_str}"
-            if upload_to_ia(item_id, zip_path, date_str):
-                logger.info("uploaded", item_id=item_id, file=zip_name)
-                stats["success"] += 1
-            else:
-                stats["failed"] += 1
-
-        processed += 1
 
     return stats
 
@@ -391,6 +464,7 @@ def main() -> int:
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
     parser.add_argument("--backfill-days", type=int, default=7)
+    parser.add_argument("--workers", type=int, default=6, help="Number of parallel workers")
     args = parser.parse_args()
 
     print("Collecting DJEN data...")
@@ -400,6 +474,7 @@ def main() -> int:
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
     print(f"  Max items: {args.max_items}")
+    print(f"  Workers: {args.workers}")
     print()
 
     stats = collect_data(
@@ -408,6 +483,7 @@ def main() -> int:
         target_tribunal=args.tribunal,
         max_items=args.max_items,
         backfill_days=args.backfill_days,
+        workers=args.workers,
     )
 
     print()
