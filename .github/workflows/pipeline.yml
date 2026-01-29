@@ -267,21 +267,25 @@ jobs:
   # JOB: CATALOG
   # ==========================================================================
   # Builds master catalog of all data on Internet Archive.
-  # Runs daily at 6 AM UTC (approximately every 288 runs).
+  # Runs after ANY data-modifying job succeeds to keep catalog up-to-date.
   # ==========================================================================
   catalog:
     name: Update Catalog
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev
-    needs: consolidate
+    needs: [collect, consolidate, embed]  # Wait for all parallel jobs
 
-    # Run daily (approximately - check if hour is 6 and minute is 0)
+    # Run if ANY of the upstream jobs succeeded (data may have changed)
     # Or when manually triggered with job=catalog|all
     if: |
-      (github.event_name == 'schedule' && contains('0,288,576,864', format('{0}', github.run_number))) ||
-      github.event.inputs.job == 'catalog' ||
-      github.event.inputs.job == 'all'
+      always() && (
+        needs.collect.result == 'success' ||
+        needs.consolidate.result == 'success' ||
+        needs.embed.result == 'success' ||
+        github.event.inputs.job == 'catalog' ||
+        github.event.inputs.job == 'all'
+      )
 
     env:
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
