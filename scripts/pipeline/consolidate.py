@@ -285,7 +285,6 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
             tables["textos"].append(
                 {
                     "id": texto_id,
-                    "tribunal": tribunal_s,
                     "texto": texto_s,
                 },
             )
@@ -454,7 +453,6 @@ TABLE_SCHEMAS = {
     "textos": ibis.schema(
         {
             "id": "string",
-            "tribunal": "string",
             "texto": "string",
         },
     ),
