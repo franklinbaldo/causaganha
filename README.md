@@ -89,6 +89,8 @@ djen-2026-01-27/
 ├── comunicacoes.parquet       ← Consolidated (all 91 courts)
 ├── advogados.parquet          ← Global identifiers (OAB+UF)
 ├── advogado_nomes.parquet     ← Lawyer name aliases
+├── destinatarios.parquet      ← Communication recipients
+├── comunicacao_advogados.parquet ← Lawyer-Communication links
 ├── representacoes.parquet     ← Materialized Lawyer-Party links
 ├── processos.parquet          ← Process activity index
 ├── textos.parquet             ← Content-addressed texts
