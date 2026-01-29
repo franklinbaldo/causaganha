@@ -17,6 +17,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Format and lint code
         run: |
+          uv pip install ruff
           uv run ruff format
           uv run ruff check --fix
       - name: Run pre-commit
