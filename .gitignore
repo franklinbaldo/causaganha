@@ -30,3 +30,9 @@ site/
 # Test artifacts
 tests/mock_data/
 djen_proxy
+
+# Agent-specific temporary files
+prs.json
+files_*.json
+builder_pr_numbers.txt
+*_content.txt
