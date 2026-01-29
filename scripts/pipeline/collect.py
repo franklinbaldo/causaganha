@@ -19,14 +19,26 @@ Usage:
 """
 
 import argparse
+import json
 import subprocess
 import tempfile
-from datetime import date, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
 import structlog
+
+
+@dataclass
+class AbsentReason:
+    """Evidence for why a journal was marked absent."""
+
+    status_code: int
+    reason: str
+    checked_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    response_snippet: str = ""
 
 
 logger = structlog.get_logger()
@@ -178,12 +190,14 @@ def get_existing_files_on_ia() -> set[str]:
     return existing
 
 
-def get_caderno_info(proxy_url: str, tribunal: str, date_str: str) -> dict[str, Any] | str | None:
+def get_caderno_info(
+    proxy_url: str, tribunal: str, date_str: str
+) -> dict[str, Any] | AbsentReason | None:
     """Get caderno (journal) info from DJEN API.
 
     Returns:
         dict: Success (journal data)
-        "NOT_FOUND": Valid response but no journal for this day
+        AbsentReason: No journal for this day (with evidence)
         None: Transient error (timeout, 5xx, etc.)
     """
     url = f"{proxy_url}/api/v1/caderno/{tribunal}/{date_str}/D"
@@ -195,9 +209,16 @@ def get_caderno_info(proxy_url: str, tribunal: str, date_str: str) -> dict[str, 
                 data = response.json()
                 if isinstance(data, dict) and (data.get("url") or data.get("items")):
                     return data
-                return "NOT_FOUND"
+                return AbsentReason(
+                    status_code=200,
+                    reason="empty_response",
+                    response_snippet=response.text[:200],
+                )
             if response.status_code == 404:
-                return "NOT_FOUND"
+                return AbsentReason(
+                    status_code=404,
+                    reason="not_found",
+                )
             logger.warning(
                 "caderno_api_error",
                 tribunal=tribunal,
@@ -314,13 +335,13 @@ def collect_data(
         # Get caderno info
         info = get_caderno_info(proxy_url, tribunal, date_str)
 
-        if info == "NOT_FOUND":
+        if isinstance(info, AbsentReason):
             # Mark as absent to complete the day's matrix
             logger.info("no_caderno_found", date=date_str, tribunal=tribunal)
             item_id = f"djen-{date_str}"
             with tempfile.TemporaryDirectory() as tmpdir:
                 marker_path = Path(tmpdir) / absent_marker
-                marker_path.touch()
+                marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False))
                 if upload_to_ia(item_id, marker_path, date_str):
                     stats["success"] += 1
                 else:
