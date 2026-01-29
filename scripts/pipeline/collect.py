@@ -341,7 +341,7 @@ def collect_data(
             item_id = f"djen-{date_str}"
             with tempfile.TemporaryDirectory() as tmpdir:
                 marker_path = Path(tmpdir) / absent_marker
-                marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False))
+                marker_path.write_text(json.dumps([asdict(info)], ensure_ascii=False))
                 if upload_to_ia(item_id, marker_path, date_str):
                     stats["success"] += 1
                 else:
