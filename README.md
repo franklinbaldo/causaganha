@@ -76,6 +76,8 @@ We're building a **complete historical archive** of DJEN data:
 └──────────────┘     └──────────────┘     └──────────────────────────────────┘
                                                          │
                                                          ▼
+```
+
 ### Internet Archive (Consolidated Data Lake)
 
 Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
@@ -89,6 +91,8 @@ djen-2026-01-27/
 ├── comunicacoes.parquet       ← Consolidated (all 91 courts)
 ├── advogados.parquet          ← Global identifiers (OAB+UF)
 ├── advogado_nomes.parquet     ← Lawyer name aliases
+├── destinatarios.parquet      ← Communication recipients
+├── comunicacao_advogados.parquet ← Lawyer-Communication links
 ├── representacoes.parquet     ← Materialized Lawyer-Party links
 ├── processos.parquet          ← Process activity index
 ├── textos.parquet             ← Content-addressed texts
@@ -101,6 +105,15 @@ djen-2026-01-27/
 ## Data Schema
 
 The consolidated data lake follows a future-proofed schema using deterministic **UUIDv5** identifiers for both communications and lawyers, enabling national-level deduplication and stable cross-referencing.
+
+**Key design decisions:**
+
+- **Lawyer identity = OAB + UF only** — Name is excluded from the identity hash to prevent accidental duplicates from spelling variants, accents, or marital name changes. Name aliases are tracked separately in `advogado_nomes`.
+- **Content-addressed texts** — `textos.id` is `UUIDv5(full text)`, so identical judicial texts from different tribunals deduplicate to one row. Tribunal context is available via `comunicacoes.texto_id` joins.
+- **Classification decoupled from communications** — `classificacoes` is keyed by `(texto_id, metodo)`, allowing multiple classification methods (LLM, RAG, manual) per text without column explosion.
+- **Native date types** — `data_disponibilizacao` is `DATE`, `processed_at` and `classified_at` are `TIMESTAMP`, enabling partition pruning and time-window queries.
+- **processos = activity index, not dimension** — One row per communication event (not one row per unique case). Join via `comunicacao_id` to get event types for temporal analytics.
+- **Party entity resolution** — `partes` normalizes names (strip accents, uppercase, collapse whitespace) with `UUIDv5(normalized_name)` for best-effort deduplication. `destinatarios` and `representacoes` reference `parte_id`.
 
 ```mermaid
 erDiagram
