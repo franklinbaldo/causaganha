@@ -45,16 +45,69 @@ IA_SEARCH_URL = (
 )
 
 TRIBUNALS = [
-    "STF", "STJ", "TST", "TSE", "STM", "CNJ",
-    "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
-    "TRT1", "TRT2", "TRT3", "TRT4", "TRT5", "TRT6", "TRT7", "TRT8",
-    "TRT9", "TRT10", "TRT11", "TRT12", "TRT13", "TRT14", "TRT15",
-    "TRT16", "TRT17", "TRT18", "TRT19", "TRT20", "TRT21", "TRT22",
-    "TRT23", "TRT24",
-    "TJAC", "TJAL", "TJAM", "TJAP", "TJBA", "TJCE", "TJDFT", "TJES",
-    "TJGO", "TJMA", "TJMG", "TJMS", "TJMT", "TJPA", "TJPB", "TJPE",
-    "TJPI", "TJPR", "TJRJ", "TJRN", "TJRO", "TJRR", "TJRS", "TJSC",
-    "TJSE", "TJSP", "TJTO",
+    "STF",
+    "STJ",
+    "TST",
+    "TSE",
+    "STM",
+    "CNJ",
+    "TRF1",
+    "TRF2",
+    "TRF3",
+    "TRF4",
+    "TRF5",
+    "TRF6",
+    "TRT1",
+    "TRT2",
+    "TRT3",
+    "TRT4",
+    "TRT5",
+    "TRT6",
+    "TRT7",
+    "TRT8",
+    "TRT9",
+    "TRT10",
+    "TRT11",
+    "TRT12",
+    "TRT13",
+    "TRT14",
+    "TRT15",
+    "TRT16",
+    "TRT17",
+    "TRT18",
+    "TRT19",
+    "TRT20",
+    "TRT21",
+    "TRT22",
+    "TRT23",
+    "TRT24",
+    "TJAC",
+    "TJAL",
+    "TJAM",
+    "TJAP",
+    "TJBA",
+    "TJCE",
+    "TJDFT",
+    "TJES",
+    "TJGO",
+    "TJMA",
+    "TJMG",
+    "TJMS",
+    "TJMT",
+    "TJPA",
+    "TJPB",
+    "TJPE",
+    "TJPI",
+    "TJPR",
+    "TJRJ",
+    "TJRN",
+    "TJRO",
+    "TJRR",
+    "TJRS",
+    "TJSC",
+    "TJSE",
+    "TJSP",
+    "TJTO",
 ]
 
 
@@ -87,12 +140,50 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
             CREATE TABLE manifest AS
             SELECT * FROM read_parquet('{source}')
         """)
+
+        # Check if manifest has expected schema
+        schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
+        if "date" not in schema:
+            print("  Warning: Manifest has no 'date' column - creating empty fallback table")
+            con.execute("DROP TABLE manifest")
+            con.execute("""
+                CREATE TABLE manifest (
+                    date VARCHAR,
+                    tribunal VARCHAR,
+                    file_type VARCHAR,
+                    table_name VARCHAR,
+                    file_name VARCHAR,
+                    ia_item VARCHAR,
+                    ia_url VARCHAR,
+                    created_at VARCHAR
+                )
+            """)
+            print("  Created empty manifest with proper schema")
+            return True
+
         count = con.execute("SELECT COUNT(*) FROM manifest").fetchone()
         print(f"  Loaded {count[0]} manifest entries")
         return True
     except Exception as e:
         print(f"  Error loading manifest: {e}", file=sys.stderr)
-        return False
+        # Create empty fallback table
+        print("  Creating empty fallback manifest table...")
+        try:
+            con.execute("""
+                CREATE TABLE manifest (
+                    date VARCHAR,
+                    tribunal VARCHAR,
+                    file_type VARCHAR,
+                    table_name VARCHAR,
+                    file_name VARCHAR,
+                    ia_item VARCHAR,
+                    ia_url VARCHAR,
+                    created_at VARCHAR
+                )
+            """)
+            return True
+        except Exception:
+            return False
 
 
 def fetch_item_sizes() -> dict[str, int]:
@@ -124,20 +215,26 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
     print(f"  Generating today's data ({today})...")
 
     # Query manifest for today's tribunal statuses
-    result = con.execute("""
+    result = con.execute(
+        """
         SELECT tribunal, file_type
         FROM manifest
         WHERE date = ? AND file_type IN ('zip', 'absent')
-    """, [today]).fetchall()
+    """,
+        [today],
+    ).fetchall()
 
     date_used = today
     if not result:
         print(f"  No data for today, trying yesterday ({yesterday})...")
-        result = con.execute("""
+        result = con.execute(
+            """
             SELECT tribunal, file_type
             FROM manifest
             WHERE date = ? AND file_type IN ('zip', 'absent')
-        """, [yesterday]).fetchall()
+        """,
+            [yesterday],
+        ).fetchall()
         date_used = yesterday
 
     # Build tribunal status map
@@ -205,13 +302,16 @@ def generate_calendar_cache(
     print(f"  Generating calendar data ({CALENDAR_DAYS} days)...")
 
     # Query manifest for zip counts per date
-    result = con.execute("""
+    result = con.execute(
+        """
         SELECT date, COUNT(DISTINCT tribunal) as tribunal_count
         FROM manifest
         WHERE file_type = 'zip'
           AND date >= ?
         GROUP BY date
-    """, [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")]).fetchall()
+    """,
+        [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")],
+    ).fetchall()
 
     date_tribunals: dict[str, int] = {row[0]: row[1] for row in result}
 
@@ -390,7 +490,7 @@ def main() -> None:
 
     print("\nCache generation complete!")
     print(f"  Data source: manifest.parquet ({calendar_data['stats']['days_with_data']} days)")
-    print(f"  HTTP requests: 3 (manifest + IA sizes + GH runs)")
+    print("  HTTP requests: 3 (manifest + IA sizes + GH runs)")
 
 
 if __name__ == "__main__":
