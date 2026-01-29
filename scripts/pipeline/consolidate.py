@@ -18,9 +18,10 @@ import json
 import subprocess
 import tempfile
 import time
+import unicodedata
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,10 @@ import httpx
 import ibis
 import structlog
 
+
+# Schema version — embedded in Parquet metadata for forward compatibility.
+# Bump when TABLE_SCHEMAS change in a way that affects consumers.
+SCHEMA_VERSION = "2"
 
 # All 91 Brazilian courts
 TRIBUNAIS = [
@@ -246,6 +251,33 @@ def _str(val: Any) -> str:
     return str(val).strip()
 
 
+def _parse_date(val: Any) -> date | None:
+    """Parse a date string (YYYY-MM-DD or ISO-8601) to a date object."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s:
+        return None
+    try:
+        # Handle both "2026-01-15" and "2026-01-15T00:00:00"
+        return date.fromisoformat(s[:10])
+    except (ValueError, IndexError):
+        return None
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize a party name for deduplication.
+
+    Strips accents, uppercases, collapses whitespace, removes trailing
+    punctuation artefacts.
+    """
+    # NFKD decomposition → strip combining marks (accents)
+    s = unicodedata.normalize("NFKD", name)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    # Uppercase + collapse whitespace
+    return " ".join(s.upper().split())
+
+
 def _uuid5(data: dict[str, Any]) -> str:
     """Generate deterministic UUIDv5 from dictionary."""
     canonical = json.dumps(data, sort_keys=True)
@@ -257,14 +289,16 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
     tables: dict[str, list[dict[str, Any]]] = {
         "comunicacoes": [],
         "advogados": [],
+        "advogado_nomes": [],
         "destinatarios": [],
         "comunicacao_advogados": [],
         "textos": [],
         "representacoes": [],
         "processos": [],
+        "partes": [],
     }
 
-    processed_at = datetime.now().isoformat()
+    processed_at = datetime.now()
 
     for record in records:
         if not isinstance(record, dict):
@@ -276,6 +310,11 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
         orig_com_id = _str(record.get("id"))
         tribunal_s = _str(tribunal)
 
+        # Parse the availability date once
+        data_disp = _parse_date(
+            record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
+        )
+
         # Text deduplication via UUIDv5 of content
         texto_content = record.get("texto")
         texto_id = ""
@@ -285,7 +324,6 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
             tables["textos"].append(
                 {
                     "id": texto_id,
-                    "tribunal": tribunal_s,
                     "texto": texto_s,
                 },
             )
@@ -300,9 +338,7 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                     record.get("numero_processo") or record.get("numeroProcesso"),
                 ),
                 "numero_processo_mascara": _str(record.get("numeroprocessocommascara")),
-                "data_disponibilizacao": _str(
-                    record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
-                ),
+                "data_disponibilizacao": data_disp,
                 "tipo_comunicacao": _str(record.get("tipoComunicacao")),
                 "nome_orgao": _str(record.get("nomeOrgao") or record.get("orgao")),
                 "meio": _str(record.get("meio")),
@@ -317,20 +353,37 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
             },
         )
 
-        # Destinatarios (Parties)
+        # Destinatarios (Parties) — also populate partes dimension
         current_destinatarios = []
         for dest in record.get("destinatarios") or []:
             if isinstance(dest, dict):
                 p_nome = _str(dest.get("nome"))
                 p_polo = _str(dest.get("polo"))
+
+                # Generate normalized party ID
+                nome_norm = _normalize_name(p_nome) if p_nome else ""
+                parte_id = _uuid5({"nome_normalizado": nome_norm}) if nome_norm else ""
+
+                if parte_id:
+                    tables["partes"].append(
+                        {
+                            "id": parte_id,
+                            "nome_normalizado": nome_norm,
+                            "nome_original": p_nome,
+                        },
+                    )
+
                 dest_data = {
                     "comunicacao_id": com_id,
                     "tribunal": tribunal_s,
                     "nome": p_nome,
                     "polo": p_polo,
+                    "parte_id": parte_id,
                 }
                 tables["destinatarios"].append(dest_data)
-                current_destinatarios.append({"nome": p_nome, "polo": p_polo})
+                current_destinatarios.append(
+                    {"nome": p_nome, "polo": p_polo, "parte_id": parte_id},
+                )
 
         # Advogados (via destinatarioadvogados)
         for dest_adv in record.get("destinatarioadvogados") or []:
@@ -339,15 +392,15 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                 orig_adv_id = _str(adv.get("id") or dest_adv.get("advogado_id"))
 
                 # Global Lawyer ID: Deterministic across tribunals
-                # Based on Name, OAB and UF
+                # Based on OAB + UF only (name is a mutable attribute)
                 adv_nome = _str(adv.get("nome"))
                 adv_oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
                 adv_uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
 
-                # If we have OAB/UF, use them for a very stable key
+                # If we have OAB/UF, use them for a stable key
                 # Otherwise fallback to Name + Tribunal (less stable but safe)
                 if adv_oab and adv_uf:
-                    adv_global_id = _uuid5({"nome": adv_nome, "oab": adv_oab, "uf": adv_uf})
+                    adv_global_id = _uuid5({"oab": adv_oab, "uf": adv_uf})
                 else:
                     adv_global_id = _uuid5(
                         {"nome": adv_nome, "tribunal": tribunal_s, "orig_id": orig_adv_id},
@@ -373,6 +426,16 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                         },
                     )
 
+                    # Track name aliases for this lawyer
+                    tables["advogado_nomes"].append(
+                        {
+                            "advogado_id": adv_global_id,
+                            "nome": adv_nome,
+                            "tribunal": tribunal_s,
+                            "first_seen": data_disp,
+                        },
+                    )
+
                     # Create explicit representation mapping (Lawyer -> Party)
                     for party in current_destinatarios:
                         tables["representacoes"].append(
@@ -380,21 +443,20 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                                 "comunicacao_id": com_id,
                                 "tribunal": tribunal_s,
                                 "advogado_id": adv_global_id,
-                                "parte_nome": party["nome"],
+                                "parte_id": party["parte_id"],
                                 "polo": party["polo"],
                             },
                         )
 
-        # Process Summary for high-speed indexing
+        # Process activity index — one row per communication event
         tables["processos"].append(
             {
                 "numero_processo": _str(
                     record.get("numero_processo") or record.get("numeroProcesso"),
                 ),
                 "tribunal": tribunal_s,
-                "data": _str(
-                    record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
-                ),
+                "data": data_disp,
+                "comunicacao_id": com_id,
             },
         )
 
@@ -412,7 +474,7 @@ TABLE_SCHEMAS = {
             "tribunal": "string",
             "numero_processo": "string",
             "numero_processo_mascara": "string",
-            "data_disponibilizacao": "string",
+            "data_disponibilizacao": "date",
             "tipo_comunicacao": "string",
             "nome_orgao": "string",
             "meio": "string",
@@ -422,7 +484,7 @@ TABLE_SCHEMAS = {
             "codigo_classe": "string",
             "numero_comunicacao": "string",
             "hash": "string",
-            "processed_at": "string",
+            "processed_at": "timestamp",
             "texto_id": "string",
         },
     ),
@@ -436,12 +498,21 @@ TABLE_SCHEMAS = {
             "uf_oab": "string",
         },
     ),
+    "advogado_nomes": ibis.schema(
+        {
+            "advogado_id": "string",
+            "nome": "string",
+            "tribunal": "string",
+            "first_seen": "date",
+        },
+    ),
     "destinatarios": ibis.schema(
         {
             "comunicacao_id": "string",
             "tribunal": "string",
             "nome": "string",
             "polo": "string",
+            "parte_id": "string",
         },
     ),
     "comunicacao_advogados": ibis.schema(
@@ -454,7 +525,6 @@ TABLE_SCHEMAS = {
     "textos": ibis.schema(
         {
             "id": "string",
-            "tribunal": "string",
             "texto": "string",
         },
     ),
@@ -463,15 +533,40 @@ TABLE_SCHEMAS = {
             "comunicacao_id": "string",
             "tribunal": "string",
             "advogado_id": "string",
-            "parte_nome": "string",
+            "parte_id": "string",
             "polo": "string",
         },
     ),
+    # Process activity index: one row per communication event, NOT a dimension table.
+    # For a true process dimension (first/last seen, court unit), build a materialized view.
     "processos": ibis.schema(
         {
             "numero_processo": "string",
             "tribunal": "string",
-            "data": "string",
+            "data": "date",
+            "comunicacao_id": "string",
+        },
+    ),
+    # Outcome classification per unique text, decoupled from comunicacoes.
+    # Composite key: (texto_id, metodo)
+    "classificacoes": ibis.schema(
+        {
+            "texto_id": "string",
+            "metodo": "string",
+            "outcome": "string",
+            "decision_type": "string",
+            "winner_advogado_id": "string",
+            "loser_advogado_id": "string",
+            "confidence": "float64",
+            "classified_at": "timestamp",
+        },
+    ),
+    # Party dimension table with normalized keys for entity resolution.
+    "partes": ibis.schema(
+        {
+            "id": "string",
+            "nome_normalizado": "string",
+            "nome_original": "string",
         },
     ),
 }
@@ -617,6 +712,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print(f"Consolidating DJEN data for {args.date}...")
+    print(f"Schema version: {SCHEMA_VERSION}")
     if args.dry_run:
         print("(DRY RUN - will not upload)")
     print()

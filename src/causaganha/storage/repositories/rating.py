@@ -2,8 +2,12 @@
 
 from typing import Any
 
+import structlog
 from ibis import _
 from ibis.backends.duckdb import Backend
+
+
+logger = structlog.get_logger()
 
 
 def get_lawyer_rating(
@@ -108,3 +112,72 @@ def update_lawyer_rating(
             tribunal,
         ],
     )
+
+
+def insert_rating_snapshot(
+    con: Backend,
+    *,
+    advogado_id: str,
+    comunicacao_id: str,
+    oab_number: str,
+    oab_state: str,
+    mu_before: float,
+    sigma_before: float,
+    mu_after: float,
+    sigma_after: float,
+    wins: int,
+    losses: int,
+) -> None:
+    """Record a rating snapshot in ratings_history.
+
+    Called after each OpenSkill update to maintain a full audit trail.
+
+    Args:
+        con: Database connection.
+        advogado_id: UUIDv5 lawyer ID (OAB+UF based).
+        comunicacao_id: Communication that triggered this rating update.
+        oab_number: Lawyer OAB number.
+        oab_state: Lawyer OAB state.
+        mu_before: Mu before this update.
+        sigma_before: Sigma before this update.
+        mu_after: Mu after this update.
+        sigma_after: Sigma after this update.
+        wins: Total wins after this update.
+        losses: Total losses after this update.
+    """
+    rating_after = mu_after - 3 * sigma_after
+
+    try:
+        con.con.execute(
+            """
+            INSERT INTO ratings_history (
+                advogado_id, comunicacao_id,
+                oab_number, oab_state,
+                mu_before, sigma_before,
+                mu_after, sigma_after, rating_after,
+                wins, losses
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (advogado_id, comunicacao_id) DO NOTHING
+            """,
+            [
+                advogado_id,
+                comunicacao_id,
+                oab_number,
+                oab_state,
+                mu_before,
+                sigma_before,
+                mu_after,
+                sigma_after,
+                rating_after,
+                wins,
+                losses,
+            ],
+        )
+    except Exception as e:
+        # Non-fatal — don't break the rating pipeline for history logging
+        logger.warning(
+            "rating_snapshot_failed",
+            advogado_id=advogado_id,
+            comunicacao_id=comunicacao_id,
+            error=str(e),
+        )

@@ -35,10 +35,13 @@ DJEN API (geo-blocked) → DJEN Proxy (Cloud Run, São Paulo)
 │  ├── djen-YYYY-MM-DD-TRIBUNAL.zip     ← Raw source (JSON)       │
 │  ├── djen-YYYY-MM-DD-TRIBUNAL.absent  ← Empty journal marker    │
 │  ├── comunicacoes.parquet             ← Consolidated (91 courts)│
-│  ├── advogados.parquet                ← Deduplicated lawyers    │
+│  ├── advogados.parquet                ← Lawyers (OAB+UF keyed)  │
+│  ├── advogado_nomes.parquet           ← Lawyer name aliases     │
 │  ├── representacoes.parquet           ← Lawyer-Party links      │
-│  ├── processos.parquet                ← Fast timeline index     │
-│  └── textos.parquet                   ← Deduplicated texts      │
+│  ├── processos.parquet                ← Process activity index  │
+│  ├── textos.parquet                   ← Content-addressed texts │
+│  ├── partes.parquet                   ← Normalized parties      │
+│  └── classificacoes.parquet           ← Outcome labels          │
 │                                                                 │
 │  causaganha-catalog/                 ← Master catalog           │
 │  ├── catalog.duckdb                                             │
@@ -152,10 +155,14 @@ djen-YYYY-MM-DD/                       ← Item per day
 ├── djen-YYYY-MM-DD-TRIBUNAL.zip       ← Raw JSON (source)
 ├── djen-YYYY-MM-DD-TRIBUNAL.absent    ← Completion marker
 ├── comunicacoes.parquet               ← Consolidated communications
-├── advogados.parquet                  ← Global lawyer identifiers
+├── advogados.parquet                  ← Global lawyer identifiers (OAB+UF)
+├── advogado_nomes.parquet             ← Lawyer name aliases
 ├── representacoes.parquet             ← Materialized associations
-├── processos.parquet                  ← Daily process activity index
-└── textos.parquet                     ← Content-addressed judicial texts
+├── processos.parquet                  ← Process activity index
+├── textos.parquet                     ← Content-addressed judicial texts
+├── partes.parquet                     ← Normalized party dimension
+├── classificacoes.parquet             ← Outcome labels per text
+└── destinatarios.parquet              ← Communication recipients
 
 causaganha-catalog/                    ← Master catalog
 ├── catalog.duckdb                     ← DuckDB with remote views

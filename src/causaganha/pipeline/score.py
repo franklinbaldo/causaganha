@@ -17,6 +17,7 @@ from causaganha.storage.repositories.analysis import (
 from causaganha.storage.repositories.intimation import get_lawyer_name
 from causaganha.storage.repositories.rating import (
     get_lawyer_rating,
+    insert_rating_snapshot,
     update_lawyer_rating,
 )
 
@@ -126,6 +127,21 @@ async def calculate_ratings(
                     losses=winner_losses,
                 )
 
+                # Record winner snapshot
+                insert_rating_snapshot(
+                    con,
+                    advogado_id=f"{winner_oab}:{winner_state}",
+                    comunicacao_id=str(analysis["id"]),
+                    oab_number=winner_oab,
+                    oab_state=winner_state,
+                    mu_before=winner_rating.mu,
+                    sigma_before=winner_rating.sigma,
+                    mu_after=new_winner[0].mu,
+                    sigma_after=new_winner[0].sigma,
+                    wins=winner_wins + 1,
+                    losses=winner_losses,
+                )
+
                 # Loser
                 update_lawyer_rating(
                     con,
@@ -134,6 +150,21 @@ async def calculate_ratings(
                     lawyer_name=loser_name,
                     mu=new_loser[0].mu,
                     sigma=new_loser[0].sigma,
+                    wins=loser_wins,
+                    losses=loser_losses + 1,
+                )
+
+                # Record loser snapshot
+                insert_rating_snapshot(
+                    con,
+                    advogado_id=f"{loser_oab}:{loser_state}",
+                    comunicacao_id=str(analysis["id"]),
+                    oab_number=loser_oab,
+                    oab_state=loser_state,
+                    mu_before=loser_rating.mu,
+                    sigma_before=loser_rating.sigma,
+                    mu_after=new_loser[0].mu,
+                    sigma_after=new_loser[0].sigma,
                     wins=loser_wins,
                     losses=loser_losses + 1,
                 )
