@@ -329,7 +329,8 @@ def collect_data(
             continue
 
         if not isinstance(info, dict):
-            logger.warning("caderno_fetch_error_format", date=date_str, tribunal=tribunal)
+            # API returned None - transient error (timeout, 4xx/5xx, network issue)
+            logger.warning("caderno_api_transient_error", date=date_str, tribunal=tribunal)
             stats["failed"] += 1
             processed += 1
             continue
@@ -396,7 +397,23 @@ def main() -> int:
     print(f"  Failed:  {stats['failed']}")
     print(f"  Skipped: {stats['skipped']} (already on IA)")
 
-    return 0 if stats["failed"] == 0 else 1
+    # Determine exit code based on success rate, not strict zero-failures
+    # This tolerates transient API errors (timeouts, 5xx, network issues)
+    total_processed = stats["success"] + stats["failed"]
+    if total_processed == 0:
+        # Nothing to process is a success
+        print("\n  Status: SUCCESS (nothing to process)")
+        return 0
+
+    success_rate = stats["success"] / total_processed
+    failure_threshold = 0.2  # Fail only if >20% failure rate
+
+    if stats["failed"] / total_processed <= failure_threshold:
+        print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
+        return 0
+    else:
+        print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
+        return 1
 
 
 if __name__ == "__main__":
