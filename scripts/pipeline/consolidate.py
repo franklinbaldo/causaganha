@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import decimal
 import json
 import subprocess
 import tempfile
@@ -25,16 +26,24 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import httpx
-import ibis
-import structlog
 
-from causaganha.config import TRIBUNAIS
+# Disable strict decimal traps that cause crashes in ibis/sqlglot
+# See: https://github.com/ibis-project/ibis/issues/9638 (similar)
+# This is required because sqlglot may attempt to convert "binary_double_nan"
+# which triggers InvalidOperation if traps are enabled.
+decimal.getcontext().traps[decimal.InvalidOperation] = False
+
+import httpx  # noqa: E402
+import ibis  # noqa: E402
+import structlog  # noqa: E402
+
+from causaganha.config import TRIBUNAIS  # noqa: E402
 
 
 # Schema version — embedded in Parquet metadata for forward compatibility.
 # Bump when TABLE_SCHEMAS change in a way that affects consumers.
-SCHEMA_VERSION = "2"
+# v3: Added p_ano, p_mes, p_item_ia columns for better partitioning and tracing.
+SCHEMA_VERSION = "3"
 
 
 logger = structlog.get_logger()
@@ -185,7 +194,11 @@ def _uuid5(data: dict[str, Any]) -> str:
     return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
 
 
-def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, list[dict[str, Any]]]:
+def parse_records(
+    records: list[dict[str, Any]],
+    tribunal: str,
+    item_id: str,
+) -> dict[str, list[dict[str, Any]]]:
     """Parse JSON records into structured tables based on official DJEN schema."""
     tables: dict[str, list[dict[str, Any]]] = {
         "comunicacoes": [],
@@ -229,6 +242,10 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                 },
             )
 
+        # Partition keys
+        p_ano = data_disp.year if data_disp else 0
+        p_mes = data_disp.month if data_disp else 0
+
         # Main communication record
         tables["comunicacoes"].append(
             {
@@ -251,6 +268,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                 "hash": _str(record.get("hash")),
                 "processed_at": processed_at,
                 "texto_id": texto_id,
+                "p_ano": p_ano,
+                "p_mes": p_mes,
+                "p_item_ia": item_id,
             },
         )
 
@@ -280,6 +300,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                     "nome": p_nome,
                     "polo": p_polo,
                     "parte_id": parte_id,
+                    "p_ano": p_ano,
+                    "p_mes": p_mes,
+                    "p_item_ia": item_id,
                 }
                 tables["destinatarios"].append(dest_data)
                 current_destinatarios.append(
@@ -324,6 +347,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                             "nome": adv_nome,
                             "numero_oab": adv_oab,
                             "uf_oab": adv_uf,
+                            "p_ano": p_ano,
+                            "p_mes": p_mes,
+                            "p_item_ia": item_id,
                         },
                     )
 
@@ -346,6 +372,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                                 "advogado_id": adv_global_id,
                                 "parte_id": party["parte_id"],
                                 "polo": party["polo"],
+                                "p_ano": p_ano,
+                                "p_mes": p_mes,
+                                "p_item_ia": item_id,
                             },
                         )
 
@@ -358,6 +387,9 @@ def parse_records(records: list[dict[str, Any]], tribunal: str) -> dict[str, lis
                 "tribunal": tribunal_s,
                 "data": data_disp,
                 "comunicacao_id": com_id,
+                "p_ano": p_ano,
+                "p_mes": p_mes,
+                "p_item_ia": item_id,
             },
         )
 
@@ -387,6 +419,9 @@ TABLE_SCHEMAS = {
             "hash": "string",
             "processed_at": "timestamp",
             "texto_id": "string",
+            "p_ano": "int32",
+            "p_mes": "int32",
+            "p_item_ia": "string",
         },
     ),
     "advogados": ibis.schema(
@@ -397,6 +432,9 @@ TABLE_SCHEMAS = {
             "nome": "string",
             "numero_oab": "string",
             "uf_oab": "string",
+            "p_ano": "int32",
+            "p_mes": "int32",
+            "p_item_ia": "string",
         },
     ),
     "advogado_nomes": ibis.schema(
@@ -414,6 +452,9 @@ TABLE_SCHEMAS = {
             "nome": "string",
             "polo": "string",
             "parte_id": "string",
+            "p_ano": "int32",
+            "p_mes": "int32",
+            "p_item_ia": "string",
         },
     ),
     "comunicacao_advogados": ibis.schema(
@@ -436,6 +477,9 @@ TABLE_SCHEMAS = {
             "advogado_id": "string",
             "parte_id": "string",
             "polo": "string",
+            "p_ano": "int32",
+            "p_mes": "int32",
+            "p_item_ia": "string",
         },
     ),
     # Process activity index: one row per communication event, NOT a dimension table.
@@ -446,6 +490,9 @@ TABLE_SCHEMAS = {
             "tribunal": "string",
             "data": "date",
             "comunicacao_id": "string",
+            "p_ano": "int32",
+            "p_mes": "int32",
+            "p_item_ia": "string",
         },
     ),
     # Outcome classification per unique text, decoupled from comunicacoes.
@@ -494,8 +541,11 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
-def _needs_consolidation(date_str: str) -> bool:
-    """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA."""
+def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bool:
+    """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA.
+
+    If *must_be_complete* is True, also verifies that all expected tribunals are present.
+    """
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}"
     try:
@@ -505,6 +555,8 @@ def _needs_consolidation(date_str: str) -> bool:
         files = resp.json().get("files", [])
         has_zips = False
         has_consolidated = False
+        present_tribunais = set()
+
         for f in files:
             if not isinstance(f, dict):
                 continue
@@ -512,10 +564,22 @@ def _needs_consolidation(date_str: str) -> bool:
             # Check for ZIPs or absent markers as proof of attempted collection
             if name.endswith((".zip", ".absent")):
                 has_zips = True
+                # Identify tribunal from filename
+                parts = name.replace(".zip", "").replace(".absent", "").split("-")
+                if len(parts) >= 4:
+                    present_tribunais.add(parts[-1])
+
             # Check for any .parquet file or the sentinel marker as proof of consolidation
             if name.endswith(".parquet") or name == "_consolidated.marker":
                 has_consolidated = True
-        return has_zips and not has_consolidated
+
+        if not (has_zips and not has_consolidated):
+            return False
+
+        if must_be_complete:
+            return len(present_tribunais) >= len(TRIBUNAIS)
+
+        return True
     except Exception:
         return False
 
@@ -533,7 +597,8 @@ def find_next_unconsolidated(max_depth: int = 365) -> str | None:
         if d.weekday() >= 5:  # skip weekends
             continue
         d_str = d.strftime("%Y-%m-%d")
-        if _needs_consolidation(d_str):
+        # Backfill requires completeness — only consolidate when everything is gathered
+        if _needs_consolidation(d_str, must_be_complete=True):
             logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
             return d_str
     return None
@@ -595,7 +660,7 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -
                 continue
 
             # Parse into tables
-            tables = parse_records(records, tribunal)
+            tables = parse_records(records, tribunal, item_id)
 
             # Insert into DuckDB immediately to free Python memory
             for table_name, rows in tables.items():
@@ -682,12 +747,11 @@ def main() -> int:
         print("Backfill mode: scanning for unconsolidated dates (d-1 priority)...")
         target_date_or_none = find_next_unconsolidated()
         if target_date_or_none is None:
-            print("All dates are already consolidated. Nothing to do.")
+            print("All dates are already consolidated (or incomplete). Nothing to do.")
             return 0
         target_date = target_date_or_none
-        # Force-consolidate historical dates — they may never reach 100% tribunal coverage
-        today_str = date.today().strftime("%Y-%m-%d")
-        use_force = args.force or (target_date != today_str)
+        # No more auto-forcing historical dates. We only process them if complete.
+        use_force = args.force
     else:
         # Default: today
         target_date = date.today().strftime("%Y-%m-%d")
