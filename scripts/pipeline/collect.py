@@ -39,6 +39,8 @@ import httpx
 import internetarchive as ia
 import structlog
 
+from causaganha.config import TRIBUNAIS
+
 
 @dataclass
 class AbsentReason:
@@ -51,107 +53,6 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
-
-# All 91 Brazilian courts
-TRIBUNAIS = [
-    # Federal Regional (6)
-    "TRF1",
-    "TRF2",
-    "TRF3",
-    "TRF4",
-    "TRF5",
-    "TRF6",
-    # Superior (8)
-    "STF",
-    "STJ",
-    "TST",
-    "TSE",
-    "STM",
-    "CNJ",
-    "CNMP",
-    "TNU",
-    # State (27)
-    "TJAC",
-    "TJAL",
-    "TJAM",
-    "TJAP",
-    "TJBA",
-    "TJCE",
-    "TJDF",
-    "TJES",
-    "TJGO",
-    "TJMA",
-    "TJMG",
-    "TJMS",
-    "TJMT",
-    "TJPA",
-    "TJPB",
-    "TJPE",
-    "TJPI",
-    "TJPR",
-    "TJRJ",
-    "TJRN",
-    "TJRO",
-    "TJRR",
-    "TJRS",
-    "TJSC",
-    "TJSE",
-    "TJSP",
-    "TJTO",
-    # Labor (24)
-    "TRT1",
-    "TRT2",
-    "TRT3",
-    "TRT4",
-    "TRT5",
-    "TRT6",
-    "TRT7",
-    "TRT8",
-    "TRT9",
-    "TRT10",
-    "TRT11",
-    "TRT12",
-    "TRT13",
-    "TRT14",
-    "TRT15",
-    "TRT16",
-    "TRT17",
-    "TRT18",
-    "TRT19",
-    "TRT20",
-    "TRT21",
-    "TRT22",
-    "TRT23",
-    "TRT24",
-    # Electoral (27)
-    "TREAC",
-    "TREAL",
-    "TREAM",
-    "TREAP",
-    "TREBA",
-    "TRECE",
-    "TREDF",
-    "TREES",
-    "TREGO",
-    "TREMA",
-    "TREMG",
-    "TREMS",
-    "TREMT",
-    "TREPA",
-    "TREPB",
-    "TREPE",
-    "TREPI",
-    "TREPR",
-    "TRERJ",
-    "TRERN",
-    "TRERO",
-    "TRERR",
-    "TRERS",
-    "TRESC",
-    "TRESE",
-    "TRESP",
-    "TRETO",
-]
 
 
 # Thread-local IA sessions: requests.Session (which ArchiveSession extends)
@@ -211,6 +112,7 @@ def get_caderno_info(
     proxy_url: str,
     tribunal: str,
     date_str: str,
+    max_retries: int = 2,
 ) -> dict[str, Any] | AbsentReason | None:
     """Get caderno (journal) info from DJEN API.
 
@@ -219,40 +121,68 @@ def get_caderno_info(
         proxy_url: Base URL of the DJEN proxy.
         tribunal: Court identifier (e.g. TJSP).
         date_str: Date in YYYY-MM-DD format.
+        max_retries: Number of retries for transient (5xx/network) errors.
 
     Returns:
         dict: Success (journal data)
         AbsentReason: No journal for this day (with evidence)
-        None: Transient error (timeout, 5xx, etc.)
+        None: Transient error after retries exhausted
     """
     url = f"{proxy_url}/api/v1/caderno/{tribunal}/{date_str}/D"
 
-    try:
-        response = client.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, dict) and (data.get("url") or data.get("items")):
-                return data
-            return AbsentReason(
-                status_code=200,
-                reason="empty_response",
-                response_snippet=response.text[:200],
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, dict) and (data.get("url") or data.get("items")):
+                    return data
+                return AbsentReason(
+                    status_code=200,
+                    reason="empty_response",
+                    response_snippet=response.text[:200],
+                )
+            if response.status_code == 404:
+                return AbsentReason(
+                    status_code=404,
+                    reason="not_found",
+                )
+            # 400/5xx: retry with backoff — DJEN proxy may be transiently broken
+            if response.status_code == 400 or response.status_code >= 500:
+                logger.warning(
+                    "caderno_api_retryable_error",
+                    tribunal=tribunal,
+                    date=date_str,
+                    status=response.status_code,
+                    body=response.text[:200],
+                    attempt=attempt + 1,
+                )
+                if attempt < max_retries:
+                    time.sleep(2**attempt)
+                    continue
+                return None
+            # Other client errors (403, 429, etc.) — don't retry
+            logger.warning(
+                "caderno_api_error",
+                tribunal=tribunal,
+                date=date_str,
+                status=response.status_code,
+                body=response.text[:200],
             )
-        if response.status_code == 404:
-            return AbsentReason(
-                status_code=404,
-                reason="not_found",
+            return None
+        except Exception as e:
+            logger.warning(
+                "caderno_fetch_failed",
+                tribunal=tribunal,
+                date=date_str,
+                error=str(e),
+                attempt=attempt + 1,
             )
-        logger.warning(
-            "caderno_api_error",
-            tribunal=tribunal,
-            date=date_str,
-            status=response.status_code,
-        )
-        return None
-    except Exception as e:
-        logger.debug("caderno_fetch_failed", tribunal=tribunal, date=date_str, error=str(e))
-        return None
+            if attempt < max_retries:
+                time.sleep(2**attempt)
+                continue
+            return None
+    return None
 
 
 def download_zip(client: httpx.Client, url: str, output_path: Path) -> bool:
@@ -336,8 +266,7 @@ def upload_to_ia(
         "x-archive-meta-mediatype": "data",
         "x-archive-meta-title": f"DJEN Data - {date_str}",
         "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional"
-            " - Judicial communications from Brazilian courts."
+            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
         ),
         "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
         "x-archive-meta-creator": "CausaGanha",
@@ -403,7 +332,7 @@ def _process_item(  # noqa: PLR0913
             return "success" if ok else "failed"
 
     if not isinstance(info, dict):
-        # API returned None - transient error (timeout, 4xx/5xx, network issue)
+        # API returned None — transient error after retries (5xx, timeout, network)
         logger.warning("caderno_api_transient_error", date=date_str, tribunal=tribunal)
         return "failed"
 

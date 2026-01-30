@@ -129,9 +129,9 @@ jobs:
     timeout-minutes: 25
     environment: dev
 
-    # Always run on schedule, or when manually triggered with job=collect|all
+    # Run only on the 5-minute cron (not other schedules), or manual trigger
     if: |
-      github.event_name == 'schedule' ||
+      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
       github.event.inputs.job == 'collect' ||
       github.event.inputs.job == 'all'
 
@@ -172,11 +172,15 @@ jobs:
     environment: dev
     needs: collect
 
-    # Run on the 10-minute cron schedule, or manual trigger
+    # Run on the 10-minute cron schedule, or manual trigger.
+    # always() ensures this runs even if collect was skipped or failed —
+    # consolidation works on whatever is already on IA, not just new data.
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
-      github.event.inputs.job == 'convert' ||
-      github.event.inputs.job == 'all'
+      always() && (
+        (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
+        github.event.inputs.job == 'convert' ||
+        github.event.inputs.job == 'all'
+      )
 
     env:
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
@@ -210,11 +214,14 @@ jobs:
     timeout-minutes: 55
     needs: consolidate
 
-    # Run on the hourly cron schedule, or manual trigger
+    # Run on the hourly cron schedule, or manual trigger.
+    # always() ensures this runs even if upstream jobs were skipped or failed.
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
-      github.event.inputs.job == 'embed' ||
-      github.event.inputs.job == 'all'
+      always() && (
+        (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
+        github.event.inputs.job == 'embed' ||
+        github.event.inputs.job == 'all'
+      )
 
     env:
       JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
