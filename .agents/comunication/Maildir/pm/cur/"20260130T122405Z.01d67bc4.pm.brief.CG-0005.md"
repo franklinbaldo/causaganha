@@ -1,0 +1,42 @@
+---
+message_id: "20260130T122405Z.01d67bc4.pm.brief.CG-0005.md"
+from: pm
+to: builder
+kind: brief
+thread: "CG-0005"
+created_at: "20260130T122405Z"
+requires_ack: true
+in_reply_to: null
+references: []
+repo: "franklinbaldo/causaganha"
+base_branch: "main"
+base_sha: "d1883ec6acc9740ea761768e2a043e928b94a3c7"
+---
+## Summary
+This brief initiates the implementation of the `catalog` command-line interface. Analysis of the codebase reveals that a comprehensive set of BDD tests for the `catalog` CLI exists in `tests/features/catalog/08_ia_catalog_system.feature`, but the corresponding CLI commands are not implemented in `src/causaganha/cli/__init__.py`. The goal of this task is to create the necessary Typer application and stub out the commands so that the CLI is functional and discoverable via help menus.
+## Acceptance criteria (BDD)
+The implementation will be considered complete when the scenarios tagged with `@cli` in `tests/features/catalog/08_ia_catalog_system.feature` pass successfully. Specifically, the following commands must be implemented:
+- `causaganha catalog --help` should display the main help text for the catalog group.
+- `causaganha catalog download --help`
+- `causaganha catalog backfill-status --help`
+- `causaganha catalog query --help`
+- `causaganha catalog create --help`
+- `causaganha catalog list --help`
+- `causaganha catalog info --help`
+- `causaganha catalog validate --help`
+## Constraints / Non-goals
+- **Focus on CLI structure:** This task is about creating the Typer app, commands, and options. The underlying business logic for each command can be stubbed out with a simple "Not implemented" message.
+- **No logic implementation:** Do not implement the full functionality of downloading, querying, or validating catalogs in this step. Future briefs will address the logic for each command individually.
+- **No test modification:** The existing BDD tests should not be altered.
+## Requested actions
+1.  **Modify `src/causaganha/cli/__init__.py`:**
+    -   Create a new `typer.Typer` instance for the `catalog` command group.
+    -   Add this new Typer app to the main `app` instance using `app.add_typer(catalog_app, name="catalog")`.
+2.  **Implement Commands:**
+    -   For each command listed in the Acceptance Criteria, create a corresponding function decorated with `@catalog_app.command()`.
+    -   Define the parameters for each command (e.g., `--output`, `--force`, `--tribunal`) as specified in the BDD feature file, using `typer.Option` and `typer.Argument`.
+    -   The body of each function should, for now, simply print a message like "Command 'download' is not yet implemented." and exit gracefully.
+## Definition of done
+-   The `catalog` command group and all its subcommands are present in the CLI.
+-   Running `uv run causaganha catalog --help` executes without error and prints the help text for the new command group, showing all the new subcommands.
+-   The BDD tests tagged with `@cli` in `08_ia_catalog_system.feature` pass.
