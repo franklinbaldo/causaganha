@@ -11,7 +11,10 @@
 # Justiça Eletrônico Nacional), converts it to analytics-friendly formats,
 # generates embeddings for semantic search, and maintains a master catalog.
 #
-#   DJEN API → Collect → Convert → Embed → Catalog → Internet Archive
+#   DJEN API → Collect ──┐
+#                        ├──→ Catalog → Dashboard Cache
+#              Convert ──┘
+#              Embed (independent)
 #
 # SCHEDULE:
 # ---------
@@ -174,20 +177,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: dev
-    needs: collect
     concurrency:
       group: pipeline-consolidate
       cancel-in-progress: false
 
     # Run on the 10-minute cron schedule, or manual trigger.
-    # always() ensures this runs even if collect was skipped or failed —
-    # consolidation works on whatever is already on IA, not just new data.
+    # No needs: — consolidation works on existing IA data, independent of collect.
     if: |
-      always() && (
-        (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
-        github.event.inputs.job == 'convert' ||
-        github.event.inputs.job == 'all'
-      )
+      (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
+      github.event.inputs.job == 'convert' ||
+      github.event.inputs.job == 'all'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -204,9 +203,8 @@ jobs:
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          args=()
-          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
-          uv run python scripts/pipeline/consolidate.py "${args[@]}"
+          date_arg="${INPUT_DATE:-$(date -u +%Y-%m-%d)}"
+          uv run python scripts/pipeline/consolidate.py --date "$date_arg"
 
   # ==========================================================================
   # JOB: EMBED
@@ -219,19 +217,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     environment: dev
-    needs: consolidate
     concurrency:
       group: pipeline-embed
       cancel-in-progress: false
 
     # Run on the hourly cron schedule, or manual trigger.
-    # always() ensures this runs even if upstream jobs were skipped or failed.
+    # No needs: — embedding works on existing parquet data, independent of consolidate.
     if: |
-      always() && (
-        (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
-        github.event.inputs.job == 'embed' ||
-        github.event.inputs.job == 'all'
-      )
+      (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
+      github.event.inputs.job == 'embed' ||
+      github.event.inputs.job == 'all'
 
     env:
       JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
@@ -272,28 +267,23 @@ jobs:
   # JOB: CATALOG
   # ==========================================================================
   # Builds master catalog of all data on Internet Archive.
-  # Runs after ANY data-modifying job succeeds to keep catalog up-to-date.
+  # Runs daily at 06:00 UTC or on manual dispatch.
   # ==========================================================================
   catalog:
     name: Update Catalog
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev
-    needs: [collect, consolidate, embed]  # Wait for all parallel jobs
     concurrency:
       group: pipeline-catalog
       cancel-in-progress: false
 
-    # Run on the daily cron, if any upstream job succeeded, or manual trigger
+    # Run on the daily cron, or manual trigger.
+    # No needs: — catalog scans IA independently, runs on its own schedule.
     if: |
-      always() && (
-        (github.event_name == 'schedule' && github.event.schedule == '0 6 * * *') ||
-        needs.collect.result == 'success' ||
-        needs.consolidate.result == 'success' ||
-        needs.embed.result == 'success' ||
-        github.event.inputs.job == 'catalog' ||
-        github.event.inputs.job == 'all'
-      )
+      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * *') ||
+      github.event.inputs.job == 'catalog' ||
+      github.event.inputs.job == 'all'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -333,13 +323,11 @@ jobs:
       group: pipeline-dashboard-cache
       cancel-in-progress: false
 
-    # Run after catalog updates
+    # Run after catalog completes successfully (daily or manual dispatch).
+    # Keeps needs: catalog since dashboard-cache reads the catalog output.
     if: |
-      always() && (
-        needs.catalog.result == 'success' ||
-        github.event.inputs.job == 'catalog' ||
-        github.event.inputs.job == 'all'
-      )
+      needs.catalog.result == 'success' ||
+      github.event.inputs.job == 'all'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
