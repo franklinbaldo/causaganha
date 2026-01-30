@@ -6,6 +6,7 @@ import structlog
 from ibis import _
 from ibis.backends.duckdb import Backend
 
+
 logger = structlog.get_logger()
 
 

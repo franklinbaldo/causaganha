@@ -210,7 +210,7 @@ async def find_optimal_rate():
         print("💡 PRODUCTION RECOMMENDATIONS:")
         print(f"   Recommended concurrency: {recommended_concurrency}")
         print(f"   Max requests/second: {recommended_rps:.1f}")
-        print(f"   Rate limit interval: {1/recommended_rps:.3f}s between requests")
+        print(f"   Rate limit interval: {1 / recommended_rps:.3f}s between requests")
         print()
 
         # Configuration code
@@ -220,7 +220,7 @@ async def find_optimal_rate():
         print("# Add to your pipeline configuration")
         print(f"MAX_CONCURRENT_EMBEDDINGS = {recommended_concurrency}")
         print(f"EMBEDDING_RATE_LIMIT = {recommended_rps:.1f}  # requests per second")
-        print(f"EMBEDDING_RATE_INTERVAL = {1/recommended_rps:.3f}  # seconds between requests")
+        print(f"EMBEDDING_RATE_INTERVAL = {1 / recommended_rps:.3f}  # seconds between requests")
         print()
         print("# Usage with asyncio.Semaphore")
         print("semaphore = asyncio.Semaphore(MAX_CONCURRENT_EMBEDDINGS)")

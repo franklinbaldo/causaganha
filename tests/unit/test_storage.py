@@ -277,8 +277,14 @@ def test_lawyer_rating_crud(con: Backend) -> None:
 
     # Test update (insert)
     update_lawyer_rating(
-        con, "123", "SP", "Dr. Winner",
-        mu=initial_mu, sigma=5.0, wins=initial_wins, losses=2,
+        con,
+        "123",
+        "SP",
+        "Dr. Winner",
+        mu=initial_mu,
+        sigma=5.0,
+        wins=initial_wins,
+        losses=2,
     )
 
     rating = get_lawyer_rating(con, "123", "SP")
@@ -288,8 +294,14 @@ def test_lawyer_rating_crud(con: Backend) -> None:
 
     # Test update (update)
     update_lawyer_rating(
-        con, "123", "SP", "Dr. Winner",
-        mu=updated_mu, sigma=4.0, wins=updated_wins, losses=2,
+        con,
+        "123",
+        "SP",
+        "Dr. Winner",
+        mu=updated_mu,
+        sigma=4.0,
+        wins=updated_wins,
+        losses=2,
     )
 
     rating = get_lawyer_rating(con, "123", "SP")

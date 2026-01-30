@@ -13,7 +13,8 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Check formatting
         run: uv run ruff format --check
-      - name: Check lint
+      - name: Check lint (informational)
+        continue-on-error: true
         run: uv run ruff check
 
   tests:

@@ -302,7 +302,7 @@ def generate_backfill_list(manifest: list[dict], start_date: date, end_date: dat
                             "tribunal": tribunal,
                             "reason": "not_collected",
                             "last_checked": datetime.now(tz=UTC).isoformat(),
-                        }
+                        },
                     )
         current += timedelta(days=1)
 
@@ -362,7 +362,7 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
                     f"    {urls_str}",
                     "]);",
                     "",
-                ]
+                ],
             )
 
     # Add helper views
@@ -392,14 +392,17 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
             "        ((SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') +",
             "         (SELECT COUNT(*) FROM backfill_needed)), 2) as percent_complete;",
             "",
-        ]
+        ],
     )
 
     return "\n".join(sql_parts)
 
 
 def create_catalog_duckdb(
-    manifest: list[dict], backfill: list[dict], sql: str, output_dir: Path
+    manifest: list[dict],
+    backfill: list[dict],
+    sql: str,
+    output_dir: Path,
 ) -> Path | None:
     """Create ready-to-use DuckDB file.
 
@@ -517,7 +520,7 @@ def save_parquet(data: list[dict], output_path: Path) -> bool:
             # Create empty parquet with schema
             con = duckdb.connect()
             con.execute(
-                f"COPY (SELECT NULL as dummy WHERE FALSE) TO '{output_path}' (FORMAT PARQUET)"
+                f"COPY (SELECT NULL as dummy WHERE FALSE) TO '{output_path}' (FORMAT PARQUET)",
             )
             con.close()
             return True
@@ -585,10 +588,16 @@ def main():
     parser.add_argument("--output", type=str, default="./catalog", help="Output directory")
     parser.add_argument("--upload", action="store_true", help="Upload to Internet Archive")
     parser.add_argument(
-        "--start-date", type=str, default=None, help="Start date for backfill (YYYY-MM-DD)"
+        "--start-date",
+        type=str,
+        default=None,
+        help="Start date for backfill (YYYY-MM-DD)",
     )
     parser.add_argument(
-        "--end-date", type=str, default=None, help="End date for backfill (YYYY-MM-DD)"
+        "--end-date",
+        type=str,
+        default=None,
+        help="End date for backfill (YYYY-MM-DD)",
     )
     args = parser.parse_args()
 

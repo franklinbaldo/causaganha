@@ -129,11 +129,11 @@ async def test_djen_connectivity():
         with_process = sum(1 for i in intimations if i.numero_processo)
 
         print(f"✓ Total intimations: {total}")
-        print(f"✓ With text: {with_text} ({with_text/total*100:.1f}%)")
-        print(f"✓ With link: {with_link} ({with_link/total*100:.1f}%)")
-        print(f"✓ With lawyers: {with_lawyers} ({with_lawyers/total*100:.1f}%)")
+        print(f"✓ With text: {with_text} ({with_text / total * 100:.1f}%)")
+        print(f"✓ With link: {with_link} ({with_link / total * 100:.1f}%)")
+        print(f"✓ With lawyers: {with_lawyers} ({with_lawyers / total * 100:.1f}%)")
         print(
-            f"✓ With process number: {with_process} ({with_process/total*100:.1f}%)",
+            f"✓ With process number: {with_process} ({with_process / total * 100:.1f}%)",
         )
         print()
 

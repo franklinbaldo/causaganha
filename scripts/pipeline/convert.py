@@ -136,34 +136,40 @@ def convert_to_parquet(records: list[dict], output_dir: Path, base_name: str) ->
             continue
 
         # Main communication record
-        comunicacoes.append({
-            "id": record.get("id"),
-            "numero_processo": record.get("numeroProcesso"),
-            "data_disponibilizacao": record.get("dataDisponibilizacao"),
-            "tribunal": record.get("siglaTribunal"),
-            "orgao": record.get("orgao"),
-            "texto": record.get("texto", "")[:10000],  # Limit text size
-        })
+        comunicacoes.append(
+            {
+                "id": record.get("id"),
+                "numero_processo": record.get("numeroProcesso"),
+                "data_disponibilizacao": record.get("dataDisponibilizacao"),
+                "tribunal": record.get("siglaTribunal"),
+                "orgao": record.get("orgao"),
+                "texto": record.get("texto", "")[:10000],  # Limit text size
+            },
+        )
 
         # Extract lawyers
         for adv in record.get("advogados", []) or []:
             if isinstance(adv, dict):
-                advogados.append({
-                    "comunicacao_id": record.get("id"),
-                    "nome": adv.get("nome"),
-                    "oab": adv.get("numeroOAB"),
-                    "uf_oab": adv.get("ufOAB"),
-                })
+                advogados.append(
+                    {
+                        "comunicacao_id": record.get("id"),
+                        "nome": adv.get("nome"),
+                        "oab": adv.get("numeroOAB"),
+                        "uf_oab": adv.get("ufOAB"),
+                    },
+                )
 
         # Extract parties
         for parte in record.get("partes", []) or []:
             if isinstance(parte, dict):
-                partes.append({
-                    "comunicacao_id": record.get("id"),
-                    "nome": parte.get("nome"),
-                    "tipo": parte.get("tipo"),
-                    "polo": parte.get("polo"),
-                })
+                partes.append(
+                    {
+                        "comunicacao_id": record.get("id"),
+                        "nome": parte.get("nome"),
+                        "tipo": parte.get("tipo"),
+                        "polo": parte.get("polo"),
+                    },
+                )
 
     # Write Parquet files using DuckDB
     con = duckdb.connect()
@@ -210,7 +216,10 @@ def upload_parquets(item_id: str, files: list[Path]) -> int:
         try:
             result = subprocess.run(
                 [
-                    "ia", "upload", item_id, str(file_path),
+                    "ia",
+                    "upload",
+                    item_id,
+                    str(file_path),
                     "--retries=3",
                     "--no-derive",
                 ],

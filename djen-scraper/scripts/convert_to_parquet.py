@@ -76,7 +76,7 @@ def process_item(entry: str) -> bool:
         tribunal = parts[1]
         item_id = f"djen-{date}"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Processing: {tribunal} from {item_id}")
     print(f"  Date: {date}, Tribunal: {tribunal}")
 
@@ -380,7 +380,7 @@ def main() -> None:
 
     total_elapsed = time.time() - total_start
     avg_time = total_elapsed / len(entries) if entries else 0
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(
         f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)",
     )
