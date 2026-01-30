@@ -222,7 +222,7 @@ async def test_jina_provider():
 
     print(f"✓ Processed {len(texts)} texts")
     print(f"✓ Total time: {elapsed:.3f}s")
-    print(f"✓ Average time per text: {elapsed/len(texts):.3f}s")
+    print(f"✓ Average time per text: {elapsed / len(texts):.3f}s")
     print(f"✓ All embeddings valid: {all(len(e) == 1024 for e in batch_embeddings)}")
     print()
 
@@ -249,7 +249,7 @@ async def test_jina_provider():
     print("Key Findings:")
     print(f"  • Provider: Jina AI ({jina_service.provider.model})")
     print(f"  • Dimension: {jina_service.provider.dimension}")
-    print(f"  • Average latency: ~{elapsed/len(texts):.3f}s per embedding")
+    print(f"  • Average latency: ~{elapsed / len(texts):.3f}s per embedding")
     print(f"  • Vector quality: Magnitude ~{stats['magnitude']:.2f}")
     print("  • Task differentiation: Working as expected")
     print("  • Semantic similarity: Capturing legal concepts effectively")

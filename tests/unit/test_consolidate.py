@@ -3,6 +3,7 @@
 import json
 import uuid
 
+
 # Replicate the UUID logic from consolidate.py for testing
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 

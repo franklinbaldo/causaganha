@@ -206,8 +206,7 @@ def generate_embeddings(
 
             if embeddings and len(embeddings) == len(batch):
                 to_save = [
-                    {"id": batch[j]["id"], "embedding": embeddings[j]}
-                    for j in range(len(batch))
+                    {"id": batch[j]["id"], "embedding": embeddings[j]} for j in range(len(batch))
                 ]
                 saved = save_embeddings(db_path, to_save)
                 stats["saved"] += saved

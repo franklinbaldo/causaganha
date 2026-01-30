@@ -82,9 +82,7 @@ class TestParseFilename:
         """Valid Parquet filenames should parse correctly."""
         from generate_catalog import parse_filename
 
-        result = parse_filename(
-            "djen-2026-01-15-TJSP-comunicacoes.parquet", "djen-2026-01-15"
-        )
+        result = parse_filename("djen-2026-01-15-TJSP-comunicacoes.parquet", "djen-2026-01-15")
         assert result is not None
         assert result["date"] == "2026-01-15"
         assert result["tribunal"] == "TJSP"
@@ -125,10 +123,7 @@ class TestParseFilename:
         from generate_catalog import parse_filename
 
         assert parse_filename("djen-2026-01-15-.zip", "djen-2026-01-15") is None
-        assert (
-            parse_filename("djen-2026-01-15-TJ@SP.zip", "djen-2026-01-15")
-            is None
-        )
+        assert parse_filename("djen-2026-01-15-TJ@SP.zip", "djen-2026-01-15") is None
 
     def test_parse_missing_parts(self) -> None:
         """Filenames with missing parts should return None."""
@@ -137,10 +132,7 @@ class TestParseFilename:
         # Missing tribunal
         assert parse_filename("djen-2026-01-15.zip", "djen-2026-01-15") is None
         # Missing table name for parquet
-        assert (
-            parse_filename("djen-2026-01-15-TJSP-.parquet", "djen-2026-01-15")
-            is None
-        )
+        assert parse_filename("djen-2026-01-15-TJSP-.parquet", "djen-2026-01-15") is None
 
 
 class TestRunIaCommand:

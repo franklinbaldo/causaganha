@@ -1,13 +1,12 @@
 """BDD step definitions for Internet Archive catalog system."""
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import given, scenario, then, when
 
 
 # ==============================================================================
@@ -195,7 +194,12 @@ def catalog_files_exist(context, temp_catalog_dir):
     context["catalog_dir"] = temp_catalog_dir
 
     # Create dummy files
-    for filename in ["manifest.parquet", "backfill-needed.parquet", "catalog.sql", "catalog.duckdb"]:
+    for filename in [
+        "manifest.parquet",
+        "backfill-needed.parquet",
+        "catalog.sql",
+        "catalog.duckdb",
+    ]:
         filepath = Path(temp_catalog_dir) / filename
         filepath.write_text("dummy content")
         context["catalog_files"].append(str(filepath))
@@ -512,7 +516,9 @@ def catalog_files_downloaded_check(context):
     """Verify files were downloaded."""
     assert context["cli_result"] is not None
     # Check for success indicators in output
-    assert context["cli_result"].exit_code == 0 or "download" in context["cli_result"].output.lower()
+    assert (
+        context["cli_result"].exit_code == 0 or "download" in context["cli_result"].output.lower()
+    )
 
 
 @then("I should see a summary")
@@ -715,7 +721,11 @@ def should_see_error(context):
     """Verify error message shown."""
     result = context["cli_result"]
     # Error or helpful message should be shown
-    assert result.exit_code != 0 or "not found" in result.output.lower() or "error" in result.output.lower()
+    assert (
+        result.exit_code != 0
+        or "not found" in result.output.lower()
+        or "error" in result.output.lower()
+    )
 
 
 @then('the error should suggest running "catalog download" first')

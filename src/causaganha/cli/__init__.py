@@ -222,10 +222,10 @@ def analyze(
 
                 if strategy in ["hybrid", "auto"]:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/result['analyzed']*100:.1f}%)",
+                        f"  RAG used: {result['rag_used']} ({result['rag_used'] / result['analyzed'] * 100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/result['analyzed']*100:.1f}%)",
+                        f"  LLM used: {result['llm_used']} ({result['llm_used'] / result['analyzed'] * 100:.1f}%)",
                     )
 
                 typer.echo(f"  Total cost: ${result['total_cost']:.6f}")
@@ -865,10 +865,10 @@ def analyze_parquet_file(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
+                        f"  RAG used: {result['rag_used']} ({result['rag_used'] / total * 100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
+                        f"  LLM used: {result['llm_used']} ({result['llm_used'] / total * 100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -936,10 +936,10 @@ def analyze_from_ia(
                 total = result["analyzed"]
                 if total > 0:
                     typer.echo(
-                        f"  RAG used: {result['rag_used']} ({result['rag_used']/total*100:.1f}%)",
+                        f"  RAG used: {result['rag_used']} ({result['rag_used'] / total * 100:.1f}%)",
                     )
                     typer.echo(
-                        f"  LLM used: {result['llm_used']} ({result['llm_used']/total*100:.1f}%)",
+                        f"  LLM used: {result['llm_used']} ({result['llm_used'] / total * 100:.1f}%)",
                     )
 
             if "total_cost" in result:
@@ -1249,8 +1249,9 @@ def download_catalog(
 
     async def _run() -> None:
         try:
-            import httpx
             from pathlib import Path
+
+            import httpx
 
             IA_CATALOG_ITEM = "causaganha-catalog"
             BASE_URL = f"https://archive.org/download/{IA_CATALOG_ITEM}"
@@ -1265,7 +1266,7 @@ def download_catalog(
             output_dir = Path(output)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            typer.echo(f"Downloading catalog from Internet Archive...")
+            typer.echo("Downloading catalog from Internet Archive...")
             typer.echo(f"  Item: {IA_CATALOG_ITEM}")
             typer.echo(f"  Output: {output_dir}\n")
 
@@ -1287,34 +1288,34 @@ def download_catalog(
 
                             # Basic validation: check file is not empty
                             if len(content) < 100:
-                                typer.echo(f" (warning: file too small, may be corrupted)")
+                                typer.echo(" (warning: file too small, may be corrupted)")
                                 continue
 
                             # Validate parquet files have correct magic bytes
                             if filename.endswith(".parquet"):
                                 # Parquet magic bytes: PAR1 at start and end
                                 if not (content[:4] == b"PAR1" or content[-4:] == b"PAR1"):
-                                    typer.echo(f" (warning: invalid parquet file)")
+                                    typer.echo(" (warning: invalid parquet file)")
                                     continue
 
                             # Validate DuckDB files
                             if filename.endswith(".duckdb"):
                                 # DuckDB files should start with specific header
                                 if len(content) < 1024:
-                                    typer.echo(f" (warning: duckdb file too small)")
+                                    typer.echo(" (warning: duckdb file too small)")
                                     continue
 
                             output_path.write_bytes(content)
                             size_kb = len(content) / 1024
                             typer.echo(f" ({size_kb:.1f} KB)")
                         elif response.status_code == 404:
-                            typer.echo(f" (not found - catalog may not exist yet)")
+                            typer.echo(" (not found - catalog may not exist yet)")
                         else:
                             typer.echo(f" (HTTP {response.status_code})")
                     except httpx.TimeoutException:
-                        typer.echo(f" (timeout - try again later)")
+                        typer.echo(" (timeout - try again later)")
                     except httpx.ConnectError:
-                        typer.echo(f" (connection error - check internet)")
+                        typer.echo(" (connection error - check internet)")
                     except Exception as e:
                         typer.echo(f" (error: {type(e).__name__})")
 
@@ -1340,13 +1341,18 @@ def _validate_tribunal_code(tribunal: str | None) -> str | None:
 
     # Tribunal codes are uppercase alphanumeric, max 10 chars
     import re
+
     if not re.match(r"^[A-Z0-9-]{2,10}$", tribunal.upper()):
         return None
 
     return tribunal.upper()
 
 
-def _validate_parquet_schema(con: duckdb.DuckDBPyConnection, path: str, required_cols: list[str]) -> bool:
+def _validate_parquet_schema(
+    con: duckdb.DuckDBPyConnection,
+    path: str,
+    required_cols: list[str],
+) -> bool:
     """Check if parquet file has required columns."""
     try:
         schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()
@@ -1426,7 +1432,11 @@ def backfill_status(
             raise typer.Exit(code=1)
 
         if stats is None or stats[0] == 0:
-            typer.echo("\n✅ No backfill needed!" if not validated_tribunal else f"\n✅ No backfill needed for {validated_tribunal}!")
+            typer.echo(
+                "\n✅ No backfill needed!"
+                if not validated_tribunal
+                else f"\n✅ No backfill needed for {validated_tribunal}!",
+            )
             con.close()
             return
 
@@ -1561,6 +1571,7 @@ def query_catalog(
         if format == "csv":
             import csv
             import sys
+
             writer = csv.writer(sys.stdout)
             writer.writerow(columns)
             # Safely convert all values
@@ -1568,11 +1579,12 @@ def query_catalog(
                 writer.writerow([safe_str(v) for v in row])
         elif format == "json":
             import json
+
             # Safely build data with error handling for malformed values
             data = []
             for row in rows:
                 row_dict = {}
-                for col, val in zip(columns, row):
+                for col, val in zip(columns, row, strict=False):
                     try:
                         # Handle non-serializable types
                         if hasattr(val, "isoformat"):
