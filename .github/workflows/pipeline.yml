@@ -154,13 +154,14 @@ jobs:
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
 
       - name: Run collection
+        env:
+          INPUT_DATE: ${{ github.event.inputs.date }}
+          INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
         run: |
-          uv run python scripts/pipeline/collect.py \
-            --proxy-url "$DJEN_PROXY_URL" \
-            --max-items 200 \
-            --workers 8 \
-            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }} \
-            ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
+          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8)
+          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
+          [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
+          uv run python scripts/pipeline/collect.py "${args[@]}"
 
   # ==========================================================================
   # JOB: CONSOLIDATE
@@ -204,9 +205,12 @@ jobs:
           printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
 
       - name: Run consolidation
+        env:
+          INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          uv run python scripts/pipeline/consolidate.py \
-            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }}
+          args=()
+          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
+          uv run python scripts/pipeline/consolidate.py "${args[@]}"
 
   # ==========================================================================
   # JOB: EMBED
@@ -218,6 +222,7 @@ jobs:
     name: Generate Embeddings
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    environment: dev
     needs: consolidate
     concurrency:
       group: pipeline-embed
@@ -355,7 +360,7 @@ jobs:
           uv run python scripts/generate_dashboard_cache.py
 
       - name: Save cache data
-        if: always()
+        if: success()
         uses: actions/cache/save@v4
         with:
           path: dashboard/public/cache

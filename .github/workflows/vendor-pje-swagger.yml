@@ -31,13 +31,22 @@ jobs:
           args: >-
             --accept-dns=false
             --accept-routes=false
-            --exit-node=${{ inputs.exit_node }}
             --exit-node-allow-lan-access=false
+        env:
+          TS_EXIT_NODE: ${{ inputs.exit_node }}
+
+      - name: Set Tailscale exit node
+        if: ${{ inputs.exit_node != '' && secrets.TS_AUTHKEY != '' }}
+        env:
+          TS_EXIT_NODE: ${{ inputs.exit_node }}
+        run: tailscale set --exit-node="$TS_EXIT_NODE"
 
       - uses: ./.github/actions/setup
 
       - name: Fetch swagger spec
-        run: uv run python scripts/vendor_pje_swagger.py --url "${{ inputs.url }}"
+        env:
+          SWAGGER_URL: ${{ inputs.url }}
+        run: uv run python scripts/vendor_pje_swagger.py --url "$SWAGGER_URL"
 
       - name: Commit changes
         run: |
