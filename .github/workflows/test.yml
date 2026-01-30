@@ -5,11 +5,15 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
       - name: Check formatting
         run: uv run ruff format --check
@@ -19,19 +23,21 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         tribunal: [tjro]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/run-tests
         with:
           tribunal: ${{ matrix.tribunal }}
 
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
       - name: Build documentation
         run: uv run mkdocs build --strict

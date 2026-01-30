@@ -143,24 +143,25 @@ jobs:
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
         with:
           dev: "false"
 
-      - name: Configure Internet Archive
-        run: |
-          mkdir -p ~/.config/internetarchive
-          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run collection
+        env:
+          INPUT_DATE: ${{ github.event.inputs.date }}
+          INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
         run: |
-          uv run python scripts/pipeline/collect.py \
-            --proxy-url "$DJEN_PROXY_URL" \
-            --max-items 200 \
-            --workers 8 \
-            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }} \
-            ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
+          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8)
+          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
+          [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
+          uv run python scripts/pipeline/collect.py "${args[@]}"
 
   # ==========================================================================
   # JOB: CONSOLIDATE
@@ -188,25 +189,24 @@ jobs:
         github.event.inputs.job == 'all'
       )
 
-    env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
         with:
           dev: "false"
 
-      - name: Configure Internet Archive
-        run: |
-          mkdir -p ~/.config/internetarchive
-          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run consolidation
+        env:
+          INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          uv run python scripts/pipeline/consolidate.py \
-            ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }}
+          args=()
+          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
+          uv run python scripts/pipeline/consolidate.py "${args[@]}"
 
   # ==========================================================================
   # JOB: EMBED
@@ -218,6 +218,7 @@ jobs:
     name: Generate Embeddings
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    environment: dev
     needs: consolidate
     concurrency:
       group: pipeline-embed
@@ -237,7 +238,7 @@ jobs:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - uses: ./.github/actions/setup
         with:
@@ -248,7 +249,7 @@ jobs:
         run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Restore embedding cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: data/embeddings.duckdb
           key: embeddings-${{ steps.date.outputs.today }}
@@ -262,7 +263,7 @@ jobs:
 
       - name: Save embedding cache
         if: success()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: data/embeddings.duckdb
           key: embeddings-${{ steps.date.outputs.today }}
@@ -294,20 +295,16 @@ jobs:
         github.event.inputs.job == 'all'
       )
 
-    env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
         with:
           dev: "false"
 
-      - name: Configure Internet Archive
-        run: |
-          mkdir -p ~/.config/internetarchive
-          printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run catalog generation
         run: |
@@ -345,7 +342,7 @@ jobs:
       )
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
         with:
           dev: "false"
@@ -355,8 +352,8 @@ jobs:
           uv run python scripts/generate_dashboard_cache.py
 
       - name: Save cache data
-        if: always()
-        uses: actions/cache/save@v4
+        if: success()
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: dashboard/public/cache
           key: dashboard-cache-${{ github.run_number }}
