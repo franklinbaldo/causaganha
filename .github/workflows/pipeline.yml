@@ -1,76 +1,38 @@
 # ============================================================================
-# CAUSAGANHA DATA PIPELINE
+# CAUSAGANHA DATA PIPELINE - BACKFILL CAMPAIGN (24/7)
 # ============================================================================
 #
-# This is the main data pipeline workflow that handles all data acquisition,
-# processing, and archival for the CausaGanha project.
+# MISSION: Collect years of historical DJEN data continuously
 #
-# ARCHITECTURE OVERVIEW:
-# ----------------------
-# The pipeline collects judicial communication data from DJEN (Diário de
-# Justiça Eletrônico Nacional), converts it to analytics-friendly formats,
-# generates embeddings for semantic search, and maintains a master catalog.
-#
-#   DJEN API → Collect ──┐
-#                        ├──→ Catalog → Dashboard Cache
-#              Convert ──┘
-#              Embed (independent)
-#
-# SCHEDULE:
-# ---------
-# Each job has its own cron trigger. Jobs filter on github.event.schedule
-# to only run when their specific cron fires:
-#
-#   Job          | Frequency    | Cron expression
-#   -------------|--------------|------------------------------------------
-#   collect      | Every 5 min  | */5 * * * *
-#   consolidate  | Every 10 min | 0,10,20,30,40,50 * * * *
-#   embed        | Every hour   | 5 * * * *
-#   catalog      | Daily 6 AM   | 0 6 * * *
+# ARCHITECTURE:
+# - Global concurrency lock: Only 1 workflow at a time
+# - Every 5 minutes: 3 jobs run in parallel
+# - Each job works for UP TO 10 minutes, then exits
+# - Next cycle, jobs get another chance to continue
+# - Self-aware: Each job checks if it has work before running
+# - Conditional: CATALOG only runs if files were added
 #
 # DATA FLOW:
-# ----------
-# 1. COLLECT: Download ZIPs from DJEN API → Upload to Internet Archive
-#    - Checks what's already on IA to avoid duplicates
-#    - Handles 91 Brazilian courts (TRFs, TJs, TRTs, TREs, Superior courts)
-#    - Structure: djen-YYYY-MM-DD/djen-YYYY-MM-DD-TRIBUNAL.zip
+# ```
+# COLLECT      → Check for new DJEN data
+# CONSOLIDATE  → Check for complete days to convert to Parquet
+# EMBED        → Check for unembedded decisions
+#   ↓ (if any produced files)
+# CATALOG      → Rebuild manifest only if something changed
+#   ↓ (if catalog updated)
+# DASHBOARD    → Regenerate cache
+# ```
 #
-# 2. CONVERT: Download ZIPs from IA → Convert to Parquet → Upload to IA
-#    - Extracts structured data: comunicacoes, advogados, partes
-#    - ZSTD compression for efficient storage and queries
-#    - Same IA item as source ZIP
+# SCHEDULE:
+# - Every 5 minutes (continuous backfill campaign)
+# - Global lock prevents multiple workflows from running simultaneously
+# - Each job timeout: 15 minutes (10 min work + 5 min buffer)
 #
-# 3. EMBED: Generate vector embeddings for semantic search
-#    - Uses Jina/Google embedding APIs
-#    - Stores in DuckDB with vector extension
-#    - Exports to Parquet for archival
-#
-# 4. CATALOG: Build master index of all data on Internet Archive
-#    - manifest.parquet: Index of all files
-#    - backfill-needed.parquet: What's missing
-#    - catalog.duckdb: Ready-to-query DuckDB with remote views
-#
-# SECRETS REQUIRED:
-# -----------------
-# - IA_ACCESS_KEY: Internet Archive S3 access key
-# - IA_SECRET_KEY: Internet Archive S3 secret key
-# - JINA_API_KEY: Jina AI API key (for embeddings)
-# - GOOGLE_API_KEY: Google AI API key (for embeddings, optional)
-#
-# MANUAL TRIGGERS:
-# ----------------
-# You can trigger specific jobs manually via workflow_dispatch:
-#   - job: Which job to run (collect, convert, embed, catalog, all)
-#   - date: Specific date to process (YYYY-MM-DD)
-#   - tribunal: Specific tribunal to process (e.g., TJSP)
-#
-# LOCAL DEVELOPMENT:
-# ------------------
-# Each job calls a Python script that can be run locally:
-#   uv run python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
-#   uv run python scripts/pipeline/convert.py --date 2026-01-27
-#   uv run python scripts/pipeline/embed.py --max-decisions 100
-#   uv run python scripts/pipeline/catalog.py --upload
+# JOB OUTPUTS (for conditional triggers):
+# - collect.files_added: true/false
+# - consolidate.files_added: true/false
+# - embed.files_added: true/false
+# - catalog.catalog_updated: true/false
 #
 # ============================================================================
 
@@ -78,72 +40,67 @@ name: Data Pipeline
 
 on:
   schedule:
-    # Collect: every 5 minutes
+    # Single schedule: Every 5 minutes (continuous backfill)
     - cron: '*/5 * * * *'
-    # Consolidate: every 10 minutes (even marks)
-    - cron: '0,10,20,30,40,50 * * * *'
-    # Embed: every hour at minute 5
-    - cron: '5 * * * *'
-    # Catalog: daily at 06:00 UTC
-    - cron: '0 6 * * *'
 
   workflow_dispatch:
     inputs:
       job:
-        description: 'Which job to run'
+        description: 'Which job to run (collect, consolidate, embed, catalog, dashboard, all)'
         required: false
         default: 'all'
         type: choice
         options:
           - all
           - collect
-          - convert
+          - consolidate
           - embed
           - catalog
+          - dashboard
       date:
-        description: 'Specific date (YYYY-MM-DD)'
+        description: 'Specific date (YYYY-MM-DD) - optional for collect/consolidate'
         required: false
       tribunal:
-        description: 'Specific tribunal (e.g., TJSP)'
+        description: 'Specific tribunal (e.g., TJSP) - optional for collect'
         required: false
 
 # Minimal permissions for security
 permissions:
   contents: read
 
-# Per-job concurrency (below) replaces the previous global lock.
-# A global group blocked all job types from running when any single
-# job was active — e.g. a collect run prevented consolidate from
-# starting even though they operate on independent data.
-
 env:
   DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+
+# GLOBAL CONCURRENCY: Only 1 workflow can run at a time
+# This prevents overlapping cycles while keeping CI cost low
+concurrency:
+  group: pipeline-global
+  cancel-in-progress: false
 
 jobs:
   # ==========================================================================
   # JOB: COLLECT
   # ==========================================================================
   # Downloads judicial communications from DJEN and uploads to Internet Archive.
-  # Runs every 5 minutes to catch new publications quickly.
+  # Timeout: 15 minutes (10 min work + 5 min buffer)
   # ==========================================================================
   collect:
     name: Collect DJEN Data
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     environment: dev
-    concurrency:
-      group: pipeline-collect
-      cancel-in-progress: false
 
-    # Run only on the 5-minute cron (not other schedules), or manual trigger
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '*/5 * * * *') ||
+      github.event_name == 'schedule' ||
       github.event.inputs.job == 'collect' ||
       github.event.inputs.job == 'all'
 
     env:
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    outputs:
+      files_added: ${{ steps.collect.outputs.files_added }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -157,11 +114,12 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run collection
+        id: collect
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
           INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
         run: |
-          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8)
+          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8 --deadline 10m)
           [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
           [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
           uv run python scripts/pipeline/collect.py "${args[@]}"
@@ -169,24 +127,26 @@ jobs:
   # ==========================================================================
   # JOB: CONSOLIDATE
   # ==========================================================================
-  # Consolidates ZIP files to single Parquet files per day (all tribunals).
-  # Runs every 10 minutes (skips odd 5-minute intervals).
+  # Converts complete days of ZIPs to Parquet format.
+  # Timeout: 15 minutes (10 min work + 5 min buffer)
   # ==========================================================================
   consolidate:
     name: Consolidate to Parquet
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     environment: dev
-    concurrency:
-      group: pipeline-consolidate
-      cancel-in-progress: false
 
-    # Run on the 10-minute cron schedule, or manual trigger.
-    # No needs: — consolidation works on existing IA data, independent of collect.
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
-      github.event.inputs.job == 'convert' ||
+      github.event_name == 'schedule' ||
+      github.event.inputs.job == 'consolidate' ||
       github.event.inputs.job == 'all'
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    outputs:
+      files_added: ${{ steps.consolidate.outputs.files_added }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -200,40 +160,37 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run consolidation
+        id: consolidate
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          if [ -n "$INPUT_DATE" ]; then
-            uv run python scripts/pipeline/consolidate.py --date "$INPUT_DATE"
-          else
-            uv run python scripts/pipeline/consolidate.py --backfill
-          fi
+          args=(--deadline 10m --backfill)
+          [ -n "$INPUT_DATE" ] && args=(--date "$INPUT_DATE")
+          uv run python scripts/pipeline/consolidate.py "${args[@]}"
 
   # ==========================================================================
   # JOB: EMBED
   # ==========================================================================
   # Generates vector embeddings for semantic search.
-  # Runs hourly (at minute 0 of each hour).
+  # Timeout: 15 minutes (10 min work + 5 min buffer)
   # ==========================================================================
   embed:
     name: Generate Embeddings
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 15
     environment: dev
-    concurrency:
-      group: pipeline-embed
-      cancel-in-progress: false
 
-    # Run on the hourly cron schedule, or manual trigger.
-    # No needs: — embedding works on existing parquet data, independent of consolidate.
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
+      github.event_name == 'schedule' ||
       github.event.inputs.job == 'embed' ||
       github.event.inputs.job == 'all'
 
     env:
       JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    outputs:
+      files_added: ${{ steps.embed.outputs.files_added }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -242,51 +199,42 @@ jobs:
         with:
           dev: "false"
 
-      - name: Get current date
-        id: date
-        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore embedding cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: data/embeddings.duckdb
-          key: embeddings-${{ steps.date.outputs.today }}
-          restore-keys: embeddings-
-
       - name: Run embedding generation
+        id: embed
         run: |
           uv run python scripts/pipeline/embed.py \
-            --max-decisions 500 \
-            --timeout-minutes 50
-
-      - name: Save embedding cache
-        if: success()
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: data/embeddings.duckdb
-          key: embeddings-${{ steps.date.outputs.today }}
+            --deadline 10m \
+            --max-decisions 500
 
   # ==========================================================================
   # JOB: CATALOG
   # ==========================================================================
   # Builds master catalog of all data on Internet Archive.
-  # Runs daily at 06:00 UTC or on manual dispatch.
+  # CONDITIONAL: Only runs if any of collect/consolidate/embed added files
   # ==========================================================================
   catalog:
     name: Update Catalog
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev
-    concurrency:
-      group: pipeline-catalog
-      cancel-in-progress: false
+    needs: [collect, consolidate, embed]
 
-    # Run on the daily cron, or manual trigger.
-    # No needs: — catalog scans IA independently, runs on its own schedule.
+    # Run if:
+    # - Manual trigger (workflow_dispatch with job=catalog or all)
+    # - OR: Any of the 3 jobs produced files
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 6 * * *') ||
       github.event.inputs.job == 'catalog' ||
-      github.event.inputs.job == 'all'
+      github.event.inputs.job == 'all' ||
+      (needs.collect.outputs.files_added == 'true' ||
+       needs.consolidate.outputs.files_added == 'true' ||
+       needs.embed.outputs.files_added == 'true')
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    outputs:
+      catalog_updated: ${{ steps.catalog.outputs.catalog_updated }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -300,6 +248,7 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Run catalog generation
+        id: catalog
         run: |
           uv run python scripts/generate_catalog.py --upload
 
@@ -307,14 +256,13 @@ jobs:
         run: |
           echo "## Catalog Updated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Catalog URL: https://archive.org/download/causaganha-catalog/catalog.duckdb" >> $GITHUB_STEP_SUMMARY
+          echo "Catalog: https://archive.org/download/causaganha-catalog/catalog.duckdb" >> $GITHUB_STEP_SUMMARY
 
   # ==========================================================================
   # JOB: DASHBOARD CACHE
   # ==========================================================================
   # Generates pre-built cache for the dashboard from the catalog manifest.
-  # Runs after the catalog job so the manifest is up-to-date.
-  # Uses manifest.parquet as single source of truth (3 HTTP requests total).
+  # CONDITIONAL: Only runs if catalog was updated
   # ==========================================================================
   dashboard-cache:
     name: Update Dashboard Cache
@@ -322,15 +270,14 @@ jobs:
     timeout-minutes: 10
     environment: dev
     needs: catalog
-    concurrency:
-      group: pipeline-dashboard-cache
-      cancel-in-progress: false
 
-    # Run after catalog completes successfully (daily or manual dispatch).
-    # Keeps needs: catalog since dashboard-cache reads the catalog output.
+    # Run if:
+    # - Manual trigger (workflow_dispatch with job=dashboard or all)
+    # - OR: Catalog was updated in this run
     if: |
-      needs.catalog.result == 'success' ||
-      github.event.inputs.job == 'all'
+      github.event.inputs.job == 'dashboard' ||
+      github.event.inputs.job == 'all' ||
+      needs.catalog.outputs.catalog_updated == 'true'
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

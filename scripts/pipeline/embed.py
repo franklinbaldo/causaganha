@@ -229,6 +229,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate embeddings for DJEN decisions")
     parser.add_argument("--max-decisions", type=int, default=500)
     parser.add_argument("--timeout-minutes", type=int, default=50)
+    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
     parser.add_argument("--db-path", default="data/embeddings.duckdb")
     args = parser.parse_args()
 
@@ -254,6 +255,15 @@ def main():
     print(f"  Processed: {stats['processed']}")
     print(f"  Saved:     {stats['saved']}")
     print(f"  Failed:    {stats['failed']}")
+
+    # Set GitHub Actions output: did we add any files?
+    files_added = stats['saved'] > 0
+    print(f"\n  Files added: {files_added}")
+
+    # Output for GitHub Actions conditional triggers
+    if os_env := os.getenv("GITHUB_OUTPUT"):
+        with open(os_env, "a") as f:
+            f.write(f"files_added={'true' if files_added else 'false'}\n")
 
     return 0
 

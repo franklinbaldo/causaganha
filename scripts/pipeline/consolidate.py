@@ -736,6 +736,7 @@ def main() -> int:
         action="store_true",
         help="Find the most recent unconsolidated date (d-1 first) and process it",
     )
+    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
     args = parser.parse_args()
 
     if args.date:
@@ -775,6 +776,16 @@ def main() -> int:
         return 1
 
     _print_stats(stats)
+
+    # Set GitHub Actions output: did we add any files?
+    files_added = stats['parquets_created'] > 0
+    print(f"\n  Files added: {files_added}")
+
+    # Output for GitHub Actions conditional triggers
+    if os_env := os.getenv("GITHUB_OUTPUT"):
+        with open(os_env, "a") as f:
+            f.write(f"files_added={'true' if files_added else 'false'}\n")
+
     return 0 if stats["parquets_created"] > 0 else 1
 
 

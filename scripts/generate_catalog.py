@@ -722,6 +722,16 @@ def main():
     print()
     print(f"Catalog URL: https://archive.org/download/{IA_CATALOG_ITEM}/catalog.duckdb")
 
+    # Set GitHub Actions output: catalog was successfully rebuilt
+    import os
+    catalog_updated = True  # If we got here without error, catalog was updated
+    print(f"\n  Catalog updated: {catalog_updated}")
+
+    # Output for GitHub Actions conditional triggers
+    if os_env := os.getenv("GITHUB_OUTPUT"):
+        with open(os_env, "a") as f:
+            f.write(f"catalog_updated={'true' if catalog_updated else 'false'}\n")
+
     return 0
 
 
