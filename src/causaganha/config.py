@@ -10,13 +10,21 @@ _DATA_DIR = _BASE_DIR / "data"
 _DEFAULT_DB_PATH = str(_DATA_DIR / "causaganha.duckdb")
 
 # ---------------------------------------------------------------------------
-# Canonical list of DJEN tribunal codes (90 courts)
+# Canonical list of DJEN tribunal codes (96 courts)
 #
 # These are the exact siglas accepted by the DJEN caderno API.  Every script
 # that iterates over tribunals MUST import this list instead of keeping a
 # local copy so that fixes propagate everywhere at once.
+#
+# collect.py also fetches /api/v1/comunicacao/tribunal at runtime and merges
+# with this list, so new courts are auto-discovered.  This fallback is used
+# when the API is unreachable.
 # ---------------------------------------------------------------------------
 TRIBUNAIS: list[str] = [
+    # Federal councils and systems
+    "CJF",
+    "PJeCor",
+    "SEEU",
     # Federal Regional courts
     "TRF1",
     "TRF2",
@@ -59,6 +67,10 @@ TRIBUNAIS: list[str] = [
     "TJSE",
     "TJSP",
     "TJTO",
+    # State military courts
+    "TJMMG",
+    "TJMRS",
+    "TJMSP",
     # Labor courts
     "TRT1",
     "TRT2",
