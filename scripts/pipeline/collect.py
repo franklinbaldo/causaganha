@@ -55,6 +55,39 @@ class AbsentReason:
 logger = structlog.get_logger()
 
 
+def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
+    """Fetch current tribunal siglas from the DJEN API.
+
+    Merges the API result with the known fallback list so we both
+    auto-discover new courts and keep courts the listing omits.
+    Falls back to TRIBUNAIS from config if the request fails.
+    """
+    url = f"{proxy_url}/api/v1/comunicacao/tribunal"
+    try:
+        resp = httpx.get(url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        api_siglas: set[str] = set()
+        for estado in data:
+            for inst in estado.get("instituicoes", []):
+                sigla = inst.get("sigla", "")
+                if sigla:
+                    api_siglas.add(sigla)
+        # Merge: API may omit courts that still work (e.g. STF, some TREs),
+        # and config may miss newly added courts.
+        merged = sorted(api_siglas | set(TRIBUNAIS))
+        logger.info(
+            "tribunais_fetched",
+            api_count=len(api_siglas),
+            fallback_count=len(TRIBUNAIS),
+            merged_count=len(merged),
+        )
+        return merged
+    except Exception as exc:
+        logger.warning("tribunais_fetch_failed", error=str(exc))
+        return list(TRIBUNAIS)
+
+
 # Thread-local IA sessions: requests.Session (which ArchiveSession extends)
 # is not thread-safe, so each worker thread gets its own session with its
 # own HTTP connection pool.
@@ -373,9 +406,12 @@ def collect_data(  # noqa: PLR0913
     # Build list of (date, tribunal) pairs to process
     to_process: list[tuple[str, str]] = []
 
+    # Fetch the current tribunal list from DJEN API, merged with fallback
+    all_tribunais = fetch_tribunais_from_api(proxy_url)
+
     if target_date:
         # Specific date
-        tribunais = [target_tribunal.upper()] if target_tribunal else TRIBUNAIS
+        tribunais = [target_tribunal.upper()] if target_tribunal else all_tribunais
         for tribunal in tribunais:
             to_process.append((target_date, tribunal))
     else:
@@ -387,7 +423,7 @@ def collect_data(  # noqa: PLR0913
             if d.weekday() >= 5:
                 continue
             date_str = d.strftime("%Y-%m-%d")
-            for tribunal in TRIBUNAIS:
+            for tribunal in all_tribunais:
                 to_process.append((date_str, tribunal))
 
     # Pre-filter already-existing items, then apply max_items limit
