@@ -2,7 +2,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-lancedb = pytest.importorskip("lancedb", reason="lancedb is an optional dependency (extras: embeddings)")
+lancedb = pytest.importorskip(
+    "lancedb", reason="lancedb is an optional dependency (extras: embeddings)"
+)
 
 from causaganha.analysis.ground_truth import GroundTruthManager  # noqa: E402
 
