@@ -30,7 +30,7 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -443,90 +443,46 @@ def collect_data(  # noqa: PLR0913
     target_date: str | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
-    backfill_days: int = 1,
     workers: int = 8,
-    backfill: bool = False,
 ) -> dict[str, int]:
     """Main collection function with parallel processing.
 
-    When *backfill* is True and no target_date is given, the rolling window
-    covers only d-1 (yesterday) with a live IA check.  Everything older is
-    sourced from the catalog's backfill-needed.parquet, ordered
-    most-recent-first (d-2, d-3, d-4 …).  The catalog is regenerated daily
-    at 06:00 UTC so d-1 is the only date that might not be in it yet.
+    When no target_date is given, the work queue comes straight from the
+    catalog's backfill-needed.parquet — every (date, tribunal) pair not
+    yet on Internet Archive, ordered most-recent-first (d-1, d-2, d-3 …).
+    The catalog is the single source of truth; we only verify against IA
+    to filter items collected since the last catalog rebuild (daily 06:00 UTC).
     """
     stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Build list of (date, tribunal) pairs to process FIRST,
-    # so we know which dates to check on IA (targeted lookup).
-    to_process: list[tuple[str, str]] = []
-
-    # Fetch the current tribunal list from DJEN API, merged with fallback
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
     if target_date:
-        # Specific date
+        # Manual: specific date (+ optional tribunal filter)
         tribunais = [target_tribunal.upper()] if target_tribunal else all_tribunais
-        for tribunal in tribunais:
-            to_process.append((target_date, tribunal))
+        to_process = [(target_date, t) for t in tribunais]
     else:
-        # Backfill recent days
-        today = date.today()
-        for days_ago in range(1, backfill_days + 1):
-            d = today - timedelta(days=days_ago)
-            # Skip weekends (courts don't publish)
-            if d.weekday() >= 5:
-                continue
-            date_str = d.strftime("%Y-%m-%d")
-            for tribunal in all_tribunais:
-                to_process.append((date_str, tribunal))
+        # Autonomous: catalog tells us what's missing, d-1 first
+        to_process = fetch_backfill_items()
 
-    # Check only the dates we actually need — O(backfill_days) requests
-    # instead of scanning every djen-* item on IA (O(total_days_ever)).
-    dates_to_check = sorted({d for d, _ in to_process})
+    # Take a 3× buffer so we still have enough after filtering stale entries
+    candidates = to_process[: max_items * 3]
+
+    # Verify against IA (catalog is a daily snapshot — some items may
+    # have been collected since the last rebuild).
+    dates_to_check = sorted({d for d, _ in candidates})
     existing_files = get_existing_files_for_dates(dates_to_check)
 
-    # Pre-filter already-existing items, then apply max_items limit
     pending: list[tuple[str, str]] = []
-    for date_str, tribunal in to_process:
-        zip_name = f"djen-{date_str}-{tribunal}.zip"
-        absent_marker = f"djen-{date_str}-{tribunal}.absent"
+    for d, t in candidates:
+        zip_name = f"djen-{d}-{t}.zip"
+        absent_marker = f"djen-{d}-{t}.absent"
         if zip_name in existing_files or absent_marker in existing_files:
             stats["skipped"] += 1
         else:
-            pending.append((date_str, tribunal))
-
-    # ── Backfill: append historical items from catalog ──────────────
-    if backfill and not target_date and len(pending) < max_items:
-        rolling_date_set = set(dates_to_check)
-        remaining = max_items - len(pending)
-
-        catalog_items = fetch_backfill_items()
-        # Exclude dates already covered by the rolling window
-        candidates = [
-            (d, t) for d, t in catalog_items if d not in rolling_date_set
-        ]
-        # Take a buffer (3×) to survive items already collected since last catalog update
-        candidates = candidates[: remaining * 3]
-
-        if candidates:
-            backfill_dates = sorted({d for d, _ in candidates})
-            backfill_existing = get_existing_files_for_dates(backfill_dates)
-            for d, t in candidates:
-                zip_name = f"djen-{d}-{t}.zip"
-                absent_marker = f"djen-{d}-{t}.absent"
-                if zip_name in backfill_existing or absent_marker in backfill_existing:
-                    stats["skipped"] += 1
-                else:
-                    pending.append((d, t))
-                if len(pending) >= max_items:
-                    break
-
-            logger.info(
-                "backfill_items_appended",
-                catalog_candidates=len(candidates),
-                pending_after=len(pending),
-            )
+            pending.append((d, t))
+            if len(pending) >= max_items:
+                break
 
     pending = pending[:max_items]
 
@@ -605,25 +561,19 @@ def main() -> int:
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
-    parser.add_argument("--backfill-days", type=int, default=1)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
-    parser.add_argument(
-        "--backfill",
-        action="store_true",
-        help="After the rolling window, fill historical gaps from the catalog (d-1 first)",
-    )
     args = parser.parse_args()
 
     print("Collecting DJEN data...")
     print(f"  Proxy: {args.proxy_url}")
     if args.date:
         print(f"  Date: {args.date}")
+    else:
+        print("  Source: catalog (backfill-needed.parquet, d-1 first)")
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
     print(f"  Max items: {args.max_items}")
     print(f"  Workers: {args.workers}")
-    if args.backfill:
-        print("  Backfill: ENABLED (catalog-driven, d-1 priority)")
     print()
 
     stats = collect_data(
@@ -631,9 +581,7 @@ def main() -> int:
         target_date=args.date,
         target_tribunal=args.tribunal,
         max_items=args.max_items,
-        backfill_days=args.backfill_days,
         workers=args.workers,
-        backfill=args.backfill,
     )
 
     print()

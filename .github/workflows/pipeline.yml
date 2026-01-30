@@ -161,7 +161,7 @@ jobs:
           INPUT_DATE: ${{ github.event.inputs.date }}
           INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
         run: |
-          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8 --backfill)
+          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8)
           [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
           [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
           uv run python scripts/pipeline/collect.py "${args[@]}"
