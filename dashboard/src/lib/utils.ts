@@ -24,10 +24,10 @@ export function timeAgo(dateString: string): string {
 }
 
 /**
- * Format date as YYYY-MM-DD
+ * Format date as YYYY-MM-DD in Brasília timezone
  */
 export function formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+    return date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 }
 
 /**

@@ -36,9 +36,12 @@ export default function ActivityCalendar() {
     const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: CalendarCell } | null>(null);
     const [globalStats, setGlobalStats] = useState({ total: 0, days: 0, biggest: { date: '', size: 0 } });
 
-    // Years to display (from START_YEAR to current year)
+    // Years to display (from START_YEAR to current year in Brasília timezone)
     const years = useMemo(() => {
-        const currentYear = new Date().getFullYear();
+        const currentYear = parseInt(
+            new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 4),
+            10
+        );
         const result = [];
         for (let y = currentYear; y >= START_YEAR; y--) {
             result.push(y);

@@ -45,8 +45,10 @@ const formatCompact = (n: number) => {
 };
 
 const getDaysSince = (date: Date) => {
-  const now = new Date();
-  const diffTime = Math.max(0, now.getTime() - date.getTime());
+  const nowStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const now = new Date(nowStr + 'T12:00:00');
+  const ref = new Date(date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) + 'T12:00:00');
+  const diffTime = Math.max(0, now.getTime() - ref.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
@@ -227,7 +229,7 @@ export default function App() {
           <div className="hidden md:flex gap-6 items-center">
             <div className="text-right">
               <Text className="text-[10px] font-bold text-slate-500 uppercase">Cycle Time</Text>
-              <div className="font-mono text-emerald-400 text-sm">{currentTime.toLocaleTimeString()}</div>
+              <div className="font-mono text-emerald-400 text-sm">{currentTime.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</div>
             </div>
           </div>
         </Flex>
@@ -377,7 +379,7 @@ export default function App() {
                         <div className={`w-1.5 h-1.5 rounded-full ${run.conclusion === 'success' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500'}`} />
                         <div className="overflow-hidden">
                           <Text className="text-xs font-bold text-slate-300 truncate" title={run.display_title}>{run.display_title}</Text>
-                          <Text className="text-[9px] text-slate-600 font-mono uppercase">{new Date(run.created_at).toLocaleString()}</Text>
+                          <Text className="text-[9px] text-slate-600 font-mono uppercase">{new Date(run.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</Text>
                         </div>
                       </div>
                       <a href={run.html_url} target="_blank" className="p-1 px-2 rounded bg-slate-800 text-slate-400 hover:text-white transition-colors group-hover:bg-indigo-500/20">
