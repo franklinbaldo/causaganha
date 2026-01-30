@@ -700,6 +700,9 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
     con = ibis.duckdb.connect()
     init_tables(con)
 
+    # Accumulate all rows by table for batch insert (optimization)
+    accumulated_rows: dict[str, list[dict[str, Any]]] = {table_name: [] for table_name in TABLES}
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
 
@@ -741,12 +744,10 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
             # Parse into tables
             tables = parse_records(records, tribunal, item_id)
 
-            # Insert into DuckDB immediately to free Python memory
+            # Accumulate rows for batch insert (instead of immediate insert)
             for table_name, rows in tables.items():
                 if rows:
-                    # Use ibis memtable with explicit schema for validation
-                    data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
-                    con.insert(table_name, data)
+                    accumulated_rows[table_name].extend(rows)
 
             stats["zips_processed"] += 1
             stats["records"] += len(records)
@@ -754,23 +755,24 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
             # Clean up to save disk space
             zip_path.unlink()
 
-        # Write consolidated Parquet files (PARALLEL)
+        # Batch insert all accumulated rows (single insert per table)
+        for table_name in TABLES:
+            if accumulated_rows[table_name]:
+                data = ibis.memtable(accumulated_rows[table_name], schema=TABLE_SCHEMAS[table_name])
+                con.insert(table_name, data)
+
+        # Write consolidated Parquet files (SEQUENTIAL)
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        logger.info("exporting_parquets", table_count=len(TABLES), concurrent_workers=3)
+        logger.info("exporting_parquets", table_count=len(TABLES))
 
-        # Export tables in parallel (2-3 concurrent workers)
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [
-                executor.submit(_export_and_upload_table, table_name, con, output_dir, item_id, dry_run)
-                for table_name in TABLES
-            ]
-            for future in futures:
-                success, uploaded = future.result()
-                if success:
-                    stats["parquets_created"] += 1
-                    stats["uploaded"] += uploaded
+        # Export tables sequentially (DuckDB connections aren't thread-safe)
+        for table_name in TABLES:
+            success, uploaded = _export_and_upload_table(table_name, con, output_dir, item_id, dry_run)
+            if success:
+                stats["parquets_created"] += 1
+                stats["uploaded"] += uploaded
 
     return stats
 
