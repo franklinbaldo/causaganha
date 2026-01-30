@@ -204,9 +204,8 @@ jobs:
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          args=()
-          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
-          uv run python scripts/pipeline/consolidate.py "${args[@]}"
+          target_date="${INPUT_DATE:-$(date -u +%Y-%m-%d)}"
+          uv run python scripts/pipeline/consolidate.py --date "$target_date"
 
   # ==========================================================================
   # JOB: EMBED
