@@ -108,10 +108,10 @@ on:
 permissions:
   contents: read
 
-# Only one pipeline run at a time
-concurrency:
-  group: data-pipeline
-  cancel-in-progress: false
+# Per-job concurrency (below) replaces the previous global lock.
+# A global group blocked all job types from running when any single
+# job was active — e.g. a collect run prevented consolidate from
+# starting even though they operate on independent data.
 
 env:
   DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
@@ -128,6 +128,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: dev
+    concurrency:
+      group: pipeline-collect
+      cancel-in-progress: false
 
     # Run only on the 5-minute cron (not other schedules), or manual trigger
     if: |
@@ -155,7 +158,7 @@ jobs:
           uv run python scripts/pipeline/collect.py \
             --proxy-url "$DJEN_PROXY_URL" \
             --max-items 200 \
-            --workers 6 \
+            --workers 8 \
             ${{ github.event.inputs.date && format('--date {0}', github.event.inputs.date) || '' }} \
             ${{ github.event.inputs.tribunal && format('--tribunal {0}', github.event.inputs.tribunal) || '' }}
 
@@ -171,6 +174,9 @@ jobs:
     timeout-minutes: 25
     environment: dev
     needs: collect
+    concurrency:
+      group: pipeline-consolidate
+      cancel-in-progress: false
 
     # Run on the 10-minute cron schedule, or manual trigger.
     # always() ensures this runs even if collect was skipped or failed —
@@ -213,6 +219,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     needs: consolidate
+    concurrency:
+      group: pipeline-embed
+      cancel-in-progress: false
 
     # Run on the hourly cron schedule, or manual trigger.
     # always() ensures this runs even if upstream jobs were skipped or failed.
@@ -270,6 +279,9 @@ jobs:
     timeout-minutes: 30
     environment: dev
     needs: [collect, consolidate, embed]  # Wait for all parallel jobs
+    concurrency:
+      group: pipeline-catalog
+      cancel-in-progress: false
 
     # Run on the daily cron, if any upstream job succeeded, or manual trigger
     if: |
@@ -320,6 +332,9 @@ jobs:
     timeout-minutes: 10
     environment: dev
     needs: catalog
+    concurrency:
+      group: pipeline-dashboard-cache
+      cancel-in-progress: false
 
     # Run after catalog updates
     if: |
