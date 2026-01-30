@@ -16,6 +16,7 @@ Usage:
 import argparse
 import decimal
 import json
+import os
 import subprocess
 import tempfile
 import time
@@ -50,6 +51,31 @@ SCHEMA_VERSION = "3"
 logger = structlog.get_logger()
 
 # Table types to consolidate - Defined below via TABLE_SCHEMAS
+
+
+def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
+    """Find all ZIP files in a local directory."""
+    logger.info("listing_local_zips", directory=directory)
+    zips: list[dict[str, Any]] = []
+    local_dir = Path(directory)
+
+    if not local_dir.exists():
+        logger.warning("local_zips_not_found", directory=directory)
+        return zips, 0
+
+    for zip_file in local_dir.glob("*.zip"):
+        # Extract tribunal from filename: djen-2026-01-23-TJSP.zip
+        parts = zip_file.stem.split("-")
+        tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
+        zips.append({
+            "filename": zip_file.name,
+            "tribunal": tribunal,
+            "item_id": "local-test",
+            "size": zip_file.stat().st_size,
+            "local_path": str(zip_file),
+        })
+
+    return zips, len(zips)
 
 
 def list_zips_for_date(date: str) -> tuple[list[dict[str, Any]], int]:
@@ -643,13 +669,17 @@ def _export_and_upload_table(
         return False, 0
 
 
-def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -> dict[str, int]:
+def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files."""
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
     item_id = f"djen-{date}"
 
     # Find all ZIPs and check if day's matrix is complete
-    zips, present_count = list_zips_for_date(date)
+    if local_zips:
+        zips, present_count = list_local_zips(local_zips)
+        logger.info("using_local_zips", directory=local_zips, count=len(zips))
+    else:
+        zips, present_count = list_zips_for_date(date)
 
     expected_count = len(TRIBUNAIS)
     if not force and present_count < expected_count:
@@ -685,11 +715,21 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -
                 progress=f"{i + 1}/{len(zips)}",
             )
 
-            # Download ZIP
+            # Download or use local ZIP
             zip_path = tmp_path / filename
-            if not download_zip(item_id, filename, zip_path):
-                logger.warning("download_failed", filename=filename)
-                continue
+            if local_zips and "local_path" in zip_info:
+                # Copy from local directory
+                import shutil
+                try:
+                    shutil.copy2(zip_info["local_path"], zip_path)
+                except Exception as e:
+                    logger.warning("local_copy_failed", filename=filename, error=str(e))
+                    continue
+            else:
+                # Download from IA
+                if not download_zip(item_id, filename, zip_path):
+                    logger.warning("download_failed", filename=filename)
+                    continue
 
             # Extract and parse JSON
             records = extract_json_from_zip(zip_path)
@@ -760,6 +800,10 @@ def main() -> int:
         action="store_true",
         help="Find the most recent unconsolidated date (d-1 first) and process it",
     )
+    parser.add_argument(
+        "--local-zips",
+        help="Use local ZIPs from directory instead of downloading from IA (for testing)",
+    )
     parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
     args = parser.parse_args()
 
@@ -791,7 +835,7 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force)
+        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips)
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback
