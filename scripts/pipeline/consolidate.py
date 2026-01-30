@@ -21,7 +21,7 @@ import time
 import unicodedata
 import uuid
 import zipfile
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -495,7 +495,7 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
 
 
 def _needs_consolidation(date_str: str) -> bool:
-    """Check whether *date_str* has collected ZIPs but no consolidated parquets on IA."""
+    """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA."""
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}"
     try:
@@ -504,16 +504,18 @@ def _needs_consolidation(date_str: str) -> bool:
             return False
         files = resp.json().get("files", [])
         has_zips = False
-        has_parquets = False
+        has_consolidated = False
         for f in files:
             if not isinstance(f, dict):
                 continue
             name = f.get("name", "")
+            # Check for ZIPs or absent markers as proof of attempted collection
             if name.endswith((".zip", ".absent")):
                 has_zips = True
-            if name == "comunicacoes.parquet":
-                has_parquets = True
-        return has_zips and not has_parquets
+            # Check for any .parquet file or the sentinel marker as proof of consolidation
+            if name.endswith(".parquet") or name == "_consolidated.marker":
+                has_consolidated = True
+        return has_zips and not has_consolidated
     except Exception:
         return False
 
