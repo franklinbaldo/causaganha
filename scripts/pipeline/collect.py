@@ -17,7 +17,7 @@ Usage:
     # Limit number of items
     python scripts/pipeline/collect.py --max-items 10
 
-    # Control parallelism (default: 6 workers)
+    # Control parallelism (default: 8 workers)
     python scripts/pipeline/collect.py --workers 8
 """
 
@@ -27,7 +27,6 @@ import hashlib
 import json
 import os
 import tempfile
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
@@ -36,7 +35,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import internetarchive as ia
 import structlog
 
 from causaganha.config import TRIBUNAIS
@@ -88,55 +86,53 @@ def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
         return list(TRIBUNAIS)
 
 
-# Thread-local IA sessions: requests.Session (which ArchiveSession extends)
-# is not thread-safe, so each worker thread gets its own session with its
-# own HTTP connection pool.
-_thread_local = threading.local()
+def _fetch_ia_files_for_date(date_str: str) -> list[str]:
+    """Fetch zip/absent filenames for a single date from IA metadata API.
 
-
-def _get_ia_session() -> ia.session.ArchiveSession:
-    """Get or create a thread-local Internet Archive session."""
-    if not hasattr(_thread_local, "ia_session"):
-        _thread_local.ia_session = ia.get_session()
-    return _thread_local.ia_session
-
-
-def _list_item_files(item_id: str) -> list[str]:
-    """List zip/absent files for a single IA item. Thread-safe."""
+    Uses the lightweight HTTP metadata endpoint (one request per date)
+    instead of the heavy internetarchive library search which scans
+    ALL items on every invocation.
+    """
+    item_id = f"djen-{date_str}"
+    url = f"https://archive.org/metadata/{item_id}"
     try:
-        session = _get_ia_session()
-        item = session.get_item(item_id)
-        return [f["name"] for f in item.files if f["name"].endswith((".zip", ".absent"))]
+        resp = httpx.get(url, timeout=30)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        return [
+            f["name"]
+            for f in data.get("files", [])
+            if isinstance(f, dict) and f.get("name", "").endswith((".zip", ".absent"))
+        ]
     except Exception:
         return []
 
 
-def get_existing_files_on_ia(workers: int = 8) -> set[str]:
-    """Get list of ZIP/absent files already on Internet Archive.
+def get_existing_files_for_dates(dates: list[str]) -> set[str]:
+    """Get existing zip/absent files on IA for specific dates only.
 
-    Uses the internetarchive library directly (no subprocess overhead)
-    and parallel queries to speed up metadata fetching.
+    Queries the IA metadata HTTP API once per date. With backfill_days=7
+    (weekdays only), this is ~5 requests — compared to the previous
+    approach which scanned ALL djen-* items (hundreds of requests after
+    months of data).
     """
-    logger.info("fetching_existing_files")
+    if not dates:
+        return set()
+
+    logger.info("checking_existing_files", dates_count=len(dates))
     existing: set[str] = set()
 
-    try:
-        # Search all djen-* items via IA metadata API
-        search = ia.search_items("identifier:djen-20*")
-        items = [result["identifier"] for result in search]
-        logger.info("ia_items_found", count=len(items))
-
-        # Query file listings in parallel
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(_list_item_files, item_id): item_id for item_id in items}
-            for future in as_completed(futures):
+    with ThreadPoolExecutor(max_workers=min(4, len(dates))) as executor:
+        futures = {executor.submit(_fetch_ia_files_for_date, d): d for d in dates}
+        for future in as_completed(futures):
+            try:
                 for filename in future.result():
                     existing.add(filename)
+            except Exception:
+                pass
 
-    except Exception as e:
-        logger.warning("ia_search_failed", error=str(e))
-
-    logger.info("existing_files_found", count=len(existing))
+    logger.info("existing_files_found", count=len(existing), dates_checked=len(dates))
     return existing
 
 
@@ -218,32 +214,57 @@ def get_caderno_info(
     return None
 
 
-def download_zip(client: httpx.Client, url: str, output_path: Path) -> bool:
+def download_zip(
+    client: httpx.Client, url: str, output_path: Path, max_retries: int = 2,
+) -> bool:
     """Download ZIP file from DJEN using streaming to reduce memory usage.
+
+    Retries on server errors (5xx) and network failures with exponential
+    backoff, matching the retry behavior of upload_to_ia and get_caderno_info.
 
     Args:
         client: Shared httpx client for connection pooling.
         url: Download URL for the ZIP file.
         output_path: Local path to write the downloaded file.
+        max_retries: Number of retries for transient errors.
     """
-    try:
-        with client.stream("GET", url) as response:
-            if response.status_code != 200:
+    for attempt in range(max_retries + 1):
+        try:
+            with client.stream("GET", url) as response:
+                if response.status_code != 200:
+                    if response.status_code >= 500 and attempt < max_retries:
+                        logger.warning(
+                            "download_server_error",
+                            url=url[:100],
+                            status=response.status_code,
+                            attempt=attempt + 1,
+                        )
+                        time.sleep(2**attempt)
+                        continue
+                    return False
+                with output_path.open("wb") as f:
+                    for chunk in response.iter_bytes(chunk_size=65536):
+                        f.write(chunk)
+            # Verify file size
+            if output_path.stat().st_size < 100:
+                logger.warning("file_too_small", path=str(output_path))
+                output_path.unlink()
                 return False
-            with output_path.open("wb") as f:
-                for chunk in response.iter_bytes(chunk_size=65536):
-                    f.write(chunk)
-        # Verify file size
-        if output_path.stat().st_size < 100:
-            logger.warning("file_too_small", path=str(output_path))
-            output_path.unlink()
+            return True
+        except Exception as e:
+            logger.warning(
+                "download_failed",
+                url=url[:100],
+                error=str(e),
+                attempt=attempt + 1,
+            )
+            if output_path.exists():
+                output_path.unlink()
+            if attempt < max_retries:
+                time.sleep(2**attempt)
+                continue
             return False
-        return True
-    except Exception as e:
-        logger.warning("download_failed", url=url[:100], error=str(e))
-        if output_path.exists():
-            output_path.unlink()
-        return False
+    return False
 
 
 _IA_S3_URL = "https://s3.us.archive.org"
@@ -395,15 +416,13 @@ def collect_data(  # noqa: PLR0913
     target_tribunal: str | None = None,
     max_items: int = 50,
     backfill_days: int = 7,
-    workers: int = 6,
+    workers: int = 8,
 ) -> dict[str, int]:
     """Main collection function with parallel processing."""
     stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Get existing files to avoid duplicates (parallel metadata queries)
-    existing_files = get_existing_files_on_ia(workers=workers)
-
-    # Build list of (date, tribunal) pairs to process
+    # Build list of (date, tribunal) pairs to process FIRST,
+    # so we know which dates to check on IA (targeted lookup).
     to_process: list[tuple[str, str]] = []
 
     # Fetch the current tribunal list from DJEN API, merged with fallback
@@ -425,6 +444,11 @@ def collect_data(  # noqa: PLR0913
             date_str = d.strftime("%Y-%m-%d")
             for tribunal in all_tribunais:
                 to_process.append((date_str, tribunal))
+
+    # Check only the dates we actually need — O(backfill_days) requests
+    # instead of scanning every djen-* item on IA (O(total_days_ever)).
+    dates_to_check = sorted({d for d, _ in to_process})
+    existing_files = get_existing_files_for_dates(dates_to_check)
 
     # Pre-filter already-existing items, then apply max_items limit
     pending: list[tuple[str, str]] = []
@@ -514,7 +538,7 @@ def main() -> int:
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
     parser.add_argument("--backfill-days", type=int, default=7)
-    parser.add_argument("--workers", type=int, default=6, help="Number of parallel workers")
+    parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
     args = parser.parse_args()
 
     print("Collecting DJEN data...")
