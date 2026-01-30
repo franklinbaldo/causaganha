@@ -31,7 +31,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +46,7 @@ class AbsentReason:
 
     status_code: int
     reason: str
-    checked_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    checked_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     response_snippet: str = ""
 
 
@@ -172,11 +172,7 @@ def _list_item_files(item_id: str) -> list[str]:
     try:
         session = _get_ia_session()
         item = session.get_item(item_id)
-        return [
-            f["name"]
-            for f in item.files
-            if f["name"].endswith((".zip", ".absent"))
-        ]
+        return [f["name"] for f in item.files if f["name"].endswith((".zip", ".absent"))]
     except Exception:
         return []
 
@@ -198,10 +194,7 @@ def get_existing_files_on_ia(workers: int = 8) -> set[str]:
 
         # Query file listings in parallel
         with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(_list_item_files, item_id): item_id
-                for item_id in items
-            }
+            futures = {executor.submit(_list_item_files, item_id): item_id for item_id in items}
             for future in as_completed(futures):
                 for filename in future.result():
                     existing.add(filename)
@@ -214,7 +207,10 @@ def get_existing_files_on_ia(workers: int = 8) -> set[str]:
 
 
 def get_caderno_info(
-    client: httpx.Client, proxy_url: str, tribunal: str, date_str: str,
+    client: httpx.Client,
+    proxy_url: str,
+    tribunal: str,
+    date_str: str,
 ) -> dict[str, Any] | AbsentReason | None:
     """Get caderno (journal) info from DJEN API.
 
@@ -318,7 +314,10 @@ def _compute_md5(file_path: Path) -> str:
 
 
 def upload_to_ia(
-    client: httpx.Client, item_id: str, file_path: Path, date_str: str,
+    client: httpx.Client,
+    item_id: str,
+    file_path: Path,
+    date_str: str,
 ) -> bool:
     """Upload file to Internet Archive via the S3-compatible API.
 
@@ -489,7 +488,10 @@ def collect_data(  # noqa: PLR0913
     # Resolve IA S3 credentials once (shared via upload client headers)
     ia_auth = _get_ia_s3_auth()
     if not ia_auth:
-        logger.error("ia_credentials_not_found", hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`")
+        logger.error(
+            "ia_credentials_not_found",
+            hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
+        )
         stats["failed"] = len(pending)
         return stats
 
@@ -505,7 +507,9 @@ def collect_data(  # noqa: PLR0913
     with (
         httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
         httpx.Client(
-            timeout=dl_timeout, limits=pool_limits, follow_redirects=True,
+            timeout=dl_timeout,
+            limits=pool_limits,
+            follow_redirects=True,
         ) as dl_client,
         httpx.Client(
             timeout=upload_timeout,
@@ -517,8 +521,12 @@ def collect_data(  # noqa: PLR0913
         futures = {
             executor.submit(
                 _process_item,
-                api_client, dl_client, upload_client,
-                proxy_url, date_str, tribunal,
+                api_client,
+                dl_client,
+                upload_client,
+                proxy_url,
+                date_str,
+                tribunal,
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }
@@ -585,9 +593,8 @@ def main() -> int:
     if stats["failed"] / total_processed <= failure_threshold:
         print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
         return 0
-    else:
-        print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
-        return 1
+    print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
+    return 1
 
 
 if __name__ == "__main__":
