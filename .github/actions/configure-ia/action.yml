@@ -1,0 +1,19 @@
+name: Configure Internet Archive
+description: "Write IA S3 credentials to ~/.config/internetarchive/ia.ini"
+inputs:
+  access-key:
+    description: "Internet Archive S3 access key"
+    required: true
+  secret-key:
+    description: "Internet Archive S3 secret key"
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        IAS3_ACCESS_KEY: ${{ inputs.access-key }}
+        IAS3_SECRET_KEY: ${{ inputs.secret-key }}
+      run: |
+        mkdir -p ~/.config/internetarchive
+        printf '[s3]\naccess = %s\nsecret = %s\n' "$IAS3_ACCESS_KEY" "$IAS3_SECRET_KEY" > ~/.config/internetarchive/ia.ini
