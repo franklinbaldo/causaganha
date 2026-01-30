@@ -29,111 +29,12 @@ import httpx
 import ibis
 import structlog
 
+from causaganha.config import TRIBUNAIS
+
 
 # Schema version — embedded in Parquet metadata for forward compatibility.
 # Bump when TABLE_SCHEMAS change in a way that affects consumers.
 SCHEMA_VERSION = "2"
-
-# All 91 Brazilian courts
-TRIBUNAIS = [
-    # Federal Regional (6)
-    "TRF1",
-    "TRF2",
-    "TRF3",
-    "TRF4",
-    "TRF5",
-    "TRF6",
-    # Superior (8)
-    "STF",
-    "STJ",
-    "TST",
-    "TSE",
-    "STM",
-    "CNJ",
-    "CNMP",
-    "TNU",
-    # State (27)
-    "TJAC",
-    "TJAL",
-    "TJAM",
-    "TJAP",
-    "TJBA",
-    "TJCE",
-    "TJDF",
-    "TJES",
-    "TJGO",
-    "TJMA",
-    "TJMG",
-    "TJMS",
-    "TJMT",
-    "TJPA",
-    "TJPB",
-    "TJPE",
-    "TJPI",
-    "TJPR",
-    "TJRJ",
-    "TJRN",
-    "TJRO",
-    "TJRR",
-    "TJRS",
-    "TJSC",
-    "TJSE",
-    "TJSP",
-    "TJTO",
-    # Labor (24)
-    "TRT1",
-    "TRT2",
-    "TRT3",
-    "TRT4",
-    "TRT5",
-    "TRT6",
-    "TRT7",
-    "TRT8",
-    "TRT9",
-    "TRT10",
-    "TRT11",
-    "TRT12",
-    "TRT13",
-    "TRT14",
-    "TRT15",
-    "TRT16",
-    "TRT17",
-    "TRT18",
-    "TRT19",
-    "TRT20",
-    "TRT21",
-    "TRT22",
-    "TRT23",
-    "TRT24",
-    # Electoral (27)
-    "TREAC",
-    "TREAL",
-    "TREAM",
-    "TREAP",
-    "TREBA",
-    "TRECE",
-    "TREDF",
-    "TREES",
-    "TREGO",
-    "TREMA",
-    "TREMG",
-    "TREMS",
-    "TREMT",
-    "TREPA",
-    "TREPB",
-    "TREPE",
-    "TREPI",
-    "TREPR",
-    "TRERJ",
-    "TRERN",
-    "TRERO",
-    "TRERR",
-    "TRERS",
-    "TRESC",
-    "TRESE",
-    "TRESP",
-    "TRETO",
-]
 
 
 logger = structlog.get_logger()
@@ -632,7 +533,7 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -
                 "processing_zip",
                 filename=filename,
                 tribunal=tribunal,
-                progress=f"{i+1}/{len(zips)}",
+                progress=f"{i + 1}/{len(zips)}",
             )
 
             # Download ZIP
