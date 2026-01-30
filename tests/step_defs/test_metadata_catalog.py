@@ -808,7 +808,7 @@ def users_cannot_drop_views(context):
 
     # Try to drop a view (should fail)
     with pytest.raises(Exception):  # noqa: B017, PT011
-        con.execute("DROP VIEW IF EXISTS intimations_raw")
+        con.execute("DROP VIEW top_lawyers")
 
     con.close()
 
