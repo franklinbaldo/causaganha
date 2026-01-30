@@ -55,6 +55,7 @@ jules = [
 
 [dependency-groups]
 dev = [
+    "causaganha[embeddings]",
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.3.0",

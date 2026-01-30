@@ -687,7 +687,7 @@ def analytical_views_reference_base(context):
     for view_name in analytical_views:
         if view_name in context["views"]:
             view_def = con.execute(
-                    f"SELECT sql FROM duckdb_views() WHERE view_name = '{view_name}'",
+                f"SELECT sql FROM duckdb_views() WHERE name = '{view_name}'",
             ).fetchone()
 
             if view_def:

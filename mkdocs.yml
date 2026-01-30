@@ -65,7 +65,12 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - 'Roadmap': ROADMAP.md
+  - 'Home': index.md
+  - 'Product Requirements': product-requirements.md
+  - 'Technical Design': technical-design.md
+  - 'Roadmap': roadmap.md
+  - 'Launch Plan': launch-plan.md
+  - 'Backlog': backlog.md
 
 extra:
   social:
