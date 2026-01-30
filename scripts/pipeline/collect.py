@@ -117,10 +117,8 @@ def _fetch_ia_files_for_date(date_str: str) -> list[str]:
 def get_existing_files_for_dates(dates: list[str]) -> set[str]:
     """Get existing zip/absent files on IA for specific dates only.
 
-    Queries the IA metadata HTTP API once per date. With backfill_days=7
-    (weekdays only), this is ~5 requests — compared to the previous
-    approach which scanned ALL djen-* items (hundreds of requests after
-    months of data).
+    Queries the IA metadata HTTP API once per date.  The rolling window
+    (d-1) produces ~1 request; backfill batches add a bounded extra set.
     """
     if not dates:
         return set()
@@ -445,16 +443,17 @@ def collect_data(  # noqa: PLR0913
     target_date: str | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
-    backfill_days: int = 7,
+    backfill_days: int = 1,
     workers: int = 8,
     backfill: bool = False,
 ) -> dict[str, int]:
     """Main collection function with parallel processing.
 
     When *backfill* is True and no target_date is given, the rolling window
-    (backfill_days) is processed first. Any remaining capacity (up to
-    max_items) is filled from the catalog's backfill-needed.parquet, ordered
-    most-recent-first (d-1, d-2, d-3 …).
+    covers only d-1 (yesterday) with a live IA check.  Everything older is
+    sourced from the catalog's backfill-needed.parquet, ordered
+    most-recent-first (d-2, d-3, d-4 …).  The catalog is regenerated daily
+    at 06:00 UTC so d-1 is the only date that might not be in it yet.
     """
     stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
 
@@ -606,7 +605,7 @@ def main() -> int:
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
-    parser.add_argument("--backfill-days", type=int, default=7)
+    parser.add_argument("--backfill-days", type=int, default=1)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
     parser.add_argument(
         "--backfill",
