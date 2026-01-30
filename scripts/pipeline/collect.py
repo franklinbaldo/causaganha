@@ -22,9 +22,13 @@ Usage:
 """
 
 import argparse
+import configparser
+import hashlib
 import json
-import subprocess
+import os
 import tempfile
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -32,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import internetarchive as ia
 import structlog
 
 
@@ -149,59 +154,60 @@ TRIBUNAIS = [
 ]
 
 
+# Thread-local IA sessions: requests.Session (which ArchiveSession extends)
+# is not thread-safe, so each worker thread gets its own session with its
+# own HTTP connection pool.
+_thread_local = threading.local()
+
+
+def _get_ia_session() -> ia.session.ArchiveSession:
+    """Get or create a thread-local Internet Archive session."""
+    if not hasattr(_thread_local, "ia_session"):
+        _thread_local.ia_session = ia.get_session()
+    return _thread_local.ia_session
+
+
 def _list_item_files(item_id: str) -> list[str]:
     """List zip/absent files for a single IA item. Thread-safe."""
     try:
-        result = subprocess.run(
-            ["ia", "list", item_id, "--glob", "*.{zip,absent}"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            return [f.strip() for f in result.stdout.splitlines() if f.strip()]
-    except subprocess.TimeoutExpired:
-        pass
-    return []
+        session = _get_ia_session()
+        item = session.get_item(item_id)
+        return [
+            f["name"]
+            for f in item.files
+            if f["name"].endswith((".zip", ".absent"))
+        ]
+    except Exception:
+        return []
 
 
 def get_existing_files_on_ia(workers: int = 8) -> set[str]:
     """Get list of ZIP/absent files already on Internet Archive.
 
-    Uses parallel queries to speed up metadata fetching.
+    Uses the internetarchive library directly (no subprocess overhead)
+    and parallel queries to speed up metadata fetching.
     """
     logger.info("fetching_existing_files")
     existing: set[str] = set()
 
     try:
-        # List all djen-* items
-        result = subprocess.run(
-            ["ia", "search", "identifier:djen-20*", "--itemlist"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-        if result.returncode != 0:
-            logger.warning("ia_search_failed", stderr=result.stderr[:200])
-            return existing
-
-        items = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        # Search all djen-* items via IA metadata API
+        search = ia.search_items("identifier:djen-20*")
+        items = [result["identifier"] for result in search]
         logger.info("ia_items_found", count=len(items))
 
-        # Query file listings in parallel instead of sequentially
+        # Query file listings in parallel
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(_list_item_files, item_id): item_id for item_id in items
+                executor.submit(_list_item_files, item_id): item_id
+                for item_id in items
             }
             for future in as_completed(futures):
                 for filename in future.result():
                     existing.add(filename)
 
-    except subprocess.TimeoutExpired:
-        logger.warning("ia_search_timeout")
-    except FileNotFoundError:
-        logger.error("ia_cli_not_found")
+    except Exception as e:
+        logger.warning("ia_search_failed", error=str(e))
 
     logger.info("existing_files_found", count=len(existing))
     return existing
@@ -281,41 +287,96 @@ def download_zip(client: httpx.Client, url: str, output_path: Path) -> bool:
         return False
 
 
-def upload_to_ia(item_id: str, file_path: Path, date_str: str) -> bool:
-    """Upload file to Internet Archive."""
-    try:
-        result = subprocess.run(
-            [
-                "ia",
-                "upload",
-                item_id,
-                str(file_path),
-                "--metadata=collection:opensource",
-                "--metadata=mediatype:data",
-                f"--metadata=title:DJEN Data - {date_str}",
-                "--metadata=description:Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts.",
-                "--metadata=subject:brazilian-law;djen;legal;judiciary;open-data",
-                "--metadata=creator:CausaGanha",
-                f"--metadata=date:{date_str}",
-                "--retries=3",
-                "--no-derive",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        logger.warning("upload_timeout", item_id=item_id)
-        return False
-    except Exception as e:
-        logger.warning("upload_failed", item_id=item_id, error=str(e))
-        return False
+_IA_S3_URL = "https://s3.us.archive.org"
 
 
-def _process_item(
+def _get_ia_s3_auth() -> str | None:
+    """Get IA S3 authorization header value from env vars or config file."""
+    access = os.environ.get("IAS3_ACCESS_KEY", "")
+    secret = os.environ.get("IAS3_SECRET_KEY", "")
+    if access and secret:
+        return f"LOW {access}:{secret}"
+    # Fall back to config file (created by CI workflow)
+    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
+    if config_path.exists():
+        cfg = configparser.ConfigParser()
+        cfg.read(config_path)
+        access = cfg.get("s3", "access", fallback="")
+        secret = cfg.get("s3", "secret", fallback="")
+        if access and secret:
+            return f"LOW {access}:{secret}"
+    return None
+
+
+def _compute_md5(file_path: Path) -> str:
+    """Compute hex-encoded MD5 checksum (IA S3 format)."""
+    h = hashlib.md5()  # noqa: S324  — integrity check, not security
+    with file_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def upload_to_ia(
+    client: httpx.Client, item_id: str, file_path: Path, date_str: str,
+) -> bool:
+    """Upload file to Internet Archive via the S3-compatible API.
+
+    Uses a shared httpx client for connection pooling across workers,
+    with streaming upload and MD5 integrity verification.
+    """
+    filename = file_path.name
+    url = f"{_IA_S3_URL}/{item_id}/{filename}"
+    content_md5 = _compute_md5(file_path)
+
+    headers = {
+        "Content-MD5": content_md5,
+        "x-archive-auto-make-bucket": "1",
+        "x-archive-queue-derive": "0",
+        "x-archive-meta-collection": "opensource",
+        "x-archive-meta-mediatype": "data",
+        "x-archive-meta-title": f"DJEN Data - {date_str}",
+        "x-archive-meta-description": (
+            "Diario de Justica Eletronico Nacional"
+            " - Judicial communications from Brazilian courts."
+        ),
+        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "x-archive-meta-creator": "CausaGanha",
+        "x-archive-meta-date": date_str,
+    }
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with file_path.open("rb") as f:
+                response = client.put(url, content=f, headers=headers)
+            if response.is_success:
+                return True
+            logger.warning(
+                "upload_http_error",
+                item_id=item_id,
+                file=filename,
+                status=response.status_code,
+                attempt=attempt + 1,
+            )
+            if response.status_code < 500:
+                return False  # Client error — don't retry
+        except Exception as e:
+            logger.warning(
+                "upload_error",
+                item_id=item_id,
+                error=str(e),
+                attempt=attempt + 1,
+            )
+        if attempt < max_retries - 1:
+            time.sleep(5 * (attempt + 1))
+    return False
+
+
+def _process_item(  # noqa: PLR0913
     api_client: httpx.Client,
     dl_client: httpx.Client,
+    upload_client: httpx.Client,
     proxy_url: str,
     date_str: str,
     tribunal: str,
@@ -325,7 +386,6 @@ def _process_item(
     Returns:
         'success' or 'failed' for stats aggregation.
     """
-    zip_name = f"djen-{date_str}-{tribunal}.zip"
     absent_marker = f"djen-{date_str}-{tribunal}.absent"
 
     logger.info("processing", date=date_str, tribunal=tribunal)
@@ -340,7 +400,8 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            return "success" if upload_to_ia(item_id, marker_path, date_str) else "failed"
+            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
+            return "success" if ok else "failed"
 
     if not isinstance(info, dict):
         # API returned None - transient error (timeout, 4xx/5xx, network issue)
@@ -352,6 +413,7 @@ def _process_item(
         return "failed"
 
     # Download and upload
+    zip_name = f"djen-{date_str}-{tribunal}.zip"
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / zip_name
 
@@ -360,7 +422,7 @@ def _process_item(
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(item_id, zip_path, date_str):
+        if upload_to_ia(upload_client, item_id, zip_path, date_str):
             logger.info("uploaded", item_id=item_id, file=zip_name)
             return "success"
         return "failed"
@@ -424,9 +486,17 @@ def collect_data(  # noqa: PLR0913
     if not pending:
         return stats
 
+    # Resolve IA S3 credentials once (shared via upload client headers)
+    ia_auth = _get_ia_s3_auth()
+    if not ia_auth:
+        logger.error("ia_credentials_not_found", hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`")
+        stats["failed"] = len(pending)
+        return stats
+
     # Shared HTTP clients with connection pooling
     api_timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
     dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+    upload_timeout = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
     pool_limits = httpx.Limits(
         max_connections=workers * 2,
         max_keepalive_connections=workers,
@@ -437,11 +507,18 @@ def collect_data(  # noqa: PLR0913
         httpx.Client(
             timeout=dl_timeout, limits=pool_limits, follow_redirects=True,
         ) as dl_client,
+        httpx.Client(
+            timeout=upload_timeout,
+            limits=pool_limits,
+            headers={"Authorization": ia_auth},
+        ) as upload_client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, proxy_url, date_str, tribunal,
+                _process_item,
+                api_client, dl_client, upload_client,
+                proxy_url, date_str, tribunal,
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }
