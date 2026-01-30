@@ -1,4 +1,10 @@
 name: Setup
+description: "Setup Python, uv, and install project dependencies"
+inputs:
+  dev:
+    description: "Install dev dependencies (default: true)"
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -16,5 +22,5 @@ runs:
     - uses: astral-sh/setup-uv@v3
       with:
         version: latest
-    - run: uv sync --dev
+    - run: uv sync ${{ inputs.dev == 'true' && '--dev' || '--no-dev' }}
       shell: bash
