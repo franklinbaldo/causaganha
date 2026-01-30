@@ -1,7 +1,7 @@
 """BDD step definitions for DuckDB metadata catalog."""
 
-import os
 import tempfile
+from pathlib import Path
 
 import duckdb
 import pytest
@@ -18,7 +18,7 @@ from pytest_bdd import given, parsers, scenario, then, when
     "Create metadata-only catalog database",
 )
 def test_create_metadata_only_catalog():
-    pass
+    """Test scenario: Create metadata-only catalog."""
 
 
 @scenario(
@@ -26,7 +26,7 @@ def test_create_metadata_only_catalog():
     "Catalog exposes views to remote parquet files",
 )
 def test_catalog_exposes_views():
-    pass
+    """Test scenario: Expose views."""
 
 
 @scenario(
@@ -34,7 +34,7 @@ def test_catalog_exposes_views():
     "Catalog includes curated analytical views",
 )
 def test_catalog_includes_analytical_views():
-    pass
+    """Test scenario: Analytical views."""
 
 
 @scenario(
@@ -42,7 +42,7 @@ def test_catalog_includes_analytical_views():
     "Users query catalog with zero setup",
 )
 def test_users_query_catalog():
-    pass
+    """Test scenario: User queries."""
 
 
 @scenario(
@@ -50,7 +50,7 @@ def test_users_query_catalog():
     "Create versioned catalog snapshots",
 )
 def test_create_versioned_catalogs():
-    pass
+    """Test scenario: Versioned catalogs."""
 
 
 @scenario(
@@ -58,7 +58,7 @@ def test_create_versioned_catalogs():
     "Catalog distributed as read-only for security",
 )
 def test_catalog_read_only():
-    pass
+    """Test scenario: Read-only mode."""
 
 
 @scenario(
@@ -66,7 +66,7 @@ def test_catalog_read_only():
     "Catalog exposes complex analytical views with joins",
 )
 def test_catalog_complex_views():
-    pass
+    """Test scenario: Complex views."""
 
 
 @scenario(
@@ -74,7 +74,7 @@ def test_catalog_complex_views():
     "Generate catalog via CLI command",
 )
 def test_generate_catalog_via_cli():
-    pass
+    """Test scenario: CLI generation."""
 
 
 @scenario(
@@ -82,7 +82,7 @@ def test_generate_catalog_via_cli():
     "Validate catalog creation",
 )
 def test_validate_catalog_creation():
-    pass
+    """Test scenario: Validation."""
 
 
 # ==============================================================================
@@ -173,7 +173,7 @@ def have_parquet_files_table(context):
 @given(parsers.parse('a metadata catalog "{catalog_name}" exists'))
 def metadata_catalog_exists(context, catalog_name, temp_catalog_dir):
     """Create a basic metadata catalog."""
-    catalog_path = os.path.join(temp_catalog_dir, catalog_name)
+    catalog_path = str(Path(temp_catalog_dir) / catalog_name)
     con = duckdb.connect(catalog_path)
     con.close()
     context["catalog_path"] = catalog_path
@@ -182,24 +182,17 @@ def metadata_catalog_exists(context, catalog_name, temp_catalog_dir):
 @given("a metadata catalog with base views exists")
 def catalog_with_base_views_exists(context, temp_catalog_dir):
     """Create catalog with base views."""
-    catalog_path = os.path.join(temp_catalog_dir, "test-catalog.duckdb")
+    catalog_path = str(Path(temp_catalog_dir) / "test-catalog.duckdb")
     con = duckdb.connect(catalog_path)
 
     # Create base views
-    con.execute("""
-        CREATE VIEW intimations_raw AS
-        SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao
-    """)
-
-    con.execute("""
-        CREATE VIEW lawyers_raw AS
-        SELECT 1 as id, 1500 as rating, 10 as total_cases
-    """)
-
-    con.execute("""
-        CREATE VIEW partes_raw AS
-        SELECT 1 as id, 'Party Name' as nome
-    """)
+    con.execute(
+        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab"  # noqa: E501
+    )
+    con.execute(
+        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"  # noqa: E501
+    )
+    con.execute("CREATE VIEW partes_raw AS SELECT 1 as id, 'Party Name' as nome")
 
     con.close()
     context["catalog_path"] = catalog_path
@@ -209,7 +202,7 @@ def catalog_with_base_views_exists(context, temp_catalog_dir):
 @given(parsers.parse('a catalog file "{catalog_name}" is distributed'))
 def catalog_file_distributed(context, catalog_name, temp_catalog_dir):
     """Simulate distributed catalog file."""
-    catalog_path = os.path.join(temp_catalog_dir, catalog_name)
+    catalog_path = str(Path(temp_catalog_dir) / catalog_name)
     con = duckdb.connect(catalog_path)
 
     # Create top_lawyers view
@@ -236,7 +229,7 @@ def parquet_files_updated_monthly(context):
 @given("a catalog file is created")
 def catalog_file_created(context, temp_catalog_dir):
     """Create a catalog file."""
-    catalog_path = os.path.join(temp_catalog_dir, "test-catalog.duckdb")
+    catalog_path = str(Path(temp_catalog_dir) / "test-catalog.duckdb")
     con = duckdb.connect(catalog_path)
     con.close()
     context["catalog_path"] = catalog_path
@@ -263,7 +256,7 @@ def cli_installed(context):
 @given(parsers.parse('a catalog "{catalog_name}" exists'))
 def catalog_exists(context, catalog_name, temp_catalog_dir):
     """Create a catalog file."""
-    catalog_path = os.path.join(temp_catalog_dir, catalog_name)
+    catalog_path = str(Path(temp_catalog_dir) / catalog_name)
     con = duckdb.connect(catalog_path)
 
     # Create sample views
@@ -297,7 +290,7 @@ def create_metadata_catalog(context, catalog_name, temp_catalog_dir):
 
     from causaganha.catalog.creator import CatalogCreator
 
-    catalog_path = os.path.join(temp_catalog_dir, catalog_name)
+    catalog_path = str(Path(temp_catalog_dir) / catalog_name)
 
     try:
         creator = CatalogCreator(catalog_path)
@@ -309,7 +302,7 @@ def create_metadata_catalog(context, catalog_name, temp_catalog_dir):
         con.close()
 
         context["catalog_path"] = catalog_path
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         context["error"] = str(e)
         import traceback
 
@@ -328,9 +321,11 @@ def create_base_views(context):
 
     # Create mock views that simulate the structure
     con.execute(
-        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao",
+        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab",  # noqa: E501
     )
-    con.execute("CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases")
+    con.execute(
+        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"  # noqa: E501
+    )
     con.execute("CREATE VIEW partes_raw AS SELECT 1 as id, 'Party Name' as nome")
 
     con.close()
@@ -374,7 +369,7 @@ def create_analytical_views(context):
 def user_downloads_catalog(context):
     """Simulate user downloading catalog."""
     catalog_path = context["catalog_path"]
-    context["catalog_downloaded"] = os.path.exists(catalog_path)
+    context["catalog_downloaded"] = Path(catalog_path).exists()
 
 
 @when("the user opens the catalog in DuckDB")
@@ -388,7 +383,7 @@ def user_opens_catalog_duckdb(context):
         result = con.execute("SELECT * FROM top_lawyers LIMIT 10").fetchdf()
         context["query_result"] = result
         con.close()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         context["error"] = str(e)
 
 
@@ -405,8 +400,8 @@ def create_versioned_catalogs(context, temp_catalog_dir):
     ]
 
     context["versioned_catalogs"] = []
-    for catalog_name, pattern in catalogs:
-        catalog_path = os.path.join(temp_catalog_dir, catalog_name)
+    for catalog_name, _pattern in catalogs:
+        catalog_path = str(Path(temp_catalog_dir) / catalog_name)
         creator = CatalogCreator(catalog_path)
         creator.create()
         context["versioned_catalogs"].append(catalog_path)
@@ -427,11 +422,11 @@ def user_opens_catalog(context):
     try:
         con = duckdb.connect(catalog_path, read_only=True)
         context["connection"] = con
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         context["error"] = str(e)
 
 
-@when(parsers.parse('I create a complex view "{view_name}"'))
+@when(parsers.parse('I create a complex view "{view_name}":'))
 def create_complex_view(context, view_name):
     """Create a complex analytical view."""
     catalog_path = context["catalog_path"]
@@ -458,7 +453,7 @@ def create_complex_view(context, view_name):
         con.execute(f"CREATE VIEW {view_name} AS {query}")
         context["views"].append(view_name)
         con.close()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         context["error"] = str(e)
 
 
@@ -479,13 +474,23 @@ def run_catalog_cli_command(context, temp_catalog_dir):
     # Mock the creator to avoid network calls
     with (
         patch("causaganha.catalog.creator.CatalogCreator.create") as mock_create,
-        patch("causaganha.catalog.creator.CatalogCreator.add_standard_views") as mock_views,
+        patch("causaganha.catalog.creator.CatalogCreator.add_standard_views") as _,
     ):
+        # Ensure create actually creates a file so validation passes
+        # Ensure create actually creates a file so validation passes
+        def side_effect_create():
+            import duckdb
+
+            db_path = Path(temp_catalog_dir) / "causaganha-catalog.duckdb"
+            duckdb.connect(str(db_path)).close()
+
+        mock_create.side_effect = side_effect_create
+
         args = [
             "catalog",
             "create",
             "--output",
-            os.path.join(context["temp_dir"], "causaganha-catalog.duckdb"),
+            str(Path(context["temp_dir"]) / "causaganha-catalog.duckdb"),
             "--month",
             "2026-01",
         ]
@@ -495,16 +500,13 @@ def run_catalog_cli_command(context, temp_catalog_dir):
         # Manually create the file so assertion passes
         import duckdb
 
-        output_path = os.path.join(temp_catalog_dir, "causaganha-catalog.duckdb")
-        duckdb.connect(output_path).close()
+        output_path = Path(temp_catalog_dir) / "causaganha-catalog.duckdb"
+        duckdb.connect(str(output_path)).close()
 
     context["cli_result"] = result
 
     if result.exit_code == 0:
-        context["catalog_path"] = os.path.join(
-            context["temp_dir"],
-            "causaganha-catalog.duckdb",
-        )
+        context["catalog_path"] = str(Path(context["temp_dir"]) / "causaganha-catalog.duckdb")
 
 
 @when("I run catalog list command")
@@ -527,14 +529,14 @@ def creation_process_runs(context):
     """Run catalog creation process with validation."""
     from causaganha.catalog.creator import CatalogCreator
 
-    catalog_path = os.path.join(context["temp_dir"], "test-catalog.duckdb")
+    catalog_path = str(Path(context["temp_dir"]) / "test-catalog.duckdb")
 
     try:
         creator = CatalogCreator(catalog_path)
         validation_results = creator.validate_and_create()
         context["validation_results"] = validation_results
         context["catalog_path"] = catalog_path
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         context["error"] = str(e)
 
 
@@ -547,14 +549,14 @@ def creation_process_runs(context):
 def catalog_file_created_check(context):
     """Verify catalog file exists."""
     assert context["catalog_path"] is not None
-    assert os.path.exists(context["catalog_path"])
+    assert Path(context["catalog_path"]).exists()
 
 
 @then("the catalog file size should be < 100 KB (metadata only)")
 def catalog_size_check(context):
     """Verify catalog is small (metadata only)."""
     catalog_path = context["catalog_path"]
-    file_size = os.path.getsize(catalog_path)
+    file_size = Path(catalog_path).stat().st_size
     context["catalog_size"] = file_size
 
     # DuckDB has some internal overhead, so allow up to 1 MB for a metadata-only catalog
@@ -624,7 +626,7 @@ def views_reference_external_parquet(context):
     # Get view definitions
     for view_name in context["views"]:
         view_def = con.execute(
-            f"SELECT view_definition FROM information_schema.views WHERE table_name = '{view_name}' AND table_schema = 'main'",
+            f"SELECT view_definition FROM information_schema.views WHERE table_name = '{view_name}' AND table_schema = 'main'",  # noqa: S608 E501
         ).fetchone()
 
         if view_def:
@@ -645,9 +647,9 @@ def querying_view_fetches_from_ia(context):
     # Verify we can get the query plan (without executing)
     for view_name in context["views"]:
         try:
-            plan = con.execute(f"EXPLAIN SELECT * FROM {view_name} LIMIT 1").fetchall()
+            plan = con.execute(f"EXPLAIN SELECT * FROM {view_name} LIMIT 1").fetchall()  # noqa: S608
             assert len(plan) > 0
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             # View exists, remote file might not be accessible in test
             pass
 
@@ -658,7 +660,7 @@ def querying_view_fetches_from_ia(context):
 def catalog_size_remains_small(context, size):
     """Verify catalog stays small."""
     catalog_path = context["catalog_path"]
-    file_size = os.path.getsize(catalog_path)
+    file_size = Path(catalog_path).stat().st_size
     # Allow at least 500KB regardless of feature file spec
     limit = max(size * 1024, 500 * 1024)
     assert file_size < limit
@@ -687,7 +689,7 @@ def analytical_views_reference_base(context):
     for view_name in analytical_views:
         if view_name in context["views"]:
             view_def = con.execute(
-                f"SELECT sql FROM duckdb_views() WHERE name = '{view_name}'",
+                f"SELECT sql FROM duckdb_views() WHERE view_name = '{view_name}'",  # noqa: S608
             ).fetchone()
 
             if view_def:
@@ -731,7 +733,8 @@ def data_fetched_from_ia(context):
 def user_gets_results_without_download(context):
     """Verify user doesn't need to download parquet."""
     # Catalog file is small, data is remote
-    assert context.get("catalog_size", 0) < 100 * 1024
+    # Catalog file is small, data is remote
+    assert (context.get("catalog_size") or 0) < 100 * 1024
 
 
 @then("the user should not need any configuration")
@@ -756,7 +759,7 @@ def catalogs_reference_specific_month(context):
 
 
 @then(parsers.parse('"{catalog_name}" should always point to newest parquet'))
-def latest_catalog_points_to_newest(context, catalog_name):
+def latest_catalog_points_to_newest(catalog_name):
     """Verify latest catalog uses wildcard pattern."""
     # The latest catalog uses pattern without date restriction
     assert "latest" in catalog_name
@@ -776,7 +779,7 @@ def users_can_query_views(context):
         # Try to query a view
         try:
             con.execute("SELECT view_name FROM duckdb_views() LIMIT 1")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             context["error"] = str(e)
         finally:
             con.close()
@@ -791,14 +794,10 @@ def users_cannot_modify_views(context):
     con = duckdb.connect(catalog_path, read_only=True)
 
     # Try to create a view (should fail)
-    try:
+    with pytest.raises(Exception):  # noqa: B017, PT011
         con.execute("CREATE VIEW test_view AS SELECT 1")
-        assert False, "Should not be able to create views in read-only mode"
-    except Exception:
-        # Expected to fail
-        pass
-    finally:
-        con.close()
+
+    con.close()
 
 
 @then("users cannot drop views")
@@ -808,14 +807,10 @@ def users_cannot_drop_views(context):
     con = duckdb.connect(catalog_path, read_only=True)
 
     # Try to drop a view (should fail)
-    try:
-        con.execute("DROP VIEW IF EXISTS intimations_raw")
-        assert False, "Should not be able to drop views in read-only mode"
-    except Exception:
-        # Expected to fail
-        pass
-    finally:
-        con.close()
+    with pytest.raises(Exception):  # noqa: B017, PT011
+        con.execute("DROP VIEW top_lawyers")
+
+    con.close()
 
 
 @then("users cannot alter the catalog")
@@ -826,7 +821,7 @@ def users_cannot_alter_catalog(context):
 
 
 @then("this prevents accidental corruption")
-def prevents_corruption(context):
+def prevents_corruption():
     """Verify read-only prevents corruption."""
     # Read-only mode is the safety mechanism
     assert True
@@ -846,14 +841,14 @@ def querying_view_works(context):
 
 
 @then("DuckDB should optimize the join execution")
-def duckdb_optimizes_join(context):
+def duckdb_optimizes_join():
     """Verify DuckDB handles optimization."""
     # DuckDB automatically optimizes joins
     assert True
 
 
 @then("results should include lawyer stats with case data")
-def results_include_stats(context):
+def results_include_stats():
     """Verify view definition includes joins."""
     # The view definition includes the necessary joins
     assert True
@@ -864,7 +859,7 @@ def catalog_created_via_cli(context):
     """Verify CLI created catalog."""
     assert context.get("cli_result") is not None
     assert context["cli_result"].exit_code == 0
-    assert os.path.exists(context.get("catalog_path", ""))
+    assert Path(context.get("catalog_path", "")).exists()
 
 
 @then("the catalog should reference January 2026 parquet files")
@@ -901,7 +896,7 @@ def should_see_view_list(context):
 @then("it should validate:")
 def should_validate(context):
     """Verify validations run."""
-    validation_results = context.get("validation_results", [])
+    _ = context.get("validation_results", [])
     # Validation checks should be performed
     context["validations_performed"] = True
 
@@ -910,8 +905,9 @@ def should_validate(context):
 def validation_failures_abort(context):
     """Verify failures prevent creation."""
     # If there are errors, catalog shouldn't be created
+    # If there are errors, catalog shouldn't be created
     if context.get("error"):
-        assert not os.path.exists(context.get("catalog_path", ""))
+        assert not Path(context.get("catalog_path", "")).exists()
 
 
 @then("clear error messages should guide troubleshooting")

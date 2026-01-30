@@ -203,8 +203,11 @@ jobs:
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          date_arg="${INPUT_DATE:-$(date -u +%Y-%m-%d)}"
-          uv run python scripts/pipeline/consolidate.py --date "$date_arg"
+          if [ -n "$INPUT_DATE" ]; then
+            uv run python scripts/pipeline/consolidate.py --date "$INPUT_DATE"
+          else
+            uv run python scripts/pipeline/consolidate.py --backfill
+          fi
 
   # ==========================================================================
   # JOB: EMBED

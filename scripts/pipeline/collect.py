@@ -30,14 +30,18 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import httpx
 import structlog
 
 from causaganha.config import TRIBUNAIS
+
+
+BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 
 
 @dataclass
@@ -112,10 +116,8 @@ def _fetch_ia_files_for_date(date_str: str) -> list[str]:
 def get_existing_files_for_dates(dates: list[str]) -> set[str]:
     """Get existing zip/absent files on IA for specific dates only.
 
-    Queries the IA metadata HTTP API once per date. With backfill_days=7
-    (weekdays only), this is ~5 requests — compared to the previous
-    approach which scanned ALL djen-* items (hundreds of requests after
-    months of data).
+    Queries the IA metadata HTTP API once per date.  The rolling window
+    (d-1) produces ~1 request; backfill batches add a bounded extra set.
     """
     if not dates:
         return set()
@@ -134,6 +136,31 @@ def get_existing_files_for_dates(dates: list[str]) -> set[str]:
 
     logger.info("existing_files_found", count=len(existing), dates_checked=len(dates))
     return existing
+
+
+def fetch_backfill_items() -> list[tuple[str, str]]:
+    """Fetch missing (date, tribunal) pairs from the catalog, sorted d-1 first.
+
+    Downloads backfill-needed.parquet from Internet Archive and returns items
+    ordered by date descending so the most recent gaps are filled first.
+    """
+    try:
+        con = duckdb.connect()
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        result = con.execute(
+            f"""
+            SELECT date, tribunal
+            FROM read_parquet('{BACKFILL_PARQUET_URL}')
+            ORDER BY date DESC
+            """,
+        ).fetchall()
+        con.close()
+        items = [(str(row[0]), str(row[1])) for row in result]
+        logger.info("backfill_items_fetched", count=len(items))
+        return items
+    except Exception as exc:
+        logger.warning("backfill_fetch_failed", error=str(exc))
+        return []
 
 
 def get_caderno_info(
@@ -215,7 +242,10 @@ def get_caderno_info(
 
 
 def download_zip(
-    client: httpx.Client, url: str, output_path: Path, max_retries: int = 2,
+    client: httpx.Client,
+    url: str,
+    output_path: Path,
+    max_retries: int = 2,
 ) -> bool:
     """Download ZIP file from DJEN using streaming to reduce memory usage.
 
@@ -410,55 +440,51 @@ def _process_item(  # noqa: PLR0913
         return "failed"
 
 
-def collect_data(  # noqa: PLR0913
+def collect_data(
     proxy_url: str,
     target_date: str | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
-    backfill_days: int = 7,
     workers: int = 8,
 ) -> dict[str, int]:
-    """Main collection function with parallel processing."""
+    """Main collection function with parallel processing.
+
+    When no target_date is given, the work queue comes straight from the
+    catalog's backfill-needed.parquet — every (date, tribunal) pair not
+    yet on Internet Archive, ordered most-recent-first (d-1, d-2, d-3 …).
+    The catalog is the single source of truth; we only verify against IA
+    to filter items collected since the last catalog rebuild (daily 06:00 UTC).
+    """
     stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Build list of (date, tribunal) pairs to process FIRST,
-    # so we know which dates to check on IA (targeted lookup).
-    to_process: list[tuple[str, str]] = []
-
-    # Fetch the current tribunal list from DJEN API, merged with fallback
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
     if target_date:
-        # Specific date
+        # Manual: specific date (+ optional tribunal filter)
         tribunais = [target_tribunal.upper()] if target_tribunal else all_tribunais
-        for tribunal in tribunais:
-            to_process.append((target_date, tribunal))
+        to_process = [(target_date, t) for t in tribunais]
     else:
-        # Backfill recent days
-        today = date.today()
-        for days_ago in range(1, backfill_days + 1):
-            d = today - timedelta(days=days_ago)
-            # Skip weekends (courts don't publish)
-            if d.weekday() >= 5:
-                continue
-            date_str = d.strftime("%Y-%m-%d")
-            for tribunal in all_tribunais:
-                to_process.append((date_str, tribunal))
+        # Autonomous: catalog tells us what's missing, d-1 first
+        to_process = fetch_backfill_items()
 
-    # Check only the dates we actually need — O(backfill_days) requests
-    # instead of scanning every djen-* item on IA (O(total_days_ever)).
-    dates_to_check = sorted({d for d, _ in to_process})
+    # Take a 3x buffer so we still have enough after filtering stale entries
+    candidates = to_process[: max_items * 3]
+
+    # Verify against IA (catalog is a daily snapshot — some items may
+    # have been collected since the last rebuild).
+    dates_to_check = sorted({d for d, _ in candidates})
     existing_files = get_existing_files_for_dates(dates_to_check)
 
-    # Pre-filter already-existing items, then apply max_items limit
     pending: list[tuple[str, str]] = []
-    for date_str, tribunal in to_process:
-        zip_name = f"djen-{date_str}-{tribunal}.zip"
-        absent_marker = f"djen-{date_str}-{tribunal}.absent"
+    for d, t in candidates:
+        zip_name = f"djen-{d}-{t}.zip"
+        absent_marker = f"djen-{d}-{t}.absent"
         if zip_name in existing_files or absent_marker in existing_files:
             stats["skipped"] += 1
         else:
-            pending.append((date_str, tribunal))
+            pending.append((d, t))
+            if len(pending) >= max_items:
+                break
 
     pending = pending[:max_items]
 
@@ -537,7 +563,6 @@ def main() -> int:
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
-    parser.add_argument("--backfill-days", type=int, default=7)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
     args = parser.parse_args()
 
@@ -545,6 +570,8 @@ def main() -> int:
     print(f"  Proxy: {args.proxy_url}")
     if args.date:
         print(f"  Date: {args.date}")
+    else:
+        print("  Source: catalog (backfill-needed.parquet, d-1 first)")
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
     print(f"  Max items: {args.max_items}")
@@ -556,7 +583,6 @@ def main() -> int:
         target_date=args.date,
         target_tribunal=args.tribunal,
         max_items=args.max_items,
-        backfill_days=args.backfill_days,
         workers=args.workers,
     )
 
