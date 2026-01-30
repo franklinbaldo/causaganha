@@ -161,7 +161,7 @@ jobs:
           INPUT_DATE: ${{ github.event.inputs.date }}
           INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
         run: |
-          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8)
+          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8 --backfill)
           [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
           [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
           uv run python scripts/pipeline/collect.py "${args[@]}"
@@ -203,8 +203,11 @@ jobs:
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          date_arg="${INPUT_DATE:-$(date -u +%Y-%m-%d)}"
-          uv run python scripts/pipeline/consolidate.py --date "$date_arg"
+          if [ -n "$INPUT_DATE" ]; then
+            uv run python scripts/pipeline/consolidate.py --date "$INPUT_DATE"
+          else
+            uv run python scripts/pipeline/consolidate.py --backfill
+          fi
 
   # ==========================================================================
   # JOB: EMBED

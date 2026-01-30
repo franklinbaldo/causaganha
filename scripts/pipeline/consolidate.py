@@ -494,6 +494,49 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
+def _needs_consolidation(date_str: str) -> bool:
+    """Check whether *date_str* has collected ZIPs but no consolidated parquets on IA."""
+    item_id = f"djen-{date_str}"
+    url = f"https://archive.org/metadata/{item_id}"
+    try:
+        resp = httpx.get(url, timeout=30)
+        if resp.status_code != 200:
+            return False
+        files = resp.json().get("files", [])
+        has_zips = False
+        has_parquets = False
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            name = f.get("name", "")
+            if name.endswith((".zip", ".absent")):
+                has_zips = True
+            if name == "comunicacoes.parquet":
+                has_parquets = True
+        return has_zips and not has_parquets
+    except Exception:
+        return False
+
+
+def find_next_unconsolidated(max_depth: int = 365) -> str | None:
+    """Walk backward from today to find the most recent date needing consolidation.
+
+    Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
+    has ZIPs on Internet Archive but no consolidated parquets.
+    Returns the date string or None if everything is consolidated.
+    """
+    today = date.today()
+    for days_ago in range(max_depth + 1):
+        d = today - timedelta(days=days_ago)
+        if d.weekday() >= 5:  # skip weekends
+            continue
+        d_str = d.strftime("%Y-%m-%d")
+        if _needs_consolidation(d_str):
+            logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
+            return d_str
+    return None
+
+
 def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files."""
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
@@ -601,32 +644,7 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -
     return stats
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Consolidate DJEN ZIPs to daily Parquets")
-    parser.add_argument("--date", required=True, help="Date to consolidate (YYYY-MM-DD)")
-    parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Consolidate even if day is not complete",
-    )
-    args = parser.parse_args()
-
-    print(f"Consolidating DJEN data for {args.date}...")
-    print(f"Schema version: {SCHEMA_VERSION}")
-    if args.dry_run:
-        print("(DRY RUN - will not upload)")
-    print()
-
-    try:
-        stats = consolidate_date(args.date, dry_run=args.dry_run, force=args.force)
-    except Exception as e:
-        logger.error("consolidation_aborted", error=str(e))
-        import traceback
-
-        traceback.print_exc()
-        return 1
-
+def _print_stats(stats: dict[str, int]) -> None:
     print()
     print("=" * 40)
     print("CONSOLIDATION SUMMARY")
@@ -636,6 +654,61 @@ def main() -> int:
     print(f"  Parquets created: {stats['parquets_created']}")
     print(f"  Uploaded:         {stats['uploaded']}")
 
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Consolidate DJEN ZIPs to daily Parquets")
+    parser.add_argument("--date", help="Date to consolidate (YYYY-MM-DD)")
+    parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Consolidate even if day is not complete",
+    )
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="Find the most recent unconsolidated date (d-1 first) and process it",
+    )
+    args = parser.parse_args()
+
+    if args.date:
+        # Explicit date — existing behaviour
+        target_date = args.date
+        use_force = args.force
+    elif args.backfill:
+        # Backfill: walk d-0 → d-1 → d-2 … until we find work
+        print("Backfill mode: scanning for unconsolidated dates (d-1 priority)...")
+        target_date_or_none = find_next_unconsolidated()
+        if target_date_or_none is None:
+            print("All dates are already consolidated. Nothing to do.")
+            return 0
+        target_date = target_date_or_none
+        # Force-consolidate historical dates — they may never reach 100% tribunal coverage
+        today_str = date.today().strftime("%Y-%m-%d")
+        use_force = args.force or (target_date != today_str)
+    else:
+        # Default: today
+        target_date = date.today().strftime("%Y-%m-%d")
+        use_force = args.force
+
+    print(f"Consolidating DJEN data for {target_date}...")
+    print(f"Schema version: {SCHEMA_VERSION}")
+    if use_force:
+        print("(FORCE mode — will consolidate even if day is incomplete)")
+    if args.dry_run:
+        print("(DRY RUN — will not upload)")
+    print()
+
+    try:
+        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force)
+    except Exception as e:
+        logger.error("consolidation_aborted", error=str(e))
+        import traceback
+
+        traceback.print_exc()
+        return 1
+
+    _print_stats(stats)
     return 0 if stats["parquets_created"] > 0 else 1
 
 
