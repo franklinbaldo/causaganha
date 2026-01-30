@@ -669,8 +669,12 @@ def _export_and_upload_table(
         return False, 0
 
 
-def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None) -> dict[str, int]:
-    """Consolidate all tribunals for a date into single Parquet files."""
+def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None, max_zips: int = 0) -> dict[str, int]:
+    """Consolidate all tribunals for a date into single Parquet files.
+
+    Args:
+        max_zips: Maximum ZIPs to process (0 = unlimited)
+    """
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
     item_id = f"djen-{date}"
 
@@ -680,6 +684,11 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
         logger.info("using_local_zips", directory=local_zips, count=len(zips))
     else:
         zips, present_count = list_zips_for_date(date)
+
+    # Limit ZIPs if max_zips specified (for backfill batching)
+    if max_zips > 0 and len(zips) > max_zips:
+        logger.info("limiting_zips", total=len(zips), max_zips=max_zips)
+        zips = zips[:max_zips]
 
     expected_count = len(TRIBUNAIS)
     if not force and present_count < expected_count:
@@ -819,6 +828,12 @@ def main() -> int:
         help="Find the most recent unconsolidated date (d-1 first) and process it",
     )
     parser.add_argument(
+        "--max-zips",
+        type=int,
+        default=0,
+        help="Maximum ZIPs to process per run (0 = unlimited, for backfill)",
+    )
+    parser.add_argument(
         "--local-zips",
         help="Use local ZIPs from directory instead of downloading from IA (for testing)",
     )
@@ -853,7 +868,7 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips)
+        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips, max_zips=args.max_zips)
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback

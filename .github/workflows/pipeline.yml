@@ -164,8 +164,8 @@ jobs:
         env:
           INPUT_DATE: ${{ github.event.inputs.date }}
         run: |
-          args=(--deadline 10m --backfill)
-          [ -n "$INPUT_DATE" ] && args=(--date "$INPUT_DATE")
+          args=(--deadline 10m --backfill --max-zips 15)
+          [ -n "$INPUT_DATE" ] && args=(--date "$INPUT_DATE" --max-zips 15)
           uv run python scripts/pipeline/consolidate.py "${args[@]}"
 
   # ==========================================================================
