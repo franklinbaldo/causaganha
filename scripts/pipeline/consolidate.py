@@ -22,6 +22,7 @@ import time
 import unicodedata
 import uuid
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -604,6 +605,44 @@ def find_next_unconsolidated(max_depth: int = 365) -> str | None:
     return None
 
 
+def _export_and_upload_table(
+    table_name: str,
+    con: ibis.BaseBackend,
+    output_dir: Path,
+    item_id: str,
+    dry_run: bool,
+) -> tuple[bool, int]:
+    """Export single table to Parquet and upload. Returns (success, parquets_created)."""
+    try:
+        t = con.table(table_name)
+        count = t.count().to_pandas()
+        if count == 0:
+            return False, 0
+
+        output_path = output_dir / f"{table_name}.parquet"
+        con.raw_sql(
+            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+        )
+        size_mb = output_path.stat().st_size / (1024 * 1024)
+        logger.info(
+            "parquet_created",
+            table=table_name,
+            rows=count,
+            size_mb=f"{size_mb:.1f}",
+        )
+
+        # Upload if not dry run
+        uploaded = 0
+        if not dry_run and upload_to_ia(item_id, output_path):
+            uploaded = 1
+            logger.info("uploaded", table=table_name)
+
+        return True, uploaded
+    except Exception as e:
+        logger.error("parquet_export_failed", table=table_name, error=str(e))
+        return False, 0
+
+
 def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files."""
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
@@ -675,38 +714,23 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False) -
             # Clean up to save disk space
             zip_path.unlink()
 
-        # Write consolidated Parquet files
+        # Write consolidated Parquet files (PARALLEL)
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        for table_name in TABLES:
-            t = con.table(table_name)
-            count = t.count().to_pandas()  # to_pandas() is used here just for the scalar count
-            if count == 0:
-                continue
+        logger.info("exporting_parquets", table_count=len(TABLES), concurrent_workers=3)
 
-            output_path = output_dir / f"{table_name}.parquet"
-            try:
-                # Use DuckDB raw export via Ibis for ZSTD compression support
-                # Ibis doesn't expose all Parquet options directly in a unified way easily for ZSTD
-                con.raw_sql(
-                    f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-                )
-                stats["parquets_created"] += 1
-                size_mb = output_path.stat().st_size / (1024 * 1024)
-                logger.info(
-                    "parquet_created",
-                    table=table_name,
-                    rows=count,
-                    size_mb=f"{size_mb:.1f}",
-                )
-
-                # Upload if not dry run
-                if not dry_run and upload_to_ia(item_id, output_path):
-                    stats["uploaded"] += 1
-                    logger.info("uploaded", table=table_name)
-            except Exception as e:
-                logger.error("parquet_export_failed", table=table_name, error=str(e))
+        # Export tables in parallel (2-3 concurrent workers)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(_export_and_upload_table, table_name, con, output_dir, item_id, dry_run)
+                for table_name in TABLES
+            ]
+            for future in futures:
+                success, uploaded = future.result()
+                if success:
+                    stats["parquets_created"] += 1
+                    stats["uploaded"] += uploaded
 
     return stats
 
