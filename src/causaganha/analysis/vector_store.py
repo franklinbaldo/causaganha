@@ -3,9 +3,15 @@
 from pathlib import Path
 from typing import Any
 
-import lancedb
 import structlog
-from lancedb.table import Table
+
+
+try:
+    import lancedb
+    from lancedb.table import Table
+except ImportError:
+    lancedb = None  # type: ignore[assignment]
+    Table = Any  # type: ignore[assignment]
 
 
 logger = structlog.get_logger()
@@ -25,17 +31,23 @@ class VectorStore:
         """
         self.db_path = Path(db_path)
         self.db_path.mkdir(parents=True, exist_ok=True)
-        self.db: lancedb.DBConnection | None = None
+        self.db: Any | None = None
 
         logger.info("vector_store_initialized", db_path=str(self.db_path))
 
-    def connect(self) -> lancedb.DBConnection:
+    def connect(self) -> Any:  # noqa: ANN401
         """Connect to LanceDB database.
 
         Returns:
             Database connection.
         """
         if self.db is None:
+            if lancedb is None:
+                msg = (
+                    "lancedb is not installed. Please install with "
+                    "`uv pip install lancedb` or `uv pip install causaganha[embeddings]`"
+                )
+                raise ImportError(msg)
             self.db = lancedb.connect(str(self.db_path))
             logger.info("vector_store_connected", db_path=str(self.db_path))
 
@@ -74,13 +86,15 @@ class VectorStore:
             ValueError: If data is empty or invalid.
         """
         if not data:
-            raise ValueError("Cannot create table with empty data")
+            msg = "Cannot create table with empty data"
+            raise ValueError(msg)
 
         db = self.connect()
 
         # Validate data structure
         if "vector" not in data[0]:
-            raise ValueError("Data records must have 'vector' field")
+            msg = "Data records must have 'vector' field"
+            raise ValueError(msg)
 
         logger.info(
             "creating_table",
@@ -112,7 +126,8 @@ class VectorStore:
             ValueError: If table doesn't exist.
         """
         if not self.table_exists(table_name):
-            raise ValueError(f"Table '{table_name}' does not exist")
+            msg = f"Table '{table_name}' does not exist"
+            raise ValueError(msg)
 
         db = self.connect()
         return db.open_table(table_name)
@@ -181,8 +196,8 @@ class VectorStore:
             results = results.select(columns)
 
         # Convert to list of dicts
-        df = results.to_pandas()
-        records = df.to_dict("records")
+        results_df = results.to_pandas()
+        records = results_df.to_dict("records")
 
         logger.debug(
             "search_complete",
@@ -219,11 +234,11 @@ class VectorStore:
         table = self.get_table(table_name)
 
         # Get record count
-        df = table.to_pandas()
-        num_records = len(df)
+        table_df = table.to_pandas()
+        num_records = len(table_df)
 
         # Get schema
-        schema = df.dtypes.to_dict()
+        schema = table_df.dtypes.to_dict()
 
         info = {
             "table_name": table_name,
