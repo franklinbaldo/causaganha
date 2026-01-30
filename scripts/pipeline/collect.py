@@ -40,9 +40,8 @@ import structlog
 
 from causaganha.config import TRIBUNAIS
 
-BACKFILL_PARQUET_URL = (
-    "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
-)
+
+BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 
 
 @dataclass
@@ -243,7 +242,10 @@ def get_caderno_info(
 
 
 def download_zip(
-    client: httpx.Client, url: str, output_path: Path, max_retries: int = 2,
+    client: httpx.Client,
+    url: str,
+    output_path: Path,
+    max_retries: int = 2,
 ) -> bool:
     """Download ZIP file from DJEN using streaming to reduce memory usage.
 
@@ -438,7 +440,7 @@ def _process_item(  # noqa: PLR0913
         return "failed"
 
 
-def collect_data(  # noqa: PLR0913
+def collect_data(
     proxy_url: str,
     target_date: str | None = None,
     target_tribunal: str | None = None,
@@ -465,7 +467,7 @@ def collect_data(  # noqa: PLR0913
         # Autonomous: catalog tells us what's missing, d-1 first
         to_process = fetch_backfill_items()
 
-    # Take a 3× buffer so we still have enough after filtering stale entries
+    # Take a 3x buffer so we still have enough after filtering stale entries
     candidates = to_process[: max_items * 3]
 
     # Verify against IA (catalog is a daily snapshot — some items may
