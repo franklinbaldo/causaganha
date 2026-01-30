@@ -48,7 +48,8 @@ const { health } = Astro.props;
       el.textContent = new Date().toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
+        second: '2-digit',
+        timeZone: 'America/Sao_Paulo'
       });
     }
   }

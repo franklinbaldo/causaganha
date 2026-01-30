@@ -104,6 +104,9 @@ export const LABELS = {
     },
 } as const;
 
+// Brasília timezone (UTC-3)
+export const TIMEZONE = 'America/Sao_Paulo';
+
 // Refresh interval (5 minutes)
 export const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
