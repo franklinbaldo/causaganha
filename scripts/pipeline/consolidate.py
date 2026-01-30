@@ -757,9 +757,25 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
 
         # Batch insert all accumulated rows (single insert per table)
         for table_name in TABLES:
-            if accumulated_rows[table_name]:
-                data = ibis.memtable(accumulated_rows[table_name], schema=TABLE_SCHEMAS[table_name])
-                con.insert(table_name, data)
+            if not accumulated_rows[table_name]:
+                continue
+
+            rows = accumulated_rows[table_name]
+
+            # Deduplicate partes by ID to reduce data volume
+            if table_name == "partes":
+                seen_ids = set()
+                deduped_rows = []
+                for row in rows:
+                    row_id = row.get("id")
+                    if row_id and row_id not in seen_ids:
+                        seen_ids.add(row_id)
+                        deduped_rows.append(row)
+                logger.info("deduplicating_parties", original=len(rows), deduplicated=len(deduped_rows))
+                rows = deduped_rows
+
+            data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
+            con.insert(table_name, data)
 
         # Write consolidated Parquet files (SEQUENTIAL)
         output_dir = tmp_path / "output"
