@@ -15,14 +15,15 @@
 #
 # SCHEDULE:
 # ---------
-# The workflow runs every 5 minutes but not all jobs run every time:
+# Each job has its own cron trigger. Jobs filter on github.event.schedule
+# to only run when their specific cron fires:
 #
-#   Job          | Frequency    | Condition
+#   Job          | Frequency    | Cron expression
 #   -------------|--------------|------------------------------------------
-#   collect      | Every 5 min  | Always runs
-#   convert      | Every 10 min | Runs on even 10-minute marks (0,10,20...)
-#   embed        | Every hour   | Runs at minute 0 of each hour
-#   catalog      | Daily 6 AM   | Runs once per day at 06:00 UTC
+#   collect      | Every 5 min  | */5 * * * *
+#   consolidate  | Every 10 min | 0,10,20,30,40,50 * * * *
+#   embed        | Every hour   | 5 * * * *
+#   catalog      | Daily 6 AM   | 0 6 * * *
 #
 # DATA FLOW:
 # ----------
@@ -74,8 +75,14 @@ name: Data Pipeline
 
 on:
   schedule:
-    # Run every 5 minutes
+    # Collect: every 5 minutes
     - cron: '*/5 * * * *'
+    # Consolidate: every 10 minutes (even marks)
+    - cron: '0,10,20,30,40,50 * * * *'
+    # Embed: every hour at minute 5
+    - cron: '5 * * * *'
+    # Catalog: daily at 06:00 UTC
+    - cron: '0 6 * * *'
 
   workflow_dispatch:
     inputs:
@@ -108,7 +115,6 @@ concurrency:
 
 env:
   DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
-  PYTHON_VERSION: '3.12'
 
 jobs:
   # ==========================================================================
@@ -135,16 +141,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --no-dev
+          dev: "false"
 
       - name: Configure Internet Archive
         run: |
@@ -173,10 +172,9 @@ jobs:
     environment: dev
     needs: collect
 
-    # Run every 10 minutes (when minute is 0, 10, 20, 30, 40, 50)
-    # Or when manually triggered with job=convert|all
+    # Run on the 10-minute cron schedule, or manual trigger
     if: |
-      (github.event_name == 'schedule' && contains('0,10,20,30,40,50', format('{0}', github.run_number))) ||
+      (github.event_name == 'schedule' && github.event.schedule == '0,10,20,30,40,50 * * * *') ||
       github.event.inputs.job == 'convert' ||
       github.event.inputs.job == 'all'
 
@@ -186,16 +184,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --no-dev
+          dev: "false"
 
       - name: Configure Internet Archive
         run: |
@@ -219,11 +210,9 @@ jobs:
     timeout-minutes: 55
     needs: consolidate
 
-    # Run hourly (when minute is approximately 0)
-    # GitHub Actions cron doesn't guarantee exact timing, so we check run_number
-    # Or when manually triggered with job=embed|all
+    # Run on the hourly cron schedule, or manual trigger
     if: |
-      (github.event_name == 'schedule' && contains('0,12,24,36,48,60,72,84,96,108,120', format('{0}', github.run_number))) ||
+      (github.event_name == 'schedule' && github.event.schedule == '5 * * * *') ||
       github.event.inputs.job == 'embed' ||
       github.event.inputs.job == 'all'
 
@@ -234,21 +223,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          dev: "false"
 
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --no-dev
+      - name: Get current date
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Restore embedding cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data/embeddings.duckdb
-          key: embeddings-${{ github.run_number }}
+          key: embeddings-${{ steps.date.outputs.today }}
           restore-keys: embeddings-
 
       - name: Run embedding generation
@@ -258,11 +245,11 @@ jobs:
             --timeout-minutes 50
 
       - name: Save embedding cache
-        if: always()
+        if: success()
         uses: actions/cache/save@v4
         with:
           path: data/embeddings.duckdb
-          key: embeddings-${{ github.run_number }}
+          key: embeddings-${{ steps.date.outputs.today }}
 
   # ==========================================================================
   # JOB: CATALOG
@@ -277,10 +264,10 @@ jobs:
     environment: dev
     needs: [collect, consolidate, embed]  # Wait for all parallel jobs
 
-    # Run if ANY of the upstream jobs succeeded (data may have changed)
-    # Or when manually triggered with job=catalog|all
+    # Run on the daily cron, if any upstream job succeeded, or manual trigger
     if: |
       always() && (
+        (github.event_name == 'schedule' && github.event.schedule == '0 6 * * *') ||
         needs.collect.result == 'success' ||
         needs.consolidate.result == 'success' ||
         needs.embed.result == 'success' ||
@@ -294,16 +281,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install uv internetarchive
-          uv sync --no-dev
+          dev: "false"
 
       - name: Configure Internet Archive
         run: |
@@ -344,16 +324,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync --no-dev
+          dev: "false"
 
       - name: Generate dashboard cache
         run: |
