@@ -86,12 +86,14 @@ djen-scraper/            # Scraping infrastructure (separate)
 └── scripts/             # consolidate.py
 
 .github/workflows/       # Automated pipelines
-├── pipeline.yml         # Main data pipeline (collect/convert/embed/catalog)
+├── pipeline.yml         # Main data pipeline (single job, calls run.py)
 └── test.yml             # CI/CD
 
 scripts/
 ├── generate_catalog.py  # Catalog generation script
+├── generate_dashboard_cache.py  # Dashboard cache generation
 └── pipeline/            # Pipeline step scripts
+    ├── run.py           # Orchestrator (pure functions + impure boundary)
     ├── collect.py       # Download from DJEN → upload ZIP/Absent to IA
     ├── consolidate.py   # Atomic ZIP → Parquet consolidation
     └── embed.py         # Generate embeddings
