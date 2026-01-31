@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CausaGanha Data Pipeline - Single entry point.
 
-Orchestrates all pipeline steps sequentially:
-  collect -> consolidate -> embed -> catalog -> dashboard-cache
+Orchestrates pipeline steps with parallel initial execution:
+  [collect | consolidate | embed] -> catalog -> dashboard-cache
 
 GitHub Actions calls this script with minimal YAML. All pipeline
 logic lives here for easier debugging and local development.
@@ -10,7 +10,7 @@ logic lives here for easier debugging and local development.
 Design:
   - Pure functions for all logic (planning, command building, state)
   - Frozen dataclasses for immutable state
-  - Vectorized tuple operations (no mutable lists in core logic)
+  - Tuple concatenation for command building (no mutable lists in core logic)
   - Impure boundary limited to execute_step / main
 
 Usage:
@@ -32,6 +32,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -210,10 +211,7 @@ def build_step_cmd(step_name: str, config: PipelineConfig) -> tuple[str, ...]:
 
 
 def filter_initial_steps(job: str) -> tuple[str, ...]:
-    """Determine which initial steps to run based on job selection.
-
-    Vectorized: returns the full batch of step names at once.
-    """
+    """Determine which initial steps to run based on job selection."""
     if job == "all":
         return INITIAL_STEPS
     if job in INITIAL_STEPS:
@@ -222,10 +220,7 @@ def filter_initial_steps(job: str) -> tuple[str, ...]:
 
 
 def plan_initial_steps(config: PipelineConfig) -> tuple[StepPlan, ...]:
-    """Plan the initial (unconditional) steps.
-
-    Vectorized: maps all step names to StepPlan objects in one pass.
-    """
+    """Plan the initial (unconditional) steps."""
     names = filter_initial_steps(config.job)
     return tuple(StepPlan(name=n, cmd=build_step_cmd(n, config)) for n in names)
 
@@ -264,10 +259,7 @@ def plan_dashboard_step(
 
 
 def parse_step_outputs(text: str) -> dict[str, str]:
-    """Parse key=value pairs from step output text.
-
-    Vectorized: splits all lines, filters, and extracts in tuple ops.
-    """
+    """Parse key=value pairs from step output text."""
     lines: tuple[str, ...] = tuple(line.strip() for line in text.splitlines())
     pairs: tuple[tuple[str, str, str], ...] = tuple(
         line.partition("=") for line in lines if "=" in line
@@ -326,6 +318,11 @@ def format_pipeline_summary(state: PipelineState) -> str:
     )
 
 
+def has_failures(state: PipelineState) -> bool:
+    """Check whether any step in the pipeline failed."""
+    return any(not r.success for r in state.results)
+
+
 def format_github_output(state: PipelineState) -> str:
     """Format key=value pairs for $GITHUB_OUTPUT."""
     return (
@@ -336,18 +333,16 @@ def format_github_output(state: PipelineState) -> str:
 
 def format_github_summary(job: str, state: PipelineState) -> str:
     """Format markdown for $GITHUB_STEP_SUMMARY."""
-    parts: tuple[str, ...] = (
+    lines = (
         "## Pipeline Summary\n",
         f"- **Job**: {job}",
         f"- **Files added**: {state.files_added}",
         f"- **Catalog updated**: {state.catalog_updated}",
     )
-    catalog_link: tuple[str, ...] = (
-        ("\n[Catalog](https://archive.org/download/causaganha-catalog/catalog.duckdb)",)
-        if state.catalog_updated
-        else ()
-    )
-    return "\n".join((*parts, *catalog_link)) + "\n"
+    body = "\n".join(lines)
+    if state.catalog_updated:
+        body += "\n\n[Catalog](https://archive.org/download/causaganha-catalog/catalog.duckdb)"
+    return body + "\n"
 
 
 # ── Impure Boundary: Execution ────────────────────────────────
@@ -393,9 +388,29 @@ def execute_plans(
     state: PipelineState,
     cwd: str,
 ) -> PipelineState:
-    """Execute a batch of planned steps, folding results into state (impure)."""
+    """Execute steps sequentially, folding results into state (impure)."""
     for plan in plans:
         result = execute_step(plan, cwd)
+        state = update_state(state, result)
+    return state
+
+
+def execute_plans_parallel(
+    plans: tuple[StepPlan, ...],
+    state: PipelineState,
+    cwd: str,
+) -> PipelineState:
+    """Execute steps concurrently, folding results into state (impure).
+
+    Used for initial steps (collect, consolidate, embed) which operate
+    on different date cohorts and are independent of each other.
+    """
+    if len(plans) <= 1:
+        return execute_plans(plans, state, cwd)
+    with ThreadPoolExecutor(max_workers=len(plans)) as pool:
+        futures = tuple(pool.submit(execute_step, plan, cwd) for plan in plans)
+        results = tuple(f.result() for f in futures)
+    for result in results:
         state = update_state(state, result)
     return state
 
@@ -449,9 +464,9 @@ def main() -> int:
     sys.stdout.write(format_pipeline_header(config) + "\n")
     sys.stdout.flush()
 
-    # Phase 1: initial steps (vectorized planning)
+    # Phase 1: initial steps run concurrently (independent date cohorts)
     initial_plans = plan_initial_steps(config)
-    state = execute_plans(initial_plans, EMPTY_STATE, config.repo_root)
+    state = execute_plans_parallel(initial_plans, EMPTY_STATE, config.repo_root)
 
     # Phase 2: catalog (conditional on files_added)
     catalog_plans = plan_catalog_step(config, state)
@@ -471,7 +486,7 @@ def main() -> int:
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
         write_file(gh_summary, format_github_summary(config.job, state))
 
-    return 0
+    return 1 if has_failures(state) else 0
 
 
 if __name__ == "__main__":

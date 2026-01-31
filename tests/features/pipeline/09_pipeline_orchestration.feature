@@ -143,6 +143,24 @@ Feature: Pipeline Orchestration
     And I add another result named "embed" with output key "files_added" and value "false"
     Then the state files_added should be true
 
+  @pipeline @state
+  Scenario: No failures in empty state
+    When I create an empty pipeline state
+    And I check for failures
+    Then the failure check should be false
+
+  @pipeline @state
+  Scenario: Detect failure when a step failed
+    Given a state with one failed step
+    When I check for failures
+    Then the failure check should be true
+
+  @pipeline @state
+  Scenario: No failure when all steps succeed
+    Given a state with one successful step
+    When I check for failures
+    Then the failure check should be false
+
   # ==============================================================================
   # TIER 4: STEP PLANNING
   # ==============================================================================

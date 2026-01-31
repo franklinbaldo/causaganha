@@ -34,6 +34,7 @@ from run import (
     format_pipeline_summary,
     format_step_footer,
     format_step_header,
+    has_failures,
     make_config,
     parse_step_outputs,
     plan_catalog_step,
@@ -148,6 +149,21 @@ def test_state_accumulates() -> None:
 
 @scenario(FEATURE, "State preserves files_added across updates")
 def test_state_preserves() -> None:
+    pass
+
+
+@scenario(FEATURE, "No failures in empty state")
+def test_no_failures_empty() -> None:
+    pass
+
+
+@scenario(FEATURE, "Detect failure when a step failed")
+def test_has_failures_true() -> None:
+    pass
+
+
+@scenario(FEATURE, "No failure when all steps succeed")
+def test_has_failures_false() -> None:
     pass
 
 
@@ -447,6 +463,18 @@ def given_output_text_empty(context: dict[str, Any]) -> None:
     context["raw_text"] = ""
 
 
+@given("a state with one failed step")
+def given_state_with_failure(context: dict[str, Any]) -> None:
+    failed = StepResult(name="collect", success=False, outputs={})
+    context["state"] = update_state(EMPTY_STATE, failed)
+
+
+@given("a state with one successful step")
+def given_state_all_success(context: dict[str, Any]) -> None:
+    ok = StepResult(name="collect", success=True, outputs={"files_added": "true"})
+    context["state"] = update_state(EMPTY_STATE, ok)
+
+
 @given(parsers.parse('a step called "{name}" with command "{cmd_str}"'))
 def given_step_name_cmd(context: dict[str, Any], name: str, cmd_str: str) -> None:
     context["step_name"] = name
@@ -580,6 +608,11 @@ def when_add_another_result(
 ) -> None:
     second = StepResult(name=name, success=True, outputs={key: value})
     context["state"] = update_state(context["state"], second)
+
+
+@when("I check for failures")
+def when_check_failures(context: dict[str, Any]) -> None:
+    context["bool_result"] = has_failures(context["state"])
 
 
 @when("I format the GitHub output")
@@ -724,6 +757,11 @@ def then_decision_true(context: dict[str, Any]) -> None:
 @then("the decision should be false")
 def then_decision_false(context: dict[str, Any]) -> None:
     assert context["bool_result"] is False
+
+
+@then(parsers.parse("the failure check should be {expected}"))
+def then_failure_check(context: dict[str, Any], expected: str) -> None:
+    assert context["bool_result"] == (expected == "true")
 
 
 # ── Parsed outputs ────────────────────────────────────────────
