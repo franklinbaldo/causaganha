@@ -4,6 +4,8 @@
 This script downloads judicial communications from the DJEN API and uploads
 them to Internet Archive for permanent archival.
 
+Uses asyncio to avoid GIL issues on Windows with httpx socket operations.
+
 Usage:
     # Collect recent data (default: last 7 days)
     python scripts/pipeline/collect.py
@@ -16,19 +18,16 @@ Usage:
 
     # Limit number of items
     python scripts/pipeline/collect.py --max-items 10
-
-    # Control parallelism (default: 8 workers)
-    python scripts/pipeline/collect.py --workers 8
 """
 
 import argparse
+import asyncio
 import configparser
 import hashlib
 import json
 import os
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -90,8 +89,8 @@ def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
         return list(TRIBUNAIS)
 
 
-def _fetch_ia_files_for_date(date_str: str) -> list[str]:
-    """Fetch zip/absent filenames for a single date from IA metadata API.
+async def _fetch_ia_files_for_date_async(client: httpx.AsyncClient, date_str: str) -> list[str]:
+    """Fetch zip/absent filenames for a single date from IA metadata API (async).
 
     Uses the lightweight HTTP metadata endpoint (one request per date)
     instead of the heavy internetarchive library search which scans
@@ -100,7 +99,7 @@ def _fetch_ia_files_for_date(date_str: str) -> list[str]:
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}"
     try:
-        resp = httpx.get(url, timeout=30)
+        resp = await client.get(url, timeout=30)
         if resp.status_code != 200:
             return []
         data = resp.json()
@@ -113,29 +112,37 @@ def _fetch_ia_files_for_date(date_str: str) -> list[str]:
         return []
 
 
-def get_existing_files_for_dates(dates: list[str]) -> set[str]:
-    """Get existing zip/absent files on IA for specific dates only.
+async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
+    """Get existing zip/absent files on IA for specific dates only (async).
 
-    Queries the IA metadata HTTP API once per date.  The rolling window
-    (d-1) produces ~1 request; backfill batches add a bounded extra set.
+    Queries the IA metadata HTTP API once per date, using asyncio for
+    concurrent requests. The rolling window (d-1) produces ~1 request;
+    backfill batches add a bounded extra set.
+
+    Uses asyncio instead of threading to avoid GIL issues on Windows.
     """
     if not dates:
         return set()
 
     logger.info("checking_existing_files", dates_count=len(dates))
-    existing: set[str] = set()
 
-    with ThreadPoolExecutor(max_workers=min(4, len(dates))) as executor:
-        futures = {executor.submit(_fetch_ia_files_for_date, d): d for d in dates}
-        for future in as_completed(futures):
-            try:
-                for filename in future.result():
-                    existing.add(filename)
-            except Exception:
-                pass
+    async with httpx.AsyncClient() as client:
+        tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    existing: set[str] = set()
+    for result in results:
+        if isinstance(result, list):
+            for filename in result:
+                existing.add(filename)
 
     logger.info("existing_files_found", count=len(existing), dates_checked=len(dates))
     return existing
+
+
+def get_existing_files_for_dates(dates: list[str]) -> set[str]:
+    """Sync wrapper for get_existing_files_for_dates_async."""
+    return asyncio.run(get_existing_files_for_dates_async(dates))
 
 
 def fetch_backfill_items() -> list[tuple[str, str]]:
@@ -535,27 +542,23 @@ def collect_data(
             limits=pool_limits,
             headers={"Authorization": ia_auth},
         ) as upload_client,
-        ThreadPoolExecutor(max_workers=workers) as executor,
     ):
-        futures = {
-            executor.submit(
-                _process_item,
-                api_client,
-                dl_client,
-                upload_client,
-                proxy_url,
-                date_str,
-                tribunal,
-            ): (date_str, tribunal)
-            for date_str, tribunal in pending
-        }
-        for future in as_completed(futures):
+        # Process items sequentially instead of using ThreadPoolExecutor
+        # ThreadPoolExecutor + httpx causes GIL issues on Windows
+        # Sequential processing is slower but stable
+        for date_str, tribunal in pending:
             try:
-                result = future.result()
+                result = _process_item(
+                    api_client,
+                    dl_client,
+                    upload_client,
+                    proxy_url,
+                    date_str,
+                    tribunal,
+                )
                 stats[result] += 1
             except Exception:
-                dt, trib = futures[future]
-                logger.exception("worker_error", date=dt, tribunal=trib)
+                logger.exception("worker_error", date=date_str, tribunal=tribunal)
                 stats["failed"] += 1
 
     return stats
