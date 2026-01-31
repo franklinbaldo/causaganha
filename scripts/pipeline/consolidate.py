@@ -20,7 +20,6 @@ import os
 import subprocess
 import tempfile
 import time
-import unicodedata
 import uuid
 import zipfile
 from datetime import date, timedelta
@@ -182,114 +181,89 @@ def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _str(val: Any) -> str:
-    """Safe string conversion."""
-    if val is None:
-        return ""
-    return str(val).strip()
+def _register_udfs(con: ibis.BaseBackend) -> None:
+    """Register Python scalar UDFs for computations DuckDB cannot do natively.
 
-
-def _parse_date(val: Any) -> date | None:
-    """Parse a date string (YYYY-MM-DD or ISO-8601) to a date object."""
-    if val is None:
-        return None
-    s = str(val).strip()
-    if not s:
-        return None
-    try:
-        # Handle both "2026-01-15" and "2026-01-15T00:00:00"
-        return date.fromisoformat(s[:10])
-    except (ValueError, IndexError):
-        return None
-
-
-def _normalize_name(name: str) -> str:
-    """Normalize a party name for deduplication.
-
-    Strips accents, uppercases, collapses whitespace, removes trailing
-    punctuation artefacts.
+    Only uuid5 requires Python — name normalization uses DuckDB's built-in
+    strip_accents() + UPPER() + REGEXP_REPLACE().
     """
-    # NFKD decomposition → strip combining marks (accents)
-    s = unicodedata.normalize("NFKD", name)
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    # Uppercase + collapse whitespace
-    return " ".join(s.upper().split())
+    import duckdb
+
+    namespace = NAMESPACE_DJEN
+
+    def djen_uuid5(s: str) -> str | None:
+        if s is None:
+            return None
+        return str(uuid.uuid5(namespace, s))
+
+    con.con.create_function(
+        "djen_uuid5",
+        djen_uuid5,
+        [duckdb.typing.VARCHAR],
+        duckdb.typing.VARCHAR,
+    )
 
 
-def _uuid5(data: dict[str, Any]) -> str:
-    """Generate deterministic UUIDv5 from dictionary."""
-    canonical = json.dumps(data)
-    return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
+# ---------------------------------------------------------------------------
+# SQL building blocks
+# ---------------------------------------------------------------------------
+# Reusable SQL fragments to avoid repetition in table templates.
 
+# Parse date from either snake_case or camelCase DJEN field
+_SQL_DATE = """TRY_CAST(LEFT(COALESCE(
+    CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR),
+    ''), 10) AS DATE)"""
 
-def _enrich_records(
-    records: list[dict[str, Any]],
-    tribunal: str,
-    item_id: str,
-) -> list[dict[str, Any]]:
-    """Enrich raw JSON records with computed UUIDs for DuckDB vectorized processing.
+# Partition columns derived from the date
+_SQL_P_ANO = f"COALESCE(YEAR({_SQL_DATE}), 0)"
+_SQL_P_MES = f"COALESCE(MONTH({_SQL_DATE}), 0)"
 
-    Only computes values that require Python (UUIDv5 via json.dumps serialization).
-    All flattening, projection, cross-joins, and deduplication are deferred to
-    DuckDB UNNEST.
-    """
-    enriched: list[dict[str, Any]] = []
-    for record in records:
-        if not isinstance(record, dict):
-            continue
+# Communication UUID: hash of DJEN original id + tribunal
+_SQL_COM_ID = "djen_uuid5(COALESCE(CAST(r.id AS VARCHAR), '') || ':' || r._tribunal)"
 
-        # Communication UUID: hash of full record + tribunal
-        com_id = _uuid5({**record, "tribunal": tribunal})
+# Text UUID: content-addressed hash of the text itself
+_SQL_TEXTO_ID = "djen_uuid5(COALESCE(TRIM(CAST(r.texto AS VARCHAR)), ''))"
 
-        # Text UUID: content-addressed
-        texto = record.get("texto")
-        texto_id = _uuid5({"texto": _str(texto)}) if texto else ""
+# Name normalization: strip accents, uppercase, collapse whitespace (pure SQL)
+_SQL_NORMALIZE = (
+    "UPPER(TRIM(REGEXP_REPLACE(strip_accents("
+    "COALESCE(CAST({field} AS VARCHAR), '')"
+    "), '\\s+', ' ', 'g')))"
+)
 
-        # Enrich destinatarios with computed parte_id
-        for dest in record.get("destinatarios") or []:
-            if isinstance(dest, dict):
-                nome = _str(dest.get("nome"))
-                nome_norm = _normalize_name(nome) if nome else ""
-                dest["_parte_id"] = _uuid5({"nome_normalizado": nome_norm}) if nome_norm else ""
-                dest["_nome_normalizado"] = nome_norm
+# Party UUID: hash of normalized name
+_SQL_PARTE_ID = f"djen_uuid5({_SQL_NORMALIZE.format(field='d.nome')})"
 
-        # Enrich advogados with computed global ID
-        for da in record.get("destinatarioadvogados") or []:
-            if isinstance(da, dict):
-                adv = da.get("advogado") or {}
-                oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
-                uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
-                orig_id = _str(adv.get("id") or da.get("advogado_id"))
-                if oab and uf:
-                    da["_adv_global_id"] = _uuid5({"oab": oab, "uf": uf})
-                else:
-                    da["_adv_global_id"] = _uuid5(
-                        {"nome": _str(adv.get("nome")), "tribunal": tribunal, "orig_id": orig_id},
-                    )
+# Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id
+_SQL_OAB = (
+    "COALESCE(TRIM(CAST(COALESCE(da.advogado.numero_oab, da.advogado.numeroOAB) AS VARCHAR)), '')"
+)
+_SQL_UF = "COALESCE(TRIM(CAST(COALESCE(da.advogado.uf_oab, da.advogado.ufOAB) AS VARCHAR)), '')"
+_SQL_ADV_GLOBAL_ID = f"""CASE
+    WHEN {_SQL_OAB} != '' AND {_SQL_UF} != ''
+    THEN djen_uuid5({_SQL_OAB} || ':' || {_SQL_UF})
+    ELSE djen_uuid5(
+        COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '') || ':' ||
+        r._tribunal || ':' ||
+        COALESCE(TRIM(CAST(COALESCE(da.advogado.id, da.advogado_id) AS VARCHAR)), ''))
+END"""
 
-        record["_com_id"] = com_id
-        record["_texto_id"] = texto_id
-        record["_tribunal"] = tribunal
-        record["_item_id"] = item_id
-        enriched.append(record)
+# ---------------------------------------------------------------------------
+# SQL templates — all transformation happens here, no Python loops needed.
+# DuckDB UNNEST replaces the old parse_records() triple-nested Python loops.
+# UUIDs are computed inline via the djen_uuid5() scalar UDF.
+# ---------------------------------------------------------------------------
 
-    return enriched
-
-
-# SQL templates for vectorized table creation from raw enriched records.
-# DuckDB UNNEST replaces the triple-nested Python loops in the old parse_records().
-
-_SQL_COMUNICACOES = """
+_SQL_COMUNICACOES = f"""
 INSERT INTO comunicacoes
 SELECT
-    r._com_id                                                        AS id,
+    {_SQL_COM_ID}                                                    AS id,
     COALESCE(TRIM(CAST(r.id AS VARCHAR)), '')                        AS original_id,
     r._tribunal                                                      AS tribunal,
     COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
                                                                      AS numero_processo,
     COALESCE(TRIM(CAST(r.numeroprocessocommascara AS VARCHAR)), '')   AS numero_processo_mascara,
-    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
-                                                                     AS data_disponibilizacao,
+    {_SQL_DATE}                                                      AS data_disponibilizacao,
     COALESCE(TRIM(CAST(r.tipoComunicacao AS VARCHAR)), '')            AS tipo_comunicacao,
     COALESCE(TRIM(CAST(COALESCE(r.nomeOrgao, r.orgao) AS VARCHAR)), '')
                                                                      AS nome_orgao,
@@ -301,104 +275,94 @@ SELECT
     COALESCE(TRIM(CAST(r.numeroComunicacao AS VARCHAR)), '')          AS numero_comunicacao,
     COALESCE(TRIM(CAST(r.hash AS VARCHAR)), '')                       AS hash,
     CURRENT_TIMESTAMP                                                 AS processed_at,
-    r._texto_id                                                       AS texto_id,
-    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                     AS p_ano,
-    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                     AS p_mes,
+    CASE WHEN r.texto IS NOT NULL AND TRIM(CAST(r.texto AS VARCHAR)) != ''
+         THEN {_SQL_TEXTO_ID} ELSE '' END                            AS texto_id,
+    {_SQL_P_ANO}                                                     AS p_ano,
+    {_SQL_P_MES}                                                     AS p_mes,
     r._item_id                                                        AS p_item_ia
 FROM raw_records r
 """
 
-_SQL_TEXTOS = """
+_SQL_TEXTOS = f"""
 INSERT INTO textos
 SELECT DISTINCT
-    r._texto_id                              AS id,
+    {_SQL_TEXTO_ID}                              AS id,
     COALESCE(TRIM(CAST(r.texto AS VARCHAR)), '') AS texto
 FROM raw_records r
-WHERE r._texto_id != ''
+WHERE r.texto IS NOT NULL AND TRIM(CAST(r.texto AS VARCHAR)) != ''
 """
 
-_SQL_DESTINATARIOS = """
+_SQL_DESTINATARIOS = f"""
 INSERT INTO destinatarios
 SELECT
-    r._com_id                                                       AS comunicacao_id,
+    {_SQL_COM_ID}                                                   AS comunicacao_id,
     r._tribunal                                                     AS tribunal,
     COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome,
     COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
-    d._parte_id                                                     AS parte_id,
-    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_ano,
-    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_mes,
+    {_SQL_PARTE_ID}                                                 AS parte_id,
+    {_SQL_P_ANO}                                                    AS p_ano,
+    {_SQL_P_MES}                                                    AS p_mes,
     r._item_id                                                      AS p_item_ia
 FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
 """
 
-_SQL_PARTES = """
+_SQL_PARTES = f"""
 INSERT INTO partes
-SELECT DISTINCT ON (d._parte_id)
-    d._parte_id                                                     AS id,
-    d._nome_normalizado                                             AS nome_normalizado,
+SELECT DISTINCT ON (parte_id)
+    {_SQL_PARTE_ID}                                                 AS parte_id,
+    {_SQL_NORMALIZE.format(field="d.nome")}                         AS nome_normalizado,
     COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome_original
 FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
-WHERE d._parte_id != ''
+WHERE {_SQL_NORMALIZE.format(field="d.nome")} != ''
 """
 
-_SQL_COMUNICACAO_ADVOGADOS = """
+_SQL_COMUNICACAO_ADVOGADOS = f"""
 INSERT INTO comunicacao_advogados
 SELECT
-    r._com_id                                                       AS comunicacao_id,
+    {_SQL_COM_ID}                                                   AS comunicacao_id,
     r._tribunal                                                     AS tribunal,
-    da._adv_global_id                                               AS advogado_id
+    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id
 FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
 """
 
-_SQL_ADVOGADOS = """
+_SQL_ADVOGADOS = f"""
 INSERT INTO advogados
 SELECT
-    da._adv_global_id                                               AS id,
+    {_SQL_ADV_GLOBAL_ID}                                            AS id,
     COALESCE(TRIM(CAST(COALESCE(da.advogado.id, da.advogado_id) AS VARCHAR)), '')
                                                                     AS original_id,
     r._tribunal                                                     AS tribunal,
     COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
-    COALESCE(TRIM(CAST(COALESCE(da.advogado.numero_oab, da.advogado.numeroOAB) AS VARCHAR)), '')
-                                                                    AS numero_oab,
-    COALESCE(TRIM(CAST(COALESCE(da.advogado.uf_oab, da.advogado.ufOAB) AS VARCHAR)), '')
-                                                                    AS uf_oab,
-    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_ano,
-    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_mes,
+    {_SQL_OAB}                                                      AS numero_oab,
+    {_SQL_UF}                                                       AS uf_oab,
+    {_SQL_P_ANO}                                                    AS p_ano,
+    {_SQL_P_MES}                                                    AS p_mes,
     r._item_id                                                      AS p_item_ia
 FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
 WHERE da.advogado IS NOT NULL
 """
 
-_SQL_ADVOGADO_NOMES = """
+_SQL_ADVOGADO_NOMES = f"""
 INSERT INTO advogado_nomes
 SELECT
-    da._adv_global_id                                               AS advogado_id,
+    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id,
     COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
     r._tribunal                                                     AS tribunal,
-    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
-                                                                    AS first_seen
+    {_SQL_DATE}                                                     AS first_seen
 FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
 WHERE da.advogado IS NOT NULL
 """
 
-_SQL_REPRESENTACOES = """
+_SQL_REPRESENTACOES = f"""
 INSERT INTO representacoes
 SELECT
-    r._com_id                                                       AS comunicacao_id,
+    {_SQL_COM_ID}                                                   AS comunicacao_id,
     r._tribunal                                                     AS tribunal,
-    da._adv_global_id                                               AS advogado_id,
-    d._parte_id                                                     AS parte_id,
+    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id,
+    {_SQL_PARTE_ID}                                                 AS parte_id,
     COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
-    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_ano,
-    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_mes,
+    {_SQL_P_ANO}                                                    AS p_ano,
+    {_SQL_P_MES}                                                    AS p_mes,
     r._item_id                                                      AS p_item_ia
 FROM raw_records r,
      UNNEST(r.destinatarios) AS t1(d),
@@ -406,19 +370,16 @@ FROM raw_records r,
 WHERE da.advogado IS NOT NULL
 """
 
-_SQL_PROCESSOS = """
+_SQL_PROCESSOS = f"""
 INSERT INTO processos
 SELECT
     COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
                                                                     AS numero_processo,
     r._tribunal                                                     AS tribunal,
-    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
-                                                                    AS data,
-    r._com_id                                                       AS comunicacao_id,
-    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_ano,
-    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
-                                                                    AS p_mes,
+    {_SQL_DATE}                                                     AS data,
+    {_SQL_COM_ID}                                                   AS comunicacao_id,
+    {_SQL_P_ANO}                                                    AS p_ano,
+    {_SQL_P_MES}                                                    AS p_mes,
     r._item_id                                                      AS p_item_ia
 FROM raw_records r
 """
@@ -441,14 +402,18 @@ def _load_and_transform(
     con: ibis.BaseBackend,
     ndjson_path: Path,
 ) -> dict[str, int]:
-    """Load enriched NDJSON into DuckDB and produce all 9 tables via UNNEST.
+    """Load raw NDJSON into DuckDB and produce all 9 tables via UNNEST + UDFs.
 
-    Replaces the old parse_records() + accumulation + dedup loop with
-    vectorized DuckDB operations.  Returns row counts per table.
+    All transformation — UUIDs, name normalization, flattening, deduplication —
+    happens in SQL.  Python is only involved as a scalar UDF for uuid5.
+    Returns row counts per table.
     """
     duck = con.con
 
-    # Load all enriched records as a single DuckDB table
+    # Register the uuid5 UDF so SQL templates can call djen_uuid5()
+    _register_udfs(con)
+
+    # Load raw records (only _tribunal/_item_id added, no Python enrichment)
     duck.execute(
         f"CREATE OR REPLACE TABLE raw_records AS SELECT * FROM read_json_auto('{ndjson_path}')",
     )
@@ -803,11 +768,13 @@ def consolidate_date(
                     zip_path.unlink()
                     continue
 
-                # Enrich with UUIDs (only computation that requires Python)
-                enriched = _enrich_records(records, tribunal, item_id)
-
-                # Stream to NDJSON — avoids accumulating all dicts in Python memory
-                for rec in enriched:
+                # Stream raw records to NDJSON — only add routing metadata.
+                # All UUIDs, normalization, and flattening happen in DuckDB SQL.
+                for rec in records:
+                    if not isinstance(rec, dict):
+                        continue
+                    rec["_tribunal"] = tribunal
+                    rec["_item_id"] = item_id
                     ndjson_f.write(json.dumps(rec, default=str) + "\n")
 
                 stats["zips_processed"] += 1
