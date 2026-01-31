@@ -10,6 +10,18 @@ import httpx
 import structlog
 
 from causaganha.config import settings
+from causaganha.storage.djen_schema import (
+    FIELD_CODIGO_CLASSE,
+    FIELD_DATA_DISPONIBILIZACAO,
+    FIELD_ID_ORGAO,
+    FIELD_NOME_CLASSE,
+    FIELD_NOME_ORGAO,
+    FIELD_NUMERO_PROCESSO,
+    FIELD_SIGLA_TRIBUNAL,
+    FIELD_TIPO_COMUNICACAO,
+    FIELD_TIPO_DOCUMENTO,
+    get_field,
+)
 from causaganha.storage.repositories.intimation import store_intimations
 
 
@@ -88,31 +100,20 @@ async def collect_metadata_for_court(
                                     # Wrap in a simple object for store_intimations
                                     obj = SimpleNamespace()
                                     obj.id = item.get("id")
-                                    obj.numero_processo = item.get("numero_processo") or item.get(
-                                        "numeroProcesso",
+                                    obj.numero_processo = get_field(item, FIELD_NUMERO_PROCESSO)
+                                    obj.data_disponibilizacao = get_field(
+                                        item,
+                                        FIELD_DATA_DISPONIBILIZACAO,
                                     )
-                                    obj.data_disponibilizacao = item.get(
-                                        "data_disponibilizacao",
-                                    ) or item.get("dataDisponibilizacao")
-                                    obj.sigla_tribunal = item.get("sigla_tribunal") or item.get(
-                                        "siglaTribunal",
-                                    )
-                                    obj.id_orgao = item.get("id_orgao") or item.get("idOrgao")
-                                    obj.tipo_comunicacao = item.get("tipo_comunicacao") or item.get(
-                                        "tipoComunicacao",
-                                    )
-                                    obj.nome_orgao = item.get("nome_orgao") or item.get("nomeOrgao")
+                                    obj.sigla_tribunal = get_field(item, FIELD_SIGLA_TRIBUNAL)
+                                    obj.id_orgao = get_field(item, FIELD_ID_ORGAO)
+                                    obj.tipo_comunicacao = get_field(item, FIELD_TIPO_COMUNICACAO)
+                                    obj.nome_orgao = get_field(item, FIELD_NOME_ORGAO)
                                     obj.texto = item.get("texto")
                                     obj.link = item.get("link")
-                                    obj.tipo_documento = item.get("tipo_documento") or item.get(
-                                        "tipoDocumento",
-                                    )
-                                    obj.nome_classe = item.get("nome_classe") or item.get(
-                                        "nomeClasse",
-                                    )
-                                    obj.codigo_classe = item.get("codigo_classe") or item.get(
-                                        "codigoClasse",
-                                    )
+                                    obj.tipo_documento = get_field(item, FIELD_TIPO_DOCUMENTO)
+                                    obj.nome_classe = get_field(item, FIELD_NOME_CLASSE)
+                                    obj.codigo_classe = get_field(item, FIELD_CODIGO_CLASSE)
                                     obj.hash = item.get("hash")
                                     obj.status = item.get("status")
 

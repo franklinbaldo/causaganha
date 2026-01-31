@@ -158,6 +158,47 @@ FIELD_NUMERO_PROCESSO: tuple[str, ...] = (
     "numeroProcesso",
 )
 
+FIELD_SIGLA_TRIBUNAL: tuple[str, ...] = (
+    "sigla_tribunal",
+    "siglaTribunal",
+)
+
+FIELD_TIPO_COMUNICACAO: tuple[str, ...] = (
+    "tipo_comunicacao",
+    "tipoComunicacao",
+)
+
+FIELD_NOME_ORGAO: tuple[str, ...] = (
+    "nome_orgao",
+    "nomeOrgao",
+    "orgao",
+)
+
+FIELD_ID_ORGAO: tuple[str, ...] = (
+    "id_orgao",
+    "idOrgao",
+)
+
+FIELD_TIPO_DOCUMENTO: tuple[str, ...] = (
+    "tipo_documento",
+    "tipoDocumento",
+)
+
+FIELD_NOME_CLASSE: tuple[str, ...] = (
+    "nome_classe",
+    "nomeClasse",
+)
+
+FIELD_CODIGO_CLASSE: tuple[str, ...] = (
+    "codigo_classe",
+    "codigoClasse",
+)
+
+FIELD_NUMERO_COMUNICACAO: tuple[str, ...] = (
+    "numero_comunicacao",
+    "numeroComunicacao",
+)
+
 FIELD_NUMERO_OAB: tuple[str, ...] = (
     "numero_oab",
     "numeroOAB",
@@ -167,3 +208,21 @@ FIELD_UF_OAB: tuple[str, ...] = (
     "uf_oab",
     "ufOAB",
 )
+
+
+def get_field(
+    record: dict[str, object],
+    variants: tuple[str, ...],
+    default: object = None,
+) -> object:
+    """Look up the first matching variant key in a dict.
+
+    Usage::
+
+        >>> get_field(item, FIELD_NUMERO_PROCESSO)
+        '70127110520238220007'
+    """
+    for name in variants:
+        if name in record:
+            return record[name]
+    return default

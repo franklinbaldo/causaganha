@@ -40,9 +40,15 @@ import structlog  # noqa: E402
 
 from causaganha.config import TRIBUNAIS  # noqa: E402
 from causaganha.storage.djen_schema import (  # noqa: E402
+    FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
+    FIELD_NOME_CLASSE,
+    FIELD_NOME_ORGAO,
+    FIELD_NUMERO_COMUNICACAO,
     FIELD_NUMERO_OAB,
     FIELD_NUMERO_PROCESSO,
+    FIELD_TIPO_COMUNICACAO,
+    FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
 
@@ -303,14 +309,14 @@ def _build_comunicacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         numero_processo=_safe(_col(raw, *FIELD_NUMERO_PROCESSO)),
         numero_processo_mascara=_safe(_col(raw, "numeroprocessocommascara")),
         data_disponibilizacao=_date_expr(raw),
-        tipo_comunicacao=_safe(_col(raw, "tipoComunicacao")),
-        nome_orgao=_safe(ibis.coalesce(_col(raw, "nomeOrgao"), _col(raw, "orgao"))),
+        tipo_comunicacao=_safe(_col(raw, *FIELD_TIPO_COMUNICACAO)),
+        nome_orgao=_safe(_col(raw, *FIELD_NOME_ORGAO)),
         meio=_safe(_col(raw, "meio")),
         link=_safe(_col(raw, "link")),
-        tipo_documento=_safe(_col(raw, "tipoDocumento")),
-        nome_classe=_safe(_col(raw, "nomeClasse")),
-        codigo_classe=_safe(_col(raw, "codigoClasse")),
-        numero_comunicacao=_safe(_col(raw, "numeroComunicacao")),
+        tipo_documento=_safe(_col(raw, *FIELD_TIPO_DOCUMENTO)),
+        nome_classe=_safe(_col(raw, *FIELD_NOME_CLASSE)),
+        codigo_classe=_safe(_col(raw, *FIELD_CODIGO_CLASSE)),
+        numero_comunicacao=_safe(_col(raw, *FIELD_NUMERO_COMUNICACAO)),
         hash=_safe(_col(raw, "hash")),
         processed_at=ibis.now(),
         texto_id=_texto_id(raw),

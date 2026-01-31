@@ -25,6 +25,16 @@ from pathlib import Path
 import duckdb
 import structlog
 
+from causaganha.storage.djen_schema import (
+    FIELD_DATA_DISPONIBILIZACAO,
+    FIELD_NOME_ORGAO,
+    FIELD_NUMERO_OAB,
+    FIELD_NUMERO_PROCESSO,
+    FIELD_SIGLA_TRIBUNAL,
+    FIELD_UF_OAB,
+    get_field,
+)
+
 
 logger = structlog.get_logger()
 
@@ -139,10 +149,10 @@ def convert_to_parquet(records: list[dict], output_dir: Path, base_name: str) ->
         comunicacoes.append(
             {
                 "id": record.get("id"),
-                "numero_processo": record.get("numeroProcesso"),
-                "data_disponibilizacao": record.get("dataDisponibilizacao"),
-                "tribunal": record.get("siglaTribunal"),
-                "orgao": record.get("orgao"),
+                "numero_processo": get_field(record, FIELD_NUMERO_PROCESSO),
+                "data_disponibilizacao": get_field(record, FIELD_DATA_DISPONIBILIZACAO),
+                "tribunal": get_field(record, FIELD_SIGLA_TRIBUNAL),
+                "orgao": get_field(record, FIELD_NOME_ORGAO),
                 "texto": record.get("texto", "")[:10000],  # Limit text size
             },
         )
@@ -154,8 +164,8 @@ def convert_to_parquet(records: list[dict], output_dir: Path, base_name: str) ->
                     {
                         "comunicacao_id": record.get("id"),
                         "nome": adv.get("nome"),
-                        "oab": adv.get("numeroOAB"),
-                        "uf_oab": adv.get("ufOAB"),
+                        "oab": get_field(adv, FIELD_NUMERO_OAB),
+                        "uf_oab": get_field(adv, FIELD_UF_OAB),
                     },
                 )
 
