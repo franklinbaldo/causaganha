@@ -1,11 +1,12 @@
-"""Ibis schemas — 1:1 mapping of djen.yml (OpenAPI 3.0.1).
+"""Ibis schemas for the DJEN API GET responses.
 
-Each ``ibis.Schema`` corresponds to one entity defined in the DJEN API
-swagger.  Field names are preserved **exactly** as returned by the API
-(mixed camelCase / snake_case).
+Each ``ibis.Schema`` corresponds to one entity returned by the API.
+Field names are preserved **exactly** as observed in real GET responses
+(mixed camelCase / snake_case).  Fields undocumented in djen.yml but
+present in real responses are included and marked "Undocumented".
 
-Swagger type mapping
---------------------
+Type mapping
+------------
 =============  ==========
 Swagger type   Ibis type
 =============  ==========
@@ -36,6 +37,7 @@ comunicacao: Schema = ibis.schema(
         "siglaTribunal": "string",
         "tipoComunicacao": "string",  # Citação, Intimação, Edital, …
         "nomeOrgao": "string",
+        "idOrgao": "int64",  # Undocumented; present in GET response
         "texto": "string",  # Teor da comunicação
         "numero_processo": "string",
         "meio": "string",  # D=Diário, E=Edital
@@ -46,6 +48,9 @@ comunicacao: Schema = ibis.schema(
         "numeroComunicacao": "int64",  # Número de identificação
         "ativo": "boolean",
         "hash": "string",
+        "status": "string",  # Undocumented; e.g. "P"
+        "motivo_cancelamento": "string",  # Undocumented; nullable
+        "data_cancelamento": "string",  # Undocumented; nullable
         "datadisponibilizacao": "string",  # Alternate (no underscore)
         "meiocompleto": "string",
         "numeroprocessocommascara": "string",
