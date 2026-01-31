@@ -218,7 +218,7 @@ def _normalize_name(name: str) -> str:
 
 def _uuid5(data: dict[str, Any]) -> str:
     """Generate deterministic UUIDv5 from dictionary."""
-    canonical = json.dumps(data, sort_keys=True)
+    canonical = json.dumps(data)
     return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
 
 
@@ -229,9 +229,9 @@ def _enrich_records(
 ) -> list[dict[str, Any]]:
     """Enrich raw JSON records with computed UUIDs for DuckDB vectorized processing.
 
-    Only computes values that require Python (UUIDv5 with json.dumps(sort_keys=True)
-    serialization for backward-compatible deterministic IDs). All flattening,
-    projection, cross-joins, and deduplication are deferred to DuckDB UNNEST.
+    Only computes values that require Python (UUIDv5 via json.dumps serialization).
+    All flattening, projection, cross-joins, and deduplication are deferred to
+    DuckDB UNNEST.
     """
     enriched: list[dict[str, Any]] = []
     for record in records:
