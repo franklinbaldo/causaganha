@@ -467,24 +467,28 @@ def collect_data(
         # Autonomous: catalog tells us what's missing, d-1 first
         to_process = fetch_backfill_items()
 
-    # Take a 3x buffer so we still have enough after filtering stale entries
-    candidates = to_process[: max_items * 3]
-
-    # Verify against IA (catalog is a daily snapshot — some items may
-    # have been collected since the last rebuild).
-    dates_to_check = sorted({d for d, _ in candidates})
-    existing_files = get_existing_files_for_dates(dates_to_check)
-
+    # Scan backfill queue in chunks to find items needing collection
+    # Process 2000 items per IA check batch to handle stale catalog
     pending: list[tuple[str, str]] = []
-    for d, t in candidates:
-        zip_name = f"djen-{d}-{t}.zip"
-        absent_marker = f"djen-{d}-{t}.absent"
-        if zip_name in existing_files or absent_marker in existing_files:
-            stats["skipped"] += 1
-        else:
-            pending.append((d, t))
-            if len(pending) >= max_items:
-                break
+    chunk_size = max_items * 10  # 2000 items per batch
+
+    for chunk_start in range(0, len(to_process), chunk_size):
+        chunk = to_process[chunk_start : chunk_start + chunk_size]
+        dates_to_check = sorted({d for d, _ in chunk})
+        existing_files = get_existing_files_for_dates(dates_to_check)
+
+        for d, t in chunk:
+            zip_name = f"djen-{d}-{t}.zip"
+            absent_marker = f"djen-{d}-{t}.absent"
+            if zip_name in existing_files or absent_marker in existing_files:
+                stats["skipped"] += 1
+            else:
+                pending.append((d, t))
+                if len(pending) >= max_items:
+                    break
+
+        if len(pending) >= max_items:
+            break
 
     pending = pending[:max_items]
 
