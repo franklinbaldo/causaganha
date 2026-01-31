@@ -221,7 +221,7 @@ def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def _safe(col: ibis.Column) -> ibis.StringValue:
+def _safe(col: ibis.Column) -> ibis.Column:
     """Cast to string, strip whitespace, fill NULL with ''."""
     return col.cast("string").strip().fill_null("")
 
