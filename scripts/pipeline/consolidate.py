@@ -67,13 +67,15 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
         # Extract tribunal from filename: djen-2026-01-23-TJSP.zip
         parts = zip_file.stem.split("-")
         tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
-        zips.append({
-            "filename": zip_file.name,
-            "tribunal": tribunal,
-            "item_id": "local-test",
-            "size": zip_file.stat().st_size,
-            "local_path": str(zip_file),
-        })
+        zips.append(
+            {
+                "filename": zip_file.name,
+                "tribunal": tribunal,
+                "item_id": "local-test",
+                "size": zip_file.stat().st_size,
+                "local_path": str(zip_file),
+            }
+        )
 
     return zips, len(zips)
 
@@ -669,7 +671,14 @@ def _export_and_upload_table(
         return False, 0
 
 
-def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None, max_zips: int = 0) -> dict[str, int]:
+def consolidate_date(
+    date: str,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    local_zips: str | None = None,
+    max_zips: int = 0,
+) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files.
 
     Args:
@@ -732,6 +741,7 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
             if local_zips and "local_path" in zip_info:
                 # Copy from local directory
                 import shutil
+
                 try:
                     shutil.copy2(zip_info["local_path"], zip_path)
                 except Exception as e:
@@ -780,7 +790,9 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
                     if row_id and row_id not in seen_ids:
                         seen_ids.add(row_id)
                         deduped_rows.append(row)
-                logger.info("deduplicating_parties", original=len(rows), deduplicated=len(deduped_rows))
+                logger.info(
+                    "deduplicating_parties", original=len(rows), deduplicated=len(deduped_rows)
+                )
                 rows = deduped_rows
 
             data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
@@ -794,7 +806,9 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
 
         # Export tables sequentially (DuckDB connections aren't thread-safe)
         for table_name in TABLES:
-            success, uploaded = _export_and_upload_table(table_name, con, output_dir, item_id, dry_run)
+            success, uploaded = _export_and_upload_table(
+                table_name, con, output_dir, item_id, dry_run
+            )
             if success:
                 stats["parquets_created"] += 1
                 stats["uploaded"] += uploaded
@@ -837,7 +851,9 @@ def main() -> int:
         "--local-zips",
         help="Use local ZIPs from directory instead of downloading from IA (for testing)",
     )
-    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
+    parser.add_argument(
+        "--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m"
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -868,7 +884,13 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips, max_zips=args.max_zips)
+        stats = consolidate_date(
+            target_date,
+            dry_run=args.dry_run,
+            force=use_force,
+            local_zips=args.local_zips,
+            max_zips=args.max_zips,
+        )
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback
@@ -879,7 +901,7 @@ def main() -> int:
     _print_stats(stats)
 
     # Set GitHub Actions output: did we add any files?
-    files_added = stats['parquets_created'] > 0
+    files_added = stats["parquets_created"] > 0
     print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
