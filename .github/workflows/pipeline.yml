@@ -302,3 +302,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Source: manifest.parquet from causaganha-catalog" >> $GITHUB_STEP_SUMMARY
           ls -la dashboard/public/cache/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+      - name: Trigger dashboard deployment
+        if: success()
+        run: |
+          gh workflow run deploy-dashboard.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
