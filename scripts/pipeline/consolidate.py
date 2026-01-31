@@ -20,6 +20,7 @@ import os
 import subprocess
 import tempfile
 import time
+import unicodedata
 import uuid
 import zipfile
 from datetime import date, timedelta
@@ -40,13 +41,35 @@ import structlog  # noqa: E402
 from causaganha.config import TRIBUNAIS  # noqa: E402
 
 
-# Schema version — embedded in Parquet metadata for forward compatibility.
-# Bump when TABLE_SCHEMAS change in a way that affects consumers.
-# v3: Added p_ano, p_mes, p_item_ia columns for better partitioning and tracing.
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 SCHEMA_VERSION = "3"
-
+NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
+
+
+# ---------------------------------------------------------------------------
+# Ibis scalar UDFs — the only Python called per-row during SQL execution.
+# ---------------------------------------------------------------------------
+@ibis.udf.scalar.python
+def djen_uuid5(s: str) -> str:
+    """Deterministic UUIDv5 in the CausaGanha DJEN namespace."""
+    if s is None:
+        return None  # type: ignore[return-value]
+    return str(uuid.uuid5(NAMESPACE_DJEN, s))
+
+
+@ibis.udf.scalar.python
+def normalize_name(s: str) -> str:
+    """Strip accents, uppercase, collapse whitespace."""
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return " ".join(s.upper().split())
+
 
 # Table types to consolidate - Defined below via TABLE_SCHEMAS
 
@@ -181,259 +204,311 @@ def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _register_udfs(con: ibis.BaseBackend) -> None:
-    """Register Python scalar UDFs for computations DuckDB cannot do natively.
+# ---------------------------------------------------------------------------
+# Ibis helpers — small composable building blocks for the table builders.
+# ---------------------------------------------------------------------------
 
-    Only uuid5 requires Python — name normalization uses DuckDB's built-in
-    strip_accents() + UPPER() + REGEXP_REPLACE().
-    """
-    import duckdb
 
-    namespace = NAMESPACE_DJEN
+def _safe(col: ibis.Column) -> ibis.StringValue:
+    """Cast to string, strip whitespace, fill NULL with ''."""
+    return col.cast("string").strip().fill_null("")
 
-    def djen_uuid5(s: str) -> str | None:
-        if s is None:
-            return None
-        return str(uuid.uuid5(namespace, s))
 
-    con.con.create_function(
-        "djen_uuid5",
-        djen_uuid5,
-        [duckdb.typing.VARCHAR],
-        duckdb.typing.VARCHAR,
+def _col(t: ibis.Table, *names: str) -> ibis.Column:
+    """COALESCE the first existing columns by *names*, or literal(None)."""
+    existing = [t[n] for n in names if n in t.columns]
+    if not existing:
+        return ibis.literal(None)
+    return ibis.coalesce(*existing) if len(existing) > 1 else existing[0]
+
+
+def _struct_field(struct_col: ibis.Column, *names: str) -> ibis.Column:
+    """Safely access first existing field from a struct (handles naming variants)."""
+    field_names = struct_col.type().names
+    for name in names:
+        if name in field_names:
+            return struct_col[name]
+    return ibis.literal(None)
+
+
+def _date_expr(raw: ibis.Table) -> ibis.DateValue:
+    """Parse the availability date from either naming convention."""
+    return (
+        _safe(_col(raw, "data_disponibilizacao", "dataDisponibilizacao")).left(10).try_cast("date")
     )
 
 
+def _com_id(raw: ibis.Table) -> ibis.StringValue:
+    """Communication UUID: hash of DJEN original id + tribunal."""
+    return djen_uuid5(_safe(raw.id) + ":" + raw.src_tribunal)
+
+
+def _texto_id(raw: ibis.Table) -> ibis.StringValue:
+    """Text UUID: content-addressed hash of the text itself."""
+    txt = _safe(raw.texto)
+    return ibis.case().when(txt != "", djen_uuid5(txt)).else_("").end()
+
+
+def _parte_id(d: ibis.Column) -> ibis.StringValue:
+    """Party UUID: hash of normalized name."""
+    return djen_uuid5(normalize_name(d["nome"].cast("string").fill_null("")))
+
+
+def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.StringValue:
+    """Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id."""
+    adv = da["advogado"]
+    oab = _safe(_struct_field(adv, "numero_oab", "numeroOAB"))
+    uf = _safe(_struct_field(adv, "uf_oab", "ufOAB"))
+    nome = _safe(adv["nome"])
+    orig_id = _safe(
+        ibis.coalesce(
+            _struct_field(adv, "id"),
+            _struct_field(da, "advogado_id"),
+        ),
+    )
+    return (
+        ibis.case()
+        .when((oab != "") & (uf != ""), djen_uuid5(oab + ":" + uf))
+        .else_(djen_uuid5(nome + ":" + tribunal + ":" + orig_id))
+        .end()
+    )
+
+
+def _partitions(raw: ibis.Table, item_id: str) -> dict[str, ibis.Expr]:
+    """Common partitioning columns shared across most tables."""
+    d = _date_expr(raw)
+    return {
+        "p_ano": d.year().fill_null(0).cast("int32"),
+        "p_mes": d.month().fill_null(0).cast("int32"),
+        "p_item_ia": ibis.literal(item_id),
+    }
+
+
 # ---------------------------------------------------------------------------
-# SQL building blocks
-# ---------------------------------------------------------------------------
-# Reusable SQL fragments to avoid repetition in table templates.
-
-# Parse date from either snake_case or camelCase DJEN field
-_SQL_DATE = """TRY_CAST(LEFT(COALESCE(
-    CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR),
-    ''), 10) AS DATE)"""
-
-# Partition columns derived from the date
-_SQL_P_ANO = f"COALESCE(YEAR({_SQL_DATE}), 0)"
-_SQL_P_MES = f"COALESCE(MONTH({_SQL_DATE}), 0)"
-
-# Communication UUID: hash of DJEN original id + tribunal
-_SQL_COM_ID = "djen_uuid5(COALESCE(CAST(r.id AS VARCHAR), '') || ':' || r._tribunal)"
-
-# Text UUID: content-addressed hash of the text itself
-_SQL_TEXTO_ID = "djen_uuid5(COALESCE(TRIM(CAST(r.texto AS VARCHAR)), ''))"
-
-# Name normalization: strip accents, uppercase, collapse whitespace (pure SQL)
-_SQL_NORMALIZE = (
-    "UPPER(TRIM(REGEXP_REPLACE(strip_accents("
-    "COALESCE(CAST({field} AS VARCHAR), '')"
-    "), '\\s+', ' ', 'g')))"
-)
-
-# Party UUID: hash of normalized name
-_SQL_PARTE_ID = f"djen_uuid5({_SQL_NORMALIZE.format(field='d.nome')})"
-
-# Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id
-_SQL_OAB = (
-    "COALESCE(TRIM(CAST(COALESCE(da.advogado.numero_oab, da.advogado.numeroOAB) AS VARCHAR)), '')"
-)
-_SQL_UF = "COALESCE(TRIM(CAST(COALESCE(da.advogado.uf_oab, da.advogado.ufOAB) AS VARCHAR)), '')"
-_SQL_ADV_GLOBAL_ID = f"""CASE
-    WHEN {_SQL_OAB} != '' AND {_SQL_UF} != ''
-    THEN djen_uuid5({_SQL_OAB} || ':' || {_SQL_UF})
-    ELSE djen_uuid5(
-        COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '') || ':' ||
-        r._tribunal || ':' ||
-        COALESCE(TRIM(CAST(COALESCE(da.advogado.id, da.advogado_id) AS VARCHAR)), ''))
-END"""
-
-# ---------------------------------------------------------------------------
-# SQL templates — all transformation happens here, no Python loops needed.
-# DuckDB UNNEST replaces the old parse_records() triple-nested Python loops.
-# UUIDs are computed inline via the djen_uuid5() scalar UDF.
+# Table builders — each returns an Ibis expression that SELECT-s into its
+# target table.  No raw SQL.  UUIDs computed via the djen_uuid5() UDF,
+# name normalization via normalize_name() UDF, flattening via .unnest().
 # ---------------------------------------------------------------------------
 
-_SQL_COMUNICACOES = f"""
-INSERT INTO comunicacoes
-SELECT
-    {_SQL_COM_ID}                                                    AS id,
-    COALESCE(TRIM(CAST(r.id AS VARCHAR)), '')                        AS original_id,
-    r._tribunal                                                      AS tribunal,
-    COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
-                                                                     AS numero_processo,
-    COALESCE(TRIM(CAST(r.numeroprocessocommascara AS VARCHAR)), '')   AS numero_processo_mascara,
-    {_SQL_DATE}                                                      AS data_disponibilizacao,
-    COALESCE(TRIM(CAST(r.tipoComunicacao AS VARCHAR)), '')            AS tipo_comunicacao,
-    COALESCE(TRIM(CAST(COALESCE(r.nomeOrgao, r.orgao) AS VARCHAR)), '')
-                                                                     AS nome_orgao,
-    COALESCE(TRIM(CAST(r.meio AS VARCHAR)), '')                       AS meio,
-    COALESCE(TRIM(CAST(r.link AS VARCHAR)), '')                       AS link,
-    COALESCE(TRIM(CAST(r.tipoDocumento AS VARCHAR)), '')              AS tipo_documento,
-    COALESCE(TRIM(CAST(r.nomeClasse AS VARCHAR)), '')                 AS nome_classe,
-    COALESCE(TRIM(CAST(r.codigoClasse AS VARCHAR)), '')               AS codigo_classe,
-    COALESCE(TRIM(CAST(r.numeroComunicacao AS VARCHAR)), '')          AS numero_comunicacao,
-    COALESCE(TRIM(CAST(r.hash AS VARCHAR)), '')                       AS hash,
-    CURRENT_TIMESTAMP                                                 AS processed_at,
-    CASE WHEN r.texto IS NOT NULL AND TRIM(CAST(r.texto AS VARCHAR)) != ''
-         THEN {_SQL_TEXTO_ID} ELSE '' END                            AS texto_id,
-    {_SQL_P_ANO}                                                     AS p_ano,
-    {_SQL_P_MES}                                                     AS p_mes,
-    r._item_id                                                        AS p_item_ia
-FROM raw_records r
-"""
 
-_SQL_TEXTOS = f"""
-INSERT INTO textos
-SELECT DISTINCT
-    {_SQL_TEXTO_ID}                              AS id,
-    COALESCE(TRIM(CAST(r.texto AS VARCHAR)), '') AS texto
-FROM raw_records r
-WHERE r.texto IS NOT NULL AND TRIM(CAST(r.texto AS VARCHAR)) != ''
-"""
+def _build_comunicacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
+    return raw.select(
+        id=_com_id(raw),
+        original_id=_safe(raw.id),
+        tribunal=raw.src_tribunal,
+        numero_processo=_safe(_col(raw, "numero_processo", "numeroProcesso")),
+        numero_processo_mascara=_safe(_col(raw, "numeroprocessocommascara")),
+        data_disponibilizacao=_date_expr(raw),
+        tipo_comunicacao=_safe(_col(raw, "tipoComunicacao")),
+        nome_orgao=_safe(ibis.coalesce(_col(raw, "nomeOrgao"), _col(raw, "orgao"))),
+        meio=_safe(_col(raw, "meio")),
+        link=_safe(_col(raw, "link")),
+        tipo_documento=_safe(_col(raw, "tipoDocumento")),
+        nome_classe=_safe(_col(raw, "nomeClasse")),
+        codigo_classe=_safe(_col(raw, "codigoClasse")),
+        numero_comunicacao=_safe(_col(raw, "numeroComunicacao")),
+        hash=_safe(_col(raw, "hash")),
+        processed_at=ibis.now(),
+        texto_id=_texto_id(raw),
+        **_partitions(raw, item_id),
+    )
 
-_SQL_DESTINATARIOS = f"""
-INSERT INTO destinatarios
-SELECT
-    {_SQL_COM_ID}                                                   AS comunicacao_id,
-    r._tribunal                                                     AS tribunal,
-    COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome,
-    COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
-    {_SQL_PARTE_ID}                                                 AS parte_id,
-    {_SQL_P_ANO}                                                    AS p_ano,
-    {_SQL_P_MES}                                                    AS p_mes,
-    r._item_id                                                      AS p_item_ia
-FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
-"""
 
-_SQL_PARTES = f"""
-INSERT INTO partes
-SELECT DISTINCT ON (parte_id)
-    {_SQL_PARTE_ID}                                                 AS parte_id,
-    {_SQL_NORMALIZE.format(field="d.nome")}                         AS nome_normalizado,
-    COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome_original
-FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
-WHERE {_SQL_NORMALIZE.format(field="d.nome")} != ''
-"""
+def _build_textos(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    txt = _safe(raw.texto)
+    return (
+        raw.filter(txt != "")
+        .select(
+            id=djen_uuid5(txt),
+            texto=txt,
+        )
+        .distinct()
+    )
 
-_SQL_COMUNICACAO_ADVOGADOS = f"""
-INSERT INTO comunicacao_advogados
-SELECT
-    {_SQL_COM_ID}                                                   AS comunicacao_id,
-    r._tribunal                                                     AS tribunal,
-    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id
-FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
-"""
 
-_SQL_ADVOGADOS = f"""
-INSERT INTO advogados
-SELECT
-    {_SQL_ADV_GLOBAL_ID}                                            AS id,
-    COALESCE(TRIM(CAST(COALESCE(da.advogado.id, da.advogado_id) AS VARCHAR)), '')
-                                                                    AS original_id,
-    r._tribunal                                                     AS tribunal,
-    COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
-    {_SQL_OAB}                                                      AS numero_oab,
-    {_SQL_UF}                                                       AS uf_oab,
-    {_SQL_P_ANO}                                                    AS p_ano,
-    {_SQL_P_MES}                                                    AS p_mes,
-    r._item_id                                                      AS p_item_ia
-FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
-WHERE da.advogado IS NOT NULL
-"""
+def _build_destinatarios(raw: ibis.Table, item_id: str) -> ibis.Table:
+    t = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        d=raw.destinatarios.unnest(),
+    )
+    return t.select(
+        comunicacao_id=djen_uuid5(t.com_key),
+        tribunal=t.src_tribunal,
+        nome=_safe(t.d["nome"]),
+        polo=_safe(t.d["polo"]),
+        parte_id=_parte_id(t.d),
+        p_ano=t.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=t.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=t.src_item_id,
+    )
 
-_SQL_ADVOGADO_NOMES = f"""
-INSERT INTO advogado_nomes
-SELECT
-    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id,
-    COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
-    r._tribunal                                                     AS tribunal,
-    {_SQL_DATE}                                                     AS first_seen
-FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
-WHERE da.advogado IS NOT NULL
-"""
 
-_SQL_REPRESENTACOES = f"""
-INSERT INTO representacoes
-SELECT
-    {_SQL_COM_ID}                                                   AS comunicacao_id,
-    r._tribunal                                                     AS tribunal,
-    {_SQL_ADV_GLOBAL_ID}                                            AS advogado_id,
-    {_SQL_PARTE_ID}                                                 AS parte_id,
-    COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
-    {_SQL_P_ANO}                                                    AS p_ano,
-    {_SQL_P_MES}                                                    AS p_mes,
-    r._item_id                                                      AS p_item_ia
-FROM raw_records r,
-     UNNEST(r.destinatarios) AS t1(d),
-     UNNEST(r.destinatarioadvogados) AS t2(da)
-WHERE da.advogado IS NOT NULL
-"""
+def _build_partes(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(d=raw.destinatarios.unnest())
+    nome_norm = normalize_name(t.d["nome"].cast("string").fill_null(""))
+    return (
+        t.filter(nome_norm != "")
+        .select(
+            id=djen_uuid5(nome_norm),
+            nome_normalizado=nome_norm,
+            nome_original=_safe(t.d["nome"]),
+        )
+        .distinct(on="id")
+    )
 
-_SQL_PROCESSOS = f"""
-INSERT INTO processos
-SELECT
-    COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
-                                                                    AS numero_processo,
-    r._tribunal                                                     AS tribunal,
-    {_SQL_DATE}                                                     AS data,
-    {_SQL_COM_ID}                                                   AS comunicacao_id,
-    {_SQL_P_ANO}                                                    AS p_ano,
-    {_SQL_P_MES}                                                    AS p_mes,
-    r._item_id                                                      AS p_item_ia
-FROM raw_records r
-"""
 
-# Ordered list: tables with foreign-key dependencies come after their parents.
-_TABLE_SQL: tuple[tuple[str, str], ...] = (
-    ("comunicacoes", _SQL_COMUNICACOES),
-    ("textos", _SQL_TEXTOS),
-    ("destinatarios", _SQL_DESTINATARIOS),
-    ("partes", _SQL_PARTES),
-    ("comunicacao_advogados", _SQL_COMUNICACAO_ADVOGADOS),
-    ("advogados", _SQL_ADVOGADOS),
-    ("advogado_nomes", _SQL_ADVOGADO_NOMES),
-    ("representacoes", _SQL_REPRESENTACOES),
-    ("processos", _SQL_PROCESSOS),
+def _build_comunicacao_advogados(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    return t.select(
+        comunicacao_id=djen_uuid5(t.com_key),
+        tribunal=t.src_tribunal,
+        advogado_id=_adv_global_id(t.da, t.src_tribunal),
+    )
+
+
+def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
+    t = raw.select(
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    adv = t.da["advogado"]
+    return t.filter(adv.notna()).select(
+        id=_adv_global_id(t.da, t.src_tribunal),
+        original_id=_safe(
+            ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
+        ),
+        tribunal=t.src_tribunal,
+        nome=_safe(adv["nome"]),
+        numero_oab=_safe(_struct_field(adv, "numero_oab", "numeroOAB")),
+        uf_oab=_safe(_struct_field(adv, "uf_oab", "ufOAB")),
+        p_ano=t.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=t.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=t.src_item_id,
+    )
+
+
+def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    adv = t.da["advogado"]
+    return t.filter(adv.notna()).select(
+        advogado_id=_adv_global_id(t.da, t.src_tribunal),
+        nome=_safe(adv["nome"]),
+        tribunal=t.src_tribunal,
+        first_seen=t.disp_date,
+    )
+
+
+def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
+    # Cross-join: unnest destinatarios, then unnest destinatarioadvogados
+    step1 = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        d=raw.destinatarios.unnest(),
+        destinatarioadvogados=raw.destinatarioadvogados,
+    )
+    step2 = step1.select(
+        step1.com_key,
+        step1.src_tribunal,
+        step1.disp_date,
+        step1.src_item_id,
+        step1.d,
+        da=step1.destinatarioadvogados.unnest(),
+    )
+    adv = step2.da["advogado"]
+    return step2.filter(adv.notna()).select(
+        comunicacao_id=djen_uuid5(step2.com_key),
+        tribunal=step2.src_tribunal,
+        advogado_id=_adv_global_id(step2.da, step2.src_tribunal),
+        parte_id=_parte_id(step2.d),
+        polo=_safe(step2.d["polo"]),
+        p_ano=step2.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=step2.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=step2.src_item_id,
+    )
+
+
+def _build_processos(raw: ibis.Table, item_id: str) -> ibis.Table:
+    return raw.select(
+        numero_processo=_safe(_col(raw, "numero_processo", "numeroProcesso")),
+        tribunal=raw.src_tribunal,
+        data=_date_expr(raw),
+        comunicacao_id=_com_id(raw),
+        **_partitions(raw, item_id),
+    )
+
+
+# Ordered list: tables with FK dependencies come after their parents.
+_TABLE_BUILDERS: tuple[tuple[str, Any], ...] = (
+    ("comunicacoes", _build_comunicacoes),
+    ("textos", _build_textos),
+    ("destinatarios", _build_destinatarios),
+    ("partes", _build_partes),
+    ("comunicacao_advogados", _build_comunicacao_advogados),
+    ("advogados", _build_advogados),
+    ("advogado_nomes", _build_advogado_nomes),
+    ("representacoes", _build_representacoes),
+    ("processos", _build_processos),
 )
 
 
 def _load_and_transform(
     con: ibis.BaseBackend,
-    ndjson_path: Path,
+    ndjson_dir: Path,
+    item_id: str,
 ) -> dict[str, int]:
-    """Load raw NDJSON into DuckDB and produce all 9 tables via UNNEST + UDFs.
+    """Load raw per-tribunal NDJSON into DuckDB, produce all 9 tables via Ibis.
 
-    All transformation — UUIDs, name normalization, flattening, deduplication —
-    happens in SQL.  Python is only involved as a scalar UDF for uuid5.
-    Returns row counts per table.
+    The only raw SQL is ``read_json_auto`` (DuckDB-specific loader).  Everything
+    else — UUIDs, name normalization, unnesting, deduplication — is expressed
+    as Ibis table expressions executed by the DuckDB backend.
     """
-    duck = con.con
-
-    # Register the uuid5 UDF so SQL templates can call djen_uuid5()
-    _register_udfs(con)
-
-    # Load raw records (only _tribunal/_item_id added, no Python enrichment)
-    duck.execute(
-        f"CREATE OR REPLACE TABLE raw_records AS SELECT * FROM read_json_auto('{ndjson_path}')",
+    # One raw SQL call: read_json_auto with filename for tribunal derivation.
+    con.raw_sql(
+        f"CREATE OR REPLACE TABLE _staging AS "
+        f"SELECT * FROM read_json_auto('{ndjson_dir}/*.ndjson', "
+        f"filename=true, union_by_name=true)",
     )
+    staging = con.table("_staging")
+
+    # Derive _tribunal from filename and add item_id — pure Ibis, no Python loop.
+    raw_expr = staging.mutate(
+        src_tribunal=staging.filename.split("/")[-1].split(".")[0],
+        src_item_id=ibis.literal(item_id),
+    )
+    con.create_table("raw_records", raw_expr, overwrite=True)
+    raw = con.table("raw_records")
 
     counts: dict[str, int] = {}
-    for table_name, sql in _TABLE_SQL:
-        duck.execute(sql)
-        row_count = duck.execute(f"SELECT count(*) FROM {table_name}").fetchone()[0]
+    for table_name, builder in _TABLE_BUILDERS:
+        expr = builder(raw, item_id)
+        con.insert(table_name, expr)
+        row_count = con.table(table_name).count().execute()
         counts[table_name] = row_count
         if row_count:
             logger.info("table_populated", table=table_name, rows=row_count)
 
-    # Clean up raw staging table
-    duck.execute("DROP TABLE IF EXISTS raw_records")
+    # Clean up staging tables
+    con.drop_table("raw_records", force=True)
+    con.drop_table("_staging", force=True)
     return counts
 
 
 # Explicit Schema Definitions using Ibis
-NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
-
 TABLE_SCHEMAS = {
     "comunicacoes": ibis.schema(
         {
@@ -731,10 +806,12 @@ def consolidate_date(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        ndjson_path = tmp_path / "enriched.ndjson"
+        ndjson_dir = tmp_path / "ndjson"
+        ndjson_dir.mkdir()
 
-        # Phase 1: Extract ZIPs, enrich with UUIDs, write to NDJSON
-        with ndjson_path.open("w") as ndjson_f:
+        # Phase 1: Extract ZIPs → raw per-tribunal NDJSON (zero Python mutation)
+        ndjson_handles: dict[str, Any] = {}
+        try:
             for i, zip_entry in enumerate(zips):
                 zip_info: dict[str, Any] = zip_entry
                 filename = str(zip_info["filename"])
@@ -768,23 +845,26 @@ def consolidate_date(
                     zip_path.unlink()
                     continue
 
-                # Stream raw records to NDJSON — only add routing metadata.
-                # All UUIDs, normalization, and flattening happen in DuckDB SQL.
+                # Stream raw records — one NDJSON per tribunal.
+                # Tribunal is derived from the filename in DuckDB, not mutated here.
+                if tribunal not in ndjson_handles:
+                    ndjson_handles[tribunal] = (ndjson_dir / f"{tribunal}.ndjson").open("w")
+                f = ndjson_handles[tribunal]
                 for rec in records:
-                    if not isinstance(rec, dict):
-                        continue
-                    rec["_tribunal"] = tribunal
-                    rec["_item_id"] = item_id
-                    ndjson_f.write(json.dumps(rec, default=str) + "\n")
+                    if isinstance(rec, dict):
+                        f.write(json.dumps(rec, default=str) + "\n")
 
                 stats["zips_processed"] += 1
                 stats["records"] += len(records)
                 zip_path.unlink()
+        finally:
+            for fh in ndjson_handles.values():
+                fh.close()
 
-        # Phase 2: DuckDB vectorized transformation (UNNEST, DISTINCT, cross-join)
+        # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
         if stats["records"] > 0:
-            table_counts = _load_and_transform(con, ndjson_path)
-            logger.info("vectorized_transform_complete", tables=table_counts)
+            table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            logger.info("transform_complete", tables=table_counts)
 
         # Phase 3: Export to Parquet and upload
         output_dir = tmp_path / "output"
