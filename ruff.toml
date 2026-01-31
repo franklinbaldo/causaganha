@@ -23,6 +23,7 @@ ignore = []
     "PLR2004",  # magic values OK in tests
     "COM812",   # trailing comma optional in tests
     "ANN",      # type annotations optional in tests
+    "D103",     # missing docstring OK (pytest-bdd step defs / scenario stubs)
 ]
 # Scripts are CLI tools - allow print, subprocess, section comments
 "scripts/**/*.py" = [

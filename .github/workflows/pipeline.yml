@@ -1,38 +1,21 @@
 # ============================================================================
-# CAUSAGANHA DATA PIPELINE - BACKFILL CAMPAIGN (24/7)
+# CAUSAGANHA DATA PIPELINE
 # ============================================================================
 #
-# MISSION: Collect years of historical DJEN data continuously
+# All pipeline logic lives in scripts/pipeline/run.py.
+# This workflow only handles: schedule, secrets, and GH-specific post-steps.
 #
-# ARCHITECTURE:
-# - Global concurrency lock: Only 1 workflow at a time
-# - Every 5 minutes: 3 jobs run in parallel
-# - Each job works for UP TO 10 minutes, then exits
-# - Next cycle, jobs get another chance to continue
-# - Self-aware: Each job checks if it has work before running
-# - Conditional: CATALOG only runs if files were added
+# DATA FLOW (managed by run.py):
+#   [collect | consolidate | embed]  (parallel)
+#          -> catalog -> dashboard   (sequential, conditional)
 #
-# DATA FLOW:
-# ```
-# COLLECT      → Check for new DJEN data
-# CONSOLIDATE  → Check for complete days to convert to Parquet
-# EMBED        → Check for unembedded decisions
-#   ↓ (if any produced files)
-# CATALOG      → Rebuild manifest only if something changed
-#   ↓ (if catalog updated)
-# DASHBOARD    → Regenerate cache
-# ```
+# NOTE: Single-job design exposes all secrets to every step.
+# This is a conscious trade-off for simpler orchestration.
+# The original multi-job layout scoped secrets per job.
 #
-# SCHEDULE:
-# - Every 5 minutes (continuous backfill campaign)
-# - Global lock prevents multiple workflows from running simultaneously
-# - Each job timeout: 15 minutes (10 min work + 5 min buffer)
-#
-# JOB OUTPUTS (for conditional triggers):
-# - collect.files_added: true/false
-# - consolidate.files_added: true/false
-# - embed.files_added: true/false
-# - catalog.catalog_updated: true/false
+# Local debugging:
+#   python scripts/pipeline/run.py --job collect
+#   python scripts/pipeline/run.py --job all --date 2026-01-15
 #
 # ============================================================================
 
@@ -40,7 +23,6 @@ name: Data Pipeline
 
 on:
   schedule:
-    # Single schedule: Every 5 minutes (continuous backfill)
     - cron: '*/5 * * * *'
 
   workflow_dispatch:
@@ -64,180 +46,30 @@ on:
         description: 'Specific tribunal (e.g., TJSP) - optional for collect'
         required: false
 
-# Minimal permissions for security
 permissions:
   contents: read
 
-env:
-  DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
-
-# GLOBAL CONCURRENCY: Only 1 workflow can run at a time
-# This prevents overlapping cycles while keeping CI cost low
 concurrency:
   group: pipeline-global
   cancel-in-progress: false
 
 jobs:
-  # ==========================================================================
-  # JOB: COLLECT
-  # ==========================================================================
-  # Downloads judicial communications from DJEN and uploads to Internet Archive.
-  # Timeout: 15 minutes (10 min work + 5 min buffer)
-  # ==========================================================================
-  collect:
-    name: Collect DJEN Data
+  pipeline:
+    name: Run Pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 50
     environment: dev
 
-    if: |
-      github.event_name == 'schedule' ||
-      github.event.inputs.job == 'collect' ||
-      github.event.inputs.job == 'all'
-
     env:
+      DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
-    outputs:
-      files_added: ${{ steps.collect.outputs.files_added }}
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: ./.github/actions/setup
-        with:
-          dev: "false"
-
-      - uses: ./.github/actions/configure-ia
-        with:
-          access-key: ${{ secrets.IA_ACCESS_KEY }}
-          secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - name: Run collection
-        id: collect
-        env:
-          INPUT_DATE: ${{ github.event.inputs.date }}
-          INPUT_TRIBUNAL: ${{ github.event.inputs.tribunal }}
-        run: |
-          args=(--proxy-url "$DJEN_PROXY_URL" --max-items 200 --workers 8 --deadline 10m)
-          [ -n "$INPUT_DATE" ] && args+=(--date "$INPUT_DATE")
-          [ -n "$INPUT_TRIBUNAL" ] && args+=(--tribunal "$INPUT_TRIBUNAL")
-          uv run python scripts/pipeline/collect.py "${args[@]}"
-
-  # ==========================================================================
-  # JOB: CONSOLIDATE
-  # ==========================================================================
-  # Converts complete days of ZIPs to Parquet format.
-  # Timeout: 15 minutes (10 min work + 5 min buffer)
-  # ==========================================================================
-  consolidate:
-    name: Consolidate to Parquet
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: dev
-
-    if: |
-      github.event_name == 'schedule' ||
-      github.event.inputs.job == 'consolidate' ||
-      github.event.inputs.job == 'all'
-
-    env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
-    outputs:
-      files_added: ${{ steps.consolidate.outputs.files_added }}
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: ./.github/actions/setup
-        with:
-          dev: "false"
-
-      - uses: ./.github/actions/configure-ia
-        with:
-          access-key: ${{ secrets.IA_ACCESS_KEY }}
-          secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - name: Run consolidation
-        id: consolidate
-        env:
-          INPUT_DATE: ${{ github.event.inputs.date }}
-        run: |
-          args=(--deadline 10m --backfill --force --max-zips 15)
-          [ -n "$INPUT_DATE" ] && args=(--date "$INPUT_DATE" --max-zips 15)
-          uv run python scripts/pipeline/consolidate.py "${args[@]}"
-
-  # ==========================================================================
-  # JOB: EMBED
-  # ==========================================================================
-  # Generates vector embeddings for semantic search.
-  # Timeout: 15 minutes (10 min work + 5 min buffer)
-  # ==========================================================================
-  embed:
-    name: Generate Embeddings
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: dev
-
-    if: |
-      github.event_name == 'schedule' ||
-      github.event.inputs.job == 'embed' ||
-      github.event.inputs.job == 'all'
-
-    env:
       JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
-    outputs:
-      files_added: ${{ steps.embed.outputs.files_added }}
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: ./.github/actions/setup
-        with:
-          dev: "false"
-
-      - name: Run embedding generation
-        id: embed
-        run: |
-          uv run python scripts/pipeline/embed.py \
-            --deadline 10m \
-            --max-decisions 500
-
-  # ==========================================================================
-  # JOB: CATALOG
-  # ==========================================================================
-  # Builds master catalog of all data on Internet Archive.
-  # CONDITIONAL: Only runs if any of collect/consolidate/embed added files
-  # ==========================================================================
-  catalog:
-    name: Update Catalog
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: dev
-    needs: [collect, consolidate, embed]
-
-    # Run if:
-    # - Manual trigger (workflow_dispatch with job=catalog or all)
-    # - OR: Any of the 3 jobs produced files
-    if: |
-      github.event.inputs.job == 'catalog' ||
-      github.event.inputs.job == 'all' ||
-      (needs.collect.outputs.files_added == 'true' ||
-       needs.consolidate.outputs.files_added == 'true' ||
-       needs.embed.outputs.files_added == 'true')
-
-    env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
-    outputs:
-      catalog_updated: ${{ steps.catalog.outputs.catalog_updated }}
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: ./.github/actions/setup
         with:
           dev: "false"
@@ -247,65 +79,23 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Run catalog generation
-        id: catalog
+      - name: Run pipeline
+        id: pipeline
         run: |
-          uv run python scripts/generate_catalog.py --upload
+          uv run python scripts/pipeline/run.py \
+            --job "${{ github.event.inputs.job || 'all' }}" \
+            --date "${{ github.event.inputs.date || '' }}" \
+            --tribunal "${{ github.event.inputs.tribunal || '' }}"
 
-      - name: Summary
-        run: |
-          echo "## Catalog Updated" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Catalog: https://archive.org/download/causaganha-catalog/catalog.duckdb" >> $GITHUB_STEP_SUMMARY
-
-  # ==========================================================================
-  # JOB: DASHBOARD CACHE
-  # ==========================================================================
-  # Generates pre-built cache for the dashboard from the catalog manifest.
-  # CONDITIONAL: Only runs if catalog was updated
-  # ==========================================================================
-  dashboard-cache:
-    name: Update Dashboard Cache
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: dev
-    needs: catalog
-
-    # Run if:
-    # - Manual trigger (workflow_dispatch with job=dashboard or all)
-    # - OR: Catalog was updated in this run
-    if: |
-      github.event.inputs.job == 'dashboard' ||
-      github.event.inputs.job == 'all' ||
-      needs.catalog.outputs.catalog_updated == 'true'
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: ./.github/actions/setup
-        with:
-          dev: "false"
-
-      - name: Generate dashboard cache
-        run: |
-          uv run python scripts/generate_dashboard_cache.py
-
-      - name: Save cache data
-        if: success()
+      - name: Save dashboard cache
+        if: steps.pipeline.outputs.catalog_updated == 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: dashboard/public/cache
           key: dashboard-cache-${{ github.run_number }}
 
-      - name: Summary
-        run: |
-          echo "## Dashboard Cache Updated" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Source: manifest.parquet from causaganha-catalog" >> $GITHUB_STEP_SUMMARY
-          ls -la dashboard/public/cache/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-
       - name: Trigger dashboard deployment
-        if: success()
-        run: |
-          gh workflow run deploy-dashboard.yml
+        if: steps.pipeline.outputs.catalog_updated == 'true'
+        run: gh workflow run deploy-dashboard.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -23,8 +23,7 @@ import time
 import unicodedata
 import uuid
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -40,15 +39,49 @@ import ibis  # noqa: E402
 import structlog  # noqa: E402
 
 from causaganha.config import TRIBUNAIS  # noqa: E402
+from causaganha.storage.djen_schema import (  # noqa: E402
+    FIELD_CODIGO_CLASSE,
+    FIELD_DATA_DISPONIBILIZACAO,
+    FIELD_NOME_CLASSE,
+    FIELD_NOME_ORGAO,
+    FIELD_NUMERO_COMUNICACAO,
+    FIELD_NUMERO_OAB,
+    FIELD_NUMERO_PROCESSO,
+    FIELD_TIPO_COMUNICACAO,
+    FIELD_TIPO_DOCUMENTO,
+    FIELD_UF_OAB,
+)
 
 
-# Schema version — embedded in Parquet metadata for forward compatibility.
-# Bump when TABLE_SCHEMAS change in a way that affects consumers.
-# v3: Added p_ano, p_mes, p_item_ia columns for better partitioning and tracing.
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 SCHEMA_VERSION = "3"
-
+NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
+
+
+# ---------------------------------------------------------------------------
+# Ibis scalar UDFs — the only Python called per-row during SQL execution.
+# ---------------------------------------------------------------------------
+@ibis.udf.scalar.python
+def djen_uuid5(s: str) -> str:
+    """Deterministic UUIDv5 in the CausaGanha DJEN namespace."""
+    if s is None:
+        return None  # type: ignore[return-value]
+    return str(uuid.uuid5(NAMESPACE_DJEN, s))
+
+
+@ibis.udf.scalar.python
+def normalize_name(s: str) -> str:
+    """Strip accents, uppercase, collapse whitespace."""
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return " ".join(s.upper().split())
+
 
 # Table types to consolidate - Defined below via TABLE_SCHEMAS
 
@@ -67,13 +100,15 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
         # Extract tribunal from filename: djen-2026-01-23-TJSP.zip
         parts = zip_file.stem.split("-")
         tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
-        zips.append({
-            "filename": zip_file.name,
-            "tribunal": tribunal,
-            "item_id": "local-test",
-            "size": zip_file.stat().st_size,
-            "local_path": str(zip_file),
-        })
+        zips.append(
+            {
+                "filename": zip_file.name,
+                "tribunal": tribunal,
+                "item_id": "local-test",
+                "size": zip_file.stat().st_size,
+                "local_path": str(zip_file),
+            },
+        )
 
     return zips, len(zips)
 
@@ -181,251 +216,309 @@ def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _str(val: Any) -> str:
-    """Safe string conversion."""
-    if val is None:
-        return ""
-    return str(val).strip()
+# ---------------------------------------------------------------------------
+# Ibis helpers — small composable building blocks for the table builders.
+# ---------------------------------------------------------------------------
 
 
-def _parse_date(val: Any) -> date | None:
-    """Parse a date string (YYYY-MM-DD or ISO-8601) to a date object."""
-    if val is None:
-        return None
-    s = str(val).strip()
-    if not s:
-        return None
-    try:
-        # Handle both "2026-01-15" and "2026-01-15T00:00:00"
-        return date.fromisoformat(s[:10])
-    except (ValueError, IndexError):
-        return None
+def _safe(col: ibis.Column) -> ibis.StringValue:
+    """Cast to string, strip whitespace, fill NULL with ''."""
+    return col.cast("string").strip().fill_null("")
 
 
-def _normalize_name(name: str) -> str:
-    """Normalize a party name for deduplication.
-
-    Strips accents, uppercases, collapses whitespace, removes trailing
-    punctuation artefacts.
-    """
-    # NFKD decomposition → strip combining marks (accents)
-    s = unicodedata.normalize("NFKD", name)
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    # Uppercase + collapse whitespace
-    return " ".join(s.upper().split())
+def _col(t: ibis.Table, *names: str) -> ibis.Column:
+    """COALESCE the first existing columns by *names*, or literal(None)."""
+    existing = [t[n] for n in names if n in t.columns]
+    if not existing:
+        return ibis.literal(None)
+    return ibis.coalesce(*existing) if len(existing) > 1 else existing[0]
 
 
-def _uuid5(data: dict[str, Any]) -> str:
-    """Generate deterministic UUIDv5 from dictionary."""
-    canonical = json.dumps(data, sort_keys=True)
-    return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
+def _struct_field(struct_col: ibis.Column, *names: str) -> ibis.Column:
+    """Safely access first existing field from a struct (handles naming variants)."""
+    field_names = struct_col.type().names
+    for name in names:
+        if name in field_names:
+            return struct_col[name]
+    return ibis.literal(None)
 
 
-def parse_records(
-    records: list[dict[str, Any]],
-    tribunal: str,
-    item_id: str,
-) -> dict[str, list[dict[str, Any]]]:
-    """Parse JSON records into structured tables based on official DJEN schema."""
-    tables: dict[str, list[dict[str, Any]]] = {
-        "comunicacoes": [],
-        "advogados": [],
-        "advogado_nomes": [],
-        "destinatarios": [],
-        "comunicacao_advogados": [],
-        "textos": [],
-        "representacoes": [],
-        "processos": [],
-        "partes": [],
+def _date_expr(raw: ibis.Table) -> ibis.DateValue:
+    """Parse the availability date from either naming convention."""
+    return _safe(_col(raw, *FIELD_DATA_DISPONIBILIZACAO)).left(10).try_cast("date")
+
+
+def _com_id(raw: ibis.Table) -> ibis.StringValue:
+    """Communication UUID: hash of DJEN original id + tribunal."""
+    return djen_uuid5(_safe(raw.id) + ":" + raw.src_tribunal)
+
+
+def _texto_id(raw: ibis.Table) -> ibis.StringValue:
+    """Text UUID: content-addressed hash of the text itself."""
+    txt = _safe(raw.texto)
+    return ibis.case().when(txt != "", djen_uuid5(txt)).else_("").end()
+
+
+def _parte_id(d: ibis.Column) -> ibis.StringValue:
+    """Party UUID: hash of normalized name."""
+    return djen_uuid5(normalize_name(d["nome"].cast("string").fill_null("")))
+
+
+def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.StringValue:
+    """Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id."""
+    adv = da["advogado"]
+    oab = _safe(_struct_field(adv, *FIELD_NUMERO_OAB))
+    uf = _safe(_struct_field(adv, *FIELD_UF_OAB))
+    nome = _safe(adv["nome"])
+    orig_id = _safe(
+        ibis.coalesce(
+            _struct_field(adv, "id"),
+            _struct_field(da, "advogado_id"),
+        ),
+    )
+    return (
+        ibis.case()
+        .when((oab != "") & (uf != ""), djen_uuid5(oab + ":" + uf))
+        .else_(djen_uuid5(nome + ":" + tribunal + ":" + orig_id))
+        .end()
+    )
+
+
+def _partitions(raw: ibis.Table, item_id: str) -> dict[str, ibis.Expr]:
+    """Common partitioning columns shared across most tables."""
+    d = _date_expr(raw)
+    return {
+        "p_ano": d.year().fill_null(0).cast("int32"),
+        "p_mes": d.month().fill_null(0).cast("int32"),
+        "p_item_ia": ibis.literal(item_id),
     }
 
-    processed_at = datetime.now()
 
-    for record in records:
-        if not isinstance(record, dict):
-            continue
+# ---------------------------------------------------------------------------
+# Table builders — each returns an Ibis expression that SELECT-s into its
+# target table.  No raw SQL.  UUIDs computed via the djen_uuid5() UDF,
+# name normalization via normalize_name() UDF, flattening via .unnest().
+# ---------------------------------------------------------------------------
 
-        # Generate deterministic UUIDv5 for the communication
-        # Includes tribunal to ensure uniqueness across sources
-        com_id = _uuid5({**record, "tribunal": tribunal})
-        orig_com_id = _str(record.get("id"))
-        tribunal_s = _str(tribunal)
 
-        # Parse the availability date once
-        data_disp = _parse_date(
-            record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
+def _build_comunicacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
+    return raw.select(
+        id=_com_id(raw),
+        original_id=_safe(raw.id),
+        tribunal=raw.src_tribunal,
+        numero_processo=_safe(_col(raw, *FIELD_NUMERO_PROCESSO)),
+        numero_processo_mascara=_safe(_col(raw, "numeroprocessocommascara")),
+        data_disponibilizacao=_date_expr(raw),
+        tipo_comunicacao=_safe(_col(raw, *FIELD_TIPO_COMUNICACAO)),
+        nome_orgao=_safe(_col(raw, *FIELD_NOME_ORGAO)),
+        meio=_safe(_col(raw, "meio")),
+        link=_safe(_col(raw, "link")),
+        tipo_documento=_safe(_col(raw, *FIELD_TIPO_DOCUMENTO)),
+        nome_classe=_safe(_col(raw, *FIELD_NOME_CLASSE)),
+        codigo_classe=_safe(_col(raw, *FIELD_CODIGO_CLASSE)),
+        numero_comunicacao=_safe(_col(raw, *FIELD_NUMERO_COMUNICACAO)),
+        hash=_safe(_col(raw, "hash")),
+        processed_at=ibis.now(),
+        texto_id=_texto_id(raw),
+        **_partitions(raw, item_id),
+    )
+
+
+def _build_textos(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    txt = _safe(raw.texto)
+    return (
+        raw.filter(txt != "")
+        .select(
+            id=djen_uuid5(txt),
+            texto=txt,
         )
+        .distinct()
+    )
 
-        # Text deduplication via UUIDv5 of content
-        texto_content = record.get("texto")
-        texto_id = ""
-        if texto_content:
-            texto_s = _str(texto_content)
-            texto_id = _uuid5({"texto": texto_s})
-            tables["textos"].append(
-                {
-                    "id": texto_id,
-                    "texto": texto_s,
-                },
-            )
 
-        # Partition keys
-        p_ano = data_disp.year if data_disp else 0
-        p_mes = data_disp.month if data_disp else 0
+def _build_destinatarios(raw: ibis.Table, item_id: str) -> ibis.Table:
+    t = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        d=raw.destinatarios.unnest(),
+    )
+    return t.select(
+        comunicacao_id=djen_uuid5(t.com_key),
+        tribunal=t.src_tribunal,
+        nome=_safe(t.d["nome"]),
+        polo=_safe(t.d["polo"]),
+        parte_id=_parte_id(t.d),
+        p_ano=t.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=t.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=t.src_item_id,
+    )
 
-        # Main communication record
-        tables["comunicacoes"].append(
-            {
-                "id": com_id,
-                "original_id": orig_com_id,
-                "tribunal": tribunal_s,
-                "numero_processo": _str(
-                    record.get("numero_processo") or record.get("numeroProcesso"),
-                ),
-                "numero_processo_mascara": _str(record.get("numeroprocessocommascara")),
-                "data_disponibilizacao": data_disp,
-                "tipo_comunicacao": _str(record.get("tipoComunicacao")),
-                "nome_orgao": _str(record.get("nomeOrgao") or record.get("orgao")),
-                "meio": _str(record.get("meio")),
-                "link": _str(record.get("link")),
-                "tipo_documento": _str(record.get("tipoDocumento")),
-                "nome_classe": _str(record.get("nomeClasse")),
-                "codigo_classe": _str(record.get("codigoClasse")),
-                "numero_comunicacao": _str(record.get("numeroComunicacao")),
-                "hash": _str(record.get("hash")),
-                "processed_at": processed_at,
-                "texto_id": texto_id,
-                "p_ano": p_ano,
-                "p_mes": p_mes,
-                "p_item_ia": item_id,
-            },
+
+def _build_partes(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(d=raw.destinatarios.unnest())
+    nome_norm = normalize_name(t.d["nome"].cast("string").fill_null(""))
+    return (
+        t.filter(nome_norm != "")
+        .select(
+            id=djen_uuid5(nome_norm),
+            nome_normalizado=nome_norm,
+            nome_original=_safe(t.d["nome"]),
         )
+        .distinct(on="id")
+    )
 
-        # Destinatarios (Parties) — also populate partes dimension
-        current_destinatarios = []
-        for dest in record.get("destinatarios") or []:
-            if isinstance(dest, dict):
-                p_nome = _str(dest.get("nome"))
-                p_polo = _str(dest.get("polo"))
 
-                # Generate normalized party ID
-                nome_norm = _normalize_name(p_nome) if p_nome else ""
-                parte_id = _uuid5({"nome_normalizado": nome_norm}) if nome_norm else ""
+def _build_comunicacao_advogados(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    return t.select(
+        comunicacao_id=djen_uuid5(t.com_key),
+        tribunal=t.src_tribunal,
+        advogado_id=_adv_global_id(t.da, t.src_tribunal),
+    )
 
-                if parte_id:
-                    tables["partes"].append(
-                        {
-                            "id": parte_id,
-                            "nome_normalizado": nome_norm,
-                            "nome_original": p_nome,
-                        },
-                    )
 
-                dest_data = {
-                    "comunicacao_id": com_id,
-                    "tribunal": tribunal_s,
-                    "nome": p_nome,
-                    "polo": p_polo,
-                    "parte_id": parte_id,
-                    "p_ano": p_ano,
-                    "p_mes": p_mes,
-                    "p_item_ia": item_id,
-                }
-                tables["destinatarios"].append(dest_data)
-                current_destinatarios.append(
-                    {"nome": p_nome, "polo": p_polo, "parte_id": parte_id},
-                )
+def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
+    t = raw.select(
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    adv = t.da["advogado"]
+    return t.filter(adv.notna()).select(
+        id=_adv_global_id(t.da, t.src_tribunal),
+        original_id=_safe(
+            ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
+        ),
+        tribunal=t.src_tribunal,
+        nome=_safe(adv["nome"]),
+        numero_oab=_safe(_struct_field(adv, *FIELD_NUMERO_OAB)),
+        uf_oab=_safe(_struct_field(adv, *FIELD_UF_OAB)),
+        p_ano=t.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=t.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=t.src_item_id,
+    )
 
-        # Advogados (via destinatarioadvogados)
-        for dest_adv in record.get("destinatarioadvogados") or []:
-            if isinstance(dest_adv, dict):
-                adv = dest_adv.get("advogado") or {}
-                orig_adv_id = _str(adv.get("id") or dest_adv.get("advogado_id"))
 
-                # Global Lawyer ID: Deterministic across tribunals
-                # Based on OAB + UF only (name is a mutable attribute)
-                adv_nome = _str(adv.get("nome"))
-                adv_oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
-                adv_uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
+def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    t = raw.select(
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        da=raw.destinatarioadvogados.unnest(),
+    )
+    adv = t.da["advogado"]
+    return t.filter(adv.notna()).select(
+        advogado_id=_adv_global_id(t.da, t.src_tribunal),
+        nome=_safe(adv["nome"]),
+        tribunal=t.src_tribunal,
+        first_seen=t.disp_date,
+    )
 
-                # If we have OAB/UF, use them for a stable key
-                # Otherwise fallback to Name + Tribunal (less stable but safe)
-                if adv_oab and adv_uf:
-                    adv_global_id = _uuid5({"oab": adv_oab, "uf": adv_uf})
-                else:
-                    adv_global_id = _uuid5(
-                        {"nome": adv_nome, "tribunal": tribunal_s, "orig_id": orig_adv_id},
-                    )
 
-                tables["comunicacao_advogados"].append(
-                    {
-                        "comunicacao_id": com_id,
-                        "tribunal": tribunal_s,
-                        "advogado_id": adv_global_id,
-                    },
-                )
+def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
+    # Cross-join: unnest destinatarios, then unnest destinatarioadvogados
+    step1 = raw.select(
+        com_key=_safe(raw.id) + ":" + raw.src_tribunal,
+        src_tribunal=raw.src_tribunal,
+        disp_date=_date_expr(raw),
+        src_item_id=ibis.literal(item_id),
+        d=raw.destinatarios.unnest(),
+        destinatarioadvogados=raw.destinatarioadvogados,
+    )
+    step2 = step1.select(
+        step1.com_key,
+        step1.src_tribunal,
+        step1.disp_date,
+        step1.src_item_id,
+        step1.d,
+        da=step1.destinatarioadvogados.unnest(),
+    )
+    adv = step2.da["advogado"]
+    return step2.filter(adv.notna()).select(
+        comunicacao_id=djen_uuid5(step2.com_key),
+        tribunal=step2.src_tribunal,
+        advogado_id=_adv_global_id(step2.da, step2.src_tribunal),
+        parte_id=_parte_id(step2.d),
+        polo=_safe(step2.d["polo"]),
+        p_ano=step2.disp_date.year().fill_null(0).cast("int32"),
+        p_mes=step2.disp_date.month().fill_null(0).cast("int32"),
+        p_item_ia=step2.src_item_id,
+    )
 
-                if adv:
-                    tables["advogados"].append(
-                        {
-                            "id": adv_global_id,
-                            "original_id": orig_adv_id,
-                            "tribunal": tribunal_s,
-                            "nome": adv_nome,
-                            "numero_oab": adv_oab,
-                            "uf_oab": adv_uf,
-                            "p_ano": p_ano,
-                            "p_mes": p_mes,
-                            "p_item_ia": item_id,
-                        },
-                    )
 
-                    # Track name aliases for this lawyer
-                    tables["advogado_nomes"].append(
-                        {
-                            "advogado_id": adv_global_id,
-                            "nome": adv_nome,
-                            "tribunal": tribunal_s,
-                            "first_seen": data_disp,
-                        },
-                    )
+def _build_processos(raw: ibis.Table, item_id: str) -> ibis.Table:
+    return raw.select(
+        numero_processo=_safe(_col(raw, *FIELD_NUMERO_PROCESSO)),
+        tribunal=raw.src_tribunal,
+        data=_date_expr(raw),
+        comunicacao_id=_com_id(raw),
+        **_partitions(raw, item_id),
+    )
 
-                    # Create explicit representation mapping (Lawyer -> Party)
-                    for party in current_destinatarios:
-                        tables["representacoes"].append(
-                            {
-                                "comunicacao_id": com_id,
-                                "tribunal": tribunal_s,
-                                "advogado_id": adv_global_id,
-                                "parte_id": party["parte_id"],
-                                "polo": party["polo"],
-                                "p_ano": p_ano,
-                                "p_mes": p_mes,
-                                "p_item_ia": item_id,
-                            },
-                        )
 
-        # Process activity index — one row per communication event
-        tables["processos"].append(
-            {
-                "numero_processo": _str(
-                    record.get("numero_processo") or record.get("numeroProcesso"),
-                ),
-                "tribunal": tribunal_s,
-                "data": data_disp,
-                "comunicacao_id": com_id,
-                "p_ano": p_ano,
-                "p_mes": p_mes,
-                "p_item_ia": item_id,
-            },
-        )
+# Ordered list: tables with FK dependencies come after their parents.
+_TABLE_BUILDERS: tuple[tuple[str, Any], ...] = (
+    ("comunicacoes", _build_comunicacoes),
+    ("textos", _build_textos),
+    ("destinatarios", _build_destinatarios),
+    ("partes", _build_partes),
+    ("comunicacao_advogados", _build_comunicacao_advogados),
+    ("advogados", _build_advogados),
+    ("advogado_nomes", _build_advogado_nomes),
+    ("representacoes", _build_representacoes),
+    ("processos", _build_processos),
+)
 
-    return tables
+
+def _load_and_transform(
+    con: ibis.BaseBackend,
+    ndjson_dir: Path,
+    item_id: str,
+) -> dict[str, int]:
+    """Load raw per-tribunal NDJSON into DuckDB, produce all 9 tables via Ibis.
+
+    The only raw SQL is ``read_json_auto`` (DuckDB-specific loader).  Everything
+    else — UUIDs, name normalization, unnesting, deduplication — is expressed
+    as Ibis table expressions executed by the DuckDB backend.
+    """
+    # One raw SQL call: read_json_auto with filename for tribunal derivation.
+    con.raw_sql(
+        f"CREATE OR REPLACE TABLE _staging AS "
+        f"SELECT * FROM read_json_auto('{ndjson_dir}/*.ndjson', "
+        f"filename=true, union_by_name=true)",
+    )
+    staging = con.table("_staging")
+
+    # Derive _tribunal from filename and add item_id — pure Ibis, no Python loop.
+    raw_expr = staging.mutate(
+        src_tribunal=staging.filename.split("/")[-1].split(".")[0],
+        src_item_id=ibis.literal(item_id),
+    )
+    con.create_table("raw_records", raw_expr, overwrite=True)
+    raw = con.table("raw_records")
+
+    counts: dict[str, int] = {}
+    for table_name, builder in _TABLE_BUILDERS:
+        expr = builder(raw, item_id)
+        con.insert(table_name, expr)
+        row_count = con.table(table_name).count().execute()
+        counts[table_name] = row_count
+        if row_count:
+            logger.info("table_populated", table=table_name, rows=row_count)
+
+    # Clean up staging tables
+    con.drop_table("raw_records", force=True)
+    con.drop_table("_staging", force=True)
+    return counts
 
 
 # Explicit Schema Definitions using Ibis
-NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
-
 TABLE_SCHEMAS = {
     "comunicacoes": ibis.schema(
         {
@@ -636,6 +729,7 @@ def _export_and_upload_table(
     con: ibis.BaseBackend,
     output_dir: Path,
     item_id: str,
+    *,
     dry_run: bool,
 ) -> tuple[bool, int]:
     """Export single table to Parquet and upload. Returns (success, parquets_created)."""
@@ -669,11 +763,22 @@ def _export_and_upload_table(
         return False, 0
 
 
-def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None, max_zips: int = 0) -> dict[str, int]:
+def consolidate_date(
+    date: str,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    local_zips: str | None = None,
+    max_zips: int = 0,
+) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files.
 
     Args:
-        max_zips: Maximum ZIPs to process (0 = unlimited)
+        date: Date string in YYYY-MM-DD format.
+        dry_run: If True, skip uploading to Internet Archive.
+        force: If True, consolidate even if the day is incomplete.
+        local_zips: Local directory containing ZIPs (for testing).
+        max_zips: Maximum ZIPs to process (0 = unlimited).
     """
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
     item_id = f"djen-{date}"
@@ -709,92 +814,82 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
     con = ibis.duckdb.connect()
     init_tables(con)
 
-    # Accumulate all rows by table for batch insert (optimization)
-    accumulated_rows: dict[str, list[dict[str, Any]]] = {table_name: [] for table_name in TABLES}
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
+        ndjson_dir = tmp_path / "ndjson"
+        ndjson_dir.mkdir()
 
-        for i, zip_entry in enumerate(zips):
-            zip_info: dict[str, Any] = zip_entry
-            filename = str(zip_info["filename"])
-            tribunal = str(zip_info["tribunal"])
+        # Phase 1: Extract ZIPs → raw per-tribunal NDJSON (zero Python mutation)
+        ndjson_handles: dict[str, Any] = {}
+        try:
+            for i, zip_entry in enumerate(zips):
+                zip_info: dict[str, Any] = zip_entry
+                filename = str(zip_info["filename"])
+                tribunal = str(zip_info["tribunal"])
 
-            logger.info(
-                "processing_zip",
-                filename=filename,
-                tribunal=tribunal,
-                progress=f"{i + 1}/{len(zips)}",
-            )
+                logger.info(
+                    "processing_zip",
+                    filename=filename,
+                    tribunal=tribunal,
+                    progress=f"{i + 1}/{len(zips)}",
+                )
 
-            # Download or use local ZIP
-            zip_path = tmp_path / filename
-            if local_zips and "local_path" in zip_info:
-                # Copy from local directory
-                import shutil
-                try:
-                    shutil.copy2(zip_info["local_path"], zip_path)
-                except Exception as e:
-                    logger.warning("local_copy_failed", filename=filename, error=str(e))
-                    continue
-            else:
-                # Download from IA
-                if not download_zip(item_id, filename, zip_path):
+                # Download or use local ZIP
+                zip_path = tmp_path / filename
+                if local_zips and "local_path" in zip_info:
+                    import shutil
+
+                    try:
+                        shutil.copy2(zip_info["local_path"], zip_path)
+                    except Exception as e:
+                        logger.warning("local_copy_failed", filename=filename, error=str(e))
+                        continue
+                elif not download_zip(item_id, filename, zip_path):
                     logger.warning("download_failed", filename=filename)
                     continue
 
-            # Extract and parse JSON
-            records = extract_json_from_zip(zip_path)
-            if not records:
-                logger.warning("no_records_found", filename=filename)
+                # Extract JSON from ZIP
+                records = extract_json_from_zip(zip_path)
+                if not records:
+                    logger.warning("no_records_found", filename=filename)
+                    zip_path.unlink()
+                    continue
+
+                # Stream raw records — one NDJSON per tribunal.
+                # Tribunal is derived from the filename in DuckDB, not mutated here.
+                if tribunal not in ndjson_handles:
+                    ndjson_handles[tribunal] = (ndjson_dir / f"{tribunal}.ndjson").open("w")
+                f = ndjson_handles[tribunal]
+                for rec in records:
+                    if isinstance(rec, dict):
+                        f.write(json.dumps(rec, default=str) + "\n")
+
+                stats["zips_processed"] += 1
+                stats["records"] += len(records)
                 zip_path.unlink()
-                continue
+        finally:
+            for fh in ndjson_handles.values():
+                fh.close()
 
-            # Parse into tables
-            tables = parse_records(records, tribunal, item_id)
+        # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
+        if stats["records"] > 0:
+            table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            logger.info("transform_complete", tables=table_counts)
 
-            # Accumulate rows for batch insert (instead of immediate insert)
-            for table_name, rows in tables.items():
-                if rows:
-                    accumulated_rows[table_name].extend(rows)
-
-            stats["zips_processed"] += 1
-            stats["records"] += len(records)
-
-            # Clean up to save disk space
-            zip_path.unlink()
-
-        # Batch insert all accumulated rows (single insert per table)
-        for table_name in TABLES:
-            if not accumulated_rows[table_name]:
-                continue
-
-            rows = accumulated_rows[table_name]
-
-            # Deduplicate partes by ID to reduce data volume
-            if table_name == "partes":
-                seen_ids = set()
-                deduped_rows = []
-                for row in rows:
-                    row_id = row.get("id")
-                    if row_id and row_id not in seen_ids:
-                        seen_ids.add(row_id)
-                        deduped_rows.append(row)
-                logger.info("deduplicating_parties", original=len(rows), deduplicated=len(deduped_rows))
-                rows = deduped_rows
-
-            data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
-            con.insert(table_name, data)
-
-        # Write consolidated Parquet files (SEQUENTIAL)
+        # Phase 3: Export to Parquet and upload
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
         logger.info("exporting_parquets", table_count=len(TABLES))
 
-        # Export tables sequentially (DuckDB connections aren't thread-safe)
         for table_name in TABLES:
-            success, uploaded = _export_and_upload_table(table_name, con, output_dir, item_id, dry_run)
+            success, uploaded = _export_and_upload_table(
+                table_name,
+                con,
+                output_dir,
+                item_id,
+                dry_run=dry_run,
+            )
             if success:
                 stats["parquets_created"] += 1
                 stats["uploaded"] += uploaded
@@ -837,7 +932,11 @@ def main() -> int:
         "--local-zips",
         help="Use local ZIPs from directory instead of downloading from IA (for testing)",
     )
-    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
+    parser.add_argument(
+        "--deadline",
+        help="Exit after this duration (e.g., 10m, 600s)",
+        default="10m",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -868,7 +967,13 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips, max_zips=args.max_zips)
+        stats = consolidate_date(
+            target_date,
+            dry_run=args.dry_run,
+            force=use_force,
+            local_zips=args.local_zips,
+            max_zips=args.max_zips,
+        )
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback
@@ -879,12 +984,12 @@ def main() -> int:
     _print_stats(stats)
 
     # Set GitHub Actions output: did we add any files?
-    files_added = stats['parquets_created'] > 0
+    files_added = stats["parquets_created"] > 0
     print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
-        with open(os_env, "a") as f:
+        with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
 
     return 0 if stats["parquets_created"] > 0 else 1

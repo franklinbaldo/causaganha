@@ -1,0 +1,233 @@
+"""Ibis schemas for the DJEN API GET responses.
+
+Each ``ibis.Schema`` corresponds to one entity returned by the API.
+Field names are preserved **exactly** as observed in real GET responses
+(mixed camelCase / snake_case).  Fields undocumented in djen.yml but
+present in real responses are included and marked "Undocumented".
+
+Type mapping
+------------
+=============  ==========
+Swagger type   Ibis type
+=============  ==========
+string         string
+number         int64
+integer        int64
+boolean        boolean
+=============  ==========
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import ibis
+
+
+if TYPE_CHECKING:
+    from ibis.expr.schema import Schema
+
+
+# ── GET /api/v1/comunicacao  →  response.items[] ────────────────────────
+
+comunicacao: Schema = ibis.schema(
+    {
+        "id": "int64",  # Id da comunicação
+        "data_disponibilizacao": "string",  # yyyy-mm-dd
+        "siglaTribunal": "string",
+        "tipoComunicacao": "string",  # Citação, Intimação, Edital, …
+        "nomeOrgao": "string",
+        "idOrgao": "int64",  # Undocumented; present in GET response
+        "texto": "string",  # Teor da comunicação
+        "numero_processo": "string",
+        "meio": "string",  # D=Diário, E=Edital
+        "link": "string",  # URL inteiro teor
+        "tipoDocumento": "string",
+        "nomeClasse": "string",  # Classe do processo
+        "codigoClasse": "string",
+        "numeroComunicacao": "int64",  # Número de identificação
+        "ativo": "boolean",
+        "hash": "string",
+        "status": "string",  # Undocumented; e.g. "P"
+        "motivo_cancelamento": "string",  # Undocumented; nullable
+        "data_cancelamento": "string",  # Undocumented; nullable
+        "datadisponibilizacao": "string",  # Alternate (no underscore)
+        "meiocompleto": "string",
+        "numeroprocessocommascara": "string",
+    },
+)
+
+
+# ── comunicacao.destinatarios[] ──────────────────────────────────────────
+
+destinatario: Schema = ibis.schema(
+    {
+        "nome": "string",
+        "polo": "string",  # A=Ativo, P=Passivo, T=Terceiro, D=Outros
+        "comunicacao_id": "int64",
+        "cpf_cnpj": "string",  # Present in POST request/response
+    },
+)
+
+
+# ── comunicacao.destinatarioadvogados[] ──────────────────────────────────
+
+destinatario_advogado: Schema = ibis.schema(
+    {
+        "id": "int64",
+        "comunicacao_id": "int64",
+        "advogado_id": "int64",
+        "created_at": "string",
+        "updated_at": "string",
+    },
+)
+
+
+# ── comunicacao.destinatarioadvogados[].advogado ─────────────────────────
+
+advogado: Schema = ibis.schema(
+    {
+        "id": "int64",  # required
+        "nome": "string",  # required
+        "numero_oab": "string",  # required
+        "uf_oab": "string",  # required
+        "tipo_inscricao": "string",  # POST response only
+        "email": "string",  # POST response only
+    },
+)
+
+
+# ── GET /api/v1/comunicacao/tribunal  →  response[] ─────────────────────
+
+tribunal: Schema = ibis.schema(
+    {
+        "id": "int64",
+        "nome": "string",  # Nome completo do Tribunal
+        "sigla": "string",  # Sigla do Tribunal
+        "jurisdicao": "string",
+        "endereco": "string",
+        "telefone": "string",
+    },
+)
+
+
+# ── GET /api/v1/caderno/{sigla_tribunal}/{data}/{meio}  →  response ─────
+
+caderno: Schema = ibis.schema(
+    {
+        "tribunal": "string",  # Nome completo
+        "sigla_tribunal": "string",
+        "meio": "string",  # D or E
+        "status": "string",  # Não Processado / Em processamento / Processado / …
+        "versao": "string",
+        "data": "string",  # yyyy-mm-dd
+        "total_comunicacoes": "int64",
+        "numero_paginas": "int64",  # Files inside ZIP
+        "hash": "string",  # SHA-256
+        "url": "string",  # Temporary download URL (5 min)
+    },
+)
+
+
+# ── Lookup table ─────────────────────────────────────────────────────────
+
+SCHEMAS: dict[str, Schema] = {
+    "comunicacao": comunicacao,
+    "destinatario": destinatario,
+    "destinatario_advogado": destinatario_advogado,
+    "advogado": advogado,
+    "tribunal": tribunal,
+    "caderno": caderno,
+}
+
+
+# ── Field-name variants ─────────────────────────────────────────────────
+#
+# The DJEN API returns mixed naming conventions across different endpoints
+# and time periods.  Each tuple lists *all* observed variants for a single
+# logical field — the first entry is the canonical (snake_case) name that
+# matches the schema above.
+#
+# Consumers should COALESCE across these variants when reading raw JSON
+# (e.g. via ``union_by_name=true``), since any given record may contain
+# only one of the variants.
+
+FIELD_DATA_DISPONIBILIZACAO: tuple[str, ...] = (
+    "data_disponibilizacao",
+    "datadisponibilizacao",
+    "dataDisponibilizacao",
+)
+
+FIELD_NUMERO_PROCESSO: tuple[str, ...] = (
+    "numero_processo",
+    "numeroProcesso",
+)
+
+FIELD_SIGLA_TRIBUNAL: tuple[str, ...] = (
+    "sigla_tribunal",
+    "siglaTribunal",
+)
+
+FIELD_TIPO_COMUNICACAO: tuple[str, ...] = (
+    "tipo_comunicacao",
+    "tipoComunicacao",
+)
+
+FIELD_NOME_ORGAO: tuple[str, ...] = (
+    "nome_orgao",
+    "nomeOrgao",
+    "orgao",
+)
+
+FIELD_ID_ORGAO: tuple[str, ...] = (
+    "id_orgao",
+    "idOrgao",
+)
+
+FIELD_TIPO_DOCUMENTO: tuple[str, ...] = (
+    "tipo_documento",
+    "tipoDocumento",
+)
+
+FIELD_NOME_CLASSE: tuple[str, ...] = (
+    "nome_classe",
+    "nomeClasse",
+)
+
+FIELD_CODIGO_CLASSE: tuple[str, ...] = (
+    "codigo_classe",
+    "codigoClasse",
+)
+
+FIELD_NUMERO_COMUNICACAO: tuple[str, ...] = (
+    "numero_comunicacao",
+    "numeroComunicacao",
+)
+
+FIELD_NUMERO_OAB: tuple[str, ...] = (
+    "numero_oab",
+    "numeroOAB",
+)
+
+FIELD_UF_OAB: tuple[str, ...] = (
+    "uf_oab",
+    "ufOAB",
+)
+
+
+def get_field(
+    record: dict[str, object],
+    variants: tuple[str, ...],
+    default: object = None,
+) -> object:
+    """Look up the first matching variant key in a dict.
+
+    Usage::
+
+        >>> get_field(item, FIELD_NUMERO_PROCESSO)
+        '70127110520238220007'
+    """
+    for name in variants:
+        if name in record:
+            return record[name]
+    return default
