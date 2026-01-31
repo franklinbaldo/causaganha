@@ -54,7 +54,8 @@ DJEN API (geo-blocked) → DJEN Proxy (Cloud Run, São Paulo)
 
 ```text
 src/causaganha/
-├── cli/                 # Typer CLI (single entry point)
+├── cli/                 # Typer CLI entry point (decomposing)
+│   └── commands/        # Submodule-based commands
 ├── pipeline/            # Data orchestration
 │   ├── collect.py       # Download from DJEN
 │   ├── analyze.py       # Decision classification
