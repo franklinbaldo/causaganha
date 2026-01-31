@@ -992,7 +992,7 @@ def main() -> int:
         with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
 
-    return 0 if stats["parquets_created"] > 0 else 1
+    return 0
 
 
 if __name__ == "__main__":
