@@ -23,8 +23,7 @@ import time
 import unicodedata
 import uuid
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -67,13 +66,15 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
         # Extract tribunal from filename: djen-2026-01-23-TJSP.zip
         parts = zip_file.stem.split("-")
         tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
-        zips.append({
-            "filename": zip_file.name,
-            "tribunal": tribunal,
-            "item_id": "local-test",
-            "size": zip_file.stat().st_size,
-            "local_path": str(zip_file),
-        })
+        zips.append(
+            {
+                "filename": zip_file.name,
+                "tribunal": tribunal,
+                "item_id": "local-test",
+                "size": zip_file.stat().st_size,
+                "local_path": str(zip_file),
+            },
+        )
 
     return zips, len(zips)
 
@@ -221,206 +222,248 @@ def _uuid5(data: dict[str, Any]) -> str:
     return str(uuid.uuid5(NAMESPACE_DJEN, canonical))
 
 
-def parse_records(
+def _enrich_records(
     records: list[dict[str, Any]],
     tribunal: str,
     item_id: str,
-) -> dict[str, list[dict[str, Any]]]:
-    """Parse JSON records into structured tables based on official DJEN schema."""
-    tables: dict[str, list[dict[str, Any]]] = {
-        "comunicacoes": [],
-        "advogados": [],
-        "advogado_nomes": [],
-        "destinatarios": [],
-        "comunicacao_advogados": [],
-        "textos": [],
-        "representacoes": [],
-        "processos": [],
-        "partes": [],
-    }
+) -> list[dict[str, Any]]:
+    """Enrich raw JSON records with computed UUIDs for DuckDB vectorized processing.
 
-    processed_at = datetime.now()
-
+    Only computes values that require Python (UUIDv5 with json.dumps(sort_keys=True)
+    serialization for backward-compatible deterministic IDs). All flattening,
+    projection, cross-joins, and deduplication are deferred to DuckDB UNNEST.
+    """
+    enriched: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
             continue
 
-        # Generate deterministic UUIDv5 for the communication
-        # Includes tribunal to ensure uniqueness across sources
+        # Communication UUID: hash of full record + tribunal
         com_id = _uuid5({**record, "tribunal": tribunal})
-        orig_com_id = _str(record.get("id"))
-        tribunal_s = _str(tribunal)
 
-        # Parse the availability date once
-        data_disp = _parse_date(
-            record.get("data_disponibilizacao") or record.get("dataDisponibilizacao"),
-        )
+        # Text UUID: content-addressed
+        texto = record.get("texto")
+        texto_id = _uuid5({"texto": _str(texto)}) if texto else ""
 
-        # Text deduplication via UUIDv5 of content
-        texto_content = record.get("texto")
-        texto_id = ""
-        if texto_content:
-            texto_s = _str(texto_content)
-            texto_id = _uuid5({"texto": texto_s})
-            tables["textos"].append(
-                {
-                    "id": texto_id,
-                    "texto": texto_s,
-                },
-            )
-
-        # Partition keys
-        p_ano = data_disp.year if data_disp else 0
-        p_mes = data_disp.month if data_disp else 0
-
-        # Main communication record
-        tables["comunicacoes"].append(
-            {
-                "id": com_id,
-                "original_id": orig_com_id,
-                "tribunal": tribunal_s,
-                "numero_processo": _str(
-                    record.get("numero_processo") or record.get("numeroProcesso"),
-                ),
-                "numero_processo_mascara": _str(record.get("numeroprocessocommascara")),
-                "data_disponibilizacao": data_disp,
-                "tipo_comunicacao": _str(record.get("tipoComunicacao")),
-                "nome_orgao": _str(record.get("nomeOrgao") or record.get("orgao")),
-                "meio": _str(record.get("meio")),
-                "link": _str(record.get("link")),
-                "tipo_documento": _str(record.get("tipoDocumento")),
-                "nome_classe": _str(record.get("nomeClasse")),
-                "codigo_classe": _str(record.get("codigoClasse")),
-                "numero_comunicacao": _str(record.get("numeroComunicacao")),
-                "hash": _str(record.get("hash")),
-                "processed_at": processed_at,
-                "texto_id": texto_id,
-                "p_ano": p_ano,
-                "p_mes": p_mes,
-                "p_item_ia": item_id,
-            },
-        )
-
-        # Destinatarios (Parties) — also populate partes dimension
-        current_destinatarios = []
+        # Enrich destinatarios with computed parte_id
         for dest in record.get("destinatarios") or []:
             if isinstance(dest, dict):
-                p_nome = _str(dest.get("nome"))
-                p_polo = _str(dest.get("polo"))
+                nome = _str(dest.get("nome"))
+                nome_norm = _normalize_name(nome) if nome else ""
+                dest["_parte_id"] = _uuid5({"nome_normalizado": nome_norm}) if nome_norm else ""
+                dest["_nome_normalizado"] = nome_norm
 
-                # Generate normalized party ID
-                nome_norm = _normalize_name(p_nome) if p_nome else ""
-                parte_id = _uuid5({"nome_normalizado": nome_norm}) if nome_norm else ""
-
-                if parte_id:
-                    tables["partes"].append(
-                        {
-                            "id": parte_id,
-                            "nome_normalizado": nome_norm,
-                            "nome_original": p_nome,
-                        },
-                    )
-
-                dest_data = {
-                    "comunicacao_id": com_id,
-                    "tribunal": tribunal_s,
-                    "nome": p_nome,
-                    "polo": p_polo,
-                    "parte_id": parte_id,
-                    "p_ano": p_ano,
-                    "p_mes": p_mes,
-                    "p_item_ia": item_id,
-                }
-                tables["destinatarios"].append(dest_data)
-                current_destinatarios.append(
-                    {"nome": p_nome, "polo": p_polo, "parte_id": parte_id},
-                )
-
-        # Advogados (via destinatarioadvogados)
-        for dest_adv in record.get("destinatarioadvogados") or []:
-            if isinstance(dest_adv, dict):
-                adv = dest_adv.get("advogado") or {}
-                orig_adv_id = _str(adv.get("id") or dest_adv.get("advogado_id"))
-
-                # Global Lawyer ID: Deterministic across tribunals
-                # Based on OAB + UF only (name is a mutable attribute)
-                adv_nome = _str(adv.get("nome"))
-                adv_oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
-                adv_uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
-
-                # If we have OAB/UF, use them for a stable key
-                # Otherwise fallback to Name + Tribunal (less stable but safe)
-                if adv_oab and adv_uf:
-                    adv_global_id = _uuid5({"oab": adv_oab, "uf": adv_uf})
+        # Enrich advogados with computed global ID
+        for da in record.get("destinatarioadvogados") or []:
+            if isinstance(da, dict):
+                adv = da.get("advogado") or {}
+                oab = _str(adv.get("numero_oab") or adv.get("numeroOAB"))
+                uf = _str(adv.get("uf_oab") or adv.get("ufOAB"))
+                orig_id = _str(adv.get("id") or da.get("advogado_id"))
+                if oab and uf:
+                    da["_adv_global_id"] = _uuid5({"oab": oab, "uf": uf})
                 else:
-                    adv_global_id = _uuid5(
-                        {"nome": adv_nome, "tribunal": tribunal_s, "orig_id": orig_adv_id},
+                    da["_adv_global_id"] = _uuid5(
+                        {"nome": _str(adv.get("nome")), "tribunal": tribunal, "orig_id": orig_id},
                     )
 
-                tables["comunicacao_advogados"].append(
-                    {
-                        "comunicacao_id": com_id,
-                        "tribunal": tribunal_s,
-                        "advogado_id": adv_global_id,
-                    },
-                )
+        record["_com_id"] = com_id
+        record["_texto_id"] = texto_id
+        record["_tribunal"] = tribunal
+        record["_item_id"] = item_id
+        enriched.append(record)
 
-                if adv:
-                    tables["advogados"].append(
-                        {
-                            "id": adv_global_id,
-                            "original_id": orig_adv_id,
-                            "tribunal": tribunal_s,
-                            "nome": adv_nome,
-                            "numero_oab": adv_oab,
-                            "uf_oab": adv_uf,
-                            "p_ano": p_ano,
-                            "p_mes": p_mes,
-                            "p_item_ia": item_id,
-                        },
-                    )
+    return enriched
 
-                    # Track name aliases for this lawyer
-                    tables["advogado_nomes"].append(
-                        {
-                            "advogado_id": adv_global_id,
-                            "nome": adv_nome,
-                            "tribunal": tribunal_s,
-                            "first_seen": data_disp,
-                        },
-                    )
 
-                    # Create explicit representation mapping (Lawyer -> Party)
-                    for party in current_destinatarios:
-                        tables["representacoes"].append(
-                            {
-                                "comunicacao_id": com_id,
-                                "tribunal": tribunal_s,
-                                "advogado_id": adv_global_id,
-                                "parte_id": party["parte_id"],
-                                "polo": party["polo"],
-                                "p_ano": p_ano,
-                                "p_mes": p_mes,
-                                "p_item_ia": item_id,
-                            },
-                        )
+# SQL templates for vectorized table creation from raw enriched records.
+# DuckDB UNNEST replaces the triple-nested Python loops in the old parse_records().
 
-        # Process activity index — one row per communication event
-        tables["processos"].append(
-            {
-                "numero_processo": _str(
-                    record.get("numero_processo") or record.get("numeroProcesso"),
-                ),
-                "tribunal": tribunal_s,
-                "data": data_disp,
-                "comunicacao_id": com_id,
-                "p_ano": p_ano,
-                "p_mes": p_mes,
-                "p_item_ia": item_id,
-            },
-        )
+_SQL_COMUNICACOES = """
+INSERT INTO comunicacoes
+SELECT
+    r._com_id                                                        AS id,
+    COALESCE(TRIM(CAST(r.id AS VARCHAR)), '')                        AS original_id,
+    r._tribunal                                                      AS tribunal,
+    COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
+                                                                     AS numero_processo,
+    COALESCE(TRIM(CAST(r.numeroprocessocommascara AS VARCHAR)), '')   AS numero_processo_mascara,
+    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
+                                                                     AS data_disponibilizacao,
+    COALESCE(TRIM(CAST(r.tipoComunicacao AS VARCHAR)), '')            AS tipo_comunicacao,
+    COALESCE(TRIM(CAST(COALESCE(r.nomeOrgao, r.orgao) AS VARCHAR)), '')
+                                                                     AS nome_orgao,
+    COALESCE(TRIM(CAST(r.meio AS VARCHAR)), '')                       AS meio,
+    COALESCE(TRIM(CAST(r.link AS VARCHAR)), '')                       AS link,
+    COALESCE(TRIM(CAST(r.tipoDocumento AS VARCHAR)), '')              AS tipo_documento,
+    COALESCE(TRIM(CAST(r.nomeClasse AS VARCHAR)), '')                 AS nome_classe,
+    COALESCE(TRIM(CAST(r.codigoClasse AS VARCHAR)), '')               AS codigo_classe,
+    COALESCE(TRIM(CAST(r.numeroComunicacao AS VARCHAR)), '')          AS numero_comunicacao,
+    COALESCE(TRIM(CAST(r.hash AS VARCHAR)), '')                       AS hash,
+    CURRENT_TIMESTAMP                                                 AS processed_at,
+    r._texto_id                                                       AS texto_id,
+    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                     AS p_ano,
+    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                     AS p_mes,
+    r._item_id                                                        AS p_item_ia
+FROM raw_records r
+"""
 
-    return tables
+_SQL_TEXTOS = """
+INSERT INTO textos
+SELECT DISTINCT
+    r._texto_id                              AS id,
+    COALESCE(TRIM(CAST(r.texto AS VARCHAR)), '') AS texto
+FROM raw_records r
+WHERE r._texto_id != ''
+"""
+
+_SQL_DESTINATARIOS = """
+INSERT INTO destinatarios
+SELECT
+    r._com_id                                                       AS comunicacao_id,
+    r._tribunal                                                     AS tribunal,
+    COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome,
+    COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
+    d._parte_id                                                     AS parte_id,
+    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_ano,
+    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_mes,
+    r._item_id                                                      AS p_item_ia
+FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
+"""
+
+_SQL_PARTES = """
+INSERT INTO partes
+SELECT DISTINCT ON (d._parte_id)
+    d._parte_id                                                     AS id,
+    d._nome_normalizado                                             AS nome_normalizado,
+    COALESCE(TRIM(CAST(d.nome AS VARCHAR)), '')                     AS nome_original
+FROM raw_records r, UNNEST(r.destinatarios) AS t(d)
+WHERE d._parte_id != ''
+"""
+
+_SQL_COMUNICACAO_ADVOGADOS = """
+INSERT INTO comunicacao_advogados
+SELECT
+    r._com_id                                                       AS comunicacao_id,
+    r._tribunal                                                     AS tribunal,
+    da._adv_global_id                                               AS advogado_id
+FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
+"""
+
+_SQL_ADVOGADOS = """
+INSERT INTO advogados
+SELECT
+    da._adv_global_id                                               AS id,
+    COALESCE(TRIM(CAST(COALESCE(da.advogado.id, da.advogado_id) AS VARCHAR)), '')
+                                                                    AS original_id,
+    r._tribunal                                                     AS tribunal,
+    COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
+    COALESCE(TRIM(CAST(COALESCE(da.advogado.numero_oab, da.advogado.numeroOAB) AS VARCHAR)), '')
+                                                                    AS numero_oab,
+    COALESCE(TRIM(CAST(COALESCE(da.advogado.uf_oab, da.advogado.ufOAB) AS VARCHAR)), '')
+                                                                    AS uf_oab,
+    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_ano,
+    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_mes,
+    r._item_id                                                      AS p_item_ia
+FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
+WHERE da.advogado IS NOT NULL
+"""
+
+_SQL_ADVOGADO_NOMES = """
+INSERT INTO advogado_nomes
+SELECT
+    da._adv_global_id                                               AS advogado_id,
+    COALESCE(TRIM(CAST(da.advogado.nome AS VARCHAR)), '')           AS nome,
+    r._tribunal                                                     AS tribunal,
+    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
+                                                                    AS first_seen
+FROM raw_records r, UNNEST(r.destinatarioadvogados) AS t(da)
+WHERE da.advogado IS NOT NULL
+"""
+
+_SQL_REPRESENTACOES = """
+INSERT INTO representacoes
+SELECT
+    r._com_id                                                       AS comunicacao_id,
+    r._tribunal                                                     AS tribunal,
+    da._adv_global_id                                               AS advogado_id,
+    d._parte_id                                                     AS parte_id,
+    COALESCE(TRIM(CAST(d.polo AS VARCHAR)), '')                     AS polo,
+    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_ano,
+    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_mes,
+    r._item_id                                                      AS p_item_ia
+FROM raw_records r,
+     UNNEST(r.destinatarios) AS t1(d),
+     UNNEST(r.destinatarioadvogados) AS t2(da)
+WHERE da.advogado IS NOT NULL
+"""
+
+_SQL_PROCESSOS = """
+INSERT INTO processos
+SELECT
+    COALESCE(TRIM(CAST(COALESCE(r.numero_processo, r.numeroProcesso) AS VARCHAR)), '')
+                                                                    AS numero_processo,
+    r._tribunal                                                     AS tribunal,
+    TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)
+                                                                    AS data,
+    r._com_id                                                       AS comunicacao_id,
+    COALESCE(YEAR(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_ano,
+    COALESCE(MONTH(TRY_CAST(LEFT(COALESCE(CAST(COALESCE(r.data_disponibilizacao, r.dataDisponibilizacao) AS VARCHAR), ''), 10) AS DATE)), 0)
+                                                                    AS p_mes,
+    r._item_id                                                      AS p_item_ia
+FROM raw_records r
+"""
+
+# Ordered list: tables with foreign-key dependencies come after their parents.
+_TABLE_SQL: tuple[tuple[str, str], ...] = (
+    ("comunicacoes", _SQL_COMUNICACOES),
+    ("textos", _SQL_TEXTOS),
+    ("destinatarios", _SQL_DESTINATARIOS),
+    ("partes", _SQL_PARTES),
+    ("comunicacao_advogados", _SQL_COMUNICACAO_ADVOGADOS),
+    ("advogados", _SQL_ADVOGADOS),
+    ("advogado_nomes", _SQL_ADVOGADO_NOMES),
+    ("representacoes", _SQL_REPRESENTACOES),
+    ("processos", _SQL_PROCESSOS),
+)
+
+
+def _load_and_transform(
+    con: ibis.BaseBackend,
+    ndjson_path: Path,
+) -> dict[str, int]:
+    """Load enriched NDJSON into DuckDB and produce all 9 tables via UNNEST.
+
+    Replaces the old parse_records() + accumulation + dedup loop with
+    vectorized DuckDB operations.  Returns row counts per table.
+    """
+    duck = con.con
+
+    # Load all enriched records as a single DuckDB table
+    duck.execute(
+        f"CREATE OR REPLACE TABLE raw_records AS SELECT * FROM read_json_auto('{ndjson_path}')",
+    )
+
+    counts: dict[str, int] = {}
+    for table_name, sql in _TABLE_SQL:
+        duck.execute(sql)
+        row_count = duck.execute(f"SELECT count(*) FROM {table_name}").fetchone()[0]
+        counts[table_name] = row_count
+        if row_count:
+            logger.info("table_populated", table=table_name, rows=row_count)
+
+    # Clean up raw staging table
+    duck.execute("DROP TABLE IF EXISTS raw_records")
+    return counts
 
 
 # Explicit Schema Definitions using Ibis
@@ -636,6 +679,7 @@ def _export_and_upload_table(
     con: ibis.BaseBackend,
     output_dir: Path,
     item_id: str,
+    *,
     dry_run: bool,
 ) -> tuple[bool, int]:
     """Export single table to Parquet and upload. Returns (success, parquets_created)."""
@@ -669,11 +713,22 @@ def _export_and_upload_table(
         return False, 0
 
 
-def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, local_zips: str | None = None, max_zips: int = 0) -> dict[str, int]:
+def consolidate_date(
+    date: str,
+    *,
+    dry_run: bool = False,
+    force: bool = False,
+    local_zips: str | None = None,
+    max_zips: int = 0,
+) -> dict[str, int]:
     """Consolidate all tribunals for a date into single Parquet files.
 
     Args:
-        max_zips: Maximum ZIPs to process (0 = unlimited)
+        date: Date string in YYYY-MM-DD format.
+        dry_run: If True, skip uploading to Internet Archive.
+        force: If True, consolidate even if the day is incomplete.
+        local_zips: Local directory containing ZIPs (for testing).
+        max_zips: Maximum ZIPs to process (0 = unlimited).
     """
     stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
     item_id = f"djen-{date}"
@@ -709,92 +764,75 @@ def consolidate_date(date: str, *, dry_run: bool = False, force: bool = False, l
     con = ibis.duckdb.connect()
     init_tables(con)
 
-    # Accumulate all rows by table for batch insert (optimization)
-    accumulated_rows: dict[str, list[dict[str, Any]]] = {table_name: [] for table_name in TABLES}
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
+        ndjson_path = tmp_path / "enriched.ndjson"
 
-        for i, zip_entry in enumerate(zips):
-            zip_info: dict[str, Any] = zip_entry
-            filename = str(zip_info["filename"])
-            tribunal = str(zip_info["tribunal"])
+        # Phase 1: Extract ZIPs, enrich with UUIDs, write to NDJSON
+        with ndjson_path.open("w") as ndjson_f:
+            for i, zip_entry in enumerate(zips):
+                zip_info: dict[str, Any] = zip_entry
+                filename = str(zip_info["filename"])
+                tribunal = str(zip_info["tribunal"])
 
-            logger.info(
-                "processing_zip",
-                filename=filename,
-                tribunal=tribunal,
-                progress=f"{i + 1}/{len(zips)}",
-            )
+                logger.info(
+                    "processing_zip",
+                    filename=filename,
+                    tribunal=tribunal,
+                    progress=f"{i + 1}/{len(zips)}",
+                )
 
-            # Download or use local ZIP
-            zip_path = tmp_path / filename
-            if local_zips and "local_path" in zip_info:
-                # Copy from local directory
-                import shutil
-                try:
-                    shutil.copy2(zip_info["local_path"], zip_path)
-                except Exception as e:
-                    logger.warning("local_copy_failed", filename=filename, error=str(e))
-                    continue
-            else:
-                # Download from IA
-                if not download_zip(item_id, filename, zip_path):
+                # Download or use local ZIP
+                zip_path = tmp_path / filename
+                if local_zips and "local_path" in zip_info:
+                    import shutil
+
+                    try:
+                        shutil.copy2(zip_info["local_path"], zip_path)
+                    except Exception as e:
+                        logger.warning("local_copy_failed", filename=filename, error=str(e))
+                        continue
+                elif not download_zip(item_id, filename, zip_path):
                     logger.warning("download_failed", filename=filename)
                     continue
 
-            # Extract and parse JSON
-            records = extract_json_from_zip(zip_path)
-            if not records:
-                logger.warning("no_records_found", filename=filename)
+                # Extract JSON from ZIP
+                records = extract_json_from_zip(zip_path)
+                if not records:
+                    logger.warning("no_records_found", filename=filename)
+                    zip_path.unlink()
+                    continue
+
+                # Enrich with UUIDs (only computation that requires Python)
+                enriched = _enrich_records(records, tribunal, item_id)
+
+                # Stream to NDJSON — avoids accumulating all dicts in Python memory
+                for rec in enriched:
+                    ndjson_f.write(json.dumps(rec, default=str) + "\n")
+
+                stats["zips_processed"] += 1
+                stats["records"] += len(records)
                 zip_path.unlink()
-                continue
 
-            # Parse into tables
-            tables = parse_records(records, tribunal, item_id)
+        # Phase 2: DuckDB vectorized transformation (UNNEST, DISTINCT, cross-join)
+        if stats["records"] > 0:
+            table_counts = _load_and_transform(con, ndjson_path)
+            logger.info("vectorized_transform_complete", tables=table_counts)
 
-            # Accumulate rows for batch insert (instead of immediate insert)
-            for table_name, rows in tables.items():
-                if rows:
-                    accumulated_rows[table_name].extend(rows)
-
-            stats["zips_processed"] += 1
-            stats["records"] += len(records)
-
-            # Clean up to save disk space
-            zip_path.unlink()
-
-        # Batch insert all accumulated rows (single insert per table)
-        for table_name in TABLES:
-            if not accumulated_rows[table_name]:
-                continue
-
-            rows = accumulated_rows[table_name]
-
-            # Deduplicate partes by ID to reduce data volume
-            if table_name == "partes":
-                seen_ids = set()
-                deduped_rows = []
-                for row in rows:
-                    row_id = row.get("id")
-                    if row_id and row_id not in seen_ids:
-                        seen_ids.add(row_id)
-                        deduped_rows.append(row)
-                logger.info("deduplicating_parties", original=len(rows), deduplicated=len(deduped_rows))
-                rows = deduped_rows
-
-            data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
-            con.insert(table_name, data)
-
-        # Write consolidated Parquet files (SEQUENTIAL)
+        # Phase 3: Export to Parquet and upload
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
         logger.info("exporting_parquets", table_count=len(TABLES))
 
-        # Export tables sequentially (DuckDB connections aren't thread-safe)
         for table_name in TABLES:
-            success, uploaded = _export_and_upload_table(table_name, con, output_dir, item_id, dry_run)
+            success, uploaded = _export_and_upload_table(
+                table_name,
+                con,
+                output_dir,
+                item_id,
+                dry_run=dry_run,
+            )
             if success:
                 stats["parquets_created"] += 1
                 stats["uploaded"] += uploaded
@@ -837,7 +875,11 @@ def main() -> int:
         "--local-zips",
         help="Use local ZIPs from directory instead of downloading from IA (for testing)",
     )
-    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
+    parser.add_argument(
+        "--deadline",
+        help="Exit after this duration (e.g., 10m, 600s)",
+        default="10m",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -868,7 +910,13 @@ def main() -> int:
     print()
 
     try:
-        stats = consolidate_date(target_date, dry_run=args.dry_run, force=use_force, local_zips=args.local_zips, max_zips=args.max_zips)
+        stats = consolidate_date(
+            target_date,
+            dry_run=args.dry_run,
+            force=use_force,
+            local_zips=args.local_zips,
+            max_zips=args.max_zips,
+        )
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
         import traceback
@@ -879,12 +927,12 @@ def main() -> int:
     _print_stats(stats)
 
     # Set GitHub Actions output: did we add any files?
-    files_added = stats['parquets_created'] > 0
+    files_added = stats["parquets_created"] > 0
     print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
-        with open(os_env, "a") as f:
+        with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
 
     return 0 if stats["parquets_created"] > 0 else 1
