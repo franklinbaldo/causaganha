@@ -134,3 +134,36 @@ SCHEMAS: dict[str, Schema] = {
     "tribunal": tribunal,
     "caderno": caderno,
 }
+
+
+# ── Field-name variants ─────────────────────────────────────────────────
+#
+# The DJEN API returns mixed naming conventions across different endpoints
+# and time periods.  Each tuple lists *all* observed variants for a single
+# logical field — the first entry is the canonical (snake_case) name that
+# matches the schema above.
+#
+# Consumers should COALESCE across these variants when reading raw JSON
+# (e.g. via ``union_by_name=true``), since any given record may contain
+# only one of the variants.
+
+FIELD_DATA_DISPONIBILIZACAO: tuple[str, ...] = (
+    "data_disponibilizacao",
+    "datadisponibilizacao",
+    "dataDisponibilizacao",
+)
+
+FIELD_NUMERO_PROCESSO: tuple[str, ...] = (
+    "numero_processo",
+    "numeroProcesso",
+)
+
+FIELD_NUMERO_OAB: tuple[str, ...] = (
+    "numero_oab",
+    "numeroOAB",
+)
+
+FIELD_UF_OAB: tuple[str, ...] = (
+    "uf_oab",
+    "ufOAB",
+)

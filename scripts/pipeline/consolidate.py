@@ -39,6 +39,12 @@ import ibis  # noqa: E402
 import structlog  # noqa: E402
 
 from causaganha.config import TRIBUNAIS  # noqa: E402
+from causaganha.storage.djen_schema import (  # noqa: E402
+    FIELD_DATA_DISPONIBILIZACAO,
+    FIELD_NUMERO_OAB,
+    FIELD_NUMERO_PROCESSO,
+    FIELD_UF_OAB,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -233,9 +239,7 @@ def _struct_field(struct_col: ibis.Column, *names: str) -> ibis.Column:
 
 def _date_expr(raw: ibis.Table) -> ibis.DateValue:
     """Parse the availability date from either naming convention."""
-    return (
-        _safe(_col(raw, "data_disponibilizacao", "dataDisponibilizacao")).left(10).try_cast("date")
-    )
+    return _safe(_col(raw, *FIELD_DATA_DISPONIBILIZACAO)).left(10).try_cast("date")
 
 
 def _com_id(raw: ibis.Table) -> ibis.StringValue:
@@ -257,8 +261,8 @@ def _parte_id(d: ibis.Column) -> ibis.StringValue:
 def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.StringValue:
     """Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id."""
     adv = da["advogado"]
-    oab = _safe(_struct_field(adv, "numero_oab", "numeroOAB"))
-    uf = _safe(_struct_field(adv, "uf_oab", "ufOAB"))
+    oab = _safe(_struct_field(adv, *FIELD_NUMERO_OAB))
+    uf = _safe(_struct_field(adv, *FIELD_UF_OAB))
     nome = _safe(adv["nome"])
     orig_id = _safe(
         ibis.coalesce(
@@ -296,7 +300,7 @@ def _build_comunicacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         id=_com_id(raw),
         original_id=_safe(raw.id),
         tribunal=raw.src_tribunal,
-        numero_processo=_safe(_col(raw, "numero_processo", "numeroProcesso")),
+        numero_processo=_safe(_col(raw, *FIELD_NUMERO_PROCESSO)),
         numero_processo_mascara=_safe(_col(raw, "numeroprocessocommascara")),
         data_disponibilizacao=_date_expr(raw),
         tipo_comunicacao=_safe(_col(raw, "tipoComunicacao")),
@@ -388,8 +392,8 @@ def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
         ),
         tribunal=t.src_tribunal,
         nome=_safe(adv["nome"]),
-        numero_oab=_safe(_struct_field(adv, "numero_oab", "numeroOAB")),
-        uf_oab=_safe(_struct_field(adv, "uf_oab", "ufOAB")),
+        numero_oab=_safe(_struct_field(adv, *FIELD_NUMERO_OAB)),
+        uf_oab=_safe(_struct_field(adv, *FIELD_UF_OAB)),
         p_ano=t.disp_date.year().fill_null(0).cast("int32"),
         p_mes=t.disp_date.month().fill_null(0).cast("int32"),
         p_item_ia=t.src_item_id,
@@ -444,7 +448,7 @@ def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
 
 def _build_processos(raw: ibis.Table, item_id: str) -> ibis.Table:
     return raw.select(
-        numero_processo=_safe(_col(raw, "numero_processo", "numeroProcesso")),
+        numero_processo=_safe(_col(raw, *FIELD_NUMERO_PROCESSO)),
         tribunal=raw.src_tribunal,
         data=_date_expr(raw),
         comunicacao_id=_com_id(raw),
