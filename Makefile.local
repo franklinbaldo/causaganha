@@ -1,0 +1,120 @@
+# ============================================================================
+# LOCAL PIPELINE TESTING & DEVELOPMENT
+# ============================================================================
+#
+# Usage:
+#   make -f Makefile.local collect      # Run collect only
+#   make -f Makefile.local consolidate  # Run consolidate only
+#   make -f Makefile.local analyze      # Run full analysis
+#   make -f Makefile.local clean        # Clean output
+#
+# Prerequisites:
+#   export IAS3_ACCESS_KEY="..."
+#   export IAS3_SECRET_KEY="..."
+#
+
+.PHONY: help check collect consolidate embed catalog dashboard full analyze clean
+
+# Default
+help:
+	@echo "CausaGanha Pipeline - Local Testing Commands"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  export IAS3_ACCESS_KEY='...'"
+	@echo "  export IAS3_SECRET_KEY='...'"
+	@echo ""
+	@echo "Individual steps:"
+	@echo "  make -f Makefile.local collect       Run COLLECT (small: 5 items)"
+	@echo "  make -f Makefile.local consolidate   Run CONSOLIDATE (small: 3 zips)"
+	@echo "  make -f Makefile.local embed         Run EMBED (small: 50 decisions)"
+	@echo "  make -f Makefile.local catalog       Run CATALOG (rebuild index)"
+	@echo "  make -f Makefile.local dashboard     Run DASHBOARD (gen cache)"
+	@echo ""
+	@echo "Full runs:"
+	@echo "  make -f Makefile.local full          Run all steps (small data)"
+	@echo "  make -f Makefile.local full-large    Run all steps (larger data)"
+	@echo "  make -f Makefile.local analyze       Run full performance analysis"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make -f Makefile.local check         Check credentials"
+	@echo "  make -f Makefile.local clean         Clean output directory"
+	@echo ""
+
+# Check credentials
+check:
+	@echo "Checking credentials..."
+	@if [ -z "$$IAS3_ACCESS_KEY" ]; then echo "✗ IAS3_ACCESS_KEY not set"; exit 1; fi
+	@if [ -z "$$IAS3_SECRET_KEY" ]; then echo "✗ IAS3_SECRET_KEY not set"; exit 1; fi
+	@echo "✓ IAS3_ACCESS_KEY set"
+	@echo "✓ IAS3_SECRET_KEY set"
+	@if [ -n "$$JINA_API_KEY" ]; then echo "✓ JINA_API_KEY set"; fi
+	@if [ -n "$$GOOGLE_API_KEY" ]; then echo "✓ GOOGLE_API_KEY set"; fi
+
+# Individual steps
+collect: check
+	@echo "[COLLECT] Downloading from DJEN (small: 5 items)"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/pipeline/collect.py --max-items 5
+
+consolidate: check
+	@echo "[CONSOLIDATE] Converting ZIPs to Parquet (small: 3 zips)"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/pipeline/consolidate.py --backfill --force --max-zips 3
+
+embed: check
+	@echo "[EMBED] Generating embeddings (small: 50 decisions)"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/pipeline/embed.py --max-decisions 50
+
+catalog: check
+	@echo "[CATALOG] Building manifest & index"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/catalog/build.py
+
+dashboard: check
+	@echo "[DASHBOARD] Generating dashboard cache"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/generate_dashboard_cache.py
+
+# Full runs
+full: check collect consolidate embed catalog dashboard
+	@echo ""
+	@echo "✓ Full pipeline completed (small data)"
+	@ls -lh pipeline-output/ | tail -20
+
+full-large: check
+	@echo "[COLLECT] Downloading from DJEN (large: 20 items)"
+	@mkdir -p pipeline-output
+	cd pipeline-output && uv run python ../scripts/pipeline/collect.py --max-items 20
+	@echo "[CONSOLIDATE] Converting ZIPs to Parquet (large: 10 zips)"
+	cd pipeline-output && uv run python ../scripts/pipeline/consolidate.py --backfill --force --max-zips 10
+	@echo "[EMBED] Generating embeddings (large: 200 decisions)"
+	cd pipeline-output && uv run python ../scripts/pipeline/embed.py --max-decisions 200
+	@echo "[CATALOG] Building manifest"
+	cd pipeline-output && uv run python ../scripts/catalog/build.py
+	@echo "[DASHBOARD] Generating dashboard cache"
+	cd pipeline-output && uv run python ../scripts/generate_dashboard_cache.py
+	@echo ""
+	@echo "✓ Full pipeline completed (large data)"
+
+# Performance analysis
+analyze: check
+	@echo "Running comprehensive performance analysis..."
+	@mkdir -p pipeline-output
+	uv run python analyze_pipeline_performance.py
+
+# Clean
+clean:
+	@echo "Cleaning pipeline-output directory..."
+	@rm -rf pipeline-output
+	@echo "✓ Cleaned"
+
+# Watch performance over time (requires jq)
+watch-perf:
+	@while true; do \
+		clear; \
+		make -f Makefile.local analyze 2>/dev/null; \
+		echo ""; \
+		echo "Next run in 60s (Ctrl+C to stop)..."; \
+		sleep 60; \
+	done
