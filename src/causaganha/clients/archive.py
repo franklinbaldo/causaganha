@@ -33,17 +33,24 @@ class ArchiveService(Protocol):
         file_path: Path,
         item_id: str,
         metadata: dict[str, Any] | None = None,
-    ) -> str | None: ...
+    ) -> str | None:
+        """Upload a file to the archive."""
+        ...
 
-    async def check_item_exists(self, item_id: str) -> bool: ...
+    async def check_item_exists(self, item_id: str) -> bool:
+        """Check whether an item already exists in the archive."""
+        ...
 
-    def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]: ...
+    def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
+        """Generate archive metadata from intimation data."""
+        ...
 
 
 class LocalArchiveService:
     """Local filesystem archive fallback (no API keys required)."""
 
     def __init__(self, archive_root: Path | None = None) -> None:
+        """Initialize local archive with optional root directory."""
         self.archive_root = archive_root or (DATA_DIR / "pdf_archive")
         self.archive_root.mkdir(parents=True, exist_ok=True)
 
@@ -53,6 +60,7 @@ class LocalArchiveService:
         item_id: str,
         metadata: dict[str, Any] | None = None,
     ) -> str | None:
+        """Upload a file to local filesystem archive."""
         if not file_path.exists():
             logger.error("file_not_found", path=str(file_path))
             return None
@@ -102,22 +110,13 @@ class LocalArchiveService:
         return str(dest_path)
 
     async def check_item_exists(self, item_id: str) -> bool:
-        # Check flat path first (backward compatibility)
-        if (self.archive_root / item_id).exists():
-            return True
-        # Checking hierarchical paths is hard without knowing date/tribunal.
-        # This is a limitation of LocalArchiveService hierarchical storage if we only query by ID.
-        # However, check_item_exists is mostly used to skip re-uploading.
-        # If we can't find it, we re-upload, which overwrites/updates.
-        # For now, we can maybe assume we don't support checking existence deeply without metadata?
-        # Or we walk the tree? Walking is expensive.
-        # Since this is "Local Fallback", maybe performance isn't critical?
-        # But for now, let's leave it as is. If it returns False, we just re-save it.
-        return False
+        """Check whether an item exists in local archive."""
+        # Check flat path (backward compatibility); hierarchical lookup
+        # would require date/tribunal metadata, so we fall back to False.
+        return (self.archive_root / item_id).exists()
 
     def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
-        # Copied from InternetArchiveService to allow LocalArchiveService to also generate metadata
-        # so it can be passed to upload_file for hierarchical storage.
+        """Generate archive metadata from intimation data for hierarchical storage."""
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
         data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())

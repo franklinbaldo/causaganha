@@ -1,4 +1,4 @@
-"""Internet Archive Parquet Downloader
+"""Internet Archive Parquet Downloader.
 
 Downloads parquet files from Internet Archive for reanalysis workflows.
 Supports local caching, batch downloads, and retry logic.
@@ -45,7 +45,7 @@ class IAParquetDownloader:
         config: DownloadConfig | None = None,
         access_key: str | None = None,
         secret_key: str | None = None,
-    ):
+    ) -> None:
         """Initialize Internet Archive downloader.
 
         Args:
@@ -95,7 +95,8 @@ class IAParquetDownloader:
         try:
             datetime.strptime(date, "%Y-%m-%d")
         except ValueError as e:
-            raise ValueError(f"Invalid date format. Expected YYYY-MM-DD: {e}") from e
+            msg = f"Invalid date format. Expected YYYY-MM-DD: {e}"
+            raise ValueError(msg) from e
 
         # Check cache first
         if not force_refresh:
@@ -139,9 +140,11 @@ class IAParquetDownloader:
                     await asyncio.sleep(delay)
                 else:
                     # Final attempt failed
+                    msg = f"Failed to download after {self.config.max_retries} attempts: {e}"
                     raise OSError(
-                        f"Failed to download after {self.config.max_retries} attempts: {e}",
+                        msg,
                     ) from e
+        return None
 
     async def download_range(
         self,
@@ -171,12 +174,14 @@ class IAParquetDownloader:
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d")
         except ValueError as e:
+            msg = f"Invalid date format. Expected YYYY-MM-DD: {e}"
             raise ValueError(
-                f"Invalid date format. Expected YYYY-MM-DD: {e}",
+                msg,
             ) from e
 
         if start > end:
-            raise ValueError("start_date must be before or equal to end_date")
+            msg = "start_date must be before or equal to end_date"
+            raise ValueError(msg)
 
         logger.info(
             f"Downloading {tribunal} {table} parquet files from {start_date} to {end_date}",
@@ -200,12 +205,13 @@ class IAParquetDownloader:
                 file_path = await self.download(tribunal, date, table)
                 downloaded_files.append(file_path)
             except Exception as e:
-                logger.error(f"Failed to download {tribunal} for {date}: {e}")
+                logger.exception(f"Failed to download {tribunal} for {date}")
                 failed_downloads.append((date, str(e)))
 
                 if not skip_missing:
+                    msg = f"Download failed for {date}: {e}"
                     raise OSError(
-                        f"Download failed for {date}: {e}",
+                        msg,
                     ) from e
 
         logger.info(
@@ -246,11 +252,7 @@ class IAParquetDownloader:
                 return False
 
             # Check if specific file exists in item
-            for file in item.files:
-                if file["name"] == filename:
-                    return True
-
-            return False
+            return any(file["name"] == filename for file in item.files)
 
         except Exception as e:
             logger.warning(f"Error checking if item exists: {e}")
@@ -273,7 +275,8 @@ class IAParquetDownloader:
         item = ia.get_item(item_id)
 
         if not item.exists:
-            raise ValueError(f"Item not found on Internet Archive: {item_id}")
+            msg = f"Item not found on Internet Archive: {item_id}"
+            raise ValueError(msg)
 
         # Check if file exists in item
         file_found = False
@@ -283,7 +286,8 @@ class IAParquetDownloader:
                 break
 
         if not file_found:
-            raise ValueError(f"File {filename} not found in item {item_id}")
+            msg = f"File {filename} not found in item {item_id}"
+            raise ValueError(msg)
 
         # Download file to cache directory
         output_path = self.config.cache_dir / filename
@@ -297,7 +301,8 @@ class IAParquetDownloader:
         )
 
         if not output_path.exists():
-            raise OSError(f"Download completed but file not found: {output_path}")
+            msg = f"Download completed but file not found: {output_path}"
+            raise OSError(msg)
 
         return output_path
 
@@ -335,8 +340,9 @@ class IAParquetDownloader:
                 actual_md5 = await self._calculate_md5(file_path)
 
                 if actual_md5 != expected_md5:
-                    raise OSError(
-                        f"Checksum mismatch: expected {expected_md5}, got {actual_md5}",
+                    msg = f"Checksum mismatch: expected {expected_md5}, got {actual_md5}"
+                    raise OSError(  # noqa: TRY301
+                        msg,
                     )
 
                 logger.debug(f"Checksum verified: {actual_md5}")
@@ -356,8 +362,8 @@ class IAParquetDownloader:
         """
 
         def _calculate():
-            md5 = hashlib.md5()
-            with open(file_path, "rb") as f:
+            md5 = hashlib.md5(usedforsecurity=False)
+            with file_path.open("rb") as f:
                 for chunk in iter(lambda: f.read(8192), b""):
                     md5.update(chunk)
             return md5.hexdigest()

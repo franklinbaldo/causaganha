@@ -89,8 +89,8 @@ def test_catalog_runs_files_added() -> None:
     pass
 
 
-@scenario(FEATURE, "Catalog skipped when no files added")
-def test_catalog_skipped() -> None:
+@scenario(FEATURE, "Catalog always runs for job all")
+def test_catalog_always_runs() -> None:
     pass
 
 
@@ -104,8 +104,8 @@ def test_dashboard_runs() -> None:
     pass
 
 
-@scenario(FEATURE, "Dashboard skipped when catalog not updated")
-def test_dashboard_skipped() -> None:
+@scenario(FEATURE, "Dashboard always runs for job all")
+def test_dashboard_always_runs() -> None:
     pass
 
 
@@ -114,13 +114,13 @@ def test_dashboard_explicit() -> None:
     pass
 
 
-@scenario(FEATURE, "Plan catalog step skipped when no files")
-def test_plan_catalog_no_files() -> None:
+@scenario(FEATURE, "Plan catalog step always runs for job all")
+def test_plan_catalog_always_runs() -> None:
     pass
 
 
-@scenario(FEATURE, "Plan dashboard step skipped when catalog not updated")
-def test_plan_dashboard_no_catalog() -> None:
+@scenario(FEATURE, "Plan dashboard step always runs for job all")
+def test_plan_dashboard_always_runs() -> None:
     pass
 
 

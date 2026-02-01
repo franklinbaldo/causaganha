@@ -131,7 +131,7 @@ def main():
 
     # Criar tabela LanceDB
     console.print(f"\n[yellow]Criando tabela LanceDB com {len(records)} chunks...[/yellow]")
-    table = db.create_table(table_name, data=records, mode="overwrite")
+    db.create_table(table_name, data=records, mode="overwrite")
 
     # Criar índice para busca eficiente
     console.print("[yellow]Criando índice IVF-PQ para busca rápida...[/yellow]")

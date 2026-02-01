@@ -1,6 +1,5 @@
 """DuckDB catalog creator for remote Parquet access."""
 
-import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -22,7 +21,7 @@ class CatalogCreator:
         >>> creator.add_analytical_view("top_lawyers", "SELECT * FROM lawyers WHERE rating > 1500")
     """
 
-    def __init__(self, catalog_path: str):
+    def __init__(self, catalog_path: str) -> None:
         """Initialize catalog creator.
 
         Args:
@@ -39,8 +38,9 @@ class CatalogCreator:
         it will be overwritten.
         """
         # Remove existing catalog if it exists
-        if os.path.exists(self.catalog_path):
-            os.remove(self.catalog_path)
+        catalog = Path(self.catalog_path)
+        if catalog.exists():
+            catalog.unlink()
 
         # Create new catalog
         con = duckdb.connect(self.catalog_path)
@@ -62,7 +62,7 @@ class CatalogCreator:
         con = duckdb.connect(self.catalog_path)
 
         # Create view that references remote parquet
-        sql = f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{parquet_url}')"
+        sql = f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{parquet_url}')"  # noqa: S608
         con.execute(sql)
 
         self.views.append(
@@ -144,7 +144,7 @@ class CatalogCreator:
         validation_results = []
 
         # Check file exists
-        if not os.path.exists(self.catalog_path):
+        if not Path(self.catalog_path).exists():
             validation_results.append(
                 {
                     "check": "file_exists",
@@ -159,7 +159,7 @@ class CatalogCreator:
         )
 
         # Check file size
-        file_size = os.path.getsize(self.catalog_path)
+        file_size = Path(self.catalog_path).stat().st_size
         max_size = 100 * 1024  # 100 KB
 
         if file_size > max_size:
@@ -228,10 +228,10 @@ class CatalogCreator:
         Returns:
             Dictionary with catalog metadata
         """
-        if not os.path.exists(self.catalog_path):
+        if not Path(self.catalog_path).exists():
             return {"error": "Catalog not found"}
 
-        file_size = os.path.getsize(self.catalog_path)
+        file_size = Path(self.catalog_path).stat().st_size
         views = self.list_views()
 
         return {
@@ -245,7 +245,7 @@ class CatalogCreator:
     def create_versioned_catalog(
         self,
         version: str,
-        parquet_pattern: str,
+        _parquet_pattern: str,
     ) -> str:
         """Create a versioned catalog.
 
@@ -374,5 +374,5 @@ class CatalogCreator:
 
         info = self.get_catalog_info()
 
-        with open(output_path, "w") as f:
+        with Path(output_path).open("w") as f:
             json.dump(info, f, indent=2)

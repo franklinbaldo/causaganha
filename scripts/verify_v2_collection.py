@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Verify V2 Collection Pipeline
+"""Verify V2 Collection Pipeline.
+
 Collects metadata from TJRO using V2 components and stores in DuckDB.
 """
 

@@ -187,10 +187,10 @@ def catalog_with_base_views_exists(context, temp_catalog_dir):
 
     # Create base views
     con.execute(
-        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab"  # noqa: E501
+        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab"
     )
     con.execute(
-        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"  # noqa: E501
+        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"
     )
     con.execute("CREATE VIEW partes_raw AS SELECT 1 as id, 'Party Name' as nome")
 
@@ -302,7 +302,7 @@ def create_metadata_catalog(context, catalog_name, temp_catalog_dir):
         con.close()
 
         context["catalog_path"] = catalog_path
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         context["error"] = str(e)
         import traceback
 
@@ -321,10 +321,10 @@ def create_base_views(context):
 
     # Create mock views that simulate the structure
     con.execute(
-        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab",  # noqa: E501
+        "CREATE VIEW intimations_raw AS SELECT 1 as id, 'TST' as sigla_tribunal, DATE '2026-01-01' as data_disponibilizacao, 123 as numero_processo, 0.95 as confidence_score, 'OAB001' as winner_lawyer_oab",
     )
     con.execute(
-        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"  # noqa: E501
+        "CREATE VIEW lawyers_raw AS SELECT 1 as id, 1500 as rating, 10 as total_cases, 'OAB001' as oab_number, 'Test Lawyer' as lawyer_name, 0.8 as win_rate"
     )
     con.execute("CREATE VIEW partes_raw AS SELECT 1 as id, 'Party Name' as nome")
 
@@ -383,7 +383,7 @@ def user_opens_catalog_duckdb(context):
         result = con.execute("SELECT * FROM top_lawyers LIMIT 10").fetchdf()
         context["query_result"] = result
         con.close()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         context["error"] = str(e)
 
 
@@ -422,7 +422,7 @@ def user_opens_catalog(context):
     try:
         con = duckdb.connect(catalog_path, read_only=True)
         context["connection"] = con
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         context["error"] = str(e)
 
 
@@ -453,7 +453,7 @@ def create_complex_view(context, view_name):
         con.execute(f"CREATE VIEW {view_name} AS {query}")
         context["views"].append(view_name)
         con.close()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         context["error"] = str(e)
 
 
@@ -536,7 +536,7 @@ def creation_process_runs(context):
         validation_results = creator.validate_and_create()
         context["validation_results"] = validation_results
         context["catalog_path"] = catalog_path
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         context["error"] = str(e)
 
 
@@ -626,7 +626,7 @@ def views_reference_external_parquet(context):
     # Get view definitions
     for view_name in context["views"]:
         view_def = con.execute(
-            f"SELECT view_definition FROM information_schema.views WHERE table_name = '{view_name}' AND table_schema = 'main'",  # noqa: S608 E501
+            f"SELECT view_definition FROM information_schema.views WHERE table_name = '{view_name}' AND table_schema = 'main'",
         ).fetchone()
 
         if view_def:
@@ -647,9 +647,9 @@ def querying_view_fetches_from_ia(context):
     # Verify we can get the query plan (without executing)
     for view_name in context["views"]:
         try:
-            plan = con.execute(f"EXPLAIN SELECT * FROM {view_name} LIMIT 1").fetchall()  # noqa: S608
+            plan = con.execute(f"EXPLAIN SELECT * FROM {view_name} LIMIT 1").fetchall()
             assert len(plan) > 0
-        except Exception:  # noqa: BLE001, S110
+        except Exception:  # noqa: S110
             # View exists, remote file might not be accessible in test
             pass
 
@@ -689,7 +689,7 @@ def analytical_views_reference_base(context):
     for view_name in analytical_views:
         if view_name in context["views"]:
             view_def = con.execute(
-                f"SELECT sql FROM duckdb_views() WHERE view_name = '{view_name}'",  # noqa: S608
+                f"SELECT sql FROM duckdb_views() WHERE view_name = '{view_name}'",
             ).fetchone()
 
             if view_def:
@@ -779,7 +779,7 @@ def users_can_query_views(context):
         # Try to query a view
         try:
             con.execute("SELECT view_name FROM duckdb_views() LIMIT 1")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             context["error"] = str(e)
         finally:
             con.close()
@@ -794,7 +794,7 @@ def users_cannot_modify_views(context):
     con = duckdb.connect(catalog_path, read_only=True)
 
     # Try to create a view (should fail)
-    with pytest.raises(Exception):  # noqa: B017, PT011
+    with pytest.raises(Exception):  # noqa: B017
         con.execute("CREATE VIEW test_view AS SELECT 1")
 
     con.close()
@@ -807,7 +807,7 @@ def users_cannot_drop_views(context):
     con = duckdb.connect(catalog_path, read_only=True)
 
     # Try to drop a view (should fail)
-    with pytest.raises(Exception):  # noqa: B017, PT011
+    with pytest.raises(Exception):  # noqa: B017
         con.execute("DROP VIEW top_lawyers")
 
     con.close()

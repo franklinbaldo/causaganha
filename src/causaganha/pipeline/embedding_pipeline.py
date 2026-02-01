@@ -103,7 +103,7 @@ class EmbeddingPipeline:
         max_concurrency: int = 10,
         storage: EmbeddingStorage | None = None,
         service: EmbeddingService | None = None,
-    ):
+    ) -> None:
         """Initialize embedding pipeline.
 
         Args:
@@ -118,7 +118,7 @@ class EmbeddingPipeline:
         self.service = service  # Created lazily in async context
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
-    async def _ensure_service(self):
+    async def _ensure_service(self) -> None:
         """Ensure embedding service is initialized (lazy async initialization)."""
         if self.service is None:
             self.service = await EmbeddingService.create(
@@ -212,7 +212,7 @@ class EmbeddingPipeline:
                 }
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "embedding_generation_failed",
                     intimation_id=intimation_id,
                     error=str(e),

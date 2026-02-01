@@ -54,7 +54,7 @@ class ExportRepository(ABC):
         """
 
     @abstractmethod
-    async def record_success(
+    async def record_success(  # noqa: PLR0913
         self,
         partition_date: str,
         tribunal: str,
@@ -118,7 +118,7 @@ class DuckDBExportRepository(ExportRepository):
     async def get_tribunals_for_date(self, partition_date: str) -> tuple[str, ...]:
         """Get tribunals with data for a date."""
 
-        def _query() -> list:  # type: ignore
+        def _query() -> list:  # type: ignore[type-arg]
             intimations = self.db.table("intimations")
             result = (
                 intimations.filter(intimations.data_disponibilizacao == partition_date)
@@ -173,7 +173,7 @@ class DuckDBExportRepository(ExportRepository):
         await asyncio.to_thread(_insert)
         logger.debug(f"Recorded {tribunal} ({partition_date}) as pending")
 
-    async def record_success(
+    async def record_success(  # noqa: PLR0913
         self,
         partition_date: str,
         tribunal: str,
@@ -279,7 +279,7 @@ class MockExportRepository(ExportRepository):
         self.exports: dict[tuple[str, str], dict[str, str | int | float]] = {}
         self.failures: dict[tuple[str, str], str] = {}
 
-    async def get_tribunals_for_date(self, partition_date: str) -> tuple[str, ...]:
+    async def get_tribunals_for_date(self, _partition_date: str) -> tuple[str, ...]:
         """Return fixed test data."""
         return self.tribunals
 
@@ -293,7 +293,7 @@ class MockExportRepository(ExportRepository):
         key = (partition_date, tribunal)
         self.pending[key] = True
 
-    async def record_success(
+    async def record_success(  # noqa: PLR0913
         self,
         partition_date: str,
         tribunal: str,

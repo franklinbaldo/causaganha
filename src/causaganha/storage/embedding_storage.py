@@ -124,7 +124,7 @@ class EmbeddingStorage:
         - embeddings_google_gemini_768
     """
 
-    def __init__(self, con: Backend | None = None):
+    def __init__(self, con: Backend | None = None) -> None:
         """Initialize embedding storage.
 
         Args:
@@ -156,9 +156,12 @@ class EmbeddingStorage:
         # Validate dimensions (vectorized check)
         dims = [len(emb) for emb in embeddings]
         if any(d != model.dimension for d in dims):
-            raise ValueError(
+            msg = (
                 f"Embedding dimension mismatch: expected {model.dimension}, "
-                f"got {set(dims)} for model {model.name}",
+                f"got {set(dims)} for model {model.name}"
+            )
+            raise ValueError(
+                msg,
             )
 
         # Prepare data using vectorized operations (pandas DataFrame)
@@ -177,23 +180,22 @@ class EmbeddingStorage:
             "created_at": [datetime.utcnow()] * num_chunks,
         }
 
-        df = pd.DataFrame(data)
+        embeddings_frame = pd.DataFrame(data)
 
         # Bulk insert using DuckDB's efficient INSERT from DataFrame
         # Native FLOAT[] arrays are 2-5x faster than JSON
 
         # Delete existing embeddings for this text
         self.con.con.execute(
-            f"DELETE FROM {table_name} WHERE texto_id = ?",
+            f"DELETE FROM {table_name} WHERE texto_id = ?",  # noqa: S608
             [texto_id],
         )
 
         # Register DataFrame and insert
-        self.con.con.register("temp_embeddings", df)
-        self.con.con.execute(f"""
-            INSERT INTO {table_name}
-            SELECT * FROM temp_embeddings
-        """)
+        self.con.con.register("temp_embeddings", embeddings_frame)
+        self.con.con.execute(
+            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",  # noqa: S608
+        )
         self.con.con.unregister("temp_embeddings")
 
         logger.info(
@@ -288,9 +290,12 @@ class EmbeddingStorage:
 
         # Check if table exists
         if table_name not in self.con.list_tables():
-            raise ValueError(
+            msg = (
                 f"No embeddings table found for model {model.name} ({model.dimension}D). "
-                f"Expected table: {table_name}",
+                f"Expected table: {table_name}"
+            )
+            raise ValueError(
+                msg,
             )
 
         # Get table reference
@@ -305,20 +310,21 @@ class EmbeddingStorage:
         query = query.order_by([table.texto_id, table.chunk_index])
 
         # Export to Parquet (vectorized - no Python iteration)
-        df = query.execute()
+        export_frame = query.execute()
 
-        if df.empty:
+        if export_frame.empty:
             logger.warning(
                 "export_no_data",
                 output_path=str(output_path),
                 table=table_name,
                 texto_id=texto_id,
             )
-            raise ValueError(f"No embeddings found in table {table_name}")
+            msg = f"No embeddings found in table {table_name}"
+            raise ValueError(msg)
 
         # Write to Parquet with compression (single vectorized operation)
         # ZSTD provides best compression ratio for archival storage
-        df.to_parquet(
+        export_frame.to_parquet(
             output_path,
             index=False,
             engine="pyarrow",
@@ -333,7 +339,7 @@ class EmbeddingStorage:
         logger.info(
             "embeddings_exported",
             output_path=str(output_path),
-            num_rows=len(df),
+            num_rows=len(export_frame),
             file_size_mb=round(file_size_mb, 2),
             table=table_name,
             texto_id=texto_id,
@@ -368,19 +374,23 @@ class EmbeddingStorage:
 
         # Check if table exists
         if table_name not in self.con.list_tables():
+            msg = f"No embeddings table found for model {model.name} ({model.dimension}D)"
             raise ValueError(
-                f"No embeddings table found for model {model.name} ({model.dimension}D)",
+                msg,
             )
 
         # Validate query embedding dimension
         if len(query_embedding) != model.dimension:
-            raise ValueError(
+            msg = (
                 f"Query embedding dimension mismatch: expected {model.dimension}, "
-                f"got {len(query_embedding)}",
+                f"got {len(query_embedding)}"
+            )
+            raise ValueError(
+                msg,
             )
 
         # Get table reference
-        table = self.con.table(table_name)
+        self.con.table(table_name)
 
         # Build exclusion filter
         exclusion_sql = ""

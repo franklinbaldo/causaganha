@@ -1,4 +1,4 @@
-"""Parquet-Based Analysis Pipeline
+"""Parquet-Based Analysis Pipeline.
 
 Analyzes judicial decisions from parquet files (local or Internet Archive).
 Supports all analysis strategies (LLM/RAG/Hybrid) and multiple output modes.
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -31,12 +31,15 @@ import structlog
 
 from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.analysis.models import DecisionAnalysis
 from causaganha.analysis.rag_analyzer import RAGAnalyzer
 from causaganha.analysis.strategy import AnalysisStrategy
 from causaganha.pipeline.ia_download import IAParquetDownloader
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repositories.analysis import store_analysis
+
+
+if TYPE_CHECKING:
+    from causaganha.analysis.models import DecisionAnalysis
 
 
 logger = structlog.get_logger()
@@ -76,7 +79,7 @@ class ParquetAnalyzer:
         self,
         config: ParquetAnalysisConfig | None = None,
         ia_downloader: IAParquetDownloader | None = None,
-    ):
+    ) -> None:
         """Initialize parquet analyzer.
 
         Args:
@@ -113,7 +116,8 @@ class ParquetAnalyzer:
         parquet_path = Path(parquet_path)
 
         if not parquet_path.exists():
-            raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
+            msg = f"Parquet file not found: {parquet_path}"
+            raise FileNotFoundError(msg)
 
         logger.info(
             "analyze_from_parquet_start",
@@ -270,7 +274,7 @@ class ParquetAnalyzer:
                     output_files.append(results["output_file"])
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "analyze_file_failed",
                     file=str(parquet_path),
                     error=str(e),
@@ -315,10 +319,11 @@ class ParquetAnalyzer:
             # Filter based on configuration
             should_analyze = False
 
-            if self.config.filter_unanalyzed:
+            if self.config.filter_unanalyzed and (
+                row.get("outcome") is None or row.get("confidence_score") is None
+            ):
                 # Analyze if no analysis exists
-                if row.get("outcome") is None or row.get("confidence_score") is None:
-                    should_analyze = True
+                should_analyze = True
 
             if self.config.reanalyze_low_confidence:
                 # Analyze if confidence is below threshold
@@ -558,7 +563,7 @@ class ParquetAnalyzer:
             try:
                 store_analysis(con, intimation_id, analysis)
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "store_failed",
                     intimation_id=intimation_id,
                     error=str(e),

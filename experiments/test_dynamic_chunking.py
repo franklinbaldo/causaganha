@@ -133,27 +133,14 @@ Relator
 )  # Multiply by 3 to create a longer document
 
 
-async def test_dynamic_chunking():
+async def test_dynamic_chunking() -> None:
     """Test dynamic chunking with different providers."""
-    print("=" * 80)
-    print("DYNAMIC CHUNKING TEST - Adaptive Token Limits")
-    print("=" * 80)
-    print()
-
     # Test configuration
     test_text = SAMPLE_LEGAL_TEXT
     text_length = len(test_text)
-    approx_tokens = text_length // 4  # Rough estimate: 1 token ≈ 4 chars
-
-    print("Test document:")
-    print(f"  - Length: {text_length:,} characters")
-    print(f"  - Estimated tokens: ~{approx_tokens:,} tokens")
-    print()
+    text_length // 4  # Rough estimate: 1 token ≈ 4 chars
 
     # Test 1: Jina v4 (32K tokens)
-    print("─" * 80)
-    print("TEST 1: Jina v4 (jina-embeddings-v4, max 32K tokens)")
-    print("─" * 80)
 
     try:
         jina_v4_service = EmbeddingService(
@@ -164,36 +151,21 @@ async def test_dynamic_chunking():
 
         # Show provider token limit
         chunker_v4 = create_chunker_for_provider(jina_v4_service.provider)
-        print(f"Provider: {jina_v4_service.provider_name}")
-        print(f"Model: {jina_v4_service.provider.model}")
-        print(f"Max token limit: {chunker_v4.max_tokens:,} tokens")
-        print(f"Safe max tokens (95%): {chunker_v4.safe_max_tokens:,} tokens")
-        print()
 
         # Chunk using semantic sections (auto strategy)
         chunks_v4_auto = chunker_v4.chunk_text(test_text, strategy="auto")
-        print("Strategy: auto (semantic sections for legal docs)")
-        print(f"Result: {len(chunks_v4_auto)} chunk(s)")
-        for i, chunk in enumerate(chunks_v4_auto, 1):
-            print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
-        print()
+        for _i, _chunk in enumerate(chunks_v4_auto, 1):
+            pass
 
         # Chunk using sliding window
         chunks_v4_window = chunker_v4.chunk_text(test_text, strategy="sliding_window")
-        print("Strategy: sliding_window")
-        print(f"Result: {len(chunks_v4_window)} chunk(s)")
-        for i, chunk in enumerate(chunks_v4_window, 1):
-            print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
-        print()
+        for _i, _chunk in enumerate(chunks_v4_window, 1):
+            pass
 
-    except Exception as e:
-        print(f"❌ Error with Jina v4: {e}")
-        print()
+    except Exception:
+        pass
 
     # Test 2: Jina v3 (8K tokens)
-    print("─" * 80)
-    print("TEST 2: Jina v3 (jina-embeddings-v3, max 8K tokens)")
-    print("─" * 80)
 
     try:
         jina_v3_service = EmbeddingService(
@@ -203,27 +175,15 @@ async def test_dynamic_chunking():
         )
 
         chunker_v3 = create_chunker_for_provider(jina_v3_service.provider)
-        print(f"Provider: {jina_v3_service.provider_name}")
-        print(f"Model: {jina_v3_service.provider.model}")
-        print(f"Max token limit: {chunker_v3.max_tokens:,} tokens")
-        print(f"Safe max tokens (95%): {chunker_v3.safe_max_tokens:,} tokens")
-        print()
 
         chunks_v3 = chunker_v3.chunk_text(test_text, strategy="auto")
-        print("Strategy: auto")
-        print(f"Result: {len(chunks_v3)} chunk(s)")
-        for i, chunk in enumerate(chunks_v3, 1):
-            print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
-        print()
+        for _i, _chunk in enumerate(chunks_v3, 1):
+            pass
 
-    except Exception as e:
-        print(f"❌ Error with Jina v3: {e}")
-        print()
+    except Exception:
+        pass
 
     # Test 3: Google Gemini (2K tokens)
-    print("─" * 80)
-    print("TEST 3: Google Gemini (gemini-embedding-001, max 2K tokens)")
-    print("─" * 80)
 
     if os.getenv("GOOGLE_API_KEY"):
         try:
@@ -234,49 +194,17 @@ async def test_dynamic_chunking():
             )
 
             chunker_google = create_chunker_for_provider(google_service.provider)
-            print(f"Provider: {google_service.provider_name}")
-            print(f"Model: {google_service.provider.model}")
-            print(f"Max token limit: {chunker_google.max_tokens:,} tokens")
-            print(f"Safe max tokens (95%): {chunker_google.safe_max_tokens:,} tokens")
-            print()
 
             chunks_google = chunker_google.chunk_text(test_text, strategy="auto")
-            print("Strategy: auto")
-            print(f"Result: {len(chunks_google)} chunk(s)")
-            for i, chunk in enumerate(chunks_google, 1):
-                print(f"  - Chunk {i}: {len(chunk):,} chars (~{len(chunk) // 4:,} tokens)")
-            print()
+            for _i, _chunk in enumerate(chunks_google, 1):
+                pass
 
-        except Exception as e:
-            print(f"❌ Error with Google Gemini: {e}")
-            print()
+        except Exception:
+            pass
     else:
-        print("⚠️  Skipped: GOOGLE_API_KEY not set")
-        print()
+        pass
 
     # Summary comparison
-    print("=" * 80)
-    print("SUMMARY: Adaptive Chunking Behavior")
-    print("=" * 80)
-    print()
-    print("The chunking system automatically adapts to each provider's token limits:")
-    print()
-    print("1. Jina v4 (32K tokens):")
-    print("   - Can handle entire legal decisions in 1-2 chunks")
-    print("   - Best for preserving document context")
-    print("   - Recommended for long legal documents")
-    print()
-    print("2. Jina v3 (8K tokens):")
-    print("   - Handles most decisions in 2-5 chunks")
-    print("   - Good balance of context and granularity")
-    print()
-    print("3. Google Gemini (2K tokens):")
-    print("   - Requires many small chunks (10-20+ for long docs)")
-    print("   - May lose context across chunks")
-    print("   - Better for short documents or batch processing")
-    print()
-    print("💡 Recommendation: Use Jina v4 for legal document analysis")
-    print()
 
 
 if __name__ == "__main__":

@@ -53,12 +53,12 @@ async def test_export():
                 table = pq.read_table(file_path)
                 print(f"   - Columns: {table.schema.names}")
                 print("   - First row sample:")
-                df = table.to_pandas()
-                if len(df) > 0:
-                    print(f"     numero_processo: {df.iloc[0]['numero_processo']}")
-                    print(f"     tribunal: {df.iloc[0]['sigla_tribunal']}")
-                    print(f"     winner_oab: {df.iloc[0]['winner_lawyer_oab']}")
-                    print(f"     confidence: {df.iloc[0]['confidence_score']:.2f}")
+                export_frame = table.to_pandas()
+                if len(export_frame) > 0:
+                    print(f"     numero_processo: {export_frame.iloc[0]['numero_processo']}")
+                    print(f"     tribunal: {export_frame.iloc[0]['sigla_tribunal']}")
+                    print(f"     winner_oab: {export_frame.iloc[0]['winner_lawyer_oab']}")
+                    print(f"     confidence: {export_frame.iloc[0]['confidence_score']:.2f}")
             else:
                 print("   ❌ File not created!")
 
