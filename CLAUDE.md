@@ -55,7 +55,11 @@ DJEN API (geo-blocked) → DJEN Proxy (Cloud Run, São Paulo)
 ```text
 src/causaganha/
 ├── cli/                 # Typer CLI (single entry point)
-├── pipeline/            # Data orchestration
+├── pipeline/            # Data orchestration (3-phase architecture)
+│   ├── models.py        # Immutable dataclasses (ExportPlan, ExportResult)
+│   ├── orchestration.py # Pure orchestration logic (testable)
+│   ├── repositories.py  # Repository pattern for DB abstraction
+│   ├── export_orchestrator.py # Main orchestrator (planning → execution → aggregation)
 │   ├── collect.py       # Download from DJEN
 │   ├── analyze.py       # Decision classification
 │   ├── score.py         # OpenSkill ratings
@@ -148,6 +152,80 @@ uv run pytest tests/features/
 
 # Run with coverage
 uv run pytest --cov=causaganha
+```
+
+## Export Orchestrator Architecture
+
+The export pipeline follows a **3-phase architecture** inspired by `scripts/pipeline/run.py`:
+
+### Phase 1: Planning (Pure)
+- `PureOrchestrator.plan_export()` - Build execution plan from inputs
+- Validates dates and tribunal codes
+- No I/O, fully testable
+
+### Phase 2: Execution (Impure)
+- `ExportOrchestrator._execute_tribunal_export()` - Execute per tribunal
+- Export → Upload → Record
+- Returns immutable `TribunalExportResult` objects
+
+### Phase 3: Aggregation (Pure)
+- `PureOrchestrator.aggregate_results()` - Combine results
+- Computed properties: successful, failed, skipped, total_rows
+- Returns immutable `ExportResult` dataclass
+
+### Key Design Decisions
+
+1. **Immutable State** - All results are frozen dataclasses, preventing state bugs
+2. **Repository Pattern** - DB access via injected `ExportRepository` interface
+   - `DuckDBExportRepository` - Production implementation
+   - `MockExportRepository` - Testing without database
+3. **Pure Functions** - Orchestration logic is testable without mocks
+4. **Dependency Injection** - ExportOrchestrator receives repo + services
+
+### Usage
+
+```python
+from causaganha.pipeline.repositories import DuckDBExportRepository
+from causaganha.pipeline.export_orchestrator import ExportOrchestrator
+from causaganha.pipeline.parquet_export import ParquetExporter
+from causaganha.pipeline.ia_upload import InternetArchiveUploader
+
+# Setup
+db = get_connection()
+repo = DuckDBExportRepository(db)
+exporter = ParquetExporter(db, ExportConfig())
+uploader = InternetArchiveUploader(UploadConfig())
+
+# Create orchestrator with injected dependencies
+orchestrator = ExportOrchestrator(repo, exporter, uploader)
+
+# Execute (returns ExportResult, not dict)
+result = await orchestrator.run_daily_export(date="2026-01-15")
+
+# Access results via properties (not dict keys)
+print(f"Successful: {result.successful}/{result.total_tribunals}")
+print(f"Total rows: {result.total_rows:,}")
+print(f"Failures: {result.failures}")
+
+# Convert to dict for JSON serialization
+result_dict = result.to_dict()
+```
+
+### Testing
+
+Pure orchestration logic requires no database mocks:
+
+```python
+from causaganha.pipeline.orchestration import PureOrchestrator
+from causaganha.pipeline.models import ExportPlan, TribunalExportResult
+
+# Test pure functions directly
+plan = PureOrchestrator.plan_export("2026-01-15", ("TJSP", "TJRJ"))
+assert plan.partition_date == "2026-01-15"
+
+# Test with mock repository
+from causaganha.pipeline.repositories import MockExportRepository
+repo = MockExportRepository(tribunals=("TJSP",))
 ```
 
 ## Internet Archive Structure
