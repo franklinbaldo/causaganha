@@ -388,6 +388,10 @@ def export_parquet(
     start_date: str | None = typer.Option(None, help="Start date for backfill (YYYY-MM-DD)"),
     end_date: str | None = typer.Option(None, help="End date for backfill (YYYY-MM-DD)"),
     no_cleanup: bool = typer.Option(False, help="Keep local Parquet files after upload"),
+    concurrency: int = typer.Option(
+        5,
+        help="Max concurrent days to process in backfill mode",
+    ),
 ) -> None:
     """Export analyzed decisions to Parquet and upload to Internet Archive."""
     logger.info("export_parquet_command_start", date=date, tribunal=tribunal, backfill=backfill)
@@ -397,12 +401,18 @@ def export_parquet(
             from causaganha.pipeline.export_orchestrator import ExportOrchestrator
             from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
             from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
+            from causaganha.pipeline.repositories import DuckDBExportRepository
 
-            # Initialize components
+            # Initialize components with dependency injection
             con = get_connection()
+            repository = DuckDBExportRepository(con)  # NEW: inject repository
             exporter = ParquetExporter(con, ExportConfig())
             uploader = InternetArchiveUploader(UploadConfig())
-            orchestrator = ExportOrchestrator(con, exporter, uploader)
+            orchestrator = ExportOrchestrator(
+                repository,
+                exporter,
+                uploader,
+            )  # Updated: inject repository
 
             cleanup_files = not no_cleanup
 
@@ -427,6 +437,7 @@ def export_parquet(
                         start_date,
                         end_date,
                         cleanup_files,
+                        concurrency=concurrency,
                     )
 
                 # Display results
@@ -479,27 +490,27 @@ def export_parquet(
                     progress.add_task(description="Exporting all tribunals...", total=None)
                     result = await orchestrator.run_daily_export(date, cleanup_files)
 
-                # Display results
+                # Display results (result is now ExportResult dataclass, not dict)
                 success_rate = (
-                    100 * result["successful"] / result["total_tribunals"]
-                    if result["total_tribunals"] > 0
+                    100 * result.successful / result.total_tribunals
+                    if result.total_tribunals > 0
                     else 0
                 )
 
                 typer.echo("\n✅ Daily export complete!")
-                typer.echo(f"  Date: {result['date']}")
+                typer.echo(f"  Date: {result.partition_date}")
                 typer.echo(
-                    f"  Successful: {result['successful']}/{result['total_tribunals']} ({success_rate:.1f}%)",
+                    f"  Successful: {result.successful}/{result.total_tribunals} ({success_rate:.1f}%)",
                 )
-                typer.echo(f"  Failed: {result['failed']}")
-                typer.echo(f"  Skipped (already exported): {result['skipped']}")
-                typer.echo(f"  Total rows: {result['total_rows']:,}")
-                typer.echo(f"  Total size: {result['total_size_mb']:.1f} MB")
-                typer.echo(f"  Duration: {result['duration_seconds']:.1f}s")
+                typer.echo(f"  Failed: {result.failed}")
+                typer.echo(f"  Skipped (already exported): {result.skipped}")
+                typer.echo(f"  Total rows: {result.total_rows:,}")
+                typer.echo(f"  Total size: {result.total_size_mb:.1f} MB")
+                typer.echo(f"  Duration: {result.duration_seconds:.1f}s")
 
-                if result["failures"]:
+                if result.failures:
                     typer.echo("\n❌ Failed tribunals:")
-                    for failure in result["failures"]:
+                    for failure in result.failures:
                         typer.echo(f"  - {failure['tribunal']}: {failure['error']}")
 
         except Exception as e:

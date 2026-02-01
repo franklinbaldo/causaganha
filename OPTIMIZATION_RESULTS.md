@@ -22,7 +22,7 @@
 
 ### 1. Batch DuckDB Inserts (9% speedup)
 **Change**: Accumulate all rows per table, insert once at end instead of per-ZIP
-**Impact**: 
+**Impact**:
 - Reduced transaction overhead
 - Single memtable → insert per table (vs multiple per ZIP)
 - Time saved: ~750ms per consolidation
