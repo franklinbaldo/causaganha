@@ -388,6 +388,10 @@ def export_parquet(
     start_date: str | None = typer.Option(None, help="Start date for backfill (YYYY-MM-DD)"),
     end_date: str | None = typer.Option(None, help="End date for backfill (YYYY-MM-DD)"),
     no_cleanup: bool = typer.Option(False, help="Keep local Parquet files after upload"),
+    concurrency: int = typer.Option(
+        5,
+        help="Max concurrent days to process in backfill mode",
+    ),
 ) -> None:
     """Export analyzed decisions to Parquet and upload to Internet Archive."""
     logger.info("export_parquet_command_start", date=date, tribunal=tribunal, backfill=backfill)
@@ -431,6 +435,7 @@ def export_parquet(
                         start_date,
                         end_date,
                         cleanup_files,
+                        concurrency=concurrency,
                     )
 
                 # Display results

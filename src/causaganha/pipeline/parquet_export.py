@@ -11,6 +11,7 @@ Usage:
     file_path = await exporter.export_day_tribunal("2025-01-15", "TJRO")
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -74,8 +75,8 @@ class ParquetExporter:
         """
         logger.info(f"Exporting {tribunal} for {partition_date}")
 
-        # Query data from DuckDB
-        df = self._query_intimations(partition_date, tribunal)
+        # Query data from DuckDB (in thread)
+        df = await asyncio.to_thread(self._query_intimations, partition_date, tribunal)
         row_count = len(df)
 
         if row_count == 0:
@@ -92,8 +93,8 @@ class ParquetExporter:
         # Convert to PyArrow table
         table = self._dataframe_to_arrow(df)
 
-        # Write Parquet file
-        self._write_parquet(table, file_path)
+        # Write Parquet file (in thread)
+        await asyncio.to_thread(self._write_parquet, table, file_path)
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         logger.info(
@@ -161,8 +162,8 @@ class ParquetExporter:
         """
         logger.info(f"Exporting lawyers for {tribunal} {partition_date}")
 
-        # Query data
-        df = self._query_lawyers(partition_date, tribunal)
+        # Query data (in thread)
+        df = await asyncio.to_thread(self._query_lawyers, partition_date, tribunal)
         row_count = len(df)
 
         # Filename
@@ -170,7 +171,8 @@ class ParquetExporter:
         file_path = self.config.output_dir / filename
 
         if row_count > 0:
-            self._write_parquet(df, file_path)
+            # Write Parquet file (in thread)
+            await asyncio.to_thread(self._write_parquet, df, file_path)
 
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(
@@ -185,7 +187,7 @@ class ParquetExporter:
 
         return file_path, row_count
 
-    def _query_intimations(self, date: str, tribunal: str) -> pa.RecordBatch:
+    def _query_intimations(self, date: str, tribunal: str) -> pa.Table:
         """Query DuckDB for intimations to export.
 
         Args:
@@ -283,14 +285,17 @@ class ParquetExporter:
         """
         logger.info(f"Exporting parties for {tribunal} {partition_date}")
 
-        df = self._query_parties(partition_date, tribunal)
+        # Query data (in thread)
+        df = await asyncio.to_thread(self._query_parties, partition_date, tribunal)
         row_count = len(df)
 
         filename = f"{tribunal}-{partition_date}-partes.parquet"
         file_path = self.config.output_dir / filename
 
         if row_count > 0:
-            self._write_parquet(df, file_path)
+            # Write Parquet file (in thread)
+            await asyncio.to_thread(self._write_parquet, df, file_path)
+
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(
                 f"Exported {row_count} parties to {filename} ({file_size_mb:.2f} MB)",
