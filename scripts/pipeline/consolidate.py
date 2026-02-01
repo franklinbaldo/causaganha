@@ -993,6 +993,10 @@ def main() -> int:
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
+            f.write(f"consolidate_zips={stats['zips_processed']}\n")
+            f.write(f"consolidate_records={stats['records']}\n")
+            f.write(f"consolidate_parquets={stats['parquets_created']}\n")
+            f.write(f"consolidate_uploaded={stats['uploaded']}\n")
 
     return 0
 

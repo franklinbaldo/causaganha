@@ -24,6 +24,7 @@ Outputs:
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -713,6 +714,16 @@ def main() -> None:
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
     today_data["health"] = runs_data["health"]
     today_data["pipeline"] = pipeline_metrics
+
+    # Load per-run stats from pipeline orchestrator (if available)
+    run_stats_path = os.getenv("PIPELINE_RUN_STATS")
+    if run_stats_path:
+        try:
+            with Path(run_stats_path).open() as f:
+                today_data["last_run"] = json.load(f)
+            print(f"  Loaded run stats from {run_stats_path}")
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  Warning: Could not load run stats: {e}", file=sys.stderr)
 
     # Generate metadata
     meta = {

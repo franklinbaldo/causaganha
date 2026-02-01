@@ -623,6 +623,9 @@ def main() -> int:
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with open(os_env, "a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
+            f.write(f"collect_success={stats['success']}\n")
+            f.write(f"collect_failed={stats['failed']}\n")
+            f.write(f"collect_skipped={stats['skipped']}\n")
 
     # Determine exit code based on success rate, not strict zero-failures
     # This tolerates transient API errors (timeouts, 5xx, network issues)

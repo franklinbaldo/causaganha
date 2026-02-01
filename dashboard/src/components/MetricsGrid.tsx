@@ -2,15 +2,35 @@ import { useState, useEffect } from 'react';
 import { LABELS } from '../lib/constants';
 import { formatBytes } from '../lib/utils';
 import { fetchDashboardCache, getCacheAge } from '../lib/api';
+import type { PipelineMetrics, LastRunStats } from '../lib/api';
 
-interface PipelineMetrics {
-    total_zips: number;
-    days_consolidated: number;
-    total_parquets: number;
-    dates_collected: number;
-    backfill_total: number;
-    backfill_done: number;
-    progress_pct: number;
+const STEP_LABELS: Record<string, string> = {
+    collect: 'Coleta',
+    consolidate: 'Consolidacao',
+    embed: 'Embeddings',
+    catalog: 'Catalogo',
+    dashboard: 'Dashboard',
+};
+
+const STAT_LABELS: Record<string, string> = {
+    success: 'ok',
+    failed: 'falhas',
+    skipped: 'pulados',
+    zips: 'zips',
+    records: 'registros',
+    parquets: 'parquets',
+    uploaded: 'enviados',
+    processed: 'processados',
+    saved: 'salvos',
+    manifest: 'arquivos',
+    backfill: 'pendentes',
+    dates: 'datas',
+    progress: 'progresso',
+};
+
+function formatStatKey(key: string): string {
+    const short = key.includes('_') ? key.split('_').slice(1).join('_') : key;
+    return STAT_LABELS[short] || short;
 }
 
 interface MetricsData {
@@ -21,6 +41,7 @@ interface MetricsData {
     cacheAge?: string;
     source?: string;
     pipeline?: PipelineMetrics;
+    lastRun?: LastRunStats;
 }
 
 export default function MetricsGrid() {
@@ -39,6 +60,7 @@ export default function MetricsGrid() {
                     cacheAge: getCacheAge(cache.meta.generated_at),
                     source: cache.meta.source,
                     pipeline: cache.today.pipeline,
+                    lastRun: cache.today.last_run,
                 });
             }
             setLoading(false);
@@ -94,6 +116,8 @@ export default function MetricsGrid() {
             color: p.progress_pct >= 50 ? 'text-accent-green' : p.progress_pct > 0 ? 'text-accent-yellow' : 'text-accent-red',
         },
     ] : [];
+
+    const lr = data.lastRun;
 
     return (
         <div className="space-y-4">
@@ -155,6 +179,46 @@ export default function MetricsGrid() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </>
+            )}
+            {!loading && lr && (
+                <>
+                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted px-1">
+                        {LABELS.lastRun.title}
+                    </p>
+                    <div className="bg-card border border-border rounded-xl p-4 animate-slide-up"
+                        style={{ animationDelay: '350ms' }}
+                    >
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.entries(lr.steps).map(([name, step]) => (
+                                <div key={name} className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className={step.success ? 'text-accent-green' : 'text-accent-red'}>
+                                            {step.success ? '\u2713' : '\u2717'}
+                                        </span>
+                                        <span className="text-sm font-medium text-text-primary">
+                                            {STEP_LABELS[name] || name}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-text-muted space-y-0.5 pl-5">
+                                        {Object.entries(step.stats).map(([k, v]) => (
+                                            <div key={k}>
+                                                {formatStatKey(k)}: <span className="font-mono text-text-primary">{v}</span>
+                                            </div>
+                                        ))}
+                                        {Object.keys(step.stats).length === 0 && (
+                                            <div className="italic">sem dados</div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {lr.generated_at && (
+                            <div className="mt-2 text-xs text-text-muted text-right">
+                                {getCacheAge(lr.generated_at)}
+                            </div>
+                        )}
                     </div>
                 </>
             )}

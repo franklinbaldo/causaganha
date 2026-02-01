@@ -741,6 +741,12 @@ def main():
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with open(os_env, "a") as f:
             f.write(f"catalog_updated={'true' if catalog_updated else 'false'}\n")
+            f.write(f"catalog_manifest={len(manifest)}\n")
+            f.write(f"catalog_backfill={len(backfill)}\n")
+            f.write(f"catalog_zips={zip_count}\n")
+            f.write(f"catalog_parquets={parquet_count}\n")
+            f.write(f"catalog_dates={dates_collected}\n")
+            f.write(f"catalog_progress={percent_complete:.1f}\n")
 
     return 0
 

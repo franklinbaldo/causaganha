@@ -70,6 +70,9 @@ export const LABELS = {
         consolidated: { title: 'Dias Consolidados', subtitle: 'convertidos para Parquet' },
         progress: { title: 'Backfill', subtitle: 'do total estimado' },
     },
+    lastRun: {
+        title: 'Ultima Execucao',
+    },
     activity: {
         title: 'Atividade de Coleta',
         less: 'Menos',

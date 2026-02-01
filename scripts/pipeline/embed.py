@@ -268,6 +268,9 @@ def main():
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with open(os_env, "a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
+            f.write(f"embed_processed={stats['processed']}\n")
+            f.write(f"embed_saved={stats['saved']}\n")
+            f.write(f"embed_failed={stats['failed']}\n")
 
     return 0
 

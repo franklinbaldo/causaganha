@@ -15,6 +15,27 @@ export interface CacheMeta {
     manifest_available?: boolean;
 }
 
+export interface StepRunStats {
+    success: boolean;
+    stats: Record<string, string>;
+}
+
+export interface LastRunStats {
+    generated_at: string;
+    job: string;
+    steps: Record<string, StepRunStats>;
+}
+
+export interface PipelineMetrics {
+    total_zips: number;
+    days_consolidated: number;
+    total_parquets: number;
+    dates_collected: number;
+    backfill_total: number;
+    backfill_done: number;
+    progress_pct: number;
+}
+
 export interface CacheToday {
     date: string;
     files_today: number;
@@ -22,6 +43,8 @@ export interface CacheToday {
     tribunal_status: Record<string, { status: string; size?: number | null }>;
     days_archived: number;
     health: number;
+    pipeline?: PipelineMetrics;
+    last_run?: LastRunStats;
 }
 
 export interface CacheRuns {

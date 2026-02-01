@@ -28,12 +28,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -340,18 +342,47 @@ def format_github_output(state: PipelineState) -> str:
     )
 
 
+def build_run_stats(job: str, state: PipelineState) -> dict:
+    """Build structured run stats from pipeline state (pure)."""
+    steps = {}
+    for result in state.results:
+        stats = {k: v for k, v in result.outputs.items() if k not in ("files_added", "catalog_updated")}
+        steps[result.name] = {"success": result.success, "stats": stats}
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "job": job,
+        "steps": steps,
+    }
+
+
+def _format_step_metrics(outputs: Mapping[str, str]) -> str:
+    """Format step outputs as a compact metrics string for the summary table."""
+    parts = []
+    for k, v in outputs.items():
+        if k in ("files_added", "catalog_updated"):
+            continue
+        display_key = k.split("_", 1)[-1] if "_" in k else k
+        parts.append(f"{display_key}: **{v}**")
+    return ", ".join(parts) if parts else "---"
+
+
 def format_github_summary(job: str, state: PipelineState) -> str:
-    """Format markdown for $GITHUB_STEP_SUMMARY."""
-    lines = (
+    """Format rich markdown for $GITHUB_STEP_SUMMARY."""
+    lines = [
         "## Pipeline Summary\n",
-        f"- **Job**: {job}",
-        f"- **Files added**: {state.files_added}",
-        f"- **Catalog updated**: {state.catalog_updated}",
-    )
-    body = "\n".join(lines)
+        f"**Job**: `{job}` | **Files added**: {state.files_added} | **Catalog updated**: {state.catalog_updated}\n",
+        "### Step Results\n",
+        "| Step | Status | Metrics |",
+        "|------|--------|---------|",
+    ]
+    for result in state.results:
+        icon = "&#x2705;" if result.success else "&#x274C;"
+        metrics = _format_step_metrics(result.outputs)
+        lines.append(f"| {result.name} | {icon} | {metrics} |")
+    lines.append("")
     if state.catalog_updated:
-        body += "\n\n[Catalog](https://archive.org/download/causaganha-catalog/catalog.duckdb)"
-    return body + "\n"
+        lines.append("[Catalog](https://archive.org/download/causaganha-catalog/catalog.duckdb)")
+    return "\n".join(lines) + "\n"
 
 
 # ── Impure Boundary: Execution ────────────────────────────────
@@ -481,9 +512,22 @@ def main() -> int:
     catalog_plans = plan_catalog_step(config, state)
     state = execute_plans(catalog_plans, state, config.repo_root)
 
+    # Write run stats for dashboard consumption
+    stats_dict = build_run_stats(config.job, state)
+    fd, stats_file = tempfile.mkstemp(prefix="run-stats-", suffix=".json")
+    os.close(fd)
+    Path(stats_file).write_text(json.dumps(stats_dict))
+    os.environ["PIPELINE_RUN_STATS"] = stats_file
+
     # Phase 3: dashboard (conditional on catalog_updated)
     dashboard_plans = plan_dashboard_step(config, state)
     state = execute_plans(dashboard_plans, state, config.repo_root)
+
+    # Cleanup stats file
+    try:
+        Path(stats_file).unlink()
+    except OSError:
+        pass
 
     # Output
     sys.stdout.write(format_pipeline_summary(state))
