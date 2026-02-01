@@ -227,8 +227,12 @@ def _safe(col: ibis.Column) -> ibis.Column:
 
 
 def _col(t: ibis.Table, *names: str) -> ibis.Column:
-    """COALESCE the first existing columns by *names*, or literal(None)."""
-    existing = [t[n] for n in names if n in t.columns]
+    """COALESCE the first existing columns by *names*, or literal(None).
+
+    Casts all columns to string before coalescing to avoid type precedence errors
+    when mixing date and string columns.
+    """
+    existing = [t[n].cast("string") for n in names if n in t.columns]
     if not existing:
         return ibis.literal(None)
     return ibis.coalesce(*existing) if len(existing) > 1 else existing[0]
@@ -256,7 +260,7 @@ def _com_id(raw: ibis.Table) -> ibis.Column:
 def _texto_id(raw: ibis.Table) -> ibis.Column:
     """Text UUID: content-addressed hash of the text itself."""
     txt = _safe(raw.texto)
-    return ibis.case().when(txt != "", djen_uuid5(txt)).else_("").end()
+    return ibis.cases((txt != "", djen_uuid5(txt)), else_="")
 
 
 def _parte_id(d: ibis.Column) -> ibis.Column:
@@ -276,11 +280,9 @@ def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.Column:
             _struct_field(da, "advogado_id"),
         ),
     )
-    return (
-        ibis.case()
-        .when((oab != "") & (uf != ""), djen_uuid5(oab + ":" + uf))
-        .else_(djen_uuid5(nome + ":" + tribunal + ":" + orig_id))
-        .end()
+    return ibis.cases(
+        ((oab != "") & (uf != ""), djen_uuid5(oab + ":" + uf)),
+        else_=djen_uuid5(nome + ":" + tribunal + ":" + orig_id),
     )
 
 
@@ -391,7 +393,7 @@ def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notna()).select(
+    return t.filter(adv.notnull()).select(
         id=_adv_global_id(t.da, t.src_tribunal),
         original_id=_safe(
             ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
@@ -413,7 +415,7 @@ def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notna()).select(
+    return t.filter(adv.notnull()).select(
         advogado_id=_adv_global_id(t.da, t.src_tribunal),
         nome=_safe(adv["nome"]),
         tribunal=t.src_tribunal,
@@ -440,7 +442,7 @@ def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=step1.destinatarioadvogados.unnest(),
     )
     adv = step2.da["advogado"]
-    return step2.filter(adv.notna()).select(
+    return step2.filter(adv.notnull()).select(
         comunicacao_id=djen_uuid5(step2.com_key),
         tribunal=step2.src_tribunal,
         advogado_id=_adv_global_id(step2.da, step2.src_tribunal),

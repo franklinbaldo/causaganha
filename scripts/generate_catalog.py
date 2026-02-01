@@ -425,7 +425,7 @@ def create_catalog_duckdb(
 
         # Create manifest table from data
         con.execute("""
-            CREATE TABLE manifest (
+            CREATE TABLE IF NOT EXISTS manifest (
                 date VARCHAR,
                 tribunal VARCHAR,
                 file_type VARCHAR,
@@ -436,6 +436,9 @@ def create_catalog_duckdb(
                 created_at VARCHAR
             )
         """)
+
+        # Clear existing data if table already existed
+        con.execute("DELETE FROM manifest;")
 
         for m in manifest:
             # Safe extraction with defaults for missing keys
@@ -455,13 +458,16 @@ def create_catalog_duckdb(
 
         # Create backfill table
         con.execute("""
-            CREATE TABLE backfill_needed (
+            CREATE TABLE IF NOT EXISTS backfill_needed (
                 date VARCHAR,
                 tribunal VARCHAR,
                 reason VARCHAR,
                 last_checked VARCHAR
             )
         """)
+
+        # Clear existing data if table already existed
+        con.execute("DELETE FROM backfill_needed;")
 
         for b in backfill:
             con.execute(
@@ -532,6 +538,7 @@ def save_parquet(data: list[dict], output_path: Path) -> bool:
         placeholders = ", ".join(["?" for _ in columns])
         col_defs = ", ".join([f"{c} VARCHAR" for c in columns])
 
+        con.execute("DROP TABLE IF EXISTS temp;")
         con.execute(f"CREATE TABLE temp ({col_defs})")
 
         for row in data:
