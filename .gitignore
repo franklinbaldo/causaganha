@@ -34,3 +34,8 @@ djen_proxy
 # Temporary files from agent execution
 prs.json
 files_*.json
+
+# Agent session artifacts
+.team/logs/
+.team/mail/
+.team/session.json

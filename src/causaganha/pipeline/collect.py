@@ -3,13 +3,13 @@ import io
 import json
 import zipfile
 from datetime import date, timedelta
-from types import SimpleNamespace
 from typing import Any
 
 import httpx
 import structlog
 
 from causaganha.config import settings
+from causaganha.pipeline.types import CollectedIntimation
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
@@ -29,6 +29,89 @@ logger = structlog.get_logger()
 
 # Use the same proxy as the archive-zips workflow
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+
+async def _fetch_court_metadata(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    target_date: str,
+    proxy_url: str,
+) -> str | None:
+    """Fetch metadata URL from proxy for a specific date."""
+    info_url = f"{proxy_url}/api/v1/caderno/{tribunal}/{target_date}/D"
+    response = await client.get(info_url)
+
+    if response.status_code != 200:
+        logger.warning(
+            "caderno_not_available",
+            tribunal=tribunal,
+            date=target_date,
+            status=response.status_code,
+        )
+        return None
+
+    info = response.json()
+    return info.get("url")
+
+
+async def _download_zip(
+    client: httpx.AsyncClient,
+    download_url: str,
+) -> bytes | None:
+    """Download the ZIP file content."""
+    logger.debug("downloading_zip", url=download_url)
+    zip_response = await client.get(download_url, follow_redirects=True)
+
+    if zip_response.status_code != 200:
+        logger.error("zip_download_failed", status=zip_response.status_code)
+        return None
+
+    return zip_response.content
+
+
+def _process_zip_content(content: bytes) -> list[CollectedIntimation]:
+    """Extract and parse intimations from ZIP content."""
+    intimations: list[CollectedIntimation] = []
+
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        for name in zf.namelist():
+            if not name.endswith(".json"):
+                continue
+
+            with zf.open(name) as f:
+                data = json.load(f)
+                # Handle both list of items and single item wrapped in object
+                items = data.get("items", [data] if "id" in data else [])
+
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+
+                    try:
+                        obj = CollectedIntimation(
+                            id=item.get("id"),  # type: ignore # ID presence checked by Pydantic
+                            numero_processo=get_field(item, FIELD_NUMERO_PROCESSO),
+                            data_disponibilizacao=get_field(
+                                item, FIELD_DATA_DISPONIBILIZACAO
+                            ),
+                            sigla_tribunal=get_field(item, FIELD_SIGLA_TRIBUNAL),
+                            id_orgao=get_field(item, FIELD_ID_ORGAO),
+                            tipo_comunicacao=get_field(item, FIELD_TIPO_COMUNICACAO),
+                            nome_orgao=get_field(item, FIELD_NOME_ORGAO),
+                            texto=item.get("texto"),
+                            link=item.get("link"),
+                            tipo_documento=get_field(item, FIELD_TIPO_DOCUMENTO),
+                            nome_classe=get_field(item, FIELD_NOME_CLASSE),
+                            codigo_classe=get_field(item, FIELD_CODIGO_CLASSE),
+                            hash=item.get("hash"),
+                            status=item.get("status"),
+                        )
+                        intimations.append(obj)
+                    except Exception as e:
+                        logger.warning("failed_to_parse_intimation", error=str(e), item_id=item.get("id"))
+                        continue
+
+    return intimations
 
 
 async def collect_metadata_for_court(
@@ -57,67 +140,22 @@ async def collect_metadata_for_court(
             logger.info("collecting_court_date", tribunal=tribunal, date=target_date)
 
             try:
-                # 1. Get info from proxy
-                info_url = f"{proxy_url}/api/v1/caderno/{tribunal}/{target_date}/D"
-                response = await client.get(info_url)
-
-                if response.status_code != 200:
-                    logger.warning(
-                        "caderno_not_available",
-                        tribunal=tribunal,
-                        date=target_date,
-                        status=response.status_code,
-                    )
-                    continue
-
-                info = response.json()
-                download_url = info.get("url")
+                # 1. Get metadata URL
+                download_url = await _fetch_court_metadata(
+                    client, tribunal, target_date, proxy_url
+                )
 
                 if not download_url:
                     logger.warning("no_download_url", tribunal=tribunal, date=target_date)
                     continue
 
                 # 2. Download ZIP
-                logger.debug("downloading_zip", url=download_url)
-                zip_response = await client.get(download_url, follow_redirects=True)
-
-                if zip_response.status_code != 200:
-                    logger.error("zip_download_failed", status=zip_response.status_code)
+                content = await _download_zip(client, download_url)
+                if not content:
                     continue
 
                 # 3. Extract JSON items
-                intimations = []
-                with zipfile.ZipFile(io.BytesIO(zip_response.content)) as zf:
-                    for name in zf.namelist():
-                        if name.endswith(".json"):
-                            with zf.open(name) as f:
-                                data = json.load(f)
-                                items = data.get("items", [data] if "id" in data else [])
-                                for item in items:
-                                    if not isinstance(item, dict):
-                                        continue
-
-                                    # Wrap in a simple object for store_intimations
-                                    obj = SimpleNamespace()
-                                    obj.id = item.get("id")
-                                    obj.numero_processo = get_field(item, FIELD_NUMERO_PROCESSO)
-                                    obj.data_disponibilizacao = get_field(
-                                        item,
-                                        FIELD_DATA_DISPONIBILIZACAO,
-                                    )
-                                    obj.sigla_tribunal = get_field(item, FIELD_SIGLA_TRIBUNAL)
-                                    obj.id_orgao = get_field(item, FIELD_ID_ORGAO)
-                                    obj.tipo_comunicacao = get_field(item, FIELD_TIPO_COMUNICACAO)
-                                    obj.nome_orgao = get_field(item, FIELD_NOME_ORGAO)
-                                    obj.texto = item.get("texto")
-                                    obj.link = item.get("link")
-                                    obj.tipo_documento = get_field(item, FIELD_TIPO_DOCUMENTO)
-                                    obj.nome_classe = get_field(item, FIELD_NOME_CLASSE)
-                                    obj.codigo_classe = get_field(item, FIELD_CODIGO_CLASSE)
-                                    obj.hash = item.get("hash")
-                                    obj.status = item.get("status")
-
-                                    intimations.append(obj)
+                intimations = _process_zip_content(content)
 
                 # 4. Store in DuckDB
                 if intimations:
