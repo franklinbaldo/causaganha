@@ -346,7 +346,9 @@ def build_run_stats(job: str, state: PipelineState) -> dict:
     """Build structured run stats from pipeline state (pure)."""
     steps = {}
     for result in state.results:
-        stats = {k: v for k, v in result.outputs.items() if k not in ("files_added", "catalog_updated")}
+        stats = {
+            k: v for k, v in result.outputs.items() if k not in ("files_added", "catalog_updated")
+        }
         steps[result.name] = {"success": result.success, "stats": stats}
     return {
         "generated_at": datetime.now(UTC).isoformat(),
