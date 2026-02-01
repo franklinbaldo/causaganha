@@ -1,4 +1,4 @@
-"""Internet Archive Upload Module
+"""Internet Archive Upload Module.
 
 Uploads Parquet files to Internet Archive for permanent, free storage.
 Supports retry logic, metadata generation, and upload verification.
@@ -75,7 +75,7 @@ class InternetArchiveUploader:
         config: UploadConfig | None = None,
         access_key: str | None = None,
         secret_key: str | None = None,
-    ):
+    ) -> None:
         """Initialize Internet Archive uploader.
 
         Args:
@@ -122,7 +122,8 @@ class InternetArchiveUploader:
             IOError: If upload fails after retries
         """
         if not file_path.exists():
-            raise ValueError(f"File not found: {file_path}")
+            msg = f"File not found: {file_path}"
+            raise ValueError(msg)
 
         # Generate item ID and metadata
         item_id = self._generate_item_id(partition_date, tribunal)
@@ -166,9 +167,11 @@ class InternetArchiveUploader:
                     await asyncio.sleep(delay)
                 else:
                     # Final attempt failed
+                    msg = f"Failed to upload after {self.config.max_retries} attempts: {e}"
                     raise OSError(
-                        f"Failed to upload after {self.config.max_retries} attempts: {e}",
-                    )
+                        msg,
+                    ) from e
+        return None
 
     def _upload_file(
         self,
@@ -200,9 +203,10 @@ class InternetArchiveUploader:
         )
 
         # Check response
-        if not response[0].status_code == 200:
+        if response[0].status_code != 200:
+            msg = f"Upload failed with status {response[0].status_code}: {response[0].text}"
             raise OSError(
-                f"Upload failed with status {response[0].status_code}: {response[0].text}",
+                msg,
             )
 
     async def _verify_upload(self, item_id: str, filename: str) -> None:
@@ -229,8 +233,9 @@ class InternetArchiveUploader:
                 break
 
         if not file_found:
+            msg = f"Verification failed: File {filename} not found in item {item_id}"
             raise OSError(
-                f"Verification failed: File {filename} not found in item {item_id}",
+                msg,
             )
 
     def _generate_item_id(self, date: str, tribunal: str) -> str:

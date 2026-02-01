@@ -67,7 +67,7 @@ REFERENCE_PHRASES = {
 }
 
 
-async def test_embedding_accuracy():
+async def test_embedding_accuracy() -> None:
     """Test embedding accuracy against LLM results."""
     console.print("\n[bold cyan]🧪 Teste de Acurácia: Embeddings vs LLM[/bold cyan]\n")
 

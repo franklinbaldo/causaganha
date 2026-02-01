@@ -55,7 +55,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
     return chunks
 
 
-def main():
+def main() -> None:
     """Testar com TODAS as 30 decisões do ground truth."""
     console.print("\n[bold cyan]🎯 Teste Completo: 2 Frases-Chave vs 30 Decisões[/bold cyan]\n")
 
@@ -136,10 +136,7 @@ def main():
         )
 
         # Classificar baseado na maior similaridade
-        if max_sim_autor > max_sim_reu:
-            outcome_previsto = "WIN"
-        else:
-            outcome_previsto = "LOSS"
+        outcome_previsto = "WIN" if max_sim_autor > max_sim_reu else "LOSS"
 
         # Mapear UNKNOWN e PARTIAL
         # Se a diferença for muito pequena, talvez seja UNKNOWN

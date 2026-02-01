@@ -44,7 +44,7 @@ def timed(name: str):
     """Context manager for timing code blocks."""
 
     class Timer:
-        def __init__(self, name):
+        def __init__(self, name) -> None:
             self.name = name
 
         def __enter__(self):
@@ -53,7 +53,6 @@ def timed(name: str):
 
         def __exit__(self, *args):
             self.elapsed = time.time() - self.start
-            print(f"    [{self.name}] {self.elapsed:.1f}s")
 
     return Timer(name)
 
@@ -76,10 +75,6 @@ def process_item(entry: str) -> bool:
         tribunal = parts[1]
         item_id = f"djen-{date}"
 
-    print(f"\n{'=' * 60}")
-    print(f"Processing: {tribunal} from {item_id}")
-    print(f"  Date: {date}, Tribunal: {tribunal}")
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         zip_path = tmpdir / "caderno.zip"  # Placeholder path, will be overwritten
@@ -94,7 +89,6 @@ def process_item(entry: str) -> bool:
 
         for zip_filename in zip_filenames:
             url = f"https://archive.org/download/{item_id}/{zip_filename}"
-            print(f"  Attempting download: {url}")
 
             with timed(f"download ({zip_filename})"):
                 try:
@@ -114,17 +108,12 @@ def process_item(entry: str) -> bool:
                                 ):  # 1MB chunks
                                     f.write(chunk)
                                     downloaded += len(chunk)
-                            print(f"    Downloaded {downloaded / 1024 / 1024:.1f} MB")
                             download_success = True
                             break
-                        print(
-                            f"    [Skip] {zip_filename} not found (status {response.status_code})",
-                        )
-                except Exception as e:
-                    print(f"    [Error] Failed to download {zip_filename}: {e}")
+                except Exception:
+                    pass
 
         if not download_success:
-            print(f"  ERROR: Could not find or download any ZIP file for {item_id}")
             return False
 
         # Stream JSON records from ZIP into a single NDJSON file for DuckDB
@@ -132,22 +121,18 @@ def process_item(entry: str) -> bool:
 
         with timed("extract+flatten"):
             total_records = 0
-            with zipfile.ZipFile(zip_path) as zf:
-                with open(ndjson_path, "w") as out:
-                    for name in zf.namelist():
-                        if name.endswith(".json"):
-                            with zf.open(name) as f:
-                                data = json.load(f)
-                                # Handle {count, items} wrapper
-                                items = data.get("items", [data] if "id" in data else [])
-                                for item in items:
-                                    out.write(json.dumps(item) + "\n")
-                                    total_records += 1
-
-            print(f"    Flattened {total_records} records to NDJSON")
+            with zipfile.ZipFile(zip_path) as zf, open(ndjson_path, "w") as out:
+                for name in zf.namelist():
+                    if name.endswith(".json"):
+                        with zf.open(name) as f:
+                            data = json.load(f)
+                            # Handle {count, items} wrapper
+                            items = data.get("items", [data] if "id" in data else [])
+                            for item in items:
+                                out.write(json.dumps(item) + "\n")
+                                total_records += 1
 
         if total_records == 0:
-            print("  WARNING: No records found")
             return False
 
         # Create DuckDB connection with optimized settings
@@ -169,8 +154,7 @@ def process_item(entry: str) -> bool:
                     ignore_errors=true
                 )
             """)
-            loaded = con.execute("SELECT COUNT(*) FROM comunicacoes_raw").fetchone()[0]
-            print(f"    Loaded {loaded} records into DuckDB")
+            con.execute("SELECT COUNT(*) FROM comunicacoes_raw").fetchone()[0]
 
         # Normalize using SQL
         with timed("normalize"):
@@ -296,16 +280,13 @@ def process_item(entry: str) -> bool:
                     COPY {table} TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, COMPRESSION_LEVEL 3)
                 """)
                 if path.exists() and path.stat().st_size > 0:
-                    count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-                    size_kb = path.stat().st_size / 1024
-                    print(f"    {table}: {count:,} rows ({size_kb:.0f} KB)")
+                    con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    path.stat().st_size / 1024
 
         # Upload to Internet Archive (existing item)
-        print(f"  Uploading to IA item: {item_id}")
 
         files = list(out_dir.glob("*.parquet"))
         if not files:
-            print("  WARNING: No parquet files to upload")
             return False
 
         with timed("upload"):
@@ -317,11 +298,9 @@ def process_item(entry: str) -> bool:
                     verbose=False,
                     retries=3,
                 )
-            except Exception as e:
-                print(f"  ERROR: Upload failed: {e}")
+            except Exception:
                 return False
 
-        print("  Done!")
         return True
 
 
@@ -338,18 +317,14 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: python convert_to_parquet.py <batch_file>")
-        print("  batch_file: file with DATE|TRIBUNAL entries per line")
         sys.exit(1)
 
     batch_file = Path(sys.argv[1])
     if not batch_file.exists():
-        print(f"ERROR: File not found: {batch_file}")
         sys.exit(1)
 
     # Read entries (DATE|TRIBUNAL format)
     entries = [line.strip() for line in batch_file.read_text().splitlines() if line.strip()]
-    print(f"Processing {len(entries)} entries using DuckDB with {MAX_WORKERS} workers")
 
     success = 0
     failed = 0
@@ -363,27 +338,23 @@ def main() -> None:
         else:
             failed += 1
             if error:
-                print(f"  ERROR: {error}")
+                pass
     else:
         # Multiple entries - process in parallel
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(process_item_safe, entry): entry for entry in entries}
 
             for future in as_completed(futures):
-                entry, result, error = future.result()
+                _entry, result, error = future.result()
                 if result:
                     success += 1
                 else:
                     failed += 1
                     if error:
-                        print(f"  ERROR processing {entry}: {error}")
+                        pass
 
     total_elapsed = time.time() - total_start
-    avg_time = total_elapsed / len(entries) if entries else 0
-    print(f"\n{'=' * 60}")
-    print(
-        f"SUMMARY: {success} success, {failed} failed in {total_elapsed:.1f}s ({avg_time:.1f}s avg/item)",
-    )
+    total_elapsed / len(entries) if entries else 0
 
     sys.exit(0 if failed == 0 else 1)
 

@@ -183,7 +183,7 @@ def run_migrations(con: Backend | None = None, dry_run: bool = False) -> list[st
             logger.info("migration_applied", version=version, name=name)
             applied_names.append(name)
         except Exception as e:
-            logger.error("migration_failed", version=version, name=name, error=str(e))
+            logger.exception("migration_failed", version=version, name=name, error=str(e))
             raise
 
     if not applied_names:
@@ -224,7 +224,7 @@ def rollback_migration(con: Backend | None = None, target_version: int = 0) -> l
             logger.info("migration_rolled_back", version=version, name=name)
             rolled_back.append(name)
         except Exception as e:
-            logger.error("rollback_failed", version=version, name=name, error=str(e))
+            logger.exception("rollback_failed", version=version, name=name, error=str(e))
             raise
 
     return rolled_back
@@ -257,9 +257,6 @@ def migration_status(con: Backend | None = None) -> dict:
 if __name__ == "__main__":
     import sys
 
-    print("CausaGanha Database Migrations")
-    print("=" * 50)
-
     con = get_connection()
 
     if len(sys.argv) > 1:
@@ -267,34 +264,22 @@ if __name__ == "__main__":
 
         if cmd == "status":
             status = migration_status(con)
-            print(f"Applied: {status['applied']}/{status['total']}")
-            print(f"Pending: {status['pending']}")
             if status["pending_migrations"]:
-                print("\nPending migrations:")
-                for name in status["pending_migrations"]:
-                    print(f"  - {name}")
+                for _name in status["pending_migrations"]:
+                    pass
 
         elif cmd == "dry-run":
-            print("Dry run - showing what would be applied:\n")
             run_migrations(con, dry_run=True)
 
         elif cmd == "rollback":
             target = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-            print(f"Rolling back to version {target}...\n")
             rolled = rollback_migration(con, target)
-            print(f"\nRolled back {len(rolled)} migrations")
 
         else:
-            print(f"Unknown command: {cmd}")
-            print(
-                "Usage: python -m causaganha.storage.migrations [status|dry-run|rollback [version]]",
-            )
+            pass
 
     else:
         # Default: run migrations
-        print("Running migrations...\n")
         applied = run_migrations(con)
-        print(f"\nApplied {len(applied)} migrations")
 
         status = migration_status(con)
-        print(f"Total: {status['applied']}/{status['total']} applied")

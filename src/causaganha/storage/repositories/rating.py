@@ -43,7 +43,7 @@ def get_lawyer_rating(
     return result.iloc[0].to_dict()
 
 
-def update_lawyer_rating(
+def update_lawyer_rating(  # noqa: PLR0913
     con: Backend,
     oab_number: str,
     oab_state: str,
@@ -114,7 +114,7 @@ def update_lawyer_rating(
     )
 
 
-def insert_rating_snapshot(
+def insert_rating_snapshot(  # noqa: PLR0913
     con: Backend,
     *,
     advogado_id: str,

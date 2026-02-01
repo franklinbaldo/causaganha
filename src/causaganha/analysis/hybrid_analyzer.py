@@ -112,7 +112,7 @@ class HybridAnalyzer:
                 return llm_result
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "hybrid_llm_fallback_failed",
                     intimation_id=intimation_id,
                     error=str(e),
@@ -122,7 +122,7 @@ class HybridAnalyzer:
                 return rag_result
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "hybrid_rag_analysis_failed",
                 intimation_id=intimation_id,
                 error=str(e),
@@ -190,7 +190,7 @@ class HybridAnalyzer:
                     stats["cost_rag"] += 0.000008
 
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "hybrid_batch_item_failed",
                     intimation_id=int_id,
                     error=str(e),

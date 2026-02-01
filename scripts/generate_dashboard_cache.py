@@ -2,11 +2,13 @@
 """Generate dashboard cache JSON files from the catalog manifest.
 
 Reads manifest.parquet (the catalog's index of all IA files) and derives
-all dashboard data from it, instead of making per-date IA API calls.
+all dashboard data from it. Falls back to IA metadata API when the manifest
+is empty or incomplete.
 
 Data sources:
   - manifest.parquet from causaganha-catalog (one HTTP fetch via DuckDB httpfs)
   - IA search API for item sizes (one HTTP call)
+  - IA metadata API for tribunal status fallback (up to 2 HTTP calls)
   - GitHub API for workflow runs (one HTTP call)
 
 Usage:
@@ -22,6 +24,7 @@ Outputs:
 
 import argparse
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -207,43 +210,106 @@ def fetch_item_sizes() -> dict[str, int]:
     return sizes
 
 
+def fetch_ia_item_files(date_str: str) -> dict[str, dict[str, Any]]:
+    """Fetch file list for a specific date from IA metadata API.
+
+    Returns dict mapping tribunal code to {status, size} for .zip and .absent files.
+    This is used as a fallback when the manifest is empty.
+    """
+    item_id = f"djen-{date_str}"
+    url = f"https://archive.org/metadata/{item_id}/files"
+    print(f"  Fetching file list from IA for {item_id}...")
+
+    data = fetch_json(url, timeout=15)
+    if not data or "result" not in data:
+        print(f"  Warning: No files found for {item_id}", file=sys.stderr)
+        return {}
+
+    # Pattern: djen-YYYY-MM-DD-TRIBUNAL.zip or .absent
+    pattern = re.compile(
+        r"^djen-\d{4}-\d{2}-\d{2}-([A-Z0-9]+)\.(zip|absent)$",
+    )
+
+    tribunal_status: dict[str, dict[str, Any]] = {}
+    for file_info in data["result"]:
+        name = file_info.get("name", "")
+        match = pattern.match(name)
+        if match:
+            tribunal = match.group(1)
+            file_type = match.group(2)
+            size = int(file_info.get("size", 0))
+            tribunal_status[tribunal] = {
+                "status": "ok" if file_type == "zip" else "absent",
+                "size": size if file_type == "zip" else None,
+            }
+
+    print(f"  Found {len(tribunal_status)} tribunals for {item_id}")
+    return tribunal_status
+
+
+def is_manifest_populated(con: duckdb.DuckDBPyConnection) -> bool:
+    """Check if the manifest table has any real data."""
+    try:
+        count = con.execute(
+            "SELECT COUNT(*) FROM manifest WHERE file_type IN ('zip', 'absent')",
+        ).fetchone()
+        return count is not None and count[0] > 0
+    except Exception:
+        return False
+
+
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
-    """Generate today's metrics and tribunal status from manifest."""
+    """Generate today's metrics and tribunal status from manifest.
+
+    Falls back to IA metadata API if the manifest is empty.
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
     print(f"  Generating today's data ({today})...")
 
-    # Query manifest for today's tribunal statuses
-    result = con.execute(
-        """
-        SELECT tribunal, file_type
-        FROM manifest
-        WHERE date = ? AND file_type IN ('zip', 'absent')
-    """,
-        [today],
-    ).fetchall()
+    use_ia_fallback = not is_manifest_populated(con)
+    if use_ia_fallback:
+        print("  Manifest is empty, falling back to IA metadata API...")
 
+    tribunal_status: dict[str, dict[str, Any]] = {}
     date_used = today
-    if not result:
-        print(f"  No data for today, trying yesterday ({yesterday})...")
+
+    if use_ia_fallback:
+        # Fallback: fetch file list directly from IA metadata API
+        tribunal_status = fetch_ia_item_files(today)
+        if not tribunal_status:
+            print(f"  No IA data for today, trying yesterday ({yesterday})...")
+            tribunal_status = fetch_ia_item_files(yesterday)
+            date_used = yesterday
+    else:
+        # Primary: query manifest for today's tribunal statuses
         result = con.execute(
             """
             SELECT tribunal, file_type
             FROM manifest
             WHERE date = ? AND file_type IN ('zip', 'absent')
         """,
-            [yesterday],
+            [today],
         ).fetchall()
-        date_used = yesterday
 
-    # Build tribunal status map
-    tribunal_status: dict[str, dict[str, Any]] = {}
-    for tribunal, file_type in result:
-        tribunal_status[tribunal] = {
-            "status": "ok" if file_type == "zip" else "absent",
-            "size": None,  # Per-tribunal sizes not in manifest
-        }
+        if not result:
+            print(f"  No data for today, trying yesterday ({yesterday})...")
+            result = con.execute(
+                """
+                SELECT tribunal, file_type
+                FROM manifest
+                WHERE date = ? AND file_type IN ('zip', 'absent')
+            """,
+                [yesterday],
+            ).fetchall()
+            date_used = yesterday
+
+        for tribunal, file_type in result:
+            tribunal_status[tribunal] = {
+                "status": "ok" if file_type == "zip" else "absent",
+                "size": None,
+            }
 
     # Mark missing tribunals as pending
     for tribunal in TRIBUNALS:
@@ -259,6 +325,7 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
         "files_today": zip_count,
         "size_today": size_today,
         "tribunal_status": tribunal_status,
+        "manifest_available": not use_ia_fallback,
     }
 
 
@@ -294,26 +361,69 @@ def generate_runs_cache() -> dict[str, Any]:
     return {"runs": runs, "health": health}
 
 
+def fetch_ia_search_with_files(sizes: dict[str, int]) -> dict[str, int]:
+    """Estimate tribunal counts from IA search results.
+
+    When the manifest is empty, we can use the IA advanced search API
+    with file_count to estimate how many tribunals have data per date.
+    Each item typically has: N zip files + N absent files + derived parquets.
+    """
+    url = (
+        "https://archive.org/advancedsearch.php"
+        "?q=identifier:djen-20*"
+        "&fl[]=identifier&fl[]=files_count"
+        "&rows=10000&output=json"
+    )
+    print("  Fetching file counts from IA search API...")
+    data = fetch_json(url, timeout=30)
+    if not data or "response" not in data:
+        return {}
+
+    counts: dict[str, int] = {}
+    for doc in data["response"].get("docs", []):
+        identifier = doc.get("identifier", "")
+        files_count = doc.get("files_count", 0)
+        if identifier.startswith("djen-") and len(identifier) >= 15:
+            date_str = identifier[5:15]
+            # Estimate: each tribunal produces ~1 zip + 1 absent file
+            # Plus there are consolidated parquets and metadata files (~15)
+            # So tribunal_count ~ (files_count - 15) / 1 approximately
+            # A more reliable estimate: if the item exists and has data,
+            # use size > 0 as existence indicator
+            if int(files_count) > 0 and date_str in sizes:
+                counts[date_str] = max(int(files_count) - 15, 0)
+
+    print(f"  Got file counts for {len(counts)} dates")
+    return counts
+
+
 def generate_calendar_cache(
     con: duckdb.DuckDBPyConnection,
     sizes: dict[str, int],
 ) -> dict[str, Any]:
-    """Generate calendar data for last N days from manifest."""
+    """Generate calendar data for last N days from manifest.
+
+    Falls back to IA search data when manifest is empty.
+    """
     print(f"  Generating calendar data ({CALENDAR_DAYS} days)...")
 
-    # Query manifest for zip counts per date
-    result = con.execute(
-        """
-        SELECT date, COUNT(DISTINCT tribunal) as tribunal_count
-        FROM manifest
-        WHERE file_type = 'zip'
-          AND date >= ?
-        GROUP BY date
-    """,
-        [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")],
-    ).fetchall()
+    use_ia_fallback = not is_manifest_populated(con)
 
-    date_tribunals: dict[str, int] = {row[0]: row[1] for row in result}
+    date_tribunals: dict[str, int] = {}
+
+    if not use_ia_fallback:
+        # Primary: query manifest for zip counts per date
+        result = con.execute(
+            """
+            SELECT date, COUNT(DISTINCT tribunal) as tribunal_count
+            FROM manifest
+            WHERE file_type = 'zip'
+              AND date >= ?
+            GROUP BY date
+        """,
+            [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")],
+        ).fetchall()
+        date_tribunals = {row[0]: row[1] for row in result}
 
     # Build calendar data
     calendar_data: dict[str, dict[str, Any]] = {}
@@ -333,19 +443,19 @@ def generate_calendar_cache(
         max_size = max(max_size, size)
 
     # Calculate levels based on max size
-    for data in calendar_data.values():
-        if max_size > 0 and data["size"] > 0:
-            ratio = data["size"] / max_size
+    for entry in calendar_data.values():
+        if max_size > 0 and entry["size"] > 0:
+            ratio = entry["size"] / max_size
             if ratio >= 0.76:
-                data["level"] = 4
+                entry["level"] = 4
             elif ratio >= 0.51:
-                data["level"] = 3
+                entry["level"] = 3
             elif ratio >= 0.26:
-                data["level"] = 2
+                entry["level"] = 2
             else:
-                data["level"] = 1
+                entry["level"] = 1
         else:
-            data["level"] = 0
+            entry["level"] = 0
 
     # Calculate summary stats
     days_with_data = [d for d in calendar_data.values() if d["exists"]]
@@ -434,25 +544,55 @@ def main() -> None:
     # Initialize DuckDB with httpfs for remote parquet access
     con = duckdb.connect()
     if not args.manifest:
-        con.execute("INSTALL httpfs; LOAD httpfs;")
+        try:
+            con.execute("INSTALL httpfs; LOAD httpfs;")
+        except Exception as e:
+            print(f"  Warning: Could not load httpfs extension: {e}", file=sys.stderr)
+            print("  Will download manifest via urllib instead...")
 
     # Step 1: Load manifest (one HTTP request or local file)
-    print("[1/3] Loading manifest...")
-    if not load_manifest(con, args.manifest):
+    print("[1/4] Loading manifest...")
+    manifest_path = args.manifest
+    if not manifest_path:
+        # Try to download manifest via urllib if httpfs failed
+        try:
+            con.execute(
+                "SELECT 1 FROM duckdb_extensions() WHERE extension_name = 'httpfs' AND loaded",
+            )
+        except Exception:
+            # httpfs not available, download manually
+            import tempfile
+
+            tmp = Path(tempfile.mkdtemp()) / "manifest.parquet"
+            try:
+                print(f"  Downloading manifest to {tmp}...")
+                urllib.request.urlretrieve(MANIFEST_URL, str(tmp))  # noqa: S310
+                manifest_path = str(tmp)
+            except Exception as e:
+                print(f"  Warning: Could not download manifest: {e}", file=sys.stderr)
+
+    if not load_manifest(con, manifest_path):
         print("Error: Could not load manifest. Aborting.", file=sys.stderr)
         sys.exit(1)
 
+    manifest_populated = is_manifest_populated(con)
+    data_source = "manifest.parquet" if manifest_populated else "IA metadata API (fallback)"
+    print(f"  Data source: {data_source}")
+
     # Step 2: Fetch item sizes from IA search API (one HTTP request)
-    print("[2/3] Fetching item sizes...")
+    print("[2/4] Fetching item sizes...")
     sizes = fetch_item_sizes()
 
     # Step 3: Generate all caches
-    print("[3/3] Generating cache files...")
+    print("[3/4] Generating cache files...")
     today_data = generate_today_cache(con, sizes)
     runs_data = generate_runs_cache()
     calendar_data = generate_calendar_cache(con, sizes)
 
     con.close()
+
+    # Step 4: Assemble and write
+    print("[4/4] Writing cache files...")
 
     # Add days_archived and health to today data
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
@@ -460,10 +600,11 @@ def main() -> None:
 
     # Generate metadata
     meta = {
-        "version": "3.0",
+        "version": "3.1",
         "generated_at": datetime.now().isoformat() + "Z",
-        "source": "manifest.parquet",
+        "source": data_source,
         "calendar_days": CALENDAR_DAYS,
+        "manifest_available": manifest_populated,
     }
 
     # Write local files
@@ -489,8 +630,10 @@ def main() -> None:
     print(f"  feed.xml: {rss_path.stat().st_size:,} bytes")
 
     print("\nCache generation complete!")
-    print(f"  Data source: manifest.parquet ({calendar_data['stats']['days_with_data']} days)")
-    print("  HTTP requests: 3 (manifest + IA sizes + GH runs)")
+    print(f"  Data source: {data_source}")
+    print(f"  Days with data: {calendar_data['stats']['days_with_data']}")
+    http_count = 3 if manifest_populated else 5
+    print(f"  HTTP requests: ~{http_count}")
 
 
 if __name__ == "__main__":

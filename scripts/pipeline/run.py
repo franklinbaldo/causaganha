@@ -95,7 +95,7 @@ DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 # ── Pure Functions: Config ────────────────────────────────────
 
 
-def make_config(  # noqa: PLR0913
+def make_config(
     *,
     job: str,
     date: str,
@@ -226,13 +226,22 @@ def plan_initial_steps(config: PipelineConfig) -> tuple[StepPlan, ...]:
 
 
 def should_run_catalog(job: str, *, files_added: bool) -> bool:
-    """Decide whether the catalog step should run."""
-    return job == "catalog" or (job == "all" and files_added)
+    """Decide whether the catalog step should run.
+
+    Always runs for 'all' job to ensure the manifest stays populated,
+    even when no new files were added in this cycle. The catalog
+    generation is idempotent and skips work when IA state hasn't changed.
+    """
+    return job in ("catalog", "all") or files_added
 
 
 def should_run_dashboard(job: str, *, catalog_updated: bool) -> bool:
-    """Decide whether the dashboard step should run."""
-    return job == "dashboard" or (job == "all" and catalog_updated)
+    """Decide whether the dashboard step should run.
+
+    Always runs for 'all' job to keep the dashboard cache fresh,
+    regardless of whether the catalog was updated in this cycle.
+    """
+    return job in ("dashboard", "all") or catalog_updated
 
 
 def plan_catalog_step(

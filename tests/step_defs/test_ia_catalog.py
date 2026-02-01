@@ -592,7 +592,7 @@ def existing_files_overwritten(context):
     """Verify files were overwritten."""
     for filepath in context["catalog_files"]:
         if Path(filepath).exists():
-            content = Path(filepath).read_text()
+            Path(filepath).read_text()
             # Content should be different if overwritten
             assert True
 

@@ -115,12 +115,12 @@ async def main() -> None:
 
     # Mock Document Service
     doc_service = DocumentService()
-    doc_service.download_pdf = AsyncMock(return_value=b"%PDF-1.4...")  # type: ignore
+    doc_service.download_pdf = AsyncMock(return_value=b"%PDF-1.4...")  # type: ignore[attr-defined]
 
     # Mock Analyzer
-    with patch("causaganha.analysis.analyzer.Agent") as mock_agent_cls:
+    with patch("causaganha.analysis.analyzer.Agent"):
         analyzer = DecisionAnalyzer(model="google-gla:gemini-2.5-flash")
-        analyzer.analyze_decision = AsyncMock(return_value=mock_analysis)  # type: ignore
+        analyzer.analyze_decision = AsyncMock(return_value=mock_analysis)  # type: ignore[attr-defined]
 
         await run_analysis(
             repository=repo,

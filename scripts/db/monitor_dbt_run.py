@@ -27,8 +27,8 @@ def parse_run_results(results_path: Path) -> None:
             f"Failed to parse JSON from {results_path}. File might be corrupted or not valid JSON.",
         )
         return
-    except Exception as e:
-        logger.exception(f"An error occurred while reading {results_path}: {e}")
+    except Exception:
+        logger.exception(f"An error occurred while reading {results_path}")
         return
 
     logger.info(f"--- Monitoring dbt Run Results from: {results_path} ---")

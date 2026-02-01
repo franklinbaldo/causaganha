@@ -127,7 +127,7 @@ class EmbeddingService:
             # Use provided model or default for selected provider
             if model is None:
                 provider_type = selected_provider.provider_name.lower()
-                model = get_default_model(provider_type)  # type: ignore
+                model = get_default_model(provider_type)  # type: ignore[arg-type]
 
             return cls(provider=selected_provider, model=model)
         # Create specific provider
@@ -135,7 +135,7 @@ class EmbeddingService:
 
         # Use provided model or default
         if model is None:
-            model = get_default_model(provider)  # type: ignore
+            model = get_default_model(provider)  # type: ignore[arg-type]
 
         return cls(provider=selected_provider, model=model)
 

@@ -88,12 +88,22 @@ export default function TribunalHeatmap() {
         );
     }
 
+    const allPending = data ? Object.values(data.status).every(s => s.status === 'pending') : false;
+
     return (
         <div className="space-y-6">
             {/* Date header */}
             {data?.date && (
                 <div className="text-sm text-text-muted">
                     Dados de <span className="font-mono text-text-primary">{data.date}</span>
+                </div>
+            )}
+
+            {/* Warning when all tribunals are pending */}
+            {allPending && (
+                <div className="px-4 py-3 bg-accent-yellow/10 border border-accent-yellow/20 rounded-lg text-sm text-text-muted">
+                    Nenhum tribunal com dados coletados para esta data. O pipeline pode estar em execução ou
+                    o catálogo ainda não foi atualizado.
                 </div>
             )}
 

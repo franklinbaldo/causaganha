@@ -25,6 +25,7 @@ logger = structlog.get_logger()
 
 def parse_v1_lawyer_id(lawyer_id: str) -> tuple[str | None, str | None, str | None]:
     """Parses V1 lawyer ID string to extract Name, OAB, State.
+
     Expected format: "NAME (OAB/UF NUMBER)" or similar.
     Returns: (Name, OAB Number, OAB State).
     """

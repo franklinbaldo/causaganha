@@ -18,6 +18,6 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
-        exclude: ^djen-scraper/dashboard/tsconfig.*\.json$
+        exclude: ^djen-scraper/(dashboard/tsconfig.*\.json|cloudflare/worker/node_modules/)
       - id: check-added-large-files
         args: ['--maxkb=1000']

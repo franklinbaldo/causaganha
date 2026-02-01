@@ -9,6 +9,7 @@ interface MetricsData {
     daysArchived: number;
     health: number;
     cacheAge?: string;
+    source?: string;
 }
 
 export default function MetricsGrid() {
@@ -25,6 +26,7 @@ export default function MetricsGrid() {
                     daysArchived: cache.today.days_archived,
                     health: cache.today.health,
                     cacheAge: getCacheAge(cache.meta.generated_at),
+                    source: cache.meta.source,
                 });
             }
             setLoading(false);
@@ -60,32 +62,44 @@ export default function MetricsGrid() {
     ];
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {metrics.map((metric, i) => (
-                <div
-                    key={i}
-                    className="bg-card border border-border rounded-xl p-6 card-glow transition-all duration-200 hover:border-border-hover animate-slide-up"
-                    style={{ animationDelay: `${i * 50}ms` }}
-                >
-                    <div className="space-y-2">
-                        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                            {metric.title}
-                        </p>
-                        <div className="h-10 flex items-baseline">
-                            {loading ? (
-                                <div className="skeleton h-8 w-20 rounded" />
-                            ) : (
-                                <p className={`text-3xl font-mono font-bold tabular-nums ${metric.color}`}>
-                                    {metric.value}
-                                </p>
-                            )}
+        <div className="space-y-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {metrics.map((metric, i) => (
+                    <div
+                        key={i}
+                        className="bg-card border border-border rounded-xl p-6 card-glow transition-all duration-200 hover:border-border-hover animate-slide-up"
+                        style={{ animationDelay: `${i * 50}ms` }}
+                    >
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                                {metric.title}
+                            </p>
+                            <div className="h-10 flex items-baseline">
+                                {loading ? (
+                                    <div className="skeleton h-8 w-20 rounded" />
+                                ) : (
+                                    <p className={`text-3xl font-mono font-bold tabular-nums ${metric.color}`}>
+                                        {metric.value}
+                                    </p>
+                                )}
+                            </div>
+                            <p className="text-sm text-text-muted">
+                                {metric.subtitle}
+                            </p>
                         </div>
-                        <p className="text-sm text-text-muted">
-                            {metric.subtitle}
-                        </p>
                     </div>
+                ))}
+            </div>
+            {!loading && data.cacheAge && (
+                <div className="text-xs text-text-muted text-right">
+                    Atualizado {data.cacheAge}
+                    {data.source && !data.source.includes('manifest') && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-accent-yellow/10 text-accent-yellow rounded">
+                            dados parciais
+                        </span>
+                    )}
                 </div>
-            ))}
+            )}
         </div>
     );
 }

@@ -15,36 +15,20 @@ from causaganha.storage.connection import get_connection
 from causaganha.storage.embedding_storage import EmbeddingStorage
 
 
-async def test_embedding_storage():
+async def test_embedding_storage() -> None:
     """Test the complete embedding storage workflow."""
-    print("=" * 80)
-    print("EMBEDDING STORAGE TEST - Ibis/DuckDB + Parquet Export")
-    print("=" * 80)
-    print()
-
     # Use in-memory database for testing
     con = get_connection(db_path=":memory:")
 
     # Create embedding storage
     storage = EmbeddingStorage(con=con)
-    print("✅ Embedding storage initialized")
-    print()
 
     # Create embedding service with Jina v4
-    print("─" * 80)
-    print("Step 1: Generate Embeddings")
-    print("─" * 80)
 
     service = await EmbeddingService.create(
         provider="jina",
         model=JINA_V4_1024,
     )
-
-    print(f"Provider: {service.provider_name}")
-    print(f"Model: {service.model.name}")
-    print(f"Dimension: {service.model.dimension}D")
-    print(f"Max tokens: {service.model.max_tokens:,}")
-    print()
 
     # Simulate a legal decision (long text)
     sample_decision = (
@@ -73,20 +57,12 @@ async def test_embedding_storage():
     )  # Repeat to make it longer
 
     # Generate embeddings with chunking
-    print("Generating embeddings for decision...")
     embeddings = await service.embed_chunked_text(
         sample_decision,
         strategy="auto",
     )
 
-    print(f"✅ Generated {len(embeddings)} embedding(s)")
-    print(f"   Dimension: {len(embeddings[0])}D")
-    print()
-
     # Save to database
-    print("─" * 80)
-    print("Step 2: Save Embeddings to Database")
-    print("─" * 80)
 
     intimation_id = 12345  # Simulated intimation ID
 
@@ -103,11 +79,7 @@ async def test_embedding_storage():
         text_chunks=text_chunks,
     )
 
-    print(f"✅ Saved {len(embeddings)} embedding(s) for intimation {intimation_id}")
-    print()
-
     # Save another intimation with different model (simulate mixed models)
-    print("Saving embeddings for another decision with different dimension...")
 
     from causaganha.analysis.embedding_models import JINA_V4_768
 
@@ -127,13 +99,7 @@ async def test_embedding_storage():
         text_preview="Short decision text",
     )
 
-    print("✅ Saved 768D embedding for intimation 67890")
-    print()
-
     # Load from database
-    print("─" * 80)
-    print("Step 3: Load Cached Embeddings")
-    print("─" * 80)
 
     loaded = storage.load_embeddings(
         intimation_id=intimation_id,
@@ -141,45 +107,22 @@ async def test_embedding_storage():
     )
 
     if loaded:
-        print(f"✅ Loaded {len(loaded)} cached embedding(s)")
-        for i, emb_data in enumerate(loaded):
-            print(f"   Chunk {i}:")
-            print(f"     - Dimension: {len(emb_data['embedding'])}D")
-            print(f"     - Preview: {emb_data['text_preview'][:50]}...")
-            print(f"     - Created: {emb_data['created_at']}")
-        print()
+        for _i, _emb_data in enumerate(loaded):
+            pass
     else:
-        print("❌ Failed to load embeddings")
-        print()
+        pass
 
     # Get statistics
-    print("─" * 80)
-    print("Step 4: Database Statistics")
-    print("─" * 80)
 
     stats = storage.get_stats()
 
-    print(f"Total embeddings: {stats['total_embeddings']}")
-    print(f"Unique intimations: {stats['unique_intimations']}")
-    print()
+    for _item in stats["by_provider"]:
+        pass
 
-    print("By provider:")
-    for item in stats["by_provider"]:
-        print(f"  - {item['provider']}: {item['count']} embeddings")
-    print()
-
-    print("By model:")
-    for item in stats["by_model"]:
-        print(
-            f"  - {item['provider']}/{item['model_name']} "
-            f"({item['dimension']}D): {item['count']} embeddings",
-        )
-    print()
+    for _item in stats["by_model"]:
+        pass
 
     # Export to Parquet
-    print("─" * 80)
-    print("Step 5: Export to Parquet for Internet Archive")
-    print("─" * 80)
 
     output_dir = Path("data/exports")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -191,49 +134,18 @@ async def test_embedding_storage():
         model_name="jina-embeddings-v4",
     )
 
-    print(f"✅ Exported embeddings to: {parquet_path}")
-    print(f"   File size: {parquet_path.stat().st_size:,} bytes")
-    print()
-
     # Read back the Parquet file to verify
     import pandas as pd
 
-    df = pd.read_parquet(parquet_path)
-    print("Parquet file contents:")
-    print(df.head())
-    print()
-    print(f"Columns: {list(df.columns)}")
-    print(f"Rows: {len(df)}")
-    print()
+    pd.read_parquet(parquet_path)
 
     # Example: Export for single intimation
-    parquet_path_single = storage.export_to_parquet(
+    storage.export_to_parquet(
         output_path=output_dir / f"intimation_{intimation_id}_embeddings.parquet",
         intimation_id=intimation_id,
     )
 
-    print(f"✅ Exported single intimation to: {parquet_path_single}")
-    print()
-
     # Summary
-    print("=" * 80)
-    print("WORKFLOW SUMMARY")
-    print("=" * 80)
-    print()
-    print("Complete embedding storage workflow:")
-    print()
-    print("1. ✅ Generate embeddings with EmbeddingService")
-    print("2. ✅ Store embeddings in DuckDB via Ibis")
-    print("3. ✅ Load cached embeddings (avoid regeneration)")
-    print("4. ✅ Query statistics (by provider, model, dimension)")
-    print("5. ✅ Export to Parquet for Internet Archive upload")
-    print()
-    print("Benefits:")
-    print("  • Local caching reduces API costs")
-    print("  • Parquet format optimized for archival storage")
-    print("  • Easy to query and filter embeddings")
-    print("  • Supports multiple models/dimensions in same database")
-    print()
 
 
 if __name__ == "__main__":

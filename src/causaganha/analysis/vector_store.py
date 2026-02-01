@@ -35,7 +35,7 @@ class VectorStore:
 
         logger.info("vector_store_initialized", db_path=str(self.db_path))
 
-    def connect(self) -> Any:  # noqa: ANN401
+    def connect(self) -> Any:
         """Connect to LanceDB database.
 
         Returns:

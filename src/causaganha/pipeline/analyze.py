@@ -46,7 +46,7 @@ async def _process_batch_results(
     con: Any,
     analyses: list[Any],
     intimation_ids: list[int],
-    stats: dict[str, Any] | None = None,
+    _stats: dict[str, Any] | None = None,
 ) -> tuple[int, int]:
     """Process and store batch analysis results."""
     total_analyzed = 0

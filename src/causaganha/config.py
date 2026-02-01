@@ -128,6 +128,8 @@ TRIBUNAIS: list[str] = [
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
     # Core
     BASE_DIR: Path = _BASE_DIR
     DATA_DIR: Path = _DATA_DIR
@@ -170,7 +172,8 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
 
-    def model_post_init(self, __context: Any) -> None:
+    def model_post_init(self, _context: Any, /) -> None:
+        """Create data directory on initialization."""
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 

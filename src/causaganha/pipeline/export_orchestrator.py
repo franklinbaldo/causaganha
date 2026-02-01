@@ -94,7 +94,8 @@ class ExportOrchestrator:
         tribunals = await self.repo.get_tribunals_for_date(partition_date)
 
         if not tribunals:
-            raise ValueError(f"No data found for date {partition_date}")
+            msg = f"No data found for date {partition_date}"
+            raise ValueError(msg)
 
         plan = PureOrchestrator.plan_export(partition_date, tribunals, cleanup_files)
         logger.info(
@@ -186,8 +187,9 @@ class ExportOrchestrator:
             # 3. Export & Upload Embeddings (if available, best-effort)
             try:
                 # Note: embeddings_storage needs DB connection
-                # TODO: Refactor to pass db_connection to ParquetExporter instead
+                # TODO(dev): Refactor to pass db_connection to ParquetExporter instead  # noqa: FIX002
                 # of embedding_storage needing to get it separately
+                # https://github.com/franklinbaldo/causaganha/issues/1
                 logger.info(f"Exporting embeddings for {tribunal} {partition_date}...")
 
             except Exception as e:
@@ -268,7 +270,7 @@ class ExportOrchestrator:
             )
 
         except Exception as e:
-            logger.error(f"✗ {tribunal} ({partition_date}): {e}", exc_info=True)
+            logger.exception(f"✗ {tribunal} ({partition_date})")
             # Record failure (don't re-raise - let orchestrator collect results)
             await self.repo.record_failure(partition_date, tribunal, str(e))
 
@@ -302,7 +304,8 @@ class ExportOrchestrator:
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
 
         if start > end:
-            raise ValueError("start_date must be before end_date")
+            msg = "start_date must be before end_date"
+            raise ValueError(msg)
 
         # Track overall results
         summary = {
@@ -333,9 +336,9 @@ class ExportOrchestrator:
                     f"Backfilled {date_str}: {result.successful}/{result.total_tribunals} successful",
                 )
 
-            except Exception as e:
+            except Exception:
                 summary["failed_days"] += 1
-                logger.error(f"Failed to backfill {date_str}: {e}")
+                logger.exception(f"Failed to backfill {date_str}")
 
             # Move to next day
             current += timedelta(days=1)

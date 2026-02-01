@@ -147,7 +147,8 @@ def get_existing_files_for_dates(dates: list[str]) -> set[str]:
     As a workaround, we skip this check for backfill and assume all files
     need to be collected. This is safer but slower.
     """
-    # TODO: Fix this when Python 3.13+ free-threaded build is available
+    # TODO(dev): Fix this when Python 3.13+ free-threaded build is available  # noqa: FIX002
+    # https://github.com/franklinbaldo/causaganha/issues/1
     # For now, return empty set to collect all files (safer, slower)
     logger.warning("skipping_ia_file_check", reason="Windows Python 3.12 GIL issue")
     return set()
@@ -335,7 +336,7 @@ def _get_ia_s3_auth() -> str | None:
 
 def _compute_md5(file_path: Path) -> str:
     """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()  # noqa: S324  — integrity check, not security
+    h = hashlib.md5()
     with file_path.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
@@ -400,7 +401,7 @@ def upload_to_ia(
     return False
 
 
-def _process_item(  # noqa: PLR0913
+def _process_item(
     api_client: httpx.Client,
     dl_client: httpx.Client,
     upload_client: httpx.Client,

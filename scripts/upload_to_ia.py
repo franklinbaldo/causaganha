@@ -76,7 +76,7 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
     try:
         # Upload file
         item = session.get_item(item_id)
-        result = item.upload_file(
+        item.upload_file(
             str(file_path),
             metadata=metadata,
             access_key=access_key,

@@ -9,6 +9,9 @@ import subprocess
 from causaganha_v1.utils.logging_config import get_logger, setup_logging
 
 
+logger = logging.getLogger(__name__)
+
+
 def run_pytest(extra_args: list[str] | None = None) -> int:
     """Run pytest via uv.
 
@@ -30,7 +33,7 @@ def run_pytest(extra_args: list[str] | None = None) -> int:
         subprocess.run(cmd, check=True)
         return 0
     except subprocess.CalledProcessError as exc:
-        logging.exception("Tests failed with exit code %s", exc.returncode)
+        logger.exception("Tests failed with exit code %s", exc.returncode)
         return exc.returncode
 
 

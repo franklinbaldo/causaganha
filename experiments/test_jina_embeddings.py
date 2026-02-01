@@ -94,54 +94,27 @@ def vector_stats(embedding: list[float]) -> dict[str, Any]:
     }
 
 
-async def test_jina_provider():
+async def test_jina_provider() -> None:
     """Test Jina AI embedding provider with various scenarios."""
-    print("=" * 80)
-    print("🧪 EXPERIMENT: Testing Jina AI Embeddings")
-    print("=" * 80)
-    print()
-
     # Test 1: Auto-selection (should select Jina)
-    print("📋 Test 1: Auto-selecting provider...")
     start = time.time()
-    service = await EmbeddingService.create(provider="auto")
-    elapsed = time.time() - start
-
-    print(f"✓ Provider selected: {service.provider_name}")
-    print(f"✓ Embedding dimension: {service.provider.dimension}")
-    print(f"✓ Selection time: {elapsed:.2f}s")
-    print()
+    await EmbeddingService.create(provider="auto")
+    time.time() - start
 
     # Test 2: Force Jina provider
-    print("📋 Test 2: Forcing Jina provider...")
     start = time.time()
     jina_service = EmbeddingService(provider="jina")
-    elapsed = time.time() - start
-
-    print(f"✓ Provider: {jina_service.provider_name}")
-    print(f"✓ Dimension: {jina_service.provider.dimension}")
-    print(f"✓ Initialization time: {elapsed:.2f}s")
-    print()
+    time.time() - start
 
     # Test 3: Single text embedding
-    print("📋 Test 3: Single text embedding...")
     text = SAMPLE_TEXTS["short_decision"]
     start = time.time()
     embedding = await jina_service.embed_text(text, add_prefix=False)
-    elapsed = time.time() - start
+    time.time() - start
 
-    stats = vector_stats(embedding)
-    print(f"✓ Text length: {len(text)} chars")
-    print(f"✓ Embedding dimension: {stats['dimension']}")
-    print(f"✓ Vector magnitude: {stats['magnitude']:.4f}")
-    print(f"✓ Mean: {stats['mean']:.6f}, Std: {stats['std_dev']:.6f}")
-    print(f"✓ Range: [{stats['min']:.4f}, {stats['max']:.4f}]")
-    print(f"✓ Zero values: {stats['zero_count']}")
-    print(f"✓ Latency: {elapsed:.3f}s")
-    print()
+    vector_stats(embedding)
 
     # Test 4: Task type differentiation (QUERY vs DOCUMENT)
-    print("📋 Test 4: Task type differentiation...")
     query_text = SAMPLE_TEXTS["procedural_question"]
     doc_text = SAMPLE_TEXTS["partial_win"]
 
@@ -151,22 +124,17 @@ async def test_jina_provider():
         task_type="RETRIEVAL_QUERY",
         add_prefix=False,
     )
-    query_time = time.time() - start
+    time.time() - start
 
     start = time.time()
-    doc_emb = await jina_service.embed_text(
+    await jina_service.embed_text(
         doc_text,
         task_type="RETRIEVAL_DOCUMENT",
         add_prefix=False,
     )
-    doc_time = time.time() - start
-
-    print(f"✓ Query embedding: {len(query_emb)}D in {query_time:.3f}s")
-    print(f"✓ Document embedding: {len(doc_emb)}D in {doc_time:.3f}s")
-    print()
+    time.time() - start
 
     # Test 5: Semantic similarity
-    print("📋 Test 5: Semantic similarity analysis...")
     emb1 = await jina_service.embed_text(
         SAMPLE_TEXTS["short_decision"],
         task_type="RETRIEVAL_DOCUMENT",
@@ -183,17 +151,11 @@ async def test_jina_provider():
         add_prefix=False,
     )
 
-    sim_1_2 = cosine_similarity(emb1, emb2)
-    sim_1_3 = cosine_similarity(emb1, emb3)
-    sim_2_3 = cosine_similarity(emb2, emb3)
-
-    print(f"✓ Similarity (short vs partial): {sim_1_2:.4f}")
-    print(f"✓ Similarity (short vs long): {sim_1_3:.4f}")
-    print(f"✓ Similarity (partial vs long): {sim_2_3:.4f}")
-    print()
+    cosine_similarity(emb1, emb2)
+    cosine_similarity(emb1, emb3)
+    cosine_similarity(emb2, emb3)
 
     # Test 6: Query-document matching
-    print("📋 Test 6: Query-document matching...")
     query_emb = await jina_service.embed_text(
         "Qual foi o resultado da decisão?",
         task_type="RETRIEVAL_QUERY",
@@ -208,56 +170,24 @@ async def test_jina_provider():
 
     similarities = {name: cosine_similarity(query_emb, emb) for name, emb in doc_embeddings.items()}
 
-    print("Query: 'Qual foi o resultado da decisão?'")
-    for name, sim in sorted(similarities.items(), key=lambda x: x[1], reverse=True):
-        print(f"  - {name}: {sim:.4f}")
-    print()
+    for _name, _sim in sorted(similarities.items(), key=lambda x: x[1], reverse=True):
+        pass
 
     # Test 7: Batch processing
-    print("📋 Test 7: Batch embedding processing...")
     texts = list(SAMPLE_TEXTS.values())
     start = time.time()
-    batch_embeddings = await jina_service.embed_batch(texts, add_prefix=False)
-    elapsed = time.time() - start
-
-    print(f"✓ Processed {len(texts)} texts")
-    print(f"✓ Total time: {elapsed:.3f}s")
-    print(f"✓ Average time per text: {elapsed / len(texts):.3f}s")
-    print(f"✓ All embeddings valid: {all(len(e) == 1024 for e in batch_embeddings)}")
-    print()
+    await jina_service.embed_batch(texts, add_prefix=False)
+    time.time() - start
 
     # Test 8: Contextual prefix effect
-    print("📋 Test 8: Contextual prefix effect...")
     text = SAMPLE_TEXTS["partial_win"]
 
     emb_no_prefix = await jina_service.embed_text(text, add_prefix=False)
     emb_with_prefix = await jina_service.embed_text(text, add_prefix=True)
 
-    similarity = cosine_similarity(emb_no_prefix, emb_with_prefix)
-
-    print(f"✓ Similarity (with/without prefix): {similarity:.4f}")
-    print(
-        f"✓ Prefix impact: {'High' if similarity < 0.95 else 'Low'} (lower = more impact)",
-    )
-    print()
+    cosine_similarity(emb_no_prefix, emb_with_prefix)
 
     # Summary
-    print("=" * 80)
-    print("✅ EXPERIMENT COMPLETE")
-    print("=" * 80)
-    print()
-    print("Key Findings:")
-    print(f"  • Provider: Jina AI ({jina_service.provider.model})")
-    print(f"  • Dimension: {jina_service.provider.dimension}")
-    print(f"  • Average latency: ~{elapsed / len(texts):.3f}s per embedding")
-    print(f"  • Vector quality: Magnitude ~{stats['magnitude']:.2f}")
-    print("  • Task differentiation: Working as expected")
-    print("  • Semantic similarity: Capturing legal concepts effectively")
-    print()
-    print(
-        "💡 Recommendation: Jina embeddings are working well for legal text analysis.",
-    )
-    print()
 
 
 if __name__ == "__main__":

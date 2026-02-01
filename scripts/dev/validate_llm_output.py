@@ -18,8 +18,8 @@ def validate_file(path: Path) -> bool:
         ExtractionResult.model_validate(data)
         logger.info("%s validated successfully", path)
         return True
-    except Exception as exc:  # broad catch to report any validation error
-        logger.exception("Validation failed for %s: %s", path, exc)
+    except Exception:  # broad catch to report any validation error
+        logger.exception("Validation failed for %s", path)
         return False
 
 
