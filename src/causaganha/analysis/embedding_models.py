@@ -65,29 +65,6 @@ JINA_V4_512 = EmbeddingModel(
     description="Jina v4 with 512 dimensions (smaller, faster)",
 )
 
-JINA_V3_1024 = EmbeddingModel(
-    provider="jina",
-    name="jina-embeddings-v3",
-    dimension=1024,
-    max_tokens=8192,  # 8K tokens
-    description="Jina v3 with 1024 dimensions (legacy)",
-)
-
-JINA_V3_768 = EmbeddingModel(
-    provider="jina",
-    name="jina-embeddings-v3",
-    dimension=768,
-    max_tokens=8192,  # 8K tokens
-    description="Jina v3 with 768 dimensions (legacy)",
-)
-
-JINA_V2_768 = EmbeddingModel(
-    provider="jina",
-    name="jina-embeddings-v2",
-    dimension=768,
-    max_tokens=8192,  # 8K tokens
-    description="Jina v2 (deprecated, fixed 768D)",
-)
 
 # Google AI Models
 GOOGLE_GEMINI_768 = EmbeddingModel(
@@ -106,13 +83,6 @@ GOOGLE_GEMINI_3072 = EmbeddingModel(
     description="Google Gemini embedding (max 3072D)",
 )
 
-GOOGLE_TEXT_EMBEDDING_004 = EmbeddingModel(
-    provider="google",
-    name="text-embedding-004",
-    dimension=768,
-    max_tokens=768,  # Very limited
-    description="Google text-embedding-004 (deprecated August 2025)",
-)
 
 # Default models for each provider
 DEFAULT_JINA_MODEL = JINA_V4_1024
@@ -123,15 +93,11 @@ JINA_MODELS = {
     ("jina-embeddings-v4", 1024): JINA_V4_1024,
     ("jina-embeddings-v4", 768): JINA_V4_768,
     ("jina-embeddings-v4", 512): JINA_V4_512,
-    ("jina-embeddings-v3", 1024): JINA_V3_1024,
-    ("jina-embeddings-v3", 768): JINA_V3_768,
-    ("jina-embeddings-v2", 768): JINA_V2_768,
 }
 
 GOOGLE_MODELS = {
     ("gemini-embedding-001", 768): GOOGLE_GEMINI_768,
     ("gemini-embedding-001", 3072): GOOGLE_GEMINI_3072,
-    ("text-embedding-004", 768): GOOGLE_TEXT_EMBEDDING_004,
 }
 
 ALL_MODELS = {**JINA_MODELS, **GOOGLE_MODELS}
