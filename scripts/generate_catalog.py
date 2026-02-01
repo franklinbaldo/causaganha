@@ -481,6 +481,7 @@ def create_catalog_duckdb(
             )
 
         # Create helper views
+        con.execute("DROP VIEW IF EXISTS collection_status;")
         con.execute("""
             CREATE VIEW collection_status AS
             SELECT
@@ -493,6 +494,7 @@ def create_catalog_duckdb(
             ORDER BY date DESC
         """)
 
+        con.execute("DROP VIEW IF EXISTS backfill_progress;")
         con.execute("""
             CREATE VIEW backfill_progress AS
             SELECT
