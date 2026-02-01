@@ -85,9 +85,9 @@ def run_step_with_metrics(
     output_extensions: list[str],
 ) -> StepMetrics:
     """Run a pipeline step and measure its performance."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  STEP: {name}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Command: {' '.join(command)}")
     print()
 
@@ -161,9 +161,9 @@ def format_bytes(b: int) -> str:
 
 def analyze_results(metrics: list[StepMetrics]) -> None:
     """Analyze and print performance results."""
-    print(f"\n\n{'='*70}")
+    print(f"\n\n{'=' * 70}")
     print("  PERFORMANCE ANALYSIS")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     # Summary table
     print("Step Performance:")

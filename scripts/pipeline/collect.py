@@ -579,7 +579,9 @@ def main() -> int:
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
-    parser.add_argument("--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m")
+    parser.add_argument(
+        "--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m"
+    )
     args = parser.parse_args()
 
     print("Collecting DJEN data...")
@@ -611,7 +613,7 @@ def main() -> int:
     print(f"  Skipped: {stats['skipped']} (already on IA)")
 
     # Set GitHub Actions output: did we add any files?
-    files_added = stats['success'] > 0
+    files_added = stats["success"] > 0
     print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
