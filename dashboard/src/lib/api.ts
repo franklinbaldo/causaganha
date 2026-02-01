@@ -12,6 +12,7 @@ export interface CacheMeta {
     version: string;
     generated_at: string;
     source: string;
+    manifest_available?: boolean;
 }
 
 export interface CacheToday {
