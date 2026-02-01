@@ -138,7 +138,7 @@ def run_step_with_metrics(
     )
 
     # Print summary
-    status = "✓ SUCCESS" if returncode == 0 else "✗ FAILED"
+    status = "[OK]" if returncode == 0 else "[FAILED]"
     print(f"\n{status}")
     print(f"  Duration: {metrics.duration_sec:.2f}s")
     print(f"  Memory: {metrics.memory_peak_mb:.1f} MB")
@@ -172,7 +172,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
 
     total_time = 0
     for m in metrics:
-        status = "✓" if m.returncode == 0 else "✗"
+        status = "[OK]" if m.returncode == 0 else "[FAIL]"
         output_size = format_bytes(m.bytes_created) if m.bytes_created > 0 else "—"
         print(
             f"  {status} {m.name:<13} {m.duration_sec:>6.2f}s    "
@@ -211,7 +211,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
     print("\nOptimization recommendations:")
     slow_steps = [m for m in sorted_by_time if m.returncode == 0 and m.duration_sec > 30]
     if slow_steps:
-        print("  ⚠ Slow steps (>30s):")
+        print("  [SLOW] Slow steps (>30s):")
         for m in slow_steps:
             print(f"    - {m.name}: {m.duration_sec:.2f}s")
             if m.name == "CONSOLIDATE":
@@ -225,7 +225,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
 
     high_memory = [m for m in metrics if m.memory_peak_mb > 500]
     if high_memory:
-        print("\n  ⚠ High memory usage (>500 MB):")
+        print("\n  [HIGH MEMORY] Memory usage (>500 MB):")
         for m in high_memory:
             print(f"    - {m.name}: {m.memory_peak_mb:.1f} MB")
             print(f"      → Stream processing or batch smaller datasets")
@@ -241,7 +241,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
     with output_file.open("w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\n✓ Results saved to: {output_file}")
+    print(f"\n[OK] Results saved to: {output_file}")
 
 
 def main() -> int:
