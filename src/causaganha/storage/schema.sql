@@ -177,6 +177,23 @@ CREATE TABLE IF NOT EXISTS sync_log (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Parquet export tracking (for Internet Archive archival)
+CREATE TABLE IF NOT EXISTS parquet_exports (
+    tribunal VARCHAR(10) NOT NULL,
+    partition_date DATE NOT NULL,
+    ia_item_id VARCHAR NOT NULL,
+    ia_url VARCHAR NOT NULL,
+    parquet_filename VARCHAR NOT NULL,
+    row_count INTEGER,
+    file_size_mb FLOAT,
+    uploaded_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL,  -- 'pending', 'completed', 'failed'
+    error_message TEXT,
+
+    PRIMARY KEY (tribunal, partition_date),
+    UNIQUE (ia_item_id)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_intimations_tribunal_date
     ON intimations(sigla_tribunal, data_disponibilizacao DESC);
@@ -191,3 +208,9 @@ CREATE INDEX IF NOT EXISTS idx_lawyer_ratings_ranking
 
 CREATE INDEX IF NOT EXISTS idx_decision_analysis_rated
     ON decision_analysis(rated, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_parquet_exports_status
+    ON parquet_exports(status);
+
+CREATE INDEX IF NOT EXISTS idx_parquet_exports_date
+    ON parquet_exports(partition_date DESC);
