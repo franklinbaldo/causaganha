@@ -64,6 +64,12 @@ export const LABELS = {
         days: { title: 'Dias Arquivados', subtitle: 'no Internet Archive' },
         health: { title: 'Saúde do Pipeline', subtitle: 'últimas 10 runs' },
     },
+    pipeline: {
+        title: 'Progresso do Backfill',
+        zips: { title: 'ZIPs Coletados', subtitle: 'total no acervo' },
+        consolidated: { title: 'Dias Consolidados', subtitle: 'convertidos para Parquet' },
+        progress: { title: 'Backfill', subtitle: 'do total estimado' },
+    },
     activity: {
         title: 'Atividade de Coleta',
         less: 'Menos',

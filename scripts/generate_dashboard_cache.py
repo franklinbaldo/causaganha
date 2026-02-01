@@ -258,6 +258,74 @@ def is_manifest_populated(con: duckdb.DuckDBPyConnection) -> bool:
         return False
 
 
+def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """Generate pipeline progress metrics from manifest."""
+    if not is_manifest_populated(con):
+        return {
+            "total_zips": 0,
+            "days_consolidated": 0,
+            "total_parquets": 0,
+            "dates_collected": 0,
+            "backfill_total": 0,
+            "backfill_done": 0,
+            "progress_pct": 0.0,
+        }
+
+    try:
+        row = con.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE file_type = 'zip') as total_zips,
+                COUNT(*) FILTER (WHERE file_type = 'parquet') as total_parquets,
+                COUNT(DISTINCT date) FILTER (WHERE file_type = 'zip') as dates_collected,
+                COUNT(DISTINCT date) FILTER (WHERE file_type = 'parquet') as days_consolidated
+            FROM manifest
+        """).fetchone()
+
+        total_zips = row[0] if row else 0
+        total_parquets = row[1] if row else 0
+        dates_collected = row[2] if row else 0
+        days_consolidated = row[3] if row else 0
+
+        # Backfill progress: count collected date+tribunal combos vs total expected
+        done = con.execute(
+            "SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip'",
+        ).fetchone()
+        backfill_done = done[0] if done else 0
+
+        # Total expected comes from backfill_needed table if available
+        try:
+            pending = con.execute(
+                "SELECT COUNT(*) FROM backfill_needed",
+            ).fetchone()
+            backfill_pending = pending[0] if pending else 0
+        except Exception:
+            backfill_pending = 0
+
+        backfill_total = backfill_done + backfill_pending
+        progress_pct = round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
+
+        return {
+            "total_zips": total_zips,
+            "days_consolidated": days_consolidated,
+            "total_parquets": total_parquets,
+            "dates_collected": dates_collected,
+            "backfill_total": backfill_total,
+            "backfill_done": backfill_done,
+            "progress_pct": progress_pct,
+        }
+    except Exception as e:
+        print(f"  Warning: Could not compute pipeline metrics: {e}", file=sys.stderr)
+        return {
+            "total_zips": 0,
+            "days_consolidated": 0,
+            "total_parquets": 0,
+            "dates_collected": 0,
+            "backfill_total": 0,
+            "backfill_done": 0,
+            "progress_pct": 0.0,
+        }
+
+
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
     """Generate today's metrics and tribunal status from manifest.
 
@@ -588,15 +656,17 @@ def main() -> None:
     today_data = generate_today_cache(con, sizes)
     runs_data = generate_runs_cache()
     calendar_data = generate_calendar_cache(con, sizes)
+    pipeline_metrics = generate_pipeline_metrics(con)
 
     con.close()
 
     # Step 4: Assemble and write
     print("[4/4] Writing cache files...")
 
-    # Add days_archived and health to today data
+    # Add days_archived, health, and pipeline metrics to today data
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
     today_data["health"] = runs_data["health"]
+    today_data["pipeline"] = pipeline_metrics
 
     # Generate metadata
     meta = {
