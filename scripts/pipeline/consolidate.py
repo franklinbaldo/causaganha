@@ -253,18 +253,18 @@ def _com_id(raw: ibis.Table) -> ibis.Column:
     return djen_uuid5(_safe(raw.id) + ":" + raw.src_tribunal)
 
 
-def _texto_id(raw: ibis.Table) -> ibis.StringValue:
+def _texto_id(raw: ibis.Table) -> ibis.Column:
     """Text UUID: content-addressed hash of the text itself."""
     txt = _safe(raw.texto)
     return ibis.case().when(txt != "", djen_uuid5(txt)).else_("").end()
 
 
-def _parte_id(d: ibis.Column) -> ibis.StringValue:
+def _parte_id(d: ibis.Column) -> ibis.Column:
     """Party UUID: hash of normalized name."""
     return djen_uuid5(normalize_name(d["nome"].cast("string").fill_null("")))
 
 
-def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.StringValue:
+def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.Column:
     """Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id."""
     adv = da["advogado"]
     oab = _safe(_struct_field(adv, *FIELD_NUMERO_OAB))
