@@ -120,7 +120,7 @@ def get_unanalyzed_intimations(
 
     result = (
         intimations.filter(_.analyzed == False)  # noqa: E712
-        .filter(_.link.notnull())  # noqa: PD004 - Ibis API, not Pandas
+        .filter(_.link.notnull())
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)
     )
@@ -207,8 +207,8 @@ def get_unarchived_intimations(
     intimations = con.table("intimations")
 
     result = (
-        intimations.filter(_.ia_url.isnull())  # noqa: PD003 - Ibis API, not Pandas
-        .filter(_.link.notnull())  # noqa: PD004 - Ibis API, not Pandas
+        intimations.filter(_.ia_url.isnull())
+        .filter(_.link.notnull())
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)
     )
