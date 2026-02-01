@@ -50,7 +50,7 @@ from repo.scheduler.loader import PersonaLoader
 from repo.scheduler.models import PersonaConfig
 
 # Constants
-JULES_BRANCH = "jules"
+JULES_BRANCH = "jules-cortex"
 ORACLE_TITLE_PREFIX = "🔮 oracle"
 
 # Jules bot login patterns for PR detection (fallback when URL detection not available)
