@@ -32,7 +32,7 @@ uv run pytest -v
 
 ## Key Files
 
-- `src/causaganha/cli.py` - Main CLI entry point
+- `src/causaganha/cli/` - Main CLI entry point (`__init__.py`)
 - `src/causaganha/pipeline/` - Orchestration logic
 - `src/causaganha/storage/` - Ibis/DuckDB adapter
 
