@@ -182,4 +182,3 @@ Feature: CausaGanha Data Pipeline Architecture
     Then CONSOLIDATE and EMBED continue executing
     And they are NOT blocked by COLLECT's failure
     And the pipeline continues to completion
-

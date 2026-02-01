@@ -404,7 +404,9 @@ def export_parquet(
             repository = DuckDBExportRepository(con)  # NEW: inject repository
             exporter = ParquetExporter(con, ExportConfig())
             uploader = InternetArchiveUploader(UploadConfig())
-            orchestrator = ExportOrchestrator(repository, exporter, uploader)  # Updated: inject repository
+            orchestrator = ExportOrchestrator(
+                repository, exporter, uploader
+            )  # Updated: inject repository
 
             cleanup_files = not no_cleanup
 

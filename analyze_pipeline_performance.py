@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Comprehensive pipeline performance analyzer.
+"""Comprehensive pipeline performance analyzer.
 
 Measures:
   - Execution time per step
@@ -22,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -105,12 +105,13 @@ def run_step_with_metrics(
             command,
             cwd=str(output_dir.parent),
             capture_output=False,
-            timeout=600,  # 10 minute timeout
+            timeout=600,
+            check=False,  # 10 minute timeout
         )
         returncode = result.returncode
     except subprocess.TimeoutExpired:
         returncode = 124
-        print(f"TIMEOUT after 600 seconds")
+        print("TIMEOUT after 600 seconds")
     except Exception as e:
         returncode = 1
         print(f"ERROR: {e}")
@@ -176,7 +177,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
         output_size = format_bytes(m.bytes_created) if m.bytes_created > 0 else "—"
         print(
             f"  {status} {m.name:<13} {m.duration_sec:>6.2f}s    "
-            f"{m.memory_peak_mb:>6.1f}MB   {output_size:<12}"
+            f"{m.memory_peak_mb:>6.1f}MB   {output_size:<12}",
         )
         if m.returncode == 0:
             total_time += m.duration_sec
@@ -215,20 +216,20 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
         for m in slow_steps:
             print(f"    - {m.name}: {m.duration_sec:.2f}s")
             if m.name == "CONSOLIDATE":
-                print(f"      → Increase --max-zips or parallelize table exports")
+                print("      → Increase --max-zips or parallelize table exports")
             elif m.name == "CATALOG":
-                print(f"      → Implement incremental updates instead of full rebuild")
+                print("      → Implement incremental updates instead of full rebuild")
             elif m.name == "COLLECT":
-                print(f"      → Batch multiple dates or parallelize per-tribunal")
+                print("      → Batch multiple dates or parallelize per-tribunal")
             elif m.name == "DASHBOARD":
-                print(f"      → Cache generated data, reduce API calls")
+                print("      → Cache generated data, reduce API calls")
 
     high_memory = [m for m in metrics if m.memory_peak_mb > 500]
     if high_memory:
         print("\n  ⚠ High memory usage (>500 MB):")
         for m in high_memory:
             print(f"    - {m.name}: {m.memory_peak_mb:.1f} MB")
-            print(f"      → Stream processing or batch smaller datasets")
+            print("      → Stream processing or batch smaller datasets")
 
     # Export results
     results = {
@@ -255,8 +256,8 @@ def main() -> int:
     if missing:
         print(f"ERROR: Missing credentials: {', '.join(missing)}")
         print("\nSet them before running:")
-        print(f"  export IAS3_ACCESS_KEY='...'")
-        print(f"  export IAS3_SECRET_KEY='...'")
+        print("  export IAS3_ACCESS_KEY='...'")
+        print("  export IAS3_SECRET_KEY='...'")
         return 1
 
     repo_root = Path(__file__).parent
@@ -280,7 +281,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".zip"],
-            )
+            ),
         )
 
         # CONSOLIDATE
@@ -299,7 +300,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".parquet"],
-            )
+            ),
         )
 
         # EMBED
@@ -316,7 +317,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".duckdb"],
-            )
+            ),
         )
 
         # CATALOG
@@ -331,7 +332,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".parquet", ".duckdb", ".sql"],
-            )
+            ),
         )
 
         # DASHBOARD
@@ -346,7 +347,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".json", ".xml"],
-            )
+            ),
         )
 
     except KeyboardInterrupt:

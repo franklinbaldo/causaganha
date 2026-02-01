@@ -10,7 +10,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
-from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class ExportRepository(ABC):
 class DuckDBExportRepository(ExportRepository):
     """Concrete repository implementation using DuckDB via Ibis."""
 
-    def __init__(self, db_connection):
+    def __init__(self, db_connection) -> None:  # type: ignore[no-untyped-def]
         """Initialize repository with database connection.
 
         Args:
@@ -117,11 +117,11 @@ class DuckDBExportRepository(ExportRepository):
 
     async def get_tribunals_for_date(self, partition_date: str) -> tuple[str, ...]:
         """Get tribunals with data for a date."""
+
         def _query() -> list:  # type: ignore
             intimations = self.db.table("intimations")
             result = (
-                intimations
-                .filter(intimations.data_disponibilizacao == partition_date)
+                intimations.filter(intimations.data_disponibilizacao == partition_date)
                 .distinct()
                 .select("sigla_tribunal")
                 .execute()
@@ -134,6 +134,7 @@ class DuckDBExportRepository(ExportRepository):
 
     async def is_already_exported(self, partition_date: str, tribunal: str) -> bool:
         """Check if already exported."""
+
         def _query() -> bool:
             try:
                 result = self.db.raw_sql(
@@ -141,7 +142,7 @@ class DuckDBExportRepository(ExportRepository):
                     SELECT COUNT(*) as cnt FROM parquet_exports
                     WHERE tribunal = ? AND partition_date = ? AND status = 'completed'
                     """,
-                    [tribunal, partition_date]
+                    [tribunal, partition_date],
                 )
                 return result[0]["cnt"] > 0
             except Exception as e:
@@ -155,6 +156,7 @@ class DuckDBExportRepository(ExportRepository):
 
     async def record_pending(self, partition_date: str, tribunal: str) -> None:
         """Record as pending."""
+
         def _insert() -> None:
             self.db.raw_sql(
                 """
@@ -165,7 +167,7 @@ class DuckDBExportRepository(ExportRepository):
                     status = 'pending',
                     uploaded_at = CURRENT_TIMESTAMP
                 """,
-                [tribunal, partition_date, "", "", ""]
+                [tribunal, partition_date, "", "", ""],
             )
 
         await asyncio.to_thread(_insert)
@@ -181,6 +183,7 @@ class DuckDBExportRepository(ExportRepository):
         size_mb: float,
     ) -> None:
         """Record successful export."""
+
         def _insert() -> None:
             self.db.raw_sql(
                 """
@@ -196,11 +199,14 @@ class DuckDBExportRepository(ExportRepository):
                     uploaded_at = CURRENT_TIMESTAMP,
                     status = 'completed'
                 """,
-                [tribunal, partition_date, ia_url, ia_url, filename, row_count, size_mb]
+                [tribunal, partition_date, ia_url, ia_url, filename, row_count, size_mb],
             )
 
         await asyncio.to_thread(_insert)
-        logger.info(f"Recorded {tribunal} ({partition_date}) as completed: {row_count} rows, {size_mb:.2f} MB")
+        logger.info(
+            f"Recorded {tribunal} ({partition_date}) as completed: "
+            f"{row_count} rows, {size_mb:.2f} MB",
+        )
 
     async def record_failure(
         self,
@@ -209,18 +215,20 @@ class DuckDBExportRepository(ExportRepository):
         error: str,
     ) -> None:
         """Record failed export."""
+
         def _insert() -> None:
             self.db.raw_sql(
                 """
                 INSERT INTO parquet_exports
-                (tribunal, partition_date, ia_item_id, ia_url, parquet_filename, status, error_message)
+                (tribunal, partition_date, ia_item_id, ia_url, parquet_filename,
+                 status, error_message)
                 VALUES (?, ?, ?, ?, ?, 'failed', ?)
                 ON CONFLICT (tribunal, partition_date) DO UPDATE SET
                     status = 'failed',
                     error_message = excluded.error_message,
                     uploaded_at = CURRENT_TIMESTAMP
                 """,
-                [tribunal, partition_date, "", "", "", error]
+                [tribunal, partition_date, "", "", "", error],
             )
 
         await asyncio.to_thread(_insert)
@@ -232,6 +240,7 @@ class DuckDBExportRepository(ExportRepository):
         days_to_keep: int = 180,
     ) -> None:
         """Delete old intimations after export."""
+
         def _delete() -> int:
             cutoff_date = (
                 date.fromisoformat(current_date) - timedelta(days=days_to_keep)
@@ -248,7 +257,7 @@ class DuckDBExportRepository(ExportRepository):
                     AND parquet_exports.status = 'completed'
                 ) > 0
                 """,
-                [cutoff_date]
+                [cutoff_date],
             )
             return result.get("rows_deleted", 0) if isinstance(result, dict) else 0
 
@@ -259,7 +268,7 @@ class DuckDBExportRepository(ExportRepository):
 class MockExportRepository(ExportRepository):
     """In-memory mock repository for testing."""
 
-    def __init__(self, tribunals: tuple[str, ...] = ("TJSP", "TJRJ")):
+    def __init__(self, tribunals: tuple[str, ...] = ("TJSP", "TJRJ")) -> None:
         """Initialize mock with test data.
 
         Args:
@@ -320,4 +329,3 @@ class MockExportRepository(ExportRepository):
         days_to_keep: int = 180,
     ) -> None:
         """Mock purge (no-op)."""
-        pass

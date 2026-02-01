@@ -13,9 +13,9 @@ Orchestration happens in 3 phases:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from .models import ExportPlan, ExportResult, TribunalExportResult
+
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class PureOrchestrator:
         logger.info(
             f"Aggregated results for {partition_date}: "
             f"{result.successful} successful, {result.failed} failed, "
-            f"{result.skipped} skipped ({result.total_rows} rows, {result.total_size_mb:.2f} MB)"
+            f"{result.skipped} skipped ({result.total_rows} rows, {result.total_size_mb:.2f} MB)",
         )
         return result
 

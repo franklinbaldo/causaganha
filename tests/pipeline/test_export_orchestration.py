@@ -7,12 +7,11 @@ These tests demonstrate the key benefit of the refactored architecture:
 """
 
 import pytest
-from datetime import date
 
 from causaganha.pipeline.models import (
     ExportPlan,
-    TribunalExportResult,
     ExportResult,
+    TribunalExportResult,
 )
 from causaganha.pipeline.orchestration import PureOrchestrator
 from causaganha.pipeline.repositories import MockExportRepository

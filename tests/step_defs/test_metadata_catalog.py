@@ -585,9 +585,9 @@ def catalog_contains_views(context):
         and not v[0].startswith("sqlite_")
         and not v[0].startswith("pragma_")
     ]
-    assert len(user_views) > 0, (
-        f"No user views found in catalog. All views: {[v[0] for v in views]}"
-    )
+    assert (
+        len(user_views) > 0
+    ), f"No user views found in catalog. All views: {[v[0] for v in views]}"
 
 
 @then("the catalog should NOT contain any actual data rows")

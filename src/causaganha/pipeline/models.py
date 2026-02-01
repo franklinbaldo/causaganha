@@ -7,7 +7,6 @@ with no side effects. All state is immutable (frozen dataclasses).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -83,10 +82,7 @@ class ExportResult:
     @property
     def successful(self) -> int:
         """Count successful (non-skipped) exports."""
-        return sum(
-            1 for r in self.tribunal_results
-            if r.success and not r.skipped
-        )
+        return sum(1 for r in self.tribunal_results if r.success and not r.skipped)
 
     @property
     def failed(self) -> int:
@@ -140,7 +136,7 @@ class ExportResult:
         if len(self.tribunal_results) != self.total_tribunals:
             raise ValueError(
                 f"ExportResult: total_tribunals ({self.total_tribunals}) "
-                f"does not match tribunal_results length ({len(self.tribunal_results)})"
+                f"does not match tribunal_results length ({len(self.tribunal_results)})",
             )
 
         if self.duration_seconds < 0:

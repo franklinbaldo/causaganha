@@ -724,6 +724,7 @@ def main():
 
     # Set GitHub Actions output: catalog was successfully rebuilt
     import os
+
     catalog_updated = True  # If we got here without error, catalog was updated
     print(f"\n  Catalog updated: {catalog_updated}")
 

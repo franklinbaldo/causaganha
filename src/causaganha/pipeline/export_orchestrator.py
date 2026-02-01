@@ -1,4 +1,4 @@
-"""Export Orchestration Module
+"""Export Orchestration Module.
 
 Coordinates the daily Parquet export pipeline with clear separation:
 1. PLANNING (pure) - Build execution plan
@@ -47,7 +47,7 @@ class ExportOrchestrator:
         repository: ExportRepository,
         parquet_exporter: ParquetExporter,
         ia_uploader: InternetArchiveUploader,
-    ):
+    ) -> None:
         """Initialize export orchestrator.
 
         Args:
@@ -98,7 +98,7 @@ class ExportOrchestrator:
 
         plan = PureOrchestrator.plan_export(partition_date, tribunals, cleanup_files)
         logger.info(
-            f"Planned export for {len(plan.tribunals)} tribunals on {plan.partition_date}"
+            f"Planned export for {len(plan.tribunals)} tribunals on {plan.partition_date}",
         )
 
         # Phase 2: EXECUTION (impure) - Execute per tribunal, collect immutable results
@@ -185,9 +185,6 @@ class ExportOrchestrator:
 
             # 3. Export & Upload Embeddings (if available, best-effort)
             try:
-                from causaganha.analysis.embedding_models import JINA_V4_1024
-                from causaganha.storage.embedding_storage import get_embedding_storage
-
                 # Note: embeddings_storage needs DB connection
                 # TODO: Refactor to pass db_connection to ParquetExporter instead
                 # of embedding_storage needing to get it separately
@@ -258,7 +255,7 @@ class ExportOrchestrator:
                 logger.debug(f"Removed local file: {file_path}")
 
             logger.info(
-                f"✓ {tribunal}: {row_count} rows, {file_size_mb:.2f} MB"
+                f"✓ {tribunal}: {row_count} rows, {file_size_mb:.2f} MB",
             )
 
             return TribunalExportResult(
@@ -297,7 +294,7 @@ class ExportOrchestrator:
         Returns:
             Backfill summary with statistics
         """
-        from datetime import date as dateclass, timedelta
+        from datetime import timedelta
 
         logger.info(f"Starting backfill from {start_date} to {end_date}")
 
