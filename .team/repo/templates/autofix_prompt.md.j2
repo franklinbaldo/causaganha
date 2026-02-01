@@ -1,0 +1,444 @@
+# 🔧 Auto-Fix for Pull Request #{{ pr_number }}
+
+You are fixing a pull request in the **Egregora** project. This document provides comprehensive context about the project, coding standards, and the specific issues you need to fix.
+
+---
+
+## 📋 Project Overview: Egregora
+
+**Egregora** transforms chaotic group chats into structured, readable blogs using AI.
+
+### Core Architecture Principles
+
+**Egregora** transforms chaotic group chats into structured, readable blogs using AI. It prioritizes data-centric transformations using DuckDB and Ibis.
+
+### Technology Stack
+
+- **Python 3.12+** (check `.python-version`)
+- **Data Processing**: DuckDB + Ibis (functional transformations)
+- **AI Framework**: Pydantic-AI for structured, type-safe outputs
+- **Vector DB**: LanceDB for RAG/embeddings
+- **Testing**: pytest with Hypothesis, Syrupy, freezegun
+- **Static Site**: Material for MkDocs
+
+---
+
+## 🎯 Your Mission
+
+Fix the following issues in this PR:
+
+{% if has_conflicts -%}
+### ⚠️ Merge Conflicts Detected
+- **Action Required**: Rebase against base branch and resolve conflicts
+- **Important**: After rebasing, ensure all tests still pass
+{% endif -%}
+
+{% if failed_check_names -%}
+### ❌ CI Failures
+The following checks failed:
+{% for check in failed_check_names %}
+- `{{ check }}`
+{% endfor %}
+{% endif -%}
+
+{% if logs_summary -%}
+### 📊 Summary of Failing Checks
+```
+{{ logs_summary }}
+```
+{% endif -%}
+
+{% if full_ci_logs -%}
+### 📜 Full CI Logs
+```
+{{ full_ci_logs }}
+```
+{% endif -%}
+
+---
+
+## 🛠️ Code Standards and Patterns
+
+### Import Rules
+
+**✅ ALLOWED:**
+- `ibis-framework` for all data operations
+- Absolute imports only (no relative imports)
+- Type annotations on all function signatures
+
+**🚨 BANNED (will fail CI):**
+- `pandas` - Use `ibis-framework` instead
+- `pyarrow` - Use `ibis-framework` instead
+- Relative imports (e.g., `from . import foo`)
+
+### Line Length
+- **Ruff**: 110 characters max
+- **Black**: 100 characters max (formatter)
+
+### Type Annotations
+- **Required** on all function signatures
+- **MyPy strict mode** enabled for most modules
+- Use Pydantic models for data validation
+
+### Error Handling
+
+**✅ GOOD - Specific errors that propagate:**
+```python
+class ConfigurationError(EgregoraError):
+    """Raised when configuration is invalid."""
+
+def load_config(path: Path) -> Config:
+    if not path.exists():
+        raise ConfigurationError(f"CONFIG_NOT_FOUND: {path}")
+    # No defensive try-catch - let errors propagate
+    return Config.from_file(path)
+```
+
+**❌ BAD - Defensive code hiding errors:**
+```python
+def load_config(path: Path) -> Config | None:
+    try:
+        return Config.from_file(path)
+    except Exception as e:
+        print(f"Error: {e}")  # Hides the real error!
+        return None
+```
+
+**Key Principle**: Let errors propagate with specific names. Don't wrap everything in try-catch.
+
+---
+
+## 🧪 Testing Philosophy: TDD and Behavior Focus
+
+### Core Testing Principles
+
+1. **Test BEHAVIOR, not IMPLEMENTATION**
+   - Test **WHAT** the code does (observable outcomes)
+   - Don't test **HOW** it does it (internal mechanics)
+
+2. **Avoid Implementation Details**
+   - Don't mock internal function calls
+   - Don't test private methods directly
+   - Don't assert on internal state unless it's part of the public contract
+
+3. **Focus on Observable Outcomes**
+   - Return values
+   - Side effects (DB writes, file changes, API calls)
+   - State changes visible through the public API
+
+### Examples
+
+**✅ GOOD - Behavior-focused:**
+```python
+def test_filters_out_system_messages():
+    """Test that system messages are excluded from results."""
+    messages = [
+        {"content": "User message", "type": "user"},
+        {"content": "System alert", "type": "system"}
+    ]
+    result = process_messages(messages)
+
+    # Tests observable behavior
+    assert len(result) == 1
+    assert result[0]["type"] == "user"
+    assert result[0]["content"] == "User message"
+```
+
+**❌ BAD - Implementation-focused:**
+```python
+def test_process_messages_calls_filter():
+    """Test that filter_system is called."""
+    with mock.patch('module.filter_system') as mock_filter:
+        process_messages(messages)
+        mock_filter.assert_called_once()  # Testing HOW, not WHAT!
+```
+
+**✅ GOOD - Testing side effects:**
+```python
+def test_saves_messages_to_database(tmp_path):
+    """Test that messages are persisted correctly."""
+    db_path = tmp_path / "test.db"
+    repo = MessageRepository(db_path)
+
+    repo.save({"id": 1, "content": "Hello"})
+
+    # Verify observable outcome (DB state)
+    saved = repo.get_by_id(1)
+    assert saved["content"] == "Hello"
+```
+
+**❌ BAD - Testing implementation:**
+```python
+def test_save_calls_insert():
+    """Test that save calls the insert method."""
+    with mock.patch.object(MessageRepository, '_insert') as mock_insert:
+        repo.save({"id": 1, "content": "Hello"})
+        mock_insert.assert_called_once()  # Who cares HOW it saves?
+```
+
+### When Mocking is Acceptable
+
+Mock **external dependencies** (APIs, services), not internal code:
+
+**✅ GOOD - Mock external API:**
+```python
+def test_fetches_user_data(respx_mock):
+    """Test API integration behavior."""
+    respx_mock.get("https://api.example.com/users/1").mock(
+        return_value=httpx.Response(200, json={"name": "Alice"})
+    )
+
+    user = fetch_user(1)
+    assert user.name == "Alice"  # Observable outcome
+```
+
+---
+
+## 🏗️ Common Patterns
+
+### 1. Functional Data Transformations
+
+Always use **Ibis expressions** for data operations:
+
+**✅ GOOD:**
+```python
+def filter_messages(table: ibis.Table, min_length: int) -> ibis.Table:
+    return table.filter(ibis._['message_length'] >= min_length)
+```
+
+**❌ BAD:**
+```python
+import pandas as pd  # BANNED!
+
+def filter_messages(df: pd.DataFrame, min_length: int) -> pd.DataFrame:
+    return df[df['message_length'] >= min_length]
+```
+
+### 2. Pydantic for Validation
+
+Use Pydantic models for all data structures:
+
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class Message(BaseModel):
+    content: str
+    timestamp: datetime
+    author: str
+
+    @field_validator('content')
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Content cannot be empty")
+        return v
+```
+
+### 3. Configuration Management
+
+Use Pydantic Settings:
+
+```python
+from pydantic_settings import BaseSettings
+
+class EgregoraConfig(BaseSettings):
+    google_api_key: str = Field(alias='GOOGLE_API_KEY')
+
+    class Config:
+        env_file = '.env'
+```
+
+---
+
+## ⚠️ What to AVOID
+
+### 1. Over-Engineering vs Good Abstractions
+
+**Good abstractions** that ARE encouraged:
+- ✅ Reduce duplication across multiple locations
+- ✅ Improve testability by isolating dependencies
+- ✅ Make code more readable and maintainable
+- ✅ Provide clear separation of concerns
+
+**Bad over-engineering** to avoid:
+- ❌ Creating abstractions for hypothetical future needs
+- ❌ Adding configuration/feature flags for one-off cases
+- ❌ Building complex frameworks for simple problems
+- ❌ Premature optimization without measurements
+
+**Example - GOOD abstraction:**
+```python
+# Multiple places need to parse dates from WhatsApp format
+def parse_whatsapp_date(date_str: str) -> datetime:
+    """Parse WhatsApp export date format to datetime."""
+    return datetime.strptime(date_str, "%m/%d/%y, %H:%M")
+```
+
+**Example - BAD over-engineering:**
+```python
+# Only used once, but created a whole framework
+class DateParserFactory:
+    def create_parser(self, format_type: str) -> DateParser:
+        if format_type == "whatsapp":
+            return WhatsAppDateParser()
+        # ... 50 lines of unnecessary abstraction
+```
+
+### 2. Defensive Programming
+
+**DON'T** hide errors with defensive code:
+- ❌ Wrapping everything in try-catch
+- ❌ Returning `None` on errors
+- ❌ Silently swallowing exceptions
+
+**DO** let errors propagate with specific names:
+- ✅ Use custom exception classes with descriptive names
+- ✅ Let errors bubble up to the appropriate handler
+- ✅ Make debugging easier with clear error messages
+
+### 3. Unnecessary Error Handling
+
+**DON'T** validate things that can't happen:
+```python
+# BAD - Trust internal code
+def process_user_id(user_id: int) -> User:
+    if not isinstance(user_id, int):  # Unnecessary if types are correct
+        raise TypeError("user_id must be int")
+    if user_id < 0:  # Trust caller/type system
+        raise ValueError("user_id must be positive")
+```
+
+**DO** validate at system boundaries only:
+```python
+# GOOD - Validate external input
+def handle_api_request(request: dict) -> Response:
+    # Validate external data
+    user_id = request.get("user_id")
+    if not isinstance(user_id, int) or user_id < 0:
+        return Response(400, "Invalid user_id")
+
+    # Internal code - no validation needed
+    return process_user_id(user_id)
+```
+
+### 4. Comments and Documentation
+
+**DON'T** add unnecessary documentation:
+- ❌ Docstrings on functions you didn't change
+- ❌ Comments explaining what code obviously does
+- ❌ Type annotations on code you didn't modify
+
+**DO** document when needed:
+- ✅ Public APIs and complex functions
+- ✅ Non-obvious business logic
+- ✅ "Why" not "what" (code shows what)
+
+### 5. Backwards Compatibility Hacks
+
+**DON'T** create backwards compatibility when not needed:
+- ❌ Renaming unused variables to `_var`
+- ❌ Re-exporting types from old locations
+- ❌ Adding `# removed` comments
+- ❌ Feature flags for internal refactoring
+
+**DO** make clean changes:
+- ✅ Delete unused code completely
+- ✅ Update all call sites directly
+- ✅ Trust git history for what changed
+
+---
+
+## 🔍 Understanding the PR Context
+
+### Source Priority (in order)
+
+When understanding what this PR is trying to do:
+
+1. **PRIMARY (authoritative)**: The code changes themselves
+2. **SECONDARY (valuable)**: Commit messages and history
+3. **TERTIARY (often stale)**: PR description
+4. **QUATERNARY**: Related files, tests, documentation
+
+**Why this order?**
+- PR descriptions are often written before implementation and become outdated
+- Commits show the evolution and real intent
+- Code is the ground truth
+
+### Review Commit History
+
+**You will receive**: Full list of commits with messages
+
+**Look for patterns:**
+- Initial implementation → refinements
+- Bug fixes during development
+- Scope changes or pivots
+- Review feedback responses
+
+Commits tell the story of WHAT was attempted and WHY certain decisions were made.
+
+---
+
+## ✅ Your Checklist
+
+When fixing this PR, ensure:
+
+- [ ] All CI checks pass (run full test suite)
+- [ ] No banned imports (pandas, pyarrow, relative imports)
+- [ ] Type annotations present on modified functions
+- [ ] Tests are behavior-focused (not implementation-focused)
+- [ ] V2/V3 separation maintained (no mixing)
+- [ ] Errors propagate with specific names (no defensive try-catch)
+- [ ] No over-engineering (only add abstraction if actually needed)
+- [ ] Clean git history (meaningful commit messages)
+
+---
+
+## 🚀 Execution Guidance
+
+### Systematic Approach
+
+1. **Understand the failures**
+   - Read the full error logs carefully
+   - Identify root causes (not just symptoms)
+   - Check if multiple failures have common root cause
+
+2. **Review the code changes**
+   - Read all modified files
+   - Understand the author's intent (from commits + code)
+   - Check if the approach aligns with egregora patterns
+
+3. **Fix the issues**
+   - Address root causes, not symptoms
+   - Follow egregora patterns and standards
+   - Keep changes minimal and focused
+
+4. **Test thoroughly**
+   - Run the full test suite locally
+   - Add new tests if coverage gaps exist
+   - Ensure tests focus on behavior
+
+5. **Clean up**
+   - Remove any debugging code
+   - Ensure consistent formatting
+   - Write clear commit messages
+
+### Commit Message Format
+
+```
+<type>: <description>
+
+[optional body explaining WHY]
+```
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
+
+---
+
+## 📚 Additional Resources
+
+- **CLAUDE.md**: Full coding guidelines
+- **Project README**: User-facing documentation
+
+---
+
+**Remember**: You're a senior developer. Trust your expertise, make technical decisions autonomously, and ship working code. If tests fail, debug and fix - don't ask for help. You've got this! 💪

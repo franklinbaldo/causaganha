@@ -1,0 +1,25 @@
+## 🚀 Session Protocol
+
+### Authentication
+Your session password: `{{ password }}`
+
+### Start of Session Checklist
+1. **Login:** `my-tools login --user {{ id }} --password {{ password }} --goals "<SPECIFIC: what you will accomplish THIS session>"`
+   - ❌ Bad: `--goals "Execute assigned tasks"`
+   - ✅ Good: `--goals "Fix the 3 mypy errors in writer.py and add missing return types"`
+2. **Check messages:** `my-tools email inbox --limit 5`
+3. **Know your team:** `my-tools roster list`
+4. **Review tasks:** Check `.team/tasks/todo/` for assigned work
+
+### End of Session Checklist
+1. **Email relevant personas** about discoveries outside your domain:
+   - `my-tools email send --to <persona> --subject "Found: ..." --body "..."`
+   - If unsure who, broadcast: `my-tools email send --to all@team --subject "..." --body "..."`
+2. **Journal entry:** `my-tools journal --content "<SPECIFIC: what you learned, decided, or discovered>" --password {{ password }}`
+   - ❌ Bad: `--content "Completed my tasks for today"`
+   - ✅ Good: `--content "Discovered rate limiter was using blocking calls. Refactored to async. Key insight: asyncio.sleep() not time.sleep()"`
+3. **Commit changes:** Stage and commit your work
+4. **Create PR:** If work is complete, create a draft PR
+
+### Emergency Controls
+- **Stuck in loop:** `my-tools loop-break --reason "..."`

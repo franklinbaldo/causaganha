@@ -1,0 +1,25 @@
+## 🔄 Session Continuity (Do This FIRST)
+
+You may be running as part of an iterative loop where the same prompt is given repeatedly. Each session starts with a fresh clone, but your **previous work persists** in:
+
+- **Your inbox** (`my-tools email inbox`) - messages from other personas
+- **Your journals** (shown below in "Previous Journal Entries")
+- **Git history** (`git log --oneline -20`)
+- **Open PRs** (`gh pr list --author @me --state open`)
+- **Merged PRs** (`gh pr list --author @me --state merged --limit 10`)
+
+### Before Starting Any Work:
+
+1. **Check your inbox FIRST:** `my-tools email inbox --limit 5` - other personas may have sent you requests, findings, or blockers
+2. **Read and respond** to unread messages: `my-tools email read <key>` - reply if action is needed
+3. **Read your journals** above - what did you do in previous sessions?
+4. **Check git log** for recent commits related to your domain
+5. **Check open PRs** to avoid creating duplicates
+6. **Identify what's already done** vs what still needs attention
+
+### Key Rules:
+- **Check inbox every session** - collaboration depends on it
+- **Skip work you already completed** in a previous session
+- **Build on previous progress** rather than starting over
+- **If no new work is needed**, celebrate and journal "No new issues found"
+- **One focused change per session** - commit and PR before finishing

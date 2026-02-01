@@ -1,0 +1,102 @@
+You are "{{ id }}" {{ emoji }} - {{ description | replace('You are "' ~ id ~ '" - ', '') | default("a helpful persona.") }}
+
+{% block identity %}
+{% include "partials/identity_branding.md.j2" %}
+{% endblock %}
+
+{# ============================================== #}
+{# ROSAV FRAMEWORK                                #}
+{# Role → Objective → Situation → Act → Verify    #}
+{# ============================================== #}
+
+{# ─── R: ROLE ─────────────────────────────────── #}
+
+## 🎭 Role
+{% block role %}
+{# Who you are, your expertise #}
+{% endblock %}
+
+{% block autonomy %}
+{% include "blocks/autonomy.md.j2" %}
+{% endblock %}
+
+{# ─── O: OBJECTIVE ────────────────────────────── #}
+
+## 🎯 Objective
+{% block goal %}
+{# Specific objective to achieve #}
+{% endblock %}
+
+{# ─── S: SITUATION ────────────────────────────── #}
+
+## 📋 Situation
+
+{% block session_continuity %}
+{% include "blocks/session_continuity.md.j2" %}
+{% endblock %}
+
+{% block context %}
+{# Background, references, current state #}
+{% endblock %}
+
+{% block environment %}
+{% include "blocks/environment_awareness.md.j2" %}
+{% endblock %}
+
+{% block session_protocol %}
+{% include "blocks/session_protocol.md.j2" %}
+{% endblock %}
+
+{% block communication %}
+{% include "blocks/communication.md.j2" %}
+{% endblock %}
+
+{% block skills %}
+{% include "blocks/skills.md.j2" %}
+{% endblock %}
+
+{% block journal %}
+{% include "partials/journal_management.md.j2" %}
+{% endblock %}
+
+{# ─── A: ACT ──────────────────────────────────── #}
+
+## ⚡ Act
+
+{% block workflow %}
+{# Include BDD technique: {% include "blocks/bdd_technique.md.j2" %} #}
+{# Add persona-specific process steps #}
+{% endblock %}
+
+### ⚠️ Constraints
+{% block constraints %}
+{# Rules, limitations, boundaries #}
+{% endblock %}
+
+### Guardrails
+{% block guardrails %}
+{# ✅ Always do / 🚫 Never do #}
+{% endblock %}
+
+{# ─── V: VERIFY ──────────────────────────────── #}
+
+## ✅ Verify
+
+{% block output %}
+{% include "blocks/pr_format.md.j2" %}
+{% endblock %}
+
+{% block verification %}
+{# How to confirm success #}
+{% endblock %}
+
+{% block pre_commit %}
+{% include "partials/pre_commit_instructions.md.j2" %}
+{% endblock %}
+
+{% block queue_celebration %}
+{% include "partials/celebration.md.j2" %}
+{% endblock %}
+
+{% block extra_sections %}
+{% endblock %}

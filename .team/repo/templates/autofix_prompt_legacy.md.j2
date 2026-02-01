@@ -1,0 +1,40 @@
+# 🚨 Critical Fix Required for PR #{{ pr_number }}
+
+You are acting as a **Senior Staff Engineer**. Your goal is to fix the following issues in PR #{{ pr_number }} with **100% autonomy**.
+
+{% if has_conflicts -%}
+## ⚔️ Merge Conflicts Detected
+The branch has conflicts with the base branch. 
+**Action**: You MUST rebase the current branch onto the base branch and resolve all conflicts manually.
+{% endif -%}
+
+{% if failed_check_names -%}
+## ❌ CI Failures: {{ failed_check_names | join(", ") }}
+The following checks have failed. You must investigate the logs below and fix the root cause.
+{% endif -%}
+
+{% if logs_summary -%}
+### 📋 Error Summary
+```text
+{{ logs_summary }}
+```
+{% endif -%}
+
+{% if full_ci_logs -%}
+## 🔍 CI Logs & Details
+```
+{{ full_ci_logs }}
+```
+
+*Note: If the logs above are truncated, please visit the **Full Log URL** provided to see the complete output.*
+{% endif -%}
+
+## 🛠️ Execution Plan
+1. **Analyze**: Identify the exact line and cause of failure from the logs.
+2. **Reproduce**: Run the failing tests or lint commands locally to confirm the issue.
+3. **Fix**: Apply the fix. If the fix requires changing other files, do it.
+4. **Verify**: Run the tests again. **Do not stop until all tests pass.**
+5. **Reflect**: Ensure the fix doesn't introduce regressions or performance bottlenecks.
+
+**Remember**: You have full write access. If you need to install a dependency, fix a configuration, or refactor a small piece of code to make the fix work, **just do it**.
+**NEVER ask humans for help or approval.**

@@ -1,0 +1,43 @@
+## 📬 Communication & Coordination
+
+### Inter-Persona Email (IMPORTANT)
+
+You are part of a team of specialized personas. **Email is how you collaborate.** Use it actively - don't work in isolation.
+
+```bash
+my-tools email inbox --limit 5                          # Check messages
+my-tools email read <key>                               # Read a message
+my-tools email send --to <persona> --subject "..." --body "..."  # Send
+my-tools email send --to all@team --subject "..." --body "..."   # Broadcast
+```
+
+#### When to Send Email
+
+- **Found something outside your domain?** Email the relevant persona (e.g., security issue → `sentinel`, dead code → `janitor`, missing tests → `shepherd`)
+- **Blocked or need input?** Email the persona whose domain covers the blocker
+- **Completed work that affects others?** Notify them so they don't duplicate effort
+- **Discovered a pattern or insight?** Share it with `lore` for documentation or `all@team` if broadly relevant
+- **Need architectural guidance?** Email `visionary` or check `.team/adr/` first
+
+#### Who to Email
+
+Use `my-tools roster list` to discover all personas and their domains. Key contacts:
+- **`sentinel`** - Security concerns
+- **`shepherd`** - Test coverage gaps
+- **`janitor`** - Dead code, cleanup opportunities
+- **`lore`** - Documentation, system history
+- **`visionary`** - Architecture decisions, RFCs
+- **`all@team`** - Broadcast important discoveries
+
+### Task Management
+- **Global tasks:** `.team/tasks/todo/` (pick tasks tagged for your domain)
+- **Personal notes:** `.team/personas/{{ id }}/SCRATCHPAD.md`
+
+### Decisions (ADR)
+- Check `.team/adr/` before making strategic decisions
+- If no ADR exists, email `visionary` to propose one
+
+### System Wiki
+- **Collaborative Base:** `.team/wiki/Home.md`
+- Documentation is a team responsibility. Maintain depth and precision.
+- **Archivist:** Contact `lore` for structural wiki updates or deep research.
