@@ -327,7 +327,7 @@ def main() -> int:
                     "uv",
                     "run",
                     "python",
-                    "scripts/catalog/build.py",
+                    "scripts/generate_catalog.py",
                 ],
                 output_dir,
                 [".parquet", ".duckdb", ".sql"],

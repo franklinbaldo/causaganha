@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>CausaGanha - DJEN Pipeline Status</title>
+  <link>https://franklinbaldo.github.io/causaganha/</link>
+  <description>Status updates from the CausaGanha judicial data collection pipeline</description>
+  <language>pt-BR</language>
+  <lastBuildDate>Sat, 31 Jan 2026 19:23:54 +0000</lastBuildDate>
+
+  <item>
+    <title>2026-01-30: 0 tribunais, 1.0 GB</title>
+    <link>https://archive.org/details/djen-2026-01-30</link>
+    <description>
+      Pipeline Status: 25% healthy
+      Tribunais coletados: 0/91
+      Volume: 1.0 GB
+      Dias arquivados: 10
+    </description>
+    <pubDate>Sat, 31 Jan 2026 19:23:54 +0000</pubDate>
+    <guid isPermaLink="false">causaganha-20260131192354</guid>
+  </item>
+
+</channel>
+</rss>

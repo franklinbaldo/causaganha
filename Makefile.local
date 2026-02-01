@@ -69,7 +69,7 @@ embed: check
 catalog: check
 	@echo "[CATALOG] Building manifest & index"
 	@mkdir -p pipeline-output
-	cd pipeline-output && uv run python ../scripts/catalog/build.py
+	cd pipeline-output && uv run python ../scripts/generate_catalog.py
 
 dashboard: check
 	@echo "[DASHBOARD] Generating dashboard cache"

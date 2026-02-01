@@ -67,7 +67,7 @@ case "$1" in
         ;;
     catalog)
         echo -e "${BLUE}[CATALOG] Building manifest${NC}"
-        uv run python ../scripts/catalog/build.py
+        uv run python ../scripts/generate_catalog.py
         ;;
     dashboard)
         echo -e "${BLUE}[DASHBOARD] Generating cache${NC}"

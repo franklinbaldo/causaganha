@@ -243,12 +243,12 @@ def _struct_field(struct_col: ibis.Column, *names: str) -> ibis.Column:
     return ibis.literal(None)
 
 
-def _date_expr(raw: ibis.Table) -> ibis.DateValue:
+def _date_expr(raw: ibis.Table) -> ibis.Column:
     """Parse the availability date from either naming convention."""
     return _safe(_col(raw, *FIELD_DATA_DISPONIBILIZACAO)).left(10).try_cast("date")
 
 
-def _com_id(raw: ibis.Table) -> ibis.StringValue:
+def _com_id(raw: ibis.Table) -> ibis.Column:
     """Communication UUID: hash of DJEN original id + tribunal."""
     return djen_uuid5(_safe(raw.id) + ":" + raw.src_tribunal)
 
