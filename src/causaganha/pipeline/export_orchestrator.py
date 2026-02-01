@@ -496,6 +496,7 @@ class ExportOrchestrator:
         start_date: str,
         end_date: str,
         cleanup_files: bool = True,
+        concurrency: int = 5,
     ) -> dict:
         """Backfill historical data exports.
 
@@ -503,11 +504,14 @@ class ExportOrchestrator:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
             cleanup_files: Remove local files after upload
+            concurrency: Max concurrent days to process
 
         Returns:
             Backfill summary with statistics
         """
-        logger.info(f"Starting backfill from {start_date} to {end_date}")
+        logger.info(
+            f"Starting backfill from {start_date} to {end_date} (concurrency={concurrency})",
+        )
 
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -527,32 +531,39 @@ class ExportOrchestrator:
             "failed_exports": 0,
         }
 
-        # Process each date
+        # Generate dates
+        dates = []
         current = start
         while current <= end:
-            date_str = current.strftime("%Y-%m-%d")
-
-            try:
-                result = await self.run_daily_export(date_str, cleanup_files)
-
-                summary["successful_days"] += 1
-                summary["total_tribunals"] += result["total_tribunals"]
-                summary["successful_exports"] += result["successful"]
-                summary["failed_exports"] += result["failed"]
-
-                logger.info(
-                    f"Backfilled {date_str}: {result['successful']}/{result['total_tribunals']} successful",
-                )
-
-            except Exception as e:
-                summary["failed_days"] += 1
-                logger.error(f"Failed to backfill {date_str}: {e}")
-
-            # Move to next day
+            dates.append(current.strftime("%Y-%m-%d"))
             current += timedelta(days=1)
 
-            # Small delay to avoid overwhelming IA
-            await asyncio.sleep(1)
+        # Concurrency control
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def _process_date(date_str: str) -> None:
+            async with semaphore:
+                try:
+                    result = await self.run_daily_export(date_str, cleanup_files)
+
+                    summary["successful_days"] += 1
+                    summary["total_tribunals"] += result["total_tribunals"]
+                    summary["successful_exports"] += result["successful"]
+                    summary["failed_exports"] += result["failed"]
+
+                    logger.info(
+                        f"Backfilled {date_str}: {result['successful']}/{result['total_tribunals']} successful",
+                    )
+
+                except Exception as e:
+                    summary["failed_days"] += 1
+                    logger.error(f"Failed to backfill {date_str}: {e}")
+
+                # Small delay to reduce burst pressure
+                await asyncio.sleep(0.5)
+
+        # Process all dates
+        await asyncio.gather(*[_process_date(d) for d in dates])
 
         logger.info(
             f"Backfill complete: {summary['successful_days']}/{summary['total_days']} days, "
