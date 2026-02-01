@@ -117,7 +117,7 @@ class ExportResult:
             if not r.success
         ]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, int | str | float | list[dict[str, str]]]:  # type: ignore[return-value]
         """Convert to dictionary for JSON serialization."""
         return {
             "date": self.partition_date,

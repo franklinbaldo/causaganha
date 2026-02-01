@@ -117,7 +117,7 @@ class DuckDBExportRepository(ExportRepository):
 
     async def get_tribunals_for_date(self, partition_date: str) -> tuple[str, ...]:
         """Get tribunals with data for a date."""
-        def _query() -> list[str]:
+        def _query() -> list:  # type: ignore
             intimations = self.db.table("intimations")
             result = (
                 intimations
@@ -267,7 +267,7 @@ class MockExportRepository(ExportRepository):
         """
         self.tribunals = tribunals
         self.pending: dict[tuple[str, str], bool] = {}
-        self.exports: dict[tuple[str, str], dict] = {}
+        self.exports: dict[tuple[str, str], dict[str, str | int | float]] = {}
         self.failures: dict[tuple[str, str], str] = {}
 
     async def get_tribunals_for_date(self, partition_date: str) -> tuple[str, ...]:
