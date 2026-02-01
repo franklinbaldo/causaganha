@@ -68,7 +68,7 @@ class PureOrchestrator:
             New tuple with result appended (original unchanged)
         """
         tribunal_result.validate()
-        return results + (tribunal_result,)
+        return (*results, tribunal_result)
 
     @staticmethod
     def aggregate_results(
@@ -107,7 +107,7 @@ class PureOrchestrator:
     @staticmethod
     def should_purge_data(
         results: ExportResult,
-        cleanup_interval_days: int = 180,
+        _cleanup_interval_days: int = 180,
     ) -> bool:
         """Pure: Decide if cleanup should run based on results.
 

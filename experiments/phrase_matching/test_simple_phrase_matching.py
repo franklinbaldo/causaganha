@@ -55,7 +55,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
     return chunks
 
 
-def main():
+def main() -> None:
     """Testar com 2 frases-chave simples."""
     console.print("\n[bold cyan]🎯 Teste: Comparação com 2 Frases-Chave[/bold cyan]\n")
 
@@ -126,12 +126,7 @@ def main():
         )
 
         # Classificar baseado na maior similaridade
-        if max_sim_autor > max_sim_reu:
-            outcome_previsto = "WIN"
-            confianca = max_sim_autor
-        else:
-            outcome_previsto = "LOSS"
-            confianca = max_sim_reu
+        outcome_previsto = "WIN" if max_sim_autor > max_sim_reu else "LOSS"
 
         # Verificar acerto
         acertou = outcome_previsto == outcome_real

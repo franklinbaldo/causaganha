@@ -1,5 +1,6 @@
+"""CLI package for CausaGanha."""
+
 import asyncio
-import os
 
 import duckdb
 import structlog
@@ -7,7 +8,6 @@ import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 # from causaganha.analysis.ground_truth import GroundTruthManager
-from causaganha.clients.archive import create_archive_service
 from causaganha.config import settings
 
 # from causaganha.clients.document import DocumentService
@@ -38,61 +38,6 @@ app = typer.Typer(
 
 groundtruth_app = typer.Typer(name="groundtruth", help="Manage ground truth vector store")
 app.add_typer(groundtruth_app, name="groundtruth")
-
-
-@groundtruth_app.command("init")
-def groundtruth_init(
-    overwrite: bool = typer.Option(False, help="Overwrite existing table"),
-) -> None:
-    """Initialize the ground truth vector store to ready state."""
-    from causaganha.analysis.ground_truth import GroundTruthManager
-
-    manager = GroundTruthManager()
-    manager.init_store(overwrite=overwrite)
-    typer.echo("✅ Ground truth vector store initialized")
-
-
-@groundtruth_app.command("sync")
-def groundtruth_sync(
-    min_confidence: float = typer.Option(0.9, help="Minimum confidence score"),
-    limit: int = typer.Option(100, help="Max records to sync"),
-) -> None:
-    """Sync high-confidence analyses from DuckDB."""
-
-    async def _run() -> None:
-        try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
-            manager = GroundTruthManager()
-            result = await manager.sync(min_confidence=min_confidence, limit=limit)
-            typer.echo(f"✅ Sync complete! Added {result['synced']} new examples")
-        except Exception as e:
-            _handle_error(e, "Sync failed")
-
-    asyncio.run(_run())
-
-
-@groundtruth_app.command("search")
-def groundtruth_search(
-    query: str = typer.Argument(..., help="Text to search for"),
-    k: int = typer.Option(5, help="Number of results"),
-) -> None:
-    """Search for matching examples."""
-
-    async def _run() -> None:
-        try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
-            manager = GroundTruthManager()
-            results = await manager.search(query, k=k)
-            for res in results:
-                typer.echo(f"Outcome: {res['outcome']}")
-                typer.echo(f"Text: {res['text'][:200]}...")
-                typer.echo("---")
-        except Exception as e:
-            _handle_error(e, "Search failed")
-
-    asyncio.run(_run())
 
 
 logger = structlog.get_logger()
@@ -378,7 +323,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 
 
 @app.command()
-def export_parquet(
+def export_parquet(  # noqa: PLR0913
     date: str | None = typer.Option(
         None,
         help="Date to export (YYYY-MM-DD), defaults to yesterday",
@@ -423,7 +368,7 @@ def export_parquet(
                         "❌ Backfill requires --start-date and --end-date",
                         fg=typer.colors.RED,
                     )
-                    raise typer.Exit(code=1)
+                    raise typer.Exit(code=1)  # noqa: TRY301
 
                 typer.echo(f"Starting backfill from {start_date} to {end_date}...")
 
@@ -579,7 +524,7 @@ def export_status(
 
         current_date = None
         for row in result:
-            pdate, trib, status, rows, size, url, error = row
+            pdate, trib, status, rows, size, _url, error = row
 
             if pdate != current_date:
                 if current_date:
@@ -644,9 +589,7 @@ def export_status(
         _handle_error(e, "Failed to get export status")
 
 
-# Ground truth management commands
-groundtruth_app = typer.Typer(help="Ground truth management for RAG")
-app.add_typer(groundtruth_app, name="groundtruth")
+# Ground truth management commands (extended)
 
 
 @groundtruth_app.command("status")
@@ -719,9 +662,9 @@ def groundtruth_sync(
             if result["status"] == "success":
                 typer.echo(f"✅ Sync complete! Added {result['synced']} new examples.")
             elif result["status"] == "no_data":
-                typer.echo("ℹ️ No high-confidence records found in database.")
+                typer.echo("(i) No high-confidence records found in database.")
             elif result["status"] == "already_synced":
-                typer.echo("ℹ️ All available records are already in the vector store.")
+                typer.echo("(i) All available records are already in the vector store.")
 
         except Exception as e:
             _handle_error(e, "Sync failed")
@@ -809,7 +752,7 @@ def groundtruth_info() -> None:
 
         if result:
             for row in result:
-                method, total, avg_conf, outcomes = row
+                method, total, avg_conf, _outcomes = row
                 typer.echo(f"  {method}: {total} decisions (avg confidence: {avg_conf:.2%})")
         else:
             typer.echo("  No high-confidence analyses found yet.")
@@ -1093,7 +1036,7 @@ def create_catalog(
         None,
         help="Month pattern (e.g., 2026-01) for versioned catalog",
     ),
-    include_views: str | None = typer.Option(
+    _include_views: str | None = typer.Option(
         None,
         help="Comma-separated list of analytical views to include",
     ),
@@ -1155,11 +1098,13 @@ def list_catalog_views(
     logger.info("list_catalog_command", catalog=catalog)
 
     try:
+        from pathlib import Path
+
         from causaganha.catalog.creator import CatalogCreator
 
-        if not os.path.exists(catalog):
+        if not Path(catalog).exists():
             typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1)  # noqa: TRY301
 
         creator = CatalogCreator(catalog)
         views = creator.list_views()
@@ -1186,11 +1131,13 @@ def catalog_info(
     logger.info("catalog_info_command", catalog=catalog)
 
     try:
+        from pathlib import Path
+
         from causaganha.catalog.creator import CatalogCreator
 
-        if not os.path.exists(catalog):
+        if not Path(catalog).exists():
             typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1)  # noqa: TRY301
 
         creator = CatalogCreator(catalog)
         info = creator.get_catalog_info()
@@ -1264,8 +1211,8 @@ def download_catalog(
 
             import httpx
 
-            IA_CATALOG_ITEM = "causaganha-catalog"
-            BASE_URL = f"https://archive.org/download/{IA_CATALOG_ITEM}"
+            ia_catalog_item = "causaganha-catalog"
+            base_url = f"https://archive.org/download/{ia_catalog_item}"
 
             files_to_download = [
                 "manifest.parquet",
@@ -1278,7 +1225,7 @@ def download_catalog(
             output_dir.mkdir(parents=True, exist_ok=True)
 
             typer.echo("Downloading catalog from Internet Archive...")
-            typer.echo(f"  Item: {IA_CATALOG_ITEM}")
+            typer.echo(f"  Item: {ia_catalog_item}")
             typer.echo(f"  Output: {output_dir}\n")
 
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -1289,7 +1236,7 @@ def download_catalog(
                         typer.echo(f"  ⏭ {filename} (exists, use --force to re-download)")
                         continue
 
-                    url = f"{BASE_URL}/{filename}"
+                    url = f"{base_url}/{filename}"
                     typer.echo(f"  ⬇ {filename}...", nl=False)
 
                     try:
@@ -1303,18 +1250,16 @@ def download_catalog(
                                 continue
 
                             # Validate parquet files have correct magic bytes
-                            if filename.endswith(".parquet"):
-                                # Parquet magic bytes: PAR1 at start and end
-                                if not (content[:4] == b"PAR1" or content[-4:] == b"PAR1"):
-                                    typer.echo(" (warning: invalid parquet file)")
-                                    continue
+                            if filename.endswith(".parquet") and not (
+                                content[:4] == b"PAR1" or content[-4:] == b"PAR1"
+                            ):
+                                typer.echo(" (warning: invalid parquet file)")
+                                continue
 
                             # Validate DuckDB files
-                            if filename.endswith(".duckdb"):
-                                # DuckDB files should start with specific header
-                                if len(content) < 1024:
-                                    typer.echo(" (warning: duckdb file too small)")
-                                    continue
+                            if filename.endswith(".duckdb") and len(content) < 1024:
+                                typer.echo(" (warning: duckdb file too small)")
+                                continue
 
                             output_path.write_bytes(content)
                             size_kb = len(content) / 1024
@@ -1366,7 +1311,7 @@ def _validate_parquet_schema(
 ) -> bool:
     """Check if parquet file has required columns."""
     try:
-        schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()
+        schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()  # noqa: S608
         columns = {row[0].lower() for row in schema}
         return all(col.lower() in columns for col in required_cols)
     except Exception:
@@ -1440,7 +1385,7 @@ def backfill_status(
             typer.secho(f"❌ Error reading backfill file: {e}", fg=typer.colors.RED)
             typer.echo("The file may be corrupted. Try re-downloading with --force.")
             con.close()
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         if stats is None or stats[0] == 0:
             typer.echo(
@@ -1500,7 +1445,7 @@ def query_catalog(
         "./causaganha-catalog",
         help="Directory containing catalog files",
     ),
-    format: str = typer.Option("table", help="Output format: table, csv, json"),
+    output_format: str = typer.Option("table", help="Output format: table, csv, json"),
     limit: int = typer.Option(100, help="Maximum rows to return"),
 ) -> None:
     """Query the catalog using SQL."""
@@ -1511,13 +1456,13 @@ def query_catalog(
 
         # Validate format parameter
         valid_formats = ["table", "csv", "json"]
-        if format not in valid_formats:
+        if output_format not in valid_formats:
             typer.secho(
-                f"❌ Invalid format: {format}",
+                f"❌ Invalid format: {output_format}",
                 fg=typer.colors.RED,
             )
             typer.echo(f"Valid formats: {', '.join(valid_formats)}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1)  # noqa: TRY301
 
         catalog_path = Path(catalog_dir) / "catalog.duckdb"
 
@@ -1527,7 +1472,7 @@ def query_catalog(
                 fg=typer.colors.RED,
             )
             typer.echo("Run 'causaganha catalog download' first.")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1)  # noqa: TRY301
 
         # Try to open catalog file - may be corrupted
         try:
@@ -1538,7 +1483,7 @@ def query_catalog(
                 fg=typer.colors.RED,
             )
             typer.echo("Try re-downloading with: causaganha catalog download --force")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         # Add LIMIT if not present
         if "LIMIT" not in query.upper():
@@ -1550,16 +1495,16 @@ def query_catalog(
         except duckdb.ParserException as e:
             typer.secho(f"❌ SQL syntax error: {e}", fg=typer.colors.RED)
             con.close()
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
         except duckdb.CatalogException as e:
             typer.secho(f"❌ Table or column not found: {e}", fg=typer.colors.RED)
             typer.echo("\nAvailable tables: manifest, backfill_needed")
             con.close()
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
         except duckdb.Error as e:
             typer.secho(f"❌ Query error: {e}", fg=typer.colors.RED)
             con.close()
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         columns = [desc[0] for desc in result.description] if result.description else []
         rows = result.fetchall()
@@ -1579,7 +1524,7 @@ def query_catalog(
             except Exception:
                 return "<error>"
 
-        if format == "csv":
+        if output_format == "csv":
             import csv
             import sys
 
@@ -1588,7 +1533,7 @@ def query_catalog(
             # Safely convert all values
             for row in rows:
                 writer.writerow([safe_str(v) for v in row])
-        elif format == "json":
+        elif output_format == "json":
             import json
 
             # Safely build data with error handling for malformed values

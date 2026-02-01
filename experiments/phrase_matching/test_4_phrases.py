@@ -55,7 +55,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
     return chunks
 
 
-def main():
+def main() -> None:
     """Testar com 4 frases-chave (WIN, LOSS, UNKNOWN, PARTIAL)."""
     console.print("\n[bold cyan]🎯 Teste: 4 Frases-Chave (WIN/LOSS/UNKNOWN/PARTIAL)[/bold cyan]\n")
 

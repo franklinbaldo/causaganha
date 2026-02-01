@@ -7,7 +7,7 @@ Models define configuration like dimensions and token limits.
 
 import os
 from abc import ABC, abstractmethod
-from typing import Literal
+from typing import ClassVar, Literal
 
 import httpx
 import structlog
@@ -227,7 +227,7 @@ class JinaProvider(EmbeddingProviderBase):
     """
 
     # Task type mapping: our standard -> Jina's task format
-    TASK_MAPPING = {
+    TASK_MAPPING: ClassVar[dict[str, str]] = {
         "RETRIEVAL_QUERY": "retrieval.query",
         "RETRIEVAL_DOCUMENT": "retrieval.passage",
     }
@@ -400,7 +400,7 @@ async def auto_select_provider(
             provider = create_provider(provider=provider_name, api_key=api_key)
 
             # Get default model for validation
-            default_model = get_default_model(provider_name)  # type: ignore
+            default_model = get_default_model(provider_name)  # type: ignore[arg-type]
 
             # Validate authentication
             logger.info("validating_provider", provider=provider_name)

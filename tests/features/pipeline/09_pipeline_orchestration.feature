@@ -41,7 +41,8 @@ Feature: Pipeline Orchestration
     Given a config with job "all"
     And a pipeline state with files_added false and catalog_updated false
     When I plan the catalog step
-    Then I should get 0 step plans
+    Then I should get 1 step plans
+    And step plan 0 should have name "catalog"
 
   @pipeline @e2e
   Scenario: Single job only runs that step
@@ -59,9 +60,9 @@ Feature: Pipeline Orchestration
     Then the decision should be true
 
   @pipeline @conditional
-  Scenario: Catalog skipped when no files added
+  Scenario: Catalog always runs for job all
     When I check should_run_catalog with job "all" and files_added false
-    Then the decision should be false
+    Then the decision should be true
 
   @pipeline @conditional
   Scenario: Catalog runs when explicitly requested
@@ -74,9 +75,9 @@ Feature: Pipeline Orchestration
     Then the decision should be true
 
   @pipeline @conditional
-  Scenario: Dashboard skipped when catalog not updated
+  Scenario: Dashboard always runs for job all
     When I check should_run_dashboard with job "all" and catalog_updated false
-    Then the decision should be false
+    Then the decision should be true
 
   @pipeline @conditional
   Scenario: Dashboard runs when explicitly requested
@@ -84,18 +85,20 @@ Feature: Pipeline Orchestration
     Then the decision should be true
 
   @pipeline @conditional
-  Scenario: Plan catalog step skipped when no files
+  Scenario: Plan catalog step always runs for job all
     Given a config with job "all"
     And a pipeline state with files_added false and catalog_updated false
     When I plan the catalog step
-    Then I should get 0 step plans
+    Then I should get 1 step plans
+    And step plan 0 should have name "catalog"
 
   @pipeline @conditional
-  Scenario: Plan dashboard step skipped when catalog not updated
+  Scenario: Plan dashboard step always runs for job all
     Given a config with job "all"
     And a pipeline state with files_added true and catalog_updated false
     When I plan the dashboard step
-    Then I should get 0 step plans
+    Then I should get 1 step plans
+    And step plan 0 should have name "dashboard"
 
   # ==============================================================================
   # TIER 3: STATE TRANSITIONS

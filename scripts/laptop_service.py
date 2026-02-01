@@ -45,6 +45,7 @@ class GracefulShutdown:
     """Handle graceful shutdown on SIGTERM/SIGINT."""
 
     def __init__(self):
+        """Initialize shutdown handler."""
         self.shutdown_requested = False
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
@@ -54,6 +55,7 @@ class GracefulShutdown:
         self.shutdown_requested = True
 
     def should_stop(self) -> bool:
+        """Check if shutdown was requested."""
         return self.shutdown_requested
 
 

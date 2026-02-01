@@ -31,8 +31,8 @@ def main() -> None:
     try:
         run_db_migrations(args.db, args.migrations)
         logger.info("Database migrations completed successfully")
-    except Exception as exc:
-        logger.exception("Migration failed: %s", exc)
+    except Exception:
+        logger.exception("Migration failed")
         raise SystemExit(1)
 
 

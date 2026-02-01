@@ -24,18 +24,22 @@ class ExportPlan:
             ValueError: If plan is invalid
         """
         if not self.tribunals:
-            raise ValueError("ExportPlan: no tribunals to export")
+            msg = "ExportPlan: no tribunals to export"
+            raise ValueError(msg)
 
         # Validate date format (YYYY-MM-DD)
         try:
             parts = self.partition_date.split("-")
             if len(parts) != 3:
-                raise ValueError("Invalid date format")
+                msg = "Invalid date format"
+                raise ValueError(msg)  # noqa: TRY301
             year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
             if not (1000 <= year <= 9999 and 1 <= month <= 12 and 1 <= day <= 31):
-                raise ValueError("Invalid date values")
+                msg = "Invalid date values"
+                raise ValueError(msg)  # noqa: TRY301
         except (ValueError, AttributeError) as e:
-            raise ValueError(f"ExportPlan: invalid date format '{self.partition_date}': {e}")
+            msg = f"ExportPlan: invalid date format '{self.partition_date}': {e}"
+            raise ValueError(msg) from e
 
 
 @dataclass(frozen=True)
@@ -61,13 +65,16 @@ class TribunalExportResult:
             pass
 
         if not self.success and not self.error:
-            raise ValueError("Failed exports must have an error message")
+            msg = "Failed exports must have an error message"
+            raise ValueError(msg)
 
         if self.success and self.error:
-            raise ValueError("Successful exports should not have an error message")
+            msg = "Successful exports should not have an error message"
+            raise ValueError(msg)
 
         if not self.success and (self.ia_url or self.row_count > 0):
-            raise ValueError("Failed exports should not have upload URL or row count")
+            msg = "Failed exports should not have upload URL or row count"
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)
@@ -134,13 +141,17 @@ class ExportResult:
             ValueError: If result is inconsistent
         """
         if len(self.tribunal_results) != self.total_tribunals:
-            raise ValueError(
+            msg = (
                 f"ExportResult: total_tribunals ({self.total_tribunals}) "
-                f"does not match tribunal_results length ({len(self.tribunal_results)})",
+                f"does not match tribunal_results length ({len(self.tribunal_results)})"
+            )
+            raise ValueError(
+                msg,
             )
 
         if self.duration_seconds < 0:
-            raise ValueError("ExportResult: duration_seconds cannot be negative")
+            msg = "ExportResult: duration_seconds cannot be negative"
+            raise ValueError(msg)
 
         # Validate each tribunal result
         for r in self.tribunal_results:

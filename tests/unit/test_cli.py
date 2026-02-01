@@ -28,7 +28,7 @@ def test_db_status(mock_db_connection):
     assert "Found tables: ['table1', 'table2']" in result.stdout
 
 
-def test_db_unknown_action(mock_db_connection):  # noqa: ARG001
+def test_db_unknown_action(mock_db_connection):
     """Test unknown db action."""
     result = runner.invoke(app, ["db", "unknown"])
     assert result.exit_code == 0

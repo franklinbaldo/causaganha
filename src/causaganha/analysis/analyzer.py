@@ -121,7 +121,7 @@ class DecisionAnalyzer:
             return result.data
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "analysis_failed",
                 intimation_id=intimation_id,
                 error=str(e),

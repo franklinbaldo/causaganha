@@ -92,20 +92,19 @@ async def run_daily_export() -> int:
         return 2
 
     except Exception as e:
-        logger.error("daily_export_error", error=str(e), exc_info=True)
+        logger.exception("daily_export_error", error=str(e))
         return 3
 
 
 def main() -> int:
     """Main entry point."""
     try:
-        exit_code = asyncio.run(run_daily_export())
-        return exit_code
+        return asyncio.run(run_daily_export())
     except KeyboardInterrupt:
         logger.warning("daily_export_interrupted")
         return 130  # Standard exit code for SIGINT
     except Exception as e:
-        logger.error("daily_export_fatal_error", error=str(e), exc_info=True)
+        logger.exception("daily_export_fatal_error", error=str(e))
         return 3
 
 

@@ -135,7 +135,7 @@ def main() -> int:
         return 2
 
     except Exception as e:
-        logger.error("health_check_error", error=str(e), exc_info=True)
+        logger.exception("health_check_error", error=str(e))
         print(f"UNKNOWN: Health check failed - {e}")
         return 3
 

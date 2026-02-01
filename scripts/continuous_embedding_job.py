@@ -199,14 +199,12 @@ async def process_with_timeout(
     )
 
     # Process batch (will respect timeout internally if needed)
-    stats = await pipeline.process_batch(
+    return await pipeline.process_batch(
         intimation_ids=intimation_ids,
         text_loader=load_decision_text,
         progress_callback=progress_callback,
         progress_interval=10,  # Log every 10 decisions
     )
-
-    return stats
 
 
 def save_statistics(stats: BatchStats, args: argparse.Namespace):

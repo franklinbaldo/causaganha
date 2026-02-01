@@ -95,7 +95,7 @@ DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 # ── Pure Functions: Config ────────────────────────────────────
 
 
-def make_config(  # noqa: PLR0913
+def make_config(
     *,
     job: str,
     date: str,

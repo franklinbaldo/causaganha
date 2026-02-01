@@ -1,4 +1,4 @@
-"""Parquet Data Lake Export Module
+"""Parquet Data Lake Export Module.
 
 Exports analyzed judicial decisions from DuckDB to Parquet files
 using hierarchical date+tribunal partitioning for Internet Archive.
@@ -42,7 +42,7 @@ class ExportConfig:
 class ParquetExporter:
     """Exports intimations from DuckDB to Parquet files."""
 
-    def __init__(self, db_connection, config: ExportConfig | None = None):
+    def __init__(self, db_connection, config: ExportConfig | None = None) -> None:
         """Initialize Parquet exporter.
 
         Args:
@@ -76,12 +76,15 @@ class ParquetExporter:
         logger.info(f"Exporting {tribunal} for {partition_date}")
 
         # Query data from DuckDB (in thread)
-        df = await asyncio.to_thread(self._query_intimations, partition_date, tribunal)
-        row_count = len(df)
+        intimations_frame = await asyncio.to_thread(
+            self._query_intimations, partition_date, tribunal
+        )
+        row_count = len(intimations_frame)
 
         if row_count == 0:
+            msg = f"No data found for tribunal={tribunal}, date={partition_date}"
             raise ValueError(
-                f"No data found for tribunal={tribunal}, date={partition_date}",
+                msg,
             )
 
         logger.info(f"Found {row_count} rows to export")
@@ -91,7 +94,7 @@ class ParquetExporter:
         file_path = self.config.output_dir / filename
 
         # Convert to PyArrow table
-        table = self._dataframe_to_arrow(df)
+        table = self._dataframe_to_arrow(intimations_frame)
 
         # Write Parquet file (in thread)
         await asyncio.to_thread(self._write_parquet, table, file_path)
@@ -124,7 +127,8 @@ class ParquetExporter:
         tribunals = self._get_tribunals_for_date(partition_date)
 
         if not tribunals:
-            raise ValueError(f"No data found for date={partition_date}")
+            msg = f"No data found for date={partition_date}"
+            raise ValueError(msg)
 
         logger.info(f"Found {len(tribunals)} tribunals with data")
 
@@ -136,8 +140,8 @@ class ParquetExporter:
                     tribunal,
                 )
                 results.append((tribunal, file_path, row_count))
-            except Exception as e:
-                logger.error(f"Failed to export {tribunal}: {e}")
+            except Exception:
+                logger.exception(f"Failed to export {tribunal}")
                 # Continue with other tribunals
                 continue
 
@@ -163,8 +167,8 @@ class ParquetExporter:
         logger.info(f"Exporting lawyers for {tribunal} {partition_date}")
 
         # Query data (in thread)
-        df = await asyncio.to_thread(self._query_lawyers, partition_date, tribunal)
-        row_count = len(df)
+        lawyers_frame = await asyncio.to_thread(self._query_lawyers, partition_date, tribunal)
+        row_count = len(lawyers_frame)
 
         # Filename
         filename = f"{tribunal}-{partition_date}-advogados.parquet"
@@ -172,7 +176,7 @@ class ParquetExporter:
 
         if row_count > 0:
             # Write Parquet file (in thread)
-            await asyncio.to_thread(self._write_parquet, df, file_path)
+            await asyncio.to_thread(self._write_parquet, lawyers_frame, file_path)
 
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(
@@ -286,15 +290,15 @@ class ParquetExporter:
         logger.info(f"Exporting parties for {tribunal} {partition_date}")
 
         # Query data (in thread)
-        df = await asyncio.to_thread(self._query_parties, partition_date, tribunal)
-        row_count = len(df)
+        parties_frame = await asyncio.to_thread(self._query_parties, partition_date, tribunal)
+        row_count = len(parties_frame)
 
         filename = f"{tribunal}-{partition_date}-partes.parquet"
         file_path = self.config.output_dir / filename
 
         if row_count > 0:
             # Write Parquet file (in thread)
-            await asyncio.to_thread(self._write_parquet, df, file_path)
+            await asyncio.to_thread(self._write_parquet, parties_frame, file_path)
 
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(

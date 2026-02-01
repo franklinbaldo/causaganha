@@ -109,9 +109,9 @@ class GroundTruthManager:
         existing_ids = set()
         if self.vector_store.table_exists(self.table_name):
             table = self.vector_store.get_table(self.table_name)
-            df = table.to_pandas()
-            if not df.empty and "intimation_id" in df.columns:
-                existing_ids = set(df["intimation_id"].tolist())
+            existing_records = table.to_pandas()
+            if not existing_records.empty and "intimation_id" in existing_records.columns:
+                existing_ids = set(existing_records["intimation_id"].tolist())
 
         # 3. Filter new records
         new_records = [r for r in records if r[0] not in existing_ids]

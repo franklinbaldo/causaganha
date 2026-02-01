@@ -316,7 +316,7 @@ class RAGAnalyzer:
         return results
 
     @staticmethod
-    def calculate_cost(num_decisions: int, avg_chunks_per_decision: int = 5) -> float:
+    def calculate_cost(num_decisions: int, _avg_chunks_per_decision: int = 5) -> float:
         """Calculate the cost of analyzing decisions with zero-shot RAG.
 
         Args:
@@ -327,6 +327,6 @@ class RAGAnalyzer:
             Estimated cost in USD.
         """
         # Cost includes:
-        # - One-time: embed outcome phrases (4 outcomes × ~4 phrases = 16 embeddings)
+        # - One-time: embed outcome phrases (4 outcomes x ~4 phrases = 16 embeddings)
         # - Per decision: embed chunks (~5 chunks per decision)
         return num_decisions * COST_PER_DECISION

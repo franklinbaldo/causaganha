@@ -149,6 +149,7 @@ async def process_batch_with_retry(
             else:
                 logger.error("batch_failed_permanently", error=str(e))
                 raise
+    return None
 
 
 async def continuous_processing_loop(

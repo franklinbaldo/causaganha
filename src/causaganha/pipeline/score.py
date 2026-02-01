@@ -174,7 +174,7 @@ async def calculate_ratings(
                 processed += 1
 
             except Exception as e:
-                logger.error("rating_failed", analysis_id=analysis["id"], error=str(e))
+                logger.exception("rating_failed", analysis_id=analysis["id"], error=str(e))
                 failed += 1
 
         logger.info(
@@ -190,7 +190,7 @@ async def calculate_ratings(
         }
 
     except Exception as e:
-        logger.error("rating_pipeline_failed", error=str(e))
+        logger.exception("rating_pipeline_failed", error=str(e))
         return {
             "processed": processed,
             "failed": failed,

@@ -113,19 +113,10 @@ async def test_concurrent_embeddings(
     }
 
 
-async def find_optimal_rate():
+async def find_optimal_rate() -> None:
     """Find optimal rate limit through progressive stress testing."""
-    print("=" * 80)
-    print("🧪 EXPERIMENT: Jina AI Rate Limit Stress Test")
-    print("=" * 80)
-    print()
-
     # Initialize Jina service
-    print("📋 Initializing Jina embedding service...")
     service = EmbeddingService(provider="jina")
-    print(f"✓ Provider: {service.provider_name}")
-    print(f"✓ Dimension: {service.provider.dimension}")
-    print()
 
     # Test configurations: (concurrency, total_requests)
     test_configs = [
@@ -139,53 +130,23 @@ async def find_optimal_rate():
 
     results = []
 
-    for concurrency, total_requests, description in test_configs:
-        print(f"📊 Test: {description}")
-        print(f"   Concurrency: {concurrency}, Total requests: {total_requests}")
-
+    for concurrency, total_requests, _description in test_configs:
         result = await test_concurrent_embeddings(concurrency, total_requests, service)
 
         results.append(result)
 
         # Display results
-        print(f"   ✓ Completed in {result['elapsed_time']:.2f}s")
-        print(f"   ✓ Success rate: {result['success_rate']:.1f}%")
-        print(
-            f"   ✓ Successes: {result['successes']}, "
-            f"Rate limited: {result['rate_limited']}, "
-            f"Errors: {result['errors']}",
-        )
-        print(
-            f"   ✓ Throughput: {result['requests_per_second']:.2f} requests/second",
-        )
-        print(
-            f"   ✓ Latency (avg/p50/p95/p99): "
-            f"{result['avg_latency']:.3f}s / "
-            f"{result['p50_latency']:.3f}s / "
-            f"{result['p95_latency']:.3f}s / "
-            f"{result['p99_latency']:.3f}s",
-        )
-        print()
 
         # If we hit significant rate limiting, stop
         if result["rate_limited"] > total_requests * 0.3:  # >30% rate limited
-            print(f"⚠️  High rate limiting detected ({result['rate_limited']} requests)")
-            print("   Stopping stress test to avoid further rate limits")
-            print()
             break
 
         # Wait between tests to avoid cumulative rate limiting
         if concurrency >= 10:
             wait_time = 5
-            print(f"   ⏳ Waiting {wait_time}s before next test...")
             await asyncio.sleep(wait_time)
-            print()
 
     # Analysis
-    print("=" * 80)
-    print("📈 ANALYSIS & RECOMMENDATIONS")
-    print("=" * 80)
-    print()
 
     # Find optimal concurrency (highest success rate with minimal rate limiting)
     optimal = None
@@ -195,132 +156,31 @@ async def find_optimal_rate():
                 optimal = result
 
     if optimal:
-        print("✅ OPTIMAL CONFIGURATION FOUND:")
-        print(f"   Concurrency: {optimal['concurrency']}")
-        print(f"   Success rate: {optimal['success_rate']:.1f}%")
-        print(f"   Throughput: {optimal['requests_per_second']:.2f} req/s")
-        print(f"   Average latency: {optimal['avg_latency']:.3f}s")
-        print()
-
         # Production recommendations
         safety_margin = 0.7  # Use 70% of optimal to be safe
-        recommended_concurrency = max(1, int(optimal["concurrency"] * safety_margin))
-        recommended_rps = optimal["requests_per_second"] * safety_margin
-
-        print("💡 PRODUCTION RECOMMENDATIONS:")
-        print(f"   Recommended concurrency: {recommended_concurrency}")
-        print(f"   Max requests/second: {recommended_rps:.1f}")
-        print(f"   Rate limit interval: {1 / recommended_rps:.3f}s between requests")
-        print()
+        max(1, int(optimal["concurrency"] * safety_margin))
+        optimal["requests_per_second"] * safety_margin
 
         # Configuration code
-        print("📝 CONFIGURATION CODE:")
-        print()
-        print("```python")
-        print("# Add to your pipeline configuration")
-        print(f"MAX_CONCURRENT_EMBEDDINGS = {recommended_concurrency}")
-        print(f"EMBEDDING_RATE_LIMIT = {recommended_rps:.1f}  # requests per second")
-        print(f"EMBEDDING_RATE_INTERVAL = {1 / recommended_rps:.3f}  # seconds between requests")
-        print()
-        print("# Usage with asyncio.Semaphore")
-        print("semaphore = asyncio.Semaphore(MAX_CONCURRENT_EMBEDDINGS)")
-        print("async with semaphore:")
-        print("    embedding = await service.embed_text(text)")
-        print("```")
-        print()
 
     else:
-        print("⚠️  Could not determine optimal configuration")
-        print("   All tested concurrency levels had significant rate limiting")
-        print()
-        print("💡 RECOMMENDATION: Start with concurrency = 1-2")
-        print()
+        pass
 
     # Summary table
-    print("=" * 80)
-    print("📊 DETAILED RESULTS")
-    print("=" * 80)
-    print()
-    print(
-        f"{'Concurrency':<12} {'Requests':<10} {'Success':<10} "
-        f"{'Rate Limited':<15} {'RPS':<10} {'Avg Latency':<12}",
-    )
-    print("-" * 80)
     for result in results:
-        print(
-            f"{result['concurrency']:<12} "
-            f"{result['total_requests']:<10} "
-            f"{result['successes']:<10} "
-            f"{result['rate_limited']:<15} "
-            f"{result['requests_per_second']:<10.2f} "
-            f"{result['avg_latency']:<12.3f}",
-        )
-    print()
+        pass
 
     # Rate limiting patterns
     total_rate_limited = sum(r["rate_limited"] for r in results)
     if total_rate_limited > 0:
-        print("⚠️  RATE LIMITING OBSERVED:")
-        print(f"   Total rate-limited requests: {total_rate_limited}")
-        print()
-        print("   Jina AI appears to have:")
         breaking_point = next(
             (r for r in results if r["rate_limited"] > r["total_requests"] * 0.2),
             None,
         )
         if breaking_point:
-            print(
-                f"   • Rate limit threshold around {breaking_point['concurrency']} concurrent requests",
-            )
-            print(
-                f"   • Recommend staying below {max(1, breaking_point['concurrency'] - 5)} concurrent",
-            )
-        print()
-
-    print("=" * 80)
-    print("✅ STRESS TEST COMPLETE")
-    print("=" * 80)
-    print()
+            pass
 
     # Official documentation comparison
-    print("=" * 80)
-    print("📚 OFFICIAL JINA AI RATE LIMITS (Free Tier)")
-    print("=" * 80)
-    print()
-    print("According to official documentation:")
-    print("  • RPM (Requests Per Minute): 100 (~1.67 req/s)")
-    print("  • TPM (Tokens Per Minute): 100,000")
-    print("  • Concurrent Requests: 2")
-    print("  • IP-based limit: 10,000 requests/60s")
-    print()
-    print("📊 EMPIRICAL vs DOCUMENTED:")
-    print(
-        f"  • Our max throughput: {optimal['requests_per_second']:.2f} req/s"
-        if optimal
-        else "  • Could not determine",
-    )
-    print("  • Documented limit: 1.67 req/s (100 RPM)")
-    print(
-        f"  • Match: {'✅ Yes' if optimal and optimal['requests_per_second'] < 1.7 else '⚠️ Approaching limit'}",
-    )
-    print()
-    print(
-        f"  • Our optimal concurrency: {optimal['concurrency']}"
-        if optimal
-        else "  • Could not determine",
-    )
-    print("  • Documented limit: 2 concurrent")
-    print(
-        f"  • Match: {'✅ Yes' if optimal and optimal['concurrency'] <= 2 else '❌ Exceeds limit'}",
-    )
-    print()
-    print("💡 CONCLUSION:")
-    print("  • Free tier bottleneck: Concurrent request limit (2)")
-    print("  • RPM limit (100) is secondary constraint")
-    print("  • Token limit (100K TPM) unlikely to be hit with legal text")
-    print()
-    print("📖 Full documentation: docs/JINA_RATE_LIMITS.md")
-    print()
 
 
 if __name__ == "__main__":

@@ -107,7 +107,7 @@ def main():
     console.print("\n[yellow]Método atual: MAX entre todos os chunks[/yellow]\n")
 
     final_scores_max = {}
-    for outcome in analyzer.reference_phrases.keys():
+    for outcome in analyzer.reference_phrases:
         all_chunk_maxes = [
             detailed_scores[chunk_idx][outcome]["max"] for chunk_idx in range(len(chunks))
         ]
@@ -141,7 +141,7 @@ def main():
     console.print("\n[yellow]Estratégia 1: MÉDIA dos top-3 chunks por outcome[/yellow]\n")
 
     final_scores_top3 = {}
-    for outcome in analyzer.reference_phrases.keys():
+    for outcome in analyzer.reference_phrases:
         all_chunk_maxes = [
             detailed_scores[chunk_idx][outcome]["max"] for chunk_idx in range(len(chunks))
         ]
@@ -194,7 +194,7 @@ def main():
     )
 
     final_scores_weighted = {}
-    for outcome in analyzer.reference_phrases.keys():
+    for outcome in analyzer.reference_phrases:
         weighted_sum = 0
         total_weight = 0
         for chunk_idx in range(len(chunks)):
