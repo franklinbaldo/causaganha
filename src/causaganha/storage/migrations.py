@@ -48,33 +48,33 @@ MIGRATIONS = [
         "up": "CREATE UNIQUE INDEX IF NOT EXISTS intimation_lawyers_unique ON intimation_lawyers (intimation_id, oab_number, oab_state)",
         "down": "DROP INDEX IF EXISTS intimation_lawyers_unique",
     },
-    # Migration 6: Create decision_analysis view for compatibility
+    # Migration 6: Create decision_analysis view for compatibility (Deprecated/No-op for new schema)
     {
         "version": 6,
         "name": "create_decision_analysis_view",
-        "up": "CREATE OR REPLACE VIEW decision_analysis AS SELECT * FROM analysis_results",
-        "down": "DROP VIEW IF EXISTS decision_analysis",
+        "up": "SELECT 1",
+        "down": "SELECT 1",
     },
-    # Migration 7: Add created_at to analysis_results if missing
+    # Migration 7: Add created_at to decision_analysis if missing
     {
         "version": 7,
         "name": "add_analysis_results_created_at",
-        "up": "ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
-        "down": "ALTER TABLE analysis_results DROP COLUMN IF EXISTS created_at",
+        "up": "ALTER TABLE decision_analysis ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+        "down": "ALTER TABLE decision_analysis DROP COLUMN IF EXISTS created_at",
     },
-    # Migration 8: Add rated column to analysis_results if missing
+    # Migration 8: Add rated column to decision_analysis if missing
     {
         "version": 8,
         "name": "add_analysis_results_rated",
-        "up": "ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS rated BOOLEAN DEFAULT FALSE",
-        "down": "ALTER TABLE analysis_results DROP COLUMN IF EXISTS rated",
+        "up": "ALTER TABLE decision_analysis ADD COLUMN IF NOT EXISTS rated BOOLEAN DEFAULT FALSE",
+        "down": "ALTER TABLE decision_analysis DROP COLUMN IF EXISTS rated",
     },
-    # Migration 9: Add rated_at column to analysis_results if missing
+    # Migration 9: Add rated_at column to decision_analysis if missing
     {
         "version": 9,
         "name": "add_analysis_results_rated_at",
-        "up": "ALTER TABLE analysis_results ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP",
-        "down": "ALTER TABLE analysis_results DROP COLUMN IF EXISTS rated_at",
+        "up": "ALTER TABLE decision_analysis ADD COLUMN IF NOT EXISTS rated_at TIMESTAMP",
+        "down": "ALTER TABLE decision_analysis DROP COLUMN IF EXISTS rated_at",
     },
     # Migration 10: Create ratings_history table
     {
@@ -117,6 +117,66 @@ MIGRATIONS = [
             )
         """,
         "down": "DROP TABLE IF EXISTS classificacoes",
+    },
+    # Migration 12: Create git_refs table
+    {
+        "version": 12,
+        "name": "create_git_refs",
+        "up": """
+            CREATE TABLE IF NOT EXISTS git_refs (
+                ref_name VARCHAR PRIMARY KEY,
+                commit_hash CHAR(40) NOT NULL,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """,
+        "down": "DROP TABLE IF EXISTS git_refs",
+    },
+    # Migration 13: Create git_commits table
+    {
+        "version": 13,
+        "name": "create_git_commits",
+        "up": """
+            CREATE TABLE IF NOT EXISTS git_commits (
+                commit_hash CHAR(40) PRIMARY KEY,
+                message TEXT,
+                author_name VARCHAR(255),
+                author_email VARCHAR(255),
+                committed_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """,
+        "down": "DROP TABLE IF EXISTS git_commits",
+    },
+    # Migration 14: Create asset_cache table
+    {
+        "version": 14,
+        "name": "create_asset_cache",
+        "up": """
+            CREATE TABLE IF NOT EXISTS asset_cache (
+                key VARCHAR PRIMARY KEY,
+                content BLOB,
+                media_type VARCHAR(100),
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_asset_cache_expires ON asset_cache(expires_at);
+        """,
+        "down": "DROP TABLE IF EXISTS asset_cache",
+    },
+    # Migration 15: Create messages table
+    {
+        "version": 15,
+        "name": "create_messages",
+        "up": """
+            CREATE TABLE IF NOT EXISTS messages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                role VARCHAR(20) NOT NULL,
+                content TEXT,
+                media_type VARCHAR(50) CHECK (media_type IN ('text/plain', 'text/html', 'application/json', 'image/png', 'image/jpeg')),
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """,
+        "down": "DROP TABLE IF EXISTS messages",
     },
 ]
 

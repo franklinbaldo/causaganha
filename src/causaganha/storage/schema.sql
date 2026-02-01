@@ -194,6 +194,43 @@ CREATE TABLE IF NOT EXISTS parquet_exports (
     UNIQUE (ia_item_id)
 );
 
+-- Git Context (Time Machine)
+CREATE TABLE IF NOT EXISTS git_refs (
+    ref_name VARCHAR PRIMARY KEY,
+    commit_hash CHAR(40) NOT NULL,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS git_commits (
+    commit_hash CHAR(40) PRIMARY KEY,
+    message TEXT,
+    author_name VARCHAR(255),
+    author_email VARCHAR(255),
+    committed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Asset Cache (for caching API responses/assets)
+CREATE TABLE IF NOT EXISTS asset_cache (
+    key VARCHAR PRIMARY KEY,
+    content BLOB,
+    media_type VARCHAR(100),
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_asset_cache_expires
+    ON asset_cache(expires_at);
+
+-- Messages (LLM interaction logs)
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role VARCHAR(20) NOT NULL, -- 'user', 'assistant', 'system'
+    content TEXT,
+    media_type VARCHAR(50) CHECK (media_type IN ('text/plain', 'text/html', 'application/json', 'image/png', 'image/jpeg')),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_intimations_tribunal_date
     ON intimations(sigla_tribunal, data_disponibilizacao DESC);
