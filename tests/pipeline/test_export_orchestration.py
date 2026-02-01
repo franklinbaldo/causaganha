@@ -181,7 +181,7 @@ class TestPureOrchestrator:
 
     def test_plan_export_invalid_date_raises(self):
         """plan_export validates date format."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="invalid date format"):
             PureOrchestrator.plan_export(
                 "invalid-date",
                 ("TJSP",),

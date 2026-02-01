@@ -86,7 +86,7 @@ def test_parallel_export():
 
                 size_mb = output_path.stat().st_size / (1024 * 1024)
                 print(
-                    f"  [OK] {table_name:20} | {count:7d} rows | {size_mb:6.1f} MB | {elapsed:6.2f}s"
+                    f"  [OK] {table_name:20} | {count:7d} rows | {size_mb:6.1f} MB | {elapsed:6.2f}s",
                 )
                 return True, 1, elapsed
             except Exception as e:

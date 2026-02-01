@@ -580,7 +580,9 @@ def main() -> int:
     parser.add_argument("--max-items", type=int, default=50)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
     parser.add_argument(
-        "--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m"
+        "--deadline",
+        help="Exit after this duration (e.g., 10m, 600s)",
+        default="10m",
     )
     args = parser.parse_args()
 

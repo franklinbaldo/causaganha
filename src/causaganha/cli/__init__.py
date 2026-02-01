@@ -409,7 +409,9 @@ def export_parquet(
             exporter = ParquetExporter(con, ExportConfig())
             uploader = InternetArchiveUploader(UploadConfig())
             orchestrator = ExportOrchestrator(
-                repository, exporter, uploader
+                repository,
+                exporter,
+                uploader,
             )  # Updated: inject repository
 
             cleanup_files = not no_cleanup
