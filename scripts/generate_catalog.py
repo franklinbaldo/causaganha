@@ -90,7 +90,7 @@ def list_item_files(item_id: str) -> list[dict]:
         logger.warning("invalid_item_id", item_id=item_id)
         return []
 
-    output = run_ia_command(["list", item_id, "--all", "--glob", "*.{zip,parquet,absent}"])
+    output = run_ia_command(["list", item_id])
 
     if not output:
         logger.debug("no_files_for_item", item_id=item_id)
