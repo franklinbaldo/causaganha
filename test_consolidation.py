@@ -4,21 +4,23 @@
 import sys
 import tempfile
 import time
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 
 sys.path.insert(0, "/c/Users/frank/workspace/causaganha")
 
 import ibis
 import structlog
+
 from scripts.pipeline.consolidate import (
-    extract_json_from_zip,
-    parse_records,
-    init_tables,
-    upload_to_ia,
     TABLE_SCHEMAS,
     TABLES,
+    extract_json_from_zip,
+    init_tables,
+    parse_records,
 )
+
 
 logger = structlog.get_logger()
 
@@ -43,7 +45,7 @@ def test_parallel_export():
 
         records = extract_json_from_zip(zip_file)
         if not records:
-            print(f"  [!] No records found")
+            print("  [!] No records found")
             continue
 
         print(f"  [OK] Extracted {len(records)} records")
@@ -78,17 +80,17 @@ def test_parallel_export():
                 output_path = output_dir / f"{table_name}.parquet"
                 start = time.time()
                 con.raw_sql(
-                    f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)"
+                    f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
                 )
                 elapsed = time.time() - start
 
                 size_mb = output_path.stat().st_size / (1024 * 1024)
                 print(
-                    f"  [OK] {table_name:20} | {count:7d} rows | {size_mb:6.1f} MB | {elapsed:6.2f}s"
+                    f"  [OK] {table_name:20} | {count:7d} rows | {size_mb:6.1f} MB | {elapsed:6.2f}s",
                 )
                 return True, 1, elapsed
             except Exception as e:
-                print(f"  [ERROR] {table_name:20} | ERROR: {str(e)}")
+                print(f"  [ERROR] {table_name:20} | ERROR: {e!s}")
                 return False, 0, 0
 
         # Test SEQUENTIAL export first (baseline)
@@ -138,11 +140,8 @@ def test_parallel_export():
         if speedup >= 1.5:
             print("[SUCCESS] OPTIMIZATION SUCCESSFUL - Parallel is significantly faster")
             return 0
-        else:
-            print(
-                "[INFO] Parallel not significantly faster (may still help with I/O-bound operations)"
-            )
-            return 0
+        print("[INFO] Parallel not significantly faster (may still help with I/O-bound operations)")
+        return 0
 
 
 if __name__ == "__main__":

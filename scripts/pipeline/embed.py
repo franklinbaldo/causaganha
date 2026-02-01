@@ -230,7 +230,9 @@ def main():
     parser.add_argument("--max-decisions", type=int, default=500)
     parser.add_argument("--timeout-minutes", type=int, default=50)
     parser.add_argument(
-        "--deadline", help="Exit after this duration (e.g., 10m, 600s)", default="10m"
+        "--deadline",
+        help="Exit after this duration (e.g., 10m, 600s)",
+        default="10m",
     )
     parser.add_argument("--db-path", default="data/embeddings.duckdb")
     args = parser.parse_args()

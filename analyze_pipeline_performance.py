@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Comprehensive pipeline performance analyzer.
+"""Comprehensive pipeline performance analyzer.
 
 Measures:
   - Execution time per step
@@ -17,11 +16,18 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import structlog
+
+
+# Constants
+BYTES_PER_KB = 1024
+FAST_STEP_THRESHOLD = 20
+SLOW_STEP_THRESHOLD = 30
+HIGH_MEMORY_THRESHOLD = 500
 
 logger = structlog.get_logger()
 
@@ -41,10 +47,12 @@ class StepMetrics:
 
     @property
     def duration_sec(self) -> float:
+        """Calculate step duration in seconds."""
         return self.end_time - self.start_time
 
     @property
     def to_dict(self) -> dict[str, Any]:
+        """Convert metrics to dictionary for JSON serialization."""
         return {
             "name": self.name,
             "duration_sec": round(self.duration_sec, 2),
@@ -85,38 +93,38 @@ def run_step_with_metrics(
     output_extensions: list[str],
 ) -> StepMetrics:
     """Run a pipeline step and measure its performance."""
-    print(f"\n{'=' * 70}")
-    print(f"  STEP: {name}")
-    print(f"{'=' * 70}")
-    print(f"Command: {' '.join(command)}")
-    print()
+    logger.info(
+        "Running pipeline step",
+        step=name,
+        command=" ".join(command),
+    )
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Get initial state
     files_before, bytes_before = count_output_files(output_dir, output_extensions)
-    memory_before = get_memory_usage()
 
     start_time = time.time()
 
     # Run step
+    returncode = 0
     try:
         result = subprocess.run(
             command,
             cwd=str(output_dir.parent),
             capture_output=False,
-            timeout=600,  # 10 minute timeout
+            timeout=600,
+            check=False,
         )
         returncode = result.returncode
     except subprocess.TimeoutExpired:
         returncode = 124
-        print(f"TIMEOUT after 600 seconds")
-    except Exception as e:
+        logger.exception("Pipeline step timeout after 600 seconds", step=name)
+    except OSError:
         returncode = 1
-        print(f"ERROR: {e}")
+        logger.exception("Pipeline step failed", step=name)
 
     end_time = time.time()
-    duration = end_time - start_time
 
     # Get final state
     files_after, bytes_after = count_output_files(output_dir, output_extensions)
@@ -134,18 +142,19 @@ def run_step_with_metrics(
         memory_peak_mb=memory_peak,
         files_created=files_created,
         bytes_created=bytes_created,
-        network_calls=0,  # TODO: trace network calls
+        network_calls=0,
     )
 
-    # Print summary
-    status = "✓ SUCCESS" if returncode == 0 else "✗ FAILED"
-    print(f"\n{status}")
-    print(f"  Duration: {metrics.duration_sec:.2f}s")
-    print(f"  Memory: {metrics.memory_peak_mb:.1f} MB")
-    print(f"  Files created: {files_created}")
-    if bytes_created > 0:
-        size_mb = bytes_created / 1024 / 1024
-        print(f"  Data created: {size_mb:.1f} MB")
+    # Log summary
+    logger.info(
+        "Pipeline step completed",
+        step=name,
+        duration_sec=round(metrics.duration_sec, 2),
+        memory_mb=round(metrics.memory_peak_mb, 1),
+        files_created=files_created,
+        bytes_created=bytes_created,
+        success=returncode == 0,
+    )
 
     return metrics
 
@@ -153,87 +162,92 @@ def run_step_with_metrics(
 def format_bytes(b: int) -> str:
     """Format bytes to human readable."""
     for unit in ["B", "KB", "MB", "GB"]:
-        if b < 1024:
+        if b < BYTES_PER_KB:
             return f"{b:.1f} {unit}"
-        b /= 1024
+        b /= BYTES_PER_KB
     return f"{b:.1f} TB"
 
 
 def analyze_results(metrics: list[StepMetrics]) -> None:
     """Analyze and print performance results."""
-    print(f"\n\n{'=' * 70}")
-    print("  PERFORMANCE ANALYSIS")
-    print(f"{'=' * 70}\n")
-
-    # Summary table
-    print("Step Performance:")
-    print(f"  {'Step':<15} {'Duration':<10} {'Memory':<10} {'Output':<15}")
-    print("-" * 50)
-
-    total_time = 0
+    total_time = 0.0
     for m in metrics:
-        status = "✓" if m.returncode == 0 else "✗"
-        output_size = format_bytes(m.bytes_created) if m.bytes_created > 0 else "—"
-        print(
-            f"  {status} {m.name:<13} {m.duration_sec:>6.2f}s    "
-            f"{m.memory_peak_mb:>6.1f}MB   {output_size:<12}"
-        )
         if m.returncode == 0:
             total_time += m.duration_sec
 
-    print("-" * 50)
-    print(f"  Total: {total_time:.2f}s\n")
+    logger.info("Performance analysis started", steps=len(metrics))
 
-    # Bottlenecks
-    print("Bottlenecks (slowest steps):")
+    # Summary statistics
     sorted_by_time = sorted(metrics, key=lambda m: m.duration_sec, reverse=True)
+    successful = [m for m in metrics if m.returncode == 0]
+
+    # Log bottlenecks
     for i, m in enumerate(sorted_by_time[:3], 1):
         if m.returncode == 0:
             pct = (m.duration_sec / total_time * 100) if total_time > 0 else 0
-            print(f"  {i}. {m.name}: {m.duration_sec:.2f}s ({pct:.1f}%)")
+            logger.info(
+                "Bottleneck step",
+                rank=i,
+                name=m.name,
+                duration_sec=round(m.duration_sec, 2),
+                percentage=round(pct, 1),
+            )
 
     # Memory analysis
-    print("\nMemory usage:")
-    max_memory = max(m.memory_peak_mb for m in metrics)
-    print(f"  Peak: {max_memory:.1f} MB")
+    if metrics:
+        max_memory = max(m.memory_peak_mb for m in metrics)
+        logger.info("Memory analysis", peak_mb=round(max_memory, 1))
 
     # Parallelization potential
-    print("\nParallelization potential:")
-    sequential_time = sum(m.duration_sec for m in metrics if m.returncode == 0)
-    parallel_candidates = [m for m in metrics if m.returncode == 0 and m.duration_sec < 20]
+    parallel_candidates = [m for m in successful if m.duration_sec < FAST_STEP_THRESHOLD]
     if parallel_candidates:
         estimated_parallel = max(m.duration_sec for m in parallel_candidates)
-        speedup = sequential_time / estimated_parallel if estimated_parallel > 0 else 1
-        print(f"  Sequential: {sequential_time:.2f}s")
-        print(f"  Parallel: ~{estimated_parallel:.2f}s (potential {speedup:.1f}x speedup)")
+        speedup = total_time / estimated_parallel if estimated_parallel > 0 else 1
+        logger.info(
+            "Parallelization potential",
+            sequential_sec=round(total_time, 2),
+            estimated_parallel_sec=round(estimated_parallel, 2),
+            potential_speedup=round(speedup, 1),
+        )
 
     # Recommendations
-    print("\nOptimization recommendations:")
-    slow_steps = [m for m in sorted_by_time if m.returncode == 0 and m.duration_sec > 30]
+    slow_steps = [
+        m for m in sorted_by_time if m.returncode == 0 and m.duration_sec > SLOW_STEP_THRESHOLD
+    ]
     if slow_steps:
-        print("  ⚠ Slow steps (>30s):")
         for m in slow_steps:
-            print(f"    - {m.name}: {m.duration_sec:.2f}s")
+            recommendation = ""
             if m.name == "CONSOLIDATE":
-                print(f"      → Increase --max-zips or parallelize table exports")
+                recommendation = "Increase --max-zips or parallelize table exports"
             elif m.name == "CATALOG":
-                print(f"      → Implement incremental updates instead of full rebuild")
+                recommendation = "Implement incremental updates instead of full rebuild"
             elif m.name == "COLLECT":
-                print(f"      → Batch multiple dates or parallelize per-tribunal")
+                recommendation = "Batch multiple dates or parallelize per-tribunal"
             elif m.name == "DASHBOARD":
-                print(f"      → Cache generated data, reduce API calls")
+                recommendation = "Cache generated data, reduce API calls"
 
-    high_memory = [m for m in metrics if m.memory_peak_mb > 500]
+            if recommendation:
+                logger.warning(
+                    "Slow step detected",
+                    name=m.name,
+                    duration_sec=round(m.duration_sec, 2),
+                    recommendation=recommendation,
+                )
+
+    high_memory = [m for m in metrics if m.memory_peak_mb > HIGH_MEMORY_THRESHOLD]
     if high_memory:
-        print("\n  ⚠ High memory usage (>500 MB):")
         for m in high_memory:
-            print(f"    - {m.name}: {m.memory_peak_mb:.1f} MB")
-            print(f"      → Stream processing or batch smaller datasets")
+            logger.warning(
+                "High memory usage detected",
+                name=m.name,
+                memory_mb=round(m.memory_peak_mb, 1),
+                recommendation="Stream processing or batch smaller datasets",
+            )
 
     # Export results
     results = {
-        "timestamp": datetime.now().isoformat(),
-        "total_duration_sec": total_time,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "total_duration_sec": round(total_time, 2),
         "steps": [m.to_dict for m in metrics],
     }
 
@@ -241,7 +255,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
     with output_file.open("w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\n✓ Results saved to: {output_file}")
+    logger.info("Performance analysis completed", output_file=str(output_file))
 
 
 def main() -> int:
@@ -253,10 +267,7 @@ def main() -> int:
             missing.append(key)
 
     if missing:
-        print(f"ERROR: Missing credentials: {', '.join(missing)}")
-        print("\nSet them before running:")
-        print(f"  export IAS3_ACCESS_KEY='...'")
-        print(f"  export IAS3_SECRET_KEY='...'")
+        logger.error("Missing credentials", missing_keys=missing)
         return 1
 
     repo_root = Path(__file__).parent
@@ -280,7 +291,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".zip"],
-            )
+            ),
         )
 
         # CONSOLIDATE
@@ -299,7 +310,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".parquet"],
-            )
+            ),
         )
 
         # EMBED
@@ -316,7 +327,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".duckdb"],
-            )
+            ),
         )
 
         # CATALOG
@@ -331,7 +342,7 @@ def main() -> int:
                 ],
                 output_dir,
                 [".parquet", ".duckdb", ".sql"],
-            )
+            ),
         )
 
         # DASHBOARD
@@ -346,11 +357,11 @@ def main() -> int:
                 ],
                 output_dir,
                 [".json", ".xml"],
-            )
+            ),
         )
 
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
+        logger.info("Pipeline interrupted by user")
         return 130
 
     # Analyze and print results

@@ -704,9 +704,9 @@ def then_cmd_flag_value(context: dict[str, Any], flag: str, value: str) -> None:
 @then(parsers.parse('the command should include substring "{fragment}"'))
 def then_cmd_substring(context: dict[str, Any], fragment: str) -> None:
     cmd: tuple[str, ...] = context["cmd"]
-    assert any(fragment in elem for elem in cmd), (
-        f"Substring {fragment!r} not found in any element of {cmd}"
-    )
+    assert any(
+        fragment in elem for elem in cmd
+    ), f"Substring {fragment!r} not found in any element of {cmd}"
 
 
 @then("the builder should return a non-empty command tuple")
@@ -805,6 +805,6 @@ def then_text_contains(context: dict[str, Any], fragment: str) -> None:
 
 @then(parsers.parse('the formatted text should not contain "{fragment}"'))
 def then_text_not_contains(context: dict[str, Any], fragment: str) -> None:
-    assert fragment not in context["output"], (
-        f"{fragment!r} unexpectedly found in:\n{context['output']}"
-    )
+    assert (
+        fragment not in context["output"]
+    ), f"{fragment!r} unexpectedly found in:\n{context['output']}"
