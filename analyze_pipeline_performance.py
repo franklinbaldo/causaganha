@@ -215,20 +215,20 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
         for m in slow_steps:
             print(f"    - {m.name}: {m.duration_sec:.2f}s")
             if m.name == "CONSOLIDATE":
-                print(f"      → Increase --max-zips or parallelize table exports")
+                print(f"      [FIX] Increase --max-zips or parallelize table exports")
             elif m.name == "CATALOG":
-                print(f"      → Implement incremental updates instead of full rebuild")
+                print(f"      [FIX] Implement incremental updates instead of full rebuild")
             elif m.name == "COLLECT":
-                print(f"      → Batch multiple dates or parallelize per-tribunal")
+                print(f"      [FIX] Batch multiple dates or parallelize per-tribunal")
             elif m.name == "DASHBOARD":
-                print(f"      → Cache generated data, reduce API calls")
+                print(f"      [FIX] Cache generated data, reduce API calls")
 
     high_memory = [m for m in metrics if m.memory_peak_mb > 500]
     if high_memory:
         print("\n  [HIGH MEMORY] Memory usage (>500 MB):")
         for m in high_memory:
             print(f"    - {m.name}: {m.memory_peak_mb:.1f} MB")
-            print(f"      → Stream processing or batch smaller datasets")
+            print(f"      [FIX] Stream processing or batch smaller datasets")
 
     # Export results
     results = {
