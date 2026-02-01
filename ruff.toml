@@ -16,6 +16,7 @@ ignore = [
     "G004",     # f-string in logging OK (performance negligible for data pipeline)
     "COM812",   # trailing comma conflicts with ruff formatter
     "ISC001",   # implicit string concat conflicts with ruff formatter
+    "S608",     # Construction of SQL queries with f-strings
 ]
 
 [lint.per-file-ignores]

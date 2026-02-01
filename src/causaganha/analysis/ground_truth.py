@@ -86,7 +86,7 @@ class GroundTruthManager:
 
         # 1. Fetch data from DuckDB
         # We need intimation texts and their certified outcomes
-        query = f"""
+        query = f"""  # noqa: S608
             SELECT
                 i.id as intimation_id,
                 i.texto as text,

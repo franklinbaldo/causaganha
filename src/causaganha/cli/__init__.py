@@ -499,7 +499,7 @@ def export_status(
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         # Query exports
-        query = f"""
+        query = f"""  # noqa: S608
             SELECT
                 partition_date,
                 tribunal,
@@ -1311,7 +1311,7 @@ def _validate_parquet_schema(
 ) -> bool:
     """Check if parquet file has required columns."""
     try:
-        schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()  # noqa: S608
+        schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()
         columns = {row[0].lower() for row in schema}
         return all(col.lower() in columns for col in required_cols)
     except Exception:
@@ -1371,7 +1371,7 @@ def backfill_status(
 
         # Get summary stats with error handling for empty/malformed data
         try:
-            stats = con.execute(f"""
+            stats = con.execute(f"""  # noqa: S608
                 SELECT
                     COUNT(*) as total_missing,
                     COUNT(DISTINCT tribunal) as tribunals,
@@ -1409,7 +1409,7 @@ def backfill_status(
 
         # Get breakdown by tribunal
         typer.echo("\n📋 Missing by Tribunal:")
-        breakdown = con.execute(f"""
+        breakdown = con.execute(f"""  # noqa: S608
             SELECT
                 tribunal,
                 COUNT(*) as missing,

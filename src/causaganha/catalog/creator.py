@@ -62,7 +62,7 @@ class CatalogCreator:
         con = duckdb.connect(self.catalog_path)
 
         # Create view that references remote parquet
-        sql = f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{parquet_url}')"  # noqa: S608
+        sql = f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_parquet('{parquet_url}')"
         con.execute(sql)
 
         self.views.append(
