@@ -40,6 +40,7 @@ CALENDAR_DAYS = 120
 GITHUB_REPO = "franklinbaldo/causaganha"
 OUTPUT_DIR = Path(__file__).parent.parent / "dashboard" / "public" / "cache"
 MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+BACKFILL_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php"
     "?q=identifier:djen-20*"
@@ -189,6 +190,29 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
             return False
 
 
+def load_backfill_needed(con: duckdb.DuckDBPyConnection, backfill_path: str | None) -> bool:
+    """Load backfill-needed.parquet into DuckDB for progress calculation."""
+    source = backfill_path or BACKFILL_URL
+
+    if backfill_path:
+        print(f"  Loading backfill-needed from local file: {source}")
+    else:
+        print(f"  Loading backfill-needed from IA: {source}")
+
+    try:
+        con.execute(f"""
+            CREATE TABLE backfill_needed AS
+            SELECT * FROM read_parquet('{source}')
+        """)
+        count = con.execute("SELECT COUNT(*) FROM backfill_needed").fetchone()
+        print(f"  Loaded {count[0]} backfill entries")
+        return True
+    except Exception as e:
+        print(f"  Warning: Could not load backfill-needed: {e}", file=sys.stderr)
+        print("  Backfill progress will be estimated from date range...")
+        return False
+
+
 def fetch_item_sizes() -> dict[str, int]:
     """Fetch item sizes from IA search API (one bulk request)."""
     print("  Fetching item sizes from IA search API...")
@@ -287,8 +311,9 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         days_consolidated = row[3] if row else 0
 
         # Backfill progress: count collected date+tribunal combos vs total expected
+        # Both zip and absent count as "done" (absent = checked, no publication)
         done = con.execute(
-            "SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip'",
+            "SELECT COUNT(DISTINCT date || '|' || tribunal) FROM manifest WHERE file_type IN ('zip', 'absent')",
         ).fetchone()
         backfill_done = done[0] if done else 0
 
@@ -299,7 +324,13 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             ).fetchone()
             backfill_pending = pending[0] if pending else 0
         except Exception:
-            backfill_pending = 0
+            # Estimate total from date range: weekdays from 2024-01-01 to yesterday × tribunals
+            from datetime import date as date_type
+
+            start = date_type(2024, 1, 1)
+            end = date_type.today() - timedelta(days=1)
+            weekdays = sum(1 for i in range((end - start).days + 1) if (start + timedelta(days=i)).weekday() < 5)
+            backfill_pending = max(weekdays * len(TRIBUNALS) - backfill_done, 0)
 
         backfill_total = backfill_done + backfill_pending
         progress_pct = round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
@@ -642,6 +673,21 @@ def main() -> None:
     if not load_manifest(con, manifest_path):
         print("Error: Could not load manifest. Aborting.", file=sys.stderr)
         sys.exit(1)
+
+    # Load backfill-needed for progress calculation (non-fatal if missing)
+    backfill_path = None
+    if manifest_path:
+        # If manifest was downloaded manually, also download backfill
+        import tempfile as _tempfile
+
+        tmp_bf = Path(_tempfile.mkdtemp()) / "backfill-needed.parquet"
+        try:
+            print(f"  Downloading backfill-needed to {tmp_bf}...")
+            urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))  # noqa: S310
+            backfill_path = str(tmp_bf)
+        except Exception as e:
+            print(f"  Warning: Could not download backfill-needed: {e}", file=sys.stderr)
+    load_backfill_needed(con, backfill_path)
 
     manifest_populated = is_manifest_populated(con)
     data_source = "manifest.parquet" if manifest_populated else "IA metadata API (fallback)"
