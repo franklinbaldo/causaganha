@@ -1,0 +1,120 @@
+name: Cleanup IA Parquets
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List files without deleting (dry run)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Delete parquet files from IA
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+
+      - name: Delete parquet files from Internet Archive items
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+          IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+        run: |
+          uv run python -c "
+          import internetarchive as ia
+          import os
+          import sys
+
+          dry_run = os.environ.get('DRY_RUN', 'true') == 'true'
+          mode = 'DRY RUN' if dry_run else 'DELETE'
+          print(f'=== {mode} MODE ===')
+          print()
+
+          # Search for all causaganha djen items
+          search = ia.search_items('identifier:djen-* AND creator:CausaGanha')
+          items = sorted([r['identifier'] for r in search])
+          print(f'Found {len(items)} items: {items}')
+          print()
+
+          total_deleted = 0
+          total_size = 0
+          summary = []
+
+          for item_id in items:
+              item = ia.get_item(item_id)
+              parquets = [f for f in item.files if f['name'].endswith('.parquet')]
+
+              if not parquets:
+                  print(f'{item_id}: no parquets')
+                  continue
+
+              print(f'{item_id}: {len(parquets)} parquet file(s)')
+              for f in parquets:
+                  size = int(f.get('size', 0))
+                  total_size += size
+                  size_mb = size / (1024 * 1024)
+                  print(f'  - {f[\"name\"]} ({size_mb:.1f} MB)')
+
+                  if not dry_run:
+                      try:
+                          resp = item.modify_metadata(
+                              metadata={},
+                              target=f'files/{f[\"name\"]}',
+                          )
+                      except Exception:
+                          pass
+                      try:
+                          responses = ia.delete(
+                              item_id,
+                              files=[f['name']],
+                              cascade_delete=True,
+                              access_key=os.environ.get('IAS3_ACCESS_KEY'),
+                              secret_key=os.environ.get('IAS3_SECRET_KEY'),
+                          )
+                          ok = all(r.status_code == 204 for r in responses)
+                          status = 'DELETED' if ok else f'FAILED ({[r.status_code for r in responses]})'
+                          print(f'    -> {status}')
+                      except Exception as e:
+                          print(f'    -> ERROR: {e}')
+
+                  total_deleted += 1
+              summary.append((item_id, len(parquets)))
+
+          print()
+          print(f'=== SUMMARY ({mode}) ===')
+          print(f'Total items scanned: {len(items)}')
+          print(f'Total parquet files: {total_deleted}')
+          print(f'Total size: {total_size / (1024*1024):.1f} MB')
+          for item_id, count in summary:
+              print(f'  {item_id}: {count} parquets')
+
+          if dry_run:
+              print()
+              print('This was a DRY RUN. Re-run with dry_run=false to actually delete.')
+          "
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## Parquet Cleanup" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Mode: **${{ inputs.dry_run == 'true' && 'Dry Run' || 'Delete' }}**" >> $GITHUB_STEP_SUMMARY
