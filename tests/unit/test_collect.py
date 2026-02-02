@@ -45,9 +45,7 @@ def create_mock_zip_content(items):
 
 
 @pytest.mark.asyncio
-async def test_collect_metadata_success(
-    mock_connection, mock_store_intimations, mock_httpx_client
-):
+async def test_collect_metadata_success(mock_connection, mock_store_intimations, mock_httpx_client):
     """Test successful collection flow."""
     # Setup
     tribunal = "TJRO"

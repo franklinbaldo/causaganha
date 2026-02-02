@@ -297,10 +297,13 @@ def get_or_create_oracle_session(
     oracle_prompt: str | None = None
     try:
         persona_dir = _get_persona_dir()
-        loader = PersonaLoader(persona_dir, base_context={
-            "owner": repo_info["owner"],
-            "repo": repo,
-        })
+        loader = PersonaLoader(
+            persona_dir,
+            base_context={
+                "owner": repo_info["owner"],
+                "repo": repo,
+            },
+        )
         oracle_prompt_file = persona_dir / "oracle" / "prompt.md.j2"
         if not oracle_prompt_file.exists():
             oracle_prompt_file = persona_dir / "oracle" / "prompt.md"
@@ -767,9 +770,7 @@ def ensure_jules_branch() -> None:
         text=True,
     )
 
-    branch_exists_on_remote = (
-        remote_check.returncode == 0 and bool(remote_check.stdout.strip())
-    )
+    branch_exists_on_remote = remote_check.returncode == 0 and bool(remote_check.stdout.strip())
 
     if not branch_exists_on_remote:
         # Branch missing on remote — create locally and push
@@ -940,7 +941,9 @@ def run_scheduler(dry_run: bool = False) -> SchedulerResult:
     print("\n4. Checking CI status on main (informational)...")
     ci_ok, failing_commit = check_ci_status_on_main()
     if not ci_ok:
-        print(f"  CI is failing on main (commit: {failing_commit[:7] if failing_commit else 'unknown'})")
+        print(
+            f"  CI is failing on main (commit: {failing_commit[:7] if failing_commit else 'unknown'})"
+        )
         print("  Next persona will handle the fix naturally")
     else:
         print("  CI is passing on main")

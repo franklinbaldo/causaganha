@@ -61,7 +61,8 @@ class TestEnsureJulesBranchRemoteMissing:
 
         # Find the push call
         push_calls = [
-            c for c in mock_run.call_args_list
+            c
+            for c in mock_run.call_args_list
             if c.args and c.args[0] == ["git", "push", "-u", "origin", JULES_BRANCH]
         ]
         assert len(push_calls) == 1
@@ -91,6 +92,7 @@ class TestEnsureJulesBranchRemoteExists:
     @patch("repo.scheduler.stateless.subprocess.run")
     def test_preserves_existing_branch(self, mock_run):
         """Branch is left as-is to preserve unmerged commits."""
+
         def side_effect(cmd, **kwargs):
             if cmd == ["git", "ls-remote", "--heads", "origin", JULES_BRANCH]:
                 # ls-remote returns a ref → branch exists
@@ -116,6 +118,7 @@ class TestEnsureJulesBranchRemoteExists:
     @patch("repo.scheduler.stateless.subprocess.run")
     def test_no_push_when_branch_exists(self, mock_run):
         """No push operations when branch already exists on remote."""
+
         def side_effect(cmd, **kwargs):
             if cmd == ["git", "ls-remote", "--heads", "origin", JULES_BRANCH]:
                 return _make_completed_process(
@@ -127,15 +130,13 @@ class TestEnsureJulesBranchRemoteExists:
 
         ensure_jules_branch()
 
-        push_calls = [
-            c for c in mock_run.call_args_list
-            if c.args and "push" in c.args[0]
-        ]
+        push_calls = [c for c in mock_run.call_args_list if c.args and "push" in c.args[0]]
         assert len(push_calls) == 0, "Should not push when branch already exists"
 
     @patch("repo.scheduler.stateless.subprocess.run")
     def test_only_runs_fetch_and_check(self, mock_run):
         """When branch exists, only fetch main and check remote — nothing else."""
+
         def side_effect(cmd, **kwargs):
             if cmd == ["git", "ls-remote", "--heads", "origin", JULES_BRANCH]:
                 return _make_completed_process(

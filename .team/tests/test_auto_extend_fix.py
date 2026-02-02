@@ -62,7 +62,9 @@ def test_auto_extend_sequential_sequences():
     # Check that personas are in cycle order (skipping persona_c)
     # Starting from persona_a (idx 0): b, d, e, a, b (c was skipped)
     expected_personas = ["persona_b", "persona_d", "persona_e", "persona_a", "persona_b"]
-    assert personas_added == expected_personas, f"Expected {expected_personas}, got {personas_added}"
+    assert personas_added == expected_personas, (
+        f"Expected {expected_personas}, got {personas_added}"
+    )
 
     print("\n✅ All assertions passed!")
     return True

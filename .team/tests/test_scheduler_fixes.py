@@ -66,16 +66,26 @@ def test_get_current_sequence():
         {
             "name": "Skip row with session_id (no PR yet) ⭐ CRITICAL",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": ""},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "002",
-            "description": "Prevents duplicate session when PR not yet tracked"
+            "description": "Prevents duplicate session when PR not yet tracked",
         },
         {
             "name": "Skip row with session_id and draft PR",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": "draft"},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "draft",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "002",
@@ -83,7 +93,12 @@ def test_get_current_sequence():
         {
             "name": "Skip row with session_id and open PR",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": "open"},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "open",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "002",
@@ -91,7 +106,12 @@ def test_get_current_sequence():
         {
             "name": "Skip merged row, select next empty",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": "merged"},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "merged",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "002",
@@ -99,7 +119,12 @@ def test_get_current_sequence():
         {
             "name": "Skip closed row, select next empty",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": "closed"},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "closed",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "002",
@@ -107,21 +132,31 @@ def test_get_current_sequence():
         {
             "name": "All rows have sessions - returns None",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": ""},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "67890", "pr_status": ""},
             ],
             "expected_seq": None,
-            "description": "Wait for PR tracker to update before advancing"
+            "description": "Wait for PR tracker to update before advancing",
         },
         {
             "name": "Race condition scenario ⭐ CRITICAL",
             "rows": [
-                {"sequence": "001", "persona": "absolutist", "session_id": "12345", "pr_status": "merged"},
+                {
+                    "sequence": "001",
+                    "persona": "absolutist",
+                    "session_id": "12345",
+                    "pr_status": "merged",
+                },
                 {"sequence": "002", "persona": "artisan", "session_id": "67890", "pr_status": ""},
                 {"sequence": "003", "persona": "bolt", "session_id": "", "pr_status": ""},
             ],
             "expected_seq": "003",
-            "description": "Even though 002 has session_id (PR merged fast), skip it"
+            "description": "Even though 002 has session_id (PR merged fast), skip it",
         },
     ]
 
@@ -173,7 +208,9 @@ def test_session_extraction():
             return match.group(1)
 
         # Try UUID
-        uuid_match = re.search(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch)
+        uuid_match = re.search(
+            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch
+        )
         if uuid_match:
             return uuid_match.group(1)
 
@@ -183,27 +220,27 @@ def test_session_extraction():
         {
             "name": "Real PR #2541 branch",
             "branch": "refactor/windowing-by-bytes-6277226227732204550",
-            "expected": "6277226227732204550"
+            "expected": "6277226227732204550",
         },
         {
             "name": "Real artisan PR branch",
             "branch": "artisan-refactor-runner-types-12184546661957914452",
-            "expected": "12184546661957914452"
+            "expected": "12184546661957914452",
         },
         {
             "name": "Real artisan PR with slash",
             "branch": "artisan/improve-context-typing-8071111661752381116",
-            "expected": "8071111661752381116"
+            "expected": "8071111661752381116",
         },
         {
             "name": "Scheduler branch pattern",
             "branch": "jules-sched-bolt-17594818090249437779",
-            "expected": "17594818090249437779"
+            "expected": "17594818090249437779",
         },
         {
             "name": "UUID pattern",
             "branch": "fix/bug-a1b2c3d4-1234-5678-9abc-def012345678",
-            "expected": "a1b2c3d4-1234-5678-9abc-def012345678"
+            "expected": "a1b2c3d4-1234-5678-9abc-def012345678",
         },
     ]
 
@@ -246,14 +283,28 @@ def test_scheduler_advancement():
 
     # Initial state
     rows = [
-        {"sequence": "001", "persona": "absolutist", "session_id": "", "pr_status": "", "pr_number": ""},
-        {"sequence": "002", "persona": "artisan", "session_id": "", "pr_status": "", "pr_number": ""},
+        {
+            "sequence": "001",
+            "persona": "absolutist",
+            "session_id": "",
+            "pr_status": "",
+            "pr_number": "",
+        },
+        {
+            "sequence": "002",
+            "persona": "artisan",
+            "session_id": "",
+            "pr_status": "",
+            "pr_number": "",
+        },
         {"sequence": "003", "persona": "bolt", "session_id": "", "pr_status": "", "pr_number": ""},
     ]
 
     print("📋 Initial schedule:")
     for row in rows:
-        print(f"   [{row['sequence']}] {row['persona']}: session={row['session_id'] or 'none'}, pr_status={row['pr_status'] or 'none'}")
+        print(
+            f"   [{row['sequence']}] {row['persona']}: session={row['session_id'] or 'none'}, pr_status={row['pr_status'] or 'none'}"
+        )
 
     # Step 1: First scheduler run
     print("\n🔄 Step 1: First scheduler run")
@@ -291,7 +342,9 @@ def test_scheduler_advancement():
     print("\n📊 Step 4: PR tracker updates CSV with PR status")
     rows[0]["pr_number"] = "2538"
     rows[0]["pr_status"] = "open"
-    print(f"   Updated: [{rows[0]['sequence']}] pr_number={rows[0]['pr_number']}, pr_status={rows[0]['pr_status']}")
+    print(
+        f"   Updated: [{rows[0]['sequence']}] pr_number={rows[0]['pr_number']}, pr_status={rows[0]['pr_status']}"
+    )
 
     # Step 5: PR merges
     print("\n✅ Step 5: PR #2538 merges")

@@ -248,11 +248,17 @@ using the format specified in your instructions.
         try:
             result = subprocess.run(
                 [
-                    "gh", "issue", "create",
-                    "--repo", f"{owner}/{repo}",
-                    "--title", title,
-                    "--body", body,
-                    "--label", labels_str,
+                    "gh",
+                    "issue",
+                    "create",
+                    "--repo",
+                    f"{owner}/{repo}",
+                    "--title",
+                    title,
+                    "--body",
+                    body,
+                    "--label",
+                    labels_str,
                 ],
                 capture_output=True,
                 text=True,
@@ -340,20 +346,20 @@ def parse_persona_insight(response_text: str) -> PersonaInsight | None:
     for line in frontmatter.split("\n"):
         line = line.strip()
         if line.startswith("title:"):
-            title = line.split(":", 1)[1].strip().strip('"\'')
+            title = line.split(":", 1)[1].strip().strip("\"'")
         elif line.startswith("severity:"):
             severity = line.split(":", 1)[1].strip().lower()
         elif line.startswith("labels:"):
             # Parse labels list: [label1, label2] or label1, label2
             labels_str = line.split(":", 1)[1].strip()
             labels_str = labels_str.strip("[]")
-            labels = [l.strip().strip('"\'') for l in labels_str.split(",")]
+            labels = [l.strip().strip("\"'") for l in labels_str.split(",")]
 
     if not title:
         return None
 
     # Extract body sections
-    body = content[fm_match.end():].strip()
+    body = content[fm_match.end() :].strip()
 
     description = _extract_section(body, "Description")
     user_impact = _extract_section(body, "User Impact")

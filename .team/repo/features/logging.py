@@ -9,6 +9,7 @@ LOG_FILE = Path(".team/tools_use.csv")
 # New per-session log directory
 LOGS_DIR = Path(".team/logs/tools_use")
 
+
 class LogManager:
     def __init__(self, log_dir: Path = LOGS_DIR):
         self.log_dir = log_dir
@@ -24,10 +25,11 @@ class LogManager:
         Format: {persona}_{sequence}_{YYYYMMDDTHHmmss}.csv
         """
         # Check if we need to create a new session file
-        if (self._current_session_file is None or
-            self._session_persona != persona or
-            self._session_sequence != sequence):
-
+        if (
+            self._current_session_file is None
+            or self._session_persona != persona
+            or self._session_sequence != sequence
+        ):
             # Start new session
             self._session_persona = persona
             self._session_sequence = sequence
@@ -39,7 +41,13 @@ class LogManager:
 
         return self._current_session_file
 
-    def log_use(self, persona: Optional[str], sequence: Optional[str], command_path: str, args: Dict[str, Any]):
+    def log_use(
+        self,
+        persona: Optional[str],
+        sequence: Optional[str],
+        command_path: str,
+        args: Dict[str, Any],
+    ):
         """
         Logs a command execution to a per-session CSV log file.
 
@@ -61,8 +69,8 @@ class LogManager:
 
         # Redact sensitive info
         safe_args = args.copy()
-        if 'password' in safe_args:
-            safe_args['password'] = '***'
+        if "password" in safe_args:
+            safe_args["password"] = "***"
 
         # Get session-specific log file
         log_file = self._get_session_log_file(persona, sequence)
@@ -71,22 +79,25 @@ class LogManager:
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            with open(log_file, mode='a', newline='', encoding='utf-8') as f:
-                fieldnames = ['timestamp', 'persona', 'sequence', 'command', 'args']
+            with open(log_file, mode="a", newline="", encoding="utf-8") as f:
+                fieldnames = ["timestamp", "persona", "sequence", "command", "args"]
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
 
                 if not file_exists:
                     writer.writeheader()
 
-                writer.writerow({
-                    'timestamp': datetime.datetime.now().isoformat(),
-                    'persona': persona,
-                    'sequence': sequence,
-                    'command': command_path,
-                    'args': str(safe_args)
-                })
+                writer.writerow(
+                    {
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "persona": persona,
+                        "sequence": sequence,
+                        "command": command_path,
+                        "args": str(safe_args),
+                    }
+                )
         except Exception as e:
             print(f"⚠️ Warning: Could not write to log file: {e}")
+
 
 def log_tool_command(prefix: str = "", require_login: bool = True):
     """Decorator to log my-tools command usage.
@@ -121,8 +132,11 @@ def log_tool_command(prefix: str = "", require_login: bool = True):
 
             log_manager.log_use(persona, sequence, full_path, kwargs)
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 log_manager = LogManager()
 
@@ -150,14 +164,14 @@ def read_all_logs(persona: Optional[str] = None, log_dir: Path = LOGS_DIR) -> li
         # Read all matching log files
         for log_file in log_dir.glob(pattern):
             try:
-                with open(log_file, mode='r', newline='') as f:
+                with open(log_file, mode="r", newline="") as f:
                     reader = csv.DictReader(f)
                     all_rows.extend(list(reader))
             except Exception:
                 continue  # Skip corrupted files
 
         # Sort by timestamp (most recent first)
-        all_rows.sort(key=lambda r: r.get('timestamp', ''), reverse=True)
+        all_rows.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
 
     except Exception as e:
         print(f"⚠️ Warning: Could not read log files: {e}")

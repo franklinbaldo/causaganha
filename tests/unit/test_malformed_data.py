@@ -223,7 +223,7 @@ class TestCLIValidation:
 
     def test_validate_tribunal_code_valid(self) -> None:
         """Valid tribunal codes should be normalized to uppercase."""
-        from causaganha.cli import _validate_tribunal_code
+        from causaganha.cli.commands.catalog import _validate_tribunal_code
 
         assert _validate_tribunal_code("TJSP") == "TJSP"
         assert _validate_tribunal_code("tjsp") == "TJSP"
@@ -231,7 +231,7 @@ class TestCLIValidation:
 
     def test_validate_tribunal_code_invalid(self) -> None:
         """Invalid tribunal codes should return None."""
-        from causaganha.cli import _validate_tribunal_code
+        from causaganha.cli.commands.catalog import _validate_tribunal_code
 
         assert _validate_tribunal_code(None) is None
         assert _validate_tribunal_code("") is None
@@ -241,7 +241,7 @@ class TestCLIValidation:
 
     def test_validate_tribunal_code_sql_injection(self) -> None:
         """SQL injection attempts should return None."""
-        from causaganha.cli import _validate_tribunal_code
+        from causaganha.cli.commands.catalog import _validate_tribunal_code
 
         attacks = [
             "TJSP'; DROP TABLE manifest; --",
@@ -261,7 +261,7 @@ class TestValidateParquetSchema:
         """Schema with required columns should return True."""
         import duckdb
 
-        from causaganha.cli import _validate_parquet_schema
+        from causaganha.cli.commands.catalog import _validate_parquet_schema
 
         con = duckdb.connect()
         # Create a simple in-memory table to test
@@ -276,7 +276,7 @@ class TestValidateParquetSchema:
         """Schema validation should handle errors gracefully."""
         import duckdb
 
-        from causaganha.cli import _validate_parquet_schema
+        from causaganha.cli.commands.catalog import _validate_parquet_schema
 
         con = duckdb.connect()
         # Invalid path with required cols should return False (error), not crash

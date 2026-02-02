@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 import frontmatter
 
+
 class SkillsManager:
     def __init__(self, skills_dir: Optional[Path] = None):
         self.skills_dir = skills_dir or Path(".team/skills")
@@ -19,18 +20,24 @@ class SkillsManager:
                 if skill_md.exists():
                     try:
                         post = frontmatter.load(skill_md)
-                        skills.append({
-                            "id": skill_path.name,
-                            "name": post.metadata.get("name", skill_path.name),
-                            "description": post.metadata.get("description", "No description available."),
-                            "path": str(skill_md.absolute())
-                        })
+                        skills.append(
+                            {
+                                "id": skill_path.name,
+                                "name": post.metadata.get("name", skill_path.name),
+                                "description": post.metadata.get(
+                                    "description", "No description available."
+                                ),
+                                "path": str(skill_md.absolute()),
+                            }
+                        )
                     except Exception:
                         # Fallback if frontmatter fails
-                        skills.append({
-                            "id": skill_path.name,
-                            "name": skill_path.name,
-                            "description": "Error reading metadata.",
-                            "path": str(skill_md.absolute())
-                        })
+                        skills.append(
+                            {
+                                "id": skill_path.name,
+                                "name": skill_path.name,
+                                "description": "Error reading metadata.",
+                                "path": str(skill_md.absolute()),
+                            }
+                        )
         return sorted(skills, key=lambda x: x["id"])

@@ -15,7 +15,7 @@ app = typer.Typer(
 
     Tools for managing and inspecting personas in the Jules system.
     """,
-    rich_markup_mode="rich"
+    rich_markup_mode="rich",
 )
 
 console = Console()
@@ -23,18 +23,11 @@ console = Console()
 
 @app.command()
 def render(
-    persona_id: str = typer.Argument(
-        ...,
-        help="Persona ID to render (e.g., 'curator', 'meta')"
-    ),
+    persona_id: str = typer.Argument(..., help="Persona ID to render (e.g., 'curator', 'meta')"),
     output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
-        help="Save rendered prompt to file"
+        None, "--output", "-o", help="Save rendered prompt to file"
     ),
-    preview: bool = typer.Option(
-        False, "--preview", "-p",
-        help="Show first 1000 characters only"
-    )
+    preview: bool = typer.Option(False, "--preview", "-p", help="Show first 1000 characters only"),
 ):
     """
     🎨 RENDER PERSONA PROMPT.
@@ -54,7 +47,7 @@ def render(
         loader = PersonaLoader(personas_dir=personas_dir)
 
         # Load the persona
-        personas = loader.load_personas([f'personas/{persona_id}/prompt.md.j2'])
+        personas = loader.load_personas([f"personas/{persona_id}/prompt.md.j2"])
 
         if not personas:
             rprint(f"[red]❌ Error: Persona '{persona_id}' not found[/red]")
@@ -68,19 +61,21 @@ def render(
             output.write_text(persona.prompt_body)
             rprint(f"[green]✅ Rendered prompt saved to {output}[/green]")
         elif preview:
-            rprint(Panel(
-                persona.prompt_body[:1000] + "\n\n[dim]... (truncated)[/dim]",
-                title=f"🎨 {persona.emoji} {persona.id}",
-                subtitle=f"{len(persona.prompt_body)} characters total"
-            ))
+            rprint(
+                Panel(
+                    persona.prompt_body[:1000] + "\n\n[dim]... (truncated)[/dim]",
+                    title=f"🎨 {persona.emoji} {persona.id}",
+                    subtitle=f"{len(persona.prompt_body)} characters total",
+                )
+            )
         else:
             # Show full prompt with syntax highlighting
             syntax = Syntax(persona.prompt_body, "markdown", theme="monokai", line_numbers=False)
-            console.print(Panel(
-                syntax,
-                title=f"🎨 {persona.emoji} {persona.id}",
-                subtitle=persona.description
-            ))
+            console.print(
+                Panel(
+                    syntax, title=f"🎨 {persona.emoji} {persona.id}", subtitle=persona.description
+                )
+            )
 
     except ImportError as e:
         rprint(f"[red]❌ Error: Missing dependency: {e}[/red]")
@@ -93,13 +88,9 @@ def render(
 @app.command()
 def validate(
     persona_id: Optional[str] = typer.Argument(
-        None,
-        help="Specific persona to validate (validates all if not specified)"
+        None, help="Specific persona to validate (validates all if not specified)"
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v",
-        help="Show detailed validation results"
-    )
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed validation results"),
 ):
     """
     ✅ VALIDATE PERSONA(S).
@@ -120,7 +111,7 @@ def validate(
 
         # Determine which personas to validate
         if persona_id:
-            personas = loader.load_personas([f'personas/{persona_id}/prompt.md.j2'])
+            personas = loader.load_personas([f"personas/{persona_id}/prompt.md.j2"])
             if not personas:
                 rprint(f"[red]❌ Error: Persona '{persona_id}' not found[/red]")
                 raise typer.Exit(code=1)
@@ -168,19 +159,11 @@ def validate(
             if issues:
                 failed.append(persona.id)
                 status = "❌ FAILED"
-                table.add_row(
-                    f"{persona.emoji} {persona.id}",
-                    status,
-                    ", ".join(issues)
-                )
+                table.add_row(f"{persona.emoji} {persona.id}", status, ", ".join(issues))
             else:
                 passed.append(persona.id)
                 if verbose:
-                    table.add_row(
-                        f"{persona.emoji} {persona.id}",
-                        "✅ PASSED",
-                        "All checks passed"
-                    )
+                    table.add_row(f"{persona.emoji} {persona.id}", "✅ PASSED", "All checks passed")
 
         # Display results
         console.print(table)
@@ -237,7 +220,9 @@ def list():
             table.add_row(
                 persona.emoji,
                 persona.id,
-                persona.description[:80] + "..." if len(persona.description) > 80 else persona.description
+                persona.description[:80] + "..."
+                if len(persona.description) > 80
+                else persona.description,
             )
 
         console.print(table)

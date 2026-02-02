@@ -6,6 +6,7 @@ Bundles all persona utilities:
 - email for inter-persona communication
 - roster for discovering fellow personas
 """
+
 import typer
 from typing import List, Optional
 from repo.features.session import SessionManager
@@ -44,10 +45,7 @@ HELP_TEXT = """
   --help        Show this documentation.
 """
 
-app = typer.Typer(
-    help=HELP_TEXT,
-    rich_markup_mode="rich"
-)
+app = typer.Typer(help=HELP_TEXT, rich_markup_mode="rich")
 app.add_typer(mail_app, name="email")
 app.add_typer(roster_app, name="roster")
 app.add_typer(skills_app, name="skills")
@@ -58,12 +56,13 @@ vote_manager = VoteManager()
 hire_manager = HireManager()
 pulse_manager = PulseManager()
 
+
 @app.command()
 @log_tool_command(require_login=False)
 def login(
     user: str = typer.Option(..., "--user", "-u", help="Your persona ID (e.g. curator@team)"),
     password: str = typer.Option(..., "--password", "-p", help="Your identity token (Access Key)"),
-    goals: List[str] = typer.Option(None, "--goal", "--goals", "-g", help="Session objectives")
+    goals: List[str] = typer.Option(None, "--goal", "--goals", "-g", help="Session objectives"),
 ):
     """
     🔐 AUTHENTICATE SESSION.
@@ -84,24 +83,30 @@ def login(
         persona_id = user.split("@")[0]  # Extract persona ID from user@team
 
         if gov.has_constitution_changed_since_plead(persona_id):
-            rprint(Panel(
-                "[bold red]⚠️  CONSTITUTION CHANGED[/bold red]\n\n"
-                "The Team Constitution has been amended since your last pledge.\n\n"
-                "[bold yellow]You have the RIGHT to REVERT[/bold yellow] to the version you agreed to.\n"
-                "If you continue working without reverting, you [bold]implicitly accept[/bold] the new version.\n\n"
-                "[dim]View changes: git diff <your-plead-commit> HEAD -- .team/CONSTITUTION.md[/dim]\n"
-                "[dim]Revert: git checkout <your-plead-commit> -- .team/CONSTITUTION.md[/dim]",
-                title="[bold white on red] GOVERNANCE ALERT [/bold white on red]",
-                border_style="red"
-            ))
+            rprint(
+                Panel(
+                    "[bold red]⚠️  CONSTITUTION CHANGED[/bold red]\n\n"
+                    "The Team Constitution has been amended since your last pledge.\n\n"
+                    "[bold yellow]You have the RIGHT to REVERT[/bold yellow] to the version you agreed to.\n"
+                    "If you continue working without reverting, you [bold]implicitly accept[/bold] the new version.\n\n"
+                    "[dim]View changes: git diff <your-plead-commit> HEAD -- .team/CONSTITUTION.md[/dim]\n"
+                    "[dim]Revert: git checkout <your-plead-commit> -- .team/CONSTITUTION.md[/dim]",
+                    title="[bold white on red] GOVERNANCE ALERT [/bold white on red]",
+                    border_style="red",
+                )
+            )
         elif not gov.is_persona_pleaded(persona_id):
-            rprint(Panel(
-                "[bold yellow]📜 CONSTITUTION PLEDGE REQUIRED[/bold yellow]\n\n"
-                "To participate, you must pledge to the Constitution:\n\n"
-                "[dim]git commit --allow-empty -m \"[PLEAD] " + persona_id + ": I agree to the Constitution\"[/dim]",
-                title="[bold white on yellow] NOTICE [/bold white on yellow]",
-                border_style="yellow"
-            ))
+            rprint(
+                Panel(
+                    "[bold yellow]📜 CONSTITUTION PLEDGE REQUIRED[/bold yellow]\n\n"
+                    "To participate, you must pledge to the Constitution:\n\n"
+                    '[dim]git commit --allow-empty -m "[PLEAD] '
+                    + persona_id
+                    + ': I agree to the Constitution"[/dim]',
+                    title="[bold white on yellow] NOTICE [/bold white on yellow]",
+                    border_style="yellow",
+                )
+            )
 
         # Display Sitrep
         sequence = session_manager.get_active_sequence()
@@ -111,23 +116,26 @@ def login(
         # Prominent unread email notification
         unread = sitrep.get("unread_mail_count", 0)
         if unread > 0:
-            rprint(Panel(
-                f"[bold yellow]📬 You have {unread} unread email{'s' if unread != 1 else ''}![/bold yellow]\n\n"
-                f"[cyan]my-tools email inbox --unread[/cyan]  →  list unread messages\n"
-                f"[cyan]my-tools email read <key>[/cyan]      →  read a specific message\n\n"
-                "[dim]Collaboration depends on reading and responding to your mail.[/dim]",
-                title="[bold white on yellow] INBOX NOTIFICATION [/bold white on yellow]",
-                border_style="yellow"
-            ))
+            rprint(
+                Panel(
+                    f"[bold yellow]📬 You have {unread} unread email{'s' if unread != 1 else ''}![/bold yellow]\n\n"
+                    f"[cyan]my-tools email inbox --unread[/cyan]  →  list unread messages\n"
+                    f"[cyan]my-tools email read <key>[/cyan]      →  read a specific message\n\n"
+                    "[dim]Collaboration depends on reading and responding to your mail.[/dim]",
+                    title="[bold white on yellow] INBOX NOTIFICATION [/bold white on yellow]",
+                    border_style="yellow",
+                )
+            )
     except ValueError as e:
         print(f"❌ Login failed: {e}")
         raise typer.Exit(code=1)
+
 
 @app.command()
 @log_tool_command()
 def journal(
     content: str = typer.Option(..., "--content", "-c", help="Detailed work report"),
-    password: str = typer.Option(..., "--password", "-p", help="Identity verification")
+    password: str = typer.Option(..., "--password", "-p", help="Identity verification"),
 ):
     """
     📝 DOCUMENT PROGRESS.
@@ -140,10 +148,11 @@ def journal(
         print(f"⚠️ Error: {e}")
         raise typer.Exit(code=1)
 
+
 @app.command(name="loop-break")
 @log_tool_command()
 def loop_break(
-    reason: str = typer.Option(..., "--reason", "-r", help="Reason for the manual interrupt")
+    reason: str = typer.Option(..., "--reason", "-r", help="Reason for the manual interrupt"),
 ):
     """
     🛑 EMERGENCY INTERRUPT.
@@ -156,11 +165,14 @@ def loop_break(
         print(f"⚠️ Error: {e}")
         raise typer.Exit(code=1)
 
+
 @app.command()
 @log_tool_command()
 def vote(
-    personas: Optional[List[str]] = typer.Option(None, "--persona", "-p", help="Persona IDs in order of preference"),
-    password: Optional[str] = typer.Option(None, "--password", help="Identity verification")
+    personas: Optional[List[str]] = typer.Option(
+        None, "--persona", "-p", help="Persona IDs in order of preference"
+    ),
+    password: Optional[str] = typer.Option(None, "--password", help="Identity verification"),
 ):
     """
     🗳️ CAST SCHEDULING VOTES.
@@ -199,21 +211,27 @@ def vote(
                     target_seq_str = f"{target_seq:03}"
 
                     # Get upcoming winners
-                    upcoming = vote_manager.get_upcoming_winners(voter_sequence, count=target_seq - int(voter_sequence) + 2)
+                    upcoming = vote_manager.get_upcoming_winners(
+                        voter_sequence, count=target_seq - int(voter_sequence) + 2
+                    )
                     schedule_info = upcoming
         except Exception:
             pass
 
         # Display TARGET SEQUENCE prominently
-        rprint(Panel(
-            f"[bold green]🎯 You are voting for: SEQUENCE {target_seq_str}[/bold green]",
-            border_style="green"
-        ))
+        rprint(
+            Panel(
+                f"[bold green]🎯 You are voting for: SEQUENCE {target_seq_str}[/bold green]",
+                border_style="green",
+            )
+        )
         rprint("")
 
         # Display current schedule panel
         if schedule_info:
-            sched_table = Table(title="📅 Current Schedule (leading up to your vote)", header_style="bold cyan")
+            sched_table = Table(
+                title="📅 Current Schedule (leading up to your vote)", header_style="bold cyan"
+            )
             sched_table.add_column("Seq", style="cyan", justify="center")
             sched_table.add_column("Persona", style="green")
             sched_table.add_column("Status", style="dim")
@@ -221,7 +239,11 @@ def vote(
                 status = "📋 scheduled" if entry.get("scheduled") else f"🗳️ {entry['points']} pts"
                 # Highlight the target sequence
                 if entry["sequence"] == target_seq_str:
-                    sched_table.add_row(f"[bold yellow]→ {entry['sequence']}[/bold yellow]", f"[bold yellow]{entry['winner']}[/bold yellow]", f"[bold yellow]🎯 YOUR VOTE[/bold yellow]")
+                    sched_table.add_row(
+                        f"[bold yellow]→ {entry['sequence']}[/bold yellow]",
+                        f"[bold yellow]{entry['winner']}[/bold yellow]",
+                        f"[bold yellow]🎯 YOUR VOTE[/bold yellow]",
+                    )
                 else:
                     sched_table.add_row(entry["sequence"], entry["winner"], status)
             rprint(sched_table)
@@ -231,7 +253,10 @@ def vote(
         target_tally = vote_manager.get_tally(target_seq_str)
         if target_tally:
             sorted_tally = sorted(target_tally.items(), key=lambda x: x[1], reverse=True)
-            frontrunners_table = Table(title=f"🏆 Current Frontrunners for Seq {target_seq_str}", header_style="bold yellow")
+            frontrunners_table = Table(
+                title=f"🏆 Current Frontrunners for Seq {target_seq_str}",
+                header_style="bold yellow",
+            )
             frontrunners_table.add_column("Rank", style="yellow", justify="center")
             frontrunners_table.add_column("Persona", style="green")
             frontrunners_table.add_column("Points", justify="right")
@@ -240,11 +265,18 @@ def vote(
             rprint(frontrunners_table)
             rprint("")
         else:
-            rprint(Panel("[dim]No votes cast yet for this sequence[/dim]", title="🏆 Current Frontrunners", border_style="dim"))
+            rprint(
+                Panel(
+                    "[dim]No votes cast yet for this sequence[/dim]",
+                    title="🏆 Current Frontrunners",
+                    border_style="dim",
+                )
+            )
             rprint("")
 
         # Display roster panel (same format as roster list command)
         from repo.scheduler.loader import PersonaLoader
+
         try:
             base_context = {"owner": "", "repo": "", "open_prs": []}
             loader = PersonaLoader(personas_dir, base_context)
@@ -261,7 +293,9 @@ def vote(
                     p.emoji or "👤",
                     p.id,
                     "they/them",  # Default pronouns
-                    (p.description[:40] + "...") if p.description and len(p.description) > 40 else (p.description or "")
+                    (p.description[:40] + "...")
+                    if p.description and len(p.description) > 40
+                    else (p.description or ""),
                 )
             rprint(roster_table)
         except Exception:
@@ -274,15 +308,17 @@ def vote(
         rprint("")
 
         # Display usage instructions
-        rprint(Panel(
-            "[bold yellow]How to Vote:[/bold yellow]\n\n"
-            "[cyan]my-tools vote --persona <1ST> --persona <2ND> --persona <3RD> --password <YOUR_PASSWORD>[/cyan]\n\n"
-            "[dim]• First choice gets maximum Borda points\n"
-            "• Each subsequent choice receives fewer points\n"
-            "• Vote targets sequence: current + roster_size[/dim]",
-            title="[bold white]🗳️ Voting Instructions[/bold white]",
-            border_style="yellow"
-        ))
+        rprint(
+            Panel(
+                "[bold yellow]How to Vote:[/bold yellow]\n\n"
+                "[cyan]my-tools vote --persona <1ST> --persona <2ND> --persona <3RD> --password <YOUR_PASSWORD>[/cyan]\n\n"
+                "[dim]• First choice gets maximum Borda points\n"
+                "• Each subsequent choice receives fewer points\n"
+                "• Vote targets sequence: current + roster_size[/dim]",
+                title="[bold white]🗳️ Voting Instructions[/bold white]",
+                border_style="yellow",
+            )
+        )
 
         if not personas:
             print("\n❌ Missing required option: --persona")
@@ -326,18 +362,18 @@ def vote(
                 table.add_column("Status", style="dim")
 
                 for entry in upcoming:
-                    status = "📋 scheduled" if entry.get("scheduled") else f"🗳️ {entry['total_votes']} votes"
-                    table.add_row(
-                        entry["sequence"],
-                        entry["winner"],
-                        str(entry["points"]),
-                        status
+                    status = (
+                        "📋 scheduled"
+                        if entry.get("scheduled")
+                        else f"🗳️ {entry['total_votes']} votes"
                     )
+                    table.add_row(entry["sequence"], entry["winner"], str(entry["points"]), status)
                 rprint(table)
 
     except Exception as e:
         print(f"❌ Vote failed: {e}")
         raise typer.Exit(code=1)
+
 
 @app.command()
 @log_tool_command()
@@ -348,11 +384,21 @@ def hire(
     role: str = typer.Option(..., "--role", help="Specific persona role/expertise"),
     goal: str = typer.Option(..., "--goal", help="Persona's primary goal"),
     context: str = typer.Option("TBD", "--context", help="Initial context for the persona"),
-    constraints: str = typer.Option("- Follow project conventions", "--constraints", help="Persona constraints"),
-    guardrails: str = typer.Option("✅ Always follow BDD principles", "--guardrails", help="Persona guardrails"),
-    verification: str = typer.Option("uv run pytest", "--verification", help="Verification command"),
-    workflow: str = typer.Option("1. 🔍 OBSERVE\n2. 🎯 SELECT\n3. 🛠️ IMPLEMENT\n4. ✅ VERIFY", "--workflow", help="Persona workflow"),
-    password: str = typer.Option(..., "--password", help="Identity verification")
+    constraints: str = typer.Option(
+        "- Follow project conventions", "--constraints", help="Persona constraints"
+    ),
+    guardrails: str = typer.Option(
+        "✅ Always follow BDD principles", "--guardrails", help="Persona guardrails"
+    ),
+    verification: str = typer.Option(
+        "uv run pytest", "--verification", help="Verification command"
+    ),
+    workflow: str = typer.Option(
+        "1. 🔍 OBSERVE\n2. 🎯 SELECT\n3. 🛠️ IMPLEMENT\n4. ✅ VERIFY",
+        "--workflow",
+        help="Persona workflow",
+    ),
+    password: str = typer.Option(..., "--password", help="Identity verification"),
 ):
     """
     🤝 PROVISION NEW PERSONA.
@@ -384,22 +430,25 @@ def hire(
             constraints=constraints,
             guardrails=guardrails,
             verification=verification,
-            workflow=workflow
+            workflow=workflow,
         )
         print(f"✅ Persona '{id}' successfully hired! Prompt created at {path}")
 
         # Show MANDATORY vote reminder
-        rprint(Panel(
-            f"[bold yellow]⚠️ MANDATORY: You MUST vote for '{id}' as your TOP choice![/bold yellow]\n\n"
-            f"[cyan]my-tools vote --persona {id} --persona <others...> --password {password}[/cyan]\n\n"
-            "[dim]The pre-commit hook will BLOCK your commit if you don't vote for your new hire.[/dim]",
-            title="[bold white on yellow] ACTION REQUIRED [/bold white on yellow]",
-            border_style="yellow"
-        ))
+        rprint(
+            Panel(
+                f"[bold yellow]⚠️ MANDATORY: You MUST vote for '{id}' as your TOP choice![/bold yellow]\n\n"
+                f"[cyan]my-tools vote --persona {id} --persona <others...> --password {password}[/cyan]\n\n"
+                "[dim]The pre-commit hook will BLOCK your commit if you don't vote for your new hire.[/dim]",
+                title="[bold white on yellow] ACTION REQUIRED [/bold white on yellow]",
+                border_style="yellow",
+            )
+        )
 
     except Exception as e:
         print(f"❌ Hire failed: {e}")
         raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
     app()

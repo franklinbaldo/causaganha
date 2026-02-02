@@ -91,9 +91,7 @@ def _process_zip_content(content: bytes) -> list[CollectedIntimation]:
                         obj = CollectedIntimation(
                             id=item.get("id"),  # type: ignore # ID presence checked by Pydantic
                             numero_processo=get_field(item, FIELD_NUMERO_PROCESSO),
-                            data_disponibilizacao=get_field(
-                                item, FIELD_DATA_DISPONIBILIZACAO
-                            ),
+                            data_disponibilizacao=get_field(item, FIELD_DATA_DISPONIBILIZACAO),
                             sigla_tribunal=get_field(item, FIELD_SIGLA_TRIBUNAL),
                             id_orgao=get_field(item, FIELD_ID_ORGAO),
                             tipo_comunicacao=get_field(item, FIELD_TIPO_COMUNICACAO),
@@ -108,7 +106,9 @@ def _process_zip_content(content: bytes) -> list[CollectedIntimation]:
                         )
                         intimations.append(obj)
                     except Exception as e:
-                        logger.warning("failed_to_parse_intimation", error=str(e), item_id=item.get("id"))
+                        logger.warning(
+                            "failed_to_parse_intimation", error=str(e), item_id=item.get("id")
+                        )
                         continue
 
     return intimations
@@ -141,9 +141,7 @@ async def collect_metadata_for_court(
 
             try:
                 # 1. Get metadata URL
-                download_url = await _fetch_court_metadata(
-                    client, tribunal, target_date, proxy_url
-                )
+                download_url = await _fetch_court_metadata(client, tribunal, target_date, proxy_url)
 
                 if not download_url:
                     logger.warning("no_download_url", tribunal=tribunal, date=target_date)

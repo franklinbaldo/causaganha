@@ -3,6 +3,7 @@ import ibis
 from causaganha.storage.connection import get_connection
 from causaganha.storage.migrations import run_migrations
 
+
 def test_schema_migrations_and_constraints():
     # 1. Setup in-memory DB
     con = get_connection(":memory:")
@@ -43,6 +44,7 @@ def test_schema_migrations_and_constraints():
     assert "idx_asset_cache_expires" in index_names
 
     print("Schema verification passed!")
+
 
 if __name__ == "__main__":
     test_schema_migrations_and_constraints()

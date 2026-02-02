@@ -7,6 +7,7 @@ VOTES_FILE = Path(".team/votes.csv")
 SCHEDULE_FILE = Path(".team/schedule.csv")
 PERSONAS_ROOT = Path(".team/personas")
 
+
 class VoteManager:
     def __init__(self, schedule_file: Path = SCHEDULE_FILE, votes_file: Path = VOTES_FILE):
         self.schedule_file = schedule_file
@@ -30,23 +31,20 @@ class VoteManager:
         # Read existing votes, filter out any from same voter_sequence
         existing_votes = []
         if self.votes_file.exists():
-            with open(self.votes_file, mode='r', newline='') as f:
+            with open(self.votes_file, mode="r", newline="") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     # Keep votes from OTHER voter sequences
-                    if row['voter_sequence'] != voter_sequence:
+                    if row["voter_sequence"] != voter_sequence:
                         existing_votes.append(row)
 
         # Write all votes back, with new vote added
-        with open(self.votes_file, mode='w', newline='') as f:
-            fieldnames = ['voter_sequence', 'candidates']
+        with open(self.votes_file, mode="w", newline="") as f:
+            fieldnames = ["voter_sequence", "candidates"]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(existing_votes)
-            writer.writerow({
-                'voter_sequence': voter_sequence,
-                'candidates': candidates_array
-            })
+            writer.writerow({"voter_sequence": voter_sequence, "candidates": candidates_array})
 
     def _get_roster_size(self) -> int:
         """Count active persona directories."""
@@ -59,11 +57,11 @@ class VoteManager:
         if not self.schedule_file.exists():
             return False
 
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row['sequence'] == sequence_id:
-                    return bool(row.get('session_id') or row.get('pr_status'))
+                if row["sequence"] == sequence_id:
+                    return bool(row.get("session_id") or row.get("pr_status"))
         return False
 
     def get_next_open_sequence(self) -> Optional[str]:
@@ -74,11 +72,11 @@ class VoteManager:
         if not self.schedule_file.exists():
             return None
 
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if not row.get('session_id') and not row.get('pr_status'):
-                    return row['sequence']
+                if not row.get("session_id") and not row.get("pr_status"):
+                    return row["sequence"]
         return None
 
     def get_tally(self, target_sequence: str) -> Dict[str, int]:
@@ -105,18 +103,18 @@ class VoteManager:
         eligible_sequences = set(f"{i:03}" for i in range(eligible_start, target_seq_int))
 
         tally = {}
-        with open(self.votes_file, mode='r', newline='') as f:
+        with open(self.votes_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                voter_seq = row['voter_sequence']
+                voter_seq = row["voter_sequence"]
                 if voter_seq not in eligible_sequences:
                     continue
 
                 # Parse candidates array (comma-separated)
-                candidates_str = row.get('candidates', '')
+                candidates_str = row.get("candidates", "")
                 if not candidates_str:
                     continue
-                candidates = [c.strip() for c in candidates_str.split(',')]
+                candidates = [c.strip() for c in candidates_str.split(",")]
 
                 # Assign Borda points: Rank 1 gets roster_size, Rank 2 gets roster_size - 1, etc.
                 for rank, persona in enumerate(candidates, start=1):
@@ -144,8 +142,7 @@ class VoteManager:
         else:
             # Tiebreaker: persona who waited longest (smallest last_chosen sequence)
             winner = min(
-                top_candidates,
-                key=lambda p: self._get_last_chosen_sequence(p, sequence_id)
+                top_candidates, key=lambda p: self._get_last_chosen_sequence(p, sequence_id)
             )
 
         if self._update_schedule(sequence_id, winner):
@@ -163,13 +160,13 @@ class VoteManager:
         last_seq = -1
         before_seq_int = int(before_sequence)
 
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                seq = int(row['sequence'])
+                seq = int(row["sequence"])
                 if seq >= before_seq_int:
                     continue  # Only look at past sequences
-                if row.get('persona') == persona_id:
+                if row.get("persona") == persona_id:
                     last_seq = max(last_seq, seq)
 
         return last_seq
@@ -183,18 +180,18 @@ class VoteManager:
         rows = []
         headers = []
 
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             headers = reader.fieldnames
             for row in reader:
-                if row['sequence'] == sequence_id:
-                    if not (row.get('session_id') or row.get('pr_status')):
-                        row['persona'] = persona_id
+                if row["sequence"] == sequence_id:
+                    if not (row.get("session_id") or row.get("pr_status")):
+                        row["persona"] = persona_id
                         updated = True
                 rows.append(row)
 
         if updated:
-            with open(self.schedule_file, mode='w', newline='') as f:
+            with open(self.schedule_file, mode="w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=headers)
                 writer.writeheader()
                 writer.writerows(rows)
@@ -209,11 +206,11 @@ class VoteManager:
         # We look for the latest entry for this persona that has a session_id
         # (meaning it's the current session)
         latest_seq = None
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row['persona'] == persona_id and row.get('session_id'):
-                    latest_seq = row['sequence']
+                if row["persona"] == persona_id and row.get("session_id"):
+                    latest_seq = row["sequence"]
         return latest_seq
 
     def get_upcoming_winners(self, from_sequence: str, count: int = 5) -> List[Dict]:
@@ -226,34 +223,38 @@ class VoteManager:
             tally = self.get_tally(seq_id)
             if tally:
                 winner = max(tally, key=tally.get)
-                results.append({
-                    "sequence": seq_id,
-                    "winner": winner,
-                    "points": tally[winner],
-                    "total_votes": sum(tally.values())
-                })
+                results.append(
+                    {
+                        "sequence": seq_id,
+                        "winner": winner,
+                        "points": tally[winner],
+                        "total_votes": sum(tally.values()),
+                    }
+                )
             else:
                 # Get scheduled persona if no votes
                 scheduled = self._get_scheduled_persona(seq_id)
                 if scheduled:
-                    results.append({
-                        "sequence": seq_id,
-                        "winner": scheduled,
-                        "points": 0,
-                        "total_votes": 0,
-                        "scheduled": True
-                    })
+                    results.append(
+                        {
+                            "sequence": seq_id,
+                            "winner": scheduled,
+                            "points": 0,
+                            "total_votes": 0,
+                            "scheduled": True,
+                        }
+                    )
         return results
 
     def _get_scheduled_persona(self, sequence_id: str) -> Optional[str]:
         """Get the currently scheduled persona for a sequence."""
         if not self.schedule_file.exists():
             return None
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row['sequence'] == sequence_id:
-                    return row.get('persona')
+                if row["sequence"] == sequence_id:
+                    return row.get("persona")
         return None
 
     def validate_schedule_vs_votes(self) -> List[Dict]:
@@ -262,24 +263,26 @@ class VoteManager:
         if not self.schedule_file.exists() or not self.votes_file.exists():
             return violations
 
-        with open(self.schedule_file, mode='r', newline='') as f:
+        with open(self.schedule_file, mode="r", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                seq_id = row['sequence']
-                scheduled_persona = row.get('persona')
+                seq_id = row["sequence"]
+                scheduled_persona = row.get("persona")
 
                 # Skip already executed sequences
-                if row.get('session_id') or row.get('pr_status'):
+                if row.get("session_id") or row.get("pr_status"):
                     continue
 
                 tally = self.get_tally(seq_id)
                 if tally:
                     winner = max(tally, key=tally.get)
                     if winner != scheduled_persona:
-                        violations.append({
-                            "sequence": seq_id,
-                            "scheduled": scheduled_persona,
-                            "voted_winner": winner,
-                            "winner_points": tally[winner]
-                        })
+                        violations.append(
+                            {
+                                "sequence": seq_id,
+                                "scheduled": scheduled_persona,
+                                "voted_winner": winner,
+                                "winner_points": tally[winner],
+                            }
+                        )
         return violations

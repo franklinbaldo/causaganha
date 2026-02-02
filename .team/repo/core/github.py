@@ -78,7 +78,10 @@ class GitHubClient:
             return response.text
         except httpx.HTTPError:
             return None
-    def get_file_contents(self, owner: str, repo: str, path: str, ref: str = "main") -> dict[str, Any] | None:
+
+    def get_file_contents(
+        self, owner: str, repo: str, path: str, ref: str = "main"
+    ) -> dict[str, Any] | None:
         """Get file contents and its SHA."""
         return self._get(f"repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
 
@@ -192,7 +195,9 @@ class GitHubClient:
         url = f"repos/{owner}/{repo}/issues/{issue_number}/comments"
         return self._get(url) or []
 
-    def create_issue_comment(self, owner: str, repo: str, issue_number: int, body: str) -> dict[str, Any] | None:
+    def create_issue_comment(
+        self, owner: str, repo: str, issue_number: int, body: str
+    ) -> dict[str, Any] | None:
         """Post a comment on a GitHub issue."""
         if not self.token:
             return None
@@ -207,6 +212,7 @@ class GitHubClient:
         except httpx.HTTPError as e:
             print(f"⚠️ GitHub API Create Comment Error: {e}")
             return None
+
 
 def get_open_prs(owner: str, repo: str) -> list[dict[str, Any]]:
     """Fetch open PRs using GitHub API."""
@@ -227,16 +233,18 @@ def get_open_prs(owner: str, repo: str) -> list[dict[str, Any]]:
 
     mapped_prs = []
     for pr in prs:
-        mapped_prs.append({
-            "number": pr["number"],
-            "title": pr["title"],
-            "headRefName": pr["head"]["ref"],
-            "baseRefName": pr["base"]["ref"],
-            "url": pr["html_url"],
-            "author": {"login": pr["user"]["login"]},
-            "isDraft": pr["draft"],
-            "body": pr["body"] or "",
-        })
+        mapped_prs.append(
+            {
+                "number": pr["number"],
+                "title": pr["title"],
+                "headRefName": pr["head"]["ref"],
+                "baseRefName": pr["base"]["ref"],
+                "url": pr["html_url"],
+                "author": {"login": pr["user"]["login"]},
+                "isDraft": pr["draft"],
+                "body": pr["body"] or "",
+            }
+        )
     return mapped_prs
 
 
@@ -277,7 +285,7 @@ def get_pr_details_via_gh(pr_number: int, repo_path: str = ".") -> dict[str, Any
     repo_info = get_repo_info()
     owner = repo_info["owner"]
     repo = repo_info["repo"]
-    
+
     client = GitHubClient()
     if not client.token:
         raise GitHubError("No GitHub token provided")
@@ -289,11 +297,14 @@ def get_pr_details_via_gh(pr_number: int, repo_path: str = ".") -> dict[str, Any
             raise GitHubError(f"PR {pr_number} not found")
 
         # 2. Get Commits (last 100)
-        commits_data = client._get(f"repos/{owner}/{repo}/pulls/{pr_number}/commits", params={"per_page": 100}) or []
-        
+        commits_data = (
+            client._get(f"repos/{owner}/{repo}/pulls/{pr_number}/commits", params={"per_page": 100})
+            or []
+        )
+
         # 3. Get Reviews
         reviews_data = client._get(f"repos/{owner}/{repo}/pulls/{pr_number}/reviews") or []
-        
+
         # 4. Get Comments (Issue comments)
         comments_data = client._get(f"repos/{owner}/{repo}/issues/{pr_number}/comments") or []
 
@@ -308,15 +319,25 @@ def get_pr_details_via_gh(pr_number: int, repo_path: str = ".") -> dict[str, Any
     branch = pr["head"]["ref"]
     body = pr["body"] or ""
     session_id = _extract_session_id(branch, body)
-    
+
     mapped_commits = []
     for c in commits_data:
-        mapped_commits.append({
-            "sha": c["sha"],
-            "message": c["commit"]["message"],
-            "author": {"login": c["author"]["login"] if c["author"] else c["commit"]["author"]["name"]},
-            "authors": [{"login": c["author"]["login"] if c["author"] else c["commit"]["author"]["name"]}] # compat
-        })
+        mapped_commits.append(
+            {
+                "sha": c["sha"],
+                "message": c["commit"]["message"],
+                "author": {
+                    "login": c["author"]["login"] if c["author"] else c["commit"]["author"]["name"]
+                },
+                "authors": [
+                    {
+                        "login": c["author"]["login"]
+                        if c["author"]
+                        else c["commit"]["author"]["name"]
+                    }
+                ],  # compat
+            }
+        )
 
     last_commit_author = _get_last_commit_author_login(mapped_commits)
     all_passed, failed_check_names = _analyze_checks(checks_rollup)
@@ -329,15 +350,15 @@ def get_pr_details_via_gh(pr_number: int, repo_path: str = ".") -> dict[str, Any
         "branch": branch,
         "base_branch": pr["base"]["ref"],
         "is_draft": pr["draft"],
-        "has_conflicts": pr.get("mergeable_state") == "dirty", # Approximate mapping
+        "has_conflicts": pr.get("mergeable_state") == "dirty",  # Approximate mapping
         "passed_all_checks": all_passed,
         "failed_check_names": failed_check_names,
         "mergeable": pr.get("mergeable"),
         "mergeable_state": pr.get("mergeable_state"),
         "mergeStateStatus": (pr.get("mergeable_state") or "UNKNOWN").upper(),
-        "changed_files": [], # Would need another API call, skipping for perf unless critical
+        "changed_files": [],  # Would need another API call, skipping for perf unless critical
         "reviews": reviews_data,
-        "latestReviews": reviews_data, # Simplification
+        "latestReviews": reviews_data,  # Simplification
         "comments": comments_data,
         "commits": mapped_commits,
         "author": {"login": pr["user"]["login"]},
@@ -352,7 +373,7 @@ def get_base_sha(base_branch: str, repo_path: str = ".") -> str:
     repo_info = get_repo_info()
     owner = repo_info["owner"]
     repo = repo_info["repo"]
-    
+
     client = GitHubClient()
     if not client.token:
         return "Unknown"
@@ -364,7 +385,7 @@ def get_base_sha(base_branch: str, repo_path: str = ".") -> str:
             return branch_data["commit"]["sha"]
     except Exception:
         pass
-        
+
     return "Unknown"
 
 
@@ -384,7 +405,9 @@ def _extract_session_id(branch: str, body: str) -> str | None:
         return match.group(1)
 
     # FALLBACK: UUID pattern (for future compatibility, not currently used by Jules)
-    uuid_match = re.search(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch)
+    uuid_match = re.search(
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", branch
+    )
     if uuid_match:
         return uuid_match.group(1)
 
@@ -414,7 +437,7 @@ def _get_last_commit_author_login(commits: list[dict[str, Any]] | None) -> str |
         return None
 
     last_commit = commits[-1] or {}
-    
+
     # Try 'author' dict (standard GitHub API)
     author = last_commit.get("author")
     if isinstance(author, dict):
@@ -449,13 +472,13 @@ def _analyze_checks(checks_rollup: list[dict[str, Any]]) -> tuple[bool, list[str
     """Analyze status checks to determine pass/fail status."""
     all_passed = True
     failed_check_names = []
-    
+
     for check in checks_rollup:
         status = check.get("conclusion")
         if status in ["failure", "timed_out", "cancelled", "action_required"]:
             all_passed = False
             failed_check_names.append(check.get("name"))
-            
+
     return all_passed, failed_check_names
 
 
@@ -468,7 +491,7 @@ def fetch_full_ci_logs(pr_number: int, branch: str, repo_full: str, cwd: str = "
     """Fetch full CI logs for the latest failing workflow run on the branch."""
     if not branch or not repo_full:
         return ""
-        
+
     client = GitHubClient()
     if not client.token:
         return ""
@@ -476,7 +499,7 @@ def fetch_full_ci_logs(pr_number: int, branch: str, repo_full: str, cwd: str = "
     try:
         runs_data = client._get(
             f"repos/{repo_full}/actions/runs",
-            params={"branch": branch, "event": "pull_request", "per_page": 5}
+            params={"branch": branch, "event": "pull_request", "per_page": 5},
         )
     except Exception:
         return ""
@@ -496,12 +519,12 @@ def fetch_full_ci_logs(pr_number: int, branch: str, repo_full: str, cwd: str = "
         run_id = run.get("id")
         run_url = run.get("html_url")
         workflow_name = run.get("name") or "Workflow"
-        
+
         try:
             resp = client._get_raw(f"repos/{repo_full}/actions/runs/{run_id}/logs")
             if not resp:
                 continue
-                
+
             with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
                 log_files = [f for f in z.namelist() if f.endswith(".txt")]
                 combined_log = ""
@@ -511,14 +534,14 @@ def fetch_full_ci_logs(pr_number: int, branch: str, repo_full: str, cwd: str = "
                         if "failure" in content.lower() or "error" in content.lower():
                             combined_log += f"\n--- Log: {log_file} ---\n"
                             combined_log += content[-5000:]
-                            
+
                 if combined_log:
                     section = f"### {workflow_name} (Run ID: {run_id})\n"
                     if run_url:
                         section += f"**Full Log URL**: {run_url}\n\n"
                     section += f"```text\n{combined_log}\n```"
                     logs_sections.append(section)
-                    
+
         except Exception:
             continue
 
@@ -532,13 +555,11 @@ def get_repo_info() -> dict[str, str]:
 
     if not owner or not repo_full:
         import subprocess
+
         try:
             # Try to get from git remote
             result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "remote", "get-url", "origin"], capture_output=True, text=True, check=True
             )
             url = result.stdout.strip()
             # Handle various URL formats:

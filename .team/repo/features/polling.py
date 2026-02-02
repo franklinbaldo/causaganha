@@ -115,7 +115,7 @@ class EmailPoller:
                 lines = []
                 for line in section.splitlines():
                     if line.startswith("+") and not line.startswith("+++"):
-                        lines.append(line[1:]) # Strip the leading +
+                        lines.append(line[1:])  # Strip the leading +
 
                 if lines:
                     email_content = "\n".join(lines)
@@ -136,7 +136,8 @@ class EmailPoller:
         # Find latest session where title contains recipient_id
         # We look for "IN_PROGRESS" sessions first
         recipient_sessions = [
-            s for s in sessions
+            s
+            for s in sessions
             if recipient_id.lower() in s.get("title", "").lower()
             and s.get("state") == "IN_PROGRESS"
         ]
@@ -144,8 +145,7 @@ class EmailPoller:
         if not recipient_sessions:
             # Fallback to any state if no in-progess session found?
             recipient_sessions = [
-                s for s in sessions
-                if recipient_id.lower() in s.get("title", "").lower()
+                s for s in sessions if recipient_id.lower() in s.get("title", "").lower()
             ]
 
         if not recipient_sessions:
@@ -153,7 +153,9 @@ class EmailPoller:
             return
 
         # Sort by createTime descending
-        latest_session = sorted(recipient_sessions, key=lambda x: x.get("createTime", ""), reverse=True)[0]
+        latest_session = sorted(
+            recipient_sessions, key=lambda x: x.get("createTime", ""), reverse=True
+        )[0]
         session_id = latest_session["name"].split("/")[-1]
 
         notification = f"""

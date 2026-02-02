@@ -15,11 +15,12 @@ app = typer.Typer(
 
 session_manager = SessionManager()
 
+
 @app.command()
 def login(
     user: str = typer.Option(..., "--user", help="Your persona ID (e.g. weaver@team)"),
     password: str = typer.Option(..., "--password", help="Your unique identity token (UUIDv5)"),
-    goals: List[str] = typer.Option([], "--goals", help="List of goals for this session")
+    goals: List[str] = typer.Option([], "--goals", help="List of goals for this session"),
 ):
     """
     Clock in for work. Configures your environment and sets goals.
@@ -36,10 +37,13 @@ def login(
         print(f"❌ Error: {e}")
         raise typer.Exit(code=1)
 
+
 @app.command()
 def journal(
-    content: str = typer.Option(..., "--content", help="Description of how you executed your goals"),
-    password: str = typer.Option(..., "--password", help="Identity verification")
+    content: str = typer.Option(
+        ..., "--content", help="Description of how you executed your goals"
+    ),
+    password: str = typer.Option(..., "--password", help="Identity verification"),
 ):
     """
     File a journal entry. Document your work execution.
@@ -57,10 +61,9 @@ def journal(
         print(f"❌ Error: {e}")
         raise typer.Exit(code=1)
 
+
 @app.command(name="loop-break")
-def loop_break(
-    reason: str = typer.Option(..., "--reason", help="Why are you stopping?")
-):
+def loop_break(reason: str = typer.Option(..., "--reason", help="Why are you stopping?")):
     """
     EMERGENCY STOP. Use this if you are stuck in a loop or cannot proceed.
     """
@@ -70,6 +73,7 @@ def loop_break(
     except Exception as e:
         print(f"❌ Error: {e}")
         raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
     app()

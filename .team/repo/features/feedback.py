@@ -35,7 +35,10 @@ def should_skip_feedback(pr_data: dict[str, Any], comments: list[dict[str, Any]]
 
     last_feedback_comment = None
     for c in reversed(comments):
-        if "# Task: Fix Pull Request" in c["body"] or "<!-- # Task: Fix Pull Request -->" in c["body"]:
+        if (
+            "# Task: Fix Pull Request" in c["body"]
+            or "<!-- # Task: Fix Pull Request -->" in c["body"]
+        ):
             last_feedback_comment = c
             break
 
@@ -65,7 +68,9 @@ def construct_prompt(pr_data: dict[str, Any], ci_checks: list[dict[str, Any]]) -
     branch = pr_data.get("headRefName") or pr_data.get("branch", "")
 
     # Analyze CI - check for failed checks
-    failed_checks = [c for c in ci_checks if c.get("conclusion") in ["failure", "timed_out", "cancelled"]]
+    failed_checks = [
+        c for c in ci_checks if c.get("conclusion") in ["failure", "timed_out", "cancelled"]
+    ]
     ci_section = ""
     if failed_checks:
         ci_section = "## CI Failures\nThe following checks failed:\n"
@@ -190,8 +195,12 @@ def run_feedback_loop(dry_run: bool = False, author_filter: str = "app/google-la
                             require_plan_approval=False,
                         )
 
-                    marker_body = "🤖 Feedback sent to Jules session. \n<!-- # Task: Fix Pull Request -->"
-                    subprocess.run(["gh", "pr", "comment", str(pr_num), "--body", marker_body], check=True)
+                    marker_body = (
+                        "🤖 Feedback sent to Jules session. \n<!-- # Task: Fix Pull Request -->"
+                    )
+                    subprocess.run(
+                        ["gh", "pr", "comment", str(pr_num), "--body", marker_body], check=True
+                    )
 
                 except Exception:
                     pass

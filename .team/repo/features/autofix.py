@@ -45,7 +45,9 @@ def get_active_autofix_session_for_pr(client: TeamClient, pr_number: int) -> dic
                 # Check if session is in an active state
                 if state in ACTIVE_STATES:
                     session_id = session.get("name", "").split("/")[-1]
-                    print(f"🔍 Found active auto-fix session for PR #{pr_number}: {session_id} (state: {state})")
+                    print(
+                        f"🔍 Found active auto-fix session for PR #{pr_number}: {session_id} (state: {state})"
+                    )
                     return session
 
         return None
@@ -114,7 +116,10 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
     if details.get("failed_check_names"):
         logs_summary = fetch_failed_logs_summary(pr_number, cwd=repo_root)
         full_ci_logs = fetch_full_ci_logs(
-            pr_number=pr_number, branch=details.get("branch", ""), repo_full=repo_full, cwd=repo_root
+            pr_number=pr_number,
+            branch=details.get("branch", ""),
+            repo_full=repo_full,
+            cwd=repo_root,
         )
 
     feedback = _render_feedback_prompt(
@@ -158,7 +163,9 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
             existing_state = existing_session.get("state", "UNKNOWN")
             existing_title = existing_session.get("title", "")
 
-            print(f"⏭️  Skipping creation - active auto-fix session already exists for PR #{pr_number}")
+            print(
+                f"⏭️  Skipping creation - active auto-fix session already exists for PR #{pr_number}"
+            )
             print(f"   Session: {existing_id} | State: {existing_state} | Title: {existing_title}")
 
             # Post comment notifying that we're using existing session
@@ -184,9 +191,7 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
         print(f"📋 {creation_reason} - creating NEW Jules session for PR #{pr_number}")
 
         # Get repo info from environment
-        owner, repo = (
-            repo_full.split("/") if "/" in repo_full else ("franklinbaldo", "egregora")
-        )
+        owner, repo = repo_full.split("/") if "/" in repo_full else ("franklinbaldo", "egregora")
 
         # Get base branch SHA for context
         base_sha = get_base_sha(details["base_branch"], repo_path=repo_root)
@@ -236,7 +241,9 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
                 require_plan_approval=False,
             )
 
-            new_session_id = new_session.get("name", "").split("/")[-1] if new_session.get("name") else "unknown"
+            new_session_id = (
+                new_session.get("name", "").split("/")[-1] if new_session.get("name") else "unknown"
+            )
             print(f"✅ Created new session: {new_session_id}")
 
             # Post success comment
@@ -361,7 +368,9 @@ def auto_reply_to_jules(pr_number: int) -> dict[str, Any]:
             "session_state": session_state,
         }
     except Exception as e:
-        error_msg = f"Failed to send message to session {session_id} (state: {session_state}): {e!s}"
+        error_msg = (
+            f"Failed to send message to session {session_id} (state: {session_state}): {e!s}"
+        )
         comment = (
             f"## 🤖 Auto-Fix: Failed\n\n"
             f"❌ **Error sending message to Jules session**\n\n"

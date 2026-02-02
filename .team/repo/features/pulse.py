@@ -9,6 +9,7 @@ TASKS_TODO_DIR = Path(".team/tasks/todo")
 LOG_FILE = Path(".team/tools_use.csv")  # Legacy
 LOGS_DIR = Path(".team/logs/tools_use")  # New per-session logs
 
+
 class PulseManager:
     def get_sitrep(self, persona_id: str, current_sequence: Optional[str]) -> Dict[str, Any]:
         """
@@ -20,22 +21,22 @@ class PulseManager:
             "next_persona": self._get_next_persona(current_sequence),
             "unread_mail_count": self._get_unread_mail_count(persona_id),
             "pending_tasks": self._get_pending_tasks(limit=3),
-            "last_tool_used": self._get_last_tool_used(persona_id)
+            "last_tool_used": self._get_last_tool_used(persona_id),
         }
         return sitrep
 
     def _get_next_persona(self, current_sequence: Optional[str]) -> str:
         if not current_sequence or not SCHEDULE_FILE.exists():
             return "unknown"
-        
+
         try:
-            with open(SCHEDULE_FILE, mode='r', newline='') as f:
+            with open(SCHEDULE_FILE, mode="r", newline="") as f:
                 reader = csv.DictReader(f)
                 rows = list(reader)
                 for i, row in enumerate(rows):
-                    if row['sequence'] == current_sequence:
+                    if row["sequence"] == current_sequence:
                         if i + 1 < len(rows):
-                            next_row = rows[i+1]
+                            next_row = rows[i + 1]
                             return f"{next_row['sequence']} ({next_row['persona']})"
         except Exception:
             pass
@@ -84,7 +85,7 @@ class PulseManager:
                 pattern = f"{persona_id}_*.csv"
                 for log_file in LOGS_DIR.glob(pattern):
                     try:
-                        with open(log_file, mode='r', newline='') as f:
+                        with open(log_file, mode="r", newline="") as f:
                             reader = csv.DictReader(f)
                             all_rows.extend(list(reader))
                     except Exception:
@@ -95,18 +96,18 @@ class PulseManager:
         # Fallback to legacy log file if exists
         if LOG_FILE.exists():
             try:
-                with open(LOG_FILE, mode='r', newline='') as f:
+                with open(LOG_FILE, mode="r", newline="") as f:
                     reader = csv.DictReader(f)
-                    rows = [row for row in reader if row.get('persona') == persona_id]
+                    rows = [row for row in reader if row.get("persona") == persona_id]
                     all_rows.extend(rows)
             except Exception:
                 pass
 
         # Sort by timestamp (most recent first) and find last non-login command
         try:
-            all_rows.sort(key=lambda r: r.get('timestamp', ''), reverse=True)
+            all_rows.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
             for row in all_rows:
-                cmd = row.get('command', '')
+                cmd = row.get("command", "")
                 if "login" in cmd.lower():
                     continue
                 return cmd
@@ -122,14 +123,16 @@ class PulseManager:
         output = []
         output.append("📡 [bold cyan]SITUATION REPORT (SITREP)[/bold cyan]")
         output.append(f"👤 Persona: [green]{sitrep['persona']}[/green]")
-        output.append(f"🔢 Sequence: [yellow]{sitrep['sequence']}[/yellow] (Next: {sitrep['next_persona']})")
+        output.append(
+            f"🔢 Sequence: [yellow]{sitrep['sequence']}[/yellow] (Next: {sitrep['next_persona']})"
+        )
 
-        mail_color = "red" if sitrep['unread_mail_count'] > 0 else "green"
+        mail_color = "red" if sitrep["unread_mail_count"] > 0 else "green"
         output.append(f"📧 Mail: [{mail_color}]{sitrep['unread_mail_count']} unread[/{mail_color}]")
 
-        if sitrep['pending_tasks']:
+        if sitrep["pending_tasks"]:
             output.append("📋 Pending Tasks (Top 3):")
-            for task in sitrep['pending_tasks']:
+            for task in sitrep["pending_tasks"]:
                 output.append(f"  - {task}")
         else:
             output.append("📋 Pending Tasks: [green]Clean list![/green]")

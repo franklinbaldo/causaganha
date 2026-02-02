@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+
 class GovernanceManager:
     def __init__(self, root_dir: str = "."):
         self.root_dir = Path(root_dir)
@@ -11,9 +12,7 @@ class GovernanceManager:
         try:
             # We look for commits to the constitution file.
             # We filter out commits that start with "[PLEAD]" in the subject.
-            cmd = [
-                "git", "log", "--format=%H %s", "--", str(self.constitution_path)
-            ]
+            cmd = ["git", "log", "--format=%H %s", "--", str(self.constitution_path)]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             for line in result.stdout.strip().split("\n"):
@@ -32,9 +31,7 @@ class GovernanceManager:
     def get_persona_last_plead_commit(self, persona_id: str) -> str:
         """Find the last [PLEAD] commit for a specific persona."""
         try:
-            cmd = [
-                "git", "log", "--format=%H %s", "--", str(self.constitution_path)
-            ]
+            cmd = ["git", "log", "--format=%H %s", "--", str(self.constitution_path)]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             for line in result.stdout.strip().split("\n"):

@@ -7,10 +7,11 @@ import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-# from causaganha.analysis.ground_truth import GroundTruthManager
-from causaganha.config import settings
 from causaganha.cli.commands.catalog import catalog_app
 from causaganha.cli.utils import handle_error
+
+# from causaganha.analysis.ground_truth import GroundTruthManager
+from causaganha.config import settings
 
 # from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
