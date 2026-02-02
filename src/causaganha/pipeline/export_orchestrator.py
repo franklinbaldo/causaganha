@@ -300,7 +300,9 @@ class ExportOrchestrator:
         """
         from datetime import timedelta
 
-        logger.info(f"Starting backfill from {start_date} to {end_date} (concurrency={concurrency})")
+        logger.info(
+            f"Starting backfill from {start_date} to {end_date} (concurrency={concurrency})"
+        )
 
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()

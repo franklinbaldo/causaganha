@@ -15,11 +15,13 @@ async def api_client():
     yield client
     await client.close()
 
+
 @pytest.mark.asyncio
 async def test_client_initialization(api_client):
     """Test that client initializes with correct defaults."""
     assert api_client.base_url == "https://comunicaapi.pje.jus.br/api/v1"
     assert isinstance(api_client.client, httpx.AsyncClient)
+
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_success(api_client):
@@ -42,9 +44,9 @@ async def test_fetch_intimations_success(api_client):
                 "hash": "abc123hash",
                 "status": "D",
                 "destinatarioadvogados": [],
-                "destinatarios": []
+                "destinatarios": [],
             }
-        ]
+        ],
     }
 
     # Mock the response.json() and raise_for_status()
@@ -68,6 +70,7 @@ async def test_fetch_intimations_success(api_client):
         _args, kwargs = mock_get.call_args
         assert kwargs["params"]["siglaTribunal"] == "TJRO"
 
+
 @pytest.mark.asyncio
 async def test_fetch_intimations_pagination(api_client):
     """Test that fetching handles pagination."""
@@ -88,9 +91,10 @@ async def test_fetch_intimations_pagination(api_client):
                 "tipoDocumento": "D",
                 "nomeClasse": "C",
                 "hash": f"h{i}",
-                "status": "S"
-            } for i in range(100)
-        ]
+                "status": "S",
+            }
+            for i in range(100)
+        ],
     }
     # Page 2
     page2 = {
@@ -109,9 +113,10 @@ async def test_fetch_intimations_pagination(api_client):
                 "tipoDocumento": "D",
                 "nomeClasse": "C",
                 "hash": f"h{i}",
-                "status": "S"
-            } for i in range(100, 105)
-        ]
+                "status": "S",
+            }
+            for i in range(100, 105)
+        ],
     }
 
     mock_resp1 = MagicMock()
@@ -135,6 +140,7 @@ async def test_fetch_intimations_pagination(api_client):
         call2_kwargs = mock_get.call_args_list[1][1]
         assert call1_kwargs["params"]["offset"] == 0
         assert call2_kwargs["params"]["offset"] == 100
+
 
 @pytest.mark.asyncio
 async def test_fetch_intimations_http_error(api_client):
