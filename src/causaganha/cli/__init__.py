@@ -499,7 +499,7 @@ def export_status(
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         # Query exports
-        query = f"""  # noqa: S608
+        query = f"""
             SELECT
                 partition_date,
                 tribunal,
@@ -511,7 +511,7 @@ def export_status(
             FROM parquet_exports
             WHERE {where_clause}
             ORDER BY partition_date DESC, tribunal
-        """
+        """  # noqa: S608
 
         result = con.con.execute(query, params).fetchall()
 
@@ -1371,7 +1371,8 @@ def backfill_status(
 
         # Get summary stats with error handling for empty/malformed data
         try:
-            stats = con.execute(f"""  # noqa: S608
+            stats = con.execute(
+                f"""
                 SELECT
                     COUNT(*) as total_missing,
                     COUNT(DISTINCT tribunal) as tribunals,
@@ -1380,7 +1381,8 @@ def backfill_status(
                     MAX(date) as latest
                 FROM read_parquet('{backfill_path}')
                 {where_clause}
-            """).fetchone()
+            """
+            ).fetchone()  # noqa: S608
         except duckdb.Error as e:
             typer.secho(f"❌ Error reading backfill file: {e}", fg=typer.colors.RED)
             typer.echo("The file may be corrupted. Try re-downloading with --force.")
@@ -1409,7 +1411,8 @@ def backfill_status(
 
         # Get breakdown by tribunal
         typer.echo("\n📋 Missing by Tribunal:")
-        breakdown = con.execute(f"""  # noqa: S608
+        breakdown = con.execute(
+            f"""
             SELECT
                 tribunal,
                 COUNT(*) as missing,
@@ -1420,7 +1423,8 @@ def backfill_status(
             GROUP BY tribunal
             ORDER BY missing DESC
             LIMIT {limit}
-        """).fetchall()
+        """
+        ).fetchall()  # noqa: S608
 
         for trib, missing, early, late in breakdown:
             # Handle None values gracefully

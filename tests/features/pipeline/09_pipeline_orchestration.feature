@@ -330,7 +330,7 @@ Feature: Pipeline Orchestration
     Given a pipeline state with files_added true and catalog_updated true
     When I format the GitHub summary for job "all"
     Then the formatted text should contain "## Pipeline Summary"
-    And the formatted text should contain "**Job**: all"
+    And the formatted text should contain "**Job**: `all`"
     And the formatted text should contain "catalog.duckdb"
 
   @pipeline @formatting
