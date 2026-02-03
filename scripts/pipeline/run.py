@@ -33,8 +33,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -74,22 +75,24 @@ class StepResult:
     name: str
     success: bool
     outputs: Mapping[str, str]
+    duration_seconds: float
 
 
 @dataclass(frozen=True)
 class PipelineState:
     """Accumulated pipeline state (immutable)."""
 
-    results: tuple[StepResult, ...]
-    files_added: bool
-    catalog_updated: bool
+    results: tuple[StepResult, ...] = ()
+    files_added: bool = False
+    catalog_updated: bool = False
+    start_time: float = field(default_factory=time.time)
 
 
 # ── Constants ─────────────────────────────────────────────────
 
 INITIAL_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
 
-EMPTY_STATE = PipelineState(results=(), files_added=False, catalog_updated=False)
+EMPTY_STATE = PipelineState()
 
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
@@ -130,9 +133,9 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--proxy-url",
         config.proxy_url,
         "--max-items",
-        "200",
+        "700",  # Optimized for batch backfill (~7 days)
         "--workers",
-        "8",
+        "15",   # Parallel downloads optimization
         "--deadline",
         "10m",
     )
@@ -287,6 +290,7 @@ def update_state(state: PipelineState, result: StepResult) -> PipelineState:
         results=state.results + (result,),
         files_added=state.files_added or result.outputs.get("files_added") == "true",
         catalog_updated=(state.catalog_updated or result.outputs.get("catalog_updated") == "true"),
+        start_time=state.start_time,
     )
 
 
@@ -342,17 +346,84 @@ def format_github_output(state: PipelineState) -> str:
     )
 
 
-def build_run_stats(job: str, state: PipelineState) -> dict:
-    """Build structured run stats from pipeline state (pure)."""
-    steps = {}
-    for result in state.results:
-        stats = {k: v for k, v in result.outputs.items() if k not in ("files_added", "catalog_updated")}
-        steps[result.name] = {"success": result.success, "stats": stats}
-    return {
-        "generated_at": datetime.now(UTC).isoformat(),
-        "job": job,
-        "steps": steps,
+def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> dict:
+    """Build structured run stats from pipeline state for dashboard."""
+    now = datetime.now(UTC)
+
+    # Base structure
+    stats = {
+        "run_id": os.environ.get("GITHUB_RUN_ID", "local"),
+        "timestamp": now.isoformat(),
+        "duration_seconds": int(time.time() - state.start_time),
+        "status": "failed" if has_failures(state) else "success",
+        "current_date": now.strftime("%Y-%m-%d"),
+        "steps": {},
+        "backfill": {},
+        "tribunals": {},
+        "internet_archive": {}
     }
+
+    # Helper to find step result
+    def get_result(name: str) -> StepResult | None:
+        for r in state.results:
+            if r.name == name:
+                return r
+        return None
+
+    # Step: Collect
+    collect = get_result("collect")
+    if collect:
+        out = collect.outputs
+        stats["steps"]["collect"] = {
+            "success": int(out.get("collect_success", 0)),
+            "failed": int(out.get("collect_failed", 0)),
+            "skipped": int(out.get("collect_skipped", 0)),
+            "tribunals_total": 96,  # Hardcoded for now, or derive from fetch
+            "zips_downloaded_mb": float(out.get("collect_downloaded_mb", 0)),
+            "duration_seconds": int(collect.duration_seconds)
+        }
+
+    # Step: Consolidate
+    consolidate = get_result("consolidate")
+    if consolidate:
+        out = consolidate.outputs
+        stats["steps"]["consolidate"] = {
+            "zips_processed": int(out.get("consolidate_zips", 0)),
+            "records_total": int(out.get("consolidate_records", 0)),
+            "parquets_generated": int(out.get("consolidate_parquets", 0)),
+            "uploaded_mb": float(out.get("consolidate_uploaded_mb", 0)),
+            "duration_seconds": int(consolidate.duration_seconds)
+        }
+
+    # Step: Embed
+    embed = get_result("embed")
+    if embed:
+        out = embed.outputs
+        stats["steps"]["embed"] = {
+            "texts_processed": int(out.get("embed_processed", 0)),
+            "embeddings_saved": int(out.get("embed_saved", 0)),
+            "failed": int(out.get("embed_failed", 0)),
+            "duration_seconds": int(embed.duration_seconds)
+        }
+
+    # Step: Catalog
+    catalog = get_result("catalog")
+    if catalog:
+        out = catalog.outputs
+        stats["steps"]["catalog"] = {
+            "manifest_updated": out.get("catalog_updated") == "true",
+            "backfill_progress_pct": float(out.get("catalog_progress", 0)),
+            "total_days_archived": int(out.get("catalog_dates", 0)),
+            "total_days_target": 1826, # 2021-2026
+            "duration_seconds": int(catalog.duration_seconds)
+        }
+
+        # Populate Backfill details if available from catalog output (future improvement: make catalog output this JSON)
+        # For now, we mock/estimate based on what we have or leave empty for the dashboard to handle gracefully
+        # Ideally, generate_catalog.py should write a detailed JSON that we merge here.
+        # Assuming catalog might output a backfill_stats.json in the future.
+
+    return stats
 
 
 def _format_step_metrics(outputs: Mapping[str, str]) -> str:
@@ -385,6 +456,24 @@ def format_github_summary(job: str, state: PipelineState) -> str:
     return "\n".join(lines) + "\n"
 
 
+def write_run_stats(config: PipelineConfig, state: PipelineState) -> None:
+    """Write comprehensive run stats to dashboard/public/run-stats.json."""
+    stats = build_comprehensive_stats(config, state)
+
+    # Write to dashboard public dir
+    dashboard_dir = Path(config.repo_root) / "dashboard" / "public"
+    try:
+        dashboard_dir.mkdir(parents=True, exist_ok=True)
+        stats_path = dashboard_dir / "run-stats.json"
+
+        with stats_path.open("w") as f:
+            json.dump(stats, f, indent=2)
+
+        sys.stdout.write(f"\nStats written to {stats_path}\n")
+    except Exception as e:
+        sys.stderr.write(f"\nFailed to write stats: {e}\n")
+
+
 # ── Impure Boundary: Execution ────────────────────────────────
 
 
@@ -401,7 +490,9 @@ def execute_step(plan: StepPlan, cwd: str) -> StepResult:
     sys.stdout.write(format_step_header(plan.name, plan.cmd))
     sys.stdout.flush()
 
+    start_time = time.time()
     result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
+    duration = time.time() - start_time
 
     output_path = Path(output_file)
     try:
@@ -420,7 +511,7 @@ def execute_step(plan: StepPlan, cwd: str) -> StepResult:
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    return StepResult(name=plan.name, success=success, outputs=outputs)
+    return StepResult(name=plan.name, success=success, outputs=outputs, duration_seconds=duration)
 
 
 def execute_plans(
@@ -513,21 +604,11 @@ def main() -> int:
     state = execute_plans(catalog_plans, state, config.repo_root)
 
     # Write run stats for dashboard consumption
-    stats_dict = build_run_stats(config.job, state)
-    fd, stats_file = tempfile.mkstemp(prefix="run-stats-", suffix=".json")
-    os.close(fd)
-    Path(stats_file).write_text(json.dumps(stats_dict))
-    os.environ["PIPELINE_RUN_STATS"] = stats_file
+    write_run_stats(config, state)
 
     # Phase 3: dashboard (conditional on catalog_updated)
     dashboard_plans = plan_dashboard_step(config, state)
     state = execute_plans(dashboard_plans, state, config.repo_root)
-
-    # Cleanup stats file
-    try:
-        Path(stats_file).unlink()
-    except OSError:
-        pass
 
     # Output
     sys.stdout.write(format_pipeline_summary(state))

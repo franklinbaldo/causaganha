@@ -28,6 +28,7 @@ import json
 import os
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -41,7 +42,7 @@ from causaganha.config import TRIBUNAIS
 
 
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
-
+DJEN_CACHE_FILE = Path("djen_cache.json")
 
 @dataclass
 class AbsentReason:
@@ -54,6 +55,24 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
+
+
+def load_cache() -> dict[str, list[str]]:
+    """Load local existence cache."""
+    if DJEN_CACHE_FILE.exists():
+        try:
+            return json.loads(DJEN_CACHE_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_cache(cache: dict[str, list[str]]) -> None:
+    """Save local existence cache."""
+    try:
+        DJEN_CACHE_FILE.write_text(json.dumps(cache))
+    except Exception as e:
+        logger.warning("cache_save_failed", error=str(e))
 
 
 def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
@@ -124,34 +143,49 @@ async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
     if not dates:
         return set()
 
-    logger.info("checking_existing_files", dates_count=len(dates))
+    cache = load_cache()
+    # Check cache first
+    cached_files = set()
+    dates_to_fetch = []
+
+    for d in dates:
+        if d in cache:
+            for f in cache[d]:
+                cached_files.add(f)
+        else:
+            dates_to_fetch.append(d)
+
+    if not dates_to_fetch:
+        return cached_files
+
+    logger.info("checking_existing_files", dates_count=len(dates_to_fetch))
 
     async with httpx.AsyncClient() as client:
-        tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates]
+        tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates_to_fetch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    existing: set[str] = set()
-    for result in results:
-        if isinstance(result, list):
-            for filename in result:
-                existing.add(filename)
+    fetched_files: set[str] = set()
 
-    logger.info("existing_files_found", count=len(existing), dates_checked=len(dates))
-    return existing
+    for i, result in enumerate(results):
+        date_str = dates_to_fetch[i]
+        if isinstance(result, list):
+            cache[date_str] = result # Update cache
+            for filename in result:
+                fetched_files.add(filename)
+        else:
+            # On error, don't cache empty list, just don't cache
+            pass
+
+    save_cache(cache)
+
+    logger.info("existing_files_found", count=len(fetched_files) + len(cached_files), dates_checked=len(dates_to_fetch))
+    return cached_files | fetched_files
 
 
 def get_existing_files_for_dates(dates: list[str]) -> set[str]:
-    """Sync wrapper for get_existing_files_for_dates_async.
-
-    Note: On Windows Python 3.12, asyncio + SSL has GIL issues.
-    As a workaround, we skip this check for backfill and assume all files
-    need to be collected. This is safer but slower.
-    """
-    # TODO(dev): Fix this when Python 3.13+ free-threaded build is available  # noqa: FIX002
-    # https://github.com/franklinbaldo/causaganha/issues/1
-    # For now, return empty set to collect all files (safer, slower)
-    logger.warning("skipping_ia_file_check", reason="Windows Python 3.12 GIL issue")
-    return set()
+    """Sync wrapper for get_existing_files_for_dates_async."""
+    # Re-enabled since we have caching and run on Linux
+    return asyncio.run(get_existing_files_for_dates_async(dates))
 
 
 def fetch_backfill_items() -> list[tuple[str, str]]:
@@ -408,11 +442,11 @@ def _process_item(
     proxy_url: str,
     date_str: str,
     tribunal: str,
-) -> str:
+) -> tuple[str, float]:
     """Process a single (date, tribunal) pair. Thread-safe.
 
     Returns:
-        'success' or 'failed' for stats aggregation.
+        ('success'|'failed', size_mb)
     """
     absent_marker = f"djen-{date_str}-{tribunal}.absent"
 
@@ -429,16 +463,16 @@ def _process_item(
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
             ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
-            return "success" if ok else "failed"
+            return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
         # API returned None — transient error after retries (5xx, timeout, network)
         logger.warning("caderno_api_transient_error", date=date_str, tribunal=tribunal)
-        return "failed"
+        return "failed", 0.0
 
     download_url = info.get("url")
     if not download_url:
-        return "failed"
+        return "failed", 0.0
 
     # Download and upload
     zip_name = f"djen-{date_str}-{tribunal}.zip"
@@ -446,14 +480,16 @@ def _process_item(
         zip_path = Path(tmpdir) / zip_name
 
         if not download_zip(dl_client, download_url, zip_path):
-            return "failed"
+            return "failed", 0.0
+
+        size_mb = zip_path.stat().st_size / (1024 * 1024)
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
         if upload_to_ia(upload_client, item_id, zip_path, date_str):
-            logger.info("uploaded", item_id=item_id, file=zip_name)
-            return "success"
-        return "failed"
+            logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
+            return "success", size_mb
+        return "failed", 0.0
 
 
 def collect_data(
@@ -462,7 +498,7 @@ def collect_data(
     target_tribunal: str | None = None,
     max_items: int = 50,
     workers: int = 8,
-) -> dict[str, int]:
+) -> dict[str, int | float]:
     """Main collection function with parallel processing.
 
     When no target_date is given, the work queue comes straight from the
@@ -471,7 +507,12 @@ def collect_data(
     The catalog is the single source of truth; we only verify against IA
     to filter items collected since the last catalog rebuild (daily 06:00 UTC).
     """
-    stats: dict[str, int] = {"success": 0, "failed": 0, "skipped": 0}
+    stats: dict[str, int | float] = {
+        "success": 0,
+        "failed": 0,
+        "skipped": 0,
+        "downloaded_mb": 0.0
+    }
 
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
@@ -551,21 +592,27 @@ def collect_data(
             limits=pool_limits,
             headers={"Authorization": ia_auth},
         ) as upload_client,
+        ThreadPoolExecutor(max_workers=workers) as executor
     ):
-        # Process items sequentially instead of using ThreadPoolExecutor
-        # ThreadPoolExecutor + httpx causes GIL issues on Windows
-        # Sequential processing is slower but stable
-        for date_str, tribunal in pending:
+        futures = {
+            executor.submit(
+                _process_item,
+                api_client,
+                dl_client,
+                upload_client,
+                proxy_url,
+                date_str,
+                tribunal
+            ): (date_str, tribunal)
+            for date_str, tribunal in pending
+        }
+
+        for future in as_completed(futures):
+            date_str, tribunal = futures[future]
             try:
-                result = _process_item(
-                    api_client,
-                    dl_client,
-                    upload_client,
-                    proxy_url,
-                    date_str,
-                    tribunal,
-                )
+                result, size_mb = future.result()
                 stats[result] += 1
+                stats["downloaded_mb"] += size_mb
             except Exception:
                 logger.exception("worker_error", date=date_str, tribunal=tribunal)
                 stats["failed"] += 1
@@ -614,6 +661,7 @@ def main() -> int:
     print(f"  Success: {stats['success']}")
     print(f"  Failed:  {stats['failed']}")
     print(f"  Skipped: {stats['skipped']} (already on IA)")
+    print(f"  Downloaded: {stats['downloaded_mb']:.1f} MB")
 
     # Set GitHub Actions output: did we add any files?
     files_added = stats["success"] > 0
@@ -626,6 +674,7 @@ def main() -> int:
             f.write(f"collect_success={stats['success']}\n")
             f.write(f"collect_failed={stats['failed']}\n")
             f.write(f"collect_skipped={stats['skipped']}\n")
+            f.write(f"collect_downloaded_mb={stats['downloaded_mb']:.1f}\n")
 
     # Determine exit code based on success rate, not strict zero-failures
     # This tolerates transient API errors (timeouts, 5xx, network issues)

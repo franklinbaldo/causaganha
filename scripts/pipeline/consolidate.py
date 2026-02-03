@@ -20,9 +20,11 @@ import os
 import subprocess
 import tempfile
 import time
+import threading
 import unicodedata
 import uuid
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -733,13 +735,14 @@ def _export_and_upload_table(
     item_id: str,
     *,
     dry_run: bool,
-) -> tuple[bool, int]:
-    """Export single table to Parquet and upload. Returns (success, parquets_created)."""
+) -> tuple[bool, float, int]:
+    """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count)."""
+    size_mb = 0.0
     try:
         t = con.table(table_name)
         count = t.count().to_pandas()
         if count == 0:
-            return False, 0
+            return False, 0.0, 0
 
         output_path = output_dir / f"{table_name}.parquet"
         con.raw_sql(
@@ -759,10 +762,73 @@ def _export_and_upload_table(
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
-        return True, uploaded
+        return True, size_mb, uploaded
     except Exception as e:
         logger.error("parquet_export_failed", table=table_name, error=str(e))
-        return False, 0
+        return False, 0.0, 0
+
+
+def process_zip_entry(
+    zip_entry: dict[str, Any],
+    tmp_path: Path,
+    ndjson_dir: Path,
+    item_id: str,
+    local_zips: str | None,
+    ndjson_lock: threading.Lock,
+    ndjson_handles: dict[str, Any],
+) -> tuple[int, int]:
+    """Process a single ZIP entry.
+
+    Returns: (success_count, records_count)
+    """
+    filename = str(zip_entry["filename"])
+    tribunal = str(zip_entry["tribunal"])
+
+    logger.info(
+        "processing_zip_start",
+        filename=filename,
+        tribunal=tribunal,
+    )
+
+    zip_path = tmp_path / filename
+
+    # Download or copy
+    if local_zips and "local_path" in zip_entry:
+        import shutil
+        try:
+            shutil.copy2(zip_entry["local_path"], zip_path)
+        except Exception as e:
+            logger.warning("local_copy_failed", filename=filename, error=str(e))
+            return 0, 0
+    elif not download_zip(item_id, filename, zip_path):
+        logger.warning("download_failed", filename=filename)
+        return 0, 0
+
+    # Extract
+    records = extract_json_from_zip(zip_path)
+    if not records:
+        logger.warning("no_records_found", filename=filename)
+        try:
+            zip_path.unlink()
+        except Exception:
+            pass
+        return 0, 0
+
+    # Write to NDJSON (with lock)
+    with ndjson_lock:
+        if tribunal not in ndjson_handles:
+            ndjson_handles[tribunal] = (ndjson_dir / f"{tribunal}.ndjson").open("w")
+        f = ndjson_handles[tribunal]
+        for rec in records:
+            if isinstance(rec, dict):
+                f.write(json.dumps(rec, default=str) + "\n")
+
+    try:
+        zip_path.unlink()
+    except Exception:
+        pass
+
+    return 1, len(records)
 
 
 def consolidate_date(
@@ -772,7 +838,7 @@ def consolidate_date(
     force: bool = False,
     local_zips: str | None = None,
     max_zips: int = 0,
-) -> dict[str, int]:
+) -> dict[str, int | float]:
     """Consolidate all tribunals for a date into single Parquet files.
 
     Args:
@@ -782,7 +848,13 @@ def consolidate_date(
         local_zips: Local directory containing ZIPs (for testing).
         max_zips: Maximum ZIPs to process (0 = unlimited).
     """
-    stats = {"zips_processed": 0, "records": 0, "parquets_created": 0, "uploaded": 0}
+    stats = {
+        "zips_processed": 0,
+        "records": 0,
+        "parquets_created": 0,
+        "uploaded": 0,
+        "uploaded_mb": 0.0
+    }
     item_id = f"djen-{date}"
 
     # Find all ZIPs and check if day's matrix is complete
@@ -823,52 +895,33 @@ def consolidate_date(
 
         # Phase 1: Extract ZIPs → raw per-tribunal NDJSON (zero Python mutation)
         ndjson_handles: dict[str, Any] = {}
+        ndjson_lock = threading.Lock()
+
         try:
-            for i, zip_entry in enumerate(zips):
-                zip_info: dict[str, Any] = zip_entry
-                filename = str(zip_info["filename"])
-                tribunal = str(zip_info["tribunal"])
+            # Parallel processing of ZIPs
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(
+                        process_zip_entry,
+                        zip_entry,
+                        tmp_path,
+                        ndjson_dir,
+                        item_id,
+                        local_zips,
+                        ndjson_lock,
+                        ndjson_handles
+                    ): zip_entry
+                    for zip_entry in zips
+                }
 
-                logger.info(
-                    "processing_zip",
-                    filename=filename,
-                    tribunal=tribunal,
-                    progress=f"{i + 1}/{len(zips)}",
-                )
-
-                # Download or use local ZIP
-                zip_path = tmp_path / filename
-                if local_zips and "local_path" in zip_info:
-                    import shutil
-
+                for future in as_completed(futures):
                     try:
-                        shutil.copy2(zip_info["local_path"], zip_path)
+                        success_cnt, records_cnt = future.result()
+                        stats["zips_processed"] += success_cnt
+                        stats["records"] += records_cnt
                     except Exception as e:
-                        logger.warning("local_copy_failed", filename=filename, error=str(e))
-                        continue
-                elif not download_zip(item_id, filename, zip_path):
-                    logger.warning("download_failed", filename=filename)
-                    continue
+                        logger.error("zip_processing_error", error=str(e))
 
-                # Extract JSON from ZIP
-                records = extract_json_from_zip(zip_path)
-                if not records:
-                    logger.warning("no_records_found", filename=filename)
-                    zip_path.unlink()
-                    continue
-
-                # Stream raw records — one NDJSON per tribunal.
-                # Tribunal is derived from the filename in DuckDB, not mutated here.
-                if tribunal not in ndjson_handles:
-                    ndjson_handles[tribunal] = (ndjson_dir / f"{tribunal}.ndjson").open("w")
-                f = ndjson_handles[tribunal]
-                for rec in records:
-                    if isinstance(rec, dict):
-                        f.write(json.dumps(rec, default=str) + "\n")
-
-                stats["zips_processed"] += 1
-                stats["records"] += len(records)
-                zip_path.unlink()
         finally:
             for fh in ndjson_handles.values():
                 fh.close()
@@ -885,7 +938,7 @@ def consolidate_date(
         logger.info("exporting_parquets", table_count=len(TABLES))
 
         for table_name in TABLES:
-            success, uploaded = _export_and_upload_table(
+            success, size_mb, uploaded = _export_and_upload_table(
                 table_name,
                 con,
                 output_dir,
@@ -895,6 +948,7 @@ def consolidate_date(
             if success:
                 stats["parquets_created"] += 1
                 stats["uploaded"] += uploaded
+                stats["uploaded_mb"] += size_mb
 
     return stats
 
@@ -908,6 +962,7 @@ def _print_stats(stats: dict[str, int]) -> None:
     print(f"  Records:          {stats['records']}")
     print(f"  Parquets created: {stats['parquets_created']}")
     print(f"  Uploaded:         {stats['uploaded']}")
+    print(f"  Uploaded MB:      {stats.get('uploaded_mb', 0):.1f}")
 
 
 def main() -> int:
@@ -997,6 +1052,7 @@ def main() -> int:
             f.write(f"consolidate_records={stats['records']}\n")
             f.write(f"consolidate_parquets={stats['parquets_created']}\n")
             f.write(f"consolidate_uploaded={stats['uploaded']}\n")
+            f.write(f"consolidate_uploaded_mb={stats['uploaded_mb']:.1f}\n")
 
     return 0
 
