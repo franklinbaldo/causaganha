@@ -472,7 +472,9 @@ def given_state_with_failure(context: dict[str, Any]) -> None:
 
 @given("a state with one successful step")
 def given_state_all_success(context: dict[str, Any]) -> None:
-    ok = StepResult(name="collect", success=True, outputs={"files_added": "true"}, duration_seconds=0.0)
+    ok = StepResult(
+        name="collect", success=True, outputs={"files_added": "true"}, duration_seconds=0.0
+    )
     context["state"] = update_state(EMPTY_STATE, ok)
 
 
