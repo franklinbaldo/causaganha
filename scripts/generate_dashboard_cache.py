@@ -325,16 +325,22 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             ).fetchone()
             backfill_pending = pending[0] if pending else 0
         except Exception:
-            # Estimate total from date range: weekdays from 2024-01-01 to yesterday × tribunals
+            # Estimate total from date range: weekdays from 2024-01-01 to yesterday x tribunals
             from datetime import date as date_type
 
             start = date_type(2024, 1, 1)
             end = date_type.today() - timedelta(days=1)
-            weekdays = sum(1 for i in range((end - start).days + 1) if (start + timedelta(days=i)).weekday() < 5)
+            weekdays = sum(
+                1
+                for i in range((end - start).days + 1)
+                if (start + timedelta(days=i)).weekday() < 5
+            )
             backfill_pending = max(weekdays * len(TRIBUNALS) - backfill_done, 0)
 
         backfill_total = backfill_done + backfill_pending
-        progress_pct = round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
+        progress_pct = (
+            round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
+        )
 
         return {
             "total_zips": total_zips,

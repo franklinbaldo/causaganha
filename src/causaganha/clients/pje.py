@@ -2,6 +2,7 @@
 
 from datetime import date
 from types import TracebackType
+from typing import Self
 
 import httpx
 import structlog
@@ -115,7 +116,10 @@ class PJeAPIClient:
                 params["dataDisponibilizacaoFim"] = data_fim.strftime("%Y-%m-%d")
 
             logger.info(
-                "fetching_page", tribunal=sigla_tribunal, offset=offset, limit=limit_per_page,
+                "fetching_page",
+                tribunal=sigla_tribunal,
+                offset=offset,
+                limit=limit_per_page,
             )
 
             try:
@@ -143,7 +147,9 @@ class PJeAPIClient:
 
             except Exception as e:
                 logger.exception(
-                    "validation_failed", error=str(e), sample=items[0] if items else None,
+                    "validation_failed",
+                    error=str(e),
+                    sample=items[0] if items else None,
                 )
                 raise
 
@@ -161,7 +167,7 @@ class PJeAPIClient:
         """Close the HTTP client."""
         await self.client.aclose()
 
-    async def __aenter__(self) -> "PJeAPIClient":
+    async def __aenter__(self) -> Self:
         """Enter context manager."""
         return self
 

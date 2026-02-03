@@ -1,10 +1,6 @@
 """CLI package for CausaGanha."""
 
 import asyncio
-import decimal
-
-# Workaround for decimal.InvalidOperation crash in ibis/sqlglot interaction
-decimal.getcontext().traps[decimal.InvalidOperation] = False
 
 import duckdb
 import structlog
@@ -515,7 +511,7 @@ def export_status(
             FROM parquet_exports
             WHERE {where_clause}
             ORDER BY partition_date DESC, tribunal
-        """  # noqa: S608
+        """
 
         result = con.con.execute(query, params).fetchall()
 
@@ -1386,7 +1382,7 @@ def backfill_status(
                 FROM read_parquet('{backfill_path}')
                 {where_clause}
             """
-            ).fetchone()  # noqa: S608
+            ).fetchone()
         except duckdb.Error as e:
             typer.secho(f"❌ Error reading backfill file: {e}", fg=typer.colors.RED)
             typer.echo("The file may be corrupted. Try re-downloading with --force.")
@@ -1428,7 +1424,7 @@ def backfill_status(
             ORDER BY missing DESC
             LIMIT {limit}
         """
-        ).fetchall()  # noqa: S608
+        ).fetchall()
 
         for trib, missing, early, late in breakdown:
             # Handle None values gracefully
