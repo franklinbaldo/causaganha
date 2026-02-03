@@ -209,8 +209,8 @@ Feature: Pipeline Orchestration
     Then the command should include flag "--proxy-url"
     And the command should include flag "--date" with value "2026-01-15"
     And the command should include flag "--tribunal" with value "TJSP"
-    And the command should include flag "--max-items" with value "200"
-    And the command should include flag "--workers" with value "8"
+    And the command should include flag "--max-items" with value "700"
+    And the command should include flag "--workers" with value "15"
     And the command should include flag "--deadline" with value "10m"
 
   @pipeline @command
@@ -330,7 +330,7 @@ Feature: Pipeline Orchestration
     Given a pipeline state with files_added true and catalog_updated true
     When I format the GitHub summary for job "all"
     Then the formatted text should contain "## Pipeline Summary"
-    And the formatted text should contain "**Job**: all"
+    And the formatted text should contain "**Job**: `all`"
     And the formatted text should contain "catalog.duckdb"
 
   @pipeline @formatting

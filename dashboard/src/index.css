@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cyber-black text-cyber-text font-mono selection:bg-cyber-primary selection:text-cyber-black;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-cyber-dark;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-cyber-gray border border-cyber-black hover:bg-cyber-secondary rounded;
+  }
+
+  /* Scanline effect (optional, maybe too heavy) */
+}
+
+@layer components {
+  .cyber-card {
+    @apply bg-cyber-card border border-cyber-border p-4 shadow-lg;
+  }
+
+  .cyber-btn {
+    @apply px-4 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-dim transition-colors uppercase text-sm tracking-wider;
+  }
+
+  .cyber-grid-bg {
+    background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
