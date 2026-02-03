@@ -39,6 +39,7 @@ import httpx
 import structlog
 
 from causaganha.config import TRIBUNAIS
+from causaganha.utils import validate_url
 
 
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
@@ -627,6 +628,14 @@ def main() -> int:
         default="10m",
     )
     args = parser.parse_args()
+
+    # Validate security inputs
+    if args.proxy_url is not None:
+        try:
+            validate_url(args.proxy_url)
+        except ValueError as e:
+            print(f"❌ Security Error: {e}")
+            return 1
 
     print("Collecting DJEN data...")
     print(f"  Proxy: {args.proxy_url}")
