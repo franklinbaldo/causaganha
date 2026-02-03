@@ -44,6 +44,7 @@ from causaganha.config import TRIBUNAIS
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 DJEN_CACHE_FILE = Path("djen_cache.json")
 
+
 @dataclass
 class AbsentReason:
     """Evidence for why a journal was marked absent."""
@@ -169,7 +170,7 @@ async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
     for i, result in enumerate(results):
         date_str = dates_to_fetch[i]
         if isinstance(result, list):
-            cache[date_str] = result # Update cache
+            cache[date_str] = result  # Update cache
             for filename in result:
                 fetched_files.add(filename)
         else:
@@ -178,7 +179,11 @@ async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
 
     save_cache(cache)
 
-    logger.info("existing_files_found", count=len(fetched_files) + len(cached_files), dates_checked=len(dates_to_fetch))
+    logger.info(
+        "existing_files_found",
+        count=len(fetched_files) + len(cached_files),
+        dates_checked=len(dates_to_fetch),
+    )
     return cached_files | fetched_files
 
 
@@ -507,12 +512,7 @@ def collect_data(
     The catalog is the single source of truth; we only verify against IA
     to filter items collected since the last catalog rebuild (daily 06:00 UTC).
     """
-    stats: dict[str, int | float] = {
-        "success": 0,
-        "failed": 0,
-        "skipped": 0,
-        "downloaded_mb": 0.0
-    }
+    stats: dict[str, int | float] = {"success": 0, "failed": 0, "skipped": 0, "downloaded_mb": 0.0}
 
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
@@ -592,17 +592,11 @@ def collect_data(
             limits=pool_limits,
             headers={"Authorization": ia_auth},
         ) as upload_client,
-        ThreadPoolExecutor(max_workers=workers) as executor
+        ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
             executor.submit(
-                _process_item,
-                api_client,
-                dl_client,
-                upload_client,
-                proxy_url,
-                date_str,
-                tribunal
+                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }

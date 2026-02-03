@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "700",  # Optimized for batch backfill (~7 days)
         "--workers",
-        "15",   # Parallel downloads optimization
+        "15",  # Parallel downloads optimization
         "--deadline",
         "10m",
     )
@@ -360,7 +360,7 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
         "steps": {},
         "backfill": {},
         "tribunals": {},
-        "internet_archive": {}
+        "internet_archive": {},
     }
 
     # Helper to find step result
@@ -380,7 +380,7 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "skipped": int(out.get("collect_skipped", 0)),
             "tribunals_total": 96,  # Hardcoded for now, or derive from fetch
             "zips_downloaded_mb": float(out.get("collect_downloaded_mb", 0)),
-            "duration_seconds": int(collect.duration_seconds)
+            "duration_seconds": int(collect.duration_seconds),
         }
 
     # Step: Consolidate
@@ -392,7 +392,7 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "records_total": int(out.get("consolidate_records", 0)),
             "parquets_generated": int(out.get("consolidate_parquets", 0)),
             "uploaded_mb": float(out.get("consolidate_uploaded_mb", 0)),
-            "duration_seconds": int(consolidate.duration_seconds)
+            "duration_seconds": int(consolidate.duration_seconds),
         }
 
     # Step: Embed
@@ -403,7 +403,7 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "texts_processed": int(out.get("embed_processed", 0)),
             "embeddings_saved": int(out.get("embed_saved", 0)),
             "failed": int(out.get("embed_failed", 0)),
-            "duration_seconds": int(embed.duration_seconds)
+            "duration_seconds": int(embed.duration_seconds),
         }
 
     # Step: Catalog
@@ -414,8 +414,8 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "manifest_updated": out.get("catalog_updated") == "true",
             "backfill_progress_pct": float(out.get("catalog_progress", 0)),
             "total_days_archived": int(out.get("catalog_dates", 0)),
-            "total_days_target": 1826, # 2021-2026
-            "duration_seconds": int(catalog.duration_seconds)
+            "total_days_target": 1826,  # 2021-2026
+            "duration_seconds": int(catalog.duration_seconds),
         }
 
         # Populate Backfill details if available from catalog output (future improvement: make catalog output this JSON)

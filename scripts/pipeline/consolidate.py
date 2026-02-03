@@ -795,6 +795,7 @@ def process_zip_entry(
     # Download or copy
     if local_zips and "local_path" in zip_entry:
         import shutil
+
         try:
             shutil.copy2(zip_entry["local_path"], zip_path)
         except Exception as e:
@@ -853,7 +854,7 @@ def consolidate_date(
         "records": 0,
         "parquets_created": 0,
         "uploaded": 0,
-        "uploaded_mb": 0.0
+        "uploaded_mb": 0.0,
     }
     item_id = f"djen-{date}"
 
@@ -909,7 +910,7 @@ def consolidate_date(
                         item_id,
                         local_zips,
                         ndjson_lock,
-                        ndjson_handles
+                        ndjson_handles,
                     ): zip_entry
                     for zip_entry in zips
                 }

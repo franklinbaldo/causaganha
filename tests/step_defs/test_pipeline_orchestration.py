@@ -438,6 +438,7 @@ def given_step_result(
         name=name,
         success=True,
         outputs={key: value},
+        duration_seconds=0.0,
     )
 
 
@@ -465,13 +466,13 @@ def given_output_text_empty(context: dict[str, Any]) -> None:
 
 @given("a state with one failed step")
 def given_state_with_failure(context: dict[str, Any]) -> None:
-    failed = StepResult(name="collect", success=False, outputs={})
+    failed = StepResult(name="collect", success=False, outputs={}, duration_seconds=0.0)
     context["state"] = update_state(EMPTY_STATE, failed)
 
 
 @given("a state with one successful step")
 def given_state_all_success(context: dict[str, Any]) -> None:
-    ok = StepResult(name="collect", success=True, outputs={"files_added": "true"})
+    ok = StepResult(name="collect", success=True, outputs={"files_added": "true"}, duration_seconds=0.0)
     context["state"] = update_state(EMPTY_STATE, ok)
 
 
@@ -606,7 +607,7 @@ def when_add_another_result(
     key: str,
     value: str,
 ) -> None:
-    second = StepResult(name=name, success=True, outputs={key: value})
+    second = StepResult(name=name, success=True, outputs={key: value}, duration_seconds=0.0)
     context["state"] = update_state(context["state"], second)
 
 
