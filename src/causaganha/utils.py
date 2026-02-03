@@ -1,5 +1,6 @@
 import urllib.parse
 
+
 def validate_url(url: str) -> str:
     """Validate URL to prevent SSRF attacks."""
     parsed = urllib.parse.urlparse(url)
