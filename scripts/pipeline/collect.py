@@ -43,6 +43,17 @@ from causaganha.config import TRIBUNAIS
 
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 DJEN_CACHE_FILE = Path("djen_cache.json")
+DB_PATH = Path("data/causaganha.duckdb")
+
+SCHEMA_SQL = """
+CREATE SCHEMA IF NOT EXISTS djen_state;
+CREATE TABLE IF NOT EXISTS djen_state.coverage (
+    date DATE NOT NULL,
+    tribunal VARCHAR NOT NULL,
+    downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (date, tribunal)
+);
+"""
 
 
 @dataclass
@@ -58,22 +69,86 @@ class AbsentReason:
 logger = structlog.get_logger()
 
 
-def load_cache() -> dict[str, list[str]]:
-    """Load local existence cache."""
-    if DJEN_CACHE_FILE.exists():
-        try:
-            return json.loads(DJEN_CACHE_FILE.read_text())
-        except Exception:
-            pass
-    return {}
+def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
+    """Get DuckDB connection."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    return duckdb.connect(str(DB_PATH), read_only=read_only)
 
 
-def save_cache(cache: dict[str, list[str]]) -> None:
-    """Save local existence cache."""
+def init_db(con: duckdb.DuckDBPyConnection) -> None:
+    """Initialize database schema."""
+    con.execute(SCHEMA_SQL)
+
+
+def migrate_legacy_cache(con: duckdb.DuckDBPyConnection) -> None:
+    """Migrate JSON cache to DuckDB if it exists."""
+    if not DJEN_CACHE_FILE.exists():
+        return
+
+    logger.info("migrating_cache", file=str(DJEN_CACHE_FILE))
     try:
-        DJEN_CACHE_FILE.write_text(json.dumps(cache))
+        cache = json.loads(DJEN_CACHE_FILE.read_text())
+        rows = []
+        for date_str, files in cache.items():
+            for filename in files:
+                # Filename format: djen-{date}-{tribunal}.{ext}
+                # e.g. djen-2024-01-01-TJSP.zip or djen-2024-01-01-TJSP.absent
+                try:
+                    parts = filename.split(".")
+                    stem = parts[0]
+                    # stem: djen-2024-01-01-TJSP
+                    # Split by '-'
+                    segments = stem.split("-")
+                    if len(segments) >= 5:
+                        tribunal = segments[-1]
+                        # date is segments[1:4] joined by '-'
+                        date_parsed = "-".join(segments[1:4])
+                        # Verify date matches key
+                        if date_parsed == date_str:
+                            rows.append((date_str, tribunal))
+                except Exception:
+                    continue
+
+        if rows:
+            con.executemany(
+                "INSERT INTO djen_state.coverage (date, tribunal) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                rows,
+            )
+            logger.info("migrated_rows", count=len(rows))
+
+        DJEN_CACHE_FILE.unlink()
+        logger.info("cache_migration_complete")
+
     except Exception as e:
-        logger.warning("cache_save_failed", error=str(e))
+        logger.warning("migration_failed", error=str(e))
+
+
+def get_coverage_for_dates(
+    con: duckdb.DuckDBPyConnection, dates: list[str]
+) -> set[tuple[str, str]]:
+    """Get set of (date, tribunal) present in DB for given dates."""
+    if not dates:
+        return set()
+
+    # We query for all records matching the dates.
+    # Dynamically build placeholders
+    placeholders = ",".join(["?"] * len(dates))
+    query = f"SELECT CAST(date AS VARCHAR), tribunal FROM djen_state.coverage WHERE date IN ({placeholders})"
+
+    result = con.execute(query, dates).fetchall()
+    return {(r[0], r[1]) for r in result}
+
+
+def mark_downloaded(
+    con: duckdb.DuckDBPyConnection, items: list[tuple[str, str]]
+) -> None:
+    """Mark (date, tribunal) as covered."""
+    if not items:
+        return
+    con.executemany(
+        "INSERT INTO djen_state.coverage (date, tribunal) VALUES (?, ?) ON CONFLICT DO NOTHING",
+        items,
+    )
 
 
 def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
@@ -132,8 +207,8 @@ async def _fetch_ia_files_for_date_async(client: httpx.AsyncClient, date_str: st
         return []
 
 
-async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
-    """Get existing zip/absent files on IA for specific dates only (async).
+async def get_existing_files_for_dates_async(dates: list[str]) -> set[tuple[str, str]]:
+    """Get existing (date, tribunal) pairs on IA for specific dates only (async).
 
     Queries the IA metadata HTTP API once per date, using asyncio for
     concurrent requests. The rolling window (d-1) produces ~1 request;
@@ -144,20 +219,28 @@ async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
     if not dates:
         return set()
 
-    cache = load_cache()
-    # Check cache first
-    cached_files = set()
-    dates_to_fetch = []
+    con = get_db_connection()
+    init_db(con)
+    migrate_legacy_cache(con)
 
-    for d in dates:
-        if d in cache:
-            for f in cache[d]:
-                cached_files.add(f)
-        else:
-            dates_to_fetch.append(d)
+    # Check DB coverage first
+    # We get all known (date, tribunal) pairs for these dates
+    known_coverage = get_coverage_for_dates(con, dates)
+
+    # Identify which dates have NO coverage (or we want to re-check?)
+    # Since we can't distinguish "checked and found nothing" from "never checked",
+    # we might need to check IA for dates that have no entries in DB.
+    # However, to be robust, we check IA for dates where we found nothing in DB.
+    # If a date has at least one tribunal covered, we assume we checked it?
+    # No, that's risky. But 'djen_cache.json' logic was: if key exists (even empty), don't check.
+    # Here, we don't have "key exists".
+    # So we calculate dates that have at least one entry.
+    dates_with_coverage = {d for d, _ in known_coverage}
+    dates_to_fetch = [d for d in dates if d not in dates_with_coverage]
 
     if not dates_to_fetch:
-        return cached_files
+        con.close()
+        return known_coverage
 
     logger.info("checking_existing_files", dates_count=len(dates_to_fetch))
 
@@ -165,29 +248,46 @@ async def get_existing_files_for_dates_async(dates: list[str]) -> set[str]:
         tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates_to_fetch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    fetched_files: set[str] = set()
+    fetched_coverage: set[tuple[str, str]] = set()
+    new_coverage: list[tuple[str, str]] = []
 
     for i, result in enumerate(results):
         date_str = dates_to_fetch[i]
         if isinstance(result, list):
-            cache[date_str] = result  # Update cache
+            # result is list of filenames
             for filename in result:
-                fetched_files.add(filename)
+                # Parse tribunal from filename
+                try:
+                    parts = filename.split(".")
+                    stem = parts[0]
+                    segments = stem.split("-")
+                    if len(segments) >= 5:
+                        tribunal = segments[-1]
+                        pair = (date_str, tribunal)
+                        fetched_coverage.add(pair)
+                        new_coverage.append(pair)
+                except Exception:
+                    pass
         else:
-            # On error, don't cache empty list, just don't cache
+            # On error, ignore
             pass
 
-    save_cache(cache)
+    if new_coverage:
+        mark_downloaded(con, new_coverage)
+
+    con.close()
+
+    total_coverage = known_coverage | fetched_coverage
 
     logger.info(
         "existing_files_found",
-        count=len(fetched_files) + len(cached_files),
+        count=len(total_coverage),
         dates_checked=len(dates_to_fetch),
     )
-    return cached_files | fetched_files
+    return total_coverage
 
 
-def get_existing_files_for_dates(dates: list[str]) -> set[str]:
+def get_existing_files_for_dates(dates: list[str]) -> set[tuple[str, str]]:
     """Sync wrapper for get_existing_files_for_dates_async."""
     # Re-enabled since we have caching and run on Linux
     return asyncio.run(get_existing_files_for_dates_async(dates))
@@ -532,12 +632,10 @@ def collect_data(
     for chunk_start in range(0, len(to_process), chunk_size):
         chunk = to_process[chunk_start : chunk_start + chunk_size]
         dates_to_check = sorted({d for d, _ in chunk})
-        existing_files = get_existing_files_for_dates(dates_to_check)
+        existing_coverage = get_existing_files_for_dates(dates_to_check)
 
         for d, t in chunk:
-            zip_name = f"djen-{d}-{t}.zip"
-            absent_marker = f"djen-{d}-{t}.absent"
-            if zip_name in existing_files or absent_marker in existing_files:
+            if (d, t) in existing_coverage:
                 stats["skipped"] += 1
             else:
                 pending.append((d, t))
