@@ -499,7 +499,7 @@ def export_status(
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         # Query exports
-        query = f"""  # noqa: S608
+        query = f"""
             SELECT
                 partition_date,
                 tribunal,
@@ -1371,7 +1371,7 @@ def backfill_status(
 
         # Get summary stats with error handling for empty/malformed data
         try:
-            stats = con.execute(f"""  # noqa: S608
+            stats = con.execute(f"""
                 SELECT
                     COUNT(*) as total_missing,
                     COUNT(DISTINCT tribunal) as tribunals,
@@ -1409,7 +1409,7 @@ def backfill_status(
 
         # Get breakdown by tribunal
         typer.echo("\n📋 Missing by Tribunal:")
-        breakdown = con.execute(f"""  # noqa: S608
+        breakdown = con.execute(f"""
             SELECT
                 tribunal,
                 COUNT(*) as missing,
