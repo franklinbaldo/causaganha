@@ -139,9 +139,7 @@ def get_coverage_for_dates(
     return {(r[0], r[1]) for r in result}
 
 
-def mark_downloaded(
-    con: duckdb.DuckDBPyConnection, items: list[tuple[str, str]]
-) -> None:
+def mark_downloaded(con: duckdb.DuckDBPyConnection, items: list[tuple[str, str]]) -> None:
     """Mark (date, tribunal) as covered."""
     if not items:
         return
