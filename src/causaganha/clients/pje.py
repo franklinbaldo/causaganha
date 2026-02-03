@@ -115,7 +115,10 @@ class PJeAPIClient:
                 params["dataDisponibilizacaoFim"] = data_fim.strftime("%Y-%m-%d")
 
             logger.info(
-                "fetching_page", tribunal=sigla_tribunal, offset=offset, limit=limit_per_page,
+                "fetching_page",
+                tribunal=sigla_tribunal,
+                offset=offset,
+                limit=limit_per_page,
             )
 
             try:
@@ -143,7 +146,9 @@ class PJeAPIClient:
 
             except Exception as e:
                 logger.exception(
-                    "validation_failed", error=str(e), sample=items[0] if items else None,
+                    "validation_failed",
+                    error=str(e),
+                    sample=items[0] if items else None,
                 )
                 raise
 

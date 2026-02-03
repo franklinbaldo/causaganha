@@ -330,11 +330,17 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
 
             start = date_type(2024, 1, 1)
             end = date_type.today() - timedelta(days=1)
-            weekdays = sum(1 for i in range((end - start).days + 1) if (start + timedelta(days=i)).weekday() < 5)
+            weekdays = sum(
+                1
+                for i in range((end - start).days + 1)
+                if (start + timedelta(days=i)).weekday() < 5
+            )
             backfill_pending = max(weekdays * len(TRIBUNALS) - backfill_done, 0)
 
         backfill_total = backfill_done + backfill_pending
-        progress_pct = round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
+        progress_pct = (
+            round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
+        )
 
         return {
             "total_zips": total_zips,
