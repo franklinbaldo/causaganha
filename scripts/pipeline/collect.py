@@ -698,15 +698,27 @@ def collect_data(
             for date_str, tribunal in pending
         }
 
-        for future in as_completed(futures):
-            date_str, tribunal = futures[future]
-            try:
-                result, size_mb = future.result()
-                stats[result] += 1
-                stats["downloaded_mb"] += size_mb
-            except Exception:
-                logger.exception("worker_error", date=date_str, tribunal=tribunal)
-                stats["failed"] += 1
+        # Open DB connection for marking downloads
+        con = get_db_connection()
+        init_db(con)
+
+        try:
+            for future in as_completed(futures):
+                date_str, tribunal = futures[future]
+                try:
+                    result, size_mb = future.result()
+                    stats[result] += 1
+                    stats["downloaded_mb"] += size_mb
+
+                    # NEW: Mark successful downloads immediately
+                    if result == "success":
+                        mark_downloaded(con, [(date_str, tribunal)])
+
+                except Exception:
+                    logger.exception("worker_error", date=date_str, tribunal=tribunal)
+                    stats["failed"] += 1
+        finally:
+            con.close()
 
     return stats
 
