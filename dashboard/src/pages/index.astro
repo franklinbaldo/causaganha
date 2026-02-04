@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Dashboard from '../components/Dashboard';
+---
+
+<Layout
+  title="CausaGanha Dashboard - Sistema de Monitoramento"
+  description="Dashboard de monitoramento do pipeline de coleta e análise de dados judiciais brasileiros. Elimine assimetria de informação no mercado jurídico."
+>
+  <Dashboard client:load />
+</Layout>
