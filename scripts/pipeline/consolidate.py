@@ -48,6 +48,9 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_NOME_ORGAO,
     FIELD_NUMERO_COMUNICACAO,
     FIELD_NUMERO_OAB,
+
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
     FIELD_NUMERO_PROCESSO,
     FIELD_TIPO_COMUNICACAO,
     FIELD_TIPO_DOCUMENTO,
@@ -665,10 +668,84 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
+def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int = 60) -> bool:
+    """Check if a tribunal has been absent for 60+ consecutive days before target_date.
+    
+    Scans the last N days (absent_threshold) backward from target_date.
+    Returns True if tribunal is consistently absent (all days have .absent marker).
+    
+    Uses in-memory cache to avoid redundant HTTP requests.
+    """
+    date_str = target_date.strftime("%Y-%m-%d")
+    
+    # Check cache
+    if tribunal in _TRIBUNAL_STOPPED_CACHE:
+        if date_str in _TRIBUNAL_STOPPED_CACHE[tribunal]:
+            return _TRIBUNAL_STOPPED_CACHE[tribunal][date_str]
+    else:
+        _TRIBUNAL_STOPPED_CACHE[tribunal] = {}
+    
+    # Check last N days
+    for days_back in range(1, absent_threshold + 1):
+        check_date = target_date - timedelta(days=days_back)
+        if check_date.weekday() >= 5:  # skip weekends
+            continue
+        
+        check_date_str = check_date.strftime("%Y-%m-%d")
+        item_id = f"djen-{check_date_str}"
+        url = f"https://archive.org/metadata/{item_id}"
+        
+        try:
+            resp = httpx.get(url, timeout=10)
+            if resp.status_code != 200:
+                # Can't verify - assume not stopped
+                result = False
+                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                return result
+            
+            files = resp.json().get("files", [])
+            tribunal_found = False
+            
+            for f in files:
+                if not isinstance(f, dict):
+                    continue
+                name = f.get("name", "")
+                
+                # Check if this file belongs to the tribunal
+                if tribunal in name:
+                    # If we find a .zip (not .absent), tribunal is active
+                    if name.endswith(".zip"):
+                        result = False
+                        _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                        return result
+                    # If .absent, mark as found and continue checking other days
+                    if name.endswith(".absent"):
+                        tribunal_found = True
+                        break
+            
+            # If no file for this tribunal on this day, can't conclude stopped
+            if not tribunal_found:
+                result = False
+                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                return result
+                
+        except Exception:
+            # On error, assume not stopped (conservative)
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+    
+    # All checked days had .absent marker - tribunal is stopped
+    result = True
+    _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+    return result
+
+
 def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bool:
     """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA.
 
-    If *must_be_complete* is True, also verifies that all expected tribunals are present.
+    If *must_be_complete* is True, also verifies that all expected tribunals are present,
+    EXCEPT tribunals that have been consistently absent for 60+ days (stopped tribunals).
     """
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}"
@@ -701,7 +778,27 @@ def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bo
             return False
 
         if must_be_complete:
-            return len(present_tribunais) >= len(TRIBUNAIS)
+            # Count only non-stopped tribunals
+            target_d = date.fromisoformat(date_str)
+            active_tribunals = []
+            
+            for trib in TRIBUNAIS:
+                if trib not in present_tribunais:
+                    # Check if this tribunal is stopped (60+ days absent)
+                    if not _is_tribunal_stopped(trib, target_d):
+                        # Not stopped - we need it
+                        active_tribunals.append(trib)
+                        
+            # Must have data for all active (non-stopped) tribunals
+            missing_active = [t for t in active_tribunals if t not in present_tribunais]
+            if missing_active:
+                logger.debug(
+                    "date_incomplete",
+                    date=date_str,
+                    missing_count=len(missing_active),
+                    missing=missing_active[:5],  # log first 5
+                )
+                return False
 
         return True
     except Exception:
