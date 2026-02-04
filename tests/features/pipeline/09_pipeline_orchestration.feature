@@ -209,8 +209,8 @@ Feature: Pipeline Orchestration
     Then the command should include flag "--proxy-url"
     And the command should include flag "--date" with value "2026-01-15"
     And the command should include flag "--tribunal" with value "TJSP"
-    And the command should include flag "--max-items" with value "200"
-    And the command should include flag "--workers" with value "8"
+    And the command should include flag "--max-items" with value "1000"
+    And the command should include flag "--workers" with value "32"
     And the command should include flag "--deadline" with value "10m"
 
   @pipeline @command
