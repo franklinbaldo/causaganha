@@ -147,7 +147,9 @@ def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
     try:
         # Check if table exists
         con.execute("SELECT 1 FROM djen_state.coverage LIMIT 1")
-        result = con.execute("SELECT CAST(date AS VARCHAR), tribunal FROM djen_state.coverage").fetchall()
+        result = con.execute(
+            "SELECT CAST(date AS VARCHAR), tribunal FROM djen_state.coverage"
+        ).fetchall()
         return {(str(r[0]), str(r[1])) for r in result}
     except duckdb.CatalogException:
         return set()

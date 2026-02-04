@@ -1,18 +1,18 @@
-
 """Tests for generate_catalog.py logic."""
 
 import sys
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import duckdb
-import pytest
+
 
 # Add scripts to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
 from generate_catalog import generate_backfill_list, get_local_coverage
+
 
 class TestGetLocalCoverage:
     """Tests for get_local_coverage function."""
@@ -66,7 +66,7 @@ class TestGenerateBackfillList:
     def test_generate_backfill_list_no_local(self):
         """Should include all items if no local coverage and no manifest."""
         manifest = []
-        start_date = date(2024, 1, 1) # Monday
+        start_date = date(2024, 1, 1)  # Monday
         end_date = date(2024, 1, 1)
 
         # 1 day * 96 courts = 96 items
@@ -85,9 +85,11 @@ class TestGenerateBackfillList:
         # Exclude TJSP locally
         local_coverage = {("2024-01-01", "TJSP")}
 
-        backfill = generate_backfill_list(manifest, start_date, end_date, local_coverage=local_coverage)
+        backfill = generate_backfill_list(
+            manifest, start_date, end_date, local_coverage=local_coverage
+        )
 
-        assert len(backfill) == 95 # 96 - 1
+        assert len(backfill) == 95  # 96 - 1
         assert not any(b["date"] == "2024-01-01" and b["tribunal"] == "TJSP" for b in backfill)
         assert any(b["date"] == "2024-01-01" and b["tribunal"] == "STF" for b in backfill)
 
@@ -101,9 +103,11 @@ class TestGenerateBackfillList:
         start_date = date(2024, 1, 1)
         end_date = date(2024, 1, 1)
 
-        backfill = generate_backfill_list(manifest, start_date, end_date, local_coverage=local_coverage)
+        backfill = generate_backfill_list(
+            manifest, start_date, end_date, local_coverage=local_coverage
+        )
 
-        assert len(backfill) == 94 # 96 - 2
+        assert len(backfill) == 94  # 96 - 2
         assert not any(b["tribunal"] == "TJSP" for b in backfill)
         assert not any(b["tribunal"] == "STF" for b in backfill)
         assert any(b["tribunal"] == "TRF1" for b in backfill)
