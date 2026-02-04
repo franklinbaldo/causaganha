@@ -48,14 +48,14 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_NOME_ORGAO,
     FIELD_NUMERO_COMUNICACAO,
     FIELD_NUMERO_OAB,
-
-# Cache for tribunal stopped checks (tribunal -> date -> bool)
-_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
     FIELD_NUMERO_PROCESSO,
     FIELD_TIPO_COMUNICACAO,
     FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
+
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 
 # ---------------------------------------------------------------------------
