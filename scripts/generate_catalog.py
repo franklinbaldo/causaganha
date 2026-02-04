@@ -142,6 +142,20 @@ def _validate_tribunal_code(tribunal: str) -> bool:
     return bool(re.match(r"^[A-Z0-9]{2,10}$", tribunal.upper()))
 
 
+def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
+    """Get set of (date, tribunal) present in local DB."""
+    try:
+        # Check if table exists
+        con.execute("SELECT 1 FROM djen_state.coverage LIMIT 1")
+        result = con.execute("SELECT CAST(date AS VARCHAR), tribunal FROM djen_state.coverage").fetchall()
+        return {(str(r[0]), str(r[1])) for r in result}
+    except duckdb.CatalogException:
+        return set()
+    except Exception as e:
+        logger.warning("local_coverage_fetch_failed", error=str(e))
+        return set()
+
+
 def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
     """Generate backfill progress metrics for dashboard."""
     # Check if table exists
@@ -328,15 +342,32 @@ def generate_manifest(items: list[str]) -> list[dict]:
     return manifest
 
 
-def generate_backfill_list(manifest: list[dict], start_date: date, end_date: date) -> list[dict]:
-    """Determine what's missing from DJEN."""
-    logger.info("generating_backfill_list", start=start_date, end=end_date)
+def generate_backfill_list(
+    manifest: list[dict],
+    start_date: date,
+    end_date: date,
+    local_coverage: set[tuple[str, str]] | None = None,
+) -> list[dict]:
+    """Determine what's missing from DJEN.
+
+    Merges coverage from IA manifest (remote) and local DuckDB (local_coverage).
+    """
+    logger.info(
+        "generating_backfill_list",
+        start=start_date,
+        end=end_date,
+        local_items=len(local_coverage) if local_coverage else 0,
+    )
 
     # Build set of collected (date, tribunal) pairs (zip or absent = collected)
     collected = set()
     for m in manifest:
         if m["file_type"] in ("zip", "absent"):
             collected.add((m["date"], m["tribunal"]))
+
+    # Merge local coverage
+    if local_coverage:
+        collected.update(local_coverage)
 
     logger.info("collected_combinations", count=len(collected))
 
@@ -711,8 +742,20 @@ def main():
     manifest = generate_manifest(items)
     print(f"Manifest: {len(manifest)} files indexed")
 
-    # 3. Generate backfill list
-    backfill = generate_backfill_list(manifest, start_date, end_date)
+    # 3. Get local coverage and generate backfill list
+    local_coverage = set()
+    main_db_path = Path("data/causaganha.duckdb")
+
+    if main_db_path.exists():
+        try:
+            con = duckdb.connect(str(main_db_path), read_only=True)
+            local_coverage = get_local_coverage(con)
+            con.close()
+            print(f"Local state: {len(local_coverage)} items found in database")
+        except Exception as e:
+            logger.warning("local_state_read_failed", error=str(e))
+
+    backfill = generate_backfill_list(manifest, start_date, end_date, local_coverage)
     print(f"Backfill needed: {len(backfill)} date/tribunal combinations")
 
     # 4. Generate SQL
