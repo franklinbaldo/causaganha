@@ -133,9 +133,9 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--proxy-url",
         config.proxy_url,
         "--max-items",
-        "200",
+        "1000",
         "--workers",
-        "8",
+        "32",
         "--deadline",
         "10m",
     )

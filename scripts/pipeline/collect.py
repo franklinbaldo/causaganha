@@ -596,12 +596,22 @@ def _process_item(
         return "failed", 0.0
 
 
+def parse_deadline(deadline_str: str) -> int:
+    """Parse deadline string (e.g. '10m', '600s') to seconds."""
+    if deadline_str.endswith("m"):
+        return int(deadline_str[:-1]) * 60
+    if deadline_str.endswith("s"):
+        return int(deadline_str[:-1])
+    return int(deadline_str)
+
+
 def collect_data(
     proxy_url: str,
     target_date: str | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
     workers: int = 8,
+    deadline: str | None = None,
 ) -> dict[str, int | float]:
     """Main collection function with parallel processing.
 
@@ -612,6 +622,9 @@ def collect_data(
     to filter items collected since the last catalog rebuild (daily 06:00 UTC).
     """
     stats: dict[str, int | float] = {"success": 0, "failed": 0, "skipped": 0, "downloaded_mb": 0.0}
+
+    start_time = time.time()
+    deadline_seconds = parse_deadline(deadline) if deadline else None
 
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
@@ -704,6 +717,13 @@ def collect_data(
 
         try:
             for future in as_completed(futures):
+                # Check deadline
+                if deadline_seconds and (time.time() - start_time) > deadline_seconds:
+                    logger.info("deadline_reached_cancelling_pending", deadline=deadline)
+                    for f in futures:
+                        f.cancel()
+                    break
+
                 date_str, tribunal = futures[future]
                 try:
                     result, size_mb = future.result()
@@ -763,6 +783,7 @@ def main() -> int:
         target_tribunal=args.tribunal,
         max_items=args.max_items,
         workers=args.workers,
+        deadline=args.deadline,
     )
 
     print()
