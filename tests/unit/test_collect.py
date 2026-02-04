@@ -7,6 +7,7 @@ sys.path.append(os.getcwd())
 
 from scripts.pipeline.collect import collect_data
 
+
 @patch("scripts.pipeline.collect.mark_downloaded")
 @patch("scripts.pipeline.collect.get_db_connection")
 @patch("scripts.pipeline.collect._process_item")
@@ -15,7 +16,16 @@ from scripts.pipeline.collect import collect_data
 @patch("scripts.pipeline.collect._get_ia_s3_auth")
 @patch("scripts.pipeline.collect.fetch_tribunais_from_api")
 @patch("scripts.pipeline.collect.init_db")
-def test_collect_data_marks_downloaded(mock_init_db, mock_tribunais, mock_auth, mock_existing, mock_backfill, mock_process, mock_get_db, mock_mark):
+def test_collect_data_marks_downloaded(
+    mock_init_db,
+    mock_tribunais,
+    mock_auth,
+    mock_existing,
+    mock_backfill,
+    mock_process,
+    mock_get_db,
+    mock_mark,
+):
     # Setup mocks
     mock_auth.return_value = "mock_auth"
     mock_existing.return_value = set()
