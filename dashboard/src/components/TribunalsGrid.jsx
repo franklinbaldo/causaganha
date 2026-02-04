@@ -17,14 +17,23 @@ export function TribunalsGrid({ stats }) {
               <p className="text-xs mt-1 text-cyber-muted/50">Data is collected per run execution.</p>
           </div>
       ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+          <div role="list" className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {items.map(([name, data]) => (
-                <div key={name} className="flex flex-col items-center p-2 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative" title={`Updated: ${data.last_update || 'N/A'}`}>
+                <div
+                    key={name}
+                    className="flex flex-col items-center p-2 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative"
+                    title={`Updated: ${data.last_update || 'N/A'}`}
+                    role="listitem"
+                >
                     <span className="font-bold text-xs text-cyber-text group-hover:text-cyber-primary">{name}</span>
-                    <div className={clsx("w-2 h-2 rounded-full mt-1",
-                        data.status === 'success' ? "bg-cyber-primary shadow-glow" :
-                        data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger shadow-glow-red"
-                    )} />
+                    <div
+                        className={clsx("w-2 h-2 rounded-full mt-1",
+                            data.status === 'success' ? "bg-cyber-primary shadow-glow" :
+                            data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger shadow-glow-red"
+                        )}
+                        aria-label={`Status: ${data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}`}
+                        role="status"
+                    />
                 </div>
             ))}
           </div>

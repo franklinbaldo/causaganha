@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Terminal } from 'lucide-react'
+import { Terminal, AlertTriangle } from 'lucide-react'
 import { LiveStatusCard } from './LiveStatusCard'
 import { BackfillProgressCard } from './BackfillProgressCard'
 import { CalendarHeatmap } from './CalendarHeatmap'
@@ -11,9 +11,11 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [backfillProgress, setBackfillProgress] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const fetchStats = async () => {
     try {
+      setError(null);
       // Fetch run stats
       const statsResponse = await fetch('./run-stats.json');
       if (statsResponse.ok) {
@@ -21,15 +23,7 @@ export default function Dashboard() {
         setStats(data);
       } else {
         console.warn("Failed to load run-stats.json");
-        setStats({
-          run_id: "preview-mode",
-          timestamp: new Date().toISOString(),
-          status: "success",
-          duration_seconds: 0,
-          current_date: new Date().toISOString().split('T')[0],
-          steps: {},
-          tribunals: {}
-        });
+        setStats(null);
       }
 
       // Fetch backfill progress (from local build artifact)
@@ -38,25 +32,12 @@ export default function Dashboard() {
         const data = await backfillResponse.json();
         setBackfillProgress(data.backfill_progress);
       } else {
-        console.warn("Backfill progress not available yet");
-        // Fallback mock data
-        setBackfillProgress({
-          oldest_date: "2026-01-23",
-          newest_date: "2026-02-03",
-          unique_days: 12,
-          total_items: 288,
-          target_range: {
-            start: "2024-01-01",
-            end: "2026-02-03",
-            total_days: 764
-          },
-          progress_pct: 1.57,
-          last_updated: new Date().toISOString(),
-          status: "advancing"
-        });
+        console.warn("Backfill progress not available");
+        setBackfillProgress(null);
       }
     } catch (error) {
       console.error("Error loading data", error);
+      setError("Unable to connect to data source.");
     } finally {
       setLoading(false);
     }
@@ -74,6 +55,22 @@ export default function Dashboard() {
         <span className="animate-pulse">INITIALIZING SYSTEM...</span>
       </div>
     );
+  }
+
+  if (error || (!stats && !backfillProgress)) {
+      return (
+        <div className="min-h-screen bg-cyber-black text-cyber-danger flex flex-col items-center justify-center font-mono p-4 text-center">
+            <AlertTriangle className="w-16 h-16 mb-4 animate-pulse" />
+            <h1 className="text-2xl font-bold mb-2">SYSTEM OFFLINE</h1>
+            <p className="text-cyber-muted mb-6">Unable to load dashboard data. The system may be undergoing maintenance.</p>
+            <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-primary hover:text-cyber-black transition-colors rounded uppercase text-sm tracking-widest"
+            >
+                Retry Connection
+            </button>
+        </div>
+      )
   }
 
   return (
@@ -114,10 +111,10 @@ export default function Dashboard() {
         {/* Row 2: Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <CalendarHeatmap stats={stats} />
+            <CalendarHeatmap data={backfillProgress?.daily_stats || []} />
           </div>
           <div className="lg:col-span-1">
-            <TimelineGraph stats={stats} />
+            <TimelineGraph data={backfillProgress?.recent_activity || []} />
           </div>
         </div>
 
@@ -169,6 +166,11 @@ export default function Dashboard() {
           <p className="mt-2 opacity-50">
             Running on GitHub Actions • Data stored in Internet Archive
           </p>
+          {backfillProgress?.last_updated && (
+              <p className="mt-1 text-cyber-dark opacity-70">
+                  Data generated at: {new Date(backfillProgress.last_updated).toLocaleString()} (UTC)
+              </p>
+          )}
         </footer>
       </div>
     </div>
