@@ -154,13 +154,9 @@ def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
             "newest_date": None,
             "unique_days": 0,
             "total_items": 0,
-            "target_range": {
-                "start": "2024-01-01",
-                "end": "2026-02-03",
-                "total_days": 764
-            },
+            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": 764},
             "progress_pct": 0.0,
-            "last_updated": datetime.now(UTC).isoformat()
+            "last_updated": datetime.now(UTC).isoformat(),
         }
 
     result = con.execute("""
@@ -191,10 +187,10 @@ def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
         "target_range": {
             "start": str(target_start),
             "end": str(target_end),
-            "total_days": target_days
+            "total_days": target_days,
         },
         "progress_pct": round(progress_pct, 2),
-        "last_updated": datetime.now(UTC).isoformat()
+        "last_updated": datetime.now(UTC).isoformat(),
     }
 
 
