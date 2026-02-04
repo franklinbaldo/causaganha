@@ -32,11 +32,11 @@ export default function Dashboard() {
         });
       }
 
-      // Fetch backfill progress (new!)
-      const backfillResponse = await fetch('https://archive.org/download/causaganha-catalog/backfill-progress.json');
+      // Fetch backfill progress (from local build artifact)
+      const backfillResponse = await fetch('/causaganha/dashboard-data.json');
       if (backfillResponse.ok) {
         const data = await backfillResponse.json();
-        setBackfillProgress(data);
+        setBackfillProgress(data.backfill_progress);
       } else {
         console.warn("Backfill progress not available yet");
         // Fallback mock data
