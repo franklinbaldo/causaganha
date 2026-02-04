@@ -3,7 +3,7 @@
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -31,6 +31,28 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     target_days = 764  # 2024-01-01 to 2026-02-03
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
+    # Daily Stats for CalendarHeatmap
+    daily_stats = con.execute("""
+        SELECT
+            date,
+            COUNT(*) as count
+        FROM djen_state.coverage
+        GROUP BY date
+        ORDER BY date
+    """).fetchall()
+
+    # Recent Activity (last 7 days) for TimelineGraph
+    recent_date_limit = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
+    recent_activity = con.execute(f"""
+        SELECT
+            date,
+            COUNT(*) as count
+        FROM djen_state.coverage
+        WHERE date >= '{recent_date_limit}'
+        GROUP BY date
+        ORDER BY date
+    """).fetchall()
+
     # Tribunal stats
     tribunal_stats = con.execute("""
         SELECT
@@ -53,6 +75,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
             "progress_pct": progress_pct,
             "last_updated": datetime.now(UTC).isoformat(),
+            "daily_stats": [{"date": str(d), "count": c} for d, c in daily_stats],
+            "recent_activity": [{"date": str(d), "count": c} for d, c in recent_activity],
         },
         "tribunal_stats": [{"tribunal": t, "count": c} for t, c in tribunal_stats],
     }
