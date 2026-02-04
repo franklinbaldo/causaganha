@@ -50,17 +50,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "newest_date": newest_date,
             "unique_days": unique_days,
             "total_items": total_items,
-            "target_range": {
-                "start": "2024-01-01",
-                "end": "2026-02-03",
-                "total_days": target_days
-            },
+            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
             "progress_pct": progress_pct,
-            "last_updated": datetime.now(UTC).isoformat()
+            "last_updated": datetime.now(UTC).isoformat(),
         },
-        "tribunal_stats": [
-            {"tribunal": t, "count": c} for t, c in tribunal_stats
-        ]
+        "tribunal_stats": [{"tribunal": t, "count": c} for t, c in tribunal_stats],
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
