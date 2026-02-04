@@ -805,25 +805,64 @@ def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bo
         return False
 
 
-def find_next_unconsolidated(max_depth: int = 765) -> str | None:
+def _all_tribunals_stopped(target_date: date) -> bool:
+    """Check if ALL tribunals are stopped (60+ days absent) at target_date.
+    
+    This is the natural stopping condition for backfill - when there's no more
+    historical data from any tribunal.
+    """
+    for tribunal in TRIBUNAIS:
+        if not _is_tribunal_stopped(tribunal, target_date):
+            # At least one tribunal still active - keep going
+            return False
+    # All tribunals stopped - we've gone back far enough
+    return True
+
+
+def find_next_unconsolidated() -> str | None:
     """Walk backward from today to find the most recent date needing consolidation.
 
     Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
     has ZIPs on Internet Archive but no consolidated parquets.
-    Returns the date string or None if everything is consolidated.
     
-    max_depth extended to 765 days to cover back to ~2024-01-01.
+    Stops automatically when all tribunals are "stopped" (60+ consecutive days absent).
+    No artificial max_depth needed - the backfill is self-regulating based on actual data.
+    
+    Returns the date string or None if everything is consolidated.
     """
     today = date.today()
-    for days_ago in range(max_depth + 1):
+    days_ago = 0
+    max_iterations = 1000  # Safety limit (roughly 3 years of weekdays)
+    
+    while days_ago < max_iterations:
         d = today - timedelta(days=days_ago)
-        if d.weekday() >= 5:  # skip weekends
+        
+        # Skip weekends
+        if d.weekday() >= 5:
+            days_ago += 1
             continue
+        
         d_str = d.strftime("%Y-%m-%d")
+        
+        # Check if we've gone back far enough (all tribunals stopped)
+        if _all_tribunals_stopped(d):
+            logger.info(
+                "backfill_complete",
+                date=d_str,
+                days_ago=days_ago,
+                reason="all_tribunals_stopped"
+            )
+            return None
+        
         # Backfill requires completeness — only consolidate when everything is gathered
         if _needs_consolidation(d_str, must_be_complete=True):
             logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
             return d_str
+        
+        days_ago += 1
+    
+    # Safety limit reached
+    logger.warning("backfill_max_iterations", max_iterations=max_iterations)
     return None
 
 
@@ -1077,7 +1116,7 @@ def main() -> int:
     parser.add_argument(
         "--backfill",
         action="store_true",
-        help="Find the most recent unconsolidated date (d-1 priority) and process it",
+        help="Find the most recent unconsolidated date and process it (auto-stops per tribunal)",
     )
     parser.add_argument(
         "--max-zips",
@@ -1101,11 +1140,11 @@ def main() -> int:
         target_date = args.date
         use_force = args.force
     elif args.backfill:
-        # Backfill: walk d-0 → d-1 → d-2 … until we find work
-        print("Backfill mode: scanning for unconsolidated dates (d-1 priority)...")
+        # Backfill: walk d-0 → d-1 → d-2 … until all tribunals stopped or we find work
+        print("Backfill mode: scanning for unconsolidated dates (auto-stops per tribunal)...")
         target_date_or_none = find_next_unconsolidated()
         if target_date_or_none is None:
-            print("All dates are already consolidated (or incomplete). Nothing to do.")
+            print("Backfill complete: all dates consolidated or all tribunals stopped.")
             return 0
         target_date = target_date_or_none
         # No more auto-forcing historical dates. We only process them if complete.
