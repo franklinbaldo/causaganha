@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import json
 import subprocess
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -139,6 +140,58 @@ def _validate_tribunal_code(tribunal: str) -> bool:
 
     # Tribunal codes: 2-10 uppercase letters/numbers
     return bool(re.match(r"^[A-Z0-9]{2,10}$", tribunal.upper()))
+
+
+def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
+    """Generate backfill progress metrics for dashboard."""
+    # Check if table exists
+    try:
+        con.execute("SELECT 1 FROM djen_state.coverage LIMIT 1")
+    except duckdb.CatalogException:
+        # Table doesn't exist, return empty stats
+        return {
+            "oldest_date": None,
+            "newest_date": None,
+            "unique_days": 0,
+            "total_items": 0,
+            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": 764},
+            "progress_pct": 0.0,
+            "last_updated": datetime.now(UTC).isoformat(),
+        }
+
+    result = con.execute("""
+        SELECT
+            MIN(date) as oldest_date,
+            MAX(date) as newest_date,
+            COUNT(DISTINCT date) as unique_days,
+            COUNT(*) as total_items
+        FROM djen_state.coverage
+    """).fetchone()
+
+    target_start = date(2024, 1, 1)
+    target_end = date(2026, 2, 3)
+    target_days = (target_end - target_start).days + 1
+
+    oldest_date = result[0] if result[0] else None
+    newest_date = result[1] if result[1] else None
+    unique_days = result[2] or 0
+    total_items = result[3] or 0
+
+    progress_pct = (unique_days / target_days * 100) if unique_days > 0 else 0
+
+    return {
+        "oldest_date": str(oldest_date) if oldest_date else None,
+        "newest_date": str(newest_date) if newest_date else None,
+        "unique_days": unique_days,
+        "total_items": total_items,
+        "target_range": {
+            "start": str(target_start),
+            "end": str(target_end),
+            "total_days": target_days,
+        },
+        "progress_pct": round(progress_pct, 2),
+        "last_updated": datetime.now(UTC).isoformat(),
+    }
 
 
 def parse_filename(filename: str, item_id: str) -> dict | None:
@@ -687,6 +740,29 @@ def main():
         print(f"Error: Failed to save {sql_path}: {e}")
         return 1
 
+    # Generate backfill progress metrics for dashboard
+    logger.info("generating_backfill_progress")
+    progress_path = None
+
+    # We need to connect to the main DB to get coverage stats
+    # It might not exist if running fresh, handle gracefully
+    main_db_path = Path("data/causaganha.duckdb")
+    if main_db_path.exists():
+        try:
+            # Open read-only
+            con = duckdb.connect(str(main_db_path), read_only=True)
+            progress_data = generate_backfill_progress(con)
+            con.close()
+
+            progress_path = output_dir / "backfill-progress.json"
+            progress_path.write_text(json.dumps(progress_data, ensure_ascii=False, indent=2))
+            logger.info("backfill_progress_saved", path=str(progress_path))
+            print(f"Saved: {progress_path}")
+        except Exception as e:
+            logger.error("backfill_progress_failed", error=str(e))
+    else:
+        logger.warning("main_db_not_found", path=str(main_db_path))
+
     # 6. Create DuckDB
     db_path = create_catalog_duckdb(manifest, backfill, sql, output_dir)
     if db_path is None:
@@ -699,6 +775,9 @@ def main():
         print()
         print("Uploading to Internet Archive...")
         files = [manifest_path, backfill_path, sql_path, db_path]
+        if progress_path and progress_path.exists():
+            files.append(progress_path)
+
         success = upload_to_ia(files)
         if success:
             print(f"Uploaded to https://archive.org/details/{IA_CATALOG_ITEM}")
