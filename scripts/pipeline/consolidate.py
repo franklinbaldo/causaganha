@@ -708,22 +708,26 @@ def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bo
         return False
 
 
-def find_next_unconsolidated(max_depth: int = 365) -> str | None:
-    """Walk backward from today to find the most recent date needing consolidation.
+def find_next_unconsolidated(max_depth: int = 765) -> str | None:
+    """Find oldest unconsolidated date (backfill from ~2024-01-01 forward).
 
-    Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
+    Walks from (today - max_depth) up to today (skipping weekends) until it finds a date that
     has ZIPs on Internet Archive but no consolidated parquets.
     Returns the date string or None if everything is consolidated.
     """
     today = date.today()
-    for days_ago in range(max_depth + 1):
-        d = today - timedelta(days=days_ago)
+    oldest = today - timedelta(days=max_depth)
+
+    for days_forward in range(max_depth + 1):
+        d = oldest + timedelta(days=days_forward)
+        if d > today:
+            break
         if d.weekday() >= 5:  # skip weekends
             continue
         d_str = d.strftime("%Y-%m-%d")
         # Backfill requires completeness — only consolidate when everything is gathered
         if _needs_consolidation(d_str, must_be_complete=True):
-            logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
+            logger.info("unconsolidated_date_found", date=d_str, days_forward=days_forward)
             return d_str
     return None
 
@@ -978,7 +982,7 @@ def main() -> int:
     parser.add_argument(
         "--backfill",
         action="store_true",
-        help="Find the most recent unconsolidated date (d-1 first) and process it",
+        help="Find the oldest unconsolidated date (from 2024 forward) and process it",
     )
     parser.add_argument(
         "--max-zips",
@@ -1002,8 +1006,8 @@ def main() -> int:
         target_date = args.date
         use_force = args.force
     elif args.backfill:
-        # Backfill: walk d-0 → d-1 → d-2 … until we find work
-        print("Backfill mode: scanning for unconsolidated dates (d-1 priority)...")
+        # Backfill: walk oldest → newest … until we find work
+        print("Backfill mode: scanning for unconsolidated dates (oldest priority)...")
         target_date_or_none = find_next_unconsolidated()
         if target_date_or_none is None:
             print("All dates are already consolidated (or incomplete). Nothing to do.")
