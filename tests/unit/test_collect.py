@@ -1,6 +1,7 @@
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
+
 
 # Add repository root to path so we can import scripts
 sys.path.append(os.getcwd())

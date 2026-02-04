@@ -1,4 +1,5 @@
 import pytest
+
 from causaganha.utils import validate_url
 
 

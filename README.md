@@ -78,6 +78,20 @@ We're building a **complete historical archive** of DJEN data:
                                                          ▼
 ```
 
+## Development Status (V2 Refactoring)
+
+We are currently refactoring the core architecture (V2) to improve scalability and maintainability.
+
+**Current Focus:**
+- **PJe API Integration**: Transitioning from legacy ZIP scraping to the direct PJe Communications API for real-time metadata collection.
+- **CLI Decomposition**: Breaking down the monolithic CLI into modular subcommands for better maintainability.
+- **Ibis Optimization**: Ensuring maximum leverage of Ibis lazy evaluation for 10-100x faster analytical queries.
+
+**Active Threads:**
+- `CG-0006`: CLI Refactoring (Catalog and Ground Truth).
+- `CG-0008`: Ibis Lazy Evaluation Audit.
+- `CG-0009`: PJe API Client integration into the main pipeline.
+
 ### Internet Archive (Consolidated Data Lake)
 
 Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
