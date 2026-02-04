@@ -670,31 +670,31 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
 
 def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int = 60) -> bool:
     """Check if a tribunal has been absent for 60+ consecutive days before target_date.
-    
+
     Scans the last N days (absent_threshold) backward from target_date.
     Returns True if tribunal is consistently absent (all days have .absent marker).
-    
+
     Uses in-memory cache to avoid redundant HTTP requests.
     """
     date_str = target_date.strftime("%Y-%m-%d")
-    
+
     # Check cache
     if tribunal in _TRIBUNAL_STOPPED_CACHE:
         if date_str in _TRIBUNAL_STOPPED_CACHE[tribunal]:
             return _TRIBUNAL_STOPPED_CACHE[tribunal][date_str]
     else:
         _TRIBUNAL_STOPPED_CACHE[tribunal] = {}
-    
+
     # Check last N days
     for days_back in range(1, absent_threshold + 1):
         check_date = target_date - timedelta(days=days_back)
         if check_date.weekday() >= 5:  # skip weekends
             continue
-        
+
         check_date_str = check_date.strftime("%Y-%m-%d")
         item_id = f"djen-{check_date_str}"
         url = f"https://archive.org/metadata/{item_id}"
-        
+
         try:
             resp = httpx.get(url, timeout=10)
             if resp.status_code != 200:
@@ -702,15 +702,15 @@ def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int
                 result = False
                 _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
                 return result
-            
+
             files = resp.json().get("files", [])
             tribunal_found = False
-            
+
             for f in files:
                 if not isinstance(f, dict):
                     continue
                 name = f.get("name", "")
-                
+
                 # Check if this file belongs to the tribunal
                 if tribunal in name:
                     # If we find a .zip (not .absent), tribunal is active
@@ -722,19 +722,19 @@ def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int
                     if name.endswith(".absent"):
                         tribunal_found = True
                         break
-            
+
             # If no file for this tribunal on this day, can't conclude stopped
             if not tribunal_found:
                 result = False
                 _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
                 return result
-                
+
         except Exception:
             # On error, assume not stopped (conservative)
             result = False
             _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
             return result
-    
+
     # All checked days had .absent marker - tribunal is stopped
     result = True
     _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
@@ -781,14 +781,14 @@ def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bo
             # Count only non-stopped tribunals
             target_d = date.fromisoformat(date_str)
             active_tribunals = []
-            
+
             for trib in TRIBUNAIS:
                 if trib not in present_tribunais:
                     # Check if this tribunal is stopped (60+ days absent)
                     if not _is_tribunal_stopped(trib, target_d):
                         # Not stopped - we need it
                         active_tribunals.append(trib)
-                        
+
             # Must have data for all active (non-stopped) tribunals
             missing_active = [t for t in active_tribunals if t not in present_tribunais]
             if missing_active:
@@ -807,7 +807,7 @@ def _needs_consolidation(date_str: str, *, must_be_complete: bool = False) -> bo
 
 def _all_tribunals_stopped(target_date: date) -> bool:
     """Check if ALL tribunals are stopped (60+ days absent) at target_date.
-    
+
     This is the natural stopping condition for backfill - when there's no more
     historical data from any tribunal.
     """
@@ -824,43 +824,40 @@ def find_next_unconsolidated() -> str | None:
 
     Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
     has ZIPs on Internet Archive but no consolidated parquets.
-    
+
     Stops automatically when all tribunals are "stopped" (60+ consecutive days absent).
     No artificial max_depth needed - the backfill is self-regulating based on actual data.
-    
+
     Returns the date string or None if everything is consolidated.
     """
     today = date.today()
     days_ago = 0
     max_iterations = 1000  # Safety limit (roughly 3 years of weekdays)
-    
+
     while days_ago < max_iterations:
         d = today - timedelta(days=days_ago)
-        
+
         # Skip weekends
         if d.weekday() >= 5:
             days_ago += 1
             continue
-        
+
         d_str = d.strftime("%Y-%m-%d")
-        
+
         # Check if we've gone back far enough (all tribunals stopped)
         if _all_tribunals_stopped(d):
             logger.info(
-                "backfill_complete",
-                date=d_str,
-                days_ago=days_ago,
-                reason="all_tribunals_stopped"
+                "backfill_complete", date=d_str, days_ago=days_ago, reason="all_tribunals_stopped"
             )
             return None
-        
+
         # Backfill requires completeness — only consolidate when everything is gathered
         if _needs_consolidation(d_str, must_be_complete=True):
             logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
             return d_str
-        
+
         days_ago += 1
-    
+
     # Safety limit reached
     logger.warning("backfill_max_iterations", max_iterations=max_iterations)
     return None
