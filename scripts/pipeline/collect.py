@@ -23,7 +23,6 @@ Usage:
 import argparse
 import asyncio
 import configparser
-import hashlib
 import json
 import os
 import tempfile
@@ -34,12 +33,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import boto3
 import duckdb
 import httpx
-import boto3
+import structlog
 from botocore.config import Config
 from botocore.exceptions import ClientError
-import structlog
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
@@ -700,9 +699,10 @@ def collect_data(
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
-            executor.submit(
-                _process_item, api_client, dl_client, proxy_url, date_str, tribunal
-            ): (date_str, tribunal)
+            executor.submit(_process_item, api_client, dl_client, proxy_url, date_str, tribunal): (
+                date_str,
+                tribunal,
+            )
             for date_str, tribunal in pending
         }
 
