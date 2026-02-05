@@ -7,6 +7,18 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb
+import httpx
+
+
+def fetch_progress_json(url: str) -> dict | None:
+    """Fetch progress JSON from Internet Archive."""
+    try:
+        response = httpx.get(url, timeout=30)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Warning: Failed to fetch {url}: {e}", file=sys.stderr)
+    return None
 
 
 def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
@@ -66,8 +78,35 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     con.close()
 
+    # Fetch progress from Internet Archive
+    ia_base = "https://archive.org/download/causaganha-catalog"
+    collect_progress = fetch_progress_json(f"{ia_base}/collect-progress.json")
+    consolidate_progress = fetch_progress_json(f"{ia_base}/consolidate-progress.json")
+
+    # Fallback to backfill-progress.json if collect-progress not available (backward compatibility)
+    if not collect_progress:
+        collect_progress = fetch_progress_json(f"{ia_base}/backfill-progress.json")
+
     data = {
-        "backfill_progress": {
+        "collect_progress": collect_progress or {
+            "oldest_date": oldest_date,
+            "newest_date": newest_date,
+            "unique_days": unique_days,
+            "total_items": total_items,
+            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
+            "progress_pct": progress_pct,
+            "last_updated": datetime.now(UTC).isoformat(),
+        },
+        "consolidate_progress": consolidate_progress or {
+            "oldest_date": None,
+            "newest_date": None,
+            "unique_days": 0,
+            "total_items": 0,
+            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
+            "progress_pct": 0.0,
+            "last_updated": datetime.now(UTC).isoformat(),
+        },
+        "backfill_progress": collect_progress or {  # Legacy field for backward compatibility
             "oldest_date": oldest_date,
             "newest_date": newest_date,
             "unique_days": unique_days,
