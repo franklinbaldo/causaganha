@@ -1,7 +1,7 @@
 """Tests for generate_catalog.py logic."""
 
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -110,4 +110,38 @@ class TestGenerateBackfillList:
         assert len(backfill) == 94  # 96 - 2
         assert not any(b["tribunal"] == "TJSP" for b in backfill)
         assert not any(b["tribunal"] == "STF" for b in backfill)
+        assert any(b["tribunal"] == "TRF1" for b in backfill)
+
+    def test_generate_backfill_list_excludes_stopped_tribunals(self):
+        """Should exclude tribunals with 60+ consecutive absent days."""
+        # Create manifest with TJSP having 70 consecutive .absent days
+        # ending at the backfill request date, so the check sees the absence
+        manifest = []
+        backfill_start = date(2024, 1, 1)
+        backfill_end = date(2024, 1, 5)
+
+        # Start 70 days before backfill_end and go forward
+        # This ensures the 60-day lookback window finds .absent entries
+        start = backfill_end - timedelta(days=70)
+        for i in range(100):  # More than 70 to cover range
+            d = start + timedelta(days=i)
+            if d.weekday() < 5:  # weekdays only
+                manifest.append(
+                    {"date": d.strftime("%Y-%m-%d"), "tribunal": "TJSP", "file_type": "absent"}
+                )
+
+        # TRF1 has normal data (zips) but OUTSIDE the backfill range
+        # so it will appear in backfill list (not yet collected for those dates)
+        for i in range(10):
+            d = backfill_start - timedelta(days=30 + i)  # 30 days before backfill range
+            if d.weekday() < 5:
+                manifest.append(
+                    {"date": d.strftime("%Y-%m-%d"), "tribunal": "TRF1", "file_type": "zip"}
+                )
+
+        backfill = generate_backfill_list(manifest, backfill_start, backfill_end)
+
+        # TJSP should be excluded (stopped)
+        # TRF1 and others should be included
+        assert not any(b["tribunal"] == "TJSP" for b in backfill)
         assert any(b["tribunal"] == "TRF1" for b in backfill)

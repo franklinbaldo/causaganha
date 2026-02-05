@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
+import httpx
 import structlog
 
 from causaganha.config import TRIBUNAIS
@@ -30,6 +31,9 @@ logger = structlog.get_logger()
 DJEN_START_DATE = date(2024, 1, 1)
 
 IA_CATALOG_ITEM = "causaganha-catalog"
+
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 
 def run_ia_command(args: list[str], timeout: int = 300) -> str:
@@ -158,8 +162,11 @@ def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
         return set()
 
 
-def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
-    """Generate backfill progress metrics for dashboard."""
+def generate_collect_progress(con: duckdb.DuckDBPyConnection) -> dict:
+    """Generate download (collect) progress metrics for dashboard.
+
+    Based on djen_state.coverage table (what was downloaded/attempted).
+    """
     # Check if table exists
     try:
         con.execute("SELECT 1 FROM djen_state.coverage LIMIT 1")
@@ -198,6 +205,63 @@ def generate_backfill_progress(con: duckdb.DuckDBPyConnection) -> dict:
     return {
         "oldest_date": str(oldest_date) if oldest_date else None,
         "newest_date": str(newest_date) if newest_date else None,
+        "unique_days": unique_days,
+        "total_items": total_items,
+        "target_range": {
+            "start": str(target_start),
+            "end": str(target_end),
+            "total_days": target_days,
+        },
+        "progress_pct": round(progress_pct, 2),
+        "last_updated": datetime.now(UTC).isoformat(),
+    }
+
+
+def generate_consolidate_progress(manifest: list[dict]) -> dict:
+    """Generate consolidation progress metrics for dashboard.
+
+    Based on manifest data (what parquets were consolidated and uploaded to IA).
+    """
+    target_start = date(2024, 1, 1)
+    target_end = date(2026, 2, 3)
+    target_days = (target_end - target_start).days + 1
+
+    # Find dates with consolidated parquets or _consolidated.marker
+    consolidated_dates = set()
+    for m in manifest:
+        if m["file_type"] == "parquet" or (
+            m["file_type"] == "marker" and "_consolidated" in m.get("filename", "")
+        ):
+            consolidated_dates.add(m["date"])
+
+    if not consolidated_dates:
+        return {
+            "oldest_date": None,
+            "newest_date": None,
+            "unique_days": 0,
+            "total_items": 0,
+            "target_range": {
+                "start": str(target_start),
+                "end": str(target_end),
+                "total_days": target_days,
+            },
+            "progress_pct": 0.0,
+            "last_updated": datetime.now(UTC).isoformat(),
+        }
+
+    dates_list = sorted(consolidated_dates)
+    oldest_date = dates_list[0]
+    newest_date = dates_list[-1]
+    unique_days = len(consolidated_dates)
+
+    # Count total consolidated items (parquet files)
+    total_items = sum(1 for m in manifest if m["file_type"] == "parquet")
+
+    progress_pct = (unique_days / target_days * 100) if unique_days > 0 else 0
+
+    return {
+        "oldest_date": oldest_date,
+        "newest_date": newest_date,
         "unique_days": unique_days,
         "total_items": total_items,
         "target_range": {
@@ -344,6 +408,66 @@ def generate_manifest(items: list[str]) -> list[dict]:
     return manifest
 
 
+def _is_tribunal_stopped(
+    tribunal: str, target_date: date, manifest: list[dict], absent_threshold: int = 60
+) -> bool:
+    """Check if a tribunal has been absent for 60+ consecutive days before target_date.
+
+    Scans the last N days (absent_threshold) backward from target_date using manifest data.
+    Returns True if tribunal is consistently absent (all days have .absent marker).
+
+    Uses in-memory cache to avoid redundant checks.
+    """
+    date_str = target_date.strftime("%Y-%m-%d")
+
+    # Check cache
+    if tribunal in _TRIBUNAL_STOPPED_CACHE:
+        if date_str in _TRIBUNAL_STOPPED_CACHE[tribunal]:
+            return _TRIBUNAL_STOPPED_CACHE[tribunal][date_str]
+    else:
+        _TRIBUNAL_STOPPED_CACHE[tribunal] = {}
+
+    # Build lookup from manifest for efficient checking
+    tribunal_files = {}
+    for m in manifest:
+        if m["tribunal"] == tribunal:
+            d = m["date"]
+            if d not in tribunal_files:
+                tribunal_files[d] = []
+            tribunal_files[d].append(m["file_type"])
+
+    # Check last N days
+    for days_back in range(1, absent_threshold + 1):
+        check_date = target_date - timedelta(days=days_back)
+        if check_date.weekday() >= 5:  # skip weekends
+            continue
+
+        check_date_str = check_date.strftime("%Y-%m-%d")
+
+        # If date not in manifest at all, can't conclude stopped
+        if check_date_str not in tribunal_files:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+        # If we find a .zip (not just .absent), tribunal is active
+        if "zip" in tribunal_files[check_date_str]:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+        # If neither zip nor absent, can't conclude stopped
+        if "absent" not in tribunal_files[check_date_str]:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+    # All checked days had .absent marker - tribunal is stopped
+    result = True
+    _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+    return result
+
+
 def generate_backfill_list(
     manifest: list[dict],
     start_date: date,
@@ -353,6 +477,7 @@ def generate_backfill_list(
     """Determine what's missing from DJEN.
 
     Merges coverage from IA manifest (remote) and local DuckDB (local_coverage).
+    Excludes tribunals that have been stopped (60+ consecutive days absent).
     """
     logger.info(
         "generating_backfill_list",
@@ -373,8 +498,9 @@ def generate_backfill_list(
 
     logger.info("collected_combinations", count=len(collected))
 
-    # Generate all expected combinations
+    # Generate all expected combinations, excluding stopped tribunals
     backfill = []
+    stopped_count = 0
     current = start_date
     while current <= end_date:
         # Skip weekends (courts don't publish on weekends)
@@ -382,6 +508,11 @@ def generate_backfill_list(
             date_str = current.strftime("%Y-%m-%d")
             for tribunal in TRIBUNAIS:
                 if (date_str, tribunal) not in collected:
+                    # Skip if tribunal is stopped (60+ days absent)
+                    if _is_tribunal_stopped(tribunal, current, manifest):
+                        stopped_count += 1
+                        continue
+
                     backfill.append(
                         {
                             "date": date_str,
@@ -392,7 +523,11 @@ def generate_backfill_list(
                     )
         current += timedelta(days=1)
 
-    logger.info("backfill_needed", count=len(backfill))
+    logger.info(
+        "backfill_needed",
+        count=len(backfill),
+        stopped_excluded=stopped_count,
+    )
     return backfill
 
 
@@ -792,21 +927,42 @@ def main():
     # We need to connect to the main DB to get coverage stats
     # It might not exist if running fresh, handle gracefully
     main_db_path = Path("data/causaganha.duckdb")
+    # Generate collect progress (downloads)
+    collect_progress_path = None
     if main_db_path.exists():
         try:
             # Open read-only
             con = duckdb.connect(str(main_db_path), read_only=True)
-            progress_data = generate_backfill_progress(con)
+            collect_data = generate_collect_progress(con)
             con.close()
 
-            progress_path = output_dir / "backfill-progress.json"
-            progress_path.write_text(json.dumps(progress_data, ensure_ascii=False, indent=2))
-            logger.info("backfill_progress_saved", path=str(progress_path))
-            print(f"Saved: {progress_path}")
+            collect_progress_path = output_dir / "collect-progress.json"
+            collect_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
+            logger.info("collect_progress_saved", path=str(collect_progress_path))
+            print(f"Saved: {collect_progress_path}")
         except Exception as e:
-            logger.error("backfill_progress_failed", error=str(e))
+            logger.error("collect_progress_failed", error=str(e))
     else:
         logger.warning("main_db_not_found", path=str(main_db_path))
+
+    # Generate consolidate progress (parquets)
+    consolidate_data = generate_consolidate_progress(manifest)
+    consolidate_progress_path = output_dir / "consolidate-progress.json"
+    consolidate_progress_path.write_text(json.dumps(consolidate_data, ensure_ascii=False, indent=2))
+    logger.info("consolidate_progress_saved", path=str(consolidate_progress_path))
+    print(f"Saved: {consolidate_progress_path}")
+
+    # Keep backfill-progress.json for backward compatibility (alias to collect)
+    if main_db_path.exists():
+        try:
+            backfill_progress_path = output_dir / "backfill-progress.json"
+            backfill_progress_path.write_text(
+                json.dumps(collect_data, ensure_ascii=False, indent=2)
+            )
+            logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
+            print(f"Saved: {backfill_progress_path} (legacy, alias to collect-progress.json)")
+        except Exception:
+            pass
 
     # 6. Create DuckDB
     db_path = create_catalog_duckdb(manifest, backfill, sql, output_dir)
@@ -820,8 +976,16 @@ def main():
         print()
         print("Uploading to Internet Archive...")
         files = [manifest_path, backfill_path, sql_path, db_path]
-        if progress_path and progress_path.exists():
-            files.append(progress_path)
+
+        # Add progress files if they exist
+        if collect_progress_path and collect_progress_path.exists():
+            files.append(collect_progress_path)
+        if consolidate_progress_path and consolidate_progress_path.exists():
+            files.append(consolidate_progress_path)
+        # Legacy backfill-progress.json for backward compatibility
+        legacy_progress = output_dir / "backfill-progress.json"
+        if legacy_progress.exists():
+            files.append(legacy_progress)
 
         success = upload_to_ia(files)
         if success:
