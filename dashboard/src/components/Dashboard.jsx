@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Terminal, AlertTriangle } from 'lucide-react'
 import { LiveStatusCard } from './LiveStatusCard'
 import { BackfillProgressCard } from './BackfillProgressCard'
+import { DualProgressCard } from './DualProgressCard'
 import { CalendarHeatmap } from './CalendarHeatmap'
 import { TribunalsGrid } from './TribunalsGrid'
 import { LastRunDetails } from './LastRunDetails'
@@ -104,7 +105,7 @@ export default function Dashboard() {
             <LiveStatusCard stats={stats} />
           </div>
           <div className="lg:col-span-2">
-            <BackfillProgressCard progress={backfillProgress} />
+            <DualProgressCard apiUrl="/causaganha/dashboard-data.json" refreshInterval={60000} />
           </div>
         </div>
 
