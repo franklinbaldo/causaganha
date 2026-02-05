@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
+import httpx
 import structlog
 
 from causaganha.config import TRIBUNAIS
@@ -30,6 +31,9 @@ logger = structlog.get_logger()
 DJEN_START_DATE = date(2024, 1, 1)
 
 IA_CATALOG_ITEM = "causaganha-catalog"
+
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 
 def run_ia_command(args: list[str], timeout: int = 300) -> str:
@@ -344,6 +348,66 @@ def generate_manifest(items: list[str]) -> list[dict]:
     return manifest
 
 
+def _is_tribunal_stopped(
+    tribunal: str, target_date: date, manifest: list[dict], absent_threshold: int = 60
+) -> bool:
+    """Check if a tribunal has been absent for 60+ consecutive days before target_date.
+
+    Scans the last N days (absent_threshold) backward from target_date using manifest data.
+    Returns True if tribunal is consistently absent (all days have .absent marker).
+
+    Uses in-memory cache to avoid redundant checks.
+    """
+    date_str = target_date.strftime("%Y-%m-%d")
+
+    # Check cache
+    if tribunal in _TRIBUNAL_STOPPED_CACHE:
+        if date_str in _TRIBUNAL_STOPPED_CACHE[tribunal]:
+            return _TRIBUNAL_STOPPED_CACHE[tribunal][date_str]
+    else:
+        _TRIBUNAL_STOPPED_CACHE[tribunal] = {}
+
+    # Build lookup from manifest for efficient checking
+    tribunal_files = {}
+    for m in manifest:
+        if m["tribunal"] == tribunal:
+            d = m["date"]
+            if d not in tribunal_files:
+                tribunal_files[d] = []
+            tribunal_files[d].append(m["file_type"])
+
+    # Check last N days
+    for days_back in range(1, absent_threshold + 1):
+        check_date = target_date - timedelta(days=days_back)
+        if check_date.weekday() >= 5:  # skip weekends
+            continue
+
+        check_date_str = check_date.strftime("%Y-%m-%d")
+
+        # If date not in manifest at all, can't conclude stopped
+        if check_date_str not in tribunal_files:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+        # If we find a .zip (not just .absent), tribunal is active
+        if "zip" in tribunal_files[check_date_str]:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+        # If neither zip nor absent, can't conclude stopped
+        if "absent" not in tribunal_files[check_date_str]:
+            result = False
+            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            return result
+
+    # All checked days had .absent marker - tribunal is stopped
+    result = True
+    _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+    return result
+
+
 def generate_backfill_list(
     manifest: list[dict],
     start_date: date,
@@ -353,6 +417,7 @@ def generate_backfill_list(
     """Determine what's missing from DJEN.
 
     Merges coverage from IA manifest (remote) and local DuckDB (local_coverage).
+    Excludes tribunals that have been stopped (60+ consecutive days absent).
     """
     logger.info(
         "generating_backfill_list",
@@ -373,8 +438,9 @@ def generate_backfill_list(
 
     logger.info("collected_combinations", count=len(collected))
 
-    # Generate all expected combinations
+    # Generate all expected combinations, excluding stopped tribunals
     backfill = []
+    stopped_count = 0
     current = start_date
     while current <= end_date:
         # Skip weekends (courts don't publish on weekends)
@@ -382,6 +448,11 @@ def generate_backfill_list(
             date_str = current.strftime("%Y-%m-%d")
             for tribunal in TRIBUNAIS:
                 if (date_str, tribunal) not in collected:
+                    # Skip if tribunal is stopped (60+ days absent)
+                    if _is_tribunal_stopped(tribunal, current, manifest):
+                        stopped_count += 1
+                        continue
+
                     backfill.append(
                         {
                             "date": date_str,
@@ -392,7 +463,11 @@ def generate_backfill_list(
                     )
         current += timedelta(days=1)
 
-    logger.info("backfill_needed", count=len(backfill))
+    logger.info(
+        "backfill_needed",
+        count=len(backfill),
+        stopped_excluded=stopped_count,
+    )
     return backfill
 
 
