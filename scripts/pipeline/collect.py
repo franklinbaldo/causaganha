@@ -23,7 +23,6 @@ Usage:
 import argparse
 import asyncio
 import configparser
-import hashlib
 import json
 import os
 import tempfile
@@ -34,9 +33,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import boto3
 import duckdb
 import httpx
 import structlog
+from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
@@ -466,15 +468,12 @@ def download_zip(
     return False
 
 
-_IA_S3_URL = "https://s3.us.archive.org"
-
-
-def _get_ia_s3_auth() -> str | None:
-    """Get IA S3 authorization header value from env vars or config file."""
+def _get_ia_credentials() -> tuple[str, str] | None:
+    """Get IA S3 access key and secret key from env vars or config file."""
     access = os.environ.get("IAS3_ACCESS_KEY", "")
     secret = os.environ.get("IAS3_SECRET_KEY", "")
     if access and secret:
-        return f"LOW {access}:{secret}"
+        return access, secret
     # Fall back to config file (created by CI workflow)
     config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
     if config_path.exists():
@@ -483,81 +482,78 @@ def _get_ia_s3_auth() -> str | None:
         access = cfg.get("s3", "access", fallback="")
         secret = cfg.get("s3", "secret", fallback="")
         if access and secret:
-            return f"LOW {access}:{secret}"
+            return access, secret
     return None
 
 
-def _compute_md5(file_path: Path) -> str:
-    """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def upload_to_ia(
-    client: httpx.Client,
     item_id: str,
     file_path: Path,
     date_str: str,
 ) -> bool:
     """Upload file to Internet Archive via the S3-compatible API.
 
-    Uses a shared httpx client for connection pooling across workers,
-    with streaming upload and MD5 integrity verification.
+    Uses boto3 with adaptive retries and MD5 integrity verification.
     """
-    filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
+    creds = _get_ia_credentials()
+    if not creds:
+        logger.error(
+            "ia_credentials_not_found",
+            hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
+        )
+        return False
+    access_key, secret_key = creds
 
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {date_str}",
-        "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
-    }
+    retry_config = Config(retries={"max_attempts": 10, "mode": "adaptive"})
 
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url="https://s3.us.archive.org",
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            config=retry_config,
+        )
+
+        # Register event to add custom headers for IA-specific flags
+        def add_custom_headers(params, **kwargs):
+            if "headers" not in params:
+                params["headers"] = {}
+            params["headers"]["x-archive-auto-make-bucket"] = "1"
+            params["headers"]["x-archive-queue-derive"] = "0"
+
+        s3.meta.events.register("before-call:s3:PutObject", add_custom_headers)
+
+        with file_path.open("rb") as f:
+            s3.put_object(
+                Bucket=item_id,
+                Key=file_path.name,
+                Body=f,
+                Metadata={
+                    "collection": "opensource",
+                    "mediatype": "data",
+                    "title": f"DJEN Data - {date_str}",
+                    "description": (
+                        "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
+                    ),
+                    "subject": "brazilian-law;djen;legal;judiciary;open-data",
+                    "creator": "CausaGanha",
+                    "date": date_str,
+                },
             )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-    return False
+        return True
+
+    except ClientError as e:
+        logger.error("upload_failed", item_id=item_id, error=str(e))
+        return False
+    except Exception as e:
+        logger.error("upload_unexpected_error", item_id=item_id, error=str(e))
+        return False
 
 
 def _process_item(
     api_client: httpx.Client,
     dl_client: httpx.Client,
-    upload_client: httpx.Client,
     proxy_url: str,
     date_str: str,
     tribunal: str,
@@ -581,7 +577,7 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
+            ok = upload_to_ia(item_id, marker_path, date_str)
             return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
@@ -605,7 +601,7 @@ def _process_item(
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(upload_client, item_id, zip_path, date_str):
+        if upload_to_ia(item_id, zip_path, date_str):
             logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
             return "success", size_mb
         return "failed", 0.0
@@ -674,9 +670,8 @@ def collect_data(
     if not pending:
         return stats
 
-    # Resolve IA S3 credentials once (shared via upload client headers)
-    ia_auth = _get_ia_s3_auth()
-    if not ia_auth:
+    # Verify IA credentials exist before starting
+    if not _get_ia_credentials():
         logger.error(
             "ia_credentials_not_found",
             hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
@@ -687,7 +682,6 @@ def collect_data(
     # Shared HTTP clients with connection pooling
     api_timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
     dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
-    upload_timeout = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
     pool_limits = httpx.Limits(
         max_connections=workers * 2,
         max_keepalive_connections=workers,
@@ -702,17 +696,13 @@ def collect_data(
             limits=pool_limits,
             follow_redirects=True,
         ) as dl_client,
-        httpx.Client(
-            timeout=upload_timeout,
-            limits=pool_limits,
-            headers={"Authorization": ia_auth},
-        ) as upload_client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
-            executor.submit(
-                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
-            ): (date_str, tribunal)
+            executor.submit(_process_item, api_client, dl_client, proxy_url, date_str, tribunal): (
+                date_str,
+                tribunal,
+            )
             for date_str, tribunal in pending
         }
 
