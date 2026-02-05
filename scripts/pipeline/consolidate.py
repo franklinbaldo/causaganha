@@ -668,6 +668,32 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
+def _upload_marker(item_id: str) -> bool:
+    """Upload consolidation marker to Internet Archive.
+    
+    Creates empty _consolidated.marker file to signal that this date
+    has been successfully consolidated and should not be reprocessed.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='_consolidated.marker', delete=False) as f:
+            marker_path = Path(f.name)
+            # Empty file - existence is the signal
+        
+        logger.info("uploading_marker", item_id=item_id)
+        success = upload_to_ia(item_id, marker_path)
+        
+        # Cleanup temp file
+        try:
+            marker_path.unlink()
+        except Exception:
+            pass
+        
+        return success
+    except Exception as e:
+        logger.error("marker_upload_failed", item_id=item_id, error=str(e))
+        return False
+
+
 def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int = 60) -> bool:
     """Check if a tribunal has been absent for 60+ consecutive days before target_date.
 
@@ -1085,6 +1111,13 @@ def consolidate_date(
                 stats["parquets_created"] += 1
                 stats["uploaded"] += uploaded
                 stats["uploaded_mb"] += size_mb
+
+        # Phase 4: Upload consolidation marker
+        if stats["parquets_created"] > 0 and not dry_run:
+            if _upload_marker(item_id):
+                logger.info("marker_uploaded", item_id=item_id)
+            else:
+                logger.warning("marker_upload_failed", item_id=item_id)
 
     return stats
 
