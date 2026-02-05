@@ -28,7 +28,7 @@ import json
 import os
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -68,6 +68,21 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
+
+
+def parse_deadline(duration_str: str) -> int:
+    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
+    if not duration_str:
+        return 0
+    duration_str = duration_str.strip().lower()
+    try:
+        if duration_str.endswith("m"):
+            return int(float(duration_str[:-1]) * 60)
+        if duration_str.endswith("s"):
+            return int(float(duration_str[:-1]))
+        return int(float(duration_str))
+    except ValueError:
+        return 0
 
 
 def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -602,6 +617,7 @@ def collect_data(
     target_tribunal: str | None = None,
     max_items: int = 50,
     workers: int = 8,
+    deadline_seconds: int = 0,
 ) -> dict[str, int | float]:
     """Main collection function with parallel processing.
 
@@ -677,6 +693,8 @@ def collect_data(
         max_keepalive_connections=workers,
     )
 
+    start_time = time.time()
+
     with (
         httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
         httpx.Client(
@@ -704,6 +722,21 @@ def collect_data(
 
         try:
             for future in as_completed(futures):
+                # Check deadline
+                if deadline_seconds > 0:
+                    elapsed = time.time() - start_time
+                    if elapsed > deadline_seconds:
+                        logger.warning(
+                            "deadline_reached",
+                            elapsed=f"{elapsed:.1f}s",
+                            limit=f"{deadline_seconds}s",
+                            pending=len(futures) - (stats["success"] + stats["failed"]),
+                        )
+                        # Cancel remaining
+                        for f in futures:
+                            f.cancel()
+                        break
+
                 date_str, tribunal = futures[future]
                 try:
                     result, size_mb = future.result()
@@ -714,6 +747,8 @@ def collect_data(
                     if result == "success":
                         mark_downloaded(con, [(date_str, tribunal)])
 
+                except CancelledError:
+                    pass
                 except Exception:
                     logger.exception("worker_error", date=date_str, tribunal=tribunal)
                     stats["failed"] += 1
@@ -753,8 +788,10 @@ def main() -> int:
         print("  Source: catalog (backfill-needed.parquet, d-1 first)")
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
+    deadline_sec = parse_deadline(args.deadline)
     print(f"  Max items: {args.max_items}")
     print(f"  Workers: {args.workers}")
+    print(f"  Deadline: {args.deadline} ({deadline_sec}s)")
     print()
 
     stats = collect_data(
@@ -763,6 +800,7 @@ def main() -> int:
         target_tribunal=args.tribunal,
         max_items=args.max_items,
         workers=args.workers,
+        deadline_seconds=deadline_sec,
     )
 
     print()
