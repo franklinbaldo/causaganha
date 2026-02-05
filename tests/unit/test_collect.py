@@ -14,7 +14,7 @@ from scripts.pipeline.collect import calculate_exit_code, collect_data
 @patch("scripts.pipeline.collect._process_item")
 @patch("scripts.pipeline.collect.fetch_backfill_items")
 @patch("scripts.pipeline.collect.get_existing_files_for_dates")
-@patch("scripts.pipeline.collect._get_ia_s3_auth")
+@patch("scripts.pipeline.collect._get_ia_credentials")
 @patch("scripts.pipeline.collect.fetch_tribunais_from_api")
 @patch("scripts.pipeline.collect.init_db")
 def test_collect_data_marks_downloaded(
