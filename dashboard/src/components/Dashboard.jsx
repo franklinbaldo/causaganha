@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [collectProgress, setCollectProgress] = useState(null)
   const [consolidateProgress, setConsolidateProgress] = useState(null)
+  const [backfillProgress, setBackfillProgress] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -33,10 +34,12 @@ export default function Dashboard() {
         const data = await progressResponse.json();
         setCollectProgress(data.collect_progress);
         setConsolidateProgress(data.consolidate_progress);
+        setBackfillProgress(data.backfill_progress);
       } else {
         console.warn("Progress data not available");
         setCollectProgress(null);
         setConsolidateProgress(null);
+        setBackfillProgress(null);
       }
     } catch (error) {
       console.error("Error loading data", error);
