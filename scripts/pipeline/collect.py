@@ -758,6 +758,31 @@ def collect_data(
     return stats
 
 
+def calculate_exit_code(stats: dict[str, int | float]) -> int:
+    """Determine exit code based on collection statistics.
+
+    Policy:
+      - If nothing to process: SUCCESS (0)
+      - If success rate >= 5%: SUCCESS (0)
+      - If success rate < 5%: FAILED (1)
+    """
+    total_processed = stats["success"] + stats["failed"]
+
+    if total_processed == 0:
+        print("\n  Status: SUCCESS (nothing to process)")
+        return 0
+
+    success_rate = stats["success"] / total_processed
+    min_threshold = 0.05  # 5%
+
+    if success_rate >= min_threshold:
+        print(f"\n  Status: SUCCESS ({success_rate:.1%} success rate)")
+        return 0
+
+    print(f"\n  Status: FAILED ({success_rate:.1%} success rate, min: {min_threshold:.0%})")
+    return 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect DJEN data")
     parser.add_argument("--proxy-url", default="https://djen-proxy-mhgmawcn3a-rj.a.run.app")
@@ -825,22 +850,7 @@ def main() -> int:
             f.write(f"collect_skipped={stats['skipped']}\n")
             f.write(f"collect_downloaded_mb={stats['downloaded_mb']:.1f}\n")
 
-    # Determine exit code based on success rate, not strict zero-failures
-    # This tolerates transient API errors (timeouts, 5xx, network issues)
-    total_processed = stats["success"] + stats["failed"]
-    if total_processed == 0:
-        # Nothing to process is a success
-        print("\n  Status: SUCCESS (nothing to process)")
-        return 0
-
-    success_rate = stats["success"] / total_processed
-    failure_threshold = 0.2  # Fail only if >20% failure rate
-
-    if stats["failed"] / total_processed <= failure_threshold:
-        print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
-        return 0
-    print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
-    return 1
+    return calculate_exit_code(stats)
 
 
 if __name__ == "__main__":
