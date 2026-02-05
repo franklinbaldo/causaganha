@@ -54,6 +54,7 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_UF_OAB,
 )
 
+
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
@@ -670,24 +671,24 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
 
 def _upload_marker(item_id: str) -> bool:
     """Upload consolidation marker to Internet Archive.
-    
+
     Creates empty _consolidated.marker file to signal that this date
     has been successfully consolidated and should not be reprocessed.
     """
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='_consolidated.marker', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix="_consolidated.marker", delete=False) as f:
             marker_path = Path(f.name)
             # Empty file - existence is the signal
-        
+
         logger.info("uploading_marker", item_id=item_id)
         success = upload_to_ia(item_id, marker_path)
-        
+
         # Cleanup temp file
         try:
             marker_path.unlink()
         except Exception:
             pass
-        
+
         return success
     except Exception as e:
         logger.error("marker_upload_failed", item_id=item_id, error=str(e))
