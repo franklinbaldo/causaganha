@@ -763,8 +763,8 @@ def calculate_exit_code(stats: dict[str, int | float]) -> int:
 
     Policy:
       - If nothing to process: SUCCESS (0)
-      - If at least one item collected: SUCCESS (0) - partial success is allowed
-      - If items processed but zero success: FAILED (1)
+      - If success rate >= 5%: SUCCESS (0)
+      - If success rate < 5%: FAILED (1)
     """
     total_processed = stats["success"] + stats["failed"]
 
@@ -772,12 +772,14 @@ def calculate_exit_code(stats: dict[str, int | float]) -> int:
         print("\n  Status: SUCCESS (nothing to process)")
         return 0
 
-    if stats["success"] > 0:
-        success_rate = stats["success"] / total_processed
-        print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
+    success_rate = stats["success"] / total_processed
+    min_threshold = 0.05  # 5%
+
+    if success_rate >= min_threshold:
+        print(f"\n  Status: SUCCESS ({success_rate:.1%} success rate)")
         return 0
 
-    print("\n  Status: FAILED (0% success rate)")
+    print(f"\n  Status: FAILED ({success_rate:.1%} success rate, min: {min_threshold:.0%})")
     return 1
 
 
