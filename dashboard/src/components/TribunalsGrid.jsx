@@ -8,7 +8,7 @@ export function TribunalsGrid({ stats }) {
     <div className="cyber-card">
       <h2 className="text-lg font-bold text-cyber-primary mb-4 flex items-center justify-between">
         <span>Tribunals Status</span>
-        <span className="text-sm text-cyber-muted font-medium">{items.length} monitored</span>
+        <span className="text-xs text-cyber-muted font-normal">{items.length} monitored</span>
       </h2>
 
       {items.length === 0 ? (
@@ -36,9 +36,9 @@ export function TribunalsGrid({ stats }) {
                             aria-hidden="true"
                         />
                         {/* Status icon for additional visual cue */}
-                        {data.status === 'success' && <span className="text-xs text-cyber-primary" aria-hidden="true">✓</span>}
-                        {data.status === 'absent' && <span className="text-xs text-cyber-muted" aria-hidden="true">○</span>}
-                        {data.status !== 'success' && data.status !== 'absent' && <span className="text-xs text-cyber-danger" aria-hidden="true">✕</span>}
+                        {data.status === 'success' && <span className="text-[10px]" aria-hidden="true">✓</span>}
+                        {data.status === 'absent' && <span className="text-[10px]" aria-hidden="true">○</span>}
+                        {data.status !== 'success' && data.status !== 'absent' && <span className="text-[10px]" aria-hidden="true">✕</span>}
                     </div>
                     <span className="sr-only">
                         Status: {data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}

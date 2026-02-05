@@ -5,12 +5,12 @@ export function BackfillProgressCard({ progress }) {
     return (
       <div className="bg-cyber-card border border-cyber-border p-6 rounded shadow-glow">
         <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-cyber-primary" aria-hidden="true" />
+          <Calendar className="w-5 h-5 text-cyber-primary" />
           <h2 className="text-cyber-primary font-bold text-sm tracking-widest uppercase">
             Backfill Progress
           </h2>
         </div>
-        <p className="text-cyber-muted text-sm font-medium">Loading...</p>
+        <p className="text-cyber-muted text-xs">Loading...</p>
       </div>
     );
   }
@@ -128,19 +128,12 @@ export function BackfillProgressCard({ progress }) {
       {/* Progress Bar */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-cyber-muted font-medium">Coverage: {unique_days} days</span>
-          <span className="text-sm text-cyber-primary font-bold">
+          <span className="text-xs text-cyber-muted">Coverage: {unique_days} days</span>
+          <span className="text-xs text-cyber-primary font-bold">
             {progress_pct?.toFixed(2)}%
           </span>
         </div>
-        <div 
-          className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" 
-          role="progressbar" 
-          aria-valuenow={progress_pct || 0} 
-          aria-valuemin="0" 
-          aria-valuemax="100" 
-          aria-label={`Backfill progress: ${progress_pct?.toFixed(2)}%`}
-        >
+        <div className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress_pct || 0} aria-valuemin="0" aria-valuemax="100" aria-label={`Backfill progress: ${progress_pct?.toFixed(2)}%`}>
           <div
             className="h-full bg-gradient-to-r from-cyber-secondary to-cyber-primary transition-all duration-500 shadow-glow-lg"
             style={{ width: `${Math.min(progress_pct || 0, 100)}%` }}
