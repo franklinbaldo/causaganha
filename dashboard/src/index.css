@@ -22,6 +22,16 @@
   }
 
   /* Scanline effect (optional, maybe too heavy) */
+
+  /* Skeleton Loader Shimmer Animation */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
 }
 
 @layer components {
