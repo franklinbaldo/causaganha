@@ -164,7 +164,7 @@ def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
 
 def generate_collect_progress(con: duckdb.DuckDBPyConnection) -> dict:
     """Generate download (collect) progress metrics for dashboard.
-    
+
     Based on djen_state.coverage table (what was downloaded/attempted).
     """
     # Check if table exists
@@ -219,7 +219,7 @@ def generate_collect_progress(con: duckdb.DuckDBPyConnection) -> dict:
 
 def generate_consolidate_progress(manifest: list[dict]) -> dict:
     """Generate consolidation progress metrics for dashboard.
-    
+
     Based on manifest data (what parquets were consolidated and uploaded to IA).
     """
     target_start = date(2024, 1, 1)
@@ -229,7 +229,9 @@ def generate_consolidate_progress(manifest: list[dict]) -> dict:
     # Find dates with consolidated parquets or _consolidated.marker
     consolidated_dates = set()
     for m in manifest:
-        if m["file_type"] == "parquet" or (m["file_type"] == "marker" and "_consolidated" in m.get("filename", "")):
+        if m["file_type"] == "parquet" or (
+            m["file_type"] == "marker" and "_consolidated" in m.get("filename", "")
+        ):
             consolidated_dates.add(m["date"])
 
     if not consolidated_dates:
@@ -251,7 +253,7 @@ def generate_consolidate_progress(manifest: list[dict]) -> dict:
     oldest_date = dates_list[0]
     newest_date = dates_list[-1]
     unique_days = len(consolidated_dates)
-    
+
     # Count total consolidated items (parquet files)
     total_items = sum(1 for m in manifest if m["file_type"] == "parquet")
 
@@ -954,7 +956,9 @@ def main():
     if main_db_path.exists():
         try:
             backfill_progress_path = output_dir / "backfill-progress.json"
-            backfill_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
+            backfill_progress_path.write_text(
+                json.dumps(collect_data, ensure_ascii=False, indent=2)
+            )
             logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
             print(f"Saved: {backfill_progress_path} (legacy, alias to collect-progress.json)")
         except Exception:
@@ -972,7 +976,7 @@ def main():
         print()
         print("Uploading to Internet Archive...")
         files = [manifest_path, backfill_path, sql_path, db_path]
-        
+
         # Add progress files if they exist
         if collect_progress_path and collect_progress_path.exists():
             files.append(collect_progress_path)

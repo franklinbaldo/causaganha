@@ -88,7 +88,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         collect_progress = fetch_progress_json(f"{ia_base}/backfill-progress.json")
 
     data = {
-        "collect_progress": collect_progress or {
+        "collect_progress": collect_progress
+        or {
             "oldest_date": oldest_date,
             "newest_date": newest_date,
             "unique_days": unique_days,
@@ -97,7 +98,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "progress_pct": progress_pct,
             "last_updated": datetime.now(UTC).isoformat(),
         },
-        "consolidate_progress": consolidate_progress or {
+        "consolidate_progress": consolidate_progress
+        or {
             "oldest_date": None,
             "newest_date": None,
             "unique_days": 0,
@@ -106,7 +108,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "progress_pct": 0.0,
             "last_updated": datetime.now(UTC).isoformat(),
         },
-        "backfill_progress": collect_progress or {  # Legacy field for backward compatibility
+        "backfill_progress": collect_progress
+        or {  # Legacy field for backward compatibility
             "oldest_date": oldest_date,
             "newest_date": newest_date,
             "unique_days": unique_days,
