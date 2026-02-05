@@ -133,11 +133,11 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--proxy-url",
         config.proxy_url,
         "--max-items",
-        "200",
+        "5000",
         "--workers",
-        "8",
+        "32",
         "--deadline",
-        "10m",
+        "4m",
     )
     date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
     tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
