@@ -26,14 +26,22 @@ export function TribunalsGrid({ stats }) {
                     role="listitem"
                 >
                     <span className="font-bold text-xs text-cyber-text group-hover:text-cyber-primary">{name}</span>
-                    <div
-                        className={clsx("w-2 h-2 rounded-full mt-1",
-                            data.status === 'success' ? "bg-cyber-primary shadow-glow" :
-                            data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger shadow-glow-red"
-                        )}
-                        aria-label={`Status: ${data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}`}
-                        role="status"
-                    />
+                    <div className="flex items-center gap-1 mt-1">
+                        <div
+                            className={clsx("w-2.5 h-2.5 rounded-full",
+                                data.status === 'success' ? "bg-cyber-primary shadow-glow" :
+                                data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger shadow-glow-red"
+                            )}
+                            aria-hidden="true"
+                        />
+                        {/* Status symbols for color blindness */}
+                        {data.status === 'success' && <span className="text-xs text-cyber-primary" aria-hidden="true">✓</span>}
+                        {data.status === 'absent' && <span className="text-xs text-cyber-muted" aria-hidden="true">○</span>}
+                        {(data.status !== 'success' && data.status !== 'absent') && <span className="text-xs text-cyber-danger" aria-hidden="true">✕</span>}
+                    </div>
+                    <span className="sr-only">
+                        Status: {data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}
+                    </span>
                 </div>
             ))}
           </div>

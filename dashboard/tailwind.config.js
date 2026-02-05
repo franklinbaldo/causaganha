@@ -11,15 +11,17 @@ export default {
           black: '#050505',
           dark: '#0a0a0a',
           card: '#0f0f0f',
-          gray: '#4a4a4a', // WCAG AA compliant (was #1a1a1a)
+          gray: '#6b6b6b', // WCAG AA compliant (was #4a4a4a)
           primary: '#00ff41', // Matrix Green
-          secondary: '#008f11',
-          dim: 'rgba(0, 255, 65, 0.1)',
-          border: '#333333',
-          text: '#e0e0e0',
-          muted: '#a0a0a0', // WCAG AA compliant (was #888888)
+          secondary: '#00cc33', // Brighter for visibility (was #008f11)
+          dim: 'rgba(0, 255, 65, 0.15)', // Increased opacity (was 0.1)
+          border: '#404040', // Better visibility (was #333333)
+          text: '#f0f0f0', // Brighter (was #e0e0e0)
+          muted: '#b0b0b0', // WCAG AA compliant (was #a0a0a0)
           danger: '#ff3333',
-          warning: '#ffaa00'
+          warning: '#ffaa00',
+          success: '#00ff41', // Alias for semantic usage
+          error: '#ff4444',   // Alias for semantic usage
         }
       },
       fontFamily: {
