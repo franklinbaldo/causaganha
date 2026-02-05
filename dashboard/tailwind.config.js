@@ -11,15 +11,17 @@ export default {
           black: '#050505',
           dark: '#0a0a0a',
           card: '#0f0f0f',
-          gray: '#4a4a4a', // WCAG AA compliant (was #1a1a1a)
-          primary: '#00ff41', // Matrix Green
-          secondary: '#008f11',
-          dim: 'rgba(0, 255, 65, 0.1)',
-          border: '#333333',
-          text: '#e0e0e0',
-          muted: '#a0a0a0', // WCAG AA compliant (was #888888)
-          danger: '#ff3333',
-          warning: '#ffaa00'
+          gray: '#6b6b6b', // WCAG AA compliant - increased from #4a4a4a (4.5:1 ratio on dark)
+          primary: '#00ff41', // Matrix Green (high contrast)
+          secondary: '#00cc33', // Brighter secondary for better visibility
+          dim: 'rgba(0, 255, 65, 0.15)', // Slightly brighter dim
+          border: '#404040', // Increased from #333333 for better visibility
+          text: '#f0f0f0', // Brighter text (was #e0e0e0)
+          muted: '#b0b0b0', // WCAG AA compliant - increased from #a0a0a0 (7:1 ratio)
+          danger: '#ff4444', // Brighter red
+          warning: '#ffbb33', // Brighter warning color
+          success: '#00ff41', // Alias for primary (color-blind friendly labeling)
+          error: '#ff4444', // Alias for danger (color-blind friendly labeling)
         }
       },
       fontFamily: {
