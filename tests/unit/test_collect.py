@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 # Add repository root to path so we can import scripts
 sys.path.append(os.getcwd())
 
-from scripts.pipeline.collect import collect_data
+from scripts.pipeline.collect import calculate_exit_code, collect_data
 
 
 @patch("scripts.pipeline.collect.mark_downloaded")
@@ -45,3 +45,32 @@ def test_collect_data_marks_downloaded(
     # We expect mark_downloaded to be called with the success items
     # The current code DOES NOT call it, so this assertion should fail
     mock_mark.assert_called_with(mock_con, [("2024-01-01", "TJSP")])
+
+
+def test_calculate_exit_code_success():
+    stats = {"success": 1, "failed": 0, "skipped": 0, "downloaded_mb": 1.0}
+    assert calculate_exit_code(stats) == 0
+
+
+def test_calculate_exit_code_partial_success():
+    # 290 success, 4710 failed -> should pass now (was failing before)
+    stats = {"success": 290, "failed": 4710, "skipped": 0, "downloaded_mb": 270.2}
+    assert calculate_exit_code(stats) == 0
+
+
+def test_calculate_exit_code_failure():
+    # 0 success, 100 failed -> should fail
+    stats = {"success": 0, "failed": 100, "skipped": 0, "downloaded_mb": 0.0}
+    assert calculate_exit_code(stats) == 1
+
+
+def test_calculate_exit_code_empty():
+    # Nothing to process -> should pass
+    stats = {"success": 0, "failed": 0, "skipped": 0, "downloaded_mb": 0.0}
+    assert calculate_exit_code(stats) == 0
+
+
+def test_calculate_exit_code_minimal_success():
+    # 1 success, 1000 failed -> should pass
+    stats = {"success": 1, "failed": 1000, "skipped": 0, "downloaded_mb": 1.0}
+    assert calculate_exit_code(stats) == 0
