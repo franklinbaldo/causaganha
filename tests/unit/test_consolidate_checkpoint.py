@@ -10,6 +10,7 @@ from datetime import date, timedelta
 # Note: CheckpointManager might not exist yet, so this import might fail until implementation
 from scripts.pipeline.consolidate import CheckpointManager, find_next_unconsolidated
 
+
 class TestCheckpointManager:
     """BDD-style tests for CheckpointManager."""
 
@@ -133,7 +134,7 @@ class TestFindNextUnconsolidatedWithCheckpoint:
             json.dump({"last_checked": last_checked}, f)
 
         mock_stopped.return_value = False
-        mock_needs.return_value = False # nothing found yet
+        mock_needs.return_value = False  # nothing found yet
 
         # Mock CheckpointManager inside the module to use our tmp file
         with patch("scripts.pipeline.consolidate.CheckpointManager") as MockManager:
@@ -161,7 +162,7 @@ class TestFindNextUnconsolidatedWithCheckpoint:
 
             # Verify no date > last_checked was checked
             for d_str in called_dates:
-                 assert d_str <= last_checked
+                assert d_str <= last_checked
 
     def test_save_checkpoint_on_progress(self, mock_needs, mock_stopped, tmp_path):
         """
@@ -183,7 +184,7 @@ class TestFindNextUnconsolidatedWithCheckpoint:
         with patch("scripts.pipeline.consolidate.CheckpointManager") as MockManager:
             # We need to mock the save method to verify it's called
             mock_instance = MagicMock()
-            mock_instance.load.return_value = None # No existing checkpoint
+            mock_instance.load.return_value = None  # No existing checkpoint
             MockManager.return_value = mock_instance
 
             find_next_unconsolidated()
