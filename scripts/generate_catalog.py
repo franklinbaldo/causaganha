@@ -6,6 +6,8 @@ Creates:
 - backfill-needed.parquet: What's missing from DJEN
 - catalog.sql: SQL with remote views
 - catalog.duckdb: Ready-to-use DuckDB file
+- collect-progress.json + .jsonl: Download progress (current + history)
+- consolidate-progress.json + .jsonl: Consolidation progress (current + history)
 
 Usage:
     python scripts/generate_catalog.py --upload
@@ -19,7 +21,6 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
-import httpx
 import structlog
 
 from causaganha.config import TRIBUNAIS
@@ -34,6 +35,20 @@ IA_CATALOG_ITEM = "causaganha-catalog"
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
+
+
+def append_progress_jsonl(path: Path, data: dict) -> None:
+    """Append progress data to JSONL file for historical tracking.
+
+    JSONL format allows trivial comparison (tail -2) and historical analysis.
+    Each line is a complete JSON object with timestamp.
+    """
+    try:
+        with path.open("a") as f:
+            f.write(json.dumps(data, ensure_ascii=False) + "\n")
+        logger.info("jsonl_appended", path=str(path))
+    except Exception as e:
+        logger.warning("jsonl_append_failed", path=str(path), error=str(e))
 
 
 def run_ia_command(args: list[str], timeout: int = 300) -> str:
@@ -922,7 +937,6 @@ def main():
 
     # Generate backfill progress metrics for dashboard
     logger.info("generating_backfill_progress")
-    progress_path = None
 
     # We need to connect to the main DB to get coverage stats
     # It might not exist if running fresh, handle gracefully
@@ -936,10 +950,16 @@ def main():
             collect_data = generate_collect_progress(con)
             con.close()
 
+            # Save current state (JSON)
             collect_progress_path = output_dir / "collect-progress.json"
             collect_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
             logger.info("collect_progress_saved", path=str(collect_progress_path))
             print(f"Saved: {collect_progress_path}")
+
+            # Append to history (JSONL)
+            collect_history_path = output_dir / "collect-progress.jsonl"
+            append_progress_jsonl(collect_history_path, collect_data)
+            print(f"Appended: {collect_history_path}")
         except Exception as e:
             logger.error("collect_progress_failed", error=str(e))
     else:
@@ -947,10 +967,17 @@ def main():
 
     # Generate consolidate progress (parquets)
     consolidate_data = generate_consolidate_progress(manifest)
+
+    # Save current state (JSON)
     consolidate_progress_path = output_dir / "consolidate-progress.json"
     consolidate_progress_path.write_text(json.dumps(consolidate_data, ensure_ascii=False, indent=2))
     logger.info("consolidate_progress_saved", path=str(consolidate_progress_path))
     print(f"Saved: {consolidate_progress_path}")
+
+    # Append to history (JSONL)
+    consolidate_history_path = output_dir / "consolidate-progress.jsonl"
+    append_progress_jsonl(consolidate_history_path, consolidate_data)
+    print(f"Appended: {consolidate_history_path}")
 
     # Keep backfill-progress.json for backward compatibility (alias to collect)
     if main_db_path.exists():
@@ -977,11 +1004,19 @@ def main():
         print("Uploading to Internet Archive...")
         files = [manifest_path, backfill_path, sql_path, db_path]
 
-        # Add progress files if they exist
+        # Add progress files if they exist (JSON + JSONL)
         if collect_progress_path and collect_progress_path.exists():
             files.append(collect_progress_path)
+        collect_history_path = output_dir / "collect-progress.jsonl"
+        if collect_history_path.exists():
+            files.append(collect_history_path)
+
         if consolidate_progress_path and consolidate_progress_path.exists():
             files.append(consolidate_progress_path)
+        consolidate_history_path = output_dir / "consolidate-progress.jsonl"
+        if consolidate_history_path.exists():
+            files.append(consolidate_history_path)
+
         # Legacy backfill-progress.json for backward compatibility
         legacy_progress = output_dir / "backfill-progress.json"
         if legacy_progress.exists():
