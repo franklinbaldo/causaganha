@@ -88,6 +88,17 @@ jobs:
             --date "${{ github.event.inputs.date || '' }}" \
             --tribunal "${{ github.event.inputs.tribunal || '' }}"
 
+      - name: Upload DuckDB artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causaganha-db
+          path: |
+            data/causaganha.duckdb
+            catalog/catalog.duckdb
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Save dashboard cache
         if: steps.pipeline.outputs.catalog_updated == 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
