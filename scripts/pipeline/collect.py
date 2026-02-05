@@ -524,11 +524,13 @@ def upload_to_ia(
 
         s3.meta.events.register("before-call:s3:PutObject", add_custom_headers)
 
+        file_size = os.path.getsize(file_path)
         with file_path.open("rb") as f:
             s3.put_object(
                 Bucket=item_id,
                 Key=file_path.name,
                 Body=f,
+                ContentLength=file_size,
                 Metadata={
                     "collection": "opensource",
                     "mediatype": "data",
