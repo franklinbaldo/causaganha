@@ -676,7 +676,9 @@ def _upload_marker(item_id: str) -> bool:
     has been successfully consolidated and should not be reprocessed.
     """
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix="_consolidated.marker", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix="_consolidated.marker", delete=False
+        ) as f:
             marker_path = Path(f.name)
             # Empty file - existence is the signal
 
