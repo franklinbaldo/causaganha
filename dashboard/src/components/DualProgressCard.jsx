@@ -131,18 +131,18 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
           </span>
         </div>
         
-        <div className="w-full h-3 bg-cyber-dark border border-cyber-dim rounded-full overflow-hidden">
+        <div className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress.percentage} aria-valuemin="0" aria-valuemax="100" aria-label={`${title} progress: ${progress.percentage.toFixed(1)}%`}>
           <div
             className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-500 shadow-glow-lg`}
             style={{ width: `${Math.min(progress.percentage, 100)}%` }}
           />
         </div>
         
-        <div className="flex justify-between items-center mt-1">
-          <span className="text-[10px] text-cyber-muted">
+        <div className="flex justify-between items-center mt-1.5">
+          <span className="text-xs text-cyber-muted font-medium">
             {progress.current} / {progress.total}
           </span>
-          <span className="text-[10px] text-cyber-muted">
+          <span className="text-xs text-cyber-muted font-medium">
             {progress.unit}
           </span>
         </div>
@@ -287,16 +287,16 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="border border-cyber-dim p-3 rounded bg-cyber-dark">
+        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
-            <Calendar className="w-3 h-3 text-cyber-secondary" />
-            <span className="text-[10px] text-cyber-muted uppercase tracking-wider">
+            <Calendar className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
+            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
               Date Range
             </span>
           </div>
           <div className="text-cyber-primary font-mono font-bold text-sm">
             {oldest_date && newest_date ? (
-              <span className="text-[11px]">
+              <span className="text-xs">
                 {oldest_date} → {newest_date}
               </span>
             ) : (
@@ -305,10 +305,10 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
           </div>
         </div>
 
-        <div className="border border-cyber-dim p-3 rounded bg-cyber-dark">
+        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-3 h-3 text-cyber-secondary" />
-            <span className="text-[10px] text-cyber-muted uppercase tracking-wider">
+            <Clock className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
+            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
               Total Items
             </span>
           </div>
@@ -320,17 +320,18 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
 
       {/* Last Updated */}
       {last_updated && (
-        <div className="mt-3 pt-3 border-t border-cyber-dim flex justify-between items-center">
-          <span className="text-[10px] text-cyber-muted">
+        <div className="mt-3 pt-3 border-t border-cyber-border flex justify-between items-center">
+          <span className="text-xs text-cyber-muted font-medium">
             Last updated: {new Date(last_updated).toLocaleString('pt-BR')}
           </span>
           <button
             onClick={() => fetchData(true)}
             disabled={retrying}
-            className="text-cyber-primary hover:text-cyber-secondary transition-colors disabled:opacity-50"
+            className="text-cyber-primary hover:text-cyber-secondary transition-colors disabled:opacity-50 p-1"
             title="Refresh data"
+            aria-label="Refresh dashboard data"
           >
-            <RefreshCw className={`w-3 h-3 ${retrying ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
           </button>
         </div>
       )}
