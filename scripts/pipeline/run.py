@@ -133,11 +133,11 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--proxy-url",
         config.proxy_url,
         "--max-items",
-        "5000",
+        "10000",
         "--workers",
-        "32",
+        "64",
         "--deadline",
-        "4m",
+        "540s",
     )
     date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
     tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
@@ -152,9 +152,9 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "python",
         f"{config.scripts_dir}/consolidate.py",
         "--deadline",
-        "10m",
-        "--max-zips",
-        "15",
+        "1200s",
+        "--workers",
+        "16",
     )
     mode_args: tuple[str, ...] = (
         ("--date", config.date) if config.date else ("--backfill", "--force")
