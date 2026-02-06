@@ -598,16 +598,50 @@ def _process_item(
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / zip_name
 
+        download_start = time.time()
         if not download_zip(dl_client, download_url, zip_path):
+            logger.info(
+                "download_timing",
+                date=date_str,
+                tribunal=tribunal,
+                duration_s=round(time.time() - download_start, 2),
+                status="failed",
+            )
             return "failed", 0.0
 
         size_mb = zip_path.stat().st_size / (1024 * 1024)
+        logger.info(
+            "download_timing",
+            date=date_str,
+            tribunal=tribunal,
+            duration_s=round(time.time() - download_start, 2),
+            size_mb=f"{size_mb:.2f}",
+            status="success",
+        )
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(upload_client, item_id, zip_path, date_str):
-            logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
+        upload_start = time.time()
+        upload_ok = upload_to_ia(upload_client, item_id, zip_path, date_str)
+        upload_elapsed = round(time.time() - upload_start, 2)
+        if upload_ok:
+            logger.info(
+                "upload_timing",
+                item_id=item_id,
+                file=zip_name,
+                size_mb=f"{size_mb:.2f}",
+                duration_s=upload_elapsed,
+                status="success",
+            )
             return "success", size_mb
+        logger.warning(
+            "upload_timing",
+            item_id=item_id,
+            file=zip_name,
+            size_mb=f"{size_mb:.2f}",
+            duration_s=upload_elapsed,
+            status="failed",
+        )
         return "failed", 0.0
 
 
