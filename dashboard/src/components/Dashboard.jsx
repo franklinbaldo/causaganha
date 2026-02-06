@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Terminal, AlertTriangle } from 'lucide-react'
 import { LiveStatusCard } from './LiveStatusCard'
+import { BackfillProgressCard } from './BackfillProgressCard'
 import { DualProgressCard } from './DualProgressCard'
 import { CalendarHeatmap } from './CalendarHeatmap'
 import { TribunalsGrid } from './TribunalsGrid'
@@ -9,8 +10,6 @@ import { TimelineGraph } from './TimelineGraph'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
-  const [collectProgress, setCollectProgress] = useState(null)
-  const [consolidateProgress, setConsolidateProgress] = useState(null)
   const [backfillProgress, setBackfillProgress] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -28,17 +27,13 @@ export default function Dashboard() {
         setStats(null);
       }
 
-      // Fetch progress data (from local build artifact)
-      const progressResponse = await fetch('/causaganha/dashboard-data.json');
-      if (progressResponse.ok) {
-        const data = await progressResponse.json();
-        setCollectProgress(data.collect_progress);
-        setConsolidateProgress(data.consolidate_progress);
+      // Fetch backfill progress (from local build artifact)
+      const backfillResponse = await fetch('/causaganha/dashboard-data.json');
+      if (backfillResponse.ok) {
+        const data = await backfillResponse.json();
         setBackfillProgress(data.backfill_progress);
       } else {
-        console.warn("Progress data not available");
-        setCollectProgress(null);
-        setConsolidateProgress(null);
+        console.warn("Backfill progress not available");
         setBackfillProgress(null);
       }
     } catch (error) {
@@ -63,7 +58,7 @@ export default function Dashboard() {
     );
   }
 
-  if (error || (!stats && !collectProgress && !consolidateProgress)) {
+  if (error || (!stats && !backfillProgress)) {
       return (
         <div className="min-h-screen bg-cyber-black text-cyber-danger flex flex-col items-center justify-center font-mono p-4 text-center">
             <AlertTriangle className="w-16 h-16 mb-4 animate-pulse" />
@@ -110,10 +105,7 @@ export default function Dashboard() {
             <LiveStatusCard stats={stats} />
           </div>
           <div className="lg:col-span-2">
-            <DualProgressCard 
-              collectProgress={collectProgress}
-              consolidateProgress={consolidateProgress}
-            />
+            <DualProgressCard apiUrl="/causaganha/dashboard-data.json" refreshInterval={60000} />
           </div>
         </div>
 
