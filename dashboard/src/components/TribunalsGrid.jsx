@@ -8,7 +8,7 @@ export function TribunalsGrid({ stats }) {
     <div className="cyber-card">
       <h2 className="text-lg font-bold text-cyber-primary mb-4 flex items-center justify-between">
         <span>Tribunals Status</span>
-        <span className="text-xs text-cyber-muted font-normal">{items.length} monitored</span>
+        <span className="text-sm text-cyber-muted font-medium">{items.length} monitored</span>
       </h2>
 
       {items.length === 0 ? (
@@ -21,19 +21,28 @@ export function TribunalsGrid({ stats }) {
             {items.map(([name, data]) => (
                 <div
                     key={name}
-                    className="flex flex-col items-center p-2 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative"
-                    title={`Updated: ${data.last_update || 'N/A'}`}
+                    className="flex flex-col items-center p-2.5 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative"
+                    title={`${name}: ${data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'} - Updated: ${data.last_update || 'N/A'}`}
                     role="listitem"
                 >
-                    <span className="font-bold text-xs text-cyber-text group-hover:text-cyber-primary">{name}</span>
-                    <div
-                        className={clsx("w-2 h-2 rounded-full mt-1",
-                            data.status === 'success' ? "bg-cyber-primary shadow-glow" :
-                            data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger shadow-glow-red"
-                        )}
-                        aria-label={`Status: ${data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}`}
-                        role="status"
-                    />
+                    <span className="font-bold text-sm text-cyber-text group-hover:text-cyber-primary">{name}</span>
+                    <div className="flex items-center gap-1 mt-1">
+                        {/* Visual indicator with pattern for color blindness */}
+                        <div
+                            className={clsx("w-2.5 h-2.5 rounded-full",
+                                data.status === 'success' ? "bg-cyber-primary shadow-glow" :
+                                data.status === 'absent' ? "bg-cyber-muted" : "bg-cyber-danger"
+                            )}
+                            aria-hidden="true"
+                        />
+                        {/* Status icon for additional visual cue */}
+                        {data.status === 'success' && <span className="text-xs text-cyber-primary" aria-hidden="true">✓</span>}
+                        {data.status === 'absent' && <span className="text-xs text-cyber-muted" aria-hidden="true">○</span>}
+                        {data.status !== 'success' && data.status !== 'absent' && <span className="text-xs text-cyber-danger" aria-hidden="true">✕</span>}
+                    </div>
+                    <span className="sr-only">
+                        Status: {data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}
+                    </span>
                 </div>
             ))}
           </div>
