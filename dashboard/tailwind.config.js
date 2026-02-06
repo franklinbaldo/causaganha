@@ -11,17 +11,18 @@ export default {
           black: '#050505',
           dark: '#0a0a0a',
           card: '#0f0f0f',
-          gray: '#6b6b6b', // WCAG AA compliant - increased from #4a4a4a (4.5:1 ratio on dark)
-          primary: '#00ff41', // Matrix Green (high contrast)
-          secondary: '#00cc33', // Brighter secondary for better visibility
-          dim: 'rgba(0, 255, 65, 0.15)', // Slightly brighter dim
-          border: '#404040', // Increased from #333333 for better visibility
+          gray: '#7c7c7c', // WCAG AA: 4.84:1 on black, 4.55:1 on card (was #1a1a1a → #4a4a4a → #6b6b6b)
+          primary: '#00ff41', // Matrix Green
+          secondary: '#00cc33', // Brighter for better visibility (was #008f11)
+          dim: 'rgba(0, 255, 65, 0.1)',
+          border: '#5f5f5f', // WCAG AA: 3.01:1 on card (was #333333 → #404040 → #4d4d4d)
           text: '#f0f0f0', // Brighter text (was #e0e0e0)
-          muted: '#b0b0b0', // WCAG AA compliant - increased from #a0a0a0 (7:1 ratio)
-          danger: '#ff4444', // Brighter red
-          warning: '#ffbb33', // Brighter warning color
-          success: '#00ff41', // Alias for primary (color-blind friendly labeling)
-          error: '#ff4444', // Alias for danger (color-blind friendly labeling)
+          muted: '#b0b0b0', // WCAG AA: 9.40:1 contrast (was #888888 → #a0a0a0)
+          danger: '#ff3333',
+          warning: '#ffaa00',
+          // Semantic aliases for color-blind friendliness
+          success: '#00ff41',
+          error: '#ff4444'
         }
       },
       fontFamily: {

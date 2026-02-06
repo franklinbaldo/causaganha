@@ -54,6 +54,9 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_UF_OAB,
 )
 
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
+
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
