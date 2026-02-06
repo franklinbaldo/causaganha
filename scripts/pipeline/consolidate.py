@@ -1047,6 +1047,7 @@ def consolidate_date(
     force: bool = False,
     local_zips: str | None = None,
     max_zips: int = 0,
+    workers: int = 16,
 ) -> dict[str, int | float]:
     """Consolidate all tribunals for a date into single Parquet files.
 
@@ -1056,6 +1057,7 @@ def consolidate_date(
         force: If True, consolidate even if the day is incomplete.
         local_zips: Local directory containing ZIPs (for testing).
         max_zips: Maximum ZIPs to process (0 = unlimited).
+        workers: Number of parallel workers for processing ZIPs.
     """
     stats = {
         "zips_processed": 0,
@@ -1108,7 +1110,7 @@ def consolidate_date(
 
         try:
             # Parallel processing of ZIPs
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = {
                     executor.submit(
                         process_zip_entry,
@@ -1210,6 +1212,12 @@ def main() -> int:
         help="Exit after this duration (e.g., 10m, 600s)",
         default="10m",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=16,
+        help="Number of parallel workers for processing ZIPs",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -1246,6 +1254,7 @@ def main() -> int:
             force=use_force,
             local_zips=args.local_zips,
             max_zips=args.max_zips,
+            workers=args.workers,
         )
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))
