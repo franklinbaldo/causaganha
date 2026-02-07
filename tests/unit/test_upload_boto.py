@@ -10,6 +10,7 @@ sys.path.append(os.getcwd())
 # We import the module, but functions might change signature
 from scripts.pipeline.collect import upload_to_ia
 
+
 class TestUploadBoto(unittest.TestCase):
     def setUp(self):
         self.item_id = "djen-2024-01-01"

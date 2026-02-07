@@ -210,8 +210,8 @@ Feature: Pipeline Orchestration
     And the command should include flag "--date" with value "2026-01-15"
     And the command should include flag "--tribunal" with value "TJSP"
     And the command should include flag "--max-items" with value "10000"
-    And the command should include flag "--workers" with value "64"
-    And the command should include flag "--deadline" with value "540s"
+    And the command should include flag "--workers" with value "128"
+    And the command should include flag "--deadline" with value "1200s"
 
   @pipeline @command
   Scenario: Build collect command without optional params

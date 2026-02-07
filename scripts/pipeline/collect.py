@@ -469,9 +469,6 @@ def download_zip(
     return False
 
 
-_IA_S3_URL = "https://s3.us.archive.org"
-
-
 def get_boto_client() -> Any:
     """Get configured Boto3 S3 client for Internet Archive.
 
