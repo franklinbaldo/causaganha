@@ -1,0 +1,3 @@
+# Alert state files (local only, not committed)
+.alert_history.json
+.pending_alert.json

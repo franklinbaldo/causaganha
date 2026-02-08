@@ -21,13 +21,12 @@ export function TribunalsGrid({ stats }) {
             {items.map(([name, data]) => (
                 <div
                     key={name}
-                    className="flex flex-col items-center p-2.5 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative"
-                    title={`${name}: ${data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'} - Updated: ${data.last_update || 'N/A'}`}
+                    className="flex flex-col items-center p-2 bg-cyber-dark border border-cyber-border hover:border-cyber-primary transition-colors rounded group cursor-help relative"
+                    title={`Updated: ${data.last_update || 'N/A'}`}
                     role="listitem"
                 >
-                    <span className="font-bold text-sm text-cyber-text group-hover:text-cyber-primary">{name}</span>
+                    <span className="font-bold text-xs text-cyber-text group-hover:text-cyber-primary">{name}</span>
                     <div className="flex items-center gap-1 mt-1">
-                        {/* Visual indicator with pattern for color blindness */}
                         <div
                             className={clsx("w-2.5 h-2.5 rounded-full",
                                 data.status === 'success' ? "bg-cyber-primary shadow-glow" :
@@ -35,10 +34,10 @@ export function TribunalsGrid({ stats }) {
                             )}
                             aria-hidden="true"
                         />
-                        {/* Status icon for additional visual cue */}
-                        {data.status === 'success' && <span className="text-[10px]" aria-hidden="true">✓</span>}
-                        {data.status === 'absent' && <span className="text-[10px]" aria-hidden="true">○</span>}
-                        {data.status !== 'success' && data.status !== 'absent' && <span className="text-[10px]" aria-hidden="true">✕</span>}
+                        {/* Status symbols for color blindness */}
+                        {data.status === 'success' && <span className="text-[10px] text-cyber-primary font-bold select-none" aria-hidden="true">✓</span>}
+                        {data.status === 'absent' && <span className="text-[10px] text-cyber-muted font-bold select-none" aria-hidden="true">○</span>}
+                        {data.status !== 'success' && data.status !== 'absent' && <span className="text-[10px] text-cyber-danger font-bold select-none" aria-hidden="true">✕</span>}
                     </div>
                     <span className="sr-only">
                         Status: {data.status === 'success' ? 'Online' : data.status === 'absent' ? 'Absent' : 'Error'}

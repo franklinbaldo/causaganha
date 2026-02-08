@@ -70,26 +70,27 @@ function DualProgressError({ error, onRetry, retrying }) {
   return (
     <SkeletonCard>
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <AlertCircle className="w-12 h-12 text-cyber-danger mb-4 animate-pulse" />
+        <AlertCircle className="w-12 h-12 text-cyber-danger mb-4 animate-pulse" aria-hidden="true" />
         <h3 className="text-cyber-danger font-bold text-sm tracking-widest uppercase mb-2">
           FETCH FAILED
         </h3>
-        <p className="text-cyber-muted text-xs mb-6 max-w-md">
+        <p className="text-cyber-muted text-sm mb-6 max-w-md font-medium">
           {error || 'Unable to load progress data from Internet Archive API. This may be due to slow network or API timeout.'}
         </p>
         <button
           onClick={onRetry}
           disabled={retrying}
+          aria-label="Retry fetching dashboard data"
           className="flex items-center gap-2 px-6 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-primary hover:text-cyber-black transition-colors rounded uppercase text-xs tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {retrying ? (
             <>
-              <Loader className="w-4 h-4 animate-spin" />
+              <Loader className="w-4 h-4 animate-spin" aria-hidden="true" />
               RETRYING...
             </>
           ) : (
             <>
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
               RETRY
             </>
           )}
@@ -117,28 +118,35 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Icon className={`w-4 h-4 ${colors.text}`} />
-        <h3 className={`${colors.text} font-bold text-xs tracking-widest uppercase`}>
+        <Icon className={`w-5 h-5 ${colors.text}`} aria-hidden="true" />
+        <h3 className={`${colors.text} font-bold text-sm tracking-widest uppercase`}>
           {title}
         </h3>
       </div>
       
       <div>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-xs text-cyber-muted">{progress.label}</span>
-          <span className={`text-xs font-bold ${colors.text}`}>
+          <span className="text-sm text-cyber-muted font-medium">{progress.label}</span>
+          <span className={`text-sm font-bold ${colors.text}`}>
             {progress.percentage.toFixed(1)}%
           </span>
         </div>
         
-        <div className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress.percentage} aria-valuemin="0" aria-valuemax="100" aria-label={`${title} progress: ${progress.percentage.toFixed(1)}%`}>
+        <div 
+          className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={progress.percentage}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label={`${title} progress: ${progress.percentage.toFixed(1)}%`}
+        >
           <div
             className={`h-full bg-gradient-to-r ${colors.gradient} transition-all duration-500 shadow-glow-lg`}
             style={{ width: `${Math.min(progress.percentage, 100)}%` }}
           />
         </div>
         
-        <div className="flex justify-between items-center mt-1.5">
+        <div className="flex justify-between items-center mt-1">
           <span className="text-xs text-cyber-muted font-medium">
             {progress.current} / {progress.total}
           </span>
@@ -320,18 +328,17 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
 
       {/* Last Updated */}
       {last_updated && (
-        <div className="mt-3 pt-3 border-t border-cyber-border flex justify-between items-center">
-          <span className="text-xs text-cyber-muted font-medium">
+        <div className="mt-3 pt-3 border-t border-cyber-dim flex justify-between items-center">
+          <span className="text-[10px] text-cyber-muted">
             Last updated: {new Date(last_updated).toLocaleString('pt-BR')}
           </span>
           <button
             onClick={() => fetchData(true)}
             disabled={retrying}
-            className="text-cyber-primary hover:text-cyber-secondary transition-colors disabled:opacity-50 p-1"
+            className="text-cyber-primary hover:text-cyber-secondary transition-colors disabled:opacity-50"
             title="Refresh data"
-            aria-label="Refresh dashboard data"
           >
-            <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${retrying ? 'animate-spin' : ''}`} />
           </button>
         </div>
       )}
