@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "128",
+        "64",
         "--deadline",
         "1200s",
     )
