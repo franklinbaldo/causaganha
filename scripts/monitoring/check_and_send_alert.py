@@ -46,7 +46,7 @@ def main() -> int:
             print(f"TARGET: {alert_data['target']}")
             print(f"TIMESTAMP: {alert_data['timestamp']}")
             print("MESSAGE:")
-            print(alert_data['message'])
+            print(alert_data["message"])
             print("=" * 60)
 
             # Remove marker after reading

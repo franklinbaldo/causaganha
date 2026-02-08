@@ -1261,6 +1261,7 @@ def main() -> int:
         except Exception as e:
             logger.error("consolidation_aborted", error=str(e))
             import traceback
+
             traceback.print_exc()
             return 1
 
@@ -1299,6 +1300,7 @@ def main() -> int:
             except Exception as e:
                 logger.error("consolidation_aborted", date=target_date, error=str(e))
                 import traceback
+
                 traceback.print_exc()
                 return 1
 
@@ -1321,6 +1323,7 @@ def main() -> int:
         except Exception as e:
             logger.error("consolidation_aborted", error=str(e))
             import traceback
+
             traceback.print_exc()
             return 1
 

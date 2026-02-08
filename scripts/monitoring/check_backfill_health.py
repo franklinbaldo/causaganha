@@ -181,7 +181,9 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
             message = f"🚨 BACKFILL STUCK: No progress in {age_hours:.1f}h (progress: {progress_pct:.2f}%)"
         elif is_stale:
             level = "warning"
-            message = f"⚠️ BACKFILL STALE: No updates in {age_hours:.1f}h (progress: {progress_pct:.2f}%)"
+            message = (
+                f"⚠️ BACKFILL STALE: No updates in {age_hours:.1f}h (progress: {progress_pct:.2f}%)"
+            )
         else:
             level = "ok"
             message = f"✅ Backfill healthy: {progress_pct:.2f}% complete ({total_items} items)"
@@ -262,24 +264,30 @@ def format_telegram_message(status: BackfillStatus, errors: dict) -> str:
     ]
 
     if status.is_stuck:
-        lines.extend([
-            "1. Check GitHub Actions workflow logs",
-            "2. Verify Internet Archive upload status",
-            "3. Review consolidate.py logs for errors",
-            "4. Consider manual restart if needed",
-        ])
+        lines.extend(
+            [
+                "1. Check GitHub Actions workflow logs",
+                "2. Verify Internet Archive upload status",
+                "3. Review consolidate.py logs for errors",
+                "4. Consider manual restart if needed",
+            ]
+        )
     elif status.is_stale:
-        lines.extend([
-            "1. Check if scheduled runs are executing",
-            "2. Review recent workflow logs",
-            "3. Monitor for next update (expected every 15min)",
-        ])
+        lines.extend(
+            [
+                "1. Check if scheduled runs are executing",
+                "2. Review recent workflow logs",
+                "3. Monitor for next update (expected every 15min)",
+            ]
+        )
 
-    lines.extend([
-        "",
-        f"🔗 [GitHub Actions](https://github.com/franklinbaldo/causaganha/actions)",
-        f"🔗 [Dashboard](https://causaganha.com.br)",
-    ])
+    lines.extend(
+        [
+            "",
+            f"🔗 [GitHub Actions](https://github.com/franklinbaldo/causaganha/actions)",
+            f"🔗 [Dashboard](https://causaganha.com.br)",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -397,7 +405,9 @@ def main() -> int:
             print(f"❌ Failed to send alert")
             return 2
     elif status.level in ("warning", "critical"):
-        print(f"\n⏸️  Alert suppressed (cooldown active, last sent: {getattr(history, f'{alert_type}_last_sent', 'never')})")
+        print(
+            f"\n⏸️  Alert suppressed (cooldown active, last sent: {getattr(history, f'{alert_type}_last_sent', 'never')})"
+        )
 
     # Return appropriate exit code
     if status.level == "critical":
