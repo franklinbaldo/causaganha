@@ -7,45 +7,50 @@ WCAG AA requires:
 - 3:1 for UI components and borders
 """
 
+
 def hex_to_rgb(hex_color):
     """Convert hex color to RGB tuple."""
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+
 
 def relative_luminance(rgb):
     """Calculate relative luminance according to WCAG formula."""
     r, g, b = [x / 255.0 for x in rgb]
-    
+
     def adjust(c):
         if c <= 0.03928:
             return c / 12.92
         return ((c + 0.055) / 1.055) ** 2.4
-    
+
     r = adjust(r)
     g = adjust(g)
     b = adjust(b)
-    
+
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
 
 def contrast_ratio(color1, color2):
     """Calculate contrast ratio between two colors."""
     lum1 = relative_luminance(hex_to_rgb(color1))
     lum2 = relative_luminance(hex_to_rgb(color2))
-    
+
     lighter = max(lum1, lum2)
     darker = min(lum1, lum2)
-    
+
     return (lighter + 0.05) / (darker + 0.05)
+
 
 def test_contrast(name, foreground, background, required_ratio=4.5):
     """Test if contrast ratio meets requirement."""
     ratio = contrast_ratio(foreground, background)
     passes = ratio >= required_ratio
     status = "✅ PASS" if passes else "❌ FAIL"
-    
+
     print(f"{status} {name}: {ratio:.2f}:1 (required: {required_ratio}:1)")
     print(f"     {foreground} on {background}")
     return passes
+
 
 print("=" * 70)
 print("CAUSAGANHA DASHBOARD - WCAG AA CONTRAST RATIO TEST")

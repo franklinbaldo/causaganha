@@ -135,9 +135,9 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "64",
+        "128",
         "--deadline",
-        "540s",
+        "1200s",
     )
     date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
     tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
