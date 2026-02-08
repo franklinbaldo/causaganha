@@ -209,9 +209,9 @@ Feature: Pipeline Orchestration
     Then the command should include flag "--proxy-url"
     And the command should include flag "--date" with value "2026-01-15"
     And the command should include flag "--tribunal" with value "TJSP"
-    And the command should include flag "--max-items" with value "200"
-    And the command should include flag "--workers" with value "8"
-    And the command should include flag "--deadline" with value "10m"
+    And the command should include flag "--max-items" with value "10000"
+    And the command should include flag "--workers" with value "128"
+    And the command should include flag "--deadline" with value "1200s"
 
   @pipeline @command
   Scenario: Build collect command without optional params
@@ -227,8 +227,8 @@ Feature: Pipeline Orchestration
     When I build the consolidate command
     Then the command should include flag "--date" with value "2026-01-15"
     And the command should not include flag "--backfill"
-    And the command should include flag "--deadline" with value "10m"
-    And the command should include flag "--max-zips" with value "15"
+    And the command should include flag "--deadline" with value "1200s"
+    And the command should include flag "--workers" with value "16"
 
   @pipeline @command
   Scenario: Build consolidate command in backfill mode

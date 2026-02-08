@@ -58,6 +58,36 @@ from causaganha.storage.djen_schema import (  # noqa: E402
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 
+# Cache for tribunal stopped checks (tribunal -> date -> bool)
+_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
+
+
+class CheckpointManager:
+    """Manages local checkpoint state for backfill progress."""
+
+    def __init__(self, filepath: Path):
+        self.filepath = filepath
+
+    def load(self) -> str | None:
+        """Load the last checked date from checkpoint file."""
+        if not self.filepath.exists():
+            return None
+        try:
+            with self.filepath.open("r") as f:
+                data = json.load(f)
+                return data.get("last_checked")
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def save(self, date_str: str) -> None:
+        """Save the last checked date to checkpoint file."""
+        try:
+            with self.filepath.open("w") as f:
+                json.dump({"last_checked": date_str}, f)
+        except OSError as e:
+            logger.warning("checkpoint_save_failed", error=str(e))
+
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -668,6 +698,34 @@ def upload_to_ia(item_id: str, file_path: Path) -> bool:
         return False
 
 
+def _upload_marker(item_id: str) -> bool:
+    """Upload consolidation marker to Internet Archive.
+
+    Creates empty _consolidated.marker file to signal that this date
+    has been successfully consolidated and should not be reprocessed.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix="_consolidated.marker", delete=False
+        ) as f:
+            marker_path = Path(f.name)
+            # Empty file - existence is the signal
+
+        logger.info("uploading_marker", item_id=item_id)
+        success = upload_to_ia(item_id, marker_path)
+
+        # Cleanup temp file
+        try:
+            marker_path.unlink()
+        except Exception:
+            pass
+
+        return success
+    except Exception as e:
+        logger.error("marker_upload_failed", item_id=item_id, error=str(e))
+        return False
+
+
 def _is_tribunal_stopped(tribunal: str, target_date: date, absent_threshold: int = 60) -> bool:
     """Check if a tribunal has been absent for 60+ consecutive days before target_date.
 
@@ -819,8 +877,8 @@ def _all_tribunals_stopped(target_date: date) -> bool:
     return True
 
 
-def find_next_unconsolidated() -> str | None:
-    """Walk backward from today to find the most recent date needing consolidation.
+def find_next_unconsolidated(checkpoint_file: Path | None = None) -> str | None:
+    """Walk backward from today (or checkpoint) to find the most recent date needing consolidation.
 
     Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
     has ZIPs on Internet Archive but no consolidated parquets.
@@ -830,19 +888,35 @@ def find_next_unconsolidated() -> str | None:
 
     Returns the date string or None if everything is consolidated.
     """
+    if checkpoint_file is None:
+        checkpoint_file = Path(".backfill_checkpoint.json")
+
+    checkpoint = CheckpointManager(checkpoint_file)
+    last_checked = checkpoint.load()
+
     today = date.today()
     days_ago = 0
+
+    if last_checked:
+        try:
+            last_date = date.fromisoformat(last_checked)
+            delta = (today - last_date).days
+            if delta >= 0:
+                days_ago = delta
+                logger.info("resuming_from_checkpoint", date=last_checked, days_ago=days_ago)
+        except ValueError:
+            pass
+
     max_iterations = 1000  # Safety limit (roughly 3 years of weekdays)
 
     while days_ago < max_iterations:
         d = today - timedelta(days=days_ago)
+        d_str = d.strftime("%Y-%m-%d")
 
         # Skip weekends
         if d.weekday() >= 5:
             days_ago += 1
             continue
-
-        d_str = d.strftime("%Y-%m-%d")
 
         # Check if we've gone back far enough (all tribunals stopped)
         if _all_tribunals_stopped(d):
@@ -854,8 +928,10 @@ def find_next_unconsolidated() -> str | None:
         # Backfill requires completeness — only consolidate when everything is gathered
         if _needs_consolidation(d_str, must_be_complete=True):
             logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
+            checkpoint.save(d_str)
             return d_str
 
+        checkpoint.save(d_str)
         days_ago += 1
 
     # Safety limit reached
@@ -974,6 +1050,7 @@ def consolidate_date(
     force: bool = False,
     local_zips: str | None = None,
     max_zips: int = 0,
+    workers: int = 16,
 ) -> dict[str, int | float]:
     """Consolidate all tribunals for a date into single Parquet files.
 
@@ -983,6 +1060,7 @@ def consolidate_date(
         force: If True, consolidate even if the day is incomplete.
         local_zips: Local directory containing ZIPs (for testing).
         max_zips: Maximum ZIPs to process (0 = unlimited).
+        workers: Number of parallel workers for processing ZIPs.
     """
     stats = {
         "zips_processed": 0,
@@ -1035,7 +1113,7 @@ def consolidate_date(
 
         try:
             # Parallel processing of ZIPs
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = {
                     executor.submit(
                         process_zip_entry,
@@ -1086,6 +1164,13 @@ def consolidate_date(
                 stats["uploaded"] += uploaded
                 stats["uploaded_mb"] += size_mb
 
+        # Phase 4: Upload consolidation marker
+        if stats["parquets_created"] > 0 and not dry_run:
+            if _upload_marker(item_id):
+                logger.info("marker_uploaded", item_id=item_id)
+            else:
+                logger.warning("marker_upload_failed", item_id=item_id)
+
     return stats
 
 
@@ -1130,6 +1215,12 @@ def main() -> int:
         help="Exit after this duration (e.g., 10m, 600s)",
         default="10m",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=16,
+        help="Number of parallel workers for processing ZIPs",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -1166,6 +1257,7 @@ def main() -> int:
             force=use_force,
             local_zips=args.local_zips,
             max_zips=args.max_zips,
+            workers=args.workers,
         )
     except Exception as e:
         logger.error("consolidation_aborted", error=str(e))

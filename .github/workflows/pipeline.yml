@@ -23,7 +23,7 @@ name: Data Pipeline
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/20 * * * *'
 
   workflow_dispatch:
     inputs:
@@ -87,6 +87,17 @@ jobs:
             --job "${{ github.event.inputs.job || 'all' }}" \
             --date "${{ github.event.inputs.date || '' }}" \
             --tribunal "${{ github.event.inputs.tribunal || '' }}"
+
+      - name: Upload DuckDB artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causaganha-db
+          path: |
+            data/causaganha.duckdb
+            catalog/catalog.duckdb
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Save dashboard cache
         if: steps.pipeline.outputs.catalog_updated == 'true'

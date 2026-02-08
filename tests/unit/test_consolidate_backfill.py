@@ -5,6 +5,17 @@ from scripts.pipeline.consolidate import find_next_unconsolidated
 
 
 class TestConsolidateBackfill(unittest.TestCase):
+    def setUp(self):
+        # Ensure CheckpointManager is mocked for all tests to avoid side effects
+        # and ensure load() returns None (no checkpoint) by default.
+        self.checkpoint_patcher = patch("scripts.pipeline.consolidate.CheckpointManager")
+        self.mock_checkpoint_cls = self.checkpoint_patcher.start()
+        # By default, load() returns a Mock, which is truthy. We need it to be None.
+        self.mock_checkpoint_cls.return_value.load.return_value = None
+
+    def tearDown(self):
+        self.checkpoint_patcher.stop()
+
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
     @patch("scripts.pipeline.consolidate.date")
     @patch("scripts.pipeline.consolidate._needs_consolidation")

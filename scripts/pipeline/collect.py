@@ -22,21 +22,24 @@ Usage:
 
 import argparse
 import asyncio
+import base64
 import configparser
 import hashlib
 import json
 import os
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import boto3
 import duckdb
 import httpx
 import structlog
+from botocore.config import Config
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
@@ -68,6 +71,21 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
+
+
+def parse_deadline(duration_str: str) -> int:
+    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
+    if not duration_str:
+        return 0
+    duration_str = duration_str.strip().lower()
+    try:
+        if duration_str.endswith("m"):
+            return int(float(duration_str[:-1]) * 60)
+        if duration_str.endswith("s"):
+            return int(float(duration_str[:-1]))
+        return int(float(duration_str))
+    except ValueError:
+        return 0
 
 
 def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -451,25 +469,54 @@ def download_zip(
     return False
 
 
-_IA_S3_URL = "https://s3.us.archive.org"
+def get_boto_client() -> Any:
+    """Get configured Boto3 S3 client for Internet Archive.
 
-
-def _get_ia_s3_auth() -> str | None:
-    """Get IA S3 authorization header value from env vars or config file."""
+    Configures connection pooling, adaptive retries, and injects custom
+    headers required by Internet Archive (auto-make-bucket, queue-derive).
+    """
+    # Resolve credentials
     access = os.environ.get("IAS3_ACCESS_KEY", "")
     secret = os.environ.get("IAS3_SECRET_KEY", "")
-    if access and secret:
-        return f"LOW {access}:{secret}"
-    # Fall back to config file (created by CI workflow)
-    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
-    if config_path.exists():
-        cfg = configparser.ConfigParser()
-        cfg.read(config_path)
-        access = cfg.get("s3", "access", fallback="")
-        secret = cfg.get("s3", "secret", fallback="")
-        if access and secret:
-            return f"LOW {access}:{secret}"
-    return None
+
+    if not access or not secret:
+        # Fallback to config file
+        config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
+        if config_path.exists():
+            cfg = configparser.ConfigParser()
+            cfg.read(config_path)
+            access = cfg.get("s3", "access", fallback="")
+            secret = cfg.get("s3", "secret", fallback="")
+
+    if not access or not secret:
+        return None
+
+    session = boto3.Session()
+
+    # Custom event hook for IA headers
+    def add_custom_headers(params, **kwargs):
+        if "Headers" not in params:
+            params["Headers"] = {}
+        # These headers are required by IA S3 API
+        params["Headers"]["x-archive-auto-make-bucket"] = "1"
+        params["Headers"]["x-archive-queue-derive"] = "0"
+
+    client = session.client(
+        "s3",
+        endpoint_url="https://s3.us.archive.org",
+        aws_access_key_id=access,
+        aws_secret_access_key=secret,
+        config=Config(
+            signature_version="s3v4",
+            retries={"max_attempts": 5, "mode": "adaptive"},
+            max_pool_connections=128,  # Match workers count
+        ),
+    )
+
+    # Register the event hook
+    client.meta.events.register("before-call:s3:PutObject", add_custom_headers)
+
+    return client
 
 
 def _compute_md5(file_path: Path) -> str:
@@ -482,67 +529,55 @@ def _compute_md5(file_path: Path) -> str:
 
 
 def upload_to_ia(
-    client: httpx.Client,
+    client: Any,
     item_id: str,
     file_path: Path,
     date_str: str,
 ) -> bool:
     """Upload file to Internet Archive via the S3-compatible API.
 
-    Uses a shared httpx client for connection pooling across workers,
-    with streaming upload and MD5 integrity verification.
+    Uses a shared boto3 client with connection pooling and adaptive retries.
     """
     filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
+    # _compute_md5 returns hex. S3 requires base64.
+    md5_hex = _compute_md5(file_path)
+    md5_b64 = base64.b64encode(bytes.fromhex(md5_hex)).decode("utf-8")
 
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {date_str}",
-        "x-archive-meta-description": (
+    metadata = {
+        "collection": "opensource",
+        "mediatype": "data",
+        "title": f"DJEN Data - {date_str}",
+        "description": (
             "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
         ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
+        "subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "creator": "CausaGanha",
+        "date": date_str,
     }
 
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
+    try:
+        with file_path.open("rb") as f:
+            client.put_object(
+                Bucket=item_id,
+                Key=filename,
+                Body=f,
+                Metadata=metadata,
+                ContentMD5=md5_b64,
             )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-    return False
+        return True
+    except Exception as e:
+        logger.warning(
+            "upload_error",
+            item_id=item_id,
+            error=str(e),
+        )
+        return False
 
 
 def _process_item(
     api_client: httpx.Client,
     dl_client: httpx.Client,
-    upload_client: httpx.Client,
+    s3_client: Any,
     proxy_url: str,
     date_str: str,
     tribunal: str,
@@ -566,7 +601,7 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
+            ok = upload_to_ia(s3_client, item_id, marker_path, date_str)
             return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
@@ -583,16 +618,50 @@ def _process_item(
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / zip_name
 
+        download_start = time.time()
         if not download_zip(dl_client, download_url, zip_path):
+            logger.info(
+                "download_timing",
+                date=date_str,
+                tribunal=tribunal,
+                duration_s=round(time.time() - download_start, 2),
+                status="failed",
+            )
             return "failed", 0.0
 
         size_mb = zip_path.stat().st_size / (1024 * 1024)
+        logger.info(
+            "download_timing",
+            date=date_str,
+            tribunal=tribunal,
+            duration_s=round(time.time() - download_start, 2),
+            size_mb=f"{size_mb:.2f}",
+            status="success",
+        )
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(upload_client, item_id, zip_path, date_str):
-            logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
+        upload_start = time.time()
+        upload_ok = upload_to_ia(s3_client, item_id, zip_path, date_str)
+        upload_elapsed = round(time.time() - upload_start, 2)
+        if upload_ok:
+            logger.info(
+                "upload_timing",
+                item_id=item_id,
+                file=zip_name,
+                size_mb=f"{size_mb:.2f}",
+                duration_s=upload_elapsed,
+                status="success",
+            )
             return "success", size_mb
+        logger.warning(
+            "upload_timing",
+            item_id=item_id,
+            file=zip_name,
+            size_mb=f"{size_mb:.2f}",
+            duration_s=upload_elapsed,
+            status="failed",
+        )
         return "failed", 0.0
 
 
@@ -602,6 +671,7 @@ def collect_data(
     target_tribunal: str | None = None,
     max_items: int = 50,
     workers: int = 8,
+    deadline_seconds: int = 0,
 ) -> dict[str, int | float]:
     """Main collection function with parallel processing.
 
@@ -658,9 +728,9 @@ def collect_data(
     if not pending:
         return stats
 
-    # Resolve IA S3 credentials once (shared via upload client headers)
-    ia_auth = _get_ia_s3_auth()
-    if not ia_auth:
+    # Initialize boto3 client
+    s3_client = get_boto_client()
+    if not s3_client:
         logger.error(
             "ia_credentials_not_found",
             hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
@@ -671,11 +741,12 @@ def collect_data(
     # Shared HTTP clients with connection pooling
     api_timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
     dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
-    upload_timeout = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
     pool_limits = httpx.Limits(
         max_connections=workers * 2,
         max_keepalive_connections=workers,
     )
+
+    start_time = time.time()
 
     with (
         httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
@@ -684,16 +755,11 @@ def collect_data(
             limits=pool_limits,
             follow_redirects=True,
         ) as dl_client,
-        httpx.Client(
-            timeout=upload_timeout,
-            limits=pool_limits,
-            headers={"Authorization": ia_auth},
-        ) as upload_client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
+                _process_item, api_client, dl_client, s3_client, proxy_url, date_str, tribunal
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }
@@ -704,6 +770,21 @@ def collect_data(
 
         try:
             for future in as_completed(futures):
+                # Check deadline
+                if deadline_seconds > 0:
+                    elapsed = time.time() - start_time
+                    if elapsed > deadline_seconds:
+                        logger.warning(
+                            "deadline_reached",
+                            elapsed=f"{elapsed:.1f}s",
+                            limit=f"{deadline_seconds}s",
+                            pending=len(futures) - (stats["success"] + stats["failed"]),
+                        )
+                        # Cancel remaining
+                        for f in futures:
+                            f.cancel()
+                        break
+
                 date_str, tribunal = futures[future]
                 try:
                     result, size_mb = future.result()
@@ -714,6 +795,8 @@ def collect_data(
                     if result == "success":
                         mark_downloaded(con, [(date_str, tribunal)])
 
+                except CancelledError:
+                    pass
                 except Exception:
                     logger.exception("worker_error", date=date_str, tribunal=tribunal)
                     stats["failed"] += 1
@@ -721,6 +804,31 @@ def collect_data(
             con.close()
 
     return stats
+
+
+def calculate_exit_code(stats: dict[str, int | float]) -> int:
+    """Determine exit code based on collection statistics.
+
+    Policy:
+      - If nothing to process: SUCCESS (0)
+      - If success rate >= 5%: SUCCESS (0)
+      - If success rate < 5%: FAILED (1)
+    """
+    total_processed = stats["success"] + stats["failed"]
+
+    if total_processed == 0:
+        print("\n  Status: SUCCESS (nothing to process)")
+        return 0
+
+    success_rate = stats["success"] / total_processed
+    min_threshold = 0.05  # 5%
+
+    if success_rate >= min_threshold:
+        print(f"\n  Status: SUCCESS ({success_rate:.1%} success rate)")
+        return 0
+
+    print(f"\n  Status: FAILED ({success_rate:.1%} success rate, min: {min_threshold:.0%})")
+    return 1
 
 
 def main() -> int:
@@ -753,8 +861,10 @@ def main() -> int:
         print("  Source: catalog (backfill-needed.parquet, d-1 first)")
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
+    deadline_sec = parse_deadline(args.deadline)
     print(f"  Max items: {args.max_items}")
     print(f"  Workers: {args.workers}")
+    print(f"  Deadline: {args.deadline} ({deadline_sec}s)")
     print()
 
     stats = collect_data(
@@ -763,6 +873,7 @@ def main() -> int:
         target_tribunal=args.tribunal,
         max_items=args.max_items,
         workers=args.workers,
+        deadline_seconds=deadline_sec,
     )
 
     print()
@@ -787,22 +898,7 @@ def main() -> int:
             f.write(f"collect_skipped={stats['skipped']}\n")
             f.write(f"collect_downloaded_mb={stats['downloaded_mb']:.1f}\n")
 
-    # Determine exit code based on success rate, not strict zero-failures
-    # This tolerates transient API errors (timeouts, 5xx, network issues)
-    total_processed = stats["success"] + stats["failed"]
-    if total_processed == 0:
-        # Nothing to process is a success
-        print("\n  Status: SUCCESS (nothing to process)")
-        return 0
-
-    success_rate = stats["success"] / total_processed
-    failure_threshold = 0.2  # Fail only if >20% failure rate
-
-    if stats["failed"] / total_processed <= failure_threshold:
-        print(f"\n  Status: SUCCESS ({success_rate:.0%} success rate)")
-        return 0
-    print(f"\n  Status: FAILED ({success_rate:.0%} success rate, threshold: 80%)")
-    return 1
+    return calculate_exit_code(stats)
 
 
 if __name__ == "__main__":
