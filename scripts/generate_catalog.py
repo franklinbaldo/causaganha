@@ -17,6 +17,7 @@ Usage:
 import argparse
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -408,16 +409,30 @@ def generate_manifest(items: list[str]) -> list[dict]:
     logger.info("generating_manifest", items=len(items))
 
     manifest = []
-    for i, item_id in enumerate(items):
-        if i % 10 == 0:
-            logger.info("progress", current=i, total=len(items))
+    completed_count = 0
 
-        files = list_item_files(item_id)
-        for f in files:
-            parsed = parse_filename(f["name"], item_id)
-            if parsed:
-                parsed["created_at"] = datetime.now(tz=UTC).isoformat()
-                manifest.append(parsed)
+    # Parallelize file listing to speed up catalog generation
+    # Uses 16 workers to fetch file lists concurrently
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        future_to_item = {
+            executor.submit(list_item_files, item_id): item_id for item_id in items
+        }
+
+        for future in as_completed(future_to_item):
+            item_id = future_to_item[future]
+            try:
+                files = future.result()
+                for f in files:
+                    parsed = parse_filename(f["name"], item_id)
+                    if parsed:
+                        parsed["created_at"] = datetime.now(tz=UTC).isoformat()
+                        manifest.append(parsed)
+            except Exception as e:
+                logger.error("manifest_item_failed", item=item_id, error=str(e))
+
+            completed_count += 1
+            if completed_count % 50 == 0:
+                logger.info("progress", current=completed_count, total=len(items))
 
     logger.info("manifest_complete", files=len(manifest))
     return manifest
