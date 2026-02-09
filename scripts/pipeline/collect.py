@@ -389,7 +389,22 @@ def get_caderno_info(
                     time.sleep(2**attempt)
                     continue
                 return None
-            # Other client errors (403, 429, etc.) — don't retry
+            # 429 Too Many Requests: retry with longer backoff
+            if response.status_code == 429:
+                backoff = 4**attempt  # 1s, 4s, 16s
+                logger.warning(
+                    "caderno_api_rate_limited",
+                    tribunal=tribunal,
+                    date=date_str,
+                    status=response.status_code,
+                    backoff_seconds=backoff,
+                    attempt=attempt + 1,
+                )
+                if attempt < max_retries:
+                    time.sleep(backoff)
+                    continue
+                return None
+            # Other client errors (403, etc.) — don't retry
             logger.warning(
                 "caderno_api_error",
                 tribunal=tribunal,
