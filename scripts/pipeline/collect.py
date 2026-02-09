@@ -201,113 +201,17 @@ def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
         return list(TRIBUNAIS)
 
 
-async def _fetch_ia_files_for_date_async(client: httpx.AsyncClient, date_str: str) -> list[str]:
-    """Fetch zip/absent filenames for a single date from IA metadata API (async).
-
-    Uses the lightweight HTTP metadata endpoint (one request per date)
-    instead of the heavy internetarchive library search which scans
-    ALL items on every invocation.
-    """
-    item_id = f"djen-{date_str}"
-    url = f"https://archive.org/metadata/{item_id}"
-    try:
-        resp = await client.get(url, timeout=30)
-        if resp.status_code != 200:
-            return []
-        data = resp.json()
-        return [
-            f["name"]
-            for f in data.get("files", [])
-            if isinstance(f, dict) and f.get("name", "").endswith((".zip", ".absent"))
-        ]
-    except Exception:
-        return []
-
-
-async def get_existing_files_for_dates_async(dates: list[str]) -> set[tuple[str, str]]:
-    """Get existing (date, tribunal) pairs on IA for specific dates only (async).
-
-    Queries the IA metadata HTTP API once per date, using asyncio for
-    concurrent requests. The rolling window (d-1) produces ~1 request;
-    backfill batches add a bounded extra set.
-
-    Uses asyncio instead of threading to avoid GIL issues on Windows.
-    """
+def get_existing_files_for_dates(dates: list[str]) -> set[tuple[str, str]]:
+    """Get existing (date, tribunal) pairs from local DB for specific dates."""
     if not dates:
         return set()
 
     con = get_db_connection()
     init_db(con)
     migrate_legacy_cache(con)
-
-    # Check DB coverage first
-    # We get all known (date, tribunal) pairs for these dates
-    known_coverage = get_coverage_for_dates(con, dates)
-
-    # Identify which dates have NO coverage (or we want to re-check?)
-    # Since we can't distinguish "checked and found nothing" from "never checked",
-    # we might need to check IA for dates that have no entries in DB.
-    # However, to be robust, we check IA for dates where we found nothing in DB.
-    # If a date has at least one tribunal covered, we assume we checked it?
-    # No, that's risky. But 'djen_cache.json' logic was: if key exists (even empty), don't check.
-    # Here, we don't have "key exists".
-    # So we calculate dates that have at least one entry.
-    dates_with_coverage = {d for d, _ in known_coverage}
-    dates_to_fetch = [d for d in dates if d not in dates_with_coverage]
-
-    if not dates_to_fetch:
-        con.close()
-        return known_coverage
-
-    logger.info("checking_existing_files", dates_count=len(dates_to_fetch))
-
-    async with httpx.AsyncClient() as client:
-        tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates_to_fetch]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    fetched_coverage: set[tuple[str, str]] = set()
-    new_coverage: list[tuple[str, str]] = []
-
-    for i, result in enumerate(results):
-        date_str = dates_to_fetch[i]
-        if isinstance(result, list):
-            # result is list of filenames
-            for filename in result:
-                # Parse tribunal from filename
-                try:
-                    parts = filename.split(".")
-                    stem = parts[0]
-                    segments = stem.split("-")
-                    if len(segments) >= 5:
-                        tribunal = segments[-1]
-                        pair = (date_str, tribunal)
-                        fetched_coverage.add(pair)
-                        new_coverage.append(pair)
-                except Exception:
-                    pass
-        else:
-            # On error, ignore
-            pass
-
-    if new_coverage:
-        mark_downloaded(con, new_coverage)
-
+    coverage = get_coverage_for_dates(con, dates)
     con.close()
-
-    total_coverage = known_coverage | fetched_coverage
-
-    logger.info(
-        "existing_files_found",
-        count=len(total_coverage),
-        dates_checked=len(dates_to_fetch),
-    )
-    return total_coverage
-
-
-def get_existing_files_for_dates(dates: list[str]) -> set[tuple[str, str]]:
-    """Sync wrapper for get_existing_files_for_dates_async."""
-    # Re-enabled since we have caching and run on Linux
-    return asyncio.run(get_existing_files_for_dates_async(dates))
+    return coverage
 
 
 def fetch_backfill_items() -> list[tuple[str, str]]:
