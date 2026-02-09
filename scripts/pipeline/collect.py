@@ -49,6 +49,10 @@ BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill
 DJEN_CACHE_FILE = Path("djen_cache.json")
 DB_PATH = Path("data/causaganha.duckdb")
 
+# Incremental catalog update settings
+IA_CATALOG_ITEM = "causaganha-catalog"
+PROGRESS_UPDATE_INTERVAL = 5  # Update catalog every N successful downloads
+
 SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS djen_state;
 CREATE TABLE IF NOT EXISTS djen_state.coverage (
@@ -584,6 +588,98 @@ def _process_item(
         return "failed", 0.0
 
 
+def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyConnection) -> bool:
+    """Update the catalog progress JSON in Internet Archive incrementally.
+    
+    This allows tracking progress even if the pipeline times out.
+    Only updates the progress JSON files, not the full manifest.
+    
+    Returns True on success, False on error (non-fatal).
+    """
+    try:
+        # Query current coverage from local DB
+        result = con.execute("""
+            SELECT 
+                MIN(date) as oldest_date,
+                MAX(date) as newest_date,
+                COUNT(DISTINCT date) as unique_days,
+                COUNT(*) as total_items
+            FROM djen_state.coverage
+        """).fetchone()
+        
+        if not result or result[0] is None:
+            logger.debug("no_coverage_data_to_report")
+            return True
+            
+        oldest_date, newest_date, unique_days, total_items = result
+        
+        # Calculate progress (target: 2024-01-01 to today)
+        from datetime import date as date_type
+        target_start = date_type(2024, 1, 1)
+        target_end = date_type.today()
+        total_target_days = (target_end - target_start).days + 1
+        progress_pct = (unique_days / total_target_days) * 100 if total_target_days > 0 else 0
+        
+        progress_data = {
+            "oldest_date": str(oldest_date),
+            "newest_date": str(newest_date),
+            "unique_days": unique_days,
+            "total_items": total_items,
+            "target_range": {
+                "start": str(target_start),
+                "end": str(target_end),
+                "total_days": total_target_days,
+            },
+            "progress_pct": round(progress_pct, 2),
+            "last_updated": datetime.now(UTC).isoformat(),
+            "session_stats": {
+                "success": stats.get("success", 0),
+                "failed": stats.get("failed", 0),
+                "skipped": stats.get("skipped", 0),
+                "downloaded_mb": round(stats.get("downloaded_mb", 0), 2),
+            },
+        }
+        
+        # Write to temp file and upload
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(progress_data, f, ensure_ascii=False, indent=2)
+            temp_path = Path(f.name)
+        
+        try:
+            import subprocess
+            result = subprocess.run(
+                [
+                    "ia", "upload", IA_CATALOG_ITEM,
+                    str(temp_path),
+                    "--remote-name=collect-progress.json",
+                    "--no-derive",
+                    "--retries=2",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            
+            if result.returncode == 0:
+                logger.info(
+                    "catalog_progress_updated",
+                    progress_pct=f"{progress_pct:.2f}%",
+                    unique_days=unique_days,
+                    total_items=total_items,
+                )
+                return True
+            else:
+                logger.warning("catalog_progress_update_failed", stderr=result.stderr[:200])
+                return False
+        finally:
+            temp_path.unlink(missing_ok=True)
+            
+    except Exception as e:
+        # Non-fatal: log and continue
+        logger.warning("catalog_progress_update_error", error=str(e))
+        return False
+
+
 def collect_data(
     proxy_url: str,
     target_date: str | None = None,
@@ -699,6 +795,8 @@ def collect_data(
                             limit=f"{deadline_seconds}s",
                             pending=len(futures) - (stats["success"] + stats["failed"]),
                         )
+                        # Final catalog update before deadline exit
+                        update_catalog_progress(stats, con)
                         # Cancel remaining
                         for f in futures:
                             f.cancel()
@@ -710,9 +808,13 @@ def collect_data(
                     stats[result] += 1
                     stats["downloaded_mb"] += size_mb
 
-                    # NEW: Mark successful downloads immediately
+                    # Mark successful downloads immediately
                     if result == "success":
                         mark_downloaded(con, [(date_str, tribunal)])
+                        
+                        # Incremental catalog update every N successes
+                        if stats["success"] % PROGRESS_UPDATE_INTERVAL == 0:
+                            update_catalog_progress(stats, con)
 
                 except CancelledError:
                     pass
@@ -720,6 +822,9 @@ def collect_data(
                     logger.exception("worker_error", date=date_str, tribunal=tribunal)
                     stats["failed"] += 1
         finally:
+            # Final catalog update before closing
+            if stats["success"] > 0:
+                update_catalog_progress(stats, con)
             con.close()
 
     return stats
