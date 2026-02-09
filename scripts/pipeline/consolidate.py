@@ -36,6 +36,7 @@ from typing import Any
 # which triggers InvalidOperation if traps are enabled.
 decimal.getcontext().traps[decimal.InvalidOperation] = False
 
+import duckdb  # noqa: E402
 import httpx  # noqa: E402
 import ibis  # noqa: E402
 import structlog  # noqa: E402
@@ -60,6 +61,72 @@ _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
+
+# Cache for consolidation candidates (list of dates)
+_CONSOLIDATION_CANDIDATES: list[str] | None = None
+
+
+def fetch_consolidation_candidates() -> list[str]:
+    """Fetch dates needing consolidation from catalog manifest.
+
+    Downloads manifest.parquet from Internet Archive and queries it locally
+    using DuckDB to find dates that have ZIP files but no Parquet files.
+    Returns dates sorted by date descending (newest first).
+    """
+    manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+    logger.info("fetching_consolidation_candidates", url=manifest_url)
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+
+        # Download manifest
+        with httpx.Client() as client:
+            resp = client.get(manifest_url, timeout=60, follow_redirects=True)
+            if resp.status_code != 200:
+                logger.warning("manifest_download_failed", status=resp.status_code)
+                return []
+            with tmp_path.open("wb") as f:
+                for chunk in resp.iter_bytes(chunk_size=8192):
+                    f.write(chunk)
+
+        # Query using DuckDB
+        con = duckdb.connect()
+        try:
+            # Check if file is valid parquet
+            con.execute(f"SELECT count(*) FROM read_parquet('{tmp_path}')")
+        except Exception:
+            logger.warning("manifest_invalid_parquet")
+            con.close()
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+            return []
+
+        query = """
+            SELECT date
+            FROM read_parquet(?)
+            GROUP BY date
+            HAVING SUM(CASE WHEN file_type='zip' THEN 1 ELSE 0 END) > 0
+               AND SUM(CASE WHEN file_type='parquet' THEN 1 ELSE 0 END) = 0
+            ORDER BY date DESC
+        """
+        result = con.execute(query, [str(tmp_path)]).fetchall()
+        dates = [str(r[0]) for r in result]
+
+        con.close()
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+
+        logger.info("consolidation_candidates_found", count=len(dates), top=dates[:5])
+        return dates
+
+    except Exception as e:
+        logger.warning("fetch_candidates_failed", error=str(e))
+        return []
 
 
 class CheckpointManager:
@@ -893,16 +960,28 @@ def _all_tribunals_stopped(target_date: date) -> bool:
 
 
 def find_next_unconsolidated(checkpoint_file: Path | None = None) -> str | None:
-    """Walk backward from today (or checkpoint) to find the most recent date needing consolidation.
+    """Find the most recent date needing consolidation.
 
-    Checks d-0, d-1, d-2, … (skipping weekends) until it finds a date that
-    has ZIPs on Internet Archive but no consolidated parquets.
-
-    Stops automatically when all tribunals are "stopped" (60+ consecutive days absent).
-    No artificial max_depth needed - the backfill is self-regulating based on actual data.
+    First tries to fetch candidates from the catalog manifest (fast).
+    Falls back to walking backward from today (slow) if manifest is unavailable.
 
     Returns the date string or None if everything is consolidated.
     """
+    global _CONSOLIDATION_CANDIDATES
+
+    # 1. Try manifest-based discovery (fast, minimal API calls)
+    if _CONSOLIDATION_CANDIDATES is None:
+        _CONSOLIDATION_CANDIDATES = fetch_consolidation_candidates()
+
+    if _CONSOLIDATION_CANDIDATES:
+        while _CONSOLIDATION_CANDIDATES:
+            candidate = _CONSOLIDATION_CANDIDATES.pop(0)
+            # We found a candidate from manifest. It definitely has ZIPs and no parquets.
+            # We return it directly. consolidate_date will verify completeness.
+            logger.info("candidate_from_manifest", date=candidate)
+            return candidate
+
+    # 2. Fallback: Walk backward from today (slow, heavy API usage)
     if checkpoint_file is None:
         checkpoint_file = Path(".backfill_checkpoint.json")
 

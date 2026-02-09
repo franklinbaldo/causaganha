@@ -6,6 +6,11 @@ from scripts.pipeline.consolidate import find_next_unconsolidated
 
 class TestConsolidateBackfill(unittest.TestCase):
     def setUp(self):
+        # Reset global cache
+        import scripts.pipeline.consolidate
+
+        scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES = None
+
         # Ensure CheckpointManager is mocked for all tests to avoid side effects
         # and ensure load() returns None (no checkpoint) by default.
         self.checkpoint_patcher = patch("scripts.pipeline.consolidate.CheckpointManager")
@@ -16,12 +21,37 @@ class TestConsolidateBackfill(unittest.TestCase):
     def tearDown(self):
         self.checkpoint_patcher.stop()
 
+    @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
+    def test_find_next_unconsolidated_uses_manifest_candidates(self, mock_fetch_candidates):
+        # Setup: Manifest returns candidates
+        mock_fetch_candidates.return_value = ["2026-01-01", "2026-01-02"]
+
+        # First call should return first candidate
+        result1 = find_next_unconsolidated()
+        self.assertEqual(result1, "2026-01-01")
+
+        # Second call should return second candidate (popped from cached list)
+        result2 = find_next_unconsolidated()
+        self.assertEqual(result2, "2026-01-02")
+
+        # Third call should trigger fallback (mock fetch called only once)
+        # We need to mock the fallback path now to return None or something
+        with patch("scripts.pipeline.consolidate._needs_consolidation", return_value=False):
+            with patch("scripts.pipeline.consolidate._all_tribunals_stopped", return_value=True):
+                result3 = find_next_unconsolidated()
+                self.assertIsNone(result3)
+
+        mock_fetch_candidates.assert_called_once()
+
+    @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
     @patch("scripts.pipeline.consolidate.date")
     @patch("scripts.pipeline.consolidate._needs_consolidation")
     def test_find_next_unconsolidated_newest_first(
-        self, mock_needs_consolidation, mock_date, mock_all_stopped
+        self, mock_needs_consolidation, mock_date, mock_all_stopped, mock_fetch_candidates
     ):
+        # Force fallback to walking logic by returning empty list
+        mock_fetch_candidates.return_value = []
         # Setup: Today is 2026-01-01 (Wednesday)
         today = date(2026, 1, 1)  # Wednesday
         mock_date.today.return_value = today
@@ -44,12 +74,15 @@ class TestConsolidateBackfill(unittest.TestCase):
 
         self.assertEqual(result, "2026-01-01", f"Expected 2026-01-01 but got {result}")
 
+    @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
     @patch("scripts.pipeline.consolidate.date")
     @patch("scripts.pipeline.consolidate._needs_consolidation")
     def test_find_next_unconsolidated_skips_weekends(
-        self, mock_needs_consolidation, mock_date, mock_all_stopped
+        self, mock_needs_consolidation, mock_date, mock_all_stopped, mock_fetch_candidates
     ):
+        # Force fallback
+        mock_fetch_candidates.return_value = []
         # Setup: Today is Wednesday 2024-01-10
         today = date(2024, 1, 10)  # Wednesday
         mock_date.today.return_value = today
@@ -78,12 +111,15 @@ class TestConsolidateBackfill(unittest.TestCase):
 
         self.assertEqual(result, "2024-01-09")
 
+    @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
     @patch("scripts.pipeline.consolidate.date")
     @patch("scripts.pipeline.consolidate._needs_consolidation")
     def test_find_next_unconsolidated_stops_when_all_tribunals_stopped(
-        self, mock_needs_consolidation, mock_date, mock_all_stopped
+        self, mock_needs_consolidation, mock_date, mock_all_stopped, mock_fetch_candidates
     ):
+        # Force fallback
+        mock_fetch_candidates.return_value = []
         # Setup: Today is 2026-01-01
         today = date(2026, 1, 1)
         mock_date.today.return_value = today
