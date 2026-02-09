@@ -136,7 +136,6 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "10000",
         "--workers",
         "32",  # DEFINED BY STRESS TEST (2026-02-08): DO NOT INCREASE. IA S3 API REJECTS CONCURRENCY > 64.
-
         "--deadline",
         "1200s",
     )
