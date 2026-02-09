@@ -31,7 +31,7 @@ def main() -> int:
         print(f"TARGET={alert_data['target']}")
         print(f"TIMESTAMP={alert_data['timestamp']}")
         print("MESSAGE_START")
-        print(alert_data['message'])
+        print(alert_data["message"])
         print("MESSAGE_END")
 
         # Remove marker after reading

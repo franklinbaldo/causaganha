@@ -97,6 +97,21 @@ NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 logger = structlog.get_logger()
 
 
+def parse_deadline(duration_str: str) -> int:
+    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
+    if not duration_str:
+        return 0
+    duration_str = duration_str.strip().lower()
+    try:
+        if duration_str.endswith("m"):
+            return int(float(duration_str[:-1]) * 60)
+        if duration_str.endswith("s"):
+            return int(float(duration_str[:-1]))
+        return int(float(duration_str))
+    except ValueError:
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # Ibis scalar UDFs — the only Python called per-row during SQL execution.
 # ---------------------------------------------------------------------------
@@ -534,7 +549,7 @@ def _load_and_transform(
 
     # Derive _tribunal from filename and add item_id — pure Ibis, no Python loop.
     raw_expr = staging.mutate(
-        src_tribunal=staging.filename.split("/")[-1].split(".")[0],
+        src_tribunal=staging.filename.split("/")[-1].split("__")[0],
         src_item_id=ibis.literal(item_id),
     )
     con.create_table("raw_records", raw_expr, overwrite=True)
@@ -985,8 +1000,6 @@ def process_zip_entry(
     ndjson_dir: Path,
     item_id: str,
     local_zips: str | None,
-    ndjson_lock: threading.Lock,
-    ndjson_handles: dict[str, Any],
 ) -> tuple[int, int]:
     """Process a single ZIP entry.
 
@@ -1026,14 +1039,20 @@ def process_zip_entry(
             pass
         return 0, 0
 
-    # Write to NDJSON (with lock)
-    with ndjson_lock:
-        if tribunal not in ndjson_handles:
-            ndjson_handles[tribunal] = (ndjson_dir / f"{tribunal}.ndjson").open("w")
-        f = ndjson_handles[tribunal]
-        for rec in records:
-            if isinstance(rec, dict):
-                f.write(json.dumps(rec, default=str) + "\n")
+    # Write to NDJSON (per-ZIP file, no lock)
+    # Use unique filename to avoid collision: {tribunal}__{zip_stem}.ndjson
+    zip_stem = Path(filename).stem
+    ndjson_filename = f"{tribunal}__{zip_stem}.ndjson"
+    ndjson_path = ndjson_dir / ndjson_filename
+
+    try:
+        with ndjson_path.open("w") as f:
+            for rec in records:
+                if isinstance(rec, dict):
+                    f.write(json.dumps(rec, default=str) + "\n")
+    except Exception as e:
+        logger.error("ndjson_write_failed", file=ndjson_filename, error=str(e))
+        return 0, 0
 
     try:
         zip_path.unlink()
@@ -1108,37 +1127,27 @@ def consolidate_date(
         ndjson_dir.mkdir()
 
         # Phase 1: Extract ZIPs → raw per-tribunal NDJSON (zero Python mutation)
-        ndjson_handles: dict[str, Any] = {}
-        ndjson_lock = threading.Lock()
+        # Parallel processing of ZIPs
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(
+                    process_zip_entry,
+                    zip_entry,
+                    tmp_path,
+                    ndjson_dir,
+                    item_id,
+                    local_zips,
+                ): zip_entry
+                for zip_entry in zips
+            }
 
-        try:
-            # Parallel processing of ZIPs
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = {
-                    executor.submit(
-                        process_zip_entry,
-                        zip_entry,
-                        tmp_path,
-                        ndjson_dir,
-                        item_id,
-                        local_zips,
-                        ndjson_lock,
-                        ndjson_handles,
-                    ): zip_entry
-                    for zip_entry in zips
-                }
-
-                for future in as_completed(futures):
-                    try:
-                        success_cnt, records_cnt = future.result()
-                        stats["zips_processed"] += success_cnt
-                        stats["records"] += records_cnt
-                    except Exception as e:
-                        logger.error("zip_processing_error", error=str(e))
-
-        finally:
-            for fh in ndjson_handles.values():
-                fh.close()
+            for future in as_completed(futures):
+                try:
+                    success_cnt, records_cnt = future.result()
+                    stats["zips_processed"] += success_cnt
+                    stats["records"] += records_cnt
+                except Exception as e:
+                    logger.error("zip_processing_error", error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
         if stats["records"] > 0:
@@ -1223,64 +1232,125 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    deadline_sec = parse_deadline(args.deadline)
+    start_time = time.time()
+
+    total_stats = {
+        "zips_processed": 0,
+        "records": 0,
+        "parquets_created": 0,
+        "uploaded": 0,
+        "uploaded_mb": 0.0,
+    }
+
     if args.date:
         # Explicit date — existing behaviour
-        target_date = args.date
-        use_force = args.force
+        print(f"Consolidating DJEN data for {args.date}...")
+        try:
+            stats = consolidate_date(
+                args.date,
+                dry_run=args.dry_run,
+                force=args.force,
+                local_zips=args.local_zips,
+                max_zips=args.max_zips,
+                workers=args.workers,
+            )
+            _print_stats(stats)
+            for k in total_stats:
+                total_stats[k] += stats.get(k, 0)
+        except Exception as e:
+            logger.error("consolidation_aborted", error=str(e))
+            import traceback
+
+            traceback.print_exc()
+            return 1
+
     elif args.backfill:
         # Backfill: walk d-0 → d-1 → d-2 … until all tribunals stopped or we find work
-        print("Backfill mode: scanning for unconsolidated dates (auto-stops per tribunal)...")
-        target_date_or_none = find_next_unconsolidated()
-        if target_date_or_none is None:
-            print("Backfill complete: all dates consolidated or all tribunals stopped.")
-            return 0
-        target_date = target_date_or_none
-        # No more auto-forcing historical dates. We only process them if complete.
-        use_force = args.force
+        print(f"Backfill mode: scanning for unconsolidated dates (deadline: {deadline_sec}s)...")
+
+        while True:
+            # Check deadline
+            if deadline_sec > 0:
+                elapsed = time.time() - start_time
+                if elapsed > deadline_sec - 60:  # Leave 60s margin
+                    print(f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping.")
+                    break
+
+            target_date_or_none = find_next_unconsolidated()
+            if target_date_or_none is None:
+                print("Backfill complete: all dates consolidated or all tribunals stopped.")
+                break
+
+            target_date = target_date_or_none
+            print(f"Consolidating DJEN data for {target_date}...")
+
+            try:
+                stats = consolidate_date(
+                    target_date,
+                    dry_run=args.dry_run,
+                    force=args.force,
+                    local_zips=args.local_zips,
+                    max_zips=args.max_zips,
+                    workers=args.workers,
+                )
+                _print_stats(stats)
+                for k in total_stats:
+                    total_stats[k] += stats.get(k, 0)
+            except Exception as e:
+                logger.error("consolidation_aborted", date=target_date, error=str(e))
+                import traceback
+
+                traceback.print_exc()
+                return 1
+
     else:
         # Default: today
         target_date = date.today().strftime("%Y-%m-%d")
-        use_force = args.force
+        print(f"Consolidating DJEN data for {target_date}...")
+        try:
+            stats = consolidate_date(
+                target_date,
+                dry_run=args.dry_run,
+                force=args.force,
+                local_zips=args.local_zips,
+                max_zips=args.max_zips,
+                workers=args.workers,
+            )
+            _print_stats(stats)
+            for k in total_stats:
+                total_stats[k] += stats.get(k, 0)
+        except Exception as e:
+            logger.error("consolidation_aborted", error=str(e))
+            import traceback
 
-    print(f"Consolidating DJEN data for {target_date}...")
-    print(f"Schema version: {SCHEMA_VERSION}")
-    if use_force:
-        print("(FORCE mode — will consolidate even if day is incomplete)")
-    if args.dry_run:
-        print("(DRY RUN — will not upload)")
+            traceback.print_exc()
+            return 1
+
+    # Output total stats
     print()
-
-    try:
-        stats = consolidate_date(
-            target_date,
-            dry_run=args.dry_run,
-            force=use_force,
-            local_zips=args.local_zips,
-            max_zips=args.max_zips,
-            workers=args.workers,
-        )
-    except Exception as e:
-        logger.error("consolidation_aborted", error=str(e))
-        import traceback
-
-        traceback.print_exc()
-        return 1
-
-    _print_stats(stats)
+    print("=" * 40)
+    print("TOTAL RUN SUMMARY")
+    print("=" * 40)
+    print(f"  ZIPs processed:   {total_stats['zips_processed']}")
+    print(f"  Records:          {total_stats['records']}")
+    print(f"  Parquets created: {total_stats['parquets_created']}")
+    print(f"  Uploaded:         {total_stats['uploaded']}")
+    print(f"  Uploaded MB:      {total_stats['uploaded_mb']:.1f}")
 
     # Set GitHub Actions output: did we add any files?
-    files_added = stats["parquets_created"] > 0
+    files_added = total_stats["parquets_created"] > 0
     print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
-            f.write(f"consolidate_zips={stats['zips_processed']}\n")
-            f.write(f"consolidate_records={stats['records']}\n")
-            f.write(f"consolidate_parquets={stats['parquets_created']}\n")
-            f.write(f"consolidate_uploaded={stats['uploaded']}\n")
-            f.write(f"consolidate_uploaded_mb={stats['uploaded_mb']:.1f}\n")
+            f.write(f"consolidate_zips={total_stats['zips_processed']}\n")
+            f.write(f"consolidate_records={total_stats['records']}\n")
+            f.write(f"consolidate_parquets={total_stats['parquets_created']}\n")
+            f.write(f"consolidate_uploaded={total_stats['uploaded']}\n")
+            f.write(f"consolidate_uploaded_mb={total_stats['uploaded_mb']:.1f}\n")
 
     return 0
 

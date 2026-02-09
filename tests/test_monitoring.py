@@ -83,7 +83,7 @@ class TestHealthCheck:
     def test_alert_marker_created(self):
         """Test that alert marker is created when threshold exceeded."""
         alert_marker = SCRIPTS_DIR / ".pending_alert.json"
-        
+
         # Clean up any existing marker
         if alert_marker.exists():
             alert_marker.unlink()
@@ -104,33 +104,35 @@ class TestHealthCheck:
         # If status is warning or critical, marker should exist
         if result.returncode in (1, 2):
             assert alert_marker.exists()
-            
+
             # Verify marker format
             with alert_marker.open() as f:
                 data = json.load(f)
-            
+
             assert "target" in data
             assert "message" in data
             assert "timestamp" in data
             assert data["target"] == "+556984186712"
-            
+
             # Clean up
             alert_marker.unlink()
 
     def test_alert_history_throttling(self):
         """Test alert throttling mechanism."""
         alert_history = SCRIPTS_DIR / ".alert_history.json"
-        
+        alert_marker = SCRIPTS_DIR / ".pending_alert.json"
+
         # Clean up
         if alert_history.exists():
             alert_history.unlink()
+        if alert_marker.exists():
+            alert_marker.unlink()
 
-        # First run with force flag
+        # First run with force flag (REAL run to save history)
         result1 = subprocess.run(
             [
                 sys.executable,
                 str(HEALTH_CHECK_SCRIPT),
-                "--dry-run",
                 "--stale-hours",
                 "1",
                 "--force",
@@ -141,6 +143,10 @@ class TestHealthCheck:
 
         # Should trigger alert
         if result1.returncode in (1, 2):
+            # Cleanup the marker created by result1
+            if alert_marker.exists():
+                alert_marker.unlink()
+
             # Run again immediately (should be throttled)
             result2 = subprocess.run(
                 [
@@ -153,10 +159,10 @@ class TestHealthCheck:
                 capture_output=True,
                 text=True,
             )
-            
+
             # Should show throttle message
             assert "suppressed" in result2.stdout.lower() or "cooldown" in result2.stdout.lower()
-            
+
             # Clean up
             if alert_history.exists():
                 alert_history.unlink()
@@ -179,10 +185,10 @@ class TestIntegrationScript:
             capture_output=True,
             text=True,
         )
-        
+
         # Should always succeed (even if no alert)
         assert result.returncode in (0, 1, 2)
-        
+
         # Check for expected sections
         assert "Backfill Health Check" in result.stdout or "No pending" in result.stdout
 
@@ -193,7 +199,7 @@ class TestAlertSender:
     def test_sender_no_pending(self):
         """Test sender when no pending alerts."""
         script = SCRIPTS_DIR / "send_pending_alerts.py"
-        
+
         # Make sure no marker exists
         alert_marker = SCRIPTS_DIR / ".pending_alert.json"
         if alert_marker.exists():
@@ -204,7 +210,7 @@ class TestAlertSender:
             capture_output=True,
             text=True,
         )
-        
+
         assert result.returncode == 0
         assert "No pending alerts" in result.stdout
 
@@ -212,14 +218,14 @@ class TestAlertSender:
         """Test sender with pending alert."""
         script = SCRIPTS_DIR / "send_pending_alerts.py"
         alert_marker = SCRIPTS_DIR / ".pending_alert.json"
-        
+
         # Create fake alert marker
         fake_alert = {
             "target": "+556984186712",
             "message": "Test alert message",
             "timestamp": datetime.now(UTC).isoformat(),
         }
-        
+
         with alert_marker.open("w") as f:
             json.dump(fake_alert, f)
 
@@ -228,13 +234,13 @@ class TestAlertSender:
             capture_output=True,
             text=True,
         )
-        
+
         assert result.returncode == 0
         assert "PENDING_ALERT_FOUND" in result.stdout
         assert "TARGET=" in result.stdout
         assert "MESSAGE_START" in result.stdout
         assert "Test alert message" in result.stdout
-        
+
         # Marker should be removed
         assert not alert_marker.exists()
 
