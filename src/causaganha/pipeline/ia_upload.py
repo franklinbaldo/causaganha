@@ -192,15 +192,20 @@ class InternetArchiveUploader:
         # Get or create IA item
         item = ia.get_item(item_id)
 
-        # Upload file with metadata
-        response = item.upload(
-            file_path,
-            metadata=metadata.to_dict(),
-            checksum=self.config.checksum,
-            verify=True,
-            queue_derive=True,  # Generate derivatives (thumbnails, etc.)
-            verbose=False,
-        )
+        # Get file size for Content-Length header (fix for HTTP 411)
+        file_size = file_path.stat().st_size
+
+        # Open file and upload with explicit Content-Length
+        with open(file_path, "rb") as f:
+            response = item.upload(
+                {file_path.name: f},
+                metadata=metadata.to_dict(),
+                checksum=self.config.checksum,
+                verify=True,
+                queue_derive=True,  # Generate derivatives (thumbnails, etc.)
+                verbose=False,
+                headers={"Content-Length": str(file_size)},
+            )
 
         # Check response
         if response[0].status_code != 200:
