@@ -51,7 +51,7 @@ DB_PATH = Path("data/causaganha.duckdb")
 
 # Incremental catalog update settings
 IA_CATALOG_ITEM = "causaganha-catalog"
-PROGRESS_UPDATE_INTERVAL = 5  # Update catalog every N successful downloads
+PROGRESS_UPDATE_INTERVAL = 1  # Update catalog after every successful download
 
 SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS djen_state;
