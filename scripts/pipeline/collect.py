@@ -21,7 +21,6 @@ Usage:
 """
 
 import argparse
-import asyncio
 import base64
 import configparser
 import hashlib
