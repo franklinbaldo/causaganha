@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "1",  # START LOW: Single worker to ensure stability. Scale up gradually once working.
+        "64",  # OPTIMIZED: High concurrency for backfill velocity.
         "--deadline",
         "1200s",
     )

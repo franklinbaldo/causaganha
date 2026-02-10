@@ -590,10 +590,10 @@ def _process_item(
 
 def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyConnection) -> bool:
     """Update the catalog progress JSON in Internet Archive incrementally.
-    
+
     This allows tracking progress even if the pipeline times out.
     Only updates the progress JSON files, not the full manifest.
-    
+
     Returns True on success, False on error (non-fatal).
     """
     try:
@@ -606,20 +606,21 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 COUNT(*) as total_items
             FROM djen_state.coverage
         """).fetchone()
-        
+
         if not result or result[0] is None:
             logger.debug("no_coverage_data_to_report")
             return True
-            
+
         oldest_date, newest_date, unique_days, total_items = result
-        
+
         # Calculate progress (target: 2024-01-01 to today)
         from datetime import date as date_type
+
         target_start = date_type(2024, 1, 1)
         target_end = date_type.today()
         total_target_days = (target_end - target_start).days + 1
         progress_pct = (unique_days / total_target_days) * 100 if total_target_days > 0 else 0
-        
+
         progress_data = {
             "oldest_date": str(oldest_date),
             "newest_date": str(newest_date),
@@ -639,17 +640,20 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 "downloaded_mb": round(stats.get("downloaded_mb", 0), 2),
             },
         }
-        
+
         # Write to temp file and upload
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(progress_data, f, ensure_ascii=False, indent=2)
             temp_path = Path(f.name)
-        
+
         try:
             import subprocess
+
             result = subprocess.run(
                 [
-                    "ia", "upload", IA_CATALOG_ITEM,
+                    "ia",
+                    "upload",
+                    IA_CATALOG_ITEM,
                     str(temp_path),
                     "--remote-name=collect-progress.json",
                     "--no-derive",
@@ -659,7 +663,7 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 text=True,
                 timeout=60,
             )
-            
+
             if result.returncode == 0:
                 logger.info(
                     "catalog_progress_updated",
@@ -673,7 +677,7 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 return False
         finally:
             temp_path.unlink(missing_ok=True)
-            
+
     except Exception as e:
         # Non-fatal: log and continue
         logger.warning("catalog_progress_update_error", error=str(e))
@@ -811,7 +815,7 @@ def collect_data(
                     # Mark successful downloads immediately
                     if result == "success":
                         mark_downloaded(con, [(date_str, tribunal)])
-                        
+
                         # Incremental catalog update every N successes
                         if stats["success"] % PROGRESS_UPDATE_INTERVAL == 0:
                             update_catalog_progress(stats, con)
