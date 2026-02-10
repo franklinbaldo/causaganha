@@ -21,7 +21,7 @@ Usage:
 """
 
 import argparse
-import base64
+import asyncio
 import configparser
 import hashlib
 import json
@@ -34,11 +34,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import boto3
 import duckdb
 import httpx
 import structlog
-from botocore.config import Config
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
@@ -47,10 +45,6 @@ from causaganha.utils import validate_url
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 DJEN_CACHE_FILE = Path("djen_cache.json")
 DB_PATH = Path("data/causaganha.duckdb")
-
-# Incremental catalog update settings
-IA_CATALOG_ITEM = "causaganha-catalog"
-PROGRESS_UPDATE_INTERVAL = 1  # Update catalog after every successful download
 
 SCHEMA_SQL = """
 CREATE SCHEMA IF NOT EXISTS djen_state;
@@ -204,17 +198,113 @@ def fetch_tribunais_from_api(proxy_url: str) -> list[str]:
         return list(TRIBUNAIS)
 
 
-def get_existing_files_for_dates(dates: list[str]) -> set[tuple[str, str]]:
-    """Get existing (date, tribunal) pairs from local DB for specific dates."""
+async def _fetch_ia_files_for_date_async(client: httpx.AsyncClient, date_str: str) -> list[str]:
+    """Fetch zip/absent filenames for a single date from IA metadata API (async).
+
+    Uses the lightweight HTTP metadata endpoint (one request per date)
+    instead of the heavy internetarchive library search which scans
+    ALL items on every invocation.
+    """
+    item_id = f"djen-{date_str}"
+    url = f"https://archive.org/metadata/{item_id}"
+    try:
+        resp = await client.get(url, timeout=30)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        return [
+            f["name"]
+            for f in data.get("files", [])
+            if isinstance(f, dict) and f.get("name", "").endswith((".zip", ".absent"))
+        ]
+    except Exception:
+        return []
+
+
+async def get_existing_files_for_dates_async(dates: list[str]) -> set[tuple[str, str]]:
+    """Get existing (date, tribunal) pairs on IA for specific dates only (async).
+
+    Queries the IA metadata HTTP API once per date, using asyncio for
+    concurrent requests. The rolling window (d-1) produces ~1 request;
+    backfill batches add a bounded extra set.
+
+    Uses asyncio instead of threading to avoid GIL issues on Windows.
+    """
     if not dates:
         return set()
 
     con = get_db_connection()
     init_db(con)
     migrate_legacy_cache(con)
-    coverage = get_coverage_for_dates(con, dates)
+
+    # Check DB coverage first
+    # We get all known (date, tribunal) pairs for these dates
+    known_coverage = get_coverage_for_dates(con, dates)
+
+    # Identify which dates have NO coverage (or we want to re-check?)
+    # Since we can't distinguish "checked and found nothing" from "never checked",
+    # we might need to check IA for dates that have no entries in DB.
+    # However, to be robust, we check IA for dates where we found nothing in DB.
+    # If a date has at least one tribunal covered, we assume we checked it?
+    # No, that's risky. But 'djen_cache.json' logic was: if key exists (even empty), don't check.
+    # Here, we don't have "key exists".
+    # So we calculate dates that have at least one entry.
+    dates_with_coverage = {d for d, _ in known_coverage}
+    dates_to_fetch = [d for d in dates if d not in dates_with_coverage]
+
+    if not dates_to_fetch:
+        con.close()
+        return known_coverage
+
+    logger.info("checking_existing_files", dates_count=len(dates_to_fetch))
+
+    async with httpx.AsyncClient() as client:
+        tasks = [_fetch_ia_files_for_date_async(client, d) for d in dates_to_fetch]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    fetched_coverage: set[tuple[str, str]] = set()
+    new_coverage: list[tuple[str, str]] = []
+
+    for i, result in enumerate(results):
+        date_str = dates_to_fetch[i]
+        if isinstance(result, list):
+            # result is list of filenames
+            for filename in result:
+                # Parse tribunal from filename
+                try:
+                    parts = filename.split(".")
+                    stem = parts[0]
+                    segments = stem.split("-")
+                    if len(segments) >= 5:
+                        tribunal = segments[-1]
+                        pair = (date_str, tribunal)
+                        fetched_coverage.add(pair)
+                        new_coverage.append(pair)
+                except Exception:
+                    pass
+        else:
+            # On error, ignore
+            pass
+
+    if new_coverage:
+        mark_downloaded(con, new_coverage)
+
     con.close()
-    return coverage
+
+    total_coverage = known_coverage | fetched_coverage
+
+    logger.info(
+        "existing_files_found",
+        count=len(total_coverage),
+        dates_checked=len(dates_to_fetch),
+    )
+    return total_coverage
+
+
+def get_existing_files_for_dates(dates: list[str]) -> set[tuple[str, str]]:
+    """Sync wrapper for get_existing_files_for_dates_async."""
+    # Re-enabled since we have caching and run on Linux
+    return asyncio.run(get_existing_files_for_dates_async(dates))
 
 
 def fetch_backfill_items() -> list[tuple[str, str]]:
@@ -296,22 +386,7 @@ def get_caderno_info(
                     time.sleep(2**attempt)
                     continue
                 return None
-            # 429 Too Many Requests: retry with longer backoff
-            if response.status_code == 429:
-                backoff = 4**attempt  # 1s, 4s, 16s
-                logger.warning(
-                    "caderno_api_rate_limited",
-                    tribunal=tribunal,
-                    date=date_str,
-                    status=response.status_code,
-                    backoff_seconds=backoff,
-                    attempt=attempt + 1,
-                )
-                if attempt < max_retries:
-                    time.sleep(backoff)
-                    continue
-                return None
-            # Other client errors (403, etc.) — don't retry
+            # Other client errors (403, 429, etc.) — don't retry
             logger.warning(
                 "caderno_api_error",
                 tribunal=tribunal,
@@ -391,54 +466,25 @@ def download_zip(
     return False
 
 
-def get_boto_client() -> Any:
-    """Get configured Boto3 S3 client for Internet Archive.
+_IA_S3_URL = "https://s3.us.archive.org"
 
-    Configures connection pooling, adaptive retries, and injects custom
-    headers required by Internet Archive (auto-make-bucket, queue-derive).
-    """
-    # Resolve credentials
+
+def _get_ia_s3_auth() -> str | None:
+    """Get IA S3 authorization header value from env vars or config file."""
     access = os.environ.get("IAS3_ACCESS_KEY", "")
     secret = os.environ.get("IAS3_SECRET_KEY", "")
-
-    if not access or not secret:
-        # Fallback to config file
-        config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
-        if config_path.exists():
-            cfg = configparser.ConfigParser()
-            cfg.read(config_path)
-            access = cfg.get("s3", "access", fallback="")
-            secret = cfg.get("s3", "secret", fallback="")
-
-    if not access or not secret:
-        return None
-
-    session = boto3.Session()
-
-    # Custom event hook for IA headers
-    def add_custom_headers(params, **kwargs):
-        if "Headers" not in params:
-            params["Headers"] = {}
-        # These headers are required by IA S3 API
-        params["Headers"]["x-archive-auto-make-bucket"] = "1"
-        params["Headers"]["x-archive-queue-derive"] = "0"
-
-    client = session.client(
-        "s3",
-        endpoint_url="https://s3.us.archive.org",
-        aws_access_key_id=access,
-        aws_secret_access_key=secret,
-        config=Config(
-            signature_version="s3v4",
-            retries={"max_attempts": 5, "mode": "adaptive"},
-            max_pool_connections=128,  # Match workers count
-        ),
-    )
-
-    # Register the event hook
-    client.meta.events.register("before-call:s3:PutObject", add_custom_headers)
-
-    return client
+    if access and secret:
+        return f"LOW {access}:{secret}"
+    # Fall back to config file (created by CI workflow)
+    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
+    if config_path.exists():
+        cfg = configparser.ConfigParser()
+        cfg.read(config_path)
+        access = cfg.get("s3", "access", fallback="")
+        secret = cfg.get("s3", "secret", fallback="")
+        if access and secret:
+            return f"LOW {access}:{secret}"
+    return None
 
 
 def _compute_md5(file_path: Path) -> str:
@@ -451,55 +497,67 @@ def _compute_md5(file_path: Path) -> str:
 
 
 def upload_to_ia(
-    client: Any,
+    client: httpx.Client,
     item_id: str,
     file_path: Path,
     date_str: str,
 ) -> bool:
     """Upload file to Internet Archive via the S3-compatible API.
 
-    Uses a shared boto3 client with connection pooling and adaptive retries.
+    Uses a shared httpx client for connection pooling across workers,
+    with streaming upload and MD5 integrity verification.
     """
     filename = file_path.name
-    # _compute_md5 returns hex. S3 requires base64.
-    md5_hex = _compute_md5(file_path)
-    md5_b64 = base64.b64encode(bytes.fromhex(md5_hex)).decode("utf-8")
+    url = f"{_IA_S3_URL}/{item_id}/{filename}"
+    content_md5 = _compute_md5(file_path)
 
-    metadata = {
-        "collection": "opensource",
-        "mediatype": "data",
-        "title": f"DJEN Data - {date_str}",
-        "description": (
+    headers = {
+        "Content-MD5": content_md5,
+        "x-archive-auto-make-bucket": "1",
+        "x-archive-queue-derive": "0",
+        "x-archive-meta-collection": "opensource",
+        "x-archive-meta-mediatype": "data",
+        "x-archive-meta-title": f"DJEN Data - {date_str}",
+        "x-archive-meta-description": (
             "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
         ),
-        "subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "creator": "CausaGanha",
-        "date": date_str,
+        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "x-archive-meta-creator": "CausaGanha",
+        "x-archive-meta-date": date_str,
     }
 
-    try:
-        with file_path.open("rb") as f:
-            client.put_object(
-                Bucket=item_id,
-                Key=filename,
-                Body=f,
-                Metadata=metadata,
-                ContentMD5=md5_b64,
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with file_path.open("rb") as f:
+                response = client.put(url, content=f, headers=headers)
+            if response.is_success:
+                return True
+            logger.warning(
+                "upload_http_error",
+                item_id=item_id,
+                file=filename,
+                status=response.status_code,
+                attempt=attempt + 1,
             )
-        return True
-    except Exception as e:
-        logger.warning(
-            "upload_error",
-            item_id=item_id,
-            error=str(e),
-        )
-        return False
+            if response.status_code < 500:
+                return False  # Client error — don't retry
+        except Exception as e:
+            logger.warning(
+                "upload_error",
+                item_id=item_id,
+                error=str(e),
+                attempt=attempt + 1,
+            )
+        if attempt < max_retries - 1:
+            time.sleep(5 * (attempt + 1))
+    return False
 
 
 def _process_item(
     api_client: httpx.Client,
     dl_client: httpx.Client,
-    s3_client: Any,
+    upload_client: httpx.Client,
     proxy_url: str,
     date_str: str,
     tribunal: str,
@@ -523,7 +581,7 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            ok = upload_to_ia(s3_client, item_id, marker_path, date_str)
+            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
             return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
@@ -540,192 +598,17 @@ def _process_item(
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / zip_name
 
-        download_start = time.time()
         if not download_zip(dl_client, download_url, zip_path):
-            logger.info(
-                "download_timing",
-                date=date_str,
-                tribunal=tribunal,
-                duration_s=round(time.time() - download_start, 2),
-                status="failed",
-            )
             return "failed", 0.0
 
         size_mb = zip_path.stat().st_size / (1024 * 1024)
-        logger.info(
-            "download_timing",
-            date=date_str,
-            tribunal=tribunal,
-            duration_s=round(time.time() - download_start, 2),
-            size_mb=f"{size_mb:.2f}",
-            status="success",
-        )
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        upload_start = time.time()
-        upload_ok = upload_to_ia(s3_client, item_id, zip_path, date_str)
-        upload_elapsed = round(time.time() - upload_start, 2)
-        if upload_ok:
-            logger.info(
-                "upload_timing",
-                item_id=item_id,
-                file=zip_name,
-                size_mb=f"{size_mb:.2f}",
-                duration_s=upload_elapsed,
-                status="success",
-            )
+        if upload_to_ia(upload_client, item_id, zip_path, date_str):
+            logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
             return "success", size_mb
-        logger.warning(
-            "upload_timing",
-            item_id=item_id,
-            file=zip_name,
-            size_mb=f"{size_mb:.2f}",
-            duration_s=upload_elapsed,
-            status="failed",
-        )
         return "failed", 0.0
-
-
-def fetch_existing_progress() -> dict | None:
-    """Fetch the existing progress from Internet Archive.
-
-    Returns the existing progress dict or None on error.
-    """
-    import urllib.request
-
-    url = "https://archive.org/download/causaganha-catalog/collect-progress.json"
-    try:
-        with urllib.request.urlopen(url, timeout=10) as response:
-            return json.loads(response.read())
-    except Exception as e:
-        logger.warning("fetch_existing_progress_failed", error=str(e))
-        return None
-
-
-def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyConnection) -> bool:
-    """Update the catalog progress JSON in Internet Archive incrementally.
-
-    Fetches existing progress from IA, merges with current session data,
-    and uploads the combined result. This ensures progress accumulates
-    across multiple pipeline runs.
-
-    Returns True on success, False on error (non-fatal).
-    """
-    try:
-        from datetime import date as date_type
-        import subprocess
-
-        # Fetch existing progress from IA
-        existing = fetch_existing_progress() or {}
-
-        # Query current session's coverage from local DB
-        result = con.execute("""
-            SELECT 
-                MIN(date) as oldest_date,
-                MAX(date) as newest_date,
-                COUNT(DISTINCT date) as unique_days,
-                COUNT(*) as total_items
-            FROM djen_state.coverage
-        """).fetchone()
-
-        session_oldest = result[0] if result and result[0] else None
-        session_newest = result[1] if result and result[1] else None
-        session_unique_days = result[2] if result else 0
-        session_total_items = result[3] if result else 0
-
-        # Merge with existing: expand date range, add items
-        existing_oldest = existing.get("oldest_date")
-        existing_newest = existing.get("newest_date")
-        existing_total = existing.get("total_items", 0)
-
-        # Determine merged date range
-        if session_oldest and existing_oldest:
-            merged_oldest = min(str(session_oldest), existing_oldest)
-        else:
-            merged_oldest = str(session_oldest) if session_oldest else existing_oldest
-
-        if session_newest and existing_newest:
-            merged_newest = max(str(session_newest), existing_newest)
-        else:
-            merged_newest = str(session_newest) if session_newest else existing_newest
-
-        # Add session items to existing total
-        merged_total = existing_total + session_total_items
-
-        # Estimate unique days (this is an approximation; full catalog rebuild will correct it)
-        # We can't know exact unique days without the full manifest
-        existing_unique = existing.get("unique_days", 0)
-        merged_unique_days = max(existing_unique, existing_unique + session_unique_days)
-
-        # Calculate progress
-        target_start = date_type(2024, 1, 1)
-        target_end = date_type.today()
-        total_target_days = (target_end - target_start).days + 1
-        progress_pct = (
-            (merged_unique_days / total_target_days) * 100 if total_target_days > 0 else 0
-        )
-
-        progress_data = {
-            "oldest_date": merged_oldest,
-            "newest_date": merged_newest,
-            "unique_days": merged_unique_days,
-            "total_items": merged_total,
-            "target_range": {
-                "start": str(target_start),
-                "end": str(target_end),
-                "total_days": total_target_days,
-            },
-            "progress_pct": round(progress_pct, 2),
-            "last_updated": datetime.now(UTC).isoformat(),
-            "session_stats": {
-                "success": stats.get("success", 0),
-                "failed": stats.get("failed", 0),
-                "skipped": stats.get("skipped", 0),
-                "downloaded_mb": round(stats.get("downloaded_mb", 0), 2),
-                "session_items": session_total_items,
-            },
-        }
-
-        # Write to temp file and upload
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(progress_data, f, ensure_ascii=False, indent=2)
-            temp_path = Path(f.name)
-
-        try:
-            result = subprocess.run(
-                [
-                    "ia",
-                    "upload",
-                    IA_CATALOG_ITEM,
-                    str(temp_path),
-                    "--remote-name=collect-progress.json",
-                    "--no-derive",
-                    "--retries=2",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-
-            if result.returncode == 0:
-                logger.info(
-                    "catalog_progress_updated",
-                    progress_pct=f"{progress_pct:.2f}%",
-                    merged_total=merged_total,
-                    session_items=session_total_items,
-                )
-                return True
-            else:
-                logger.warning("catalog_progress_update_failed", stderr=result.stderr[:200])
-                return False
-        finally:
-            temp_path.unlink(missing_ok=True)
-
-    except Exception as e:
-        # Non-fatal: log and continue
-        logger.warning("catalog_progress_update_error", error=str(e))
-        return False
 
 
 def collect_data(
@@ -791,9 +674,9 @@ def collect_data(
     if not pending:
         return stats
 
-    # Initialize boto3 client
-    s3_client = get_boto_client()
-    if not s3_client:
+    # Resolve IA S3 credentials once (shared via upload client headers)
+    ia_auth = _get_ia_s3_auth()
+    if not ia_auth:
         logger.error(
             "ia_credentials_not_found",
             hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
@@ -804,6 +687,7 @@ def collect_data(
     # Shared HTTP clients with connection pooling
     api_timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
     dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+    upload_timeout = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
     pool_limits = httpx.Limits(
         max_connections=workers * 2,
         max_keepalive_connections=workers,
@@ -818,11 +702,16 @@ def collect_data(
             limits=pool_limits,
             follow_redirects=True,
         ) as dl_client,
+        httpx.Client(
+            timeout=upload_timeout,
+            limits=pool_limits,
+            headers={"Authorization": ia_auth},
+        ) as upload_client,
         ThreadPoolExecutor(max_workers=workers) as executor,
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, s3_client, proxy_url, date_str, tribunal
+                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }
@@ -843,8 +732,6 @@ def collect_data(
                             limit=f"{deadline_seconds}s",
                             pending=len(futures) - (stats["success"] + stats["failed"]),
                         )
-                        # Final catalog update before deadline exit
-                        update_catalog_progress(stats, con)
                         # Cancel remaining
                         for f in futures:
                             f.cancel()
@@ -856,13 +743,9 @@ def collect_data(
                     stats[result] += 1
                     stats["downloaded_mb"] += size_mb
 
-                    # Mark successful downloads immediately
+                    # NEW: Mark successful downloads immediately
                     if result == "success":
                         mark_downloaded(con, [(date_str, tribunal)])
-
-                        # Incremental catalog update every N successes
-                        if stats["success"] % PROGRESS_UPDATE_INTERVAL == 0:
-                            update_catalog_progress(stats, con)
 
                 except CancelledError:
                     pass
@@ -870,9 +753,6 @@ def collect_data(
                     logger.exception("worker_error", date=date_str, tribunal=tribunal)
                     stats["failed"] += 1
         finally:
-            # Final catalog update before closing
-            if stats["success"] > 0:
-                update_catalog_progress(stats, con)
             con.close()
 
     return stats
