@@ -1,10 +1,8 @@
 """Tests for consolidation checkpoint logic."""
 
 import json
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
 from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
 
 # Import the module to test
 # Note: CheckpointManager might not exist yet, so this import might fail until implementation
@@ -15,10 +13,9 @@ class TestCheckpointManager:
     """BDD-style tests for CheckpointManager."""
 
     def test_checkpoint_save(self, tmp_path):
-        """
-        Given: Backfill runs and processes some dates
+        """Given: Backfill runs and processes some dates
         When: Checkpoint saved
-        Then: Progress file contains correct state
+        Then: Progress file contains correct state.
         """
         # Given
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -35,10 +32,9 @@ class TestCheckpointManager:
         assert data["last_checked"] == test_date
 
     def test_checkpoint_resume(self, tmp_path):
-        """
-        Given: Checkpoint exists with partial progress
+        """Given: Checkpoint exists with partial progress
         When: Backfill resumed
-        Then: Starts from saved position
+        Then: Starts from saved position.
         """
         # Given
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -55,10 +51,9 @@ class TestCheckpointManager:
         assert loaded_date == saved_date
 
     def test_checkpoint_error_handling(self, tmp_path):
-        """
-        Given: Corrupt checkpoint file
+        """Given: Corrupt checkpoint file
         When: Backfill starts
-        Then: Gracefully handles error, starts fresh
+        Then: Gracefully handles error, starts fresh.
         """
         # Given
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -74,10 +69,9 @@ class TestCheckpointManager:
         assert loaded_date is None  # Should return None on error
 
     def test_checkpoint_boundary_empty(self, tmp_path):
-        """
-        Given: Empty checkpoint (first run)
+        """Given: Empty checkpoint (first run)
         When: Backfill starts
-        Then: Returns None
+        Then: Returns None.
         """
         # Given
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -92,10 +86,9 @@ class TestCheckpointManager:
         assert loaded_date is None
 
     def test_checkpoint_boundary_future(self, tmp_path):
-        """
-        Given: Checkpoint with future date
+        """Given: Checkpoint with future date
         When: Loaded
-        Then: (Behavior depends on implementation, but assuming it just loads it)
+        Then: (Behavior depends on implementation, but assuming it just loads it).
         """
         # Given
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -118,10 +111,9 @@ class TestFindNextUnconsolidatedWithCheckpoint:
     """Tests for integration of CheckpointManager in find_next_unconsolidated."""
 
     def test_resume_from_checkpoint(self, mock_needs, mock_stopped, tmp_path):
-        """
-        Given: Checkpoint says we checked up to 10 days ago
+        """Given: Checkpoint says we checked up to 10 days ago
         When: find_next_unconsolidated is called
-        Then: Scanning starts from 11 days ago (or 10, depending on logic)
+        Then: Scanning starts from 11 days ago (or 10, depending on logic).
         """
         # Setup
         checkpoint_file = tmp_path / "checkpoint.json"
@@ -165,10 +157,9 @@ class TestFindNextUnconsolidatedWithCheckpoint:
                 assert d_str <= last_checked
 
     def test_save_checkpoint_on_progress(self, mock_needs, mock_stopped, tmp_path):
-        """
-        Given: No checkpoint
+        """Given: No checkpoint
         When: Scanning proceeds
-        Then: Checkpoint is updated
+        Then: Checkpoint is updated.
         """
         checkpoint_file = tmp_path / "checkpoint.json"
 

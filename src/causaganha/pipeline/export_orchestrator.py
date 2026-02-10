@@ -187,7 +187,7 @@ class ExportOrchestrator:
             # 3. Export & Upload Embeddings (if available, best-effort)
             try:
                 # Note: embeddings_storage needs DB connection
-                # TODO(dev): Refactor to pass db_connection to ParquetExporter instead  # noqa: FIX002
+                # TODO(dev): Refactor to pass db_connection to ParquetExporter instead
                 # of embedding_storage needing to get it separately
                 # https://github.com/franklinbaldo/causaganha/issues/1
                 logger.info(f"Exporting embeddings for {tribunal} {partition_date}...")

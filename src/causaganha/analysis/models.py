@@ -1,12 +1,12 @@
 """Pydantic models for decision analysis."""
 
 import re
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     """Possible outcomes of a judicial decision."""
 
     PROCEDENTE = "procedente"
@@ -15,7 +15,7 @@ class Outcome(str, Enum):
     UNKNOWN = "unknown"  # Fallback
 
 
-class DecisionType(str, Enum):
+class DecisionType(StrEnum):
     """Types of judicial decisions."""
 
     SENTENCA = "sentença"

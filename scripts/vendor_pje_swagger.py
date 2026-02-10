@@ -11,9 +11,9 @@ DEFAULT_OUTPUT = "openapi/pje-comunicaapi-djen.swagger.yml"
 
 
 def fetch(url: str, timeout_s: float) -> bytes:
-    req = Request(url, headers={"User-Agent": "causaganha-openapi-vendor/1.0"})  # noqa: S310
+    req = Request(url, headers={"User-Agent": "causaganha-openapi-vendor/1.0"})
     try:
-        with urlopen(req, timeout=timeout_s) as resp:  # noqa: S310
+        with urlopen(req, timeout=timeout_s) as resp:
             body = resp.read()
     except HTTPError as exc:
         if exc.code == 403:

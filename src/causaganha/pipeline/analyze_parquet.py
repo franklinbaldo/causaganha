@@ -21,7 +21,7 @@ Usage:
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
-class OutputMode(str, Enum):
+class OutputMode(StrEnum):
     """Output mode for analysis results."""
 
     PARQUET = "parquet"  # Write to new parquet file

@@ -20,6 +20,8 @@ export default {
           muted: '#b0b0b0', // WCAG AA: 9.40:1 contrast (was #888888 → #a0a0a0)
           danger: '#ff3333',
           warning: '#ffaa00',
+          cyan: '#00f2ff', // Color-blind friendly
+          purple: '#bf00ff', // Color-blind friendly
           // Semantic aliases for color-blind friendliness
           success: '#00ff41',
           error: '#ff4444'

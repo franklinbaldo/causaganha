@@ -211,8 +211,8 @@ def generate_collect_progress(con: duckdb.DuckDBPyConnection) -> dict:
     target_end = date(2026, 2, 3)
     target_days = (target_end - target_start).days + 1
 
-    oldest_date = result[0] if result[0] else None
-    newest_date = result[1] if result[1] else None
+    oldest_date = result[0] or None
+    newest_date = result[1] or None
     unique_days = result[2] or 0
     total_items = result[3] or 0
 
@@ -404,17 +404,124 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     return None
 
 
-def generate_manifest(items: list[str]) -> list[dict]:
-    """Generate manifest of all files in Internet Archive."""
-    logger.info("generating_manifest", items=len(items))
+def load_existing_manifest() -> list[dict]:
+    """Load existing manifest from Internet Archive.
 
+    Returns empty list if not found or error.
+    """
+    manifest_url = f"https://archive.org/download/{IA_CATALOG_ITEM}/manifest.parquet"
+    logger.info("loading_existing_manifest", url=manifest_url)
+
+    try:
+        # Use a temporary duckdb connection to read from URL
+        con = duckdb.connect()
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+
+        # Check if file exists by trying to describe it
+        try:
+            con.execute(f"DESCRIBE SELECT * FROM read_parquet('{manifest_url}')")
+        except Exception:
+            logger.info("no_existing_manifest_found_at_url")
+            return []
+
+        # Fetch records
+        df = con.execute(f"SELECT * FROM read_parquet('{manifest_url}')").df()
+        con.close()
+
+        records = df.to_dict("records")
+        logger.info("loaded_existing_manifest", records=len(records))
+        return records
+    except Exception as e:
+        logger.warning("load_manifest_failed", error=str(e))
+        return []
+
+
+def get_item_date(item_id: str) -> date | None:
+    """Extract date from item identifier (e.g. djen-2026-01-06)."""
+    if not item_id.startswith("djen-"):
+        return None
+    try:
+        # djen-YYYY-MM-DD
+        date_str = item_id.replace("djen-", "")[:10]
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def generate_manifest(items: list[str], existing_manifest: list[dict] | None = None) -> list[dict]:
+    """Generate manifest of all files in Internet Archive.
+
+    If existing_manifest is provided, performs incremental listing:
+    - Lists new items
+    - Re-lists items from the last 14 days
+    - Re-lists items that lack parquets but have ZIPs (pending consolidation)
+    """
+    logger.info("generating_manifest", items=len(items), incremental=bool(existing_manifest))
+
+    # Group existing entries by item for fast lookup
+    existing_by_item = {}
+    if existing_manifest:
+        for m in existing_manifest:
+            item = m.get("ia_item")
+            if not item:
+                continue
+            if item not in existing_by_item:
+                existing_by_item[item] = []
+            existing_by_item[item].append(m)
+
+    items_to_list = []
     manifest = []
+
+    today = datetime.now(tz=UTC).date()
+    # Items from the last 14 days are always re-listed to catch updates
+    recency_threshold = timedelta(days=14)
+
+    for item_id in items:
+        item_date = get_item_date(item_id)
+
+        # Determine if we should re-list this item
+        should_list = False
+        reason = ""
+
+        if item_id not in existing_by_item:
+            should_list = True
+            reason = "new_item"
+        else:
+            # Check if it's recent
+            if item_date and (today - item_date) < recency_threshold:
+                should_list = True
+                reason = "recent_date"
+            else:
+                # Check if it lacks parquets but has zips
+                # (means it might be pending consolidation)
+                files = existing_by_item[item_id]
+                has_zip = any(f.get("file_type") == "zip" for f in files)
+                has_parquet = any(f.get("file_type") == "parquet" for f in files)
+
+                if has_zip and not has_parquet:
+                    should_list = True
+                    reason = "pending_consolidation"
+
+        if should_list:
+            items_to_list.append(item_id)
+            logger.debug("item_queued_for_listing", item=item_id, reason=reason)
+        else:
+            # Use existing entries
+            manifest.extend(existing_by_item[item_id])
+
+    if not items_to_list:
+        logger.info("no_items_to_list_incremental")
+        return manifest
+
+    logger.info("items_to_list", count=len(items_to_list), total=len(items))
     completed_count = 0
 
     # Parallelize file listing to speed up catalog generation
     # Uses 16 workers to fetch file lists concurrently
     with ThreadPoolExecutor(max_workers=16) as executor:
-        future_to_item = {executor.submit(list_item_files, item_id): item_id for item_id in items}
+        future_to_item = {
+            executor.submit(list_item_files, item_id): item_id for item_id in items_to_list
+        }
 
         for future in as_completed(future_to_item):
             item_id = future_to_item[future]
@@ -430,7 +537,7 @@ def generate_manifest(items: list[str]) -> list[dict]:
 
             completed_count += 1
             if completed_count % 50 == 0:
-                logger.info("progress", current=completed_count, total=len(items))
+                logger.info("progress", current=completed_count, total=len(items_to_list))
 
     logger.info("manifest_complete", files=len(manifest))
     return manifest
@@ -846,6 +953,9 @@ def main():
     parser.add_argument("--output", type=str, default="./catalog", help="Output directory")
     parser.add_argument("--upload", action="store_true", help="Upload to Internet Archive")
     parser.add_argument(
+        "--full", action="store_true", help="Force full catalog rebuild (disable incremental)"
+    )
+    parser.add_argument(
         "--start-date",
         type=str,
         default=None,
@@ -897,17 +1007,23 @@ def main():
     print("Generating catalog...")
     print(f"  Output: {output_dir}")
     print(f"  Backfill range: {start_date} to {end_date}")
+    print(f"  Mode: {'Full' if args.full else 'Incremental'}")
     print()
 
     # 1. List all IA items
     items = list_ia_items()
     print(f"Found {len(items)} items on Internet Archive")
 
-    # 2. Generate manifest
-    manifest = generate_manifest(items)
+    # 2. Try to load existing manifest if in incremental mode
+    existing_manifest = None
+    if not args.full:
+        existing_manifest = load_existing_manifest()
+
+    # 3. Generate manifest
+    manifest = generate_manifest(items, existing_manifest)
     print(f"Manifest: {len(manifest)} files indexed")
 
-    # 3. Get local coverage and generate backfill list
+    # 4. Get local coverage and generate backfill list
     local_coverage = set()
     main_db_path = Path("data/causaganha.duckdb")
 

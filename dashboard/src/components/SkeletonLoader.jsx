@@ -1,7 +1,7 @@
 export function SkeletonLoader({ className = "" }) {
   return (
     <div
-      className={`animate-pulse bg-gradient-to-r from-cyber-dark via-cyber-dim/30 to-cyber-dark bg-[length:200%_100%] rounded ${className}`}
+      className={`animate-pulse bg-gradient-to-r from-cyber-dark via-cyber-dim to-cyber-dark bg-[length:200%_100%] rounded ${className}`}
       style={{
         animation: 'shimmer 2s ease-in-out infinite',
       }}

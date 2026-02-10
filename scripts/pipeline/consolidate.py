@@ -19,7 +19,6 @@ import json
 import os
 import subprocess
 import tempfile
-import threading
 import time
 import unicodedata
 import uuid
@@ -54,6 +53,7 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
+
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
@@ -951,12 +951,7 @@ def _all_tribunals_stopped(target_date: date) -> bool:
     This is the natural stopping condition for backfill - when there's no more
     historical data from any tribunal.
     """
-    for tribunal in TRIBUNAIS:
-        if not _is_tribunal_stopped(tribunal, target_date):
-            # At least one tribunal still active - keep going
-            return False
-    # All tribunals stopped - we've gone back far enough
-    return True
+    return all(_is_tribunal_stopped(tribunal, target_date) for tribunal in TRIBUNAIS)
 
 
 def find_next_unconsolidated(checkpoint_file: Path | None = None) -> str | None:

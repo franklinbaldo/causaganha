@@ -42,21 +42,21 @@ export function CalendarHeatmap({ data = [] }) {
         <div className="cyber-card overflow-hidden">
              <h2 className="text-lg font-bold text-cyber-primary mb-4 flex justify-between items-center">
                 <span>2026 Collection Status</span>
-                <div className="flex gap-4 text-xs">
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-cyber-primary rounded-sm"></div> Full ({'>'}40)</span>
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-cyber-secondary opacity-60 rounded-sm"></div> Partial</span>
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 bg-cyber-danger opacity-40 rounded-sm"></div> Missing</span>
+                <div className="flex gap-4 text-sm text-cyber-gray font-medium">
+                    <span className="flex items-center gap-1.5"><div className="w-3 h-3 bg-cyber-primary rounded-sm"></div> Full ({'>'}40)</span>
+                    <span className="flex items-center gap-1.5"><div className="w-3 h-3 bg-cyber-secondary opacity-60 rounded-sm"></div> Partial</span>
+                    <span className="flex items-center gap-1.5"><div className="w-3 h-3 bg-cyber-danger opacity-40 rounded-sm"></div> Missing</span>
                 </div>
              </h2>
              <div className="overflow-x-auto pb-2 custom-scrollbar">
                 <div className="min-w-[800px]">
                     <div className="flex mb-2 pl-8">
                         {months.map((m, i) => (
-                            <div key={i} className="flex-1 text-xs text-cyber-muted text-center">{m}</div>
+                            <div key={i} className="flex-1 text-sm text-cyber-gray text-center font-medium">{m}</div>
                         ))}
                     </div>
                     <div className="flex">
-                        <div className="flex flex-col justify-between text-[10px] text-cyber-muted pr-2 h-[100px] py-1">
+                        <div className="flex flex-col justify-between text-sm text-cyber-gray pr-2 h-[100px] py-1 font-medium">
                             <span>Mon</span>
                             <span>Wed</span>
                             <span>Fri</span>

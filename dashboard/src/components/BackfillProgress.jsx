@@ -30,11 +30,11 @@ export function BackfillProgress({ stats }) {
       <div className="space-y-3">
         {years.map(([year, data]) => (
           <div key={year} className="group">
-            <div className="flex justify-between text-xs mb-1">
+            <div className="flex justify-between text-sm mb-1.5 font-bold">
               <span className="font-mono text-cyber-text group-hover:text-cyber-primary transition-colors">{year}</span>
               <span className="text-cyber-muted">{data.completed}/{data.total} ({data.pct}%)</span>
             </div>
-            <div className="h-2 bg-cyber-dark border border-cyber-border rounded-sm overflow-hidden relative">
+            <div className="h-5 bg-cyber-dark border border-cyber-border rounded-sm overflow-hidden relative">
                <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,transparent_50%,#333_50%)] bg-[length:4px_100%]" />
 
                <div

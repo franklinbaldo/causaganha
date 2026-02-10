@@ -1,6 +1,7 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from datetime import date, timedelta
+from datetime import date
+from unittest.mock import patch
+
 from scripts.pipeline.consolidate import find_next_unconsolidated
 
 
@@ -28,18 +29,18 @@ class TestConsolidateBackfill(unittest.TestCase):
 
         # First call should return first candidate
         result1 = find_next_unconsolidated()
-        self.assertEqual(result1, "2026-01-01")
+        assert result1 == "2026-01-01"
 
         # Second call should return second candidate (popped from cached list)
         result2 = find_next_unconsolidated()
-        self.assertEqual(result2, "2026-01-02")
+        assert result2 == "2026-01-02"
 
         # Third call should trigger fallback (mock fetch called only once)
         # We need to mock the fallback path now to return None or something
         with patch("scripts.pipeline.consolidate._needs_consolidation", return_value=False):
             with patch("scripts.pipeline.consolidate._all_tribunals_stopped", return_value=True):
                 result3 = find_next_unconsolidated()
-                self.assertIsNone(result3)
+                assert result3 is None
 
         mock_fetch_candidates.assert_called_once()
 
@@ -63,16 +64,14 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2026-01-01 needs consolidation (newest - today)
 
         def needs_consolidation_side_effect(d_str, must_be_complete=False):
-            if d_str in ["2024-01-01", "2025-01-01", "2026-01-01"]:
-                return True
-            return False
+            return d_str in ["2024-01-01", "2025-01-01", "2026-01-01"]
 
         mock_needs_consolidation.side_effect = needs_consolidation_side_effect
 
         # With newest-first logic, we expect 2026-01-01 (most recent) to be returned.
         result = find_next_unconsolidated()
 
-        self.assertEqual(result, "2026-01-01", f"Expected 2026-01-01 but got {result}")
+        assert result == "2026-01-01", f"Expected 2026-01-01 but got {result}"
 
     @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
@@ -97,7 +96,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2024-01-05 (Fri) -> Consolidated (False)
 
         def side_effect(d_str, must_be_complete=False):
-            if d_str == "2024-01-10" or d_str == "2024-01-05":
+            if d_str in {"2024-01-10", "2024-01-05"}:
                 return False  # Already done
             return True  # Others need consolidation
 
@@ -109,7 +108,7 @@ class TestConsolidateBackfill(unittest.TestCase):
 
         result = find_next_unconsolidated()
 
-        self.assertEqual(result, "2024-01-09")
+        assert result == "2024-01-09"
 
     @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
     @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
@@ -141,6 +140,6 @@ class TestConsolidateBackfill(unittest.TestCase):
         result = find_next_unconsolidated()
 
         # Should return None (backfill complete)
-        self.assertIsNone(result)
+        assert result is None
         # Should have stopped checking after all tribunals stopped
-        self.assertGreater(call_count[0], 10)
+        assert call_count[0] > 10

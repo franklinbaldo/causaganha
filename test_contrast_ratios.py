@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""
-Test contrast ratios for causaganha dashboard colors against WCAG AA standards.
+"""Test contrast ratios for causaganha dashboard colors against WCAG AA standards.
 WCAG AA requires:
 - 4.5:1 for normal text
 - 3:1 for large text (18pt+ or 14pt+ bold)
-- 3:1 for UI components and borders
+- 3:1 for UI components and borders.
 """
 
 

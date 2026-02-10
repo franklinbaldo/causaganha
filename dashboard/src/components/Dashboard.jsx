@@ -7,15 +7,18 @@ import { CalendarHeatmap } from './CalendarHeatmap'
 import { TribunalsGrid } from './TribunalsGrid'
 import { LastRunDetails } from './LastRunDetails'
 import { TimelineGraph } from './TimelineGraph'
+import { ETACard } from './ETACard'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
-  const [backfillProgress, setBackfillProgress] = useState(null)
+  const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
 
-  const fetchStats = async () => {
+  const fetchStats = async (isInitial = false) => {
     try {
+      if (!isInitial) setRefreshing(true);
       setError(null);
       // Fetch run stats
       const statsResponse = await fetch('./run-stats.json');
@@ -27,38 +30,31 @@ export default function Dashboard() {
         setStats(null);
       }
 
-      // Fetch backfill progress (from local build artifact)
-      const backfillResponse = await fetch('/causaganha/dashboard-data.json');
-      if (backfillResponse.ok) {
-        const data = await backfillResponse.json();
-        setBackfillProgress(data.backfill_progress);
+      // Fetch dashboard data
+      const response = await fetch('/causaganha/dashboard-data.json');
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
       } else {
-        console.warn("Backfill progress not available");
-        setBackfillProgress(null);
+        console.warn("Dashboard data not available");
+        setDashboardData(null);
       }
     } catch (error) {
       console.error("Error loading data", error);
       setError("Unable to connect to data source.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 60000); // Refresh every minute
+    fetchStats(true);
+    const interval = setInterval(() => fetchStats(false), 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cyber-black text-cyber-primary flex items-center justify-center font-mono">
-        <span className="animate-pulse">INITIALIZING SYSTEM...</span>
-      </div>
-    );
-  }
-
-  if (error || (!stats && !backfillProgress)) {
+  if (error || (!loading && !stats && !dashboardData)) {
       return (
         <div className="min-h-screen bg-cyber-black text-cyber-danger flex flex-col items-center justify-center font-mono p-4 text-center">
             <AlertTriangle className="w-16 h-16 mb-4 animate-pulse" />
@@ -74,24 +70,26 @@ export default function Dashboard() {
       )
   }
 
+  const backfillProgress = dashboardData?.backfill_progress;
+
   return (
     <div className="min-h-screen bg-cyber-black text-cyber-text p-4 md:p-8 font-mono bg-cyber-grid-bg">
-      <header className="mb-8 flex justify-between items-center border-b border-cyber-dim pb-4">
+      <header className="mb-8 flex justify-between items-center border-b border-cyber-border pb-4">
         <div className="flex items-center gap-3">
           <Terminal className="w-8 h-8 text-cyber-primary" />
           <div>
             <h1 className="text-2xl font-bold tracking-widest text-cyber-primary">
               CAUSA<span className="text-white">GANHA</span>{' '}
-              <span className="text-xs align-top text-cyber-secondary">v2.0</span>
+              <span className="text-sm align-top text-cyber-secondary font-bold">v2.0</span>
             </h1>
-            <p className="text-xs text-cyber-muted uppercase tracking-widest">
+            <p className="text-base text-cyber-gray uppercase tracking-widest font-bold">
               Judicial Data Intelligence Pipeline
             </p>
           </div>
         </div>
-        <div className="text-right text-xs text-cyber-muted hidden sm:block">
+        <div className="text-right text-sm text-cyber-gray hidden sm:block font-medium">
           <div className="flex items-center gap-2 justify-end">
-            <span className="w-2 h-2 bg-cyber-primary rounded-full animate-pulse"></span>
+            <span className="w-2.5 h-2.5 bg-cyber-primary rounded-full animate-pulse"></span>
             SYSTEM ONLINE
           </div>
           <div>{new Date().toISOString().split('T')[0]}</div>
@@ -99,34 +97,41 @@ export default function Dashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Row 1: Key Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <LiveStatusCard stats={stats} />
+        {/* Row 1: ETA Highlight (Prominent) */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-2">
+            <ETACard backfillProgress={dashboardData} />
           </div>
           <div className="lg:col-span-2">
             <DualProgressCard apiUrl="/causaganha/dashboard-data.json" refreshInterval={60000} />
           </div>
         </div>
 
-        {/* Row 2: Charts */}
+        {/* Row 2: Status & Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <LiveStatusCard stats={stats} />
+          </div>
           <div className="lg:col-span-2">
             <CalendarHeatmap data={backfillProgress?.daily_stats || []} />
           </div>
-          <div className="lg:col-span-1">
+        </div>
+
+        {/* Row 3: Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-3">
             <TimelineGraph data={backfillProgress?.recent_activity || []} />
           </div>
         </div>
 
-        {/* Row 3: Grid */}
-        <TribunalsGrid stats={stats} />
+        {/* Row 4: Grid */}
+        <TribunalsGrid stats={stats} loading={loading} refreshing={refreshing} />
 
-        {/* Row 4: Details */}
+        {/* Row 5: Details */}
         <LastRunDetails stats={stats} />
 
         {/* About Section */}
-        <div className="mt-8 border border-cyber-dim bg-cyber-card p-6 rounded">
+        <div className="mt-8 border border-cyber-border bg-cyber-card p-6 rounded">
           <h2 className="text-cyber-primary text-lg font-bold mb-3 tracking-widest">
             // SOBRE O PROJETO
           </h2>
@@ -162,13 +167,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <footer className="mt-12 text-center text-xs text-cyber-muted border-t border-cyber-dim pt-6 pb-2">
-          <p>CAUSAGANHA MONITORING SYSTEM // AUTHORIZED ACCESS ONLY</p>
-          <p className="mt-2 opacity-50">
+        <footer className="mt-12 text-center text-sm text-cyber-gray border-t border-cyber-border pt-6 pb-2">
+          <p className="font-bold tracking-widest">CAUSAGANHA MONITORING SYSTEM // AUTHORIZED ACCESS ONLY</p>
+          <p className="mt-2 text-cyber-muted font-medium">
             Running on GitHub Actions • Data stored in Internet Archive
           </p>
           {backfillProgress?.last_updated && (
-              <p className="mt-1 text-cyber-dark opacity-70">
+              <p className="mt-1 text-cyber-muted font-medium">
                   Data generated at: {new Date(backfillProgress.last_updated).toLocaleString()} (UTC)
               </p>
           )}

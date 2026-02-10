@@ -19,32 +19,32 @@ function DualProgressSkeleton() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Section 1 skeleton */}
         <div className="space-y-4">
-          <SkeletonText width="w-24" height="h-3" />
+          <SkeletonText width="w-24" height="h-4" />
           <div className="space-y-3">
             <div className="flex justify-between">
-              <SkeletonText width="w-20" height="h-3" />
-              <SkeletonText width="w-12" height="h-3" />
+              <SkeletonText width="w-20" height="h-4" />
+              <SkeletonText width="w-12" height="h-4" />
             </div>
-            <SkeletonLoader className="w-full h-3 rounded-full" />
+            <SkeletonLoader className="w-full h-4 rounded-full" />
             <div className="flex justify-between">
-              <SkeletonText width="w-16" height="h-2" />
-              <SkeletonText width="w-16" height="h-2" />
+              <SkeletonText width="w-16" height="h-3" />
+              <SkeletonText width="w-16" height="h-3" />
             </div>
           </div>
         </div>
 
         {/* Section 2 skeleton */}
         <div className="space-y-4">
-          <SkeletonText width="w-28" height="h-3" />
+          <SkeletonText width="w-28" height="h-4" />
           <div className="space-y-3">
             <div className="flex justify-between">
-              <SkeletonText width="w-20" height="h-3" />
-              <SkeletonText width="w-12" height="h-3" />
+              <SkeletonText width="w-20" height="h-4" />
+              <SkeletonText width="w-12" height="h-4" />
             </div>
-            <SkeletonLoader className="w-full h-3 rounded-full" />
+            <SkeletonLoader className="w-full h-4 rounded-full" />
             <div className="flex justify-between">
-              <SkeletonText width="w-16" height="h-2" />
-              <SkeletonText width="w-16" height="h-2" />
+              <SkeletonText width="w-16" height="h-3" />
+              <SkeletonText width="w-16" height="h-3" />
             </div>
           </div>
         </div>
@@ -52,13 +52,13 @@ function DualProgressSkeleton() {
 
       {/* Stats grid skeleton */}
       <div className="grid grid-cols-2 gap-4 mt-6">
-        <div className="border border-cyber-dim p-3 rounded bg-cyber-dark">
-          <SkeletonText width="w-20" height="h-2" className="mb-2" />
-          <SkeletonText width="w-16" height="h-5" />
+        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
+          <SkeletonText width="w-24" height="h-4" className="mb-2" />
+          <SkeletonText width="w-20" height="h-6" />
         </div>
-        <div className="border border-cyber-dim p-3 rounded bg-cyber-dark">
-          <SkeletonText width="w-20" height="h-2" className="mb-2" />
-          <SkeletonText width="w-16" height="h-5" />
+        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
+          <SkeletonText width="w-24" height="h-4" className="mb-2" />
+          <SkeletonText width="w-20" height="h-6" />
         </div>
       </div>
     </SkeletonCard>
@@ -104,12 +104,12 @@ function DualProgressError({ error, onRetry, retrying }) {
 function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
   const colorClasses = {
     primary: {
-      text: "text-cyber-primary",
-      gradient: "from-cyber-secondary to-cyber-primary",
+      text: "text-cyber-cyan",
+      gradient: "from-cyber-cyan to-cyber-primary",
     },
     secondary: {
-      text: "text-cyber-secondary",
-      gradient: "from-cyber-primary to-cyber-secondary",
+      text: "text-cyber-purple",
+      gradient: "from-cyber-purple to-cyber-secondary",
     },
   };
 
@@ -126,14 +126,14 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
       
       <div>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-cyber-muted font-medium">{progress.label}</span>
-          <span className={`text-sm font-bold ${colors.text}`}>
+          <span className="text-base text-cyber-gray font-bold uppercase tracking-wider">{progress.label}</span>
+          <span className={`text-lg font-bold ${colors.text}`}>
             {progress.percentage.toFixed(1)}%
           </span>
         </div>
         
         <div 
-          className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden"
+          className="w-full h-5 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden"
           role="progressbar"
           aria-valuenow={progress.percentage}
           aria-valuemin="0"
@@ -146,11 +146,11 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
           />
         </div>
         
-        <div className="flex justify-between items-center mt-1">
-          <span className="text-xs text-cyber-muted font-medium">
-            {progress.current} / {progress.total}
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-sm text-cyber-gray font-bold font-mono">
+            {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
           </span>
-          <span className="text-xs text-cyber-muted font-medium">
+          <span className="text-sm text-cyber-gray font-bold uppercase tracking-widest">
             {progress.unit}
           </span>
         </div>
@@ -226,7 +226,7 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
             Pipeline Progress
           </h2>
         </div>
-        <p className="text-cyber-muted text-xs">No data available</p>
+        <p className="text-cyber-muted text-sm">No data available</p>
       </SkeletonCard>
     );
   }
@@ -271,9 +271,9 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
             Pipeline Progress
           </h2>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 rounded bg-cyber-dim">
-          <span className="w-2 h-2 bg-cyber-primary rounded-full animate-pulse" />
-          <span className="text-xs font-bold text-cyber-primary">ACTIVE</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-cyber-dim border border-cyber-primary/30">
+          <span className="w-2.5 h-2.5 bg-cyber-primary rounded-full animate-pulse" />
+          <span className="text-sm font-bold text-cyber-primary">ACTIVE</span>
         </div>
       </div>
 
@@ -297,14 +297,14 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
-            <Calendar className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
-            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
+            <Calendar className="w-4 h-4 text-cyber-cyan" aria-hidden="true" />
+            <span className="text-sm text-cyber-gray uppercase tracking-wider font-medium">
               Date Range
             </span>
           </div>
-          <div className="text-cyber-primary font-mono font-bold text-sm">
+          <div className="text-cyber-cyan font-mono font-bold text-base">
             {oldest_date && newest_date ? (
-              <span className="text-xs">
+              <span className="text-sm">
                 {oldest_date} → {newest_date}
               </span>
             ) : (
@@ -315,12 +315,12 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
 
         <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
-            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
+            <Clock className="w-4 h-4 text-cyber-purple" aria-hidden="true" />
+            <span className="text-sm text-cyber-gray uppercase tracking-wider font-medium">
               Total Items
             </span>
           </div>
-          <div className="text-cyber-primary font-mono font-bold text-sm">
+          <div className="text-cyber-purple font-mono font-bold text-base">
             {total_items.toLocaleString()}
           </div>
         </div>
@@ -328,8 +328,8 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
 
       {/* Last Updated */}
       {last_updated && (
-        <div className="mt-3 pt-3 border-t border-cyber-dim flex justify-between items-center">
-          <span className="text-[10px] text-cyber-muted">
+        <div className="mt-3 pt-3 border-t border-cyber-border flex justify-between items-center">
+          <span className="text-sm text-cyber-gray font-medium">
             Last updated: {new Date(last_updated).toLocaleString('pt-BR')}
           </span>
           <button

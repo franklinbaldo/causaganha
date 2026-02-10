@@ -1,8 +1,9 @@
-import unittest
-from unittest.mock import MagicMock, patch, mock_open, ANY
-from pathlib import Path
-import sys
 import os
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
 
 # Add repo root to path
 sys.path.append(os.getcwd())
@@ -28,25 +29,25 @@ class TestUploadBoto(unittest.TestCase):
         with patch("pathlib.Path.open", mock_open(read_data=self.content)):
             success = upload_to_ia(mock_s3, self.item_id, self.file_path, self.date_str)
 
-        self.assertTrue(success)
+        assert success
 
         # Verify put_object called
         mock_s3.put_object.assert_called_once()
         call_args = mock_s3.put_object.call_args
-        self.assertIsNotNone(call_args)
+        assert call_args is not None
 
         kwargs = call_args[1]
-        self.assertEqual(kwargs["Bucket"], self.item_id)
-        self.assertEqual(kwargs["Key"], self.file_path.name)
+        assert kwargs["Bucket"] == self.item_id
+        assert kwargs["Key"] == self.file_path.name
 
         # Check metadata/headers are passed
         # Note: IA headers like x-archive-auto-make-bucket are handled via event hooks in the client,
         # so they won't appear in put_object arguments directly, but Metadata will.
-        self.assertIn("Metadata", kwargs)
+        assert "Metadata" in kwargs
         metadata = kwargs["Metadata"]
-        self.assertEqual(metadata["collection"], "opensource")
-        self.assertEqual(metadata["mediatype"], "data")
-        self.assertEqual(metadata["title"], f"DJEN Data - {self.date_str}")
+        assert metadata["collection"] == "opensource"
+        assert metadata["mediatype"] == "data"
+        assert metadata["title"] == f"DJEN Data - {self.date_str}"
 
     @patch("scripts.pipeline.collect._compute_md5")
     def test_upload_to_ia_failure(self, mock_md5):
@@ -57,4 +58,4 @@ class TestUploadBoto(unittest.TestCase):
         with patch("pathlib.Path.open", mock_open(read_data=self.content)):
             success = upload_to_ia(mock_s3, self.item_id, self.file_path, self.date_str)
 
-        self.assertFalse(success)
+        assert not success

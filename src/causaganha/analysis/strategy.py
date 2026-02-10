@@ -1,9 +1,9 @@
 """Analysis strategy enumerations and configuration."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class AnalysisStrategy(str, Enum):
+class AnalysisStrategy(StrEnum):
     """Strategy for decision analysis.
 
     Determines which analysis method(s) to use and when.

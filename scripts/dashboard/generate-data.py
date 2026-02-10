@@ -65,15 +65,14 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         ORDER BY date
     """).fetchall()
 
-    # Tribunal stats
+    # Tribunal stats (all tribunals for variance calculation)
     tribunal_stats = con.execute("""
         SELECT
             tribunal,
             COUNT(*) as count
         FROM djen_state.coverage
         GROUP BY tribunal
-        ORDER BY count DESC
-        LIMIT 10
+        ORDER BY count ASC
     """).fetchall()
 
     con.close()

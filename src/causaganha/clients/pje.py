@@ -2,6 +2,7 @@
 
 from datetime import date
 from types import TracebackType
+from typing import Self
 
 import httpx
 import structlog
@@ -166,7 +167,7 @@ class PJeAPIClient:
         """Close the HTTP client."""
         await self.client.aclose()
 
-    async def __aenter__(self) -> "PJeAPIClient":
+    async def __aenter__(self) -> Self:
         """Enter context manager."""
         return self
 

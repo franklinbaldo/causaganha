@@ -1,17 +1,30 @@
 import { Calendar, TrendingDown, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { SkeletonLoader, SkeletonText, SkeletonCard } from './SkeletonLoader';
 
 export function BackfillProgressCard({ progress }) {
   if (!progress) {
     return (
-      <div className="bg-cyber-card border border-cyber-border p-6 rounded shadow-glow">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-cyber-primary" />
-          <h2 className="text-cyber-primary font-bold text-sm tracking-widest uppercase">
-            Backfill Progress
-          </h2>
+      <SkeletonCard>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <SkeletonLoader className="w-5 h-5 rounded" />
+            <SkeletonText width="w-32" height="h-4" />
+          </div>
+          <SkeletonLoader className="w-24 h-6 rounded" />
         </div>
-        <p className="text-cyber-muted text-xs">Loading...</p>
-      </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <SkeletonLoader className="h-16 rounded" />
+          <SkeletonLoader className="h-16 rounded" />
+        </div>
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between">
+            <SkeletonText width="w-24" height="h-4" />
+            <SkeletonText width="w-16" height="h-4" />
+          </div>
+          <SkeletonLoader className="w-full h-5 rounded-full" />
+        </div>
+        <SkeletonText width="w-64" height="h-5" />
+      </SkeletonCard>
     );
   }
 
@@ -103,7 +116,7 @@ export function BackfillProgressCard({ progress }) {
         <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
             <TrendingDown className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
-            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
+            <span className="text-sm text-cyber-gray uppercase tracking-wider font-medium">
               Oldest Date
             </span>
           </div>
@@ -115,7 +128,7 @@ export function BackfillProgressCard({ progress }) {
         <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
             <Calendar className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
-            <span className="text-xs text-cyber-muted uppercase tracking-wider font-medium">
+            <span className="text-sm text-cyber-gray uppercase tracking-wider font-medium">
               Newest Date
             </span>
           </div>
@@ -128,40 +141,40 @@ export function BackfillProgressCard({ progress }) {
       {/* Progress Bar */}
       <div className="mb-4">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-xs text-cyber-muted">Coverage: {unique_days} days</span>
-          <span className="text-xs text-cyber-primary font-bold">
+          <span className="text-sm text-cyber-gray font-bold uppercase tracking-wider">Coverage: {unique_days} days</span>
+          <span className="text-lg text-cyber-primary font-bold font-mono">
             {progress_pct?.toFixed(2)}%
           </span>
         </div>
-        <div className="w-full h-4 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress_pct || 0} aria-valuemin="0" aria-valuemax="100" aria-label={`Backfill progress: ${progress_pct?.toFixed(2)}%`}>
+        <div className="w-full h-5 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress_pct || 0} aria-valuemin="0" aria-valuemax="100" aria-label={`Backfill progress: ${progress_pct?.toFixed(2)}%`}>
           <div
             className="h-full bg-gradient-to-r from-cyber-secondary to-cyber-primary transition-all duration-500 shadow-glow-lg"
             style={{ width: `${Math.min(progress_pct || 0, 100)}%` }}
           />
         </div>
-        <div className="flex justify-between items-center mt-1.5">
-          <span className="text-xs text-cyber-muted font-medium">
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-sm text-cyber-gray font-bold font-mono">
             {target_range.start}
           </span>
-          <span className="text-xs text-cyber-muted font-medium">
+          <span className="text-sm text-cyber-gray font-bold">
             {unique_days} / {target_range.total_days} days
           </span>
-          <span className="text-xs text-cyber-muted font-medium">
+          <span className="text-sm text-cyber-gray font-bold font-mono">
             {target_range.end}
           </span>
         </div>
       </div>
 
       {/* ETA */}
-      <div className="flex items-center gap-2 text-sm">
-        <Clock className="w-4 h-4 text-cyber-secondary" aria-hidden="true" />
-        <span className="text-cyber-muted font-medium">ETA to completion:</span>
+      <div className="flex items-center gap-2 text-base">
+        <Clock className="w-5 h-5 text-cyber-secondary" aria-hidden="true" />
+        <span className="text-cyber-gray font-medium">ETA to completion:</span>
         <span className="text-cyber-primary font-bold">{eta}</span>
       </div>
 
       {/* Last Updated */}
       {last_updated && (
-        <div className="mt-3 pt-3 border-t border-cyber-border text-xs text-cyber-muted font-medium">
+        <div className="mt-3 pt-3 border-t border-cyber-border text-sm text-cyber-gray font-medium">
           Last updated: {new Date(last_updated).toLocaleString('pt-BR')}
         </div>
       )}

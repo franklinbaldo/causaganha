@@ -26,12 +26,12 @@ Exit codes:
 
 import argparse
 import json
-import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
+
 
 # Alert history file (tracks sent alerts to prevent spam)
 ALERT_HISTORY_FILE = Path(__file__).parent / ".alert_history.json"
@@ -165,7 +165,7 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
 
         # Calculate age
         try:
-            last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
+            last_updated = datetime.fromisoformat(last_updated_str)
             now = datetime.now(UTC)
             age = now - last_updated
             age_hours = age.total_seconds() / 3600
@@ -217,10 +217,7 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
 
 
 def check_pipeline_errors(error_threshold: float = DEFAULT_ERROR_THRESHOLD_PCT) -> dict:
-    """Check recent pipeline errors from GitHub Actions runs.
-
-    This is a placeholder for future implementation. Currently returns no errors.
-    In production, this would query GitHub API for recent workflow runs.
+    """Check recent pipeline errors from GitHub Actions runs using gh CLI.
 
     Args:
         error_threshold: Error rate percentage threshold
@@ -228,15 +225,67 @@ def check_pipeline_errors(error_threshold: float = DEFAULT_ERROR_THRESHOLD_PCT) 
     Returns:
         Dictionary with error statistics
     """
-    # TODO: Implement GitHub API check
-    # For now, return healthy status
-    return {
-        "error_rate": 0.0,
-        "recent_failures": 0,
-        "total_runs": 0,
-        "is_failing": False,
-        "message": "Pipeline error tracking not yet implemented",
-    }
+    import subprocess
+
+    try:
+        # Get last 5 runs of "Data Pipeline"
+        result = subprocess.run(
+            [
+                "gh",
+                "run",
+                "list",
+                "-w",
+                "Data Pipeline",
+                "-R",
+                "franklinbaldo/causaganha",
+                "-L",
+                "5",
+                "--json",
+                "conclusion,status,createdAt,url",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        runs = json.loads(result.stdout)
+
+        if not runs:
+            return {
+                "error_rate": 0.0,
+                "recent_failures": 0,
+                "total_runs": 0,
+                "is_failing": False,
+                "message": "No recent runs found",
+                "last_run_status": "unknown",
+            }
+
+        total_runs = len(runs)
+        failures = [r for r in runs if r.get("conclusion") == "failure"]
+        recent_failures = len(failures)
+        error_rate = (recent_failures / total_runs) * 100
+        
+        last_run = runs[0]
+        last_status = last_run.get("conclusion") or last_run.get("status")
+
+        return {
+            "error_rate": error_rate,
+            "recent_failures": recent_failures,
+            "total_runs": total_runs,
+            "is_failing": error_rate >= error_threshold,
+            "message": f"Pipeline is failing ({recent_failures}/{total_runs} failed)",
+            "last_run_status": last_status,
+            "last_run_url": last_run.get("url"),
+        }
+
+    except Exception as e:
+        return {
+            "error_rate": 0.0,
+            "recent_failures": 0,
+            "total_runs": 0,
+            "is_failing": False,
+            "message": f"Error checking pipeline: {e}",
+            "last_run_status": "error",
+        }
 
 
 def format_telegram_message(status: BackfillStatus, errors: dict) -> str:
@@ -260,13 +309,22 @@ def format_telegram_message(status: BackfillStatus, errors: dict) -> str:
         f"• Date range: {status.oldest_date} → {status.newest_date}",
         f"• Last update: {status.age_hours:.1f}h ago",
         "",
-        "**Next Steps:**",
+        "**Worker Status (GitHub Actions):**",
+        f"• Status: {errors.get('last_run_status', 'unknown')}",
+        f"• Recent Failures: {errors.get('recent_failures', 0)}/{errors.get('total_runs', 0)}",
+        f"• Message: {errors.get('message', 'N/A')}",
     ]
 
-    if status.is_stuck:
+    if errors.get("last_run_url"):
+        lines.append(f"• Last Run: [View on GitHub]({errors['last_run_url']})")
+
+    lines.append("")
+    lines.append("**Next Steps:**")
+
+    if status.is_stuck or errors.get("is_failing"):
         lines.extend(
             [
-                "1. Check GitHub Actions workflow logs",
+                "1. Check GitHub Actions workflow logs (429 errors detected?)",
                 "2. Verify Internet Archive upload status",
                 "3. Review consolidate.py logs for errors",
                 "4. Consider manual restart if needed",
@@ -284,8 +342,8 @@ def format_telegram_message(status: BackfillStatus, errors: dict) -> str:
     lines.extend(
         [
             "",
-            f"🔗 [GitHub Actions](https://github.com/franklinbaldo/causaganha/actions)",
-            f"🔗 [Dashboard](https://causaganha.com.br)",
+            "🔗 [GitHub Actions](https://github.com/franklinbaldo/causaganha/actions)",
+            "🔗 [Dashboard](https://causaganha.com.br)",
         ]
     )
 
@@ -400,9 +458,9 @@ def main() -> int:
             if not args.dry_run:
                 history = mark_alert_sent(alert_type, history)
                 save_alert_history(history)
-                print(f"✅ Alert sent and logged")
+                print("✅ Alert sent and logged")
         else:
-            print(f"❌ Failed to send alert")
+            print("❌ Failed to send alert")
             return 2
     elif status.level in ("warning", "critical"):
         print(

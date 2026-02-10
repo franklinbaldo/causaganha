@@ -119,11 +119,11 @@ TRIBUNALS = [
 def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
     """Fetch JSON from URL with error handling."""
     try:
-        req = urllib.request.Request(  # noqa: S310
+        req = urllib.request.Request(
             url,
             headers={"User-Agent": "CausaGanha-Dashboard/3.0"},
         )
-        with urllib.request.urlopen(req, timeout=timeout) as response:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=timeout) as response:
             data: dict[str, Any] = json.loads(response.read().decode())
             return data
     except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
@@ -672,7 +672,7 @@ def main() -> None:
             tmp = Path(tempfile.mkdtemp()) / "manifest.parquet"
             try:
                 print(f"  Downloading manifest to {tmp}...")
-                urllib.request.urlretrieve(MANIFEST_URL, str(tmp))  # noqa: S310
+                urllib.request.urlretrieve(MANIFEST_URL, str(tmp))
                 manifest_path = str(tmp)
             except Exception as e:
                 print(f"  Warning: Could not download manifest: {e}", file=sys.stderr)
@@ -690,7 +690,7 @@ def main() -> None:
         tmp_bf = Path(_tempfile.mkdtemp()) / "backfill-needed.parquet"
         try:
             print(f"  Downloading backfill-needed to {tmp_bf}...")
-            urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))  # noqa: S310
+            urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
             backfill_path = str(tmp_bf)
         except Exception as e:
             print(f"  Warning: Could not download backfill-needed: {e}", file=sys.stderr)

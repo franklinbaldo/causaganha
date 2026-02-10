@@ -23,15 +23,15 @@ export function TimelineGraph({ data = [] }) {
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                        <XAxis dataKey="date" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                        <XAxis dataKey="date" stroke="#666" tick={{fill: '#b0b0b0', fontSize: 13}} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#666" tick={{fill: '#b0b0b0', fontSize: 13}} tickLine={false} axisLine={false} />
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#333', color: '#e0e0e0' }}
-                            itemStyle={{ color: '#00ff41' }}
-                            cursor={{fill: 'rgba(0, 255, 65, 0.1)'}}
+                            contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#404040', color: '#f0f0f0' }}
+                            itemStyle={{ color: '#00f2ff' }}
+                            cursor={{fill: 'rgba(0, 242, 255, 0.1)'}}
                             labelFormatter={(label, payload) => payload[0]?.payload.fullDate || label}
                         />
-                        <Bar dataKey="uploads" fill="#008f11" radius={[2, 2, 0, 0]} animationDuration={1500} name="Uploads" />
+                        <Bar dataKey="uploads" fill="#00f2ff" radius={[2, 2, 0, 0]} animationDuration={1500} name="Uploads" />
                     </BarChart>
                 </ResponsiveContainer>
              </div>

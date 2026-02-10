@@ -17,6 +17,14 @@ ignore = [
     "COM812",   # trailing comma conflicts with ruff formatter
     "ISC001",   # implicit string concat conflicts with ruff formatter
     "S608",     # Construction of SQL queries with f-strings
+    "RUF003",   # ambiguous characters in comments
+    "S310",     # URL audit (often false positive or accepted risk)
+    "TD002",    # TODO author
+    "TD003",    # TODO issue link
+    "FIX002",   # TODO line
+    "ASYNC240", # Path usage in async OK for now
+    "D107",     # Missing docstring in __init__ OK (class docstring sufficient)
+    "S104",     # Binding to all interfaces (often false positive in string checks)
 ]
 
 [lint.per-file-ignores]
@@ -27,15 +35,25 @@ ignore = [
     "PLR2004",  # magic values OK in tests
     "COM812",   # trailing comma optional in tests
     "ANN",      # type annotations optional in tests
-    "D100",     # missing docstring at module level OK
-    "D102",     # missing docstring in public method OK
-    "D103",     # missing docstring OK (pytest-bdd step defs / scenario stubs)
-    "D104",     # missing docstring in package OK
+    "D",        # docstrings optional in tests
     "ARG001",   # unused args OK (pytest-bdd step context)
     "S608",     # SQL construction OK (test queries)
     "F841",     # unused local OK in tests
     "PLR0124",  # self-comparison OK (contract tests)
     "PT011",    # broad pytest.raises OK
+    "PLW1510",  # subprocess check OK
+    "PTH",      # pathlib rules optional in tests
+    "N806",     # variable naming OK
+    "SIM",      # simplification rules optional
+    "PT009",    # unittest assertions OK (legacy tests)
+    "PT027",    # unittest raises OK
+    "SLF001",   # private member access OK
+    "PLR0913",  # too many args OK
+    "EXE001",   # shebang OK
+    "PT028",    # test function arg default OK
+]
+"test_*.py" = [
+    "S101", "PLC0415", "PLR2004", "COM812", "ANN", "D", "ARG001", "S608", "F841", "PLR0124", "PT011", "PLW1510", "PTH", "N806", "SIM", "PT009", "PT027", "SLF001", "PLR0913", "EXE001", "PT028"
 ]
 # Scripts are CLI tools - allow print, subprocess, section comments
 "scripts/**/*.py" = [
@@ -79,6 +97,9 @@ ignore = [
     "SIM108",   # ternary not required
     "TRY301",   # abstract raise not required
     "SLF001",   # private member access OK in debug scripts
+    "SIM",      # simplification rules optional in scripts
+    "PLW0603",  # global statement OK in scripts
+    "D",        # docstrings optional in scripts
 ]
 # Experiments are throwaway/exploratory code
 "experiments/**/*.py" = [
