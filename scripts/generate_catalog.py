@@ -414,9 +414,7 @@ def generate_manifest(items: list[str]) -> list[dict]:
     # Parallelize file listing to speed up catalog generation
     # Uses 16 workers to fetch file lists concurrently
     with ThreadPoolExecutor(max_workers=16) as executor:
-        future_to_item = {
-            executor.submit(list_item_files, item_id): item_id for item_id in items
-        }
+        future_to_item = {executor.submit(list_item_files, item_id): item_id for item_id in items}
 
         for future in as_completed(future_to_item):
             item_id = future_to_item[future]
