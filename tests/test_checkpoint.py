@@ -76,10 +76,11 @@ def scan_unconsolidated(context):
     def stopped_side_effect(d):
         return (date.today() - d).days > 10
 
-    with patch("consolidate._all_tribunals_stopped", side_effect=stopped_side_effect), \
-         patch("consolidate._needs_consolidation", side_effect=mock_needs), \
-         patch("consolidate.fetch_consolidation_candidates", return_value=[]):
-        
+    with (
+        patch("consolidate._all_tribunals_stopped", side_effect=stopped_side_effect),
+        patch("consolidate._needs_consolidation", side_effect=mock_needs),
+        patch("consolidate.fetch_consolidation_candidates", return_value=[]),
+    ):
         find_next_unconsolidated(checkpoint_file)
 
     context["checked_dates"] = checked_dates
@@ -99,7 +100,7 @@ def checkpoint_file_exists(context):
 def checkpoint_contains_date(context):
     with open(context["checkpoint_file"]) as f:
         data = json.load(f)
-    
+
     assert "last_checked" in data
     # The last checked date should be the one where the scan stopped (11 days ago)
     last_checked = (date.today() - timedelta(days=11)).strftime("%Y-%m-%d")
@@ -115,7 +116,7 @@ def checkpoint_contains_date(context):
     #    return d_str
     # checkpoint.save(d_str)
     # days_ago += 1
-    
+
     # It saves EVERY date it checks.
     assert data["last_checked"] in context["checked_dates"]
 

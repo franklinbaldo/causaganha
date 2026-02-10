@@ -8,6 +8,7 @@ from pathlib import Path
 # Adjusting import to work with pytest and project structure
 from scripts.pipeline.consolidate import CheckpointManager, find_next_unconsolidated
 
+
 class TestCheckpointManager:
     """Unit tests for CheckpointManager class."""
 
@@ -42,6 +43,7 @@ class TestCheckpointManager:
         manager = CheckpointManager(checkpoint_file)
         assert manager.load() is None
 
+
 @patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
 @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
 @patch("scripts.pipeline.consolidate._needs_consolidation")
@@ -52,23 +54,23 @@ class TestConsolidationCheckpointing:
         """Verify that scanning resumes from the checkpoint if restarted."""
         # Ensure manifest discovery doesn't skip the checkpoint logic
         mock_fetch.return_value = []
-        
+
         checkpoint_file = tmp_path / "checkpoint.json"
         today = date.today()
-        # Save "3 days ago" as last checked. 
+        # Save "3 days ago" as last checked.
         # find_next_unconsolidated should start checking from 4 days ago.
         last_checked = (today - timedelta(days=3)).strftime("%Y-%m-%d")
         with open(checkpoint_file, "w") as f:
             json.dump({"last_checked": last_checked}, f)
 
         mock_stopped.return_value = False
-        
+
         # Stop scanning after a few dates to be fast
         def needs_side_effect(d_str, **kwargs):
             # Stop when we reach 10 days ago
             d = date.fromisoformat(d_str)
             return d <= today - timedelta(days=10)
-            
+
         mock_needs.side_effect = needs_side_effect
 
         # We must clear the global cache to avoid side effects from other tests
@@ -85,17 +87,17 @@ class TestConsolidationCheckpointing:
         """Verify that checkpoint is saved after checking each date."""
         mock_fetch.return_value = []
         checkpoint_file = tmp_path / "checkpoint.json"
-        
+
         mock_stopped.return_value = False
         # Stop after some iterations by finding something
         # Use a weekday to avoid being skipped by the weekend check
         # 2026-02-10 is Tuesday. 4 days ago is 2026-02-06 (Friday).
         today = date.today()
         target_date = (today - timedelta(days=4)).strftime("%Y-%m-%d")
-        
+
         def needs_side_effect(d_str, **kwargs):
             return d_str == target_date
-            
+
         mock_needs.side_effect = needs_side_effect
 
         with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
@@ -105,6 +107,6 @@ class TestConsolidationCheckpointing:
         assert checkpoint_file.exists()
         with open(checkpoint_file) as f:
             data = json.load(f)
-        
+
         # Should contain the date it found (or the last one it checked)
         assert data["last_checked"] == target_date

@@ -589,11 +589,11 @@ def _process_item(
 
 def fetch_existing_progress() -> dict | None:
     """Fetch the existing progress from Internet Archive.
-    
+
     Returns the existing progress dict or None on error.
     """
     import urllib.request
-    
+
     url = "https://archive.org/download/causaganha-catalog/collect-progress.json"
     try:
         with urllib.request.urlopen(url, timeout=10) as response:
@@ -615,10 +615,10 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
     try:
         from datetime import date as date_type
         import subprocess
-        
+
         # Fetch existing progress from IA
         existing = fetch_existing_progress() or {}
-        
+
         # Query current session's coverage from local DB
         result = con.execute("""
             SELECT 
@@ -628,41 +628,43 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 COUNT(*) as total_items
             FROM djen_state.coverage
         """).fetchone()
-        
+
         session_oldest = result[0] if result and result[0] else None
         session_newest = result[1] if result and result[1] else None
         session_unique_days = result[2] if result else 0
         session_total_items = result[3] if result else 0
-        
+
         # Merge with existing: expand date range, add items
         existing_oldest = existing.get("oldest_date")
         existing_newest = existing.get("newest_date")
         existing_total = existing.get("total_items", 0)
-        
+
         # Determine merged date range
         if session_oldest and existing_oldest:
             merged_oldest = min(str(session_oldest), existing_oldest)
         else:
             merged_oldest = str(session_oldest) if session_oldest else existing_oldest
-            
+
         if session_newest and existing_newest:
             merged_newest = max(str(session_newest), existing_newest)
         else:
             merged_newest = str(session_newest) if session_newest else existing_newest
-        
+
         # Add session items to existing total
         merged_total = existing_total + session_total_items
-        
+
         # Estimate unique days (this is an approximation; full catalog rebuild will correct it)
         # We can't know exact unique days without the full manifest
         existing_unique = existing.get("unique_days", 0)
         merged_unique_days = max(existing_unique, existing_unique + session_unique_days)
-        
+
         # Calculate progress
         target_start = date_type(2024, 1, 1)
         target_end = date_type.today()
         total_target_days = (target_end - target_start).days + 1
-        progress_pct = (merged_unique_days / total_target_days) * 100 if total_target_days > 0 else 0
+        progress_pct = (
+            (merged_unique_days / total_target_days) * 100 if total_target_days > 0 else 0
+        )
 
         progress_data = {
             "oldest_date": merged_oldest,

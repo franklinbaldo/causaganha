@@ -263,7 +263,7 @@ def check_pipeline_errors(error_threshold: float = DEFAULT_ERROR_THRESHOLD_PCT) 
         failures = [r for r in runs if r.get("conclusion") == "failure"]
         recent_failures = len(failures)
         error_rate = (recent_failures / total_runs) * 100
-        
+
         last_run = runs[0]
         last_status = last_run.get("conclusion") or last_run.get("status")
 
