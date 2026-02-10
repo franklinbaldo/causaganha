@@ -588,16 +588,39 @@ def _process_item(
         return "failed", 0.0
 
 
+def fetch_existing_progress() -> dict | None:
+    """Fetch the existing progress from Internet Archive.
+    
+    Returns the existing progress dict or None on error.
+    """
+    import urllib.request
+    
+    url = "https://archive.org/download/causaganha-catalog/collect-progress.json"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            return json.loads(response.read())
+    except Exception as e:
+        logger.warning("fetch_existing_progress_failed", error=str(e))
+        return None
+
+
 def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyConnection) -> bool:
     """Update the catalog progress JSON in Internet Archive incrementally.
 
-    This allows tracking progress even if the pipeline times out.
-    Only updates the progress JSON files, not the full manifest.
+    Fetches existing progress from IA, merges with current session data,
+    and uploads the combined result. This ensures progress accumulates
+    across multiple pipeline runs.
 
     Returns True on success, False on error (non-fatal).
     """
     try:
-        # Query current coverage from local DB
+        from datetime import date as date_type
+        import subprocess
+        
+        # Fetch existing progress from IA
+        existing = fetch_existing_progress() or {}
+        
+        # Query current session's coverage from local DB
         result = con.execute("""
             SELECT 
                 MIN(date) as oldest_date,
@@ -606,26 +629,47 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 COUNT(*) as total_items
             FROM djen_state.coverage
         """).fetchone()
-
-        if not result or result[0] is None:
-            logger.debug("no_coverage_data_to_report")
-            return True
-
-        oldest_date, newest_date, unique_days, total_items = result
-
-        # Calculate progress (target: 2024-01-01 to today)
-        from datetime import date as date_type
-
+        
+        session_oldest = result[0] if result and result[0] else None
+        session_newest = result[1] if result and result[1] else None
+        session_unique_days = result[2] if result else 0
+        session_total_items = result[3] if result else 0
+        
+        # Merge with existing: expand date range, add items
+        existing_oldest = existing.get("oldest_date")
+        existing_newest = existing.get("newest_date")
+        existing_total = existing.get("total_items", 0)
+        
+        # Determine merged date range
+        if session_oldest and existing_oldest:
+            merged_oldest = min(str(session_oldest), existing_oldest)
+        else:
+            merged_oldest = str(session_oldest) if session_oldest else existing_oldest
+            
+        if session_newest and existing_newest:
+            merged_newest = max(str(session_newest), existing_newest)
+        else:
+            merged_newest = str(session_newest) if session_newest else existing_newest
+        
+        # Add session items to existing total
+        merged_total = existing_total + session_total_items
+        
+        # Estimate unique days (this is an approximation; full catalog rebuild will correct it)
+        # We can't know exact unique days without the full manifest
+        existing_unique = existing.get("unique_days", 0)
+        merged_unique_days = max(existing_unique, existing_unique + session_unique_days)
+        
+        # Calculate progress
         target_start = date_type(2024, 1, 1)
         target_end = date_type.today()
         total_target_days = (target_end - target_start).days + 1
-        progress_pct = (unique_days / total_target_days) * 100 if total_target_days > 0 else 0
+        progress_pct = (merged_unique_days / total_target_days) * 100 if total_target_days > 0 else 0
 
         progress_data = {
-            "oldest_date": str(oldest_date),
-            "newest_date": str(newest_date),
-            "unique_days": unique_days,
-            "total_items": total_items,
+            "oldest_date": merged_oldest,
+            "newest_date": merged_newest,
+            "unique_days": merged_unique_days,
+            "total_items": merged_total,
             "target_range": {
                 "start": str(target_start),
                 "end": str(target_end),
@@ -638,6 +682,7 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 "failed": stats.get("failed", 0),
                 "skipped": stats.get("skipped", 0),
                 "downloaded_mb": round(stats.get("downloaded_mb", 0), 2),
+                "session_items": session_total_items,
             },
         }
 
@@ -647,8 +692,6 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
             temp_path = Path(f.name)
 
         try:
-            import subprocess
-
             result = subprocess.run(
                 [
                     "ia",
@@ -668,8 +711,8 @@ def update_catalog_progress(stats: dict[str, int | float], con: duckdb.DuckDBPyC
                 logger.info(
                     "catalog_progress_updated",
                     progress_pct=f"{progress_pct:.2f}%",
-                    unique_days=unique_days,
-                    total_items=total_items,
+                    merged_total=merged_total,
+                    session_items=session_total_items,
                 )
                 return True
             else:
