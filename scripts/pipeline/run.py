@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "1",  # CONSERVATIVE: Start with 1 worker to validate httpx fix. Scale up gradually once stable.
+        "4",  # GRADUAL SCALE-UP: httpx fix validated (1.70% progress). Testing light parallelism.
         "--deadline",
         "1200s",
     )
