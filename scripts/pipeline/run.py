@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "1",  # CONSERVATIVE: Start with 1 worker to validate httpx fix. Scale up gradually once stable.
+        "64",
         "--deadline",
         "1200s",
     )
@@ -154,7 +154,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--deadline",
         "1200s",
         "--workers",
-        "16",
+        "32",
     )
     mode_args: tuple[str, ...] = (
         ("--date", config.date) if config.date else ("--backfill", "--force")

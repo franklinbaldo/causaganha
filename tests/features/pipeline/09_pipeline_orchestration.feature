@@ -228,7 +228,7 @@ Feature: Pipeline Orchestration
     Then the command should include flag "--date" with value "2026-01-15"
     And the command should not include flag "--backfill"
     And the command should include flag "--deadline" with value "1200s"
-    And the command should include flag "--workers" with value "16"
+    And the command should include flag "--workers" with value "32"
 
   @pipeline @command
   Scenario: Build consolidate command in backfill mode
