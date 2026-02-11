@@ -89,11 +89,16 @@ class TestConsolidationCheckpointing:
         checkpoint_file = tmp_path / "checkpoint.json"
 
         mock_stopped.return_value = False
-        # Stop after some iterations by finding something
-        # Use a weekday to avoid being skipped by the weekend check
-        # 2026-02-10 is Tuesday. 4 days ago is 2026-02-06 (Friday).
+
+        # Ensure target_date is a weekday.
+        # Check back a few days to avoid issues if we're near a weekend.
+        # Monday=0, Sunday=6.
         today = date.today()
-        target_date = (today - timedelta(days=4)).strftime("%Y-%m-%d")
+        days_back = 4
+        while (today - timedelta(days=days_back)).weekday() >= 5:
+            days_back += 1
+
+        target_date = (today - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
         def needs_side_effect(d_str, **kwargs):
             return d_str == target_date
