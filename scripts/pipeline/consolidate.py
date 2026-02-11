@@ -59,15 +59,14 @@ from causaganha.storage.djen_schema import (  # noqa: E402
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
-
-# Cache for tribunal stopped checks (tribunal -> date -> bool)
-_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
-
 # Cache for consolidation candidates (list of dates)
 _CONSOLIDATION_CANDIDATES: list[str] | None = None
 
 # Internet Archive S3-compatible API endpoint
 _IA_S3_URL = "https://s3.us.archive.org"
+
+# Checkpoint state file path
+_CHECKPOINT_STATE_FILE = Path("data/consolidate-checkpoint.json")
 
 
 def _compute_md5(file_path: Path) -> str:
@@ -77,6 +76,77 @@ def _compute_md5(file_path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def load_checkpoint_state() -> dict[str, Any]:
+    """Load checkpoint state from disk.
+    
+    Returns:
+        dict with keys:
+            - current_date: date being processed (str | None)
+            - processed_zips: list of ZIP filenames already processed
+            - completed_dates: list of fully completed dates
+    """
+    if not _CHECKPOINT_STATE_FILE.exists():
+        return {
+            "current_date": None,
+            "processed_zips": [],
+            "completed_dates": [],
+        }
+    
+    try:
+        with _CHECKPOINT_STATE_FILE.open("r") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning("checkpoint_load_failed", error=str(e))
+        return {
+            "current_date": None,
+            "processed_zips": [],
+            "completed_dates": [],
+        }
+
+
+def save_checkpoint_state(state: dict[str, Any]) -> None:
+    """Save checkpoint state to disk."""
+    _CHECKPOINT_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with _CHECKPOINT_STATE_FILE.open("w") as f:
+            json.dump(state, f, indent=2)
+        logger.info("checkpoint_saved", date=state.get("current_date"), 
+                    processed=len(state.get("processed_zips", [])))
+    except Exception as e:
+        logger.error("checkpoint_save_failed", error=str(e))
+
+
+def update_checkpoint_progress(date: str, zip_filename: str) -> None:
+    """Update checkpoint state after processing a ZIP."""
+    state = load_checkpoint_state()
+    
+    # If switching to a new date, reset processed_zips
+    if state["current_date"] != date:
+        state["current_date"] = date
+        state["processed_zips"] = []
+    
+    # Add ZIP to processed list
+    if zip_filename not in state["processed_zips"]:
+        state["processed_zips"].append(zip_filename)
+    
+    save_checkpoint_state(state)
+
+
+def mark_date_complete(date: str) -> None:
+    """Mark a date as fully consolidated."""
+    state = load_checkpoint_state()
+    
+    if date not in state["completed_dates"]:
+        state["completed_dates"].append(date)
+    
+    # Reset current_date and processed_zips
+    state["current_date"] = None
+    state["processed_zips"] = []
+    
+    save_checkpoint_state(state)
+    logger.info("date_marked_complete", date=date)
 
 
 def fetch_manifest_records() -> list[dict]:
@@ -1356,12 +1426,30 @@ def consolidate_date(
     }
     item_id = f"djen-{date}"
 
+    # Load checkpoint state
+    checkpoint = load_checkpoint_state()
+    processed_zips_set = set(checkpoint.get("processed_zips", []))
+    
+    if checkpoint.get("current_date") == date and processed_zips_set:
+        logger.info("resuming_from_checkpoint", date=date, 
+                    already_processed=len(processed_zips_set))
+
     # Find all ZIPs and check if day's matrix is complete
     if local_zips:
         zips, present_count = list_local_zips(local_zips)
         logger.info("using_local_zips", directory=local_zips, count=len(zips))
     else:
         zips, present_count = list_zips_for_date(date, manifest)
+
+    # Filter out already processed ZIPs
+    original_count = len(zips)
+    zips = [z for z in zips if z["filename"] not in processed_zips_set]
+    
+    if original_count > len(zips):
+        logger.info("skipping_processed_zips", 
+                    total=original_count, 
+                    remaining=len(zips),
+                    skipped=original_count - len(zips))
 
     # Limit ZIPs if max_zips specified (for backfill batching)
     if max_zips > 0 and len(zips) > max_zips:
@@ -1380,6 +1468,9 @@ def consolidate_date(
         return stats
 
     if not zips:
+        # All ZIPs processed, mark date complete
+        if original_count > 0 and not dry_run:
+            mark_date_complete(date)
         logger.info("nothing_to_consolidate", date=date)
         return stats
 
@@ -1393,7 +1484,7 @@ def consolidate_date(
         ndjson_dir.mkdir()
 
         # Phase 1: Extract ZIPs → raw per-tribunal NDJSON (zero Python mutation)
-        # Parallel processing of ZIPs
+        # Parallel processing of ZIPs with checkpoint after each
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(
@@ -1408,12 +1499,19 @@ def consolidate_date(
             }
 
             for future in as_completed(futures):
+                zip_entry = futures[future]
+                zip_filename = zip_entry["filename"]
                 try:
                     success_cnt, records_cnt = future.result()
                     stats["zips_processed"] += success_cnt
                     stats["records"] += records_cnt
+                    
+                    # Save checkpoint after each ZIP
+                    if success_cnt > 0 and not dry_run:
+                        update_checkpoint_progress(date, zip_filename)
+                        
                 except Exception as e:
-                    logger.error("zip_processing_error", error=str(e))
+                    logger.error("zip_processing_error", zip=zip_filename, error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
         if stats["records"] > 0:
@@ -1459,6 +1557,8 @@ def consolidate_date(
             if stats["parquets_created"] > 0 and not dry_run:
                 if _upload_marker(client, item_id, date):
                     logger.info("marker_uploaded", item_id=item_id)
+                    # Mark date as complete in checkpoint
+                    mark_date_complete(date)
                 else:
                     logger.warning("marker_upload_failed", item_id=item_id)
 
