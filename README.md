@@ -330,10 +330,10 @@ causaganha/
 │   ├── catalog/             # DuckDB catalog generator
 │   └── clients/             # External service clients
 ├── djen-scraper/            # DJEN scraping infrastructure
-│   ├── dashboard/           # Status dashboard (React)
 │   └── scripts/             # Conversion scripts
+├── dashboard/               # Pipeline monitoring dashboard (Astro)
 ├── .github/workflows/       # GitHub Actions pipelines
-├── docs/                    # Documentation
+├── docs/                    # Archived documentation
 └── tests/                   # BDD and unit tests
 ```
 
