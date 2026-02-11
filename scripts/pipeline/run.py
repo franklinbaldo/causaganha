@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "64",  # OPTIMIZED: High concurrency for backfill velocity.
+        "1",  # CONSERVATIVE: Start with 1 worker to validate httpx fix. Scale up gradually once stable.
         "--deadline",
         "1200s",
     )
