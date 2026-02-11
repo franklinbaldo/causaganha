@@ -34,6 +34,9 @@ DJEN_START_DATE = date(2024, 1, 1)
 
 IA_CATALOG_ITEM = "causaganha-catalog"
 
+# Known table names from consolidation output
+KNOWN_TABLE_NAMES = {"comunicacoes", "textos", "destinatarios", "partes", "advogados", "comunicacao_advogados"}
+
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
@@ -158,8 +161,8 @@ def _validate_tribunal_code(tribunal: str) -> bool:
     """Validate tribunal code format."""
     import re
 
-    # Tribunal codes: 2-10 uppercase letters/numbers
-    return bool(re.match(r"^[A-Z0-9]{2,10}$", tribunal.upper()))
+    # Tribunal codes: 2-10 uppercase letters/numbers, may include dashes (e.g. TRE-AC)
+    return bool(re.match(r"^[A-Z0-9][A-Z0-9-]{1,9}$", tribunal.upper()))
 
 
 def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
@@ -316,13 +319,14 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
 
     if filename.endswith(".zip"):
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
+        # djen-2026-01-15-TRE-AC.zip -> date=2026-01-15, tribunal=TRE-AC
         try:
-            # Format: YYYY-MM-DD-TRIBUNAL
+            # Format: YYYY-MM-DD-TRIBUNAL (tribunal may contain dashes, e.g. TRE-AC)
             split_parts = parts.split("-")
             if len(split_parts) < 4:
                 return None
             date_str = "-".join(split_parts[:3])
-            tribunal = split_parts[3]
+            tribunal = "-".join(split_parts[3:])  # Join all remaining parts
 
             # Validate date and tribunal
             if not _validate_date_str(date_str):
@@ -344,12 +348,13 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
 
     elif filename.endswith(".absent"):
         # djen-2026-01-15-TJSP.absent -> date=2026-01-15, tribunal=TJSP
+        # djen-2026-01-15-TRE-AC.absent -> date=2026-01-15, tribunal=TRE-AC
         try:
             split_parts = parts.split("-")
             if len(split_parts) < 4:
                 return None
             date_str = "-".join(split_parts[:3])
-            tribunal = split_parts[3]
+            tribunal = "-".join(split_parts[3:])  # Join all remaining parts
 
             if not _validate_date_str(date_str):
                 return None
@@ -370,23 +375,38 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
 
     elif filename.endswith(".parquet"):
         # djen-2026-01-15-TJSP-comunicacoes.parquet
+        # djen-2026-01-15-TRE-AC-comunicacoes.parquet (tribunal with dash)
         try:
-            # Format: YYYY-MM-DD-TRIBUNAL-table
+            # Format: YYYY-MM-DD-TRIBUNAL-table (tribunal may contain dashes)
             split_parts = parts.split("-")
             if len(split_parts) < 5:
                 return None
             date_str = "-".join(split_parts[:3])
-            tribunal = split_parts[3]
-            table_name = "-".join(split_parts[4:])
+            
+            # Find table name by checking from end (table names are known)
+            table_name = None
+            tribunal_end_idx = len(split_parts)
+            for i in range(len(split_parts) - 1, 2, -1):
+                candidate = "-".join(split_parts[i:])
+                if candidate in KNOWN_TABLE_NAMES:
+                    table_name = candidate
+                    tribunal_end_idx = i
+                    break
+                # Also check single part
+                if split_parts[i] in KNOWN_TABLE_NAMES:
+                    table_name = split_parts[i]
+                    tribunal_end_idx = i
+                    break
+            
+            if not table_name:
+                return None  # Unknown table format
+                
+            tribunal = "-".join(split_parts[3:tribunal_end_idx])
 
             # Validate date and tribunal
             if not _validate_date_str(date_str):
                 return None
             if not _validate_tribunal_code(tribunal):
-                return None
-
-            # Validate table_name is not empty
-            if not table_name:
                 return None
 
             return {
