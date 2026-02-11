@@ -154,7 +154,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--deadline",
         "1200s",
         "--workers",
-        "16",
+        "4",  # Gradual scale-up (aligned with collect.py): 4 workers, reduce OOM risk
     )
     mode_args: tuple[str, ...] = (
         ("--date", config.date) if config.date else ("--backfill", "--force")

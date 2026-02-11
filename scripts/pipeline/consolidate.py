@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import decimal
+import hashlib
 import json
 import os
 import subprocess
@@ -64,6 +65,18 @@ _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 
 # Cache for consolidation candidates (list of dates)
 _CONSOLIDATION_CANDIDATES: list[str] | None = None
+
+# Internet Archive S3-compatible API endpoint
+_IA_S3_URL = "https://s3.us.archive.org"
+
+
+def _compute_md5(file_path: Path) -> str:
+    """Compute hex-encoded MD5 checksum (IA S3 format)."""
+    h = hashlib.md5()
+    with file_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def fetch_manifest_records() -> list[dict]:
@@ -827,21 +840,64 @@ def init_tables(con: ibis.BaseBackend) -> None:
         con.create_table(table, schema=schema, overwrite=True)
 
 
-def upload_to_ia(item_id: str, file_path: Path) -> bool:
-    """Upload file to Internet Archive using IA CLI."""
-    try:
-        logger.info("uploading_to_ia", item_id=item_id, file=file_path.name)
-        cmd = ["ia", "upload", item_id, str(file_path), "--metadata", "mediatype:data"]
-        # In a real environment, we'd ensure IAS3 keys are set
-        # This assumes the environment is already configured or keys are in ~/.ia
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return result.returncode == 0
-    except Exception as e:
-        logger.error("upload_failed", item_id=item_id, file=file_path.name, error=str(e))
-        return False
+def upload_to_ia(client: httpx.Client, item_id: str, file_path: Path, date_str: str) -> bool:
+    """Upload file to Internet Archive via httpx (direct HTTP PUT).
+
+    CRITICAL: We use httpx instead of 'ia' CLI for consistency with collect.py
+    and better performance (no shell out + re-auth per file).
+    
+    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
+    while IA requires 'x-archive-meta-*'. See PR #348 for details.
+    """
+    filename = file_path.name
+    url = f"{_IA_S3_URL}/{item_id}/{filename}"
+    content_md5 = _compute_md5(file_path)
+
+    headers = {
+        "Content-MD5": content_md5,
+        "x-archive-auto-make-bucket": "1",
+        "x-archive-queue-derive": "0",
+        "x-archive-meta-collection": "opensource",
+        "x-archive-meta-mediatype": "data",
+        "x-archive-meta-title": f"DJEN Consolidated - {date_str}",
+        "x-archive-meta-description": (
+            "Consolidated Parquet files from Brazilian court communications."
+        ),
+        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "x-archive-meta-creator": "CausaGanha",
+        "x-archive-meta-date": date_str,
+    }
+
+    # Retry strategy with exponential backoff
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with file_path.open("rb") as f:
+                response = client.put(url, content=f, headers=headers, timeout=300)
+            if response.is_success:
+                return True
+            logger.warning(
+                "upload_http_error",
+                item_id=item_id,
+                file=filename,
+                status=response.status_code,
+                attempt=attempt + 1,
+            )
+            if response.status_code < 500:
+                return False  # Client error — don't retry
+        except Exception as e:
+            logger.warning(
+                "upload_error",
+                item_id=item_id,
+                error=str(e),
+                attempt=attempt + 1,
+            )
+        if attempt < max_retries - 1:
+            time.sleep(5 * (attempt + 1))
+    return False
 
 
-def _upload_marker(item_id: str) -> bool:
+def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
     """Upload consolidation marker to Internet Archive.
 
     Creates empty _consolidated.marker file to signal that this date
@@ -855,7 +911,7 @@ def _upload_marker(item_id: str) -> bool:
             # Empty file - existence is the signal
 
         logger.info("uploading_marker", item_id=item_id)
-        success = upload_to_ia(item_id, marker_path)
+        success = upload_to_ia(client, item_id, marker_path, date_str)
 
         # Cleanup temp file
         try:
@@ -1165,6 +1221,8 @@ def _export_and_upload_table(
     con: ibis.BaseBackend,
     output_dir: Path,
     item_id: str,
+    client: httpx.Client,
+    date_str: str,
     *,
     dry_run: bool,
 ) -> tuple[bool, float, int]:
@@ -1190,7 +1248,7 @@ def _export_and_upload_table(
 
         # Upload if not dry run
         uploaded = 0
-        if not dry_run and upload_to_ia(item_id, output_path):
+        if not dry_run and upload_to_ia(client, item_id, output_path, date_str):
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
@@ -1362,31 +1420,47 @@ def consolidate_date(
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
             logger.info("transform_complete", tables=table_counts)
 
-        # Phase 3: Export to Parquet and upload
+        # Phase 3: Export to Parquet and upload (parallel for 2-3x speedup)
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
         logger.info("exporting_parquets", table_count=len(TABLES))
 
-        for table_name in TABLES:
-            success, size_mb, uploaded = _export_and_upload_table(
-                table_name,
-                con,
-                output_dir,
-                item_id,
-                dry_run=dry_run,
-            )
-            if success:
-                stats["parquets_created"] += 1
-                stats["uploaded"] += uploaded
-                stats["uploaded_mb"] += size_mb
+        # Create httpx client for uploads (connection pooling across parallel uploads)
+        with httpx.Client(timeout=300) as client:
+            # Parallel export + upload with ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(
+                        _export_and_upload_table,
+                        table_name,
+                        con,
+                        output_dir,
+                        item_id,
+                        client,
+                        date,
+                        dry_run=dry_run,
+                    ): table_name
+                    for table_name in TABLES
+                }
 
-        # Phase 4: Upload consolidation marker
-        if stats["parquets_created"] > 0 and not dry_run:
-            if _upload_marker(item_id):
-                logger.info("marker_uploaded", item_id=item_id)
-            else:
-                logger.warning("marker_upload_failed", item_id=item_id)
+                for future in as_completed(futures):
+                    table_name = futures[future]
+                    try:
+                        success, size_mb, uploaded = future.result()
+                        if success:
+                            stats["parquets_created"] += 1
+                            stats["uploaded"] += uploaded
+                            stats["uploaded_mb"] += size_mb
+                    except Exception as e:
+                        logger.error("table_export_error", table=table_name, error=str(e))
+
+            # Phase 4: Upload consolidation marker
+            if stats["parquets_created"] > 0 and not dry_run:
+                if _upload_marker(client, item_id, date):
+                    logger.info("marker_uploaded", item_id=item_id)
+                else:
+                    logger.warning("marker_upload_failed", item_id=item_id)
 
     return stats
 
@@ -1435,7 +1509,7 @@ def main() -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=16,
+        default=4,  # Reduced from 16 to align with collect.py gradual scaling and reduce OOM risk
         help="Number of parallel workers for processing ZIPs",
     )
     args = parser.parse_args()
