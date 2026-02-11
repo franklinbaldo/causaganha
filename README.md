@@ -33,7 +33,7 @@ DJEN (Diário de Justiça Eletrônico Nacional) publishes **every judicial commu
 
 We're building a **complete historical archive** of DJEN data:
 
-1. **Collect Daily**: Every 5 minutes, download judicial communications from all 91 courts
+1. **Collect Daily**: Every 20 minutes, download judicial communications from all 91 courts
 2. **Archive Permanently**: Upload to Internet Archive—free, permanent, public storage
 3. **Convert to Analytics Format**: Transform raw data into Parquet (columnar, compressed, queryable)
 4. **Build the Index**: Master catalog enables querying without downloading everything
@@ -57,7 +57,7 @@ We're building a **complete historical archive** of DJEN data:
 | Metric | Value |
 | :----- | :---- |
 | Courts monitored | 91 (all Brazilian jurisdictions) |
-| Collection frequency | Every 5 minutes |
+| Collection frequency | Every 20 minutes |
 | Data format | JSON (raw) → Parquet (analytics) |
 | Storage | Internet Archive (permanent) |
 | Historical data | Building from 2024 onwards |
@@ -71,7 +71,7 @@ We're building a **complete historical archive** of DJEN data:
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────┐     ┌──────────────┐     ┌──────────────────────────────────┐
-│   DJEN API   │────▶│  DJEN Proxy  │────▶│      GitHub Actions (5min)       │
+│   DJEN API   │────▶│  DJEN Proxy  │────▶│      GitHub Actions (20min)      │
 │ (geo-blocked)│     │ (Cloud Run)  │     │  Download ZIP → Upload to IA     │
 └──────────────┘     └──────────────┘     └──────────────────────────────────┘
                                                          │
@@ -95,6 +95,17 @@ We are currently refactoring the core architecture (V2) to improve scalability a
 ### Internet Archive (Consolidated Data Lake)
 
 Since January 2026, we have transitioned from per-tribunal files to **consolidated daily Parquet files** to optimize query performance and reduce file metadata overhead.
+
+#### IA Upload Strategy
+
+To ensure reliability and compatibility with the Internet Archive S3 API, we use a custom upload strategy:
+
+- **Library**: We use `httpx` instead of `boto3`.
+- **Reasoning**: `boto3` generates AWS-specific headers and lacks proper support for IA's metadata requirements (leading to HTTP 411 errors).
+- **Metadata**: All metadata headers use the `x-archive-meta-*` prefix.
+- **Integrity**: Explicit `Content-MD5` headers are used for every upload.
+
+For a detailed technical breakdown, see [Internet Archive Upload Architecture](docs/architecture/internet-archive-upload.md).
 
 ```text
 
@@ -214,19 +225,26 @@ erDiagram
 
 ## Data Pipeline
 
-All data processing is handled by a single consolidated workflow (`.github/workflows/pipeline.yml`) that runs every 5 minutes with conditional job execution:
+All data processing is orchestrated by a single Python script (`scripts/pipeline/run.py`) triggered by a GitHub Actions workflow (`.github/workflows/pipeline.yml`) that runs every 20 minutes with conditional step execution:
 
-| Job | Frequency | Description |
+| Step | Frequency | Description |
 | :-- | :-------- | :---------- |
-| **Collect** | Every 5 min | Download from DJEN → Upload ZIP/Absent to IA |
-| **Consolidate** | Every 10 min | Atomic consolidation (waits for 91 markers) |
-| **Embed** | Hourly | Generate vector embeddings |
-| **Catalog** | Daily | Update master catalog |
+| **Collect** | Every 20 min | Download from DJEN → Upload ZIP/Absent to IA |
+| **Consolidate** | Every 20 min | Atomic consolidation (waits for 91 markers) |
+| **Embed** | Every 20 min | Generate vector embeddings (batch processed) |
+| **Catalog** | As needed | Update master catalog (on file changes) |
+| **Dashboard** | As needed | Update dashboard cache (on catalog update) |
 
-Each job calls a Python script that can be run locally:
+Each step calls a Python script that can be run individually or via the orchestrator:
 
 ```bash
-# Run locally for testing/debugging
+# Run full pipeline locally
+uv run python scripts/pipeline/run.py
+
+# Run specific step via orchestrator
+uv run python scripts/pipeline/run.py --job collect --date 2026-01-27
+
+# Run individual scripts for debugging
 uv run python scripts/pipeline/collect.py --date 2026-01-27
 uv run python scripts/pipeline/consolidate.py --date 2026-01-27
 uv run python scripts/pipeline/embed.py --max-decisions 100

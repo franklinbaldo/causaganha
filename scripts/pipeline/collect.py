@@ -504,6 +504,12 @@ def upload_to_ia(
 ) -> bool:
     """Upload file to Internet Archive via the S3-compatible API.
 
+    CRITICAL: We use httpx (direct HTTP PUT) instead of boto3.
+    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
+    while IA requires 'x-archive-meta-*'. Previous attempts to use boto3
+    resulted in HTTP 411 (Length Required) errors.
+    See PR #348 and docs/architecture/internet-archive-upload.md for details.
+
     Uses a shared httpx client for connection pooling across workers,
     with streaming upload and MD5 integrity verification.
     """
@@ -526,6 +532,8 @@ def upload_to_ia(
         "x-archive-meta-date": date_str,
     }
 
+    # Retry strategy with exponential backoff (linear increment here: 5, 10, 15s)
+    # only for 5xx errors or network exceptions.
     max_retries = 3
     for attempt in range(max_retries):
         try:

@@ -27,7 +27,7 @@ python3 scripts/monitoring/check_and_send_alert.py
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Backfill Pipeline                          │
-│  (GitHub Actions every 5 min)                                │
+│  (GitHub Actions every 20 min)                               │
 │  └─> Updates backfill-progress.json on Internet Archive     │
 └─────────────────────────────────────────────────────────────┘
                           │

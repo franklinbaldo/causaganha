@@ -57,12 +57,12 @@ curl https://djen-proxy-mhgmawcn3a-rj.a.run.app/api/v1/caderno/TJRO/2026-01-15/D
 
 ## In GitHub Actions
 
-The proxy URL is configured in workflow files:
+The proxy URL is configured in `pipeline.yml`:
 
 ```yaml
-# .github/workflows/archive-zips.yml
+# .github/workflows/pipeline.yml
 env:
-  DJEN_API: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+  DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
 ```
 
 ## Deployment

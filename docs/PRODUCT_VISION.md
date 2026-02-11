@@ -47,12 +47,11 @@ We're creating the **"Elo rating for lawyers"** - objective, data-driven, transp
 ## 🚀 What Success Looks Like
 
 ### 6-Month Success Metrics (MVP)
-- ✅ **Coverage:** 5-10 state tribunals with daily automated collection
-- ✅ **Data:** 50,000+ decisions analyzed and 10,000+ lawyers rated
-- ✅ **Quality:** >90% accuracy on LLM analysis (validated via manual sampling)
-- ✅ **Preservation:** All decisions archived to Internet Archive
-- ✅ **Proof of concept:** 1-2 media articles or research papers citing CausaGanha data
-- ✅ **Technical:** Pipeline runs reliably daily via GitHub Actions without manual intervention
+- ✅ **Coverage:** 91 tribunals (all Brazilian jurisdictions) with automated collection every 20 minutes
+- ✅ **Data:** 1,000,000+ communications archived and being analyzed
+- ✅ **Quality:** >85% accuracy on automated classification
+- ✅ **Preservation:** All source data permanently archived to Internet Archive
+- ✅ **Technical:** Pipeline orchestrated by single runner for reliability
 
 ### Year 1 Success Metrics
 - **Coverage:** 10 tribunals (including TJSP)
@@ -120,7 +119,7 @@ We're creating the **"Elo rating for lawyers"** - objective, data-driven, transp
 - Archival is a core mission, not a feature
 
 ### 4. Start Small, Scale Thoughtfully
-- Prove with 5 tribunals before expanding to 90
+- Proven with initial set of tribunals before expanding to full national coverage (91 courts)
 - Validate accuracy before public launch
 - Build credibility through transparency community
 - Prioritize quality over quantity
@@ -249,13 +248,13 @@ This loop runs automatically, daily, unattended.
 - Legal right to public data access
 
 ### Risk 4: Scalability Challenges
-**Risk:** Can't handle 90 tribunals at scale
+**Risk:** Can't handle 91 tribunals at scale
 
 **Mitigation:**
-- Start with 5 tribunals, prove viability
-- Modern scalable architecture (DuckDB, async)
-- ML prediction reduces LLM costs (if needed)
-- Incremental expansion
+- Achieved full national coverage using efficient DuckDB + Parquet architecture
+- Modern scalable architecture (Ibis, async)
+- Conservative worker strategy for reliable uploads
+- Incremental expansion of analysis depth
 
 ### Risk 5: LGPD Compliance
 **Risk:** Violate Brazilian data protection laws

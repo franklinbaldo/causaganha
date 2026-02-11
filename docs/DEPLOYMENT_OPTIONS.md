@@ -84,7 +84,7 @@ Total: ~$5/month
 ### Performance
 
 ```
-Hourly runs (24/day):
+Runs every 20 minutes (72/day):
 ├─ Throughput: 10-20 decisions/minute per run
 ├─ Daily capacity: 18,000 decisions
 ├─ Runtime: 45-55 minutes per run

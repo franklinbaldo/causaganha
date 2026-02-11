@@ -166,15 +166,11 @@ The API has rate limiting:
 
 ### Automatic Collection
 
-GitHub Actions collects data every 5 minutes:
+GitHub Actions collects data every 20 minutes via the orchestrator:
 
-```yaml
-# .github/workflows/archive-zips.yml
-- name: Download caderno
-  run: |
-    curl "$DJEN_API/api/v1/caderno/$TRIBUNAL/$DATE/D" -o info.json
-    URL=$(jq -r '.url' info.json)
-    curl "$URL" -o caderno.zip
+```bash
+# Executed by .github/workflows/pipeline.yml
+uv run python scripts/pipeline/run.py --job collect
 ```
 
 ### Manual Queries

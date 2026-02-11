@@ -82,13 +82,10 @@ Com diferenças tão pequenas, o sistema "chuta" entre categorias.
 
 **Problema:** Mesmo com múltiplas frases, não consegue distinguir contexto jurídico real.
 
-## 📚 Documentação Completa
+## 📚 Documentação Relacionada
 
-Para análise detalhada, consulte:
-
-- **`../docs/phrase_matching_experiments.md`** - Análise completa de todos os experimentos
-- **`../docs/rag_validation_results.md`** - Validação do RAG k-NN (83.3%)
-- **`../docs/batch_rag_pipeline.md`** - Pipeline de produção com Google Batch API
+- **`../docs/ARCHITECTURE.md`** - Arquitetura geral do sistema
+- **`./archive/`** - Experimentos arquivados (referências a módulos antigos)
 
 ## ⚠️ Importante: Por Que Manter Experimentos Falhados?
 

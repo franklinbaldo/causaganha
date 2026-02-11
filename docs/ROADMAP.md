@@ -23,13 +23,13 @@ Internal      Researchers         Consumers              B2B Revenue
 **Goal:** Prove the core pipeline works reliably
 
 ### Features
-- ✅ Data collection from 5 tribunals (TJRO, TJAC, TJAP, TJAM, TJRR)
+- ✅ Data collection from all 91 tribunals (National coverage)
 - ✅ LLM-powered analysis of `texto` field (Gemini)
 - ✅ OpenSkill ratings
-- ✅ Parquet export with tribunal+date partitioning
-- ✅ Internet Archive data lake (free distributed storage)
-- ✅ Automated daily pipeline via GitHub Actions
-- ✅ Basic monitoring and error handling
+- ✅ Parquet export with deterministic UUIDv5 identifiers
+- ✅ Internet Archive data lake (free permanent storage)
+- ✅ Automated pipeline via Single Orchestrator (every 20 min)
+- ✅ Basic monitoring and Telegram alerting
 
 ### Success Metrics
 - 30 days of reliable automated operation
