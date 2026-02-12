@@ -2,41 +2,76 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx,astro}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        cyber: {
-          black: '#050505',
-          dark: '#0a0a0a',
-          card: '#0f0f0f',
-          gray: '#7c7c7c', // WCAG AA: 4.84:1 on black, 4.55:1 on card (was #1a1a1a → #4a4a4a → #6b6b6b)
-          primary: '#00ff41', // Matrix Green
-          secondary: '#00cc33', // Brighter for better visibility (was #008f11)
-          dim: 'rgba(0, 255, 65, 0.1)',
-          border: '#5f5f5f', // WCAG AA: 3.01:1 on card (was #333333 → #404040 → #4d4d4d)
-          text: '#f0f0f0', // Brighter text (was #e0e0e0)
-          muted: '#b0b0b0', // WCAG AA: 9.40:1 contrast (was #888888 → #a0a0a0)
-          danger: '#ff3333',
-          warning: '#ffaa00',
-          cyan: '#00f2ff', // Color-blind friendly
-          purple: '#bf00ff', // Color-blind friendly
-          // Semantic aliases for color-blind friendliness
-          success: '#00ff41',
-          error: '#ff4444'
-        }
+        surface: {
+          DEFAULT: 'var(--color-surface)',
+          raised: 'var(--color-surface-raised)',
+          overlay: 'var(--color-surface-overlay)',
+        },
+        border: {
+          DEFAULT: 'var(--color-border)',
+          muted: 'var(--color-border-muted)',
+        },
+        content: {
+          DEFAULT: 'var(--color-content)',
+          secondary: 'var(--color-content-secondary)',
+          tertiary: 'var(--color-content-tertiary)',
+        },
+        accent: {
+          DEFAULT: '#3b82f6',
+          light: '#60a5fa',
+          dark: '#2563eb',
+          muted: 'rgba(59, 130, 246, 0.12)',
+        },
+        success: {
+          DEFAULT: '#22c55e',
+          light: '#4ade80',
+          muted: 'rgba(34, 197, 94, 0.12)',
+        },
+        warning: {
+          DEFAULT: '#eab308',
+          light: '#facc15',
+          muted: 'rgba(234, 179, 8, 0.12)',
+        },
+        danger: {
+          DEFAULT: '#ef4444',
+          light: '#f87171',
+          muted: 'rgba(239, 68, 68, 0.12)',
+        },
+        purple: {
+          DEFAULT: '#a855f7',
+          light: '#c084fc',
+          muted: 'rgba(168, 85, 247, 0.12)',
+        },
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', '"Fira Code"', '"Courier New"', 'monospace'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"Fira Code"', '"Cascadia Code"', 'monospace'],
       },
       boxShadow: {
-        'glow': '0 0 10px rgba(0, 255, 65, 0.3)',
-        'glow-lg': '0 0 20px rgba(0, 255, 65, 0.4)',
+        'card': '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)',
+        'card-hover': '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+        'elevated': '0 8px 24px rgba(0, 0, 0, 0.2)',
       },
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-      }
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
     },
   },
   plugins: [],

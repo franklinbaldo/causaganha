@@ -1,51 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-cyber-black text-cyber-text font-mono selection:bg-cyber-primary selection:text-cyber-black;
+  :root {
+    --color-bg: #ffffff;
+    --color-surface: #f8fafc;
+    --color-surface-raised: #ffffff;
+    --color-surface-overlay: #f1f5f9;
+    --color-border: #e2e8f0;
+    --color-border-muted: #f1f5f9;
+    --color-content: #0f172a;
+    --color-content-secondary: #475569;
+    --color-content-tertiary: #94a3b8;
+    --color-scrollbar: rgba(148, 163, 184, 0.3);
+    --color-scrollbar-hover: rgba(148, 163, 184, 0.5);
   }
 
-  /* Custom Scrollbar */
+  .dark {
+    --color-bg: #0b0f19;
+    --color-surface: #131825;
+    --color-surface-raised: #1a2033;
+    --color-surface-overlay: #212840;
+    --color-border: #2a3348;
+    --color-border-muted: #1e2538;
+    --color-content: #e2e8f0;
+    --color-content-secondary: #94a3b8;
+    --color-content-tertiary: #64748b;
+    --color-scrollbar: rgba(100, 116, 139, 0.3);
+    --color-scrollbar-hover: rgba(100, 116, 139, 0.5);
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-content);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #2563eb;
+  }
+
+  /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-cyber-dark;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-cyber-gray border border-cyber-black hover:bg-cyber-secondary rounded;
+    background: var(--color-scrollbar);
+    border-radius: 9999px;
   }
 
-  /* Scanline effect (optional, maybe too heavy) */
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-hover);
+  }
 
-  /* Skeleton Loader Shimmer Animation */
+  /* Skeleton shimmer */
   @keyframes shimmer {
-    0% {
-      background-position: -200% 0;
-    }
-    100% {
-      background-position: 200% 0;
-    }
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 }
 
 @layer components {
-  .cyber-card {
-    @apply bg-cyber-card border border-cyber-border p-4 shadow-lg;
+  .card {
+    @apply bg-surface-raised border border-border rounded-xl p-5 shadow-card transition-shadow;
   }
 
-  .cyber-btn {
-    @apply px-4 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-dim transition-colors uppercase text-sm tracking-wider;
+  .card-hover {
+    @apply hover:shadow-card-hover;
   }
 
-  .cyber-grid-bg {
-    background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
+  .stat-value {
+    @apply text-2xl font-semibold font-mono text-content tabular-nums tracking-tight;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium text-content-tertiary uppercase tracking-wider;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
+  }
+
+  .badge-success {
+    @apply bg-success-muted text-success;
+  }
+
+  .badge-warning {
+    @apply bg-warning-muted text-warning;
+  }
+
+  .badge-danger {
+    @apply bg-danger-muted text-danger;
+  }
+
+  .badge-accent {
+    @apply bg-accent-muted text-accent;
   }
 }

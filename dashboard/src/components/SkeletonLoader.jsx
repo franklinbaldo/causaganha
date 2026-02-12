@@ -1,8 +1,10 @@
 export function SkeletonLoader({ className = "" }) {
   return (
     <div
-      className={`animate-pulse bg-gradient-to-r from-cyber-dark via-cyber-dim to-cyber-dark bg-[length:200%_100%] rounded ${className}`}
+      className={`bg-surface-overlay rounded animate-pulse ${className}`}
       style={{
+        backgroundImage: 'linear-gradient(90deg, var(--color-surface-overlay) 0%, var(--color-surface) 50%, var(--color-surface-overlay) 100%)',
+        backgroundSize: '200% 100%',
         animation: 'shimmer 2s ease-in-out infinite',
       }}
     />
@@ -15,7 +17,7 @@ export function SkeletonText({ width = "w-full", height = "h-4", className = "" 
 
 export function SkeletonCard({ children, className = "" }) {
   return (
-    <div className={`bg-cyber-card border border-cyber-border p-6 rounded shadow-glow ${className}`}>
+    <div className={`card ${className}`}>
       {children}
     </div>
   );
