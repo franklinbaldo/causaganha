@@ -18,7 +18,6 @@ import decimal
 import hashlib
 import json
 import os
-import subprocess
 import tempfile
 import time
 import unicodedata
@@ -80,7 +79,7 @@ def _compute_md5(file_path: Path) -> str:
 
 def load_checkpoint_state() -> dict[str, Any]:
     """Load checkpoint state from disk.
-    
+
     Returns:
         dict with keys:
             - current_date: date being processed (str | None)
@@ -93,7 +92,7 @@ def load_checkpoint_state() -> dict[str, Any]:
             "processed_zips": [],
             "completed_dates": [],
         }
-    
+
     try:
         with _CHECKPOINT_STATE_FILE.open("r") as f:
             return json.load(f)
@@ -112,7 +111,7 @@ def save_checkpoint_state(state: dict[str, Any]) -> None:
     try:
         with _CHECKPOINT_STATE_FILE.open("w") as f:
             json.dump(state, f, indent=2)
-        logger.info("checkpoint_saved", date=state.get("current_date"), 
+        logger.info("checkpoint_saved", date=state.get("current_date"),
                     processed=len(state.get("processed_zips", [])))
     except Exception as e:
         logger.error("checkpoint_save_failed", error=str(e))
@@ -121,30 +120,30 @@ def save_checkpoint_state(state: dict[str, Any]) -> None:
 def update_checkpoint_progress(date: str, zip_filename: str) -> None:
     """Update checkpoint state after processing a ZIP."""
     state = load_checkpoint_state()
-    
+
     # If switching to a new date, reset processed_zips
     if state["current_date"] != date:
         state["current_date"] = date
         state["processed_zips"] = []
-    
+
     # Add ZIP to processed list
     if zip_filename not in state["processed_zips"]:
         state["processed_zips"].append(zip_filename)
-    
+
     save_checkpoint_state(state)
 
 
 def mark_date_complete(date: str) -> None:
     """Mark a date as fully consolidated."""
     state = load_checkpoint_state()
-    
+
     if date not in state["completed_dates"]:
         state["completed_dates"].append(date)
-    
+
     # Reset current_date and processed_zips
     state["current_date"] = None
     state["processed_zips"] = []
-    
+
     save_checkpoint_state(state)
     logger.info("date_marked_complete", date=date)
 
@@ -223,7 +222,7 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
             return []
         finally:
             con.close()
-    
+
     # Use in-memory manifest
     logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
     con = duckdb.connect()
@@ -232,8 +231,8 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
         # We only need date and file_type
         df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
         import pandas as pd
-        df = pd.DataFrame(df_data)
-        
+        df = pd.DataFrame(df_data)  # noqa: F841
+
         query = """
             SELECT date
             FROM df
@@ -354,7 +353,7 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
 
 def list_zips_for_date(date: str, manifest: list[dict] | None = None) -> tuple[list[dict[str, Any]], int]:
     """Find all ZIP files for a specific date on IA.
-    
+
     If manifest is provided, use it (fast). Otherwise use IA metadata API (slow).
     """
     logger.info("listing_zips", date=date)
@@ -654,7 +653,7 @@ def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notnull()).select(
+    return t.filter(adv.notna()).select(
         id=_adv_global_id(t.da, t.src_tribunal),
         original_id=_safe(
             ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
@@ -676,7 +675,7 @@ def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notnull()).select(
+    return t.filter(adv.notna()).select(
         advogado_id=_adv_global_id(t.da, t.src_tribunal),
         nome=_safe(adv["nome"]),
         tribunal=t.src_tribunal,
@@ -703,7 +702,7 @@ def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=step1.destinatarioadvogados.unnest(),
     )
     adv = step2.da["advogado"]
-    return step2.filter(adv.notnull()).select(
+    return step2.filter(adv.notna()).select(
         comunicacao_id=djen_uuid5(step2.com_key),
         tribunal=step2.src_tribunal,
         advogado_id=_adv_global_id(step2.da, step2.src_tribunal),
@@ -915,7 +914,7 @@ def upload_to_ia(client: httpx.Client, item_id: str, file_path: Path, date_str: 
 
     CRITICAL: We use httpx instead of 'ia' CLI for consistency with collect.py
     and better performance (no shell out + re-auth per file).
-    
+
     boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
     while IA requires 'x-archive-meta-*'. See PR #348 for details.
     """
@@ -1125,23 +1124,23 @@ def _needs_consolidation(date_str: str, manifest: list[dict] | None = None, *, m
         files = [m for m in manifest if m["date"] == date_str]
         if not files:
             return False
-            
+
         has_zips = any(f["file_type"] in ("zip", "absent") for f in files)
         has_consolidated = any(f["file_type"] == "parquet" or "_consolidated" in f.get("file_name", "") for f in files)
-        
+
         if not (has_zips and not has_consolidated):
             return False
-            
+
         if must_be_complete:
             present_tribunais = {f["tribunal"] for f in files if f["file_type"] in ("zip", "absent")}
             target_d = date.fromisoformat(date_str)
-            
+
             for trib in TRIBUNAIS:
                 if trib not in present_tribunais:
                     if not _is_tribunal_stopped(trib, target_d, manifest):
                         return False
             return True
-            
+
         return True
 
     # 2. IA metadata API fallback
@@ -1429,9 +1428,9 @@ def consolidate_date(
     # Load checkpoint state
     checkpoint = load_checkpoint_state()
     processed_zips_set = set(checkpoint.get("processed_zips", []))
-    
+
     if checkpoint.get("current_date") == date and processed_zips_set:
-        logger.info("resuming_from_checkpoint", date=date, 
+        logger.info("resuming_from_checkpoint", date=date,
                     already_processed=len(processed_zips_set))
 
     # Find all ZIPs and check if day's matrix is complete
@@ -1444,10 +1443,10 @@ def consolidate_date(
     # Filter out already processed ZIPs
     original_count = len(zips)
     zips = [z for z in zips if z["filename"] not in processed_zips_set]
-    
+
     if original_count > len(zips):
-        logger.info("skipping_processed_zips", 
-                    total=original_count, 
+        logger.info("skipping_processed_zips",
+                    total=original_count,
                     remaining=len(zips),
                     skipped=original_count - len(zips))
 
@@ -1505,11 +1504,11 @@ def consolidate_date(
                     success_cnt, records_cnt = future.result()
                     stats["zips_processed"] += success_cnt
                     stats["records"] += records_cnt
-                    
+
                     # Save checkpoint after each ZIP
                     if success_cnt > 0 and not dry_run:
                         update_checkpoint_progress(date, zip_filename)
-                        
+
                 except Exception as e:
                     logger.error("zip_processing_error", zip=zip_filename, error=str(e))
 

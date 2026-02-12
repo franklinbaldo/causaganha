@@ -167,7 +167,7 @@ class TestFindNextUnconsolidatedWithCheckpoint:
         # Make it find something at 5 days ago
         target_date = (date.today() - timedelta(days=5)).strftime("%Y-%m-%d")
 
-        def needs_side_effect(d_str, **kwargs):
+        def needs_side_effect(d_str, *args, **kwargs):
             return d_str == target_date
 
         mock_needs.side_effect = needs_side_effect

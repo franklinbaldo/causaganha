@@ -2,8 +2,7 @@
 
 import json
 from datetime import date, timedelta
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import patch
 
 # Adjusting import to work with pytest and project structure
 from scripts.pipeline.consolidate import CheckpointManager, find_next_unconsolidated
@@ -66,7 +65,7 @@ class TestConsolidationCheckpointing:
         mock_stopped.return_value = False
 
         # Stop scanning after a few dates to be fast
-        def needs_side_effect(d_str, **kwargs):
+        def needs_side_effect(d_str, *args, **kwargs):
             # Stop when we reach 10 days ago
             d = date.fromisoformat(d_str)
             return d <= today - timedelta(days=10)
@@ -93,9 +92,10 @@ class TestConsolidationCheckpointing:
         # Use a weekday to avoid being skipped by the weekend check
         # 2026-02-10 is Tuesday. 4 days ago is 2026-02-06 (Friday).
         today = date.today()
-        target_date = (today - timedelta(days=4)).strftime("%Y-%m-%d")
+        # Ensure we pick a weekday. If today is Wed (2), 5 days ago is Fri (4).
+        target_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
 
-        def needs_side_effect(d_str, **kwargs):
+        def needs_side_effect(d_str, *args, **kwargs):
             return d_str == target_date
 
         mock_needs.side_effect = needs_side_effect

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 
+
 # Ensure the pipeline scripts directory is importable
 # Path: causaganha/scripts/pipeline/consolidate.py
 # Test file path: causaganha/tests/test_checkpoint.py
@@ -17,7 +18,8 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts" / "pipeline"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from consolidate import find_next_unconsolidated
+from consolidate import find_next_unconsolidated  # noqa: E402
+
 
 FEATURE = "features/checkpoint.feature"
 
@@ -68,12 +70,12 @@ def scan_unconsolidated(context):
     checkpoint_file = context["checkpoint_file"]
     checked_dates = []
 
-    def mock_needs(d_str, **kwargs):
+    def mock_needs(d_str, *args, **kwargs):
         checked_dates.append(d_str)
         return False  # Continue scanning
 
     # Limit scan to 10 days to avoid long tests
-    def stopped_side_effect(d):
+    def stopped_side_effect(d, *args, **kwargs):
         return (date.today() - d).days > 10
 
     with (
@@ -81,7 +83,7 @@ def scan_unconsolidated(context):
         patch("consolidate._needs_consolidation", side_effect=mock_needs),
         patch("consolidate.fetch_consolidation_candidates", return_value=[]),
     ):
-        find_next_unconsolidated(checkpoint_file)
+        find_next_unconsolidated(checkpoint_file=checkpoint_file)
 
     context["checked_dates"] = checked_dates
 
