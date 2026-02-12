@@ -1,7 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'preact/compat';
 import clsx from 'clsx';
-import { Clock, CheckCircle, XCircle, Activity, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { useDataRefresh } from '../lib/useDataRefresh';
+
+// Inline SVG icons to avoid lucide-preact bundle overhead
+const I = (d, p) => ({ className, ...r }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...r}>{d}</svg>
+);
+
+const ClockIcon = I([<circle cx="12" cy="12" r="10"/>, <polyline points="12 6 12 12 16 14"/>]);
+const CheckCircleIcon = I([<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>, <polyline points="22 4 12 14.01 9 11.01"/>]);
+const XCircleIcon = I([<circle cx="12" cy="12" r="10"/>, <line x1="15" y1="9" x2="9" y2="15"/>, <line x1="9" y1="9" x2="15" y2="15"/>]);
+const ActivityIcon = I([<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>]);
+const ChevronDownIcon = I([<path d="m6 9 6 6 6-6"/>]);
+const ChevronUpIcon = I([<path d="m18 15-6-6-6 6"/>]);
+const ExternalLinkIcon = I([<path d="M15 3h6v6"/>, <path d="M10 14 21 3"/>, <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>]);
 
 const PIPELINE_INTERVAL_MINUTES = 20;
 
@@ -51,11 +63,11 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             {stats ? (
               isSuccess ? (
                 <div className="p-2 rounded-lg bg-success-muted">
-                  <CheckCircle className="w-4 h-4 text-success" />
+                  <CheckCircleIcon className="w-4 h-4 text-success" />
                 </div>
               ) : (
                 <div className="p-2 rounded-lg bg-danger-muted">
-                  <XCircle className="w-4 h-4 text-danger" />
+                  <XCircleIcon className="w-4 h-4 text-danger" />
                 </div>
               )
             ) : (
@@ -80,7 +92,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           <div className="flex items-center gap-4 text-sm text-content-secondary">
             {health != null && (
               <div className="flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5" />
+                <ActivityIcon className="w-3.5 h-3.5" />
                 <span>Health:</span>
                 <span className={clsx("font-mono font-medium tabular-nums", health >= 70 ? "text-success" : "text-danger")}>
                   {health}%
@@ -95,7 +107,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             )}
             {stats?.duration_seconds != null && (
               <div className="hidden sm:flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
+                <ClockIcon className="w-3.5 h-3.5" />
                 <span className="font-mono tabular-nums">{stats.duration_seconds}s</span>
               </div>
             )}
@@ -119,9 +131,9 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
               aria-label="Toggle run details"
             >
               {showDetails ? (
-                <ChevronUp className="w-4 h-4 text-content-secondary" />
+                <ChevronUpIcon className="w-4 h-4 text-content-secondary" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-content-secondary" />
+                <ChevronDownIcon className="w-4 h-4 text-content-secondary" />
               )}
             </button>
           )}
@@ -178,7 +190,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           rel="noopener noreferrer"
           className="flex items-center gap-1 hover:text-accent transition-colors"
         >
-          View Actions <ExternalLink className="w-3 h-3" />
+          View Actions <ExternalLinkIcon className="w-3 h-3" />
         </a>
       </div>
     </div>

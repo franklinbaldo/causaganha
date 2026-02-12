@@ -112,7 +112,10 @@ const chart = Plot.plot({
   ],
 });
 
-const svg = chart.outerHTML;
+// Fix computed colors from JSDOM rendering for dark mode compat
+const svg = chart.outerHTML
+  .replace(/stroke: rgb\(0, 0, 0\)/g, 'stroke: var(--color-border-muted)')
+  .replace(/fill: rgb\(0, 0, 0\)/g, 'fill: var(--color-content-tertiary)');
 ---
 
 <div class="card">
@@ -140,5 +143,9 @@ const svg = chart.outerHTML;
   .calendar-chart :global(svg) {
     width: 100%;
     height: auto;
+  }
+  /* Ensure Plot axis labels respect dark mode */
+  .calendar-chart :global(text) {
+    fill: var(--color-content-tertiary);
   }
 </style>

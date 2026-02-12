@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
-import react from '@astrojs/react';
+import preact from '@astrojs/preact';
 import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
@@ -7,7 +7,7 @@ export default defineConfig({
   site: 'https://franklinbaldo.github.io',
   base: '/causaganha',
   integrations: [
-    react(),
+    preact({ compat: true }),
     tailwind({
       applyBaseStyles: false, // Keep custom index.css
     }),

@@ -34,6 +34,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/causaganha/vite.svg" />
+    <link rel="prefetch" href="/causaganha/run-stats.json" />
+    <link rel="prefetch" href="/causaganha/dashboard-data.json" />
+    <link rel="prefetch" href="/causaganha/cache/today.json" />
+    <link rel="prefetch" href="/causaganha/cache/backfill.json" />
     <title>{title}</title>
     <script is:inline>
       // Apply saved theme before paint to prevent flash
