@@ -1,0 +1,144 @@
+---
+/**
+ * ActivityCalendar.astro — GitHub-style contribution heatmap using Observable Plot.
+ * Renders as static SVG at build time. Zero client-side JavaScript.
+ * Uses Plot.cell() with day-of-week × week-of-year layout.
+ */
+import * as Plot from "@observablehq/plot";
+import { JSDOM } from "jsdom";
+
+const { data = [] } = Astro.props;
+const document = new JSDOM("").window.document;
+
+const year = 2026;
+const today = new Date();
+const dataMap = new Map(data.map(d => [d.date, d.count]));
+
+// Build day data for the full year
+const days = [];
+const startDate = new Date(year, 0, 1);
+
+for (let i = 0; i < 365; i++) {
+  const currentDate = new Date(startDate);
+  currentDate.setDate(startDate.getDate() + i);
+  const dateStr = [
+    currentDate.getFullYear(),
+    String(currentDate.getMonth() + 1).padStart(2, '0'),
+    String(currentDate.getDate()).padStart(2, '0')
+  ].join('-');
+
+  const count = dataMap.get(dateStr) || 0;
+  const isFuture = currentDate > today;
+
+  // week-of-year (0-indexed from Jan 1)
+  const dayOfYear = Math.floor((currentDate - startDate) / 86400000);
+  const dayOfWeek = (currentDate.getDay() + 6) % 7; // Mon=0, Sun=6
+  const weekOfYear = Math.floor((dayOfYear + (startDate.getDay() + 6) % 7) / 7);
+
+  let status;
+  if (isFuture) status = 'future';
+  else if (count > 40) status = 'full';
+  else if (count > 0) status = 'partial';
+  else status = 'empty';
+
+  days.push({
+    date: dateStr,
+    count,
+    dayOfWeek,
+    weekOfYear,
+    status,
+    month: currentDate.getMonth(),
+  });
+}
+
+// Color function
+function cellColor(d) {
+  if (d.status === 'future') return 'var(--color-surface-overlay)';
+  if (d.status === 'full') return '#22c55e';    // success green
+  if (d.status === 'partial') return 'rgba(59, 130, 246, 0.6)'; // accent blue 60%
+  return 'rgba(239, 68, 68, 0.4)';              // danger red 40%
+}
+
+const dayLabels = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Find the starting week of each month for labels
+const monthStarts = [];
+for (let m = 0; m < 12; m++) {
+  const firstDay = days.find(d => d.month === m);
+  if (firstDay) monthStarts.push({ month: monthNames[m], week: firstDay.weekOfYear });
+}
+
+const chart = Plot.plot({
+  document,
+  width: 800,
+  height: 130,
+  marginTop: 20,
+  marginLeft: 30,
+  marginBottom: 5,
+  marginRight: 5,
+  style: {
+    background: "transparent",
+    color: "var(--color-content-tertiary)",
+    fontFamily: "Inter, system-ui, sans-serif",
+    fontSize: "10px",
+  },
+  x: {
+    axis: "top",
+    label: null,
+    tickSize: 0,
+    ticks: monthStarts.map(m => m.week),
+    tickFormat: (w) => {
+      const found = monthStarts.find(m => m.week === w);
+      return found ? found.month : '';
+    },
+  },
+  y: {
+    label: null,
+    tickSize: 0,
+    domain: [0, 1, 2, 3, 4, 5, 6],
+    ticks: [0, 2, 4],
+    tickFormat: (d) => dayLabels[d] || '',
+  },
+  marks: [
+    Plot.cell(days, {
+      x: "weekOfYear",
+      y: "dayOfWeek",
+      fill: cellColor,
+      rx: 2,
+      inset: 1,
+      title: d => d.status !== 'future' ? `${d.date}: ${d.count} items` : d.date,
+    }),
+  ],
+});
+
+const svg = chart.outerHTML;
+---
+
+<div class="card">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-content">{year} Collection Activity</h2>
+    <div class="flex items-center gap-3 text-xs text-content-tertiary">
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 bg-success rounded-sm"></span> Full
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: rgba(59, 130, 246, 0.6);"></span> Partial
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: rgba(239, 68, 68, 0.4);"></span> Missing
+      </span>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto pb-1">
+    <div class="min-w-[800px] calendar-chart" set:html={svg} />
+  </div>
+</div>
+
+<style>
+  .calendar-chart :global(svg) {
+    width: 100%;
+    height: auto;
+  }
+</style>

@@ -1,24 +1,25 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Search, XCircle, CheckCircle, AlertCircle, Clock, FileText, Loader2 } from 'lucide-react';
-import { SkeletonLoader, SkeletonText } from './SkeletonLoader';
+import { Search, XCircle, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
+import { useDataRefresh } from '../lib/useDataRefresh';
 
 function TribunalCardSkeleton() {
   return (
     <div className="p-4 bg-surface border border-border rounded-xl min-h-[130px]">
       <div className="flex justify-between items-start mb-3">
-        <SkeletonText width="w-3/4" height="h-5" />
-        <SkeletonLoader className="w-5 h-5 rounded-full" />
+        <div className="w-3/4 h-5 bg-surface-overlay rounded animate-pulse" />
+        <div className="w-5 h-5 rounded-full bg-surface-overlay animate-pulse" />
       </div>
       <div className="space-y-2">
-        <SkeletonText width="w-24" height="h-3" />
-        <SkeletonText width="w-32" height="h-3" />
+        <div className="w-24 h-3 bg-surface-overlay rounded animate-pulse" />
+        <div className="w-32 h-3 bg-surface-overlay rounded animate-pulse" />
       </div>
     </div>
   );
 }
 
-export function TribunalGrid({ stats, loading = false, refreshing = false }) {
+export function TribunalGrid({ initialData }) {
+  const { data: stats, loading } = useDataRefresh('enrichedStats', initialData);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -45,10 +46,10 @@ export function TribunalGrid({ stats, loading = false, refreshing = false }) {
     return (
       <div className="card min-h-[400px]">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-          <SkeletonText width="w-48" height="h-7" />
+          <div className="w-48 h-7 bg-surface-overlay rounded animate-pulse" />
           <div className="flex gap-3 w-full lg:w-auto">
-            <SkeletonLoader className="w-full lg:w-64 h-10 rounded-lg" />
-            <SkeletonLoader className="w-full lg:w-56 h-10 rounded-lg" />
+            <div className="w-full lg:w-64 h-10 bg-surface-overlay rounded-lg animate-pulse" />
+            <div className="w-full lg:w-56 h-10 bg-surface-overlay rounded-lg animate-pulse" />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
@@ -65,7 +66,6 @@ export function TribunalGrid({ stats, loading = false, refreshing = false }) {
         <div>
           <h2 className="text-lg font-semibold text-content flex items-center gap-2">
             Tribunal Status
-            {refreshing && <Loader2 className="w-4 h-4 animate-spin text-accent" />}
           </h2>
           <p className="text-sm text-content-tertiary mt-0.5">
             {filteredItems.length} of {items.length} courts

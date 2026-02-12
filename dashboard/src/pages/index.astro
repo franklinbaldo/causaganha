@@ -1,11 +1,91 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Dashboard from '../components/Dashboard';
+import ActivityChart from '../components/ActivityChart.astro';
+import ActivityCalendar from '../components/ActivityCalendar.astro';
+import YearProgress from '../components/YearProgress.astro';
+import { BackfillHero } from '../components/BackfillHero';
+import { TribunalGrid } from '../components/TribunalGrid';
+import { SystemStatus } from '../components/SystemStatus';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { fetchAllData } from '../lib/fetchData';
+
+// Fetch data at build time for static rendering
+let data = null;
+try {
+  data = await fetchAllData();
+} catch (e) {
+  console.warn('Failed to fetch data at build time:', e);
+}
+
+const backfillProgress = data?.backfillProgress;
+const lastUpdated = backfillProgress?.last_updated;
 ---
 
 <Layout
   title="CausaGanha Dashboard - Sistema de Monitoramento"
   description="Dashboard de monitoramento do pipeline de coleta e análise de dados judiciais brasileiros. Elimine assimetria de informação no mercado jurídico."
 >
-  <Dashboard client:load />
+  <div class="min-h-screen bg-[var(--color-bg)] p-4 md:p-6 lg:p-8">
+    <!-- Header — pure Astro HTML, zero JS -->
+    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-accent-muted rounded-xl">
+          <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
+            <path d="M3 12A9 3 0 0 0 21 12"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold text-content tracking-tight">
+            CausaGanha
+          </h1>
+          <p class="text-sm text-content-tertiary">
+            Judicial Data Intelligence Pipeline
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        {lastUpdated && (
+          <span class="text-xs text-content-tertiary hidden sm:block">
+            Updated {new Date(lastUpdated).toLocaleString('pt-BR')}
+          </span>
+        )}
+        <ThemeToggle client:load />
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto space-y-6">
+      <!-- Row 1: Hero — Backfill Progress + Year Breakdown -->
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div class="lg:col-span-3">
+          <BackfillHero client:load initialData={data?.effectiveBackfill} />
+        </div>
+        <div class="lg:col-span-2">
+          <YearProgress progressByYear={data?.progressByYear} />
+        </div>
+      </div>
+
+      <!-- Row 2: Activity — Calendar + Recent Chart (static SVG, zero JS) -->
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div class="lg:col-span-3">
+          <ActivityCalendar data={data?.calendarData} />
+        </div>
+        <div class="lg:col-span-2">
+          <ActivityChart data={data?.timelineData} />
+        </div>
+      </div>
+
+      <!-- Row 3: Tribunal Grid (React island — search/filter) -->
+      <TribunalGrid client:load initialData={data?.enrichedStats} />
+
+      <!-- Row 4: System Status (React island — countdown timer) -->
+      <SystemStatus client:load initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
+
+      <!-- Footer — pure Astro HTML, zero JS -->
+      <footer class="text-center text-xs text-content-tertiary pt-4 pb-2">
+        <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
+      </footer>
+    </main>
+  </div>
 </Layout>

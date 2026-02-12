@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { Clock, CheckCircle, XCircle, Activity, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import { SkeletonLoader, SkeletonText } from './SkeletonLoader';
+import { useDataRefresh } from '../lib/useDataRefresh';
 
 const PIPELINE_INTERVAL_MINUTES = 20;
 
@@ -28,8 +28,14 @@ function useNextRunCountdown(lastRunTimestamp) {
   return countdown;
 }
 
-export function SystemStatus({ stats, cacheToday }) {
+export function SystemStatus({ initialStats, initialCacheToday }) {
+  const { data: allData } = useDataRefresh(null, null);
   const [showDetails, setShowDetails] = useState(false);
+
+  // Use refreshed data if available, fall back to initial props
+  const stats = allData?.stats ?? initialStats;
+  const cacheToday = allData?.cacheData?.today ?? initialCacheToday;
+
   const countdown = useNextRunCountdown(stats?.timestamp);
 
   const isSuccess = stats?.status === 'success';
@@ -53,7 +59,7 @@ export function SystemStatus({ stats, cacheToday }) {
                 </div>
               )
             ) : (
-              <SkeletonLoader className="w-8 h-8 rounded-lg" />
+              <div className="w-8 h-8 rounded-lg bg-surface-overlay animate-pulse" />
             )}
             <div>
               <div className="text-sm font-medium text-content">
