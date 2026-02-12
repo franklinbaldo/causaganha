@@ -11,7 +11,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -35,8 +35,14 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/causaganha/vite.svg" />
     <title>{title}</title>
+    <script is:inline>
+      // Apply saved theme before paint to prevent flash
+      if (localStorage.getItem('theme') === 'light') {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
   </head>
-  <body class="min-h-screen bg-cyber-black text-cyber-text font-mono bg-cyber-grid-bg">
+  <body class="min-h-screen bg-[var(--color-bg)] text-content antialiased">
     <slot />
   </body>
 </html>

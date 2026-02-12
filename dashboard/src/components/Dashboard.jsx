@@ -1,21 +1,20 @@
-import { useState, useEffect } from 'react'
-import { Terminal, AlertTriangle } from 'lucide-react'
-import { LiveStatusCard } from './LiveStatusCard'
-import { BackfillProgress } from './BackfillProgress'
-import { DualProgressCard } from './DualProgressCard'
-import { CalendarHeatmap } from './CalendarHeatmap'
-import { TribunalsGrid } from './TribunalsGrid'
-import { LastRunDetails } from './LastRunDetails'
-import { TimelineGraph } from './TimelineGraph'
-import { ETACard } from './ETACard'
+import { useState, useEffect } from 'react';
+import { Database } from 'lucide-react';
+import { BackfillHero } from './BackfillHero';
+import { YearProgress } from './YearProgress';
+import { ActivityCalendar } from './ActivityCalendar';
+import { ActivityChart } from './ActivityChart';
+import { TribunalGrid } from './TribunalGrid';
+import { SystemStatus } from './SystemStatus';
+import { ThemeToggle } from './ThemeToggle';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState(null)
-  const [dashboardData, setDashboardData] = useState(null)
-  const [cacheData, setCacheData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState(null)
+  const [stats, setStats] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [cacheData, setCacheData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchStats = async (isInitial = false) => {
     try {
@@ -65,25 +64,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats(true);
-    const interval = setInterval(() => fetchStats(false), 60000); // Refresh every minute
+    const interval = setInterval(() => fetchStats(false), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  if (error || (!loading && !stats && !dashboardData && !cacheData)) {
-      return (
-        <div className="min-h-screen bg-cyber-black text-cyber-danger flex flex-col items-center justify-center font-mono p-4 text-center">
-            <AlertTriangle className="w-16 h-16 mb-4 animate-pulse" />
-            <h1 className="text-2xl font-bold mb-2">SYSTEM OFFLINE</h1>
-            <p className="text-cyber-muted mb-6">Unable to load dashboard data. The system may be undergoing maintenance.</p>
-            <button
-                onClick={() => window.location.reload()}
-                className="px-6 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-primary hover:text-cyber-black transition-colors rounded uppercase text-sm tracking-widest"
-            >
-                Retry Connection
-            </button>
-        </div>
-      )
-  }
+  // Graceful degradation instead of full-screen error
+  const hasAnyData = stats || dashboardData || cacheData;
 
   // Effective backfill data: prefer DuckDB dashboard-data.json, fall back to cache backfill.json
   const effectiveBackfill = dashboardData || cacheData?.backfill || null;
@@ -114,7 +100,7 @@ export default function Dashboard() {
     return [];
   })();
 
-  // Per-year progress data for BackfillProgress component
+  // Per-year progress data
   const progressByYear = effectiveBackfill?.progress_by_year || null;
 
   // Enrich stats.tribunals with cache data (last_update, doc_count from manifest)
@@ -122,7 +108,6 @@ export default function Dashboard() {
     const base = stats || {};
     const cacheTribunals = cacheData?.today?.tribunal_status;
     if (!cacheTribunals) return base;
-    // Map cache format (ok/absent/pending) to dashboard format (success/absent/error)
     const statusMap = { ok: 'success', absent: 'absent', pending: 'error' };
     const tribunals = {};
     for (const [name, info] of Object.entries(cacheTribunals)) {
@@ -136,85 +121,78 @@ export default function Dashboard() {
     return { ...base, tribunals };
   })();
 
-  // Pipeline health from cache
-  const pipelineHealth = cacheData?.runs?.health ?? null;
-
   return (
-    <div className="min-h-screen bg-cyber-black text-cyber-text p-4 md:p-8 font-mono bg-cyber-grid-bg">
-      <header className="mb-8 flex justify-between items-center border-b border-cyber-border pb-4">
+    <div className="min-h-screen bg-[var(--color-bg)] p-4 md:p-6 lg:p-8">
+      {/* Header */}
+      <header className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Terminal className="w-8 h-8 text-cyber-primary" />
+          <div className="p-2 bg-accent-muted rounded-xl">
+            <Database className="w-5 h-5 text-accent" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-widest text-cyber-primary">
-              CAUSA<span className="text-white">GANHA</span>{' '}
-              <span className="text-sm align-top text-cyber-secondary font-bold">v2.0</span>
+            <h1 className="text-xl font-semibold text-content tracking-tight">
+              CausaGanha
             </h1>
-            <p className="text-base text-cyber-gray uppercase tracking-widest font-bold">
+            <p className="text-sm text-content-tertiary">
               Judicial Data Intelligence Pipeline
             </p>
           </div>
         </div>
-        <div className="text-right text-sm text-cyber-gray hidden sm:block font-medium">
-          <div className="flex items-center gap-2 justify-end">
-            <span className="w-2.5 h-2.5 bg-cyber-primary rounded-full animate-pulse"></span>
-            SYSTEM ONLINE
-            {pipelineHealth !== null && (
-              <span className="ml-2 text-cyber-text">{pipelineHealth}%</span>
-            )}
-          </div>
-          <div>{new Date().toISOString().split('T')[0]}</div>
+        <div className="flex items-center gap-3">
+          {backfillProgress?.last_updated && (
+            <span className="text-xs text-content-tertiary hidden sm:block">
+              Updated {new Date(backfillProgress.last_updated).toLocaleString('pt-BR')}
+            </span>
+          )}
+          <ThemeToggle />
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Row 1: ETA + Collection/Consolidation Progress */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-2">
-            <ETACard backfillProgress={effectiveBackfill} />
+      {/* Error banner (graceful, not full-screen) */}
+      {error && !hasAnyData && (
+        <div className="max-w-7xl mx-auto mb-6 p-4 bg-danger-muted border border-danger/20 rounded-xl text-center">
+          <p className="text-sm text-danger font-medium mb-2">Unable to load dashboard data</p>
+          <button
+            onClick={() => fetchStats(true)}
+            className="text-sm bg-danger text-white px-4 py-1.5 rounded-lg hover:bg-danger-light transition-colors font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto space-y-6">
+        {/* Row 1: Hero — Backfill Progress + Year Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3">
+            <BackfillHero backfillProgress={effectiveBackfill} />
           </div>
           <div className="lg:col-span-2">
-            <DualProgressCard data={effectiveBackfill} />
+            <YearProgress progressByYear={progressByYear} />
           </div>
         </div>
 
-        {/* Row 2: Backfill per-year + Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <BackfillProgress progressByYear={progressByYear} totalPct={backfillProgress?.progress_pct} />
+        {/* Row 2: Activity — Calendar + Recent Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3">
+            <ActivityCalendar data={calendarData} />
           </div>
-          <div className="lg:col-span-1">
-            <LiveStatusCard stats={stats} cacheToday={cacheData?.today} />
+          <div className="lg:col-span-2">
+            <ActivityChart data={timelineData} />
           </div>
         </div>
 
-        {/* Row 3: Calendar + Timeline */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <CalendarHeatmap data={calendarData} />
-          </div>
-          <div className="lg:col-span-1">
-            <TimelineGraph data={timelineData} />
-          </div>
-        </div>
+        {/* Row 3: Tribunal Grid */}
+        <TribunalGrid stats={enrichedStats} loading={loading} refreshing={refreshing} />
 
-        {/* Row 4: Tribunal Grid */}
-        <TribunalsGrid stats={enrichedStats} loading={loading} refreshing={refreshing} />
+        {/* Row 4: System Status (footer-ish) */}
+        <SystemStatus stats={stats} cacheToday={cacheData?.today} />
 
-        {/* Row 5: Last Run Details */}
-        <LastRunDetails stats={stats} />
-
-        <footer className="mt-12 text-center text-sm text-cyber-gray border-t border-cyber-border pt-6 pb-2">
-          <p className="font-bold tracking-widest">CAUSAGANHA MONITORING SYSTEM</p>
-          <p className="mt-2 text-cyber-muted font-medium">
-            Running on GitHub Actions • Data stored in Internet Archive
-          </p>
-          {backfillProgress?.last_updated && (
-              <p className="mt-1 text-cyber-muted font-medium">
-                  Cache: {new Date(backfillProgress.last_updated).toLocaleString()}
-              </p>
-          )}
+        {/* Footer */}
+        <footer className="text-center text-xs text-content-tertiary pt-4 pb-2">
+          <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }
