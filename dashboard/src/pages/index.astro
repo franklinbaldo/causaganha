@@ -4,7 +4,8 @@ import ActivityChart from '../components/ActivityChart.astro';
 import ActivityCalendar from '../components/ActivityCalendar.astro';
 import YearProgress from '../components/YearProgress.astro';
 import { BackfillHero } from '../components/BackfillHero';
-import { TribunalGrid } from '../components/TribunalGrid';
+import TribunalGrid from '../components/TribunalGrid.astro';
+import { TribunalFilter } from '../components/TribunalFilter';
 import { SystemStatus } from '../components/SystemStatus';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { fetchAllData } from '../lib/fetchData';
@@ -19,6 +20,16 @@ try {
 
 const backfillProgress = data?.backfillProgress;
 const lastUpdated = backfillProgress?.last_updated;
+
+// Compute tribunal counts at build time for the filter pills
+const tribunals = data?.enrichedStats?.tribunals || {};
+const tribunalItems = Object.entries(tribunals);
+const tribunalCounts = {
+  all: tribunalItems.length,
+  success: tribunalItems.filter(([, d]) => d.status === 'success').length,
+  error: tribunalItems.filter(([, d]) => d.status !== 'success' && d.status !== 'absent').length,
+  absent: tribunalItems.filter(([, d]) => d.status === 'absent').length,
+};
 ---
 
 <Layout
@@ -76,11 +87,13 @@ const lastUpdated = backfillProgress?.last_updated;
         </div>
       </div>
 
-      <!-- Row 3: Tribunal Grid (React island — search/filter) -->
-      <TribunalGrid client:load initialData={data?.enrichedStats} />
+      <!-- Row 3: Tribunal Grid (static cards + tiny filter island) -->
+      <TribunalGrid enrichedStats={data?.enrichedStats}>
+        <TribunalFilter client:visible counts={tribunalCounts} />
+      </TribunalGrid>
 
       <!-- Row 4: System Status (React island — countdown timer) -->
-      <SystemStatus client:load initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
+      <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
 
       <!-- Footer — pure Astro HTML, zero JS -->
       <footer class="text-center text-xs text-content-tertiary pt-4 pb-2">

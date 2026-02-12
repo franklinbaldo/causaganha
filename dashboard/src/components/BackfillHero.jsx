@@ -1,5 +1,10 @@
-import { Target } from 'lucide-react';
 import { useDataRefresh } from '../lib/useDataRefresh';
+
+const TargetIcon = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+  </svg>
+);
 
 /**
  * Calculate velocity and ETA from backfill progress data.
@@ -197,7 +202,7 @@ export function BackfillHero({ initialData }) {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className={`p-2.5 rounded-xl ${config.bgColor}`}>
-            <Target className={`w-5 h-5 ${config.color}`} />
+            <TargetIcon className={`w-5 h-5 ${config.color}`} />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-content">Backfill Progress</h2>
