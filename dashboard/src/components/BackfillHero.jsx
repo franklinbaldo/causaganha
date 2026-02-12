@@ -1,5 +1,5 @@
 import { Target } from 'lucide-react';
-import { SkeletonLoader, SkeletonText } from './SkeletonLoader';
+import { useDataRefresh } from '../lib/useDataRefresh';
 
 /**
  * Calculate velocity and ETA from backfill progress data.
@@ -145,28 +145,34 @@ function ProgressBar({ label, current, total, percentage, color = 'accent' }) {
   );
 }
 
-export function BackfillHero({ backfillProgress }) {
-  if (!backfillProgress) {
-    return (
-      <div className="card">
-        <div className="flex items-center gap-3 mb-6">
-          <SkeletonLoader className="w-10 h-10 rounded-xl" />
-          <div>
-            <SkeletonText width="w-40" height="h-6" />
-            <SkeletonText width="w-24" height="h-4" className="mt-1" />
-          </div>
-        </div>
-        <SkeletonLoader className="w-full h-20 rounded-lg mb-6" />
-        <div className="grid grid-cols-3 gap-4">
-          {[0, 1, 2].map(i => (
-            <div key={i}>
-              <SkeletonText width="w-16" height="h-3" className="mb-2" />
-              <SkeletonText width="w-20" height="h-7" />
-            </div>
-          ))}
+function BackfillHeroSkeleton() {
+  return (
+    <div className="card">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-surface-overlay animate-pulse" />
+        <div>
+          <div className="w-40 h-6 bg-surface-overlay rounded animate-pulse" />
+          <div className="w-24 h-4 bg-surface-overlay rounded animate-pulse mt-1" />
         </div>
       </div>
-    );
+      <div className="w-full h-20 bg-surface-overlay rounded-lg animate-pulse mb-6" />
+      <div className="grid grid-cols-3 gap-4">
+        {[0, 1, 2].map(i => (
+          <div key={i}>
+            <div className="w-16 h-3 bg-surface-overlay rounded animate-pulse mb-2" />
+            <div className="w-20 h-7 bg-surface-overlay rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function BackfillHero({ initialData }) {
+  const { data: backfillProgress } = useDataRefresh('effectiveBackfill', initialData);
+
+  if (!backfillProgress) {
+    return <BackfillHeroSkeleton />;
   }
 
   const eta = calculateETA(backfillProgress);
