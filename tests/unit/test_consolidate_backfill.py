@@ -2,15 +2,13 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-from scripts.pipeline.consolidate import find_next_unconsolidated
+from scripts.pipeline.consolidate import ConsolidationContext, find_next_unconsolidated
 
 
 class TestConsolidateBackfill(unittest.TestCase):
     def setUp(self):
-        # Reset global cache
-        import scripts.pipeline.consolidate
-
-        scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES = None
+        # Each test gets a fresh context (no shared mutable globals)
+        self.ctx = ConsolidationContext()
 
         # Ensure CheckpointManager is mocked for all tests to avoid side effects
         # and ensure load() returns None (no checkpoint) by default.
@@ -28,18 +26,18 @@ class TestConsolidateBackfill(unittest.TestCase):
         mock_fetch_candidates.return_value = ["2026-01-01", "2026-01-02"]
 
         # First call should return first candidate
-        result1 = find_next_unconsolidated()
+        result1 = find_next_unconsolidated(ctx=self.ctx)
         assert result1 == "2026-01-01"
 
         # Second call should return second candidate (popped from cached list)
-        result2 = find_next_unconsolidated()
+        result2 = find_next_unconsolidated(ctx=self.ctx)
         assert result2 == "2026-01-02"
 
         # Third call should trigger fallback (mock fetch called only once)
         # We need to mock the fallback path now to return None or something
         with patch("scripts.pipeline.consolidate._needs_consolidation", return_value=False):
             with patch("scripts.pipeline.consolidate._all_tribunals_stopped", return_value=True):
-                result3 = find_next_unconsolidated()
+                result3 = find_next_unconsolidated(ctx=self.ctx)
                 assert result3 is None
 
         mock_fetch_candidates.assert_called_once()
@@ -63,7 +61,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2025-01-01 needs consolidation
         # 2026-01-01 needs consolidation (newest - today)
 
-        def needs_consolidation_side_effect(d_str, manifest=None, must_be_complete=False):
+        def needs_consolidation_side_effect(d_str, manifest=None, must_be_complete=False, **kwargs):
             return d_str in ["2024-01-01", "2025-01-01", "2026-01-01"]
 
         mock_needs_consolidation.side_effect = needs_consolidation_side_effect
@@ -95,7 +93,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2024-01-06 (Sat) -> Weekend (Skip)
         # 2024-01-05 (Fri) -> Consolidated (False)
 
-        def side_effect(d_str, manifest=None, must_be_complete=False):
+        def side_effect(d_str, manifest=None, must_be_complete=False, **kwargs):
             if d_str in {"2024-01-10", "2024-01-05"}:
                 return False  # Already done
             return True  # Others need consolidation
@@ -129,7 +127,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # Simulate: after going back 10 days, all tribunals are stopped
         call_count = [0]
 
-        def all_stopped_side_effect(d, manifest=None):
+        def all_stopped_side_effect(d, manifest=None, **kwargs):
             call_count[0] += 1
             # First 10 calls: not all stopped
             # 11th call onwards: all stopped
