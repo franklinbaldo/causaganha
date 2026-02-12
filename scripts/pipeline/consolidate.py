@@ -53,6 +53,7 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_UF_OAB,
 )
 from scripts.pipeline.ia_s3 import (  # noqa: E402
+    CircuitBreaker,
     get_ia_s3_auth as _get_ia_s3_auth,
     parse_deadline,
     upload_to_ia,
@@ -901,13 +902,21 @@ _CONSOLIDATION_META_OVERRIDES = {
 
 
 def _upload_consolidated(
-    client: httpx.Client, item_id: str, file_path: Path, date_str: str
+    client: httpx.Client,
+    item_id: str,
+    file_path: Path,
+    date_str: str,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> bool:
     """Upload consolidated file to IA with consolidation-specific metadata."""
     overrides = {
         k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()
     }
-    return upload_to_ia(client, item_id, file_path, date_str, metadata_overrides=overrides)
+    return upload_to_ia(
+        client, item_id, file_path, date_str,
+        metadata_overrides=overrides,
+        circuit_breaker=circuit_breaker,
+    )
 
 
 def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
@@ -1246,6 +1255,7 @@ def _export_and_upload_table(
     date_str: str,
     *,
     dry_run: bool,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[bool, float, int]:
     """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count)."""
     size_mb = 0.0
@@ -1269,7 +1279,9 @@ def _export_and_upload_table(
 
         # Upload if not dry run
         uploaded = 0
-        if not dry_run and _upload_consolidated(client, item_id, output_path, date_str):
+        if not dry_run and _upload_consolidated(
+            client, item_id, output_path, date_str, circuit_breaker=circuit_breaker,
+        ):
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
@@ -1488,6 +1500,7 @@ def consolidate_date(
             )
 
         # Create httpx client for uploads (connection pooling across parallel uploads)
+        ia_circuit_breaker = CircuitBreaker(threshold=5)
         with httpx.Client(timeout=300, headers=upload_headers) as client:
             # Parallel export + upload with ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=4) as executor:
@@ -1501,6 +1514,7 @@ def consolidate_date(
                         client,
                         date,
                         dry_run=dry_run,
+                        circuit_breaker=ia_circuit_breaker,
                     ): table_name
                     for table_name in TABLES
                 }

@@ -39,6 +39,7 @@ import structlog
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
 from scripts.pipeline.ia_s3 import (
+    CircuitBreaker,
     get_ia_s3_auth as _get_ia_s3_auth,
     parse_deadline,
     upload_to_ia,
@@ -461,6 +462,7 @@ def _process_item(
     proxy_url: str,
     date_str: str,
     tribunal: str,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[str, float]:
     """Process a single (date, tribunal) pair. Thread-safe.
 
@@ -470,6 +472,11 @@ def _process_item(
     absent_marker = f"djen-{date_str}-{tribunal}.absent"
 
     logger.info("processing", date=date_str, tribunal=tribunal)
+
+    # Skip early if IA is known to be down
+    if circuit_breaker is not None and circuit_breaker.is_open:
+        logger.warning("circuit_breaker_open_skip", date=date_str, tribunal=tribunal)
+        return "failed", 0.0
 
     # Get caderno info
     info = get_caderno_info(api_client, proxy_url, tribunal, date_str)
@@ -481,7 +488,10 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
+            ok = upload_to_ia(
+                upload_client, item_id, marker_path, date_str,
+                circuit_breaker=circuit_breaker,
+            )
             return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
@@ -505,7 +515,10 @@ def _process_item(
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(upload_client, item_id, zip_path, date_str):
+        if upload_to_ia(
+            upload_client, item_id, zip_path, date_str,
+            circuit_breaker=circuit_breaker,
+        ):
             logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
             return "success", size_mb
         return "failed", 0.0
@@ -612,6 +625,7 @@ def collect_data(
     )
 
     start_time = time.time()
+    ia_circuit_breaker = CircuitBreaker(threshold=5)
 
     with (
         httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
@@ -629,7 +643,8 @@ def collect_data(
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
+                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal,
+                ia_circuit_breaker,
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }
