@@ -622,6 +622,7 @@ def _process_item(
 def collect_data(
     proxy_url: str,
     target_date: str | None = None,
+    date_range: tuple[str, str] | None = None,
     target_tribunal: str | None = None,
     max_items: int = 50,
     workers: int = 8,
@@ -634,12 +635,29 @@ def collect_data(
     yet on Internet Archive, ordered most-recent-first (d-1, d-2, d-3 …).
     The catalog is the single source of truth; we only verify against IA
     to filter items collected since the last catalog rebuild (daily 06:00 UTC).
+
+    When date_range is given, generates all dates between start_date and
+    end_date (inclusive) for weekly runs.
     """
     stats: dict[str, int | float] = {"success": 0, "failed": 0, "skipped": 0, "downloaded_mb": 0.0}
 
     all_tribunais = fetch_tribunais_from_api(proxy_url)
 
-    if target_date:
+    if date_range:
+        # Weekly run: process date range
+        from datetime import timedelta
+
+        start_str, end_str = date_range
+        start = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end = datetime.strptime(end_str, "%Y-%m-%d").date()
+        dates = []
+        current = start
+        while current <= end:
+            dates.append(current.strftime("%Y-%m-%d"))
+            current += timedelta(days=1)
+        tribunais = [target_tribunal.upper()] if target_tribunal else all_tribunais
+        to_process = [(d, t) for d in dates for t in tribunais]
+    elif target_date:
         # Manual: specific date (+ optional tribunal filter)
         tribunais = [target_tribunal.upper()] if target_tribunal else all_tribunais
         to_process = [(target_date, t) for t in tribunais]
@@ -795,6 +813,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Collect DJEN data")
     parser.add_argument("--proxy-url", default="https://djen-proxy-mhgmawcn3a-rj.a.run.app")
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
+    parser.add_argument("--start-date", help="Start of date range (YYYY-MM-DD)")
+    parser.add_argument("--end-date", help="End of date range (YYYY-MM-DD, inclusive)")
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=50)
     parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
@@ -804,6 +824,15 @@ def main() -> int:
         default="10m",
     )
     args = parser.parse_args()
+
+    # Validate arguments
+    if args.date and (args.start_date or args.end_date):
+        print("❌ Error: Cannot use --date with --start-date/--end-date")
+        return 1
+
+    if (args.start_date and not args.end_date) or (args.end_date and not args.start_date):
+        print("❌ Error: Must specify both --start-date and --end-date for weekly runs")
+        return 1
 
     # Validate security inputs
     if args.proxy_url is not None:
@@ -815,10 +844,16 @@ def main() -> int:
 
     print("Collecting DJEN data...")
     print(f"  Proxy: {args.proxy_url}")
-    if args.date:
+
+    date_range_param = None
+    if args.start_date and args.end_date:
+        date_range_param = (args.start_date, args.end_date)
+        print(f"  Date range: {args.start_date} to {args.end_date} (weekly run)")
+    elif args.date:
         print(f"  Date: {args.date}")
     else:
         print("  Source: catalog (backfill-needed.parquet, d-1 first)")
+
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
     deadline_sec = parse_deadline(args.deadline)
@@ -830,6 +865,7 @@ def main() -> int:
     stats = collect_data(
         proxy_url=args.proxy_url,
         target_date=args.date,
+        date_range=date_range_param,
         target_tribunal=args.tribunal,
         max_items=args.max_items,
         workers=args.workers,
