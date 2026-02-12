@@ -5,7 +5,11 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 # Adjusting import to work with pytest and project structure
-from scripts.pipeline.consolidate import CheckpointManager, find_next_unconsolidated
+from scripts.pipeline.consolidate import (
+    CheckpointManager,
+    ConsolidationContext,
+    find_next_unconsolidated,
+)
 
 
 class TestCheckpointManager:
@@ -72,9 +76,9 @@ class TestConsolidationCheckpointing:
 
         mock_needs.side_effect = needs_side_effect
 
-        # We must clear the global cache to avoid side effects from other tests
-        with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
-            find_next_unconsolidated(checkpoint_file=checkpoint_file)
+        # Each test gets a fresh context (no shared mutable globals)
+        ctx = ConsolidationContext()
+        find_next_unconsolidated(checkpoint_file=checkpoint_file, ctx=ctx)
 
         # It should check dates starting from last_checked (inclusive) going backward
         # Check that it didn't check dates NEWER than last_checked
@@ -105,8 +109,8 @@ class TestConsolidationCheckpointing:
 
         mock_needs.side_effect = needs_side_effect
 
-        with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
-            find_next_unconsolidated(checkpoint_file=checkpoint_file)
+        ctx = ConsolidationContext()
+        find_next_unconsolidated(checkpoint_file=checkpoint_file, ctx=ctx)
 
         # Check if checkpoint was saved
         assert checkpoint_file.exists()

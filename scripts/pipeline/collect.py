@@ -22,8 +22,6 @@ Usage:
 
 import argparse
 import asyncio
-import configparser
-import hashlib
 import json
 import os
 import tempfile
@@ -40,6 +38,12 @@ import structlog
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
+from scripts.pipeline.ia_s3 import (
+    CircuitBreaker,
+    get_ia_s3_auth,
+    parse_deadline,
+    upload_to_ia,
+)
 
 
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
@@ -68,21 +72,6 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
-
-
-def parse_deadline(duration_str: str) -> int:
-    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
-    if not duration_str:
-        return 0
-    duration_str = duration_str.strip().lower()
-    try:
-        if duration_str.endswith("m"):
-            return int(float(duration_str[:-1]) * 60)
-        if duration_str.endswith("s"):
-            return int(float(duration_str[:-1]))
-        return int(float(duration_str))
-    except ValueError:
-        return 0
 
 
 def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -466,102 +455,6 @@ def download_zip(
     return False
 
 
-_IA_S3_URL = "https://s3.us.archive.org"
-
-
-def _get_ia_s3_auth() -> str | None:
-    """Get IA S3 authorization header value from env vars or config file."""
-    access = os.environ.get("IAS3_ACCESS_KEY", "")
-    secret = os.environ.get("IAS3_SECRET_KEY", "")
-    if access and secret:
-        return f"LOW {access}:{secret}"
-    # Fall back to config file (created by CI workflow)
-    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
-    if config_path.exists():
-        cfg = configparser.ConfigParser()
-        cfg.read(config_path)
-        access = cfg.get("s3", "access", fallback="")
-        secret = cfg.get("s3", "secret", fallback="")
-        if access and secret:
-            return f"LOW {access}:{secret}"
-    return None
-
-
-def _compute_md5(file_path: Path) -> str:
-    """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def upload_to_ia(
-    client: httpx.Client,
-    item_id: str,
-    file_path: Path,
-    date_str: str,
-) -> bool:
-    """Upload file to Internet Archive via the S3-compatible API.
-
-    CRITICAL: We use httpx (direct HTTP PUT) instead of boto3.
-    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
-    while IA requires 'x-archive-meta-*'. Previous attempts to use boto3
-    resulted in HTTP 411 (Length Required) errors.
-    See PR #348 and docs/architecture/internet-archive-upload.md for details.
-
-    Uses a shared httpx client for connection pooling across workers,
-    with streaming upload and MD5 integrity verification.
-    """
-    filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
-
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {date_str}",
-        "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
-    }
-
-    # Retry strategy with exponential backoff (linear increment here: 5, 10, 15s)
-    # only for 5xx errors or network exceptions.
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
-            )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-    return False
-
-
 def _process_item(
     api_client: httpx.Client,
     dl_client: httpx.Client,
@@ -569,6 +462,7 @@ def _process_item(
     proxy_url: str,
     date_str: str,
     tribunal: str,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[str, float]:
     """Process a single (date, tribunal) pair. Thread-safe.
 
@@ -578,6 +472,11 @@ def _process_item(
     absent_marker = f"djen-{date_str}-{tribunal}.absent"
 
     logger.info("processing", date=date_str, tribunal=tribunal)
+
+    # Skip early if IA is known to be down
+    if circuit_breaker is not None and circuit_breaker.is_open:
+        logger.warning("circuit_breaker_open_skip", date=date_str, tribunal=tribunal)
+        return "failed", 0.0
 
     # Get caderno info
     info = get_caderno_info(api_client, proxy_url, tribunal, date_str)
@@ -589,7 +488,13 @@ def _process_item(
         with tempfile.TemporaryDirectory() as tmpdir:
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
-            ok = upload_to_ia(upload_client, item_id, marker_path, date_str)
+            ok = upload_to_ia(
+                upload_client,
+                item_id,
+                marker_path,
+                date_str,
+                circuit_breaker=circuit_breaker,
+            )
             return ("success", 0.0) if ok else ("failed", 0.0)
 
     if not isinstance(info, dict):
@@ -613,7 +518,13 @@ def _process_item(
 
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
-        if upload_to_ia(upload_client, item_id, zip_path, date_str):
+        if upload_to_ia(
+            upload_client,
+            item_id,
+            zip_path,
+            date_str,
+            circuit_breaker=circuit_breaker,
+        ):
             logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
             return "success", size_mb
         return "failed", 0.0
@@ -701,7 +612,7 @@ def collect_data(
         return stats
 
     # Resolve IA S3 credentials once (shared via upload client headers)
-    ia_auth = _get_ia_s3_auth()
+    ia_auth = get_ia_s3_auth()
     if not ia_auth:
         logger.error(
             "ia_credentials_not_found",
@@ -720,6 +631,7 @@ def collect_data(
     )
 
     start_time = time.time()
+    ia_circuit_breaker = CircuitBreaker(threshold=5)
 
     with (
         httpx.Client(timeout=api_timeout, limits=pool_limits) as api_client,
@@ -737,7 +649,14 @@ def collect_data(
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal
+                _process_item,
+                api_client,
+                dl_client,
+                upload_client,
+                proxy_url,
+                date_str,
+                tribunal,
+                ia_circuit_breaker,
             ): (date_str, tribunal)
             for date_str, tribunal in pending
         }

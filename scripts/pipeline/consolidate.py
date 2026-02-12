@@ -15,7 +15,6 @@ Usage:
 
 import argparse
 import decimal
-import hashlib
 import json
 import os
 import tempfile
@@ -24,6 +23,8 @@ import unicodedata
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -53,28 +54,33 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
+from scripts.pipeline.ia_s3 import (  # noqa: E402
+    CircuitBreaker,
+    get_ia_s3_auth,
+    parse_deadline,
+    upload_to_ia,
+)
 
 
-# Cache for tribunal stopped checks (tribunal -> date -> bool)
-_TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
+@dataclass
+class ConsolidationContext:
+    """Mutable caches for a single consolidation run.
 
-# Cache for consolidation candidates (list of dates)
-_CONSOLIDATION_CANDIDATES: list[str] | None = None
+    Encapsulates module-level mutable state so that:
+    - Tests can create isolated contexts without side effects.
+    - Multiple runs in the same process don't leak cache entries.
+    - The signature matches the immutable-config style of ``run.py``.
+    """
 
-# Internet Archive S3-compatible API endpoint
-_IA_S3_URL = "https://s3.us.archive.org"
+    # Cache for tribunal stopped checks (tribunal -> date -> bool)
+    tribunal_stopped_cache: dict[str, dict[str, bool]] = dataclass_field(default_factory=dict)
+
+    # Cache for consolidation candidates (list of dates)
+    consolidation_candidates: list[str] | None = None
+
 
 # Checkpoint state file path
 _CHECKPOINT_STATE_FILE = Path("data/consolidate-checkpoint.json")
-
-
-def _compute_md5(file_path: Path) -> str:
-    """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def load_checkpoint_state() -> dict[str, Any]:
@@ -287,21 +293,6 @@ SCHEMA_VERSION = "3"
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
-
-
-def parse_deadline(duration_str: str) -> int:
-    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
-    if not duration_str:
-        return 0
-    duration_str = duration_str.strip().lower()
-    try:
-        if duration_str.endswith("m"):
-            return int(float(duration_str[:-1]) * 60)
-        if duration_str.endswith("s"):
-            return int(float(duration_str[:-1]))
-        return int(float(duration_str))
-    except ValueError:
-        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -915,61 +906,31 @@ def init_tables(con: ibis.BaseBackend) -> None:
         con.create_table(table, schema=schema, overwrite=True)
 
 
-def upload_to_ia(client: httpx.Client, item_id: str, file_path: Path, date_str: str) -> bool:
-    """Upload file to Internet Archive via httpx (direct HTTP PUT).
+_CONSOLIDATION_META_OVERRIDES = {
+    "x-archive-meta-title": "DJEN Consolidated - {date_str}",
+    "x-archive-meta-description": (
+        "Consolidated Parquet files from Brazilian court communications."
+    ),
+}
 
-    CRITICAL: We use httpx instead of 'ia' CLI for consistency with collect.py
-    and better performance (no shell out + re-auth per file).
 
-    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
-    while IA requires 'x-archive-meta-*'. See PR #348 for details.
-    """
-    filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
-
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Consolidated - {date_str}",
-        "x-archive-meta-description": (
-            "Consolidated Parquet files from Brazilian court communications."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
-    }
-
-    # Retry strategy with exponential backoff
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers, timeout=300)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
-            )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-    return False
+def _upload_consolidated(
+    client: httpx.Client,
+    item_id: str,
+    file_path: Path,
+    date_str: str,
+    circuit_breaker: CircuitBreaker | None = None,
+) -> bool:
+    """Upload consolidated file to IA with consolidation-specific metadata."""
+    overrides = {k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()}
+    return upload_to_ia(
+        client,
+        item_id,
+        file_path,
+        date_str,
+        metadata_overrides=overrides,
+        circuit_breaker=circuit_breaker,
+    )
 
 
 def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
@@ -986,7 +947,7 @@ def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
             # Empty file - existence is the signal
 
         logger.info("uploading_marker", item_id=item_id)
-        success = upload_to_ia(client, item_id, marker_path, date_str)
+        success = _upload_consolidated(client, item_id, marker_path, date_str)
 
         # Cleanup temp file
         try:
@@ -1001,37 +962,43 @@ def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
 
 
 def _is_tribunal_stopped(
-    tribunal: str, target_date: date, manifest: list[dict] | None = None, absent_threshold: int = 60
+    tribunal: str,
+    target_date: date,
+    manifest: list[dict] | None = None,
+    absent_threshold: int = 60,
+    ctx: ConsolidationContext | None = None,
 ) -> bool:
     """Check if a tribunal has been absent for 60+ consecutive days before target_date.
 
     If manifest is provided, use it to check (fast).
     Otherwise, scans the last N days backward from target_date using IA metadata API (slow).
     """
+    if ctx is None:
+        ctx = ConsolidationContext()
     date_str = target_date.strftime("%Y-%m-%d")
 
     # Check cache
-    if tribunal in _TRIBUNAL_STOPPED_CACHE:
-        if date_str in _TRIBUNAL_STOPPED_CACHE[tribunal]:
-            return _TRIBUNAL_STOPPED_CACHE[tribunal][date_str]
+    if tribunal in ctx.tribunal_stopped_cache:
+        if date_str in ctx.tribunal_stopped_cache[tribunal]:
+            return ctx.tribunal_stopped_cache[tribunal][date_str]
     else:
-        _TRIBUNAL_STOPPED_CACHE[tribunal] = {}
+        ctx.tribunal_stopped_cache[tribunal] = {}
 
     # 1. Manifest-based check (fast)
     if manifest:
         # Build lookup for this tribunal if not in cache
         # Note: We use a simple lookup for speed
         trib_key = f"_lookup_{tribunal}"
-        if trib_key not in _TRIBUNAL_STOPPED_CACHE:
-            _TRIBUNAL_STOPPED_CACHE[trib_key] = {}
+        if trib_key not in ctx.tribunal_stopped_cache:
+            ctx.tribunal_stopped_cache[trib_key] = {}
             for m in manifest:
                 if m["tribunal"] == tribunal:
                     d = m["date"]
-                    if d not in _TRIBUNAL_STOPPED_CACHE[trib_key]:
-                        _TRIBUNAL_STOPPED_CACHE[trib_key][d] = []
-                    _TRIBUNAL_STOPPED_CACHE[trib_key][d].append(m["file_type"])
+                    if d not in ctx.tribunal_stopped_cache[trib_key]:
+                        ctx.tribunal_stopped_cache[trib_key][d] = []
+                    ctx.tribunal_stopped_cache[trib_key][d].append(m["file_type"])
 
-        tribunal_files = _TRIBUNAL_STOPPED_CACHE[trib_key]
+        tribunal_files = ctx.tribunal_stopped_cache[trib_key]
 
         for days_back in range(1, absent_threshold + 1):
             check_date = target_date - timedelta(days=days_back)
@@ -1043,23 +1010,23 @@ def _is_tribunal_stopped(
             # If date not in manifest at all, can't conclude stopped
             if check_date_str not in tribunal_files:
                 result = False
-                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
             # If we find a .zip (not just .absent), tribunal is active
             if "zip" in tribunal_files[check_date_str]:
                 result = False
-                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
             # If neither zip nor absent, can't conclude stopped
             if "absent" not in tribunal_files[check_date_str]:
                 result = False
-                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
         result = True
-        _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+        ctx.tribunal_stopped_cache[tribunal][date_str] = result
         return result
 
     # 2. IA Metadata API-based check (slow fallback)
@@ -1078,7 +1045,7 @@ def _is_tribunal_stopped(
             if resp.status_code != 200:
                 # Can't verify - assume not stopped
                 result = False
-                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
             files = resp.json().get("files", [])
@@ -1094,7 +1061,7 @@ def _is_tribunal_stopped(
                     # If we find a .zip (not .absent), tribunal is active
                     if name.endswith(".zip"):
                         result = False
-                        _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                        ctx.tribunal_stopped_cache[tribunal][date_str] = result
                         return result
                     # If .absent, mark as found and continue checking other days
                     if name.endswith(".absent"):
@@ -1104,23 +1071,27 @@ def _is_tribunal_stopped(
             # If no file for this tribunal on this day, can't conclude stopped
             if not tribunal_found:
                 result = False
-                _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+                ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
         except Exception:
             # On error, assume not stopped (conservative)
             result = False
-            _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+            ctx.tribunal_stopped_cache[tribunal][date_str] = result
             return result
 
     # All checked days had .absent marker - tribunal is stopped
     result = True
-    _TRIBUNAL_STOPPED_CACHE[tribunal][date_str] = result
+    ctx.tribunal_stopped_cache[tribunal][date_str] = result
     return result
 
 
 def _needs_consolidation(
-    date_str: str, manifest: list[dict] | None = None, *, must_be_complete: bool = False
+    date_str: str,
+    manifest: list[dict] | None = None,
+    *,
+    must_be_complete: bool = False,
+    ctx: ConsolidationContext | None = None,
 ) -> bool:
     """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA.
 
@@ -1149,7 +1120,7 @@ def _needs_consolidation(
 
             for trib in TRIBUNAIS:
                 if trib not in present_tribunais:
-                    if not _is_tribunal_stopped(trib, target_d, manifest):
+                    if not _is_tribunal_stopped(trib, target_d, manifest, ctx=ctx):
                         return False
             return True
 
@@ -1194,7 +1165,7 @@ def _needs_consolidation(
             for trib in TRIBUNAIS:
                 if trib not in present_tribunais:
                     # Check if this tribunal is stopped (60+ days absent)
-                    if not _is_tribunal_stopped(trib, target_d):
+                    if not _is_tribunal_stopped(trib, target_d, ctx=ctx):
                         # Not stopped - we need it
                         active_tribunals.append(trib)
 
@@ -1214,17 +1185,25 @@ def _needs_consolidation(
         return False
 
 
-def _all_tribunals_stopped(target_date: date, manifest: list[dict] | None = None) -> bool:
+def _all_tribunals_stopped(
+    target_date: date,
+    manifest: list[dict] | None = None,
+    ctx: ConsolidationContext | None = None,
+) -> bool:
     """Check if ALL tribunals are stopped (60+ days absent) at target_date.
 
     This is the natural stopping condition for backfill - when there's no more
     historical data from any tribunal.
     """
-    return all(_is_tribunal_stopped(tribunal, target_date, manifest) for tribunal in TRIBUNAIS)
+    return all(
+        _is_tribunal_stopped(tribunal, target_date, manifest, ctx=ctx) for tribunal in TRIBUNAIS
+    )
 
 
 def find_next_unconsolidated(
-    manifest: list[dict] | None = None, checkpoint_file: Path | None = None
+    manifest: list[dict] | None = None,
+    checkpoint_file: Path | None = None,
+    ctx: ConsolidationContext | None = None,
 ) -> str | None:
     """Find the most recent date needing consolidation.
 
@@ -1233,15 +1212,16 @@ def find_next_unconsolidated(
 
     Returns the date string or None if everything is consolidated.
     """
-    global _CONSOLIDATION_CANDIDATES
+    if ctx is None:
+        ctx = ConsolidationContext()
 
     # 1. Try manifest-based discovery (fast, minimal API calls)
-    if _CONSOLIDATION_CANDIDATES is None:
-        _CONSOLIDATION_CANDIDATES = fetch_consolidation_candidates(manifest)
+    if ctx.consolidation_candidates is None:
+        ctx.consolidation_candidates = fetch_consolidation_candidates(manifest)
 
-    if _CONSOLIDATION_CANDIDATES:
-        while _CONSOLIDATION_CANDIDATES:
-            candidate = _CONSOLIDATION_CANDIDATES.pop(0)
+    if ctx.consolidation_candidates:
+        while ctx.consolidation_candidates:
+            candidate = ctx.consolidation_candidates.pop(0)
             # We found a candidate from manifest. It definitely has ZIPs and no parquets.
             # We return it directly. consolidate_date will verify completeness.
             logger.info("candidate_from_manifest", date=candidate)
@@ -1279,14 +1259,14 @@ def find_next_unconsolidated(
             continue
 
         # Check if we've gone back far enough (all tribunals stopped)
-        if _all_tribunals_stopped(d, manifest):
+        if _all_tribunals_stopped(d, manifest, ctx=ctx):
             logger.info(
                 "backfill_complete", date=d_str, days_ago=days_ago, reason="all_tribunals_stopped"
             )
             return None
 
         # Backfill requires completeness — only consolidate when everything is gathered
-        if _needs_consolidation(d_str, manifest, must_be_complete=True):
+        if _needs_consolidation(d_str, manifest, must_be_complete=True, ctx=ctx):
             logger.info("unconsolidated_date_found", date=d_str, days_ago=days_ago)
             checkpoint.save(d_str)
             return d_str
@@ -1308,6 +1288,7 @@ def _export_and_upload_table(
     date_str: str,
     *,
     dry_run: bool,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[bool, float, int]:
     """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count)."""
     size_mb = 0.0
@@ -1331,7 +1312,13 @@ def _export_and_upload_table(
 
         # Upload if not dry run
         uploaded = 0
-        if not dry_run and upload_to_ia(client, item_id, output_path, date_str):
+        if not dry_run and _upload_consolidated(
+            client,
+            item_id,
+            output_path,
+            date_str,
+            circuit_breaker=circuit_breaker,
+        ):
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
@@ -1540,8 +1527,18 @@ def consolidate_date(
 
         logger.info("exporting_parquets", table_count=len(TABLES))
 
+        # Resolve IA S3 credentials for upload client
+        ia_auth = get_ia_s3_auth()
+        upload_headers = {"Authorization": ia_auth} if ia_auth else {}
+        if not ia_auth and not dry_run:
+            logger.warning(
+                "ia_credentials_not_found",
+                hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
+            )
+
         # Create httpx client for uploads (connection pooling across parallel uploads)
-        with httpx.Client(timeout=300) as client:
+        ia_circuit_breaker = CircuitBreaker(threshold=5)
+        with httpx.Client(timeout=300, headers=upload_headers) as client:
             # Parallel export + upload with ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {
@@ -1554,6 +1551,7 @@ def consolidate_date(
                         client,
                         date,
                         dry_run=dry_run,
+                        circuit_breaker=ia_circuit_breaker,
                     ): table_name
                     for table_name in TABLES
                 }
@@ -1677,22 +1675,27 @@ def main() -> int:
         # Backfill: process multiple unconsolidated dates until deadline
         print(f"Backfill mode: scanning for unconsolidated dates (deadline: {deadline_sec}s)...")
         dates_processed = 0
+        ctx = ConsolidationContext()
 
         while True:
             # Check deadline - leave 120s margin for upload completion
             if deadline_sec > 0:
                 elapsed = time.time() - start_time
                 if elapsed > deadline_sec - 120:
-                    print(f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates.")
+                    print(
+                        f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates."
+                    )
                     break
 
-            target_date_or_none = find_next_unconsolidated(manifest)
+            target_date_or_none = find_next_unconsolidated(manifest, ctx=ctx)
             if target_date_or_none is None:
                 print("Backfill complete: all dates consolidated or all tribunals stopped.")
                 break
 
             target_date = target_date_or_none
-            print(f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}...")
+            print(
+                f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}..."
+            )
 
             try:
                 stats = consolidate_date(

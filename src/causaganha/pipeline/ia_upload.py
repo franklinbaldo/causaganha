@@ -1,5 +1,19 @@
 """Internet Archive Upload Module.
 
+.. deprecated::
+    This module uses the ``internetarchive`` Python library for uploads.
+    The production pipeline uses httpx-based uploads via
+    ``scripts/pipeline/ia_s3.py`` instead, because the ``internetarchive``
+    library (like boto3) does not reliably support the ``x-archive-meta-*``
+    headers that IA requires. See CONTRIBUTING.md and PR #348.
+
+    **Do not use this module for production uploads.**
+    Use ``scripts.pipeline.ia_s3.upload_to_ia()`` instead.
+
+    This module is retained only for metadata queries, download operations,
+    and legacy/experimental upload paths that are not part of the daily
+    pipeline.
+
 Uploads Parquet files to Internet Archive for permanent, free storage.
 Supports retry logic, metadata generation, and upload verification.
 
@@ -246,12 +260,18 @@ class InternetArchiveUploader:
     def _generate_item_id(self, date: str, tribunal: str) -> str:
         """Generate Internet Archive item ID.
 
+        .. note::
+            This generates ``djen-raw-{date}-{tribunal}`` which differs from
+            the production item ID scheme ``djen-{date}`` used by
+            ``scripts/pipeline/ia_s3.py`` and ``scripts/pipeline/collect.py``.
+            This module is NOT used for production uploads.
+
         Args:
             date: Partition date (YYYY-MM-DD)
             tribunal: Tribunal code
 
         Returns:
-            Item ID: causaganha-2025-01-15-TJRO
+            Item ID: djen-raw-2025-01-15-TJRO
         """
         return f"djen-raw-{date}-{tribunal}"
 

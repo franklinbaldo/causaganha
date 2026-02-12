@@ -1,4 +1,18 @@
-"""Internet Archive service for uploading documents."""
+"""Internet Archive service for uploading documents.
+
+.. deprecated::
+    The ``InternetArchiveService`` class in this module uses the
+    ``internetarchive`` Python library for uploads. The production pipeline
+    uses httpx-based uploads via ``scripts/pipeline/ia_s3.py`` instead,
+    because the ``internetarchive`` library does not reliably support the
+    ``x-archive-meta-*`` headers that IA requires. See CONTRIBUTING.md.
+
+    **Do not use InternetArchiveService for production uploads.**
+    Use ``scripts.pipeline.ia_s3.upload_to_ia()`` instead.
+
+    The ``LocalArchiveService`` fallback and the ``ArchiveService`` protocol
+    are retained for local testing and metadata/download operations.
+"""
 
 import asyncio
 import os
