@@ -86,17 +86,30 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     if not collect_progress:
         collect_progress = fetch_progress_json(f"{ia_base}/backfill-progress.json")
 
+    daily_stats_list = [{"date": str(d), "count": c} for d, c in daily_stats]
+    recent_activity_list = [{"date": str(d), "count": c} for d, c in recent_activity]
+
+    db_progress = {
+        "oldest_date": oldest_date,
+        "newest_date": newest_date,
+        "unique_days": unique_days,
+        "total_items": total_items,
+        "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
+        "progress_pct": progress_pct,
+        "last_updated": datetime.now(UTC).isoformat(),
+    }
+
+    # Build backfill_progress: merge IA progress with DuckDB-derived daily breakdowns.
+    # daily_stats and recent_activity always come from DuckDB since IA doesn't produce them.
+    backfill_base = collect_progress or db_progress
+    backfill_progress = {
+        **backfill_base,
+        "daily_stats": daily_stats_list,
+        "recent_activity": recent_activity_list,
+    }
+
     data = {
-        "collect_progress": collect_progress
-        or {
-            "oldest_date": oldest_date,
-            "newest_date": newest_date,
-            "unique_days": unique_days,
-            "total_items": total_items,
-            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
-            "progress_pct": progress_pct,
-            "last_updated": datetime.now(UTC).isoformat(),
-        },
+        "collect_progress": collect_progress or db_progress,
         "consolidate_progress": consolidate_progress
         or {
             "oldest_date": None,
@@ -107,18 +120,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "progress_pct": 0.0,
             "last_updated": datetime.now(UTC).isoformat(),
         },
-        "backfill_progress": collect_progress
-        or {  # Legacy field for backward compatibility
-            "oldest_date": oldest_date,
-            "newest_date": newest_date,
-            "unique_days": unique_days,
-            "total_items": total_items,
-            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
-            "progress_pct": progress_pct,
-            "last_updated": datetime.now(UTC).isoformat(),
-            "daily_stats": [{"date": str(d), "count": c} for d, c in daily_stats],
-            "recent_activity": [{"date": str(d), "count": c} for d, c in recent_activity],
-        },
+        "backfill_progress": backfill_progress,
         "tribunal_stats": [{"tribunal": t, "count": c} for t, c in tribunal_stats],
     }
 

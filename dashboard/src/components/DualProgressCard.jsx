@@ -159,7 +159,7 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
   );
 }
 
-export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', refreshInterval = 60000 }) {
+export function DualProgressCard({ apiUrl = './dashboard-data.json', refreshInterval = 60000 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -231,7 +231,9 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
     );
   }
 
-  const { backfill_progress } = data;
+  const cp = data.collect_progress || data.backfill_progress || {};
+  const consP = data.consolidate_progress || {};
+
   const {
     unique_days = 0,
     target_range = {},
@@ -240,11 +242,8 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
     oldest_date,
     newest_date,
     last_updated,
-  } = backfill_progress;
+  } = cp;
 
-  // Calculate collect and consolidate metrics
-  // For now, using backfill as "collect" and a derived metric for "consolidate"
-  // In a real scenario, you'd have separate API endpoints or data fields
   const collectProgress = {
     label: 'Days Collected',
     current: unique_days,
@@ -253,12 +252,16 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
     unit: 'days',
   };
 
+  const consUniqueDays = consP.unique_days || 0;
+  const consTotalDays = consP.target_range?.total_days || target_range.total_days || 764;
+  const consPct = consP.progress_pct || (consTotalDays > 0 ? (consUniqueDays / consTotalDays) * 100 : 0);
+
   const consolidateProgress = {
-    label: 'Items Consolidated',
-    current: total_items,
-    total: Math.max(total_items * 1.2, 100000), // Estimate target
-    percentage: Math.min((total_items / 100000) * 100, 100),
-    unit: 'items',
+    label: 'Days Consolidated',
+    current: consUniqueDays,
+    total: consTotalDays,
+    percentage: consPct,
+    unit: 'days',
   };
 
   return (
