@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "4",  # GRADUAL SCALE-UP: httpx fix validated (1.70% progress). Testing light parallelism.
+        "2",  # Conservative: minimize OOM risk on GitHub Actions runners
         "--deadline",
         "1200s",
     )
@@ -154,7 +154,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--deadline",
         "1200s",
         "--workers",
-        "4",  # Gradual scale-up (aligned with collect.py): 4 workers, reduce OOM risk
+        "2",  # Conservative: minimize OOM risk on GitHub Actions runners
     )
     mode_args: tuple[str, ...] = (
         ("--date", config.date) if config.date else ("--backfill", "--force")

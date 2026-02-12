@@ -68,12 +68,12 @@ def scan_unconsolidated(context):
     checkpoint_file = context["checkpoint_file"]
     checked_dates = []
 
-    def mock_needs(d_str, **kwargs):
+    def mock_needs(d_str, manifest=None, **kwargs):
         checked_dates.append(d_str)
         return False  # Continue scanning
 
     # Limit scan to 10 days to avoid long tests
-    def stopped_side_effect(d):
+    def stopped_side_effect(d, manifest=None):
         return (date.today() - d).days > 10
 
     with (
@@ -81,7 +81,7 @@ def scan_unconsolidated(context):
         patch("consolidate._needs_consolidation", side_effect=mock_needs),
         patch("consolidate.fetch_consolidation_candidates", return_value=[]),
     ):
-        find_next_unconsolidated(checkpoint_file)
+        find_next_unconsolidated(checkpoint_file=checkpoint_file)
 
     context["checked_dates"] = checked_dates
 
@@ -131,7 +131,13 @@ def check_skipped_dates(context, days):
 
 @then(parsers.parse("resume scanning from {days:d} days ago"))
 def check_resume_date(context, days):
-    resume_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+    today = date.today()
+    # The scanner resumes from days_ago = days, but weekends are skipped.
+    # Find the first weekday at or after the resume point (going backward in time).
+    d = today - timedelta(days=days)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    resume_date = d.strftime("%Y-%m-%d")
     assert resume_date in context["checked_dates"]
     # It should be the first date checked
     assert context["checked_dates"][0] == resume_date
