@@ -364,6 +364,24 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         }
 
 
+def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
+    """Query per-tribunal last_update date and doc_count from manifest."""
+    try:
+        rows = con.execute("""
+            SELECT
+                tribunal,
+                MAX(date) as last_update,
+                COUNT(*) FILTER (WHERE file_type = 'zip') as doc_count
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+            GROUP BY tribunal
+        """).fetchall()
+        return {row[0]: {"last_update": row[1], "doc_count": row[2]} for row in rows}
+    except Exception as e:
+        print(f"  Warning: Could not query tribunal details: {e}", file=sys.stderr)
+        return {}
+
+
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
     """Generate today's metrics and tribunal status from manifest.
 
@@ -380,6 +398,9 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
 
     tribunal_status: dict[str, dict[str, Any]] = {}
     date_used = today
+
+    # Get per-tribunal details (last_update, doc_count) from full manifest
+    tribunal_details = query_tribunal_details(con) if not use_ia_fallback else {}
 
     if use_ia_fallback:
         # Fallback: fetch file list directly from IA metadata API
@@ -412,15 +433,24 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
             date_used = yesterday
 
         for tribunal, file_type in result:
+            details = tribunal_details.get(tribunal, {})
             tribunal_status[tribunal] = {
                 "status": "ok" if file_type == "zip" else "absent",
                 "size": None,
+                "last_update": details.get("last_update"),
+                "doc_count": details.get("doc_count", 0),
             }
 
-    # Mark missing tribunals as pending
+    # Mark missing tribunals as pending (still enrich with historical details)
     for tribunal in TRIBUNALS:
         if tribunal not in tribunal_status:
-            tribunal_status[tribunal] = {"status": "pending", "size": None}
+            details = tribunal_details.get(tribunal, {})
+            tribunal_status[tribunal] = {
+                "status": "pending",
+                "size": None,
+                "last_update": details.get("last_update"),
+                "doc_count": details.get("doc_count", 0),
+            }
 
     # Calculate metrics
     zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")

@@ -77,18 +77,19 @@ jobs:
           PIPELINE_RUN_STATS: /tmp/last-run.json
 
       - name: Download DuckDB artifact
+        id: download-db
         uses: actions/download-artifact@v4
         with:
           name: causaganha-db
           path: data/
+        continue-on-error: true  # Artifact may not exist on scheduled/manual runs
 
-      - name: Install Python dependencies
+      - name: Generate dashboard data (requires DuckDB artifact)
+        if: steps.download-db.outcome == 'success'
         run: |
-          pip install duckdb
-
-      - name: Generate dashboard data
-        run: |
+          pip install duckdb httpx
           python scripts/dashboard/generate-data.py
+        continue-on-error: true
 
       - name: Install dependencies
         run: npm ci

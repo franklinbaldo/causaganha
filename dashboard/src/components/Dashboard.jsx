@@ -12,6 +12,7 @@ import { ETACard } from './ETACard'
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
+  const [cacheData, setCacheData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
@@ -30,8 +31,8 @@ export default function Dashboard() {
         setStats(null);
       }
 
-      // Fetch dashboard data
-      const response = await fetch('/causaganha/dashboard-data.json');
+      // Fetch dashboard data (generated from DuckDB)
+      const response = await fetch('./dashboard-data.json');
       if (response.ok) {
         const data = await response.json();
         setDashboardData(data);
@@ -39,6 +40,18 @@ export default function Dashboard() {
         console.warn("Dashboard data not available");
         setDashboardData(null);
       }
+
+      // Fetch cache data (generated from manifest.parquet - always available)
+      const [todayRes, calendarRes, runsRes] = await Promise.all([
+        fetch('./cache/today.json'),
+        fetch('./cache/calendar.json'),
+        fetch('./cache/runs.json'),
+      ]);
+      const cache = {};
+      if (todayRes.ok) cache.today = await todayRes.json();
+      if (calendarRes.ok) cache.calendar = await calendarRes.json();
+      if (runsRes.ok) cache.runs = await runsRes.json();
+      if (Object.keys(cache).length > 0) setCacheData(cache);
     } catch (error) {
       console.error("Error loading data", error);
       setError("Unable to connect to data source.");
@@ -72,6 +85,53 @@ export default function Dashboard() {
 
   const backfillProgress = dashboardData?.backfill_progress;
 
+  // Derive calendar heatmap data: prefer DuckDB daily_stats, fall back to cache calendar
+  const calendarData = (() => {
+    if (backfillProgress?.daily_stats?.length > 0) return backfillProgress.daily_stats;
+    if (cacheData?.calendar?.days) {
+      return Object.entries(cacheData.calendar.days).map(([date, info]) => ({
+        date,
+        count: info.tribunal_count || 0,
+      }));
+    }
+    return [];
+  })();
+
+  // Derive timeline data: prefer DuckDB recent_activity, fall back to last 7 days of cache calendar
+  const timelineData = (() => {
+    if (backfillProgress?.recent_activity?.length > 0) return backfillProgress.recent_activity;
+    if (cacheData?.calendar?.days) {
+      const entries = Object.entries(cacheData.calendar.days)
+        .map(([date, info]) => ({ date, count: info.tribunal_count || 0 }))
+        .filter(d => d.count > 0)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      return entries.slice(-7);
+    }
+    return [];
+  })();
+
+  // Enrich stats.tribunals with cache data (last_update, doc_count from manifest)
+  const enrichedStats = (() => {
+    const base = stats || {};
+    const cacheTribunals = cacheData?.today?.tribunal_status;
+    if (!cacheTribunals) return base;
+    // Map cache format (ok/absent/pending) to dashboard format (success/absent/error)
+    const statusMap = { ok: 'success', absent: 'absent', pending: 'error' };
+    const tribunals = {};
+    for (const [name, info] of Object.entries(cacheTribunals)) {
+      tribunals[name] = {
+        status: statusMap[info.status] || info.status || 'error',
+        last_update: info.last_update || null,
+        doc_count: info.doc_count || undefined,
+        ...(base.tribunals?.[name] || {}),
+      };
+    }
+    return { ...base, tribunals };
+  })();
+
+  // Pipeline health from cache
+  const pipelineHealth = cacheData?.runs?.health ?? null;
+
   return (
     <div className="min-h-screen bg-cyber-black text-cyber-text p-4 md:p-8 font-mono bg-cyber-grid-bg">
       <header className="mb-8 flex justify-between items-center border-b border-cyber-border pb-4">
@@ -91,6 +151,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 justify-end">
             <span className="w-2.5 h-2.5 bg-cyber-primary rounded-full animate-pulse"></span>
             SYSTEM ONLINE
+            {pipelineHealth !== null && (
+              <span className="ml-2 text-cyber-text">{pipelineHealth}%</span>
+            )}
           </div>
           <div>{new Date().toISOString().split('T')[0]}</div>
         </div>
@@ -103,29 +166,29 @@ export default function Dashboard() {
             <ETACard backfillProgress={dashboardData} />
           </div>
           <div className="lg:col-span-2">
-            <DualProgressCard apiUrl="/causaganha/dashboard-data.json" refreshInterval={60000} />
+            <DualProgressCard apiUrl="./dashboard-data.json" refreshInterval={60000} />
           </div>
         </div>
 
         {/* Row 2: Status & Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <LiveStatusCard stats={stats} />
+            <LiveStatusCard stats={stats} cacheToday={cacheData?.today} />
           </div>
           <div className="lg:col-span-2">
-            <CalendarHeatmap data={backfillProgress?.daily_stats || []} />
+            <CalendarHeatmap data={calendarData} />
           </div>
         </div>
 
         {/* Row 3: Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-3">
-            <TimelineGraph data={backfillProgress?.recent_activity || []} />
+            <TimelineGraph data={timelineData} />
           </div>
         </div>
 
         {/* Row 4: Grid */}
-        <TribunalsGrid stats={stats} loading={loading} refreshing={refreshing} />
+        <TribunalsGrid stats={enrichedStats} loading={loading} refreshing={refreshing} />
 
         {/* Row 5: Details */}
         <LastRunDetails stats={stats} />
