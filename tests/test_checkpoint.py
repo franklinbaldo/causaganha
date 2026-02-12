@@ -54,8 +54,15 @@ def clean_environment(tmp_path, context):
 @given(parsers.parse("a checkpoint exists for {days:d} days ago"))
 def existing_checkpoint(tmp_path, context, days):
     context["checkpoint_file"] = tmp_path / "backfill_checkpoint.json"
-    last_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+    # Find a weekday that's approximately 'days' days ago
+    today = date.today()
+    candidate = today - timedelta(days=days)
+    # If it's a weekend, move to the previous Friday
+    while candidate.weekday() >= 5:  # Saturday=5, Sunday=6
+        candidate -= timedelta(days=1)
+    last_date = candidate.strftime("%Y-%m-%d")
     context["initial_date"] = last_date
+    context["initial_days_ago"] = (today - candidate).days
     with open(context["checkpoint_file"], "w") as f:
         json.dump({"last_checked": last_date}, f)
 
@@ -126,14 +133,20 @@ def checkpoint_contains_date(context):
 @then(parsers.parse("it should skip checking dates from the last {days:d} days"))
 def check_skipped_dates(context, days):
     today = date.today()
-    skipped = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+    # The actual days skipped depends on the checkpoint date
+    # (which may have been adjusted to avoid weekends)
+    initial_days_ago = context.get("initial_days_ago", days)
+    skipped = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(initial_days_ago)]
     for d in skipped:
         assert d not in context["checked_dates"]
 
 
 @then(parsers.parse("resume scanning from {days:d} days ago"))
 def check_resume_date(context, days):
-    resume_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+    # Use the actual date from the checkpoint (which may have been adjusted for weekends)
+    resume_date = context.get("initial_date")
+    if resume_date is None:
+        resume_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
     assert resume_date in context["checked_dates"]
     # It should be the first date checked
     assert context["checked_dates"][0] == resume_date

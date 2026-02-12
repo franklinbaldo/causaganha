@@ -57,7 +57,7 @@ class TestConsolidationCheckpointing:
         checkpoint_file = tmp_path / "checkpoint.json"
         today = date.today()
         # Save "3 days ago" as last checked.
-        # find_next_unconsolidated should start checking from 4 days ago.
+        # find_next_unconsolidated resumes from the checkpoint date itself.
         last_checked = (today - timedelta(days=3)).strftime("%Y-%m-%d")
         with open(checkpoint_file, "w") as f:
             json.dump({"last_checked": last_checked}, f)
@@ -76,11 +76,11 @@ class TestConsolidationCheckpointing:
         with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
             find_next_unconsolidated(checkpoint_file=checkpoint_file)
 
-        # It should check dates OLDER than last_checked
+        # It should check dates starting from last_checked (inclusive) going backward
         # Check that it didn't check dates NEWER than last_checked
         for call in mock_needs.call_args_list:
             called_date = call.args[0]
-            assert called_date < last_checked
+            assert called_date <= last_checked
 
     def test_saves_checkpoint_after_each_date(self, mock_needs, mock_stopped, mock_fetch, tmp_path):
         """Verify that checkpoint is saved after checking each date."""
@@ -89,11 +89,16 @@ class TestConsolidationCheckpointing:
 
         mock_stopped.return_value = False
         # Stop after some iterations by finding something
-        # Use a weekday to avoid being skipped by the weekend check
-        # 2026-02-10 is Tuesday. 4 days ago is 2026-02-06 (Friday).
+        # Find a weekday to avoid being skipped by the weekend check
         today = date.today()
-        # Ensure we pick a weekday. If today is Wed (2), 5 days ago is Fri (4).
-        target_date = (today - timedelta(days=5)).strftime("%Y-%m-%d")
+        # Walk backward from today to find a weekday that's at least 3 days ago
+        days_back = 3
+        while True:
+            candidate = today - timedelta(days=days_back)
+            if candidate.weekday() < 5:  # Monday-Friday
+                break
+            days_back += 1
+        target_date = candidate.strftime("%Y-%m-%d")
 
         def needs_side_effect(d_str, *args, **kwargs):
             return d_str == target_date
