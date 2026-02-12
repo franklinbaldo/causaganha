@@ -63,7 +63,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2025-01-01 needs consolidation
         # 2026-01-01 needs consolidation (newest - today)
 
-        def needs_consolidation_side_effect(d_str, *args, **kwargs):
+        def needs_consolidation_side_effect(d_str, manifest=None, must_be_complete=False):
             return d_str in ["2024-01-01", "2025-01-01", "2026-01-01"]
 
         mock_needs_consolidation.side_effect = needs_consolidation_side_effect
@@ -95,7 +95,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # 2024-01-06 (Sat) -> Weekend (Skip)
         # 2024-01-05 (Fri) -> Consolidated (False)
 
-        def side_effect(d_str, *args, **kwargs):
+        def side_effect(d_str, manifest=None, must_be_complete=False):
             if d_str in {"2024-01-10", "2024-01-05"}:
                 return False  # Already done
             return True  # Others need consolidation
@@ -129,7 +129,7 @@ class TestConsolidateBackfill(unittest.TestCase):
         # Simulate: after going back 10 days, all tribunals are stopped
         call_count = [0]
 
-        def all_stopped_side_effect(d, *args, **kwargs):
+        def all_stopped_side_effect(d, manifest=None):
             call_count[0] += 1
             # First 10 calls: not all stopped
             # 11th call onwards: all stopped

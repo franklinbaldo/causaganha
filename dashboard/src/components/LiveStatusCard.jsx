@@ -1,8 +1,36 @@
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Activity } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { SkeletonLoader, SkeletonText } from './SkeletonLoader';
 
-export function LiveStatusCard({ stats }) {
+const PIPELINE_INTERVAL_MINUTES = 20;
+
+function useNextRunCountdown(lastRunTimestamp) {
+  const [countdown, setCountdown] = useState('--:--');
+
+  useEffect(() => {
+    if (!lastRunTimestamp) return;
+
+    const update = () => {
+      const lastRun = new Date(lastRunTimestamp).getTime();
+      const nextRun = lastRun + PIPELINE_INTERVAL_MINUTES * 60 * 1000;
+      const remaining = Math.max(0, nextRun - Date.now());
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      setCountdown(`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [lastRunTimestamp]);
+
+  return countdown;
+}
+
+export function LiveStatusCard({ stats, cacheToday }) {
+  const countdown = useNextRunCountdown(stats?.timestamp);
+
   if (!stats) return (
     <div className="cyber-card h-32 border-t-4 border-cyber-border">
        <div className="flex justify-between items-start">
@@ -24,6 +52,8 @@ export function LiveStatusCard({ stats }) {
   const isSuccess = stats.status === 'success';
   const statusColor = isSuccess ? 'text-cyber-primary' : 'text-cyber-danger';
   const borderColor = isSuccess ? 'border-cyber-primary' : 'border-cyber-danger';
+  const health = cacheToday?.health;
+  const filesToday = cacheToday?.files_today;
 
   return (
     <div className={clsx("cyber-card relative overflow-hidden border-t-4", borderColor)}>
@@ -31,8 +61,8 @@ export function LiveStatusCard({ stats }) {
         <div role="status" aria-live="polite">
           <h2 className="text-base text-cyber-gray uppercase tracking-widest mb-1.5 font-medium">System Status</h2>
           <div className="flex items-center gap-3">
-            {isSuccess ? 
-              <CheckCircle className="w-7 h-7 text-cyber-primary" aria-hidden="true" /> : 
+            {isSuccess ?
+              <CheckCircle className="w-7 h-7 text-cyber-primary" aria-hidden="true" /> :
               <XCircle className="w-7 h-7 text-cyber-danger" aria-hidden="true" />
             }
             <span className={clsx("text-3xl font-bold tracking-tight", statusColor)}>
@@ -44,18 +74,25 @@ export function LiveStatusCard({ stats }) {
                <Clock className="w-5 h-5" aria-hidden="true" />
                Last Run: {new Date(stats.timestamp).toLocaleString()}
              </span>
-             <span>ID: <span className="font-mono text-cyber-text">{stats.run_id}</span></span>
              <span>Duration: <span className="text-cyber-text">{stats.duration_seconds}s</span></span>
+             {health != null && (
+               <span className="flex items-center gap-1.5">
+                 <Activity className="w-5 h-5" aria-hidden="true" />
+                 Health: <span className={clsx(health >= 70 ? "text-cyber-primary" : "text-cyber-danger")}>{health}%</span>
+               </span>
+             )}
+             {filesToday != null && (
+               <span>Today: <span className="text-cyber-text">{filesToday}/91</span> tribunais</span>
+             )}
           </div>
           <span className="sr-only">
             System status: {isSuccess ? 'Operational' : 'System fault detected'}. Last run at {new Date(stats.timestamp).toLocaleString()}.
           </span>
         </div>
 
-        {/* Mock Countdown - In real app, this would be calculated based on schedule */}
         <div className="text-right hidden sm:block">
              <div className="text-sm text-cyber-gray mb-1 font-medium">NEXT RUN</div>
-             <div className="text-2xl font-mono text-cyber-warning animate-pulse">~05:00</div>
+             <div className="text-2xl font-mono text-cyber-warning animate-pulse">{countdown}</div>
         </div>
       </div>
     </div>

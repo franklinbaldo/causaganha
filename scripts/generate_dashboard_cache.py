@@ -364,6 +364,24 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         }
 
 
+def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
+    """Query per-tribunal last_update date and doc_count from manifest."""
+    try:
+        rows = con.execute("""
+            SELECT
+                tribunal,
+                MAX(date) as last_update,
+                COUNT(*) FILTER (WHERE file_type = 'zip') as doc_count
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+            GROUP BY tribunal
+        """).fetchall()
+        return {row[0]: {"last_update": row[1], "doc_count": row[2]} for row in rows}
+    except Exception as e:
+        print(f"  Warning: Could not query tribunal details: {e}", file=sys.stderr)
+        return {}
+
+
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
     """Generate today's metrics and tribunal status from manifest.
 
@@ -380,6 +398,9 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
 
     tribunal_status: dict[str, dict[str, Any]] = {}
     date_used = today
+
+    # Get per-tribunal details (last_update, doc_count) from full manifest
+    tribunal_details = query_tribunal_details(con) if not use_ia_fallback else {}
 
     if use_ia_fallback:
         # Fallback: fetch file list directly from IA metadata API
@@ -412,15 +433,24 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
             date_used = yesterday
 
         for tribunal, file_type in result:
+            details = tribunal_details.get(tribunal, {})
             tribunal_status[tribunal] = {
                 "status": "ok" if file_type == "zip" else "absent",
                 "size": None,
+                "last_update": details.get("last_update"),
+                "doc_count": details.get("doc_count", 0),
             }
 
-    # Mark missing tribunals as pending
+    # Mark missing tribunals as pending (still enrich with historical details)
     for tribunal in TRIBUNALS:
         if tribunal not in tribunal_status:
-            tribunal_status[tribunal] = {"status": "pending", "size": None}
+            details = tribunal_details.get(tribunal, {})
+            tribunal_status[tribunal] = {
+                "status": "pending",
+                "size": None,
+                "last_update": details.get("last_update"),
+                "doc_count": details.get("doc_count", 0),
+            }
 
     # Calculate metrics
     zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")
@@ -583,6 +613,188 @@ def generate_calendar_cache(
     }
 
 
+def generate_backfill_cache(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """Generate backfill progress data from manifest for ETACard, DualProgressCard, BackfillProgress.
+
+    This is the primary data source for backfill-related dashboard components.
+    Unlike generate-data.py (which needs DuckDB artifact), this always works
+    because it reads from manifest.parquet.
+    """
+    if not is_manifest_populated(con):
+        return {}
+
+    print("  Generating backfill progress from manifest...")
+
+    try:
+        # Per-year progress: count distinct date+tribunal combos collected vs expected
+        year_rows = con.execute("""
+            SELECT
+                EXTRACT(YEAR FROM CAST(date AS DATE))::INT as year,
+                COUNT(DISTINCT date) as unique_days,
+                COUNT(DISTINCT date || '|' || tribunal) FILTER (WHERE file_type IN ('zip', 'absent')) as combos_done,
+                COUNT(DISTINCT date || '|' || tribunal) FILTER (WHERE file_type = 'zip') as zips
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent', 'parquet')
+            GROUP BY year
+            ORDER BY year
+        """).fetchall()
+
+        # Consolidation per year: dates that have parquet files
+        cons_rows = con.execute("""
+            SELECT
+                EXTRACT(YEAR FROM CAST(date AS DATE))::INT as year,
+                COUNT(DISTINCT date) as days_consolidated
+            FROM manifest
+            WHERE file_type = 'parquet'
+            GROUP BY year
+            ORDER BY year
+        """).fetchall()
+        cons_by_year = {row[0]: row[1] for row in cons_rows}
+
+        num_tribunals = len(TRIBUNALS)
+
+        progress_by_year: dict[str, dict[str, Any]] = {}
+        total_unique_days = 0
+        total_combos_done = 0
+        total_expected = 0
+        total_days_consolidated = 0
+
+        for year, unique_days, combos_done, zips in year_rows:
+            # Calculate expected weekdays for this year
+            from datetime import date as date_type
+
+            year_start = date_type(year, 1, 1)
+            year_end = min(
+                date_type(year, 12, 31),
+                date_type.today() - timedelta(days=1),
+            )
+            if year_start > year_end:
+                continue
+            weekdays = sum(
+                1
+                for i in range((year_end - year_start).days + 1)
+                if (year_start + timedelta(days=i)).weekday() < 5
+            )
+            expected = weekdays * num_tribunals
+            pct = round(100.0 * combos_done / expected, 1) if expected > 0 else 0.0
+            days_cons = cons_by_year.get(year, 0)
+
+            progress_by_year[str(year)] = {
+                "completed": combos_done,
+                "total": expected,
+                "pct": pct,
+                "unique_days": unique_days,
+                "weekdays": weekdays,
+                "zips": zips,
+                "days_consolidated": days_cons,
+            }
+            total_unique_days += unique_days
+            total_combos_done += combos_done
+            total_expected += expected
+            total_days_consolidated += days_cons
+
+        # Overall dates
+        date_range = con.execute("""
+            SELECT MIN(date), MAX(date)
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+        """).fetchone()
+        oldest_date = date_range[0] if date_range else None
+        newest_date = date_range[1] if date_range else None
+
+        total_pct = (
+            round(100.0 * total_combos_done / total_expected, 1) if total_expected > 0 else 0.0
+        )
+
+        # Daily stats: tribunals collected per date (for CalendarHeatmap)
+        daily_rows = con.execute("""
+            SELECT date, COUNT(DISTINCT tribunal) as count
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+            GROUP BY date
+            ORDER BY date
+        """).fetchall()
+        daily_stats = [{"date": row[0], "count": row[1]} for row in daily_rows]
+
+        # Recent activity: last 14 days (for TimelineGraph)
+        cutoff = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+        recent = [d for d in daily_stats if d["date"] >= cutoff]
+
+        # Per-tribunal reliability: coverage ratio
+        tribunal_rows = con.execute("""
+            SELECT
+                tribunal,
+                COUNT(DISTINCT date) FILTER (WHERE file_type = 'zip') as days_with_data,
+                COUNT(DISTINCT date) FILTER (WHERE file_type = 'absent') as days_absent,
+                COUNT(DISTINCT date) as days_total
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+            GROUP BY tribunal
+            ORDER BY days_with_data DESC
+        """).fetchall()
+        tribunal_stats = [
+            {
+                "tribunal": row[0],
+                "days_with_data": row[1],
+                "days_absent": row[2],
+                "days_total": row[3],
+                "data_rate_pct": round(100.0 * row[1] / row[3], 1) if row[3] > 0 else 0.0,
+            }
+            for row in tribunal_rows
+        ]
+
+        return {
+            "progress_by_year": progress_by_year,
+            "collect_progress": {
+                "oldest_date": oldest_date,
+                "newest_date": newest_date,
+                "unique_days": total_unique_days,
+                "total_items": total_combos_done,
+                "target_range": {
+                    "start": oldest_date or "2024-01-01",
+                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
+                },
+                "progress_pct": total_pct,
+                "last_updated": datetime.now().isoformat() + "Z",
+            },
+            "consolidate_progress": {
+                "oldest_date": oldest_date,
+                "newest_date": newest_date,
+                "unique_days": total_days_consolidated,
+                "total_items": 0,
+                "target_range": {
+                    "start": oldest_date or "2024-01-01",
+                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
+                },
+                "progress_pct": round(100.0 * total_days_consolidated / total_unique_days, 1)
+                if total_unique_days > 0
+                else 0.0,
+                "last_updated": datetime.now().isoformat() + "Z",
+            },
+            "backfill_progress": {
+                "oldest_date": oldest_date,
+                "newest_date": newest_date,
+                "unique_days": total_unique_days,
+                "total_items": total_combos_done,
+                "target_range": {
+                    "start": oldest_date or "2024-01-01",
+                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
+                },
+                "progress_pct": total_pct,
+                "last_updated": datetime.now().isoformat() + "Z",
+                "daily_stats": daily_stats,
+                "recent_activity": recent,
+            },
+            "tribunal_stats": tribunal_stats,
+        }
+    except Exception as e:
+        print(f"  Warning: Could not generate backfill cache: {e}", file=sys.stderr)
+        return {}
+
+
 def format_bytes(size: float) -> str:
     """Format bytes to human readable string."""
     size_f = float(size)
@@ -705,16 +917,17 @@ def main() -> None:
     sizes = fetch_item_sizes()
 
     # Step 3: Generate all caches
-    print("[3/4] Generating cache files...")
+    print("[3/5] Generating cache files...")
     today_data = generate_today_cache(con, sizes)
     runs_data = generate_runs_cache()
     calendar_data = generate_calendar_cache(con, sizes)
     pipeline_metrics = generate_pipeline_metrics(con)
+    backfill_data = generate_backfill_cache(con)
 
     con.close()
 
     # Step 4: Assemble and write
-    print("[4/4] Writing cache files...")
+    print("[4/5] Writing cache files...")
 
     # Add days_archived, health, and pipeline metrics to today data
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
@@ -741,12 +954,14 @@ def main() -> None:
     }
 
     # Write local files
-    files = {
+    files: dict[str, Any] = {
         "meta.json": meta,
         "today.json": today_data,
         "runs.json": runs_data,
         "calendar.json": calendar_data,
     }
+    if backfill_data:
+        files["backfill.json"] = backfill_data
 
     for filename, data in files.items():
         path = OUTPUT_DIR / filename

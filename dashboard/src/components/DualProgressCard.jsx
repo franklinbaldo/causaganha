@@ -1,106 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Clock, AlertCircle, RefreshCw, Loader } from 'lucide-react';
+import { Calendar, TrendingUp, Clock } from 'lucide-react';
 import { SkeletonCard, SkeletonText, SkeletonLoader } from './SkeletonLoader';
 
-// Skeleton Loading State
-function DualProgressSkeleton() {
-  return (
-    <SkeletonCard>
-      {/* Header skeleton */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <SkeletonLoader className="w-5 h-5 rounded" />
-          <SkeletonText width="w-32" height="h-4" />
-        </div>
-        <SkeletonLoader className="w-20 h-6 rounded" />
-      </div>
-
-      {/* Two progress sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Section 1 skeleton */}
-        <div className="space-y-4">
-          <SkeletonText width="w-24" height="h-4" />
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <SkeletonText width="w-20" height="h-4" />
-              <SkeletonText width="w-12" height="h-4" />
-            </div>
-            <SkeletonLoader className="w-full h-4 rounded-full" />
-            <div className="flex justify-between">
-              <SkeletonText width="w-16" height="h-3" />
-              <SkeletonText width="w-16" height="h-3" />
-            </div>
-          </div>
-        </div>
-
-        {/* Section 2 skeleton */}
-        <div className="space-y-4">
-          <SkeletonText width="w-28" height="h-4" />
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <SkeletonText width="w-20" height="h-4" />
-              <SkeletonText width="w-12" height="h-4" />
-            </div>
-            <SkeletonLoader className="w-full h-4 rounded-full" />
-            <div className="flex justify-between">
-              <SkeletonText width="w-16" height="h-3" />
-              <SkeletonText width="w-16" height="h-3" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats grid skeleton */}
-      <div className="grid grid-cols-2 gap-4 mt-6">
-        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
-          <SkeletonText width="w-24" height="h-4" className="mb-2" />
-          <SkeletonText width="w-20" height="h-6" />
-        </div>
-        <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
-          <SkeletonText width="w-24" height="h-4" className="mb-2" />
-          <SkeletonText width="w-20" height="h-6" />
-        </div>
-      </div>
-    </SkeletonCard>
-  );
-}
-
-// Error State with Retry
-function DualProgressError({ error, onRetry, retrying }) {
-  return (
-    <SkeletonCard>
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <AlertCircle className="w-12 h-12 text-cyber-danger mb-4 animate-pulse" aria-hidden="true" />
-        <h3 className="text-cyber-danger font-bold text-sm tracking-widest uppercase mb-2">
-          FETCH FAILED
-        </h3>
-        <p className="text-cyber-muted text-sm mb-6 max-w-md font-medium">
-          {error || 'Unable to load progress data from Internet Archive API. This may be due to slow network or API timeout.'}
-        </p>
-        <button
-          onClick={onRetry}
-          disabled={retrying}
-          aria-label="Retry fetching dashboard data"
-          className="flex items-center gap-2 px-6 py-2 border border-cyber-primary text-cyber-primary hover:bg-cyber-primary hover:text-cyber-black transition-colors rounded uppercase text-xs tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {retrying ? (
-            <>
-              <Loader className="w-4 h-4 animate-spin" aria-hidden="true" />
-              RETRYING...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4" aria-hidden="true" />
-              RETRY
-            </>
-          )}
-        </button>
-      </div>
-    </SkeletonCard>
-  );
-}
-
-// Progress Section Component
 function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
   const colorClasses = {
     primary: {
@@ -123,7 +23,7 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
           {title}
         </h3>
       </div>
-      
+
       <div>
         <div className="flex justify-between items-center mb-2">
           <span className="text-base text-cyber-gray font-bold uppercase tracking-wider">{progress.label}</span>
@@ -131,8 +31,8 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
             {progress.percentage.toFixed(1)}%
           </span>
         </div>
-        
-        <div 
+
+        <div
           className="w-full h-5 bg-cyber-dark border border-cyber-border rounded-full overflow-hidden"
           role="progressbar"
           aria-valuenow={progress.percentage}
@@ -145,7 +45,7 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
             style={{ width: `${Math.min(progress.percentage, 100)}%` }}
           />
         </div>
-        
+
         <div className="flex justify-between items-center mt-2">
           <span className="text-sm text-cyber-gray font-bold font-mono">
             {progress.current.toLocaleString()} / {progress.total.toLocaleString()}
@@ -159,79 +59,38 @@ function ProgressSection({ title, icon: Icon, progress, color = "primary" }) {
   );
 }
 
-export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', refreshInterval = 60000 }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [retrying, setRetrying] = useState(false);
-
-  const fetchData = async (isRetry = false) => {
-    try {
-      if (isRetry) {
-        setRetrying(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const jsonData = await response.json();
-      setData(jsonData);
-    } catch (err) {
-      console.error('Error fetching progress data:', err);
-      setError(err.message || 'Failed to fetch data from Internet Archive API');
-    } finally {
-      setLoading(false);
-      setRetrying(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    
-    if (refreshInterval > 0) {
-      const interval = setInterval(() => fetchData(), refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [apiUrl, refreshInterval]);
-
-  // Loading state
-  if (loading && !data) {
-    return <DualProgressSkeleton />;
-  }
-
-  // Error state
-  if (error && !data) {
-    return (
-      <DualProgressError 
-        error={error} 
-        onRetry={() => fetchData(true)} 
-        retrying={retrying}
-      />
-    );
-  }
-
-  // No data fallback
-  if (!data?.backfill_progress) {
+export function DualProgressCard({ data }) {
+  if (!data) {
     return (
       <SkeletonCard>
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-cyber-primary" />
-          <h2 className="text-cyber-primary font-bold text-sm tracking-widest uppercase">
-            Pipeline Progress
-          </h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <SkeletonLoader className="w-5 h-5 rounded" />
+            <SkeletonText width="w-32" height="h-4" />
+          </div>
+          <SkeletonLoader className="w-20 h-6 rounded" />
         </div>
-        <p className="text-cyber-muted text-sm">No data available</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[0, 1].map(i => (
+            <div key={i} className="space-y-4">
+              <SkeletonText width="w-24" height="h-4" />
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <SkeletonText width="w-20" height="h-4" />
+                  <SkeletonText width="w-12" height="h-4" />
+                </div>
+                <SkeletonLoader className="w-full h-4 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       </SkeletonCard>
     );
   }
 
-  const { backfill_progress } = data;
+  const cp = data.collect_progress || data.backfill_progress || {};
+  const consP = data.consolidate_progress || {};
+
   const {
     unique_days = 0,
     target_range = {},
@@ -240,11 +99,8 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
     oldest_date,
     newest_date,
     last_updated,
-  } = backfill_progress;
+  } = cp;
 
-  // Calculate collect and consolidate metrics
-  // For now, using backfill as "collect" and a derived metric for "consolidate"
-  // In a real scenario, you'd have separate API endpoints or data fields
   const collectProgress = {
     label: 'Days Collected',
     current: unique_days,
@@ -253,12 +109,16 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
     unit: 'days',
   };
 
+  const consUniqueDays = consP.unique_days || 0;
+  const consTotalDays = consP.target_range?.total_days || target_range.total_days || 764;
+  const consPct = consP.progress_pct || (consTotalDays > 0 ? (consUniqueDays / consTotalDays) * 100 : 0);
+
   const consolidateProgress = {
-    label: 'Items Consolidated',
-    current: total_items,
-    total: Math.max(total_items * 1.2, 100000), // Estimate target
-    percentage: Math.min((total_items / 100000) * 100, 100),
-    unit: 'items',
+    label: 'Days Consolidated',
+    current: consUniqueDays,
+    total: consTotalDays,
+    percentage: consPct,
+    unit: 'days',
   };
 
   return (
@@ -294,7 +154,7 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="border border-cyber-border p-3 rounded bg-cyber-dark">
           <div className="flex items-center gap-2 mb-1">
             <Calendar className="w-4 h-4 text-cyber-cyan" aria-hidden="true" />
@@ -317,7 +177,7 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
           <div className="flex items-center gap-2 mb-1">
             <Clock className="w-4 h-4 text-cyber-purple" aria-hidden="true" />
             <span className="text-sm text-cyber-gray uppercase tracking-wider font-medium">
-              Total Items
+              Items Collected
             </span>
           </div>
           <div className="text-cyber-purple font-mono font-bold text-base">
@@ -326,20 +186,11 @@ export function DualProgressCard({ apiUrl = '/causaganha/dashboard-data.json', r
         </div>
       </div>
 
-      {/* Last Updated */}
       {last_updated && (
-        <div className="mt-3 pt-3 border-t border-cyber-border flex justify-between items-center">
+        <div className="mt-3 pt-3 border-t border-cyber-border">
           <span className="text-sm text-cyber-gray font-medium">
-            Last updated: {new Date(last_updated).toLocaleString('pt-BR')}
+            Updated: {new Date(last_updated).toLocaleString('pt-BR')}
           </span>
-          <button
-            onClick={() => fetchData(true)}
-            disabled={retrying}
-            className="text-cyber-primary hover:text-cyber-secondary transition-colors disabled:opacity-50"
-            title="Refresh data"
-          >
-            <RefreshCw className={`w-3 h-3 ${retrying ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       )}
     </SkeletonCard>

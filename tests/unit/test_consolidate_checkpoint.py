@@ -105,16 +105,18 @@ class TestCheckpointManager:
         assert loaded_date == future_date
 
 
+@patch("scripts.pipeline.consolidate.fetch_consolidation_candidates")
 @patch("scripts.pipeline.consolidate._all_tribunals_stopped")
 @patch("scripts.pipeline.consolidate._needs_consolidation")
 class TestFindNextUnconsolidatedWithCheckpoint:
     """Tests for integration of CheckpointManager in find_next_unconsolidated."""
 
-    def test_resume_from_checkpoint(self, mock_needs, mock_stopped, tmp_path):
+    def test_resume_from_checkpoint(self, mock_needs, mock_stopped, mock_fetch, tmp_path):
         """Given: Checkpoint says we checked up to 10 days ago
         When: find_next_unconsolidated is called
         Then: Scanning starts from 11 days ago (or 10, depending on logic).
         """
+        mock_fetch.return_value = []
         # Setup
         checkpoint_file = tmp_path / "checkpoint.json"
         # Let's say today is 2026-01-27. 10 days ago is 2026-01-17.
@@ -156,18 +158,19 @@ class TestFindNextUnconsolidatedWithCheckpoint:
             for d_str in called_dates:
                 assert d_str <= last_checked
 
-    def test_save_checkpoint_on_progress(self, mock_needs, mock_stopped, tmp_path):
+    def test_save_checkpoint_on_progress(self, mock_needs, mock_stopped, mock_fetch, tmp_path):
         """Given: No checkpoint
         When: Scanning proceeds
         Then: Checkpoint is updated.
         """
+        mock_fetch.return_value = []
         checkpoint_file = tmp_path / "checkpoint.json"
 
         mock_stopped.return_value = False
         # Make it find something at 5 days ago
         target_date = (date.today() - timedelta(days=5)).strftime("%Y-%m-%d")
 
-        def needs_side_effect(d_str, *args, **kwargs):
+        def needs_side_effect(d_str, manifest=None, **kwargs):
             return d_str == target_date
 
         mock_needs.side_effect = needs_side_effect
