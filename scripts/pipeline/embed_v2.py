@@ -21,21 +21,18 @@ Usage:
 
 import argparse
 import hashlib
-import io
 import os
+import tempfile
 import time
 
 import httpx
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.parquet as pq
+import ibis
 import structlog
 
 
 logger = structlog.get_logger()
 
 # Embedding configuration
-EMBEDDING_DIM = 768  # Jina embedding dimension
 BATCH_SIZE = 100
 IA_BASE_URL = "https://archive.org/download"
 
@@ -86,6 +83,21 @@ def get_embedding_client():
     return None
 
 
+def _download_parquet(url: str, timeout: int = 120) -> str | None:
+    """Download a parquet file from URL, return temp file path or None."""
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.get(url)
+            if response.status_code == 200:
+                tmp = tempfile.NamedTemporaryFile(suffix=".parquet", delete=False)
+                tmp.write(response.content)
+                tmp.close()
+                return tmp.name
+            return None
+    except Exception:
+        return None
+
+
 def fetch_consolidated_dates() -> list[str]:
     """Fetch list of consolidated dates from IA catalog."""
     catalog_url = f"{IA_BASE_URL}/causaganha-catalog/backfill-progress.json"
@@ -103,45 +115,52 @@ def fetch_consolidated_dates() -> list[str]:
         return []
 
 
-def fetch_texts_from_ia(date: str) -> pa.Table | None:
-    """Download textos.parquet from IA for a date."""
+def fetch_texts_from_ia(con: ibis.BaseBackend, date: str) -> ibis.Table | None:
+    """Download textos.parquet from IA and register as ibis table."""
     item_name = f"djen-{date}"
     url = f"{IA_BASE_URL}/{item_name}/textos.parquet"
 
+    logger.info("downloading_texts", date=date, url=url)
+    path = _download_parquet(url)
+    if path is None:
+        logger.warning("texts_not_found", date=date)
+        return None
+
     try:
-        logger.info("downloading_texts", date=date, url=url)
-        with httpx.Client(timeout=120) as client:
-            response = client.get(url)
-            if response.status_code == 200:
-                table = pq.read_table(io.BytesIO(response.content))
-                logger.info("texts_downloaded", date=date, rows=len(table))
-                return table
-            logger.warning("texts_not_found", date=date, status=response.status_code)
+        t = con.read_parquet(path)
+        row_count = t.count().execute()
+        logger.info("texts_downloaded", date=date, rows=row_count)
+        if row_count == 0:
             return None
+        return t
     except Exception as e:
         logger.warning("texts_download_failed", date=date, error=str(e))
         return None
+    finally:
+        os.unlink(path)
 
 
-def fetch_existing_embeddings(date: str) -> set[str]:
+def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str) -> set[str]:
     """Check which texts already have embeddings on IA."""
     item_name = f"djen-{date}"
     url = f"{IA_BASE_URL}/{item_name}/embeddings.parquet"
 
+    logger.info("checking_existing_embeddings", date=date)
+    path = _download_parquet(url, timeout=60)
+    if path is None:
+        logger.info("no_existing_embeddings", date=date)
+        return set()
+
     try:
-        logger.info("checking_existing_embeddings", date=date)
-        with httpx.Client(timeout=60) as client:
-            response = client.get(url)
-            if response.status_code == 200:
-                table = pq.read_table(io.BytesIO(response.content))
-                existing = set(table.column("id").to_pylist())
-                logger.info("existing_embeddings_found", date=date, count=len(existing))
-                return existing
-            logger.info("no_existing_embeddings", date=date)
-            return set()
+        t = con.read_parquet(path)
+        ids = t.select("id").to_pyarrow().column("id").to_pylist()
+        logger.info("existing_embeddings_found", date=date, count=len(ids))
+        return set(ids)
     except Exception as e:
         logger.info("embeddings_check_failed", date=date, error=str(e))
         return set()
+    finally:
+        os.unlink(path)
 
 
 def _compute_md5(data: bytes) -> str:
@@ -149,15 +168,24 @@ def _compute_md5(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
 
 
-def upload_embeddings_to_ia(date: str, embeddings_table: pa.Table) -> bool:
-    """Upload embeddings.parquet to IA."""
+def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, table_name: str) -> bool:
+    """Export embeddings table to parquet bytes and upload to IA."""
     item_name = f"djen-{date}"
     filename = "embeddings.parquet"
 
-    # Convert to parquet bytes
-    buffer = io.BytesIO()
-    pq.write_table(embeddings_table, buffer)
-    parquet_bytes = buffer.getvalue()
+    # Export to parquet bytes via temp file
+    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        con.raw_sql(
+            f"COPY {table_name} TO '{tmp_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+        )
+        with open(tmp_path, "rb") as f:
+            parquet_bytes = f.read()
+    finally:
+        os.unlink(tmp_path)
+
     md5_hash = _compute_md5(parquet_bytes)
 
     # Get access/secret from env
@@ -207,62 +235,56 @@ def generate_embeddings_for_date(
     """Generate embeddings for a single date."""
     stats = {"processed": 0, "failed": 0, "uploaded": 0}
 
+    con = ibis.duckdb.connect()
+
     # Fetch texts
-    texts_table = fetch_texts_from_ia(date)
-    if texts_table is None or len(texts_table) == 0:
+    texts = fetch_texts_from_ia(con, date)
+    if texts is None:
         logger.info("no_texts_for_date", date=date)
         return stats
 
     # Fetch existing embeddings
-    existing_ids = fetch_existing_embeddings(date)
+    existing_ids = fetch_existing_embedding_ids(con, date)
 
-    # Filter unprocessed texts
+    # Filter unprocessed texts using ibis
     if existing_ids:
-        id_col = texts_table.column("id")
-        mask = pc.invert(pc.is_in(id_col, pa.array(list(existing_ids))))
-        texts_table = texts_table.filter(mask)
+        texts = texts.filter(~texts.id.isin(existing_ids))
 
-    if len(texts_table) == 0:
+    # Filter valid texts (must have texto, length > 50)
+    texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > 50))
+
+    row_count = texts.count().execute()
+    if row_count == 0:
         logger.info("all_texts_already_embedded", date=date)
         return stats
 
     # Limit if requested
-    if max_texts and len(texts_table) > max_texts:
-        texts_table = texts_table.slice(0, max_texts)
+    if max_texts and row_count > max_texts:
+        texts = texts.limit(max_texts)
+        row_count = max_texts
 
-    logger.info("texts_to_embed", date=date, count=len(texts_table))
+    logger.info("texts_to_embed", date=date, count=row_count)
 
-    # Filter valid texts (must have texto, length > 50)
-    texto_col = texts_table.column("texto")
-    not_null = pc.is_valid(texto_col)
-    lengths = pc.utf8_length(pc.if_else(not_null, texto_col, pa.scalar("")))
-    valid_mask = pc.and_(not_null, pc.greater(lengths, 50))
-    texts_table = texts_table.filter(valid_mask)
-
-    if len(texts_table) == 0:
-        logger.info("no_valid_texts", date=date)
-        return stats
-
-    # Generate embeddings in batches
+    # Stream batches directly from ibis for API calls
     result_ids = []
     result_embeddings = []
+    batch_num = 0
 
-    for i in range(0, len(texts_table), BATCH_SIZE):
-        batch = texts_table.slice(i, BATCH_SIZE)
-        texts = [t[:8000] for t in batch.column("texto").to_pylist()]  # Limit text length
+    for batch in texts.select("id", "texto").to_pyarrow_batches(chunk_size=BATCH_SIZE):
+        batch_num += 1
+        batch_texts = [t[:8000] for t in batch.column("texto").to_pylist()]
 
         try:
-            embeddings = embed_fn(texts)
+            embeddings = embed_fn(batch_texts)
 
             if embeddings and len(embeddings) == len(batch):
-                batch_ids = batch.column("id").to_pylist()
-                result_ids.extend(batch_ids)
+                result_ids.extend(batch.column("id").to_pylist())
                 result_embeddings.extend(embeddings)
                 stats["processed"] += len(batch)
                 logger.info(
                     "batch_embedded",
                     date=date,
-                    batch=i // BATCH_SIZE + 1,
+                    batch=batch_num,
                     count=len(batch),
                 )
             else:
@@ -279,15 +301,17 @@ def generate_embeddings_for_date(
         logger.warning("no_embeddings_generated", date=date)
         return stats
 
-    # Create embeddings table
-    embeddings_table = pa.table({
-        "id": pa.array(result_ids),
-        "embedding": pa.array(result_embeddings, type=pa.list_(pa.float32())),
-    })
+    # Register results as ibis table for export
+    emb_table_name = "embeddings_out"
+    con.raw_sql(f"DROP TABLE IF EXISTS {emb_table_name}")
+    con.create_table(
+        emb_table_name,
+        ibis.memtable({"id": result_ids, "embedding": result_embeddings}),
+    )
 
     # Upload to IA
-    if upload_embeddings_to_ia(date, embeddings_table):
-        stats["uploaded"] = len(embeddings_table)
+    if upload_embeddings_to_ia(con, date, emb_table_name):
+        stats["uploaded"] = len(result_ids)
     else:
         logger.error("upload_failed", date=date)
 
