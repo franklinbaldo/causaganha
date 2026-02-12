@@ -11,13 +11,21 @@ line-length = 100
 # Enable ALL Ruff rules
 select = ["ALL"]
 
-# Global ignores - rules that conflict with project conventions
+# Disable entire categories irrelevant to this project
+# (ibis/duckdb data pipeline, not pandas/django/fastapi/airflow/numpy)
 ignore = [
+    "PD",       # pandas rules — we use ibis, not pandas
+    "AIR",      # Airflow rules — not an Airflow project
+    "FAST",     # FastAPI rules — not a FastAPI project
+    "DJ",       # Django rules — not a Django project
+    "NPY",      # NumPy rules — no NumPy usage
+
+    # Project conventions
     "G004",     # f-string in logging OK (performance negligible for data pipeline)
     "COM812",   # trailing comma conflicts with ruff formatter
     "ISC001",   # implicit string concat conflicts with ruff formatter
-    "S608",     # Construction of SQL queries with f-strings
-    "RUF003",   # ambiguous characters in comments
+    "S608",     # SQL construction with f-strings (ibis/duckdb pattern)
+    "RUF003",   # ambiguous characters in comments (Portuguese text)
     "S310",     # URL audit (often false positive or accepted risk)
     "TD002",    # TODO author
     "TD003",    # TODO issue link
