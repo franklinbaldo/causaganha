@@ -129,6 +129,24 @@ caderno: Schema = ibis.schema(
 )
 
 
+# ── Consolidated Parquet tables ───────────────────────────────────────────
+
+textos: Schema = ibis.schema(
+    {
+        "id": "string",  # UUID5 hash of texto content
+        "texto": "string",  # Full text of the judicial communication
+    },
+)
+
+
+embeddings: Schema = ibis.schema(
+    {
+        "id": "string",  # Foreign key → textos.id
+        "embedding": "array<float32>",  # Dense vector (768-dim Jina / Google)
+    },
+)
+
+
 # ── Lookup table ─────────────────────────────────────────────────────────
 
 SCHEMAS: dict[str, Schema] = {
@@ -138,6 +156,8 @@ SCHEMAS: dict[str, Schema] = {
     "advogado": advogado,
     "tribunal": tribunal,
     "caderno": caderno,
+    "textos": textos,
+    "embeddings": embeddings,
 }
 
 

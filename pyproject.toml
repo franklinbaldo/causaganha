@@ -43,7 +43,6 @@ dependencies = [
 [project.optional-dependencies]
 embeddings = [
     "lancedb>=0.4.0",
-    "polars>=1.0.0",
 ]
 
 [dependency-groups]
