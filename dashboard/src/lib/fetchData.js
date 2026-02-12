@@ -55,8 +55,16 @@ export async function fetchAllData() {
 export function deriveData(stats, dashboardData, cacheData) {
   const hasAnyData = !!(stats || dashboardData || cacheData);
 
-  // Effective backfill data: prefer DuckDB dashboard-data.json, fall back to cache backfill.json
-  const effectiveBackfill = dashboardData || cacheData?.backfill || null;
+  // Effective backfill data: merge dashboard-data.json with cache/backfill.json
+  // backfill.json always has the richest data (progress_by_year, tribunal_stats, etc.)
+  const cacheBackfill = cacheData?.backfill || null;
+  const effectiveBackfill = (() => {
+    if (dashboardData && cacheBackfill) {
+      // Merge: cache backfill as base, overlay with dashboardData fields
+      return { ...cacheBackfill, ...dashboardData };
+    }
+    return dashboardData || cacheBackfill || null;
+  })();
   const backfillProgress = effectiveBackfill?.backfill_progress;
 
   // Derive calendar heatmap data
@@ -84,8 +92,8 @@ export function deriveData(stats, dashboardData, cacheData) {
     return [];
   })();
 
-  // Per-year progress data
-  const progressByYear = effectiveBackfill?.progress_by_year || null;
+  // Per-year progress data: prefer cache backfill which always has this field
+  const progressByYear = effectiveBackfill?.progress_by_year || cacheBackfill?.progress_by_year || null;
 
   // Enrich stats.tribunals with cache data
   const enrichedStats = (() => {

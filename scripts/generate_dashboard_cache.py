@@ -613,7 +613,9 @@ def generate_calendar_cache(
     }
 
 
-def generate_backfill_cache(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+def generate_backfill_cache(
+    con: duckdb.DuckDBPyConnection, sizes: dict[str, int] | None = None
+) -> dict[str, Any]:
     """Generate backfill progress data from manifest for ETACard, DualProgressCard, BackfillProgress.
 
     This is the primary data source for backfill-related dashboard components.
@@ -743,6 +745,9 @@ def generate_backfill_cache(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             for row in tribunal_rows
         ]
 
+        # Calculate total archived volume from item sizes
+        total_volume_bytes = sum((sizes or {}).values())
+
         return {
             "progress_by_year": progress_by_year,
             "collect_progress": {
@@ -789,6 +794,11 @@ def generate_backfill_cache(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
                 "recent_activity": recent,
             },
             "tribunal_stats": tribunal_stats,
+            "volume": {
+                "total_bytes": total_volume_bytes,
+                "total_gb": round(total_volume_bytes / (1024**3), 2),
+                "days_with_data": len(sizes or {}),
+            },
         }
     except Exception as e:
         print(f"  Warning: Could not generate backfill cache: {e}", file=sys.stderr)
@@ -922,7 +932,7 @@ def main() -> None:
     runs_data = generate_runs_cache()
     calendar_data = generate_calendar_cache(con, sizes)
     pipeline_metrics = generate_pipeline_metrics(con)
-    backfill_data = generate_backfill_cache(con)
+    backfill_data = generate_backfill_cache(con, sizes)
 
     con.close()
 
