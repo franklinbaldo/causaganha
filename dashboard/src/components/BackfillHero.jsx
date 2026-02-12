@@ -124,12 +124,12 @@ function ProgressBar({ label, current, total, percentage, color = 'accent' }) {
         </span>
       </div>
       <div
-        className="w-full h-2 bg-surface-overlay rounded-full overflow-hidden"
+        className="w-full h-4 bg-surface-overlay border border-border-muted rounded-full overflow-hidden"
         role="progressbar"
         aria-valuenow={percentage}
         aria-valuemin="0"
         aria-valuemax="100"
-        aria-label={`${label}: ${percentage.toFixed(1)}%`}
+        aria-label={`${label} progress: ${percentage.toFixed(1)}%`}
       >
         <div
           className={`h-full ${colorMap[color] || 'bg-accent'} rounded-full transition-all duration-700`}
