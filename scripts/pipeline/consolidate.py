@@ -659,7 +659,7 @@ def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notna()).select(
+    return t.filter(adv.notnull()).select(
         id=_adv_global_id(t.da, t.src_tribunal),
         original_id=_safe(
             ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
@@ -681,7 +681,7 @@ def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
         da=raw.destinatarioadvogados.unnest(),
     )
     adv = t.da["advogado"]
-    return t.filter(adv.notna()).select(
+    return t.filter(adv.notnull()).select(
         advogado_id=_adv_global_id(t.da, t.src_tribunal),
         nome=_safe(adv["nome"]),
         tribunal=t.src_tribunal,
@@ -708,7 +708,7 @@ def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         da=step1.destinatarioadvogados.unnest(),
     )
     adv = step2.da["advogado"]
-    return step2.filter(adv.notna()).select(
+    return step2.filter(adv.notnull()).select(
         comunicacao_id=djen_uuid5(step2.com_key),
         tribunal=step2.src_tribunal,
         advogado_id=_adv_global_id(step2.da, step2.src_tribunal),
