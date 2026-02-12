@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import configparser
 import decimal
 import hashlib
 import json
@@ -75,6 +76,24 @@ def _compute_md5(file_path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _get_ia_s3_auth() -> str | None:
+    """Get IA S3 authorization header value from env vars or config file."""
+    access = os.environ.get("IAS3_ACCESS_KEY", "")
+    secret = os.environ.get("IAS3_SECRET_KEY", "")
+    if access and secret:
+        return f"LOW {access}:{secret}"
+    # Fall back to config file (created by CI workflow)
+    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
+    if config_path.exists():
+        cfg = configparser.ConfigParser()
+        cfg.read(config_path)
+        access = cfg.get("s3", "access", fallback="")
+        secret = cfg.get("s3", "secret", fallback="")
+        if access and secret:
+            return f"LOW {access}:{secret}"
+    return None
 
 
 def load_checkpoint_state() -> dict[str, Any]:
@@ -1540,8 +1559,17 @@ def consolidate_date(
 
         logger.info("exporting_parquets", table_count=len(TABLES))
 
+        # Resolve IA S3 credentials for upload client
+        ia_auth = _get_ia_s3_auth()
+        upload_headers = {"Authorization": ia_auth} if ia_auth else {}
+        if not ia_auth and not dry_run:
+            logger.warning(
+                "ia_credentials_not_found",
+                hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
+            )
+
         # Create httpx client for uploads (connection pooling across parallel uploads)
-        with httpx.Client(timeout=300) as client:
+        with httpx.Client(timeout=300, headers=upload_headers) as client:
             # Parallel export + upload with ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {
