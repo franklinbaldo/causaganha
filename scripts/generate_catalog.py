@@ -35,7 +35,14 @@ DJEN_START_DATE = date(2024, 1, 1)
 IA_CATALOG_ITEM = "causaganha-catalog"
 
 # Known table names from consolidation output
-KNOWN_TABLE_NAMES = {"comunicacoes", "textos", "destinatarios", "partes", "advogados", "comunicacao_advogados"}
+KNOWN_TABLE_NAMES = {
+    "comunicacoes",
+    "textos",
+    "destinatarios",
+    "partes",
+    "advogados",
+    "comunicacao_advogados",
+}
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
 _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
@@ -382,7 +389,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
             if len(split_parts) < 5:
                 return None
             date_str = "-".join(split_parts[:3])
-            
+
             # Find table name by checking from end (table names are known)
             table_name = None
             tribunal_end_idx = len(split_parts)
@@ -397,10 +404,10 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                     table_name = split_parts[i]
                     tribunal_end_idx = i
                     break
-            
+
             if not table_name:
                 return None  # Unknown table format
-                
+
             tribunal = "-".join(split_parts[3:tribunal_end_idx])
 
             # Validate date and tribunal
@@ -506,21 +513,20 @@ def generate_manifest(items: list[str], existing_manifest: list[dict] | None = N
         if item_id not in existing_by_item:
             should_list = True
             reason = "new_item"
+        # Check if it's recent
+        elif item_date and (today - item_date) < recency_threshold:
+            should_list = True
+            reason = "recent_date"
         else:
-            # Check if it's recent
-            if item_date and (today - item_date) < recency_threshold:
-                should_list = True
-                reason = "recent_date"
-            else:
-                # Check if it lacks parquets but has zips
-                # (means it might be pending consolidation)
-                files = existing_by_item[item_id]
-                has_zip = any(f.get("file_type") == "zip" for f in files)
-                has_parquet = any(f.get("file_type") == "parquet" for f in files)
+            # Check if it lacks parquets but has zips
+            # (means it might be pending consolidation)
+            files = existing_by_item[item_id]
+            has_zip = any(f.get("file_type") == "zip" for f in files)
+            has_parquet = any(f.get("file_type") == "parquet" for f in files)
 
-                if has_zip and not has_parquet:
-                    should_list = True
-                    reason = "pending_consolidation"
+            if has_zip and not has_parquet:
+                should_list = True
+                reason = "pending_consolidation"
 
         if should_list:
             items_to_list.append(item_id)

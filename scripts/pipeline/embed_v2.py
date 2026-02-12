@@ -24,11 +24,11 @@ import hashlib
 import io
 import os
 import time
-from pathlib import Path
 
 import httpx
 import polars as pl
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -45,6 +45,7 @@ def get_embedding_client():
 
     if jina_key:
         try:
+
             def embed_texts(texts: list[str]) -> list[list[float]]:
                 with httpx.Client(timeout=60) as client:
                     response = client.post(
@@ -295,9 +296,7 @@ def main():
         description="Generate embeddings for DJEN decisions (IA-based)"
     )
     parser.add_argument("--date", help="Specific date to process (YYYY-MM-DD)")
-    parser.add_argument(
-        "--all", action="store_true", help="Process all consolidated dates"
-    )
+    parser.add_argument("--all", action="store_true", help="Process all consolidated dates")
     parser.add_argument("--max-texts", type=int, help="Max texts per date")
     parser.add_argument("--timeout-minutes", type=int, default=50)
     args = parser.parse_args()
@@ -338,7 +337,7 @@ def main():
 
         print(f"\n{'=' * 60}")
         print(f"Processing {date}")
-        print('=' * 60)
+        print("=" * 60)
 
         stats = generate_embeddings_for_date(
             date=date,

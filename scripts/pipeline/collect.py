@@ -635,7 +635,7 @@ def collect_data(
     yet on Internet Archive, ordered most-recent-first (d-1, d-2, d-3 …).
     The catalog is the single source of truth; we only verify against IA
     to filter items collected since the last catalog rebuild (daily 06:00 UTC).
-    
+
     When date_range is given, generates all dates between start_date and
     end_date (inclusive) for weekly runs.
     """
@@ -646,6 +646,7 @@ def collect_data(
     if date_range:
         # Weekly run: process date range
         from datetime import timedelta
+
         start_str, end_str = date_range
         start = datetime.strptime(start_str, "%Y-%m-%d").date()
         end = datetime.strptime(end_str, "%Y-%m-%d").date()
@@ -828,7 +829,7 @@ def main() -> int:
     if args.date and (args.start_date or args.end_date):
         print("❌ Error: Cannot use --date with --start-date/--end-date")
         return 1
-    
+
     if (args.start_date and not args.end_date) or (args.end_date and not args.start_date):
         print("❌ Error: Must specify both --start-date and --end-date for weekly runs")
         return 1
@@ -843,7 +844,7 @@ def main() -> int:
 
     print("Collecting DJEN data...")
     print(f"  Proxy: {args.proxy_url}")
-    
+
     date_range_param = None
     if args.start_date and args.end_date:
         date_range_param = (args.start_date, args.end_date)
@@ -852,7 +853,7 @@ def main() -> int:
         print(f"  Date: {args.date}")
     else:
         print("  Source: catalog (backfill-needed.parquet, d-1 first)")
-    
+
     if args.tribunal:
         print(f"  Tribunal: {args.tribunal}")
     deadline_sec = parse_deadline(args.deadline)

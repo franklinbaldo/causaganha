@@ -196,7 +196,7 @@ class InternetArchiveUploader:
         file_size = file_path.stat().st_size
 
         # Open file and upload with explicit Content-Length
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             response = item.upload(
                 {file_path.name: f},
                 metadata=metadata.to_dict(),

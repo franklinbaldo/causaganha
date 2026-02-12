@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts" / "monitoring"
 HEALTH_CHECK_SCRIPT = SCRIPTS_DIR / "check_backfill_health.py"
 
