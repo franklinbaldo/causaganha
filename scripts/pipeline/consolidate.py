@@ -23,6 +23,8 @@ import unicodedata
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -54,13 +56,10 @@ from causaganha.storage.djen_schema import (  # noqa: E402
 )
 from scripts.pipeline.ia_s3 import (  # noqa: E402
     CircuitBreaker,
-    get_ia_s3_auth as _get_ia_s3_auth,
+    get_ia_s3_auth,
     parse_deadline,
     upload_to_ia,
 )
-
-
-from dataclasses import dataclass, field as dataclass_field  # noqa: E402
 
 
 @dataclass
@@ -923,11 +922,12 @@ def _upload_consolidated(
     circuit_breaker: CircuitBreaker | None = None,
 ) -> bool:
     """Upload consolidated file to IA with consolidation-specific metadata."""
-    overrides = {
-        k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()
-    }
+    overrides = {k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()}
     return upload_to_ia(
-        client, item_id, file_path, date_str,
+        client,
+        item_id,
+        file_path,
+        date_str,
         metadata_overrides=overrides,
         circuit_breaker=circuit_breaker,
     )
@@ -1313,7 +1313,11 @@ def _export_and_upload_table(
         # Upload if not dry run
         uploaded = 0
         if not dry_run and _upload_consolidated(
-            client, item_id, output_path, date_str, circuit_breaker=circuit_breaker,
+            client,
+            item_id,
+            output_path,
+            date_str,
+            circuit_breaker=circuit_breaker,
         ):
             uploaded = 1
             logger.info("uploaded", table=table_name)
@@ -1524,7 +1528,7 @@ def consolidate_date(
         logger.info("exporting_parquets", table_count=len(TABLES))
 
         # Resolve IA S3 credentials for upload client
-        ia_auth = _get_ia_s3_auth()
+        ia_auth = get_ia_s3_auth()
         upload_headers = {"Authorization": ia_auth} if ia_auth else {}
         if not ia_auth and not dry_run:
             logger.warning(
@@ -1678,7 +1682,9 @@ def main() -> int:
             if deadline_sec > 0:
                 elapsed = time.time() - start_time
                 if elapsed > deadline_sec - 120:
-                    print(f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates.")
+                    print(
+                        f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates."
+                    )
                     break
 
             target_date_or_none = find_next_unconsolidated(manifest, ctx=ctx)
@@ -1687,7 +1693,9 @@ def main() -> int:
                 break
 
             target_date = target_date_or_none
-            print(f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}...")
+            print(
+                f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}..."
+            )
 
             try:
                 stats = consolidate_date(

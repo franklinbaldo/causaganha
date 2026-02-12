@@ -40,7 +40,7 @@ from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
 from scripts.pipeline.ia_s3 import (
     CircuitBreaker,
-    get_ia_s3_auth as _get_ia_s3_auth,
+    get_ia_s3_auth,
     parse_deadline,
     upload_to_ia,
 )
@@ -489,7 +489,10 @@ def _process_item(
             marker_path = Path(tmpdir) / absent_marker
             marker_path.write_text(json.dumps(asdict(info), ensure_ascii=False) + "\n")
             ok = upload_to_ia(
-                upload_client, item_id, marker_path, date_str,
+                upload_client,
+                item_id,
+                marker_path,
+                date_str,
                 circuit_breaker=circuit_breaker,
             )
             return ("success", 0.0) if ok else ("failed", 0.0)
@@ -516,7 +519,10 @@ def _process_item(
         # Upload to IA (one item per day)
         item_id = f"djen-{date_str}"
         if upload_to_ia(
-            upload_client, item_id, zip_path, date_str,
+            upload_client,
+            item_id,
+            zip_path,
+            date_str,
             circuit_breaker=circuit_breaker,
         ):
             logger.info("uploaded", item_id=item_id, file=zip_name, size_mb=f"{size_mb:.2f}")
@@ -606,7 +612,7 @@ def collect_data(
         return stats
 
     # Resolve IA S3 credentials once (shared via upload client headers)
-    ia_auth = _get_ia_s3_auth()
+    ia_auth = get_ia_s3_auth()
     if not ia_auth:
         logger.error(
             "ia_credentials_not_found",
@@ -643,7 +649,13 @@ def collect_data(
     ):
         futures = {
             executor.submit(
-                _process_item, api_client, dl_client, upload_client, proxy_url, date_str, tribunal,
+                _process_item,
+                api_client,
+                dl_client,
+                upload_client,
+                proxy_url,
+                date_str,
+                tribunal,
                 ia_circuit_breaker,
             ): (date_str, tribunal)
             for date_str, tribunal in pending

@@ -14,10 +14,9 @@ from scripts.pipeline.collect import calculate_exit_code, collect_data
 @patch("scripts.pipeline.collect._process_item")
 @patch("scripts.pipeline.collect.fetch_backfill_items")
 @patch("scripts.pipeline.collect.get_existing_files_for_dates")
-@patch("scripts.pipeline.collect._get_ia_s3_auth")
+@patch("scripts.pipeline.collect.get_ia_s3_auth")
 @patch("scripts.pipeline.collect.fetch_tribunais_from_api")
 @patch("scripts.pipeline.collect.init_db")
-# Note: _get_ia_s3_auth is imported from ia_s3 but patched on collect's namespace
 def test_collect_data_marks_downloaded(
     mock_init_db,
     mock_tribunais,

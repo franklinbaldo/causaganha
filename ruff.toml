@@ -33,6 +33,7 @@ ignore = [
     "ASYNC240", # Path usage in async OK for now
     "D107",     # Missing docstring in __init__ OK (class docstring sufficient)
     "S104",     # Binding to all interfaces (often false positive in string checks)
+    "PD004",    # .notnull() OK — ibis uses .notnull() not .notna()
 ]
 
 [lint.per-file-ignores]

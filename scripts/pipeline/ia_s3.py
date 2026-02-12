@@ -20,6 +20,7 @@ from pathlib import Path
 import httpx
 import structlog
 
+
 logger = structlog.get_logger()
 
 _IA_S3_URL = "https://s3.us.archive.org"
@@ -201,8 +202,7 @@ def upload_to_ia(
 
     # Apply caller-supplied overrides (e.g. consolidate uses different title)
     if metadata_overrides:
-        for key, value in metadata_overrides.items():
-            headers[key] = value
+        headers.update(metadata_overrides)
 
     # Retry with linear backoff (5s, 10s, 15s) for 5xx / network errors.
     max_retries = 3
