@@ -1569,15 +1569,16 @@ def main() -> int:
             return 1
 
     elif args.backfill:
-        # Backfill: walk d-0 → d-1 → d-2 … until all tribunals stopped or we find work
+        # Backfill: process multiple unconsolidated dates until deadline
         print(f"Backfill mode: scanning for unconsolidated dates (deadline: {deadline_sec}s)...")
+        dates_processed = 0
 
         while True:
-            # Check deadline
+            # Check deadline - leave 120s margin for upload completion
             if deadline_sec > 0:
                 elapsed = time.time() - start_time
-                if elapsed > deadline_sec - 60:  # Leave 60s margin
-                    print(f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping.")
+                if elapsed > deadline_sec - 120:
+                    print(f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates.")
                     break
 
             target_date_or_none = find_next_unconsolidated(manifest)
@@ -1586,7 +1587,7 @@ def main() -> int:
                 break
 
             target_date = target_date_or_none
-            print(f"Consolidating DJEN data for {target_date}...")
+            print(f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}...")
 
             try:
                 stats = consolidate_date(
@@ -1601,12 +1602,15 @@ def main() -> int:
                 _print_stats(stats)
                 for k in total_stats:
                     total_stats[k] += stats.get(k, 0)
+                dates_processed += 1
             except Exception as e:
                 logger.error("consolidation_aborted", date=target_date, error=str(e))
                 import traceback
 
                 traceback.print_exc()
-                return 1
+                # Continue to next date instead of aborting the entire run
+                dates_processed += 1
+                continue
 
     else:
         # Default: today

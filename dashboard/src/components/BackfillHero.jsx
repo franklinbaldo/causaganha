@@ -61,7 +61,7 @@ function calculateETA(backfillProgress) {
 
   return {
     velocity: Math.round(avgItemsPerDay),
-    daysVelocity: daysVelocity.toFixed(2),
+    daysVelocity: Math.round(daysVelocity * 100) / 100,
     etaDays,
     remainingDays,
     totalDays,
@@ -109,7 +109,7 @@ const statusConfig = {
   'no-activity': { color: 'text-content-tertiary', bgColor: 'bg-surface-overlay', label: 'Awaiting' },
 };
 
-function ProgressBar({ label, current, total, percentage, color = 'accent' }) {
+function ProgressBar({ label, current, total, percentage, color = 'accent', sublabel }) {
   const colorMap = {
     accent: 'bg-accent',
     purple: 'bg-purple',
@@ -140,6 +140,11 @@ function ProgressBar({ label, current, total, percentage, color = 'accent' }) {
         <span className="text-xs text-content-tertiary font-mono tabular-nums">
           {current.toLocaleString()} / {total.toLocaleString()} days
         </span>
+        {sublabel && (
+          <span className="text-xs text-content-tertiary">
+            {sublabel}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -156,8 +161,8 @@ function BackfillHeroSkeleton() {
         </div>
       </div>
       <div className="w-full h-20 bg-surface-overlay rounded-lg animate-pulse mb-6" />
-      <div className="grid grid-cols-3 gap-4">
-        {[0, 1, 2].map(i => (
+      <div className="grid grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map(i => (
           <div key={i}>
             <div className="w-16 h-3 bg-surface-overlay rounded animate-pulse mb-2" />
             <div className="w-20 h-7 bg-surface-overlay rounded animate-pulse" />
@@ -191,6 +196,14 @@ export function BackfillHero({ initialData }) {
   const consTotal = consP.target_range?.total_days || collectTotal;
   const consPct = consP.progress_pct || (consTotal > 0 ? (consDays / consTotal) * 100 : 0);
 
+  // Consolidation lag: days collected but not yet consolidated
+  const consolidationLag = Math.max(0, collectDays - consDays);
+
+  // Tribunal coverage summary
+  const tribunalStats = backfillProgress.tribunal_stats || [];
+  const tribunalsWithGoodCoverage = tribunalStats.filter(t => t.data_rate_pct >= 90).length;
+  const totalTribunals = tribunalStats.length || 91;
+
   return (
     <div className="card">
       {/* Header */}
@@ -201,7 +214,11 @@ export function BackfillHero({ initialData }) {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-content">Backfill Progress</h2>
-            <p className="text-sm text-content-tertiary">Overall completion status</p>
+            <p className="text-sm text-content-tertiary">
+              {cp.oldest_date && cp.newest_date
+                ? `${cp.oldest_date} to ${cp.newest_date}`
+                : 'Overall completion status'}
+            </p>
           </div>
         </div>
         <span className={`badge ${config.bgColor} ${config.color}`}>
@@ -227,25 +244,35 @@ export function BackfillHero({ initialData }) {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      {/* Stats row - 4 columns with more meaningful data */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
         <div className="text-center p-3 bg-surface rounded-lg">
           <div className="stat-label mb-1">Velocity</div>
           <div className="text-xl font-semibold font-mono tabular-nums text-accent">
             {eta.velocity > 0 ? `${eta.velocity}/d` : '--'}
           </div>
+          <div className="text-[10px] text-content-tertiary mt-0.5">tribunals/day</div>
+        </div>
+        <div className="text-center p-3 bg-surface rounded-lg">
+          <div className="stat-label mb-1">Days/d</div>
+          <div className="text-xl font-semibold font-mono tabular-nums text-accent">
+            {eta.daysVelocity > 0 ? eta.daysVelocity : '--'}
+          </div>
+          <div className="text-[10px] text-content-tertiary mt-0.5">unique days/day</div>
         </div>
         <div className="text-center p-3 bg-surface rounded-lg">
           <div className="stat-label mb-1">Remaining</div>
           <div className="text-xl font-semibold font-mono tabular-nums text-purple">
             {eta.remainingDays > 0 ? `${eta.remainingDays}d` : 'Done'}
           </div>
+          <div className="text-[10px] text-content-tertiary mt-0.5">of {eta.totalDays}d total</div>
         </div>
         <div className="text-center p-3 bg-surface rounded-lg">
-          <div className="stat-label mb-1">Items</div>
-          <div className="text-xl font-semibold font-mono tabular-nums text-content">
-            {(eta.totalItems || 0).toLocaleString()}
+          <div className="stat-label mb-1">Cons. Lag</div>
+          <div className={`text-xl font-semibold font-mono tabular-nums ${consolidationLag > 10 ? 'text-warning' : 'text-success'}`}>
+            {consolidationLag}d
           </div>
+          <div className="text-[10px] text-content-tertiary mt-0.5">awaiting parquet</div>
         </div>
       </div>
 
@@ -257,6 +284,7 @@ export function BackfillHero({ initialData }) {
           total={collectTotal}
           percentage={collectPct}
           color="accent"
+          sublabel={`${(eta.totalItems || 0).toLocaleString()} tribunal-days`}
         />
         <ProgressBar
           label="Consolidation"
@@ -264,8 +292,21 @@ export function BackfillHero({ initialData }) {
           total={consTotal}
           percentage={consPct}
           color="purple"
+          sublabel={consolidationLag > 0 ? `${consolidationLag} days pending` : 'up to date'}
         />
       </div>
+
+      {/* Tribunal coverage summary */}
+      {tribunalStats.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-border-muted flex items-center justify-between text-xs text-content-tertiary">
+          <span>
+            Tribunal coverage: <span className="font-mono font-medium text-content">{tribunalsWithGoodCoverage}/{totalTribunals}</span> with {'>'}90% data rate
+          </span>
+          {cp.last_updated && (
+            <span>Updated {new Date(cp.last_updated).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

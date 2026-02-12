@@ -135,7 +135,7 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--max-items",
         "10000",
         "--workers",
-        "2",  # Conservative: minimize OOM risk on GitHub Actions runners
+        "4",  # I/O-bound work (HTTP downloads/uploads) benefits from more concurrency
         "--deadline",
         "1200s",
     )
@@ -154,7 +154,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--deadline",
         "1200s",
         "--workers",
-        "2",  # Conservative: minimize OOM risk on GitHub Actions runners
+        "4",  # I/O-bound work (HTTP downloads/uploads) benefits from more concurrency
     )
     mode_args: tuple[str, ...] = (
         ("--date", config.date) if config.date else ("--backfill", "--force")
