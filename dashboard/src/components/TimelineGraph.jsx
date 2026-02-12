@@ -12,26 +12,26 @@ export function TimelineGraph({ data = [] }) {
     // Format data for chart
     const chartData = data.map(d => ({
         date: d.date.split('-').slice(1).join('-'), // MM-DD
-        uploads: d.count,
+        tribunals: d.count,
         fullDate: d.date
     }));
 
     return (
-        <div className="cyber-card h-full min-h-[300px] flex flex-col" aria-label="Bar chart showing upload activity for the last 7 days">
-             <h2 className="text-lg font-bold text-cyber-primary mb-4">Upload Activity (Last 7 Days)</h2>
+        <div className="cyber-card h-full min-h-[300px] flex flex-col" aria-label="Bar chart showing tribunals collected per day">
+             <h2 className="text-lg font-bold text-cyber-primary mb-4">Daily Collection (Tribunals/Day)</h2>
              <div className="flex-1 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                         <XAxis dataKey="date" stroke="#666" tick={{fill: '#b0b0b0', fontSize: 13}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#666" tick={{fill: '#b0b0b0', fontSize: 13}} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#666" tick={{fill: '#b0b0b0', fontSize: 13}} tickLine={false} axisLine={false} domain={[0, 91]} />
                         <Tooltip
                             contentStyle={{ backgroundColor: '#0f0f0f', borderColor: '#404040', color: '#f0f0f0' }}
                             itemStyle={{ color: '#00f2ff' }}
                             cursor={{fill: 'rgba(0, 242, 255, 0.1)'}}
                             labelFormatter={(label, payload) => payload[0]?.payload.fullDate || label}
                         />
-                        <Bar dataKey="uploads" fill="#00f2ff" radius={[2, 2, 0, 0]} animationDuration={1500} name="Uploads" />
+                        <Bar dataKey="tribunals" fill="#00f2ff" radius={[2, 2, 0, 0]} animationDuration={1500} name="Tribunals" />
                     </BarChart>
                 </ResponsiveContainer>
              </div>
