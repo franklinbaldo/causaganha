@@ -2,8 +2,7 @@
 
 import json
 from datetime import date, timedelta
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest.mock import patch
 
 # Adjusting import to work with pytest and project structure
 from scripts.pipeline.consolidate import CheckpointManager, find_next_unconsolidated
@@ -58,7 +57,7 @@ class TestConsolidationCheckpointing:
         checkpoint_file = tmp_path / "checkpoint.json"
         today = date.today()
         # Save "3 days ago" as last checked.
-        # find_next_unconsolidated should start checking from 4 days ago.
+        # find_next_unconsolidated resumes from the checkpoint date itself.
         last_checked = (today - timedelta(days=3)).strftime("%Y-%m-%d")
         with open(checkpoint_file, "w") as f:
             json.dump({"last_checked": last_checked}, f)
@@ -66,7 +65,7 @@ class TestConsolidationCheckpointing:
         mock_stopped.return_value = False
 
         # Stop scanning after a few dates to be fast
-        def needs_side_effect(d_str, manifest=None, **kwargs):
+        def needs_side_effect(d_str, *args, **kwargs):
             # Stop when we reach 10 days ago
             d = date.fromisoformat(d_str)
             return d <= today - timedelta(days=10)
@@ -77,9 +76,8 @@ class TestConsolidationCheckpointing:
         with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
             find_next_unconsolidated(checkpoint_file=checkpoint_file)
 
-        # It should check dates from last_checked onward (going backward).
-        # The implementation resumes at the same date as last_checked, so
-        # we must allow it to re-check that date as well.
+        # It should check dates starting from last_checked (inclusive) going backward
+        # Check that it didn't check dates NEWER than last_checked
         for call in mock_needs.call_args_list:
             called_date = call.args[0]
             assert called_date <= last_checked
@@ -90,17 +88,19 @@ class TestConsolidationCheckpointing:
         checkpoint_file = tmp_path / "checkpoint.json"
 
         mock_stopped.return_value = False
-        # Stop after some iterations by finding something.
-        # We must pick a target date that falls on a weekday, since the
-        # scanner skips weekends.  Walk backward from a few days ago until
-        # we land on a weekday.
+        # Stop after some iterations by finding something
+        # Find a weekday to avoid being skipped by the weekend check
         today = date.today()
-        d = today - timedelta(days=4)
-        while d.weekday() >= 5:  # skip Sat/Sun
-            d -= timedelta(days=1)
-        target_date = d.strftime("%Y-%m-%d")
+        # Walk backward from today to find a weekday that's at least 3 days ago
+        days_back = 3
+        while True:
+            candidate = today - timedelta(days=days_back)
+            if candidate.weekday() < 5:  # Monday-Friday
+                break
+            days_back += 1
+        target_date = candidate.strftime("%Y-%m-%d")
 
-        def needs_side_effect(d_str, manifest=None, **kwargs):
+        def needs_side_effect(d_str, *args, **kwargs):
             return d_str == target_date
 
         mock_needs.side_effect = needs_side_effect

@@ -42,6 +42,9 @@ KNOWN_TABLE_NAMES = {
     "partes",
     "advogados",
     "comunicacao_advogados",
+    "advogado_nomes",
+    "processos",
+    "representacoes",
 }
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
@@ -311,6 +314,28 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
 
     # Expected: djen-2026-01-15-TJSP.zip or djen-2026-01-15-TJSP-comunicacoes.parquet
     if not filename.startswith("djen-"):
+        # Handle consolidated parquets in item root (e.g. textos.parquet in djen-2026-02-10)
+        if filename.endswith(".parquet") and item_id.startswith("djen-"):
+            try:
+                date_str = item_id.replace("djen-", "")
+                if not _validate_date_str(date_str):
+                    return None
+
+                table_name = filename.replace(".parquet", "")
+                if table_name not in KNOWN_TABLE_NAMES:
+                    return None
+
+                return {
+                    "date": date_str,
+                    "tribunal": "ALL",
+                    "file_type": "parquet",
+                    "table_name": table_name,
+                    "file_name": filename,
+                    "ia_item": item_id,
+                    "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+                }
+            except Exception:
+                return None
         return None
 
     # Validate file extension
@@ -544,7 +569,7 @@ def generate_manifest(items: list[str], existing_manifest: list[dict] | None = N
 
     # Parallelize file listing to speed up catalog generation
     # Uses 16 workers to fetch file lists concurrently
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_item = {
             executor.submit(list_item_files, item_id): item_id for item_id in items_to_list
         }
