@@ -153,7 +153,7 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
             return []
         finally:
             con.close()
-    
+
     # Use in-memory manifest
     logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
     con = duckdb.connect()
@@ -162,8 +162,9 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
         # We only need date and file_type
         df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
         import pandas as pd
+
         df = pd.DataFrame(df_data)
-        
+
         query = """
             SELECT date
             FROM df
@@ -282,9 +283,11 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
     return zips, len(zips)
 
 
-def list_zips_for_date(date: str, manifest: list[dict] | None = None) -> tuple[list[dict[str, Any]], int]:
+def list_zips_for_date(
+    date: str, manifest: list[dict] | None = None
+) -> tuple[list[dict[str, Any]], int]:
     """Find all ZIP files for a specific date on IA.
-    
+
     If manifest is provided, use it (fast). Otherwise use IA metadata API (slow).
     """
     logger.info("listing_zips", date=date)
@@ -304,7 +307,7 @@ def list_zips_for_date(date: str, manifest: list[dict] | None = None) -> tuple[l
                             "filename": f["file_name"],
                             "tribunal": f["tribunal"],
                             "item_id": f["ia_item"],
-                            "size": 0, # manifest doesn't have size currently
+                            "size": 0,  # manifest doesn't have size currently
                         }
                     )
         return zips, len(present)
@@ -845,7 +848,7 @@ def upload_to_ia(client: httpx.Client, item_id: str, file_path: Path, date_str: 
 
     CRITICAL: We use httpx instead of 'ia' CLI for consistency with collect.py
     and better performance (no shell out + re-auth per file).
-    
+
     boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
     while IA requires 'x-archive-meta-*'. See PR #348 for details.
     """
@@ -1044,7 +1047,9 @@ def _is_tribunal_stopped(
     return result
 
 
-def _needs_consolidation(date_str: str, manifest: list[dict] | None = None, *, must_be_complete: bool = False) -> bool:
+def _needs_consolidation(
+    date_str: str, manifest: list[dict] | None = None, *, must_be_complete: bool = False
+) -> bool:
     """Check whether *date_str* has collected ZIPs but no consolidated parquets or marker on IA.
 
     If *must_be_complete* is True, also verifies that all expected tribunals are present,
@@ -1055,23 +1060,27 @@ def _needs_consolidation(date_str: str, manifest: list[dict] | None = None, *, m
         files = [m for m in manifest if m["date"] == date_str]
         if not files:
             return False
-            
+
         has_zips = any(f["file_type"] in ("zip", "absent") for f in files)
-        has_consolidated = any(f["file_type"] == "parquet" or "_consolidated" in f.get("file_name", "") for f in files)
-        
+        has_consolidated = any(
+            f["file_type"] == "parquet" or "_consolidated" in f.get("file_name", "") for f in files
+        )
+
         if not (has_zips and not has_consolidated):
             return False
-            
+
         if must_be_complete:
-            present_tribunais = {f["tribunal"] for f in files if f["file_type"] in ("zip", "absent")}
+            present_tribunais = {
+                f["tribunal"] for f in files if f["file_type"] in ("zip", "absent")
+            }
             target_d = date.fromisoformat(date_str)
-            
+
             for trib in TRIBUNAIS:
                 if trib not in present_tribunais:
                     if not _is_tribunal_stopped(trib, target_d, manifest):
                         return False
             return True
-            
+
         return True
 
     # 2. IA metadata API fallback
@@ -1142,7 +1151,9 @@ def _all_tribunals_stopped(target_date: date, manifest: list[dict] | None = None
     return all(_is_tribunal_stopped(tribunal, target_date, manifest) for tribunal in TRIBUNAIS)
 
 
-def find_next_unconsolidated(manifest: list[dict] | None = None, checkpoint_file: Path | None = None) -> str | None:
+def find_next_unconsolidated(
+    manifest: list[dict] | None = None, checkpoint_file: Path | None = None
+) -> str | None:
     """Find the most recent date needing consolidation.
 
     First tries to fetch candidates from the catalog manifest (fast).

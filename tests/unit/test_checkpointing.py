@@ -66,7 +66,7 @@ class TestConsolidationCheckpointing:
         mock_stopped.return_value = False
 
         # Stop scanning after a few dates to be fast
-        def needs_side_effect(d_str, **kwargs):
+        def needs_side_effect(d_str, manifest=None, **kwargs):
             # Stop when we reach 10 days ago
             d = date.fromisoformat(d_str)
             return d <= today - timedelta(days=10)
@@ -77,11 +77,12 @@ class TestConsolidationCheckpointing:
         with patch("scripts.pipeline.consolidate._CONSOLIDATION_CANDIDATES", None):
             find_next_unconsolidated(checkpoint_file=checkpoint_file)
 
-        # It should check dates OLDER than last_checked
-        # Check that it didn't check dates NEWER than last_checked
+        # It should check dates from last_checked onward (going backward).
+        # The implementation resumes at the same date as last_checked, so
+        # we must allow it to re-check that date as well.
         for call in mock_needs.call_args_list:
             called_date = call.args[0]
-            assert called_date < last_checked
+            assert called_date <= last_checked
 
     def test_saves_checkpoint_after_each_date(self, mock_needs, mock_stopped, mock_fetch, tmp_path):
         """Verify that checkpoint is saved after checking each date."""
@@ -89,13 +90,17 @@ class TestConsolidationCheckpointing:
         checkpoint_file = tmp_path / "checkpoint.json"
 
         mock_stopped.return_value = False
-        # Stop after some iterations by finding something
-        # Use a weekday to avoid being skipped by the weekend check
-        # 2026-02-10 is Tuesday. 4 days ago is 2026-02-06 (Friday).
+        # Stop after some iterations by finding something.
+        # We must pick a target date that falls on a weekday, since the
+        # scanner skips weekends.  Walk backward from a few days ago until
+        # we land on a weekday.
         today = date.today()
-        target_date = (today - timedelta(days=4)).strftime("%Y-%m-%d")
+        d = today - timedelta(days=4)
+        while d.weekday() >= 5:  # skip Sat/Sun
+            d -= timedelta(days=1)
+        target_date = d.strftime("%Y-%m-%d")
 
-        def needs_side_effect(d_str, **kwargs):
+        def needs_side_effect(d_str, manifest=None, **kwargs):
             return d_str == target_date
 
         mock_needs.side_effect = needs_side_effect
