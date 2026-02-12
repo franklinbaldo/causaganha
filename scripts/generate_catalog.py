@@ -320,11 +320,11 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 date_str = item_id.replace("djen-", "")
                 if not _validate_date_str(date_str):
                     return None
-                
+
                 table_name = filename.replace(".parquet", "")
                 if table_name not in KNOWN_TABLE_NAMES:
                     return None
-                
+
                 return {
                     "date": date_str,
                     "tribunal": "ALL",
