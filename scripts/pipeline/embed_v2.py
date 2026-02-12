@@ -26,7 +26,9 @@ import os
 import time
 
 import httpx
-import polars as pl
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
 import structlog
 
 
@@ -44,27 +46,24 @@ def get_embedding_client():
     google_key = os.environ.get("GOOGLE_API_KEY")
 
     if jina_key:
-        try:
 
-            def embed_texts(texts: list[str]) -> list[list[float]]:
-                with httpx.Client(timeout=60) as client:
-                    response = client.post(
-                        "https://api.jina.ai/v1/embeddings",
-                        headers={"Authorization": f"Bearer {jina_key}"},
-                        json={
-                            "model": "jina-embeddings-v2-base-pt",
-                            "input": texts,
-                        },
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        return [item["embedding"] for item in data["data"]]
-                    logger.warning("jina_api_error", status=response.status_code)
-                    return []
+        def embed_texts(texts: list[str]) -> list[list[float]]:
+            with httpx.Client(timeout=60) as client:
+                response = client.post(
+                    "https://api.jina.ai/v1/embeddings",
+                    headers={"Authorization": f"Bearer {jina_key}"},
+                    json={
+                        "model": "jina-embeddings-v2-base-pt",
+                        "input": texts,
+                    },
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return [item["embedding"] for item in data["data"]]
+                logger.warning("jina_api_error", status=response.status_code)
+                return []
 
-            return embed_texts
-        except ImportError:
-            pass
+        return embed_texts
 
     if google_key:
         try:
@@ -104,7 +103,7 @@ def fetch_consolidated_dates() -> list[str]:
         return []
 
 
-def fetch_texts_from_ia(date: str) -> pl.DataFrame | None:
+def fetch_texts_from_ia(date: str) -> pa.Table | None:
     """Download textos.parquet from IA for a date."""
     item_name = f"djen-{date}"
     url = f"{IA_BASE_URL}/{item_name}/textos.parquet"
@@ -114,9 +113,9 @@ def fetch_texts_from_ia(date: str) -> pl.DataFrame | None:
         with httpx.Client(timeout=120) as client:
             response = client.get(url)
             if response.status_code == 200:
-                df = pl.read_parquet(io.BytesIO(response.content))
-                logger.info("texts_downloaded", date=date, rows=len(df))
-                return df
+                table = pq.read_table(io.BytesIO(response.content))
+                logger.info("texts_downloaded", date=date, rows=len(table))
+                return table
             logger.warning("texts_not_found", date=date, status=response.status_code)
             return None
     except Exception as e:
@@ -134,8 +133,8 @@ def fetch_existing_embeddings(date: str) -> set[str]:
         with httpx.Client(timeout=60) as client:
             response = client.get(url)
             if response.status_code == 200:
-                df = pl.read_parquet(io.BytesIO(response.content))
-                existing = set(df["id"].to_list())
+                table = pq.read_table(io.BytesIO(response.content))
+                existing = set(table.column("id").to_pylist())
                 logger.info("existing_embeddings_found", date=date, count=len(existing))
                 return existing
             logger.info("no_existing_embeddings", date=date)
@@ -150,14 +149,14 @@ def _compute_md5(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
 
 
-def upload_embeddings_to_ia(date: str, embeddings_df: pl.DataFrame) -> bool:
+def upload_embeddings_to_ia(date: str, embeddings_table: pa.Table) -> bool:
     """Upload embeddings.parquet to IA."""
     item_name = f"djen-{date}"
     filename = "embeddings.parquet"
 
     # Convert to parquet bytes
     buffer = io.BytesIO()
-    embeddings_df.write_parquet(buffer)
+    pq.write_table(embeddings_table, buffer)
     parquet_bytes = buffer.getvalue()
     md5_hash = _compute_md5(parquet_bytes)
 
@@ -209,8 +208,8 @@ def generate_embeddings_for_date(
     stats = {"processed": 0, "failed": 0, "uploaded": 0}
 
     # Fetch texts
-    texts_df = fetch_texts_from_ia(date)
-    if texts_df is None or len(texts_df) == 0:
+    texts_table = fetch_texts_from_ia(date)
+    if texts_table is None or len(texts_table) == 0:
         logger.info("no_texts_for_date", date=date)
         return stats
 
@@ -219,72 +218,76 @@ def generate_embeddings_for_date(
 
     # Filter unprocessed texts
     if existing_ids:
-        texts_df = texts_df.filter(~pl.col("id").is_in(existing_ids))
+        id_col = texts_table.column("id")
+        mask = pc.invert(pc.is_in(id_col, pa.array(list(existing_ids))))
+        texts_table = texts_table.filter(mask)
 
-    if len(texts_df) == 0:
+    if len(texts_table) == 0:
         logger.info("all_texts_already_embedded", date=date)
         return stats
 
     # Limit if requested
-    if max_texts and len(texts_df) > max_texts:
-        texts_df = texts_df.head(max_texts)
+    if max_texts and len(texts_table) > max_texts:
+        texts_table = texts_table.slice(0, max_texts)
 
-    logger.info("texts_to_embed", date=date, count=len(texts_df))
+    logger.info("texts_to_embed", date=date, count=len(texts_table))
 
     # Filter valid texts (must have texto, length > 50)
-    texts_df = texts_df.filter(
-        (pl.col("texto").is_not_null()) & (pl.col("texto").str.len_chars() > 50)
-    )
+    texto_col = texts_table.column("texto")
+    not_null = pc.is_valid(texto_col)
+    lengths = pc.utf8_length(pc.if_else(not_null, texto_col, pa.scalar("")))
+    valid_mask = pc.and_(not_null, pc.greater(lengths, 50))
+    texts_table = texts_table.filter(valid_mask)
 
-    if len(texts_df) == 0:
+    if len(texts_table) == 0:
         logger.info("no_valid_texts", date=date)
         return stats
 
     # Generate embeddings in batches
-    embeddings_data = []
+    result_ids = []
+    result_embeddings = []
 
-    for i in range(0, len(texts_df), BATCH_SIZE):
-        batch_df = texts_df[i : i + BATCH_SIZE]
-        texts = [t[:8000] for t in batch_df["texto"].to_list()]  # Limit text length
+    for i in range(0, len(texts_table), BATCH_SIZE):
+        batch = texts_table.slice(i, BATCH_SIZE)
+        texts = [t[:8000] for t in batch.column("texto").to_pylist()]  # Limit text length
 
         try:
             embeddings = embed_fn(texts)
 
-            if embeddings and len(embeddings) == len(batch_df):
-                for j, row in enumerate(batch_df.iter_rows(named=True)):
-                    embeddings_data.append(
-                        {
-                            "id": row["id"],
-                            "embedding": embeddings[j],
-                        }
-                    )
-                stats["processed"] += len(batch_df)
+            if embeddings and len(embeddings) == len(batch):
+                batch_ids = batch.column("id").to_pylist()
+                result_ids.extend(batch_ids)
+                result_embeddings.extend(embeddings)
+                stats["processed"] += len(batch)
                 logger.info(
                     "batch_embedded",
                     date=date,
                     batch=i // BATCH_SIZE + 1,
-                    count=len(batch_df),
+                    count=len(batch),
                 )
             else:
-                stats["failed"] += len(batch_df)
+                stats["failed"] += len(batch)
 
         except Exception as e:
             logger.warning("batch_failed", date=date, error=str(e))
-            stats["failed"] += len(batch_df)
+            stats["failed"] += len(batch)
 
         # Rate limiting
         time.sleep(0.5)
 
-    if not embeddings_data:
+    if not result_ids:
         logger.warning("no_embeddings_generated", date=date)
         return stats
 
-    # Create embeddings DataFrame
-    embeddings_df = pl.DataFrame(embeddings_data)
+    # Create embeddings table
+    embeddings_table = pa.table({
+        "id": pa.array(result_ids),
+        "embedding": pa.array(result_embeddings, type=pa.list_(pa.float32())),
+    })
 
     # Upload to IA
-    if upload_embeddings_to_ia(date, embeddings_df):
-        stats["uploaded"] = len(embeddings_df)
+    if upload_embeddings_to_ia(date, embeddings_table):
+        stats["uploaded"] = len(embeddings_table)
     else:
         logger.error("upload_failed", date=date)
 
