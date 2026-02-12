@@ -22,8 +22,6 @@ Usage:
 
 import argparse
 import asyncio
-import configparser
-import hashlib
 import json
 import os
 import tempfile
@@ -40,6 +38,11 @@ import structlog
 
 from causaganha.config import TRIBUNAIS
 from causaganha.utils import validate_url
+from scripts.pipeline.ia_s3 import (
+    get_ia_s3_auth as _get_ia_s3_auth,
+    parse_deadline,
+    upload_to_ia,
+)
 
 
 BACKFILL_PARQUET_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
@@ -68,21 +71,6 @@ class AbsentReason:
 
 
 logger = structlog.get_logger()
-
-
-def parse_deadline(duration_str: str) -> int:
-    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
-    if not duration_str:
-        return 0
-    duration_str = duration_str.strip().lower()
-    try:
-        if duration_str.endswith("m"):
-            return int(float(duration_str[:-1]) * 60)
-        if duration_str.endswith("s"):
-            return int(float(duration_str[:-1]))
-        return int(float(duration_str))
-    except ValueError:
-        return 0
 
 
 def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -463,102 +451,6 @@ def download_zip(
                 time.sleep(2**attempt)
                 continue
             return False
-    return False
-
-
-_IA_S3_URL = "https://s3.us.archive.org"
-
-
-def _get_ia_s3_auth() -> str | None:
-    """Get IA S3 authorization header value from env vars or config file."""
-    access = os.environ.get("IAS3_ACCESS_KEY", "")
-    secret = os.environ.get("IAS3_SECRET_KEY", "")
-    if access and secret:
-        return f"LOW {access}:{secret}"
-    # Fall back to config file (created by CI workflow)
-    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
-    if config_path.exists():
-        cfg = configparser.ConfigParser()
-        cfg.read(config_path)
-        access = cfg.get("s3", "access", fallback="")
-        secret = cfg.get("s3", "secret", fallback="")
-        if access and secret:
-            return f"LOW {access}:{secret}"
-    return None
-
-
-def _compute_md5(file_path: Path) -> str:
-    """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def upload_to_ia(
-    client: httpx.Client,
-    item_id: str,
-    file_path: Path,
-    date_str: str,
-) -> bool:
-    """Upload file to Internet Archive via the S3-compatible API.
-
-    CRITICAL: We use httpx (direct HTTP PUT) instead of boto3.
-    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
-    while IA requires 'x-archive-meta-*'. Previous attempts to use boto3
-    resulted in HTTP 411 (Length Required) errors.
-    See PR #348 and docs/architecture/internet-archive-upload.md for details.
-
-    Uses a shared httpx client for connection pooling across workers,
-    with streaming upload and MD5 integrity verification.
-    """
-    filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
-
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {date_str}",
-        "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
-    }
-
-    # Retry strategy with exponential backoff (linear increment here: 5, 10, 15s)
-    # only for 5xx errors or network exceptions.
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
-            )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
     return False
 
 

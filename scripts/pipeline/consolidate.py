@@ -14,9 +14,7 @@ Usage:
 """
 
 import argparse
-import configparser
 import decimal
-import hashlib
 import json
 import os
 import tempfile
@@ -54,6 +52,11 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
+from scripts.pipeline.ia_s3 import (  # noqa: E402
+    get_ia_s3_auth as _get_ia_s3_auth,
+    parse_deadline,
+    upload_to_ia,
+)
 
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
@@ -62,38 +65,8 @@ _TRIBUNAL_STOPPED_CACHE: dict[str, dict[str, bool]] = {}
 # Cache for consolidation candidates (list of dates)
 _CONSOLIDATION_CANDIDATES: list[str] | None = None
 
-# Internet Archive S3-compatible API endpoint
-_IA_S3_URL = "https://s3.us.archive.org"
-
 # Checkpoint state file path
 _CHECKPOINT_STATE_FILE = Path("data/consolidate-checkpoint.json")
-
-
-def _compute_md5(file_path: Path) -> str:
-    """Compute hex-encoded MD5 checksum (IA S3 format)."""
-    h = hashlib.md5()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _get_ia_s3_auth() -> str | None:
-    """Get IA S3 authorization header value from env vars or config file."""
-    access = os.environ.get("IAS3_ACCESS_KEY", "")
-    secret = os.environ.get("IAS3_SECRET_KEY", "")
-    if access and secret:
-        return f"LOW {access}:{secret}"
-    # Fall back to config file (created by CI workflow)
-    config_path = Path.home() / ".config" / "internetarchive" / "ia.ini"
-    if config_path.exists():
-        cfg = configparser.ConfigParser()
-        cfg.read(config_path)
-        access = cfg.get("s3", "access", fallback="")
-        secret = cfg.get("s3", "secret", fallback="")
-        if access and secret:
-            return f"LOW {access}:{secret}"
-    return None
 
 
 def load_checkpoint_state() -> dict[str, Any]:
@@ -306,21 +279,6 @@ SCHEMA_VERSION = "3"
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
-
-
-def parse_deadline(duration_str: str) -> int:
-    """Parse a deadline string (e.g. '10m', '600s') into seconds."""
-    if not duration_str:
-        return 0
-    duration_str = duration_str.strip().lower()
-    try:
-        if duration_str.endswith("m"):
-            return int(float(duration_str[:-1]) * 60)
-        if duration_str.endswith("s"):
-            return int(float(duration_str[:-1]))
-        return int(float(duration_str))
-    except ValueError:
-        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -934,61 +892,22 @@ def init_tables(con: ibis.BaseBackend) -> None:
         con.create_table(table, schema=schema, overwrite=True)
 
 
-def upload_to_ia(client: httpx.Client, item_id: str, file_path: Path, date_str: str) -> bool:
-    """Upload file to Internet Archive via httpx (direct HTTP PUT).
+_CONSOLIDATION_META_OVERRIDES = {
+    "x-archive-meta-title": "DJEN Consolidated - {date_str}",
+    "x-archive-meta-description": (
+        "Consolidated Parquet files from Brazilian court communications."
+    ),
+}
 
-    CRITICAL: We use httpx instead of 'ia' CLI for consistency with collect.py
-    and better performance (no shell out + re-auth per file).
 
-    boto3 is incompatible with IA S3 because it forces 'x-amz-meta-*' headers,
-    while IA requires 'x-archive-meta-*'. See PR #348 for details.
-    """
-    filename = file_path.name
-    url = f"{_IA_S3_URL}/{item_id}/{filename}"
-    content_md5 = _compute_md5(file_path)
-
-    headers = {
-        "Content-MD5": content_md5,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Consolidated - {date_str}",
-        "x-archive-meta-description": (
-            "Consolidated Parquet files from Brazilian court communications."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
+def _upload_consolidated(
+    client: httpx.Client, item_id: str, file_path: Path, date_str: str
+) -> bool:
+    """Upload consolidated file to IA with consolidation-specific metadata."""
+    overrides = {
+        k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()
     }
-
-    # Retry strategy with exponential backoff
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers, timeout=300)
-            if response.is_success:
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
-            )
-            if response.status_code < 500:
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-    return False
+    return upload_to_ia(client, item_id, file_path, date_str, metadata_overrides=overrides)
 
 
 def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
@@ -1005,7 +924,7 @@ def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
             # Empty file - existence is the signal
 
         logger.info("uploading_marker", item_id=item_id)
-        success = upload_to_ia(client, item_id, marker_path, date_str)
+        success = _upload_consolidated(client, item_id, marker_path, date_str)
 
         # Cleanup temp file
         try:
@@ -1350,7 +1269,7 @@ def _export_and_upload_table(
 
         # Upload if not dry run
         uploaded = 0
-        if not dry_run and upload_to_ia(client, item_id, output_path, date_str):
+        if not dry_run and _upload_consolidated(client, item_id, output_path, date_str):
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
