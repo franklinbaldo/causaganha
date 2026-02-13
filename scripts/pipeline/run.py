@@ -485,7 +485,11 @@ def execute_step(plan: StepPlan, cwd: str) -> StepResult:
     )
     os.close(fd)
 
-    step_env = {**os.environ, "GITHUB_OUTPUT": output_file}
+    step_env = {
+        **os.environ,
+        "GITHUB_OUTPUT": output_file,
+        "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}:{os.environ.get('PYTHONPATH', '')}",
+    }
 
     sys.stdout.write(format_step_header(plan.name, plan.cmd))
     sys.stdout.flush()
