@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 
 // Inline SVG icons to avoid lucide-preact bundle overhead
-const I = (d, p) => ({ className, ...r }) => (
+const I = (d) => ({ className, ...r }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...r}>{d}</svg>
 );
 
@@ -63,11 +63,11 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             {stats ? (
               isSuccess ? (
                 <div className="p-2 rounded-lg bg-success-muted">
-                  <CheckCircleIcon className="w-4 h-4 text-success" />
+                  <CheckCircleIcon className="w-4 h-4 text-success" aria-hidden="true" />
                 </div>
               ) : (
                 <div className="p-2 rounded-lg bg-danger-muted">
-                  <XCircleIcon className="w-4 h-4 text-danger" />
+                  <XCircleIcon className="w-4 h-4 text-danger" aria-hidden="true" />
                 </div>
               )
             ) : (
@@ -92,7 +92,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           <div className="flex items-center gap-4 text-sm text-content-secondary">
             {health != null && (
               <div className="flex items-center gap-1.5">
-                <ActivityIcon className="w-3.5 h-3.5" />
+                <ActivityIcon className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Health:</span>
                 <span className={clsx("font-mono font-medium tabular-nums", health >= 70 ? "text-success" : "text-danger")}>
                   {health}%
@@ -107,7 +107,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             )}
             {stats?.duration_seconds != null && (
               <div className="hidden sm:flex items-center gap-1.5">
-                <ClockIcon className="w-3.5 h-3.5" />
+                <ClockIcon className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="font-mono tabular-nums">{stats.duration_seconds}s</span>
               </div>
             )}
@@ -131,9 +131,9 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
               aria-label="Toggle run details"
             >
               {showDetails ? (
-                <ChevronUpIcon className="w-4 h-4 text-content-secondary" />
+                <ChevronUpIcon className="w-4 h-4 text-content-secondary" aria-hidden="true" />
               ) : (
-                <ChevronDownIcon className="w-4 h-4 text-content-secondary" />
+                <ChevronDownIcon className="w-4 h-4 text-content-secondary" aria-hidden="true" />
               )}
             </button>
           )}
@@ -158,8 +158,13 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
                       <span className="text-sm font-medium text-content capitalize">
                         {stepName.replace(/_/g, ' ')}
                       </span>
-                      <span className={clsx("badge", isOk ? "badge-success" : "badge-danger")}>
-                        {isOk ? 'OK' : 'Issue'}
+                      <span className={clsx("badge gap-1", isOk ? "badge-success" : "badge-danger")}>
+                        {isOk ? (
+                          <CheckCircleIcon className="w-3 h-3" aria-hidden="true" />
+                        ) : (
+                          <XCircleIcon className="w-3 h-3" aria-hidden="true" />
+                        )}
+                        <span>{isOk ? 'OK' : 'Issue'}</span>
                       </span>
                     </div>
                     <div className="space-y-1 text-xs text-content-secondary">
@@ -190,7 +195,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           rel="noopener noreferrer"
           className="flex items-center gap-1 hover:text-accent transition-colors"
         >
-          View Actions <ExternalLinkIcon className="w-3 h-3" />
+          View Actions <ExternalLinkIcon className="w-3 h-3" aria-hidden="true" />
         </a>
       </div>
     </div>
