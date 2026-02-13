@@ -50,10 +50,6 @@ permissions:
   contents: read
   actions: write
 
-concurrency:
-  group: pipeline-global
-  cancel-in-progress: false
-
 jobs:
   pipeline:
     name: Run Pipeline
@@ -69,6 +65,22 @@ jobs:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
     steps:
+      - name: Prevent concurrent pipeline runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IN_PROGRESS=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/pipeline.yml/runs?status=in_progress&per_page=10" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})] | length")
+
+          if [ "$IN_PROGRESS" -gt 0 ]; then
+            echo "::warning::Another pipeline run is already in progress. Cancelling this run."
+            gh run cancel ${{ github.run_id }}
+            sleep 5
+            exit 1
+          fi
+          echo "No concurrent pipeline runs detected. Proceeding."
+
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - uses: ./.github/actions/setup
