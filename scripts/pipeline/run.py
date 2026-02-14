@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CausaGanha Data Pipeline - Single entry point.
 
-Orchestrates pipeline steps with parallel initial execution:
-  [collect | consolidate | embed] -> catalog -> dashboard-cache
+Orchestrates pipeline steps sequentially:
+  collect -> consolidate -> embed -> catalog -> dashboard-cache
 
 GitHub Actions calls this script with minimal YAML. All pipeline
 logic lives here for easier debugging and local development.
@@ -34,7 +34,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -76,7 +75,6 @@ class StepResult:
     success: bool
     outputs: Mapping[str, str]
     duration_seconds: float
-    captured_output: str = ""
 
 
 @dataclass(frozen=True)
@@ -478,21 +476,8 @@ def write_run_stats(config: PipelineConfig, state: PipelineState) -> None:
 # ── Impure Boundary: Execution ────────────────────────────────
 
 
-def _is_github_actions() -> bool:
-    """Check if running inside GitHub Actions."""
-    return os.getenv("GITHUB_ACTIONS") == "true"
-
-
-def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResult:
-    """Execute a single step via subprocess (impure: IO + subprocess).
-
-    Args:
-        plan: The step plan containing name and command.
-        cwd: Working directory for the subprocess.
-        capture: If True, buffer stdout/stderr and return it in the result
-                 instead of streaming to the parent's stdout.  Used for
-                 parallel execution to prevent interleaved output.
-    """
+def execute_step(plan: StepPlan, cwd: str) -> StepResult:
+    """Execute a single step via subprocess (impure: IO + subprocess)."""
     fd, output_file = tempfile.mkstemp(
         prefix=f"pipeline-{plan.name}-",
         suffix=".txt",
@@ -505,21 +490,11 @@ def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResu
         "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}:{os.environ.get('PYTHONPATH', '')}",
     }
 
-    if not capture:
-        sys.stdout.write(format_step_header(plan.name, plan.cmd))
-        sys.stdout.flush()
+    sys.stdout.write(format_step_header(plan.name, plan.cmd))
+    sys.stdout.flush()
 
     start_time = time.time()
-    if capture:
-        result = subprocess.run(
-            list(plan.cmd),
-            env=step_env,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-    else:
-        result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
+    result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
     duration = time.time() - start_time
 
     output_path = Path(output_file)
@@ -535,48 +510,11 @@ def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResu
 
     success = result.returncode == 0
 
-    if not capture:
-        sys.stdout.write(format_step_footer(plan.name, success=success, outputs=outputs))
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-
-    return StepResult(
-        name=plan.name,
-        success=success,
-        outputs=outputs,
-        duration_seconds=duration,
-        captured_output=result.stdout.decode("utf-8", errors="replace") if capture else "",
-    )
-
-
-def _replay_captured_output(plan: StepPlan, result: StepResult) -> None:
-    """Write a captured step's header, buffered output, and footer to stdout.
-
-    When running inside GitHub Actions, wraps each step in a collapsible
-    ``::group::`` / ``::endgroup::`` block so the log viewer stays tidy.
-    """
-    in_gha = _is_github_actions()
-
-    if in_gha:
-        status_icon = "\u2705" if result.success else "\u274c"
-        sys.stdout.write(
-            f"::group::{status_icon} {result.name} ({result.duration_seconds:.0f}s)\n"
-        )
-
-    sys.stdout.write(format_step_header(plan.name, plan.cmd))
-    if result.captured_output:
-        sys.stdout.write(result.captured_output)
-        if not result.captured_output.endswith("\n"):
-            sys.stdout.write("\n")
-    sys.stdout.write(
-        format_step_footer(result.name, success=result.success, outputs=result.outputs)
-    )
+    sys.stdout.write(format_step_footer(plan.name, success=success, outputs=outputs))
     sys.stdout.write("\n")
-
-    if in_gha:
-        sys.stdout.write("::endgroup::\n")
-
     sys.stdout.flush()
+
+    return StepResult(name=plan.name, success=success, outputs=outputs, duration_seconds=duration)
 
 
 def execute_plans(
@@ -584,55 +522,10 @@ def execute_plans(
     state: PipelineState,
     cwd: str,
 ) -> PipelineState:
-    """Execute steps sequentially, folding results into state (impure).
-
-    Output streams in real-time.  In GitHub Actions each step is wrapped
-    in a collapsible ``::group::`` block.
-    """
-    in_gha = _is_github_actions()
+    """Execute steps sequentially, folding results into state (impure)."""
     for plan in plans:
-        if in_gha:
-            sys.stdout.write(f"::group::\u25b6 {plan.name}\n")
-            sys.stdout.flush()
-
         result = execute_step(plan, cwd)
-
-        if in_gha:
-            sys.stdout.write("::endgroup::\n")
-            sys.stdout.flush()
-
         state = update_state(state, result)
-    return state
-
-
-def execute_plans_parallel(
-    plans: tuple[StepPlan, ...],
-    state: PipelineState,
-    cwd: str,
-) -> PipelineState:
-    """Execute steps concurrently, folding results into state (impure).
-
-    Used for initial steps (collect, consolidate, embed) which operate
-    on different date cohorts and are independent of each other.
-
-    Each subprocess's stdout/stderr is captured and replayed sequentially
-    after all steps finish, preventing interleaved output in the logs.
-    """
-    if len(plans) <= 1:
-        return execute_plans(plans, state, cwd)
-
-    with ThreadPoolExecutor(max_workers=len(plans)) as pool:
-        futures = tuple(
-            pool.submit(execute_step, plan, cwd, capture=True)
-            for plan in plans
-        )
-        results = tuple(f.result() for f in futures)
-
-    # Replay each step's output sequentially so logs are readable
-    for plan, result in zip(plans, results, strict=True):
-        _replay_captured_output(plan, result)
-        state = update_state(state, result)
-
     return state
 
 
@@ -685,9 +578,9 @@ def main() -> int:
     sys.stdout.write(format_pipeline_header(config) + "\n")
     sys.stdout.flush()
 
-    # Phase 1: initial steps run concurrently (independent date cohorts)
+    # Phase 1: initial steps (sequential to keep logs readable)
     initial_plans = plan_initial_steps(config)
-    state = execute_plans_parallel(initial_plans, EMPTY_STATE, config.repo_root)
+    state = execute_plans(initial_plans, EMPTY_STATE, config.repo_root)
 
     # Phase 2: catalog (conditional on files_added)
     catalog_plans = plan_catalog_step(config, state)
