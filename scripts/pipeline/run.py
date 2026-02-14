@@ -89,9 +89,9 @@ class PipelineState:
 
 # ── Constants ─────────────────────────────────────────────────
 
-INITIAL_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
+DATA_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
 
-EMPTY_STATE = PipelineState()
+ALL_STEPS: tuple[str, ...] = DATA_STEPS + ("catalog", "dashboard")
 
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
@@ -214,58 +214,22 @@ def build_step_cmd(step_name: str, config: PipelineConfig) -> tuple[str, ...]:
 # ── Pure Functions: Planning ──────────────────────────────────
 
 
-def filter_initial_steps(job: str) -> tuple[str, ...]:
-    """Determine which initial steps to run based on job selection."""
-    if job == "all":
-        return INITIAL_STEPS
-    if job in INITIAL_STEPS:
-        return (job,)
-    return ()
+def should_run(step: str, config: PipelineConfig, state: PipelineState) -> bool:
+    """Decide whether a pipeline step should run.
 
-
-def plan_initial_steps(config: PipelineConfig) -> tuple[StepPlan, ...]:
-    """Plan the initial (unconditional) steps."""
-    names = filter_initial_steps(config.job)
-    return tuple(StepPlan(name=n, cmd=build_step_cmd(n, config)) for n in names)
-
-
-def should_run_catalog(job: str, *, files_added: bool) -> bool:
-    """Decide whether the catalog step should run.
-
-    Always runs for 'all' job to ensure the manifest stays populated,
-    even when no new files were added in this cycle. The catalog
-    generation is idempotent and skips work when IA state hasn't changed.
+    Data steps (collect, consolidate, embed) run when explicitly requested
+    or when job is 'all'.  Catalog and dashboard always run for 'all' and
+    additionally trigger when upstream data changes.
     """
-    return job in ("catalog", "all") or files_added
-
-
-def should_run_dashboard(job: str, *, catalog_updated: bool) -> bool:
-    """Decide whether the dashboard step should run.
-
-    Always runs for 'all' job to keep the dashboard cache fresh,
-    regardless of whether the catalog was updated in this cycle.
-    """
-    return job in ("dashboard", "all") or catalog_updated
-
-
-def plan_catalog_step(
-    config: PipelineConfig,
-    state: PipelineState,
-) -> tuple[StepPlan, ...]:
-    """Conditionally plan the catalog step."""
-    if should_run_catalog(config.job, files_added=state.files_added):
-        return (StepPlan(name="catalog", cmd=build_step_cmd("catalog", config)),)
-    return ()
-
-
-def plan_dashboard_step(
-    config: PipelineConfig,
-    state: PipelineState,
-) -> tuple[StepPlan, ...]:
-    """Conditionally plan the dashboard step."""
-    if should_run_dashboard(config.job, catalog_updated=state.catalog_updated):
-        return (StepPlan(name="dashboard", cmd=build_step_cmd("dashboard", config)),)
-    return ()
+    if config.job == step:
+        return True
+    if config.job != "all":
+        if step == "catalog":
+            return state.files_added
+        if step == "dashboard":
+            return state.catalog_updated
+        return False
+    return True
 
 
 # ── Pure Functions: Output Parsing ────────────────────────────
@@ -476,8 +440,8 @@ def write_run_stats(config: PipelineConfig, state: PipelineState) -> None:
 # ── Impure Boundary: Execution ────────────────────────────────
 
 
-def execute_step(plan: StepPlan, cwd: str) -> StepResult:
-    """Execute a single step via subprocess (impure: IO + subprocess)."""
+def run_step(plan: StepPlan, cwd: str) -> StepResult:
+    """Run a single pipeline step as a subprocess."""
     fd, output_file = tempfile.mkstemp(
         prefix=f"pipeline-{plan.name}-",
         suffix=".txt",
@@ -517,20 +481,8 @@ def execute_step(plan: StepPlan, cwd: str) -> StepResult:
     return StepResult(name=plan.name, success=success, outputs=outputs, duration_seconds=duration)
 
 
-def execute_plans(
-    plans: tuple[StepPlan, ...],
-    state: PipelineState,
-    cwd: str,
-) -> PipelineState:
-    """Execute steps sequentially, folding results into state (impure)."""
-    for plan in plans:
-        result = execute_step(plan, cwd)
-        state = update_state(state, result)
-    return state
-
-
-def write_file(path: str, content: str) -> None:
-    """Append content to a file (impure: file IO)."""
+def append_to_file(path: str, content: str) -> None:
+    """Append content to a file."""
     with Path(path).open("a") as f:
         f.write(content)
 
@@ -578,30 +530,27 @@ def main() -> int:
     sys.stdout.write(format_pipeline_header(config) + "\n")
     sys.stdout.flush()
 
-    # Phase 1: initial steps (sequential to keep logs readable)
-    initial_plans = plan_initial_steps(config)
-    state = execute_plans(initial_plans, EMPTY_STATE, config.repo_root)
+    state = PipelineState()
 
-    # Phase 2: catalog (conditional on files_added)
-    catalog_plans = plan_catalog_step(config, state)
-    state = execute_plans(catalog_plans, state, config.repo_root)
+    for step in ALL_STEPS:
+        if not should_run(step, config, state):
+            continue
+        plan = StepPlan(name=step, cmd=build_step_cmd(step, config))
+        result = run_step(plan, config.repo_root)
+        state = update_state(state, result)
 
-    # Write run stats for dashboard consumption
-    write_run_stats(config, state)
+        # Snapshot stats after catalog so dashboard can consume them
+        if step == "catalog":
+            write_run_stats(config, state)
 
-    # Phase 3: dashboard (conditional on catalog_updated)
-    dashboard_plans = plan_dashboard_step(config, state)
-    state = execute_plans(dashboard_plans, state, config.repo_root)
-
-    # Output
     sys.stdout.write(format_pipeline_summary(state))
     sys.stdout.flush()
 
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        write_file(gh_output, format_github_output(state))
+        append_to_file(gh_output, format_github_output(state))
 
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
-        write_file(gh_summary, format_github_summary(config.job, state))
+        append_to_file(gh_summary, format_github_summary(config.job, state))
 
     return 1 if has_failures(state) else 0
 
