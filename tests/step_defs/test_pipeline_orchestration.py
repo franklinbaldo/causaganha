@@ -481,34 +481,37 @@ def when_build_config(context: dict[str, Any]) -> None:
     )
 
 
+_TEST_DEADLINE_S = 1200  # fixed value for deterministic assertions
+
+
 @when("I build the collect command")
 def when_build_collect(context: dict[str, Any]) -> None:
-    context["cmd"] = build_collect_cmd(context["config"])
+    context["cmd"] = build_collect_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the consolidate command")
 def when_build_consolidate(context: dict[str, Any]) -> None:
-    context["cmd"] = build_consolidate_cmd(context["config"])
+    context["cmd"] = build_consolidate_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the embed command")
 def when_build_embed(context: dict[str, Any]) -> None:
-    context["cmd"] = build_embed_cmd(context["config"])
+    context["cmd"] = build_embed_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the catalog command")
 def when_build_catalog(context: dict[str, Any]) -> None:
-    context["cmd"] = build_catalog_cmd(context["config"])
+    context["cmd"] = build_catalog_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the dashboard command")
 def when_build_dashboard(context: dict[str, Any]) -> None:
-    context["cmd"] = build_dashboard_cmd(context["config"])
+    context["cmd"] = build_dashboard_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when(parsers.parse('I look up "{name}" in the command builder registry'))
 def when_registry_lookup(context: dict[str, Any], name: str) -> None:
-    context["cmd"] = CMD_BUILDERS[name](context["config"])
+    context["cmd"] = CMD_BUILDERS[name](context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I parse the step outputs")

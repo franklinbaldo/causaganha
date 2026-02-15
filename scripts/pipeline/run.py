@@ -57,6 +57,7 @@ class PipelineConfig:
     proxy_url: str
     scripts_dir: str
     repo_root: str
+    deadline_seconds: float = 2700  # 45m default (leaves buffer under 50m job)
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,9 @@ ALL_STEPS: tuple[str, ...] = DATA_STEPS + ("catalog", "dashboard")
 
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
+# Minimum seconds a step needs to be worth starting
+MIN_STEP_SECONDS = 30
+
 
 # ── Pure Functions: Config ────────────────────────────────────
 
@@ -107,6 +111,7 @@ def make_config(
     proxy_url: str,
     scripts_dir: str,
     repo_root: str,
+    deadline_seconds: float = 2700,
 ) -> PipelineConfig:
     """Build a validated PipelineConfig from raw inputs."""
     return PipelineConfig(
@@ -116,13 +121,14 @@ def make_config(
         proxy_url=proxy_url,
         scripts_dir=scripts_dir,
         repo_root=repo_root,
+        deadline_seconds=deadline_seconds,
     )
 
 
 # ── Pure Functions: Command Building ──────────────────────────
 
 
-def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_collect_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the collect step command."""
     base: tuple[str, ...] = (
         "uv",
@@ -136,14 +142,14 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--workers",
         "2",
         "--deadline",
-        "1200s",
+        f"{deadline_s}s",
     )
     date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
     tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
     return base + date_args + tribunal_args
 
 
-def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_consolidate_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the consolidate step command."""
     base: tuple[str, ...] = (
         "uv",
@@ -151,7 +157,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "python",
         f"{config.scripts_dir}/consolidate.py",
         "--deadline",
-        "1200s",
+        f"{deadline_s}s",
         "--workers",
         "2",
     )
@@ -161,7 +167,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
     return base + mode_args
 
 
-def build_embed_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_embed_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the embed step command."""
     return (
         "uv",
@@ -169,14 +175,15 @@ def build_embed_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "python",
         f"{config.scripts_dir}/embed.py",
         "--deadline",
-        "10m",
+        f"{deadline_s}s",
         "--max-decisions",
         "500",
     )
 
 
-def build_catalog_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_catalog_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the catalog step command."""
+    _ = deadline_s  # catalog has no deadline flag
     return (
         "uv",
         "run",
@@ -186,8 +193,9 @@ def build_catalog_cmd(config: PipelineConfig) -> tuple[str, ...]:
     )
 
 
-def build_dashboard_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_dashboard_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the dashboard-cache step command."""
+    _ = deadline_s  # dashboard has no deadline flag
     return (
         "uv",
         "run",
@@ -197,7 +205,7 @@ def build_dashboard_cmd(config: PipelineConfig) -> tuple[str, ...]:
 
 
 # Immutable registry: step name -> command builder
-CMD_BUILDERS: Mapping[str, Callable[[PipelineConfig], tuple[str, ...]]] = {
+CMD_BUILDERS: Mapping[str, Callable[..., tuple[str, ...]]] = {
     "collect": build_collect_cmd,
     "consolidate": build_consolidate_cmd,
     "embed": build_embed_cmd,
@@ -206,9 +214,15 @@ CMD_BUILDERS: Mapping[str, Callable[[PipelineConfig], tuple[str, ...]]] = {
 }
 
 
-def build_step_cmd(step_name: str, config: PipelineConfig) -> tuple[str, ...]:
+def build_step_cmd(step_name: str, config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Look up and invoke the command builder for a step."""
-    return CMD_BUILDERS[step_name](config)
+    return CMD_BUILDERS[step_name](config, deadline_s=deadline_s)
+
+
+def remaining_seconds(state: PipelineState, config: PipelineConfig) -> int:
+    """Seconds left in the pipeline deadline."""
+    elapsed = time.time() - state.start_time
+    return max(0, int(config.deadline_seconds - elapsed))
 
 
 # ── Pure Functions: Planning ──────────────────────────────────
@@ -487,6 +501,15 @@ def append_to_file(path: str, content: str) -> None:
         f.write(content)
 
 
+def _parse_deadline(s: str) -> float:
+    """Parse '45m' or '2700s' to seconds."""
+    if s.endswith("m"):
+        return float(s[:-1]) * 60
+    if s.endswith("s"):
+        return float(s[:-1])
+    return float(s)
+
+
 # ── Entry Point ───────────────────────────────────────────────
 
 
@@ -516,6 +539,11 @@ def main() -> int:
         default=os.getenv("DJEN_PROXY_URL", DEFAULT_PROXY_URL),
         help="DJEN proxy URL",
     )
+    parser.add_argument(
+        "--deadline",
+        default="45m",
+        help="Pipeline deadline e.g. 45m, 2700s (default: 45m)",
+    )
     args = parser.parse_args()
 
     config = make_config(
@@ -525,6 +553,7 @@ def main() -> int:
         proxy_url=args.proxy_url,
         scripts_dir=str(Path(__file__).parent),
         repo_root=str(Path(__file__).parent.parent.parent),
+        deadline_seconds=_parse_deadline(args.deadline),
     )
 
     sys.stdout.write(format_pipeline_header(config) + "\n")
@@ -535,7 +564,12 @@ def main() -> int:
     for step in ALL_STEPS:
         if not should_run(step, config, state):
             continue
-        plan = StepPlan(name=step, cmd=build_step_cmd(step, config))
+        budget = remaining_seconds(state, config)
+        if budget < MIN_STEP_SECONDS:
+            sys.stdout.write(f"\n  Skipping {step}: only {budget}s left in deadline\n")
+            sys.stdout.flush()
+            break
+        plan = StepPlan(name=step, cmd=build_step_cmd(step, config, deadline_s=budget))
         result = run_step(plan, config.repo_root)
         state = update_state(state, result)
 

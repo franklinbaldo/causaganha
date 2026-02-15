@@ -205,7 +205,7 @@ Feature: Pipeline Orchestration
   @pipeline @command
   Scenario: Build embed command
     When I build the embed command
-    Then the command should include flag "--deadline" with value "10m"
+    Then the command should include flag "--deadline" with value "1200s"
     And the command should include flag "--max-decisions" with value "500"
 
   @pipeline @command
