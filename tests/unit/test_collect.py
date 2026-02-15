@@ -1,81 +1,181 @@
 import os
 import sys
-from unittest.mock import MagicMock, patch
-
+from argparse import Namespace
 
 # Add repository root to path so we can import scripts
 sys.path.append(os.getcwd())
 
-from scripts.pipeline.collect import calculate_exit_code, collect_data
+from scripts.pipeline.collect import build_djen_backup_cmd, parse_structlog_summary
 
 
-@patch("scripts.pipeline.collect.mark_downloaded")
-@patch("scripts.pipeline.collect.get_db_connection")
-@patch("scripts.pipeline.collect._process_item")
-@patch("scripts.pipeline.collect.fetch_backfill_items")
-@patch("scripts.pipeline.collect.get_existing_files_for_dates")
-@patch("scripts.pipeline.collect.get_ia_s3_auth")
-@patch("scripts.pipeline.collect.fetch_tribunais_from_api")
-@patch("scripts.pipeline.collect.init_db")
-def test_collect_data_marks_downloaded(
-    mock_init_db,
-    mock_tribunais,
-    mock_get_ia_auth,
-    mock_existing,
-    mock_backfill,
-    mock_process,
-    mock_get_db,
-    mock_mark,
-):
-    # Setup mocks
-    mock_get_ia_auth.return_value = "LOW test-access:test-secret"
-    mock_existing.return_value = set()
-    mock_backfill.return_value = [("2024-01-01", "TJSP")]
-    mock_process.return_value = ("success", 1.0)
-    mock_tribunais.return_value = ["TJSP"]
+class TestBuildDjenBackupCmd:
+    def test_date_translated_to_start_end(self):
+        args = Namespace(
+            date="2026-01-15",
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=10000,
+            workers=2,
+            deadline="1200s",
+        )
+        cmd = build_djen_backup_cmd(args)
+        idx = cmd.index("--start-date")
+        assert cmd[idx + 1] == "2026-01-15"
+        idx = cmd.index("--end-date")
+        assert cmd[idx + 1] == "2026-01-15"
 
-    mock_con = MagicMock()
-    mock_get_db.return_value = mock_con
+    def test_date_range_passthrough(self):
+        args = Namespace(
+            date=None,
+            start_date="2026-01-10",
+            end_date="2026-01-15",
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        assert "--start-date" in cmd
+        assert "--end-date" in cmd
+        assert "2026-01-10" in cmd
+        assert "2026-01-15" in cmd
 
-    # Run
-    # proxy_url is required
-    collect_data(proxy_url="http://mock", workers=1)
+    def test_no_date_no_date_args(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        assert "--start-date" not in cmd
+        assert "--end-date" not in cmd
 
-    # Verify
-    # We expect mark_downloaded to be called with the success items
-    mock_mark.assert_called_with(mock_con, [("2024-01-01", "TJSP")])
+    def test_tribunal_included(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal="TJSP",
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        idx = cmd.index("--tribunal")
+        assert cmd[idx + 1] == "TJSP"
+
+    def test_deadline_converted_to_minutes(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="1200s",
+        )
+        cmd = build_djen_backup_cmd(args)
+        idx = cmd.index("--deadline-minutes")
+        assert cmd[idx + 1] == "20"
+
+    def test_max_items_zero_omitted(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        assert "--max-items" not in cmd
+
+    def test_max_items_nonzero_included(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=10000,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        idx = cmd.index("--max-items")
+        assert cmd[idx + 1] == "10000"
+
+    def test_workers_included(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=4,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        idx = cmd.index("--workers")
+        assert cmd[idx + 1] == "4"
+
+    def test_command_starts_with_uv_run(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        assert cmd[:4] == ["uv", "run", "djen-backup", "scan"]
 
 
-def test_calculate_exit_code_success():
-    stats = {"success": 100, "failed": 0, "skipped": 0, "downloaded_mb": 1.0}
-    assert calculate_exit_code(stats) == 0
+class TestParseStructlogSummary:
+    def test_extracts_run_complete_console_format(self):
+        output = (
+            "2026-02-15T12:00:00+00:00 [info     ] run_complete"
+            "                   total=100 uploaded=50 absent_marked=30"
+            " failed=5 skipped_deadline=10 skipped_circuit=5 success_rate=94.1%\n"
+        )
+        stats = parse_structlog_summary(output)
+        assert stats["uploaded"] == 50
+        assert stats["failed"] == 5
+        assert stats["absent_marked"] == 30
+        assert stats["total"] == 100
 
+    def test_ignores_other_events(self):
+        output = "2026-02-15T12:00:00+00:00 [info     ] gap_found  count=10\n"
+        stats = parse_structlog_summary(output)
+        assert stats["uploaded"] == 0
 
-def test_calculate_exit_code_partial_success_above_threshold():
-    # 290 success, 4710 failed -> 5.8% > 5%
-    stats = {"success": 290, "failed": 4710, "skipped": 0, "downloaded_mb": 270.2}
-    assert calculate_exit_code(stats) == 0
+    def test_handles_mixed_output(self):
+        output = (
+            "2026-02-15T12:00:00+00:00 [info     ] scanning    dates=7\n"
+            "2026-02-15T12:01:00+00:00 [info     ] run_complete"
+            "  total=9 uploaded=2 absent_marked=3 failed=1\n"
+        )
+        stats = parse_structlog_summary(output)
+        assert stats["uploaded"] == 2
+        assert stats["absent_marked"] == 3
+        assert stats["total"] == 9
 
+    def test_handles_empty_output(self):
+        stats = parse_structlog_summary("")
+        assert stats["uploaded"] == 0
+        assert stats["failed"] == 0
+        assert stats["absent_marked"] == 0
+        assert stats["total"] == 0
 
-def test_calculate_exit_code_below_threshold():
-    # 4 success, 96 failed -> 4% < 5%
-    stats = {"success": 4, "failed": 96, "skipped": 0, "downloaded_mb": 1.0}
-    assert calculate_exit_code(stats) == 1
-
-
-def test_calculate_exit_code_at_threshold():
-    # 5 success, 95 failed -> 5% == 5%
-    stats = {"success": 5, "failed": 95, "skipped": 0, "downloaded_mb": 1.0}
-    assert calculate_exit_code(stats) == 0
-
-
-def test_calculate_exit_code_failure():
-    # 0 success, 100 failed -> 0% < 5%
-    stats = {"success": 0, "failed": 100, "skipped": 0, "downloaded_mb": 0.0}
-    assert calculate_exit_code(stats) == 1
-
-
-def test_calculate_exit_code_empty():
-    # Nothing to process -> should pass
-    stats = {"success": 0, "failed": 0, "skipped": 0, "downloaded_mb": 0.0}
-    assert calculate_exit_code(stats) == 0
+    def test_handles_no_run_complete(self):
+        output = "2026-02-15T12:00:00+00:00 [info     ] processing  item=TJSP\n"
+        stats = parse_structlog_summary(output)
+        assert stats["uploaded"] == 0
+        assert stats["failed"] == 0
