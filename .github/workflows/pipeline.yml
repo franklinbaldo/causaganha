@@ -75,7 +75,7 @@ jobs:
 
           if [ "$IN_PROGRESS" -gt 0 ]; then
             echo "::warning::Another pipeline run is already in progress. Cancelling this run."
-            gh run cancel ${{ github.run_id }}
+            gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
             sleep 5
             exit 1
           fi
