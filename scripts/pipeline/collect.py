@@ -55,6 +55,18 @@ def build_djen_backup_cmd(args: argparse.Namespace) -> list[str]:
     return cmd
 
 
+def build_subprocess_env(proxy_url: str) -> dict[str, str]:
+    """Build environment for the djen-backup subprocess.
+
+    djen-backup reads DJEN_PROXY_URL from the environment (no CLI flag),
+    so we forward the --proxy-url argument as an env var.
+    """
+    env = {**os.environ}
+    if proxy_url:
+        env["DJEN_PROXY_URL"] = proxy_url
+    return env
+
+
 def parse_structlog_summary(output: str) -> dict[str, int]:
     """Extract upload stats from djen-backup's structlog console output.
 
@@ -101,8 +113,10 @@ def main() -> int:
         return 1
 
     cmd = build_djen_backup_cmd(args)
+    env = build_subprocess_env(args.proxy_url)
     print("Collecting DJEN data via djen-backup...")
     print(f"  Command: {' '.join(cmd)}")
+    print(f"  Proxy:   {args.proxy_url}")
     print()
 
     result = subprocess.run(
@@ -110,6 +124,7 @@ def main() -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
 
     # Replay captured output to stdout for pipeline logs
@@ -119,7 +134,7 @@ def main() -> int:
 
     # Parse stats from structlog output
     stats = parse_structlog_summary(result.stdout or "")
-    files_added = stats["uploaded"] > 0
+    files_added = stats["uploaded"] > 0 or stats["absent_marked"] > 0
 
     print()
     print("=" * 40)
