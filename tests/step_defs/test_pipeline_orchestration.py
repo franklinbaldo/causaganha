@@ -602,9 +602,7 @@ def then_all_steps_run(context: dict[str, Any]) -> None:
 @then(parsers.parse('should_run "{step}" should be {expected}'))
 def then_should_run(context: dict[str, Any], step: str, expected: str) -> None:
     result = should_run(step, context["config"], context["state"])
-    assert result == (expected == "true"), (
-        f"should_run({step!r}) = {result}, expected {expected}"
-    )
+    assert result == (expected == "true"), f"should_run({step!r}) = {result}, expected {expected}"
 
 
 # ── Step ordering ─────────────────────────────────────────────
