@@ -29,15 +29,15 @@ from scripts.pipeline.ia_s3 import parse_deadline
 
 
 def build_djen_backup_cmd(args: argparse.Namespace) -> list[str]:
-    """Build the djen-backup scan command from pipeline arguments."""
-    cmd = ["uv", "run", "djen-backup", "scan"]
+    """Build the djen-backup command from pipeline arguments."""
+    cmd = ["uv", "run", "djen-backup"]
 
     # --date X becomes --start-date X --end-date X
     if args.date:
         cmd += ["--start-date", args.date, "--end-date", args.date]
     elif args.start_date and args.end_date:
         cmd += ["--start-date", args.start_date, "--end-date", args.end_date]
-    # else: djen-backup defaults to 7-day rolling window (d-7 to d-1)
+    # else: djen-backup defaults to backward scan from yesterday
 
     if args.tribunal:
         cmd += ["--tribunal", args.tribunal]

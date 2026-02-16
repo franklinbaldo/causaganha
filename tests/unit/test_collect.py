@@ -139,7 +139,9 @@ class TestBuildDjenBackupCmd:
             deadline="20m",
         )
         cmd = build_djen_backup_cmd(args)
-        assert cmd[:4] == ["uv", "run", "djen-backup", "scan"]
+        assert cmd[:3] == ["uv", "run", "djen-backup"]
+        # No subcommand — djen-backup root command runs backfill directly
+        assert "scan" not in cmd
 
 
 class TestBuildSubprocessEnv:
