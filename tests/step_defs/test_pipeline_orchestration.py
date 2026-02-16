@@ -17,8 +17,9 @@ from pytest_bdd import given, parsers, scenario, then, when
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts" / "pipeline"))
 
 from run import (
+    ALL_STEPS,
     CMD_BUILDERS,
-    EMPTY_STATE,
+    DATA_STEPS,
     PipelineConfig,
     PipelineState,
     StepResult,
@@ -27,7 +28,6 @@ from run import (
     build_consolidate_cmd,
     build_dashboard_cmd,
     build_embed_cmd,
-    filter_initial_steps,
     format_github_output,
     format_github_summary,
     format_pipeline_header,
@@ -37,11 +37,7 @@ from run import (
     has_failures,
     make_config,
     parse_step_outputs,
-    plan_catalog_step,
-    plan_dashboard_step,
-    plan_initial_steps,
-    should_run_catalog,
-    should_run_dashboard,
+    should_run,
     update_state,
 )
 
@@ -56,23 +52,8 @@ FEATURE = "../features/pipeline/09_pipeline_orchestration.feature"
 # ── Tier 1: End-to-end ───────────────────────────────────────
 
 
-@scenario(FEATURE, "Full pipeline plans all initial steps then conditional steps")
+@scenario(FEATURE, "Full pipeline runs all steps")
 def test_e2e_full_pipeline() -> None:
-    pass
-
-
-@scenario(FEATURE, "Catalog only triggers when files were added")
-def test_e2e_catalog_triggers() -> None:
-    pass
-
-
-@scenario(FEATURE, "Dashboard only triggers when catalog was updated")
-def test_e2e_dashboard_triggers() -> None:
-    pass
-
-
-@scenario(FEATURE, "Nothing cascades when no files produced")
-def test_e2e_no_cascade() -> None:
     pass
 
 
@@ -84,8 +65,8 @@ def test_e2e_single_job() -> None:
 # ── Tier 2: Conditional logic ────────────────────────────────
 
 
-@scenario(FEATURE, "Catalog runs when files were added")
-def test_catalog_runs_files_added() -> None:
+@scenario(FEATURE, "Data steps always run for job all")
+def test_data_steps_run() -> None:
     pass
 
 
@@ -99,8 +80,13 @@ def test_catalog_explicit() -> None:
     pass
 
 
-@scenario(FEATURE, "Dashboard runs when catalog was updated")
-def test_dashboard_runs() -> None:
+@scenario(FEATURE, "Catalog triggers when upstream added files")
+def test_catalog_triggers() -> None:
+    pass
+
+
+@scenario(FEATURE, "Catalog skips when no files and not requested")
+def test_catalog_skips() -> None:
     pass
 
 
@@ -114,13 +100,13 @@ def test_dashboard_explicit() -> None:
     pass
 
 
-@scenario(FEATURE, "Plan catalog step always runs for job all")
-def test_plan_catalog_always_runs() -> None:
+@scenario(FEATURE, "Dashboard triggers when catalog was updated")
+def test_dashboard_triggers() -> None:
     pass
 
 
-@scenario(FEATURE, "Plan dashboard step always runs for job all")
-def test_plan_dashboard_always_runs() -> None:
+@scenario(FEATURE, "Dashboard skips when catalog not updated and not requested")
+def test_dashboard_skips() -> None:
     pass
 
 
@@ -167,36 +153,16 @@ def test_has_failures_false() -> None:
     pass
 
 
-# ── Tier 4: Step planning ────────────────────────────────────
+# ── Tier 4: Step ordering ────────────────────────────────────
 
 
-@scenario(FEATURE, "Filter initial steps for job all")
-def test_filter_all() -> None:
+@scenario(FEATURE, "ALL_STEPS defines the correct execution order")
+def test_all_steps_order() -> None:
     pass
 
 
-@scenario(FEATURE, "Filter initial steps for single job collect")
-def test_filter_collect() -> None:
-    pass
-
-
-@scenario(FEATURE, "Filter initial steps for single job consolidate")
-def test_filter_consolidate() -> None:
-    pass
-
-
-@scenario(FEATURE, "Filter initial steps for single job embed")
-def test_filter_embed() -> None:
-    pass
-
-
-@scenario(FEATURE, "Filter initial steps returns empty for catalog")
-def test_filter_catalog() -> None:
-    pass
-
-
-@scenario(FEATURE, "Filter initial steps returns empty for dashboard")
-def test_filter_dashboard() -> None:
+@scenario(FEATURE, "DATA_STEPS are the first three steps")
+def test_data_steps_order() -> None:
     pass
 
 
@@ -420,7 +386,7 @@ def given_state(context: dict[str, Any], fa: str, cu: str) -> None:
 
 @given("an empty pipeline state")
 def given_empty_state(context: dict[str, Any]) -> None:
-    context["state"] = EMPTY_STATE
+    context["state"] = PipelineState()
 
 
 @given(
@@ -467,7 +433,7 @@ def given_output_text_empty(context: dict[str, Any]) -> None:
 @given("a state with one failed step")
 def given_state_with_failure(context: dict[str, Any]) -> None:
     failed = StepResult(name="collect", success=False, outputs={}, duration_seconds=0.0)
-    context["state"] = update_state(EMPTY_STATE, failed)
+    context["state"] = update_state(PipelineState(), failed)
 
 
 @given("a state with one successful step")
@@ -475,7 +441,7 @@ def given_state_all_success(context: dict[str, Any]) -> None:
     ok = StepResult(
         name="collect", success=True, outputs={"files_added": "true"}, duration_seconds=0.0
     )
-    context["state"] = update_state(EMPTY_STATE, ok)
+    context["state"] = update_state(PipelineState(), ok)
 
 
 @given(parsers.parse('a step called "{name}" with command "{cmd_str}"'))
@@ -515,72 +481,37 @@ def when_build_config(context: dict[str, Any]) -> None:
     )
 
 
+_TEST_DEADLINE_S = 1200  # fixed value for deterministic assertions
+
+
 @when("I build the collect command")
 def when_build_collect(context: dict[str, Any]) -> None:
-    context["cmd"] = build_collect_cmd(context["config"])
+    context["cmd"] = build_collect_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the consolidate command")
 def when_build_consolidate(context: dict[str, Any]) -> None:
-    context["cmd"] = build_consolidate_cmd(context["config"])
+    context["cmd"] = build_consolidate_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the embed command")
 def when_build_embed(context: dict[str, Any]) -> None:
-    context["cmd"] = build_embed_cmd(context["config"])
+    context["cmd"] = build_embed_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the catalog command")
 def when_build_catalog(context: dict[str, Any]) -> None:
-    context["cmd"] = build_catalog_cmd(context["config"])
+    context["cmd"] = build_catalog_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I build the dashboard command")
 def when_build_dashboard(context: dict[str, Any]) -> None:
-    context["cmd"] = build_dashboard_cmd(context["config"])
+    context["cmd"] = build_dashboard_cmd(context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when(parsers.parse('I look up "{name}" in the command builder registry'))
 def when_registry_lookup(context: dict[str, Any], name: str) -> None:
-    context["cmd"] = CMD_BUILDERS[name](context["config"])
-
-
-@when(parsers.parse('I filter initial steps for job "{job}"'))
-def when_filter_steps(context: dict[str, Any], job: str) -> None:
-    context["steps"] = filter_initial_steps(job)
-
-
-@when("I plan the initial steps")
-def when_plan_initial(context: dict[str, Any]) -> None:
-    context["plans"] = plan_initial_steps(context["config"])
-
-
-@when("I plan the catalog step")
-def when_plan_catalog(context: dict[str, Any]) -> None:
-    context["plans"] = plan_catalog_step(context["config"], context["state"])
-
-
-@when("I plan the dashboard step")
-def when_plan_dashboard(context: dict[str, Any]) -> None:
-    context["plans"] = plan_dashboard_step(context["config"], context["state"])
-
-
-@when(
-    parsers.parse(
-        'I check should_run_catalog with job "{job}" and files_added {fa}',
-    ),
-)
-def when_should_catalog(context: dict[str, Any], job: str, fa: str) -> None:
-    context["bool_result"] = should_run_catalog(job, files_added=fa == "true")
-
-
-@when(
-    parsers.parse(
-        'I check should_run_dashboard with job "{job}" and catalog_updated {cu}',
-    ),
-)
-def when_should_dashboard(context: dict[str, Any], job: str, cu: str) -> None:
-    context["bool_result"] = should_run_dashboard(job, catalog_updated=cu == "true")
+    context["cmd"] = CMD_BUILDERS[name](context["config"], deadline_s=_TEST_DEADLINE_S)
 
 
 @when("I parse the step outputs")
@@ -590,7 +521,7 @@ def when_parse_outputs(context: dict[str, Any]) -> None:
 
 @when("I create an empty pipeline state")
 def when_create_empty_state(context: dict[str, Any]) -> None:
-    context["state"] = EMPTY_STATE
+    context["state"] = PipelineState()
 
 
 @when("I update the state with the result")
@@ -657,6 +588,40 @@ def when_format_pipeline_summary(context: dict[str, Any]) -> None:
 # ==============================================================================
 
 
+# ── should_run ─────────────────────────────────────────────────
+
+
+@then("every step in ALL_STEPS should run")
+def then_all_steps_run(context: dict[str, Any]) -> None:
+    for step in ALL_STEPS:
+        assert should_run(step, context["config"], context["state"]), (
+            f"should_run({step!r}) returned False for job='all'"
+        )
+
+
+@then(parsers.parse('should_run "{step}" should be {expected}'))
+def then_should_run(context: dict[str, Any], step: str, expected: str) -> None:
+    result = should_run(step, context["config"], context["state"])
+    assert result == (expected == "true"), (
+        f"should_run({step!r}) = {result}, expected {expected}"
+    )
+
+
+# ── Step ordering ─────────────────────────────────────────────
+
+
+@then(parsers.parse("ALL_STEPS should be {csv}"))
+def then_all_steps_csv(context: dict[str, Any], csv: str) -> None:
+    expected = tuple(s.strip() for s in csv.split(","))
+    assert ALL_STEPS == expected
+
+
+@then(parsers.parse("DATA_STEPS should be {csv}"))
+def then_data_steps_csv(context: dict[str, Any], csv: str) -> None:
+    expected = tuple(s.strip() for s in csv.split(","))
+    assert DATA_STEPS == expected
+
+
 # ── Config ────────────────────────────────────────────────────
 
 
@@ -718,48 +683,7 @@ def then_builder_nonempty(context: dict[str, Any]) -> None:
     assert len(context["cmd"]) > 0
 
 
-# ── Step planning ─────────────────────────────────────────────
-
-
-@then(parsers.parse("the filtered steps should be {csv}"))
-def then_filtered_steps_csv(context: dict[str, Any], csv: str) -> None:
-    expected = tuple(s.strip() for s in csv.split(","))
-    assert context["steps"] == expected
-
-
-@then("there should be no filtered steps")
-def then_no_filtered_steps(context: dict[str, Any]) -> None:
-    assert context["steps"] == ()
-
-
-@then(parsers.parse("I should get {count:d} step plans"))
-def then_plan_count(context: dict[str, Any], count: int) -> None:
-    assert len(context["plans"]) == count
-
-
-@then(parsers.parse('step plan {idx:d} should have name "{name}"'))
-def then_plan_name(context: dict[str, Any], idx: int, name: str) -> None:
-    assert context["plans"][idx].name == name
-
-
-@then("each step plan should have a non-empty command tuple")
-def then_plans_have_cmds(context: dict[str, Any]) -> None:
-    for plan in context["plans"]:
-        assert isinstance(plan.cmd, tuple)
-        assert len(plan.cmd) > 0
-
-
 # ── Boolean ───────────────────────────────────────────────────
-
-
-@then("the decision should be true")
-def then_decision_true(context: dict[str, Any]) -> None:
-    assert context["bool_result"] is True
-
-
-@then("the decision should be false")
-def then_decision_false(context: dict[str, Any]) -> None:
-    assert context["bool_result"] is False
 
 
 @then(parsers.parse("the failure check should be {expected}"))

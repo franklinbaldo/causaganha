@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CausaGanha Data Pipeline - Single entry point.
 
-Orchestrates pipeline steps with parallel initial execution:
-  [collect | consolidate | embed] -> catalog -> dashboard-cache
+Orchestrates pipeline steps sequentially:
+  collect -> consolidate -> embed -> catalog -> dashboard-cache
 
 GitHub Actions calls this script with minimal YAML. All pipeline
 logic lives here for easier debugging and local development.
@@ -34,7 +34,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -58,6 +57,7 @@ class PipelineConfig:
     proxy_url: str
     scripts_dir: str
     repo_root: str
+    deadline_seconds: float = 2700  # 45m default (leaves buffer under 50m job)
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,6 @@ class StepResult:
     success: bool
     outputs: Mapping[str, str]
     duration_seconds: float
-    captured_output: str = ""
 
 
 @dataclass(frozen=True)
@@ -91,11 +90,14 @@ class PipelineState:
 
 # ── Constants ─────────────────────────────────────────────────
 
-INITIAL_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
+DATA_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
 
-EMPTY_STATE = PipelineState()
+ALL_STEPS: tuple[str, ...] = DATA_STEPS + ("catalog", "dashboard")
 
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+# Minimum seconds a step needs to be worth starting
+MIN_STEP_SECONDS = 30
 
 
 # ── Pure Functions: Config ────────────────────────────────────
@@ -109,6 +111,7 @@ def make_config(
     proxy_url: str,
     scripts_dir: str,
     repo_root: str,
+    deadline_seconds: float = 2700,
 ) -> PipelineConfig:
     """Build a validated PipelineConfig from raw inputs."""
     return PipelineConfig(
@@ -118,13 +121,14 @@ def make_config(
         proxy_url=proxy_url,
         scripts_dir=scripts_dir,
         repo_root=repo_root,
+        deadline_seconds=deadline_seconds,
     )
 
 
 # ── Pure Functions: Command Building ──────────────────────────
 
 
-def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_collect_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the collect step command."""
     base: tuple[str, ...] = (
         "uv",
@@ -138,14 +142,14 @@ def build_collect_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "--workers",
         "2",
         "--deadline",
-        "1200s",
+        f"{deadline_s}s",
     )
     date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
     tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
     return base + date_args + tribunal_args
 
 
-def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_consolidate_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the consolidate step command."""
     base: tuple[str, ...] = (
         "uv",
@@ -153,7 +157,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "python",
         f"{config.scripts_dir}/consolidate.py",
         "--deadline",
-        "1200s",
+        f"{deadline_s}s",
         "--workers",
         "2",
     )
@@ -163,7 +167,7 @@ def build_consolidate_cmd(config: PipelineConfig) -> tuple[str, ...]:
     return base + mode_args
 
 
-def build_embed_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_embed_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the embed step command."""
     return (
         "uv",
@@ -171,14 +175,15 @@ def build_embed_cmd(config: PipelineConfig) -> tuple[str, ...]:
         "python",
         f"{config.scripts_dir}/embed.py",
         "--deadline",
-        "10m",
+        f"{deadline_s}s",
         "--max-decisions",
         "500",
     )
 
 
-def build_catalog_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_catalog_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the catalog step command."""
+    _ = deadline_s  # catalog has no deadline flag
     return (
         "uv",
         "run",
@@ -188,8 +193,9 @@ def build_catalog_cmd(config: PipelineConfig) -> tuple[str, ...]:
     )
 
 
-def build_dashboard_cmd(config: PipelineConfig) -> tuple[str, ...]:
+def build_dashboard_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Build the dashboard-cache step command."""
+    _ = deadline_s  # dashboard has no deadline flag
     return (
         "uv",
         "run",
@@ -199,7 +205,7 @@ def build_dashboard_cmd(config: PipelineConfig) -> tuple[str, ...]:
 
 
 # Immutable registry: step name -> command builder
-CMD_BUILDERS: Mapping[str, Callable[[PipelineConfig], tuple[str, ...]]] = {
+CMD_BUILDERS: Mapping[str, Callable[..., tuple[str, ...]]] = {
     "collect": build_collect_cmd,
     "consolidate": build_consolidate_cmd,
     "embed": build_embed_cmd,
@@ -208,66 +214,36 @@ CMD_BUILDERS: Mapping[str, Callable[[PipelineConfig], tuple[str, ...]]] = {
 }
 
 
-def build_step_cmd(step_name: str, config: PipelineConfig) -> tuple[str, ...]:
+def build_step_cmd(step_name: str, config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
     """Look up and invoke the command builder for a step."""
-    return CMD_BUILDERS[step_name](config)
+    return CMD_BUILDERS[step_name](config, deadline_s=deadline_s)
+
+
+def remaining_seconds(state: PipelineState, config: PipelineConfig) -> int:
+    """Seconds left in the pipeline deadline."""
+    elapsed = time.time() - state.start_time
+    return max(0, int(config.deadline_seconds - elapsed))
 
 
 # ── Pure Functions: Planning ──────────────────────────────────
 
 
-def filter_initial_steps(job: str) -> tuple[str, ...]:
-    """Determine which initial steps to run based on job selection."""
-    if job == "all":
-        return INITIAL_STEPS
-    if job in INITIAL_STEPS:
-        return (job,)
-    return ()
+def should_run(step: str, config: PipelineConfig, state: PipelineState) -> bool:
+    """Decide whether a pipeline step should run.
 
-
-def plan_initial_steps(config: PipelineConfig) -> tuple[StepPlan, ...]:
-    """Plan the initial (unconditional) steps."""
-    names = filter_initial_steps(config.job)
-    return tuple(StepPlan(name=n, cmd=build_step_cmd(n, config)) for n in names)
-
-
-def should_run_catalog(job: str, *, files_added: bool) -> bool:
-    """Decide whether the catalog step should run.
-
-    Always runs for 'all' job to ensure the manifest stays populated,
-    even when no new files were added in this cycle. The catalog
-    generation is idempotent and skips work when IA state hasn't changed.
+    Data steps (collect, consolidate, embed) run when explicitly requested
+    or when job is 'all'.  Catalog and dashboard always run for 'all' and
+    additionally trigger when upstream data changes.
     """
-    return job in ("catalog", "all") or files_added
-
-
-def should_run_dashboard(job: str, *, catalog_updated: bool) -> bool:
-    """Decide whether the dashboard step should run.
-
-    Always runs for 'all' job to keep the dashboard cache fresh,
-    regardless of whether the catalog was updated in this cycle.
-    """
-    return job in ("dashboard", "all") or catalog_updated
-
-
-def plan_catalog_step(
-    config: PipelineConfig,
-    state: PipelineState,
-) -> tuple[StepPlan, ...]:
-    """Conditionally plan the catalog step."""
-    if should_run_catalog(config.job, files_added=state.files_added):
-        return (StepPlan(name="catalog", cmd=build_step_cmd("catalog", config)),)
-    return ()
-
-
-def plan_dashboard_step(
-    config: PipelineConfig,
-    state: PipelineState,
-) -> tuple[StepPlan, ...]:
-    """Conditionally plan the dashboard step."""
-    if should_run_dashboard(config.job, catalog_updated=state.catalog_updated):
-        return (StepPlan(name="dashboard", cmd=build_step_cmd("dashboard", config)),)
-    return ()
+    if config.job == step:
+        return True
+    if config.job != "all":
+        if step == "catalog":
+            return state.files_added
+        if step == "dashboard":
+            return state.catalog_updated
+        return False
+    return True
 
 
 # ── Pure Functions: Output Parsing ────────────────────────────
@@ -478,21 +454,8 @@ def write_run_stats(config: PipelineConfig, state: PipelineState) -> None:
 # ── Impure Boundary: Execution ────────────────────────────────
 
 
-def _is_github_actions() -> bool:
-    """Check if running inside GitHub Actions."""
-    return os.getenv("GITHUB_ACTIONS") == "true"
-
-
-def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResult:
-    """Execute a single step via subprocess (impure: IO + subprocess).
-
-    Args:
-        plan: The step plan containing name and command.
-        cwd: Working directory for the subprocess.
-        capture: If True, buffer stdout/stderr and return it in the result
-                 instead of streaming to the parent's stdout.  Used for
-                 parallel execution to prevent interleaved output.
-    """
+def run_step(plan: StepPlan, cwd: str) -> StepResult:
+    """Run a single pipeline step as a subprocess."""
     fd, output_file = tempfile.mkstemp(
         prefix=f"pipeline-{plan.name}-",
         suffix=".txt",
@@ -505,21 +468,11 @@ def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResu
         "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}:{os.environ.get('PYTHONPATH', '')}",
     }
 
-    if not capture:
-        sys.stdout.write(format_step_header(plan.name, plan.cmd))
-        sys.stdout.flush()
+    sys.stdout.write(format_step_header(plan.name, plan.cmd))
+    sys.stdout.flush()
 
     start_time = time.time()
-    if capture:
-        result = subprocess.run(
-            list(plan.cmd),
-            env=step_env,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-    else:
-        result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
+    result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
     duration = time.time() - start_time
 
     output_path = Path(output_file)
@@ -535,111 +488,26 @@ def execute_step(plan: StepPlan, cwd: str, *, capture: bool = False) -> StepResu
 
     success = result.returncode == 0
 
-    if not capture:
-        sys.stdout.write(format_step_footer(plan.name, success=success, outputs=outputs))
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-
-    return StepResult(
-        name=plan.name,
-        success=success,
-        outputs=outputs,
-        duration_seconds=duration,
-        captured_output=result.stdout.decode("utf-8", errors="replace") if capture else "",
-    )
-
-
-def _replay_captured_output(plan: StepPlan, result: StepResult) -> None:
-    """Write a captured step's header, buffered output, and footer to stdout.
-
-    When running inside GitHub Actions, wraps each step in a collapsible
-    ``::group::`` / ``::endgroup::`` block so the log viewer stays tidy.
-    """
-    in_gha = _is_github_actions()
-
-    if in_gha:
-        status_icon = "\u2705" if result.success else "\u274c"
-        sys.stdout.write(
-            f"::group::{status_icon} {result.name} ({result.duration_seconds:.0f}s)\n"
-        )
-
-    sys.stdout.write(format_step_header(plan.name, plan.cmd))
-    if result.captured_output:
-        sys.stdout.write(result.captured_output)
-        if not result.captured_output.endswith("\n"):
-            sys.stdout.write("\n")
-    sys.stdout.write(
-        format_step_footer(result.name, success=result.success, outputs=result.outputs)
-    )
+    sys.stdout.write(format_step_footer(plan.name, success=success, outputs=outputs))
     sys.stdout.write("\n")
-
-    if in_gha:
-        sys.stdout.write("::endgroup::\n")
-
     sys.stdout.flush()
 
-
-def execute_plans(
-    plans: tuple[StepPlan, ...],
-    state: PipelineState,
-    cwd: str,
-) -> PipelineState:
-    """Execute steps sequentially, folding results into state (impure).
-
-    Output streams in real-time.  In GitHub Actions each step is wrapped
-    in a collapsible ``::group::`` block.
-    """
-    in_gha = _is_github_actions()
-    for plan in plans:
-        if in_gha:
-            sys.stdout.write(f"::group::\u25b6 {plan.name}\n")
-            sys.stdout.flush()
-
-        result = execute_step(plan, cwd)
-
-        if in_gha:
-            sys.stdout.write("::endgroup::\n")
-            sys.stdout.flush()
-
-        state = update_state(state, result)
-    return state
+    return StepResult(name=plan.name, success=success, outputs=outputs, duration_seconds=duration)
 
 
-def execute_plans_parallel(
-    plans: tuple[StepPlan, ...],
-    state: PipelineState,
-    cwd: str,
-) -> PipelineState:
-    """Execute steps concurrently, folding results into state (impure).
-
-    Used for initial steps (collect, consolidate, embed) which operate
-    on different date cohorts and are independent of each other.
-
-    Each subprocess's stdout/stderr is captured and replayed sequentially
-    after all steps finish, preventing interleaved output in the logs.
-    """
-    if len(plans) <= 1:
-        return execute_plans(plans, state, cwd)
-
-    with ThreadPoolExecutor(max_workers=len(plans)) as pool:
-        futures = tuple(
-            pool.submit(execute_step, plan, cwd, capture=True)
-            for plan in plans
-        )
-        results = tuple(f.result() for f in futures)
-
-    # Replay each step's output sequentially so logs are readable
-    for plan, result in zip(plans, results, strict=True):
-        _replay_captured_output(plan, result)
-        state = update_state(state, result)
-
-    return state
-
-
-def write_file(path: str, content: str) -> None:
-    """Append content to a file (impure: file IO)."""
+def append_to_file(path: str, content: str) -> None:
+    """Append content to a file."""
     with Path(path).open("a") as f:
         f.write(content)
+
+
+def _parse_deadline(s: str) -> float:
+    """Parse '45m' or '2700s' to seconds."""
+    if s.endswith("m"):
+        return float(s[:-1]) * 60
+    if s.endswith("s"):
+        return float(s[:-1])
+    return float(s)
 
 
 # ── Entry Point ───────────────────────────────────────────────
@@ -671,6 +539,11 @@ def main() -> int:
         default=os.getenv("DJEN_PROXY_URL", DEFAULT_PROXY_URL),
         help="DJEN proxy URL",
     )
+    parser.add_argument(
+        "--deadline",
+        default="45m",
+        help="Pipeline deadline e.g. 45m, 2700s (default: 45m)",
+    )
     args = parser.parse_args()
 
     config = make_config(
@@ -680,35 +553,38 @@ def main() -> int:
         proxy_url=args.proxy_url,
         scripts_dir=str(Path(__file__).parent),
         repo_root=str(Path(__file__).parent.parent.parent),
+        deadline_seconds=_parse_deadline(args.deadline),
     )
 
     sys.stdout.write(format_pipeline_header(config) + "\n")
     sys.stdout.flush()
 
-    # Phase 1: initial steps run concurrently (independent date cohorts)
-    initial_plans = plan_initial_steps(config)
-    state = execute_plans_parallel(initial_plans, EMPTY_STATE, config.repo_root)
+    state = PipelineState()
 
-    # Phase 2: catalog (conditional on files_added)
-    catalog_plans = plan_catalog_step(config, state)
-    state = execute_plans(catalog_plans, state, config.repo_root)
+    for step in ALL_STEPS:
+        if not should_run(step, config, state):
+            continue
+        budget = remaining_seconds(state, config)
+        if budget < MIN_STEP_SECONDS:
+            sys.stdout.write(f"\n  Skipping {step}: only {budget}s left in deadline\n")
+            sys.stdout.flush()
+            break
+        plan = StepPlan(name=step, cmd=build_step_cmd(step, config, deadline_s=budget))
+        result = run_step(plan, config.repo_root)
+        state = update_state(state, result)
 
-    # Write run stats for dashboard consumption
-    write_run_stats(config, state)
+        # Snapshot stats after catalog so dashboard can consume them
+        if step == "catalog":
+            write_run_stats(config, state)
 
-    # Phase 3: dashboard (conditional on catalog_updated)
-    dashboard_plans = plan_dashboard_step(config, state)
-    state = execute_plans(dashboard_plans, state, config.repo_root)
-
-    # Output
     sys.stdout.write(format_pipeline_summary(state))
     sys.stdout.flush()
 
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        write_file(gh_output, format_github_output(state))
+        append_to_file(gh_output, format_github_output(state))
 
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
-        write_file(gh_summary, format_github_summary(config.job, state))
+        append_to_file(gh_summary, format_github_summary(config.job, state))
 
     return 1 if has_failures(state) else 0
 

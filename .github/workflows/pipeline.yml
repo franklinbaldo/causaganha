@@ -6,8 +6,8 @@
 # This workflow only handles: schedule, secrets, and GH-specific post-steps.
 #
 # DATA FLOW (managed by run.py):
-#   [collect | consolidate | embed]  (parallel)
-#          -> catalog -> dashboard   (sequential, conditional)
+#   collect -> consolidate -> embed -> catalog -> dashboard
+#   (all sequential; run.py manages a pipeline-level deadline budget)
 #
 # NOTE: Single-job design exposes all secrets to every step.
 # This is a conscious trade-off for simpler orchestration.

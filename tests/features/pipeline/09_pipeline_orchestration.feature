@@ -11,94 +11,80 @@ Feature: Pipeline Orchestration
   # ==============================================================================
 
   @pipeline @e2e
-  Scenario: Full pipeline plans all initial steps then conditional steps
+  Scenario: Full pipeline runs all steps
     Given a config with job "all"
-    When I plan the initial steps
-    Then I should get 3 step plans
-    And step plan 0 should have name "collect"
-    And step plan 1 should have name "consolidate"
-    And step plan 2 should have name "embed"
-    And each step plan should have a non-empty command tuple
-
-  @pipeline @e2e
-  Scenario: Catalog only triggers when files were added
-    Given a config with job "all"
-    And a pipeline state with files_added true and catalog_updated false
-    When I plan the catalog step
-    Then I should get 1 step plans
-    And step plan 0 should have name "catalog"
-
-  @pipeline @e2e
-  Scenario: Dashboard only triggers when catalog was updated
-    Given a config with job "all"
-    And a pipeline state with files_added true and catalog_updated true
-    When I plan the dashboard step
-    Then I should get 1 step plans
-    And step plan 0 should have name "dashboard"
-
-  @pipeline @e2e
-  Scenario: Nothing cascades when no files produced
-    Given a config with job "all"
-    And a pipeline state with files_added false and catalog_updated false
-    When I plan the catalog step
-    Then I should get 1 step plans
-    And step plan 0 should have name "catalog"
+    And an empty pipeline state
+    Then every step in ALL_STEPS should run
 
   @pipeline @e2e
   Scenario: Single job only runs that step
     Given a config with job "embed"
-    When I plan the initial steps
-    Then I should get 1 step plans
+    And an empty pipeline state
+    Then should_run "embed" should be true
+    And should_run "collect" should be false
+    And should_run "consolidate" should be false
+    And should_run "catalog" should be false
+    And should_run "dashboard" should be false
 
   # ==============================================================================
-  # TIER 2: CONDITIONAL LOGIC
+  # TIER 2: CONDITIONAL LOGIC — should_run
   # ==============================================================================
 
   @pipeline @conditional
-  Scenario: Catalog runs when files were added
-    When I check should_run_catalog with job "all" and files_added true
-    Then the decision should be true
+  Scenario: Data steps always run for job all
+    Given a config with job "all"
+    And an empty pipeline state
+    Then should_run "collect" should be true
+    And should_run "consolidate" should be true
+    And should_run "embed" should be true
 
   @pipeline @conditional
   Scenario: Catalog always runs for job all
-    When I check should_run_catalog with job "all" and files_added false
-    Then the decision should be true
+    Given a config with job "all"
+    And a pipeline state with files_added false and catalog_updated false
+    Then should_run "catalog" should be true
 
   @pipeline @conditional
   Scenario: Catalog runs when explicitly requested
-    When I check should_run_catalog with job "catalog" and files_added false
-    Then the decision should be true
+    Given a config with job "catalog"
+    And a pipeline state with files_added false and catalog_updated false
+    Then should_run "catalog" should be true
 
   @pipeline @conditional
-  Scenario: Dashboard runs when catalog was updated
-    When I check should_run_dashboard with job "all" and catalog_updated true
-    Then the decision should be true
+  Scenario: Catalog triggers when upstream added files
+    Given a config with job "collect"
+    And a pipeline state with files_added true and catalog_updated false
+    Then should_run "catalog" should be true
+
+  @pipeline @conditional
+  Scenario: Catalog skips when no files and not requested
+    Given a config with job "collect"
+    And a pipeline state with files_added false and catalog_updated false
+    Then should_run "catalog" should be false
 
   @pipeline @conditional
   Scenario: Dashboard always runs for job all
-    When I check should_run_dashboard with job "all" and catalog_updated false
-    Then the decision should be true
+    Given a config with job "all"
+    And a pipeline state with files_added false and catalog_updated false
+    Then should_run "dashboard" should be true
 
   @pipeline @conditional
   Scenario: Dashboard runs when explicitly requested
-    When I check should_run_dashboard with job "dashboard" and catalog_updated false
-    Then the decision should be true
-
-  @pipeline @conditional
-  Scenario: Plan catalog step always runs for job all
-    Given a config with job "all"
+    Given a config with job "dashboard"
     And a pipeline state with files_added false and catalog_updated false
-    When I plan the catalog step
-    Then I should get 1 step plans
-    And step plan 0 should have name "catalog"
+    Then should_run "dashboard" should be true
 
   @pipeline @conditional
-  Scenario: Plan dashboard step always runs for job all
-    Given a config with job "all"
-    And a pipeline state with files_added true and catalog_updated false
-    When I plan the dashboard step
-    Then I should get 1 step plans
-    And step plan 0 should have name "dashboard"
+  Scenario: Dashboard triggers when catalog was updated
+    Given a config with job "collect"
+    And a pipeline state with files_added false and catalog_updated true
+    Then should_run "dashboard" should be true
+
+  @pipeline @conditional
+  Scenario: Dashboard skips when catalog not updated and not requested
+    Given a config with job "collect"
+    And a pipeline state with files_added false and catalog_updated false
+    Then should_run "dashboard" should be false
 
   # ==============================================================================
   # TIER 3: STATE TRANSITIONS
@@ -165,38 +151,16 @@ Feature: Pipeline Orchestration
     Then the failure check should be false
 
   # ==============================================================================
-  # TIER 4: STEP PLANNING
+  # TIER 4: STEP ORDERING
   # ==============================================================================
 
   @pipeline @planning
-  Scenario: Filter initial steps for job all
-    When I filter initial steps for job "all"
-    Then the filtered steps should be collect, consolidate, embed
+  Scenario: ALL_STEPS defines the correct execution order
+    Then ALL_STEPS should be collect, consolidate, embed, catalog, dashboard
 
   @pipeline @planning
-  Scenario: Filter initial steps for single job collect
-    When I filter initial steps for job "collect"
-    Then the filtered steps should be collect
-
-  @pipeline @planning
-  Scenario: Filter initial steps for single job consolidate
-    When I filter initial steps for job "consolidate"
-    Then the filtered steps should be consolidate
-
-  @pipeline @planning
-  Scenario: Filter initial steps for single job embed
-    When I filter initial steps for job "embed"
-    Then the filtered steps should be embed
-
-  @pipeline @planning
-  Scenario: Filter initial steps returns empty for catalog
-    When I filter initial steps for job "catalog"
-    Then there should be no filtered steps
-
-  @pipeline @planning
-  Scenario: Filter initial steps returns empty for dashboard
-    When I filter initial steps for job "dashboard"
-    Then there should be no filtered steps
+  Scenario: DATA_STEPS are the first three steps
+    Then DATA_STEPS should be collect, consolidate, embed
 
   # ==============================================================================
   # TIER 5: COMMAND BUILDING
@@ -241,7 +205,7 @@ Feature: Pipeline Orchestration
   @pipeline @command
   Scenario: Build embed command
     When I build the embed command
-    Then the command should include flag "--deadline" with value "10m"
+    Then the command should include flag "--deadline" with value "1200s"
     And the command should include flag "--max-decisions" with value "500"
 
   @pipeline @command
