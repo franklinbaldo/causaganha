@@ -559,9 +559,7 @@ def _replay_captured_output(plan: StepPlan, result: StepResult) -> None:
 
     if in_gha:
         status_icon = "\u2705" if result.success else "\u274c"
-        sys.stdout.write(
-            f"::group::{status_icon} {result.name} ({result.duration_seconds:.0f}s)\n"
-        )
+        sys.stdout.write(f"::group::{status_icon} {result.name} ({result.duration_seconds:.0f}s)\n")
 
     sys.stdout.write(format_step_header(plan.name, plan.cmd))
     if result.captured_output:
@@ -622,10 +620,7 @@ def execute_plans_parallel(
         return execute_plans(plans, state, cwd)
 
     with ThreadPoolExecutor(max_workers=len(plans)) as pool:
-        futures = tuple(
-            pool.submit(execute_step, plan, cwd, capture=True)
-            for plan in plans
-        )
+        futures = tuple(pool.submit(execute_step, plan, cwd, capture=True) for plan in plans)
         results = tuple(f.result() for f in futures)
 
     # Replay each step's output sequentially so logs are readable

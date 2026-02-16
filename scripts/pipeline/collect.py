@@ -86,7 +86,9 @@ def main() -> int:
     parser.add_argument("--tribunal", help="Specific tribunal (e.g., TJSP)")
     parser.add_argument("--max-items", type=int, default=0)
     parser.add_argument("--workers", type=int, default=2)
-    parser.add_argument("--deadline", default="20m", help="Exit after this duration (e.g., 10m, 600s)")
+    parser.add_argument(
+        "--deadline", default="20m", help="Exit after this duration (e.g., 10m, 600s)"
+    )
     args = parser.parse_args()
 
     # Validate arguments
