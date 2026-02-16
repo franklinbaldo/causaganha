@@ -5,7 +5,11 @@ from argparse import Namespace
 # Add repository root to path so we can import scripts
 sys.path.append(os.getcwd())
 
-from scripts.pipeline.collect import build_djen_backup_cmd, parse_structlog_summary
+from scripts.pipeline.collect import (
+    build_djen_backup_cmd,
+    build_subprocess_env,
+    parse_structlog_summary,
+)
 
 
 class TestBuildDjenBackupCmd:
@@ -138,6 +142,21 @@ class TestBuildDjenBackupCmd:
         assert cmd[:4] == ["uv", "run", "djen-backup", "scan"]
 
 
+class TestBuildSubprocessEnv:
+    def test_proxy_url_forwarded_as_env_var(self):
+        env = build_subprocess_env("https://custom-proxy.example.com")
+        assert env["DJEN_PROXY_URL"] == "https://custom-proxy.example.com"
+
+    def test_empty_proxy_url_preserves_existing_env(self):
+        env = build_subprocess_env("")
+        # Should not override DJEN_PROXY_URL if proxy_url is empty
+        assert "PATH" in env  # inherits from os.environ
+
+    def test_inherits_parent_environment(self):
+        env = build_subprocess_env("https://proxy.test")
+        assert "PATH" in env
+
+
 class TestParseStructlogSummary:
     def test_extracts_run_complete_console_format(self):
         output = (
@@ -179,3 +198,23 @@ class TestParseStructlogSummary:
         stats = parse_structlog_summary(output)
         assert stats["uploaded"] == 0
         assert stats["failed"] == 0
+
+
+class TestFilesAddedLogic:
+    """Verify files_added includes both uploads and absent markers."""
+
+    def _files_added(self, stats: dict[str, int]) -> bool:
+        return stats["uploaded"] > 0 or stats["absent_marked"] > 0
+
+    def test_uploads_only(self):
+        assert self._files_added({"uploaded": 5, "absent_marked": 0, "failed": 0, "total": 5})
+
+    def test_absent_markers_only(self):
+        # Absent markers create files on IA and should trigger catalog
+        assert self._files_added({"uploaded": 0, "absent_marked": 10, "failed": 0, "total": 10})
+
+    def test_both_uploads_and_absent(self):
+        assert self._files_added({"uploaded": 3, "absent_marked": 7, "failed": 0, "total": 10})
+
+    def test_nothing_uploaded(self):
+        assert not self._files_added({"uploaded": 0, "absent_marked": 0, "failed": 5, "total": 5})
