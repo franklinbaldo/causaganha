@@ -152,8 +152,8 @@ def main() -> int:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
             f.write(f"collect_success={stats['uploaded'] + stats['absent_marked']}\n")
             f.write(f"collect_failed={stats['failed']}\n")
-            f.write(f"collect_skipped=0\n")
-            f.write(f"collect_downloaded_mb=0\n")
+            f.write("collect_skipped=0\n")
+            f.write("collect_downloaded_mb=0\n")
 
     return result.returncode
 

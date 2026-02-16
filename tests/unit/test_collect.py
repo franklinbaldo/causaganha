@@ -2,6 +2,7 @@ import os
 import sys
 from argparse import Namespace
 
+
 # Add repository root to path so we can import scripts
 sys.path.append(os.getcwd())
 
