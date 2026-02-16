@@ -217,7 +217,9 @@ def main() -> int:
         deadline_seconds=deadline_seconds,
     )
 
-    print(f"\nEmbedding: processed={stats['processed']} saved={stats['saved']} failed={stats['failed']}")
+    print(
+        f"\nEmbedding: processed={stats['processed']} saved={stats['saved']} failed={stats['failed']}"
+    )
 
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         with Path(gh_output).open("a") as f:

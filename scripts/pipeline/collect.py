@@ -52,6 +52,10 @@ def build_djen_backup_cmd(args: argparse.Namespace) -> list[str]:
 
     cmd += ["--workers", str(args.workers)]
 
+    # Persist state across runs
+    cmd += ["--backfill-state-file", "data/backfill-state.json"]
+    cmd += ["--state-file", "data/ia-state.json"]
+
     return cmd
 
 

@@ -92,6 +92,16 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
+      - name: Restore pipeline state cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/backfill-state.json
+            data/ia-state.json
+          key: pipeline-state-${{ github.run_id }}
+          restore-keys: |
+            pipeline-state-
+
       - name: Run pipeline
         id: pipeline
         run: |

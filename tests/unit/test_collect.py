@@ -144,6 +144,22 @@ class TestBuildDjenBackupCmd:
         # No subcommand — djen-backup root command runs backfill directly
         assert "scan" not in cmd
 
+    def test_state_files_included(self):
+        args = Namespace(
+            date=None,
+            start_date=None,
+            end_date=None,
+            tribunal=None,
+            max_items=0,
+            workers=2,
+            deadline="20m",
+        )
+        cmd = build_djen_backup_cmd(args)
+        assert "--backfill-state-file" in cmd
+        assert "data/backfill-state.json" in cmd
+        assert "--state-file" in cmd
+        assert "data/ia-state.json" in cmd
+
 
 class TestBuildSubprocessEnv:
     def test_proxy_url_forwarded_as_env_var(self):
