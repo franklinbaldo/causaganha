@@ -57,7 +57,7 @@ class PipelineConfig:
     proxy_url: str
     scripts_dir: str
     repo_root: str
-    deadline_seconds: float = 2700  # 45m default (leaves buffer under 50m job)
+    deadline_seconds: float = 4800  # 80m default (leaves buffer under 90m job)
 
 
 @dataclass(frozen=True)
@@ -111,7 +111,7 @@ def make_config(
     proxy_url: str,
     scripts_dir: str,
     repo_root: str,
-    deadline_seconds: float = 2700,
+    deadline_seconds: float = 4800,
 ) -> PipelineConfig:
     """Build a validated PipelineConfig from raw inputs."""
     return PipelineConfig(
@@ -541,7 +541,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--deadline",
-        default="45m",
+        default="80m",
         help="Pipeline deadline e.g. 45m, 2700s (default: 45m)",
     )
     args = parser.parse_args()

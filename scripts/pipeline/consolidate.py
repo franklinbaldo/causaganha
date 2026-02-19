@@ -1248,9 +1248,13 @@ def find_next_unconsolidated(
             pass
 
     max_iterations = 1000  # Safety limit (roughly 3 years of weekdays)
+    floor_date = date(2020, 1, 1)  # Don't scan pre-2020 dates (no useful data)
 
     while days_ago < max_iterations:
         d = today - timedelta(days=days_ago)
+        if d < floor_date:
+            logger.info("backfill_floor_reached", floor=str(floor_date))
+            return None
         d_str = d.strftime("%Y-%m-%d")
 
         # Skip weekends
