@@ -67,7 +67,9 @@ class TestConsolidateBackfill(unittest.TestCase):
             # 2025-01-01 needs consolidation
             # 2026-01-01 needs consolidation (newest - today)
 
-            def needs_consolidation_side_effect(d_str, manifest=None, must_be_complete=False, **kwargs):
+            def needs_consolidation_side_effect(
+                d_str, manifest=None, must_be_complete=False, **kwargs
+            ):
                 return d_str in ["2024-01-01", "2025-01-01", "2026-01-01"]
 
             mock_needs_consolidation.side_effect = needs_consolidation_side_effect
