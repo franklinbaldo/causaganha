@@ -163,7 +163,9 @@ def _is_retryable_upload_error(exception: Exception) -> bool:
     retry=retry_if_exception(_is_retryable_upload_error),
     reraise=True,
 )
-def _perform_upload(client: httpx.Client, url: str, file_path: Path, headers: dict[str, str]) -> None:
+def _perform_upload(
+    client: httpx.Client, url: str, file_path: Path, headers: dict[str, str]
+) -> None:
     """Perform single upload attempt with no internal retry logic (handled by tenacity)."""
     with file_path.open("rb") as f:
         response = client.put(url, content=f, headers=headers)

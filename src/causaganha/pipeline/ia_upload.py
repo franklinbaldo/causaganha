@@ -30,7 +30,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import internetarchive as ia
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 
 logger = logging.getLogger(__name__)
