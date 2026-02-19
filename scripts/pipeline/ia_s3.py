@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 import structlog
-
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 logger = structlog.get_logger()
 
@@ -150,6 +150,26 @@ def create_upload_client(
 # ---------------------------------------------------------------------------
 
 
+def _is_retryable_upload_error(exception: Exception) -> bool:
+    """Retry on network errors or 5xx server errors."""
+    if isinstance(exception, httpx.HTTPStatusError):
+        return exception.response.status_code >= 500
+    return isinstance(exception, httpx.RequestError)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception(_is_retryable_upload_error),
+    reraise=True,
+)
+def _perform_upload(client: httpx.Client, url: str, file_path: Path, headers: dict[str, str]) -> None:
+    """Perform single upload attempt with no internal retry logic (handled by tenacity)."""
+    with file_path.open("rb") as f:
+        response = client.put(url, content=f, headers=headers)
+    response.raise_for_status()
+
+
 def upload_to_ia(
     client: httpx.Client,
     item_id: str,
@@ -204,37 +224,18 @@ def upload_to_ia(
     if metadata_overrides:
         headers.update(metadata_overrides)
 
-    # Retry with linear backoff (5s, 10s, 15s) for 5xx / network errors.
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with file_path.open("rb") as f:
-                response = client.put(url, content=f, headers=headers)
-            if response.is_success:
-                if circuit_breaker is not None:
-                    circuit_breaker.record_success()
-                return True
-            logger.warning(
-                "upload_http_error",
-                item_id=item_id,
-                file=filename,
-                status=response.status_code,
-                attempt=attempt + 1,
-            )
-            if response.status_code < 500:
-                if circuit_breaker is not None:
-                    circuit_breaker.record_failure()
-                return False  # Client error — don't retry
-        except Exception as e:
-            logger.warning(
-                "upload_error",
-                item_id=item_id,
-                error=str(e),
-                attempt=attempt + 1,
-            )
-        if attempt < max_retries - 1:
-            time.sleep(5 * (attempt + 1))
-
-    if circuit_breaker is not None:
-        circuit_breaker.record_failure()
-    return False
+    try:
+        _perform_upload(client, url, file_path, headers)
+        if circuit_breaker is not None:
+            circuit_breaker.record_success()
+        return True
+    except Exception as e:
+        logger.warning(
+            "upload_failed",
+            item_id=item_id,
+            file=filename,
+            error=str(e),
+        )
+        if circuit_breaker is not None:
+            circuit_breaker.record_failure()
+        return False

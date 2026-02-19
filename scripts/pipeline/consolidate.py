@@ -40,8 +40,10 @@ import duckdb  # noqa: E402
 import httpx  # noqa: E402
 import ibis  # noqa: E402
 import structlog  # noqa: E402
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type  # noqa: E402
 
 from causaganha.config import TRIBUNAIS  # noqa: E402
+from causaganha.storage.connection import get_connection  # noqa: E402
 from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
@@ -157,6 +159,21 @@ def mark_date_complete(date: str) -> None:
     logger.info("date_marked_complete", date=date)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+)
+def _download_manifest_file(url: str, output_path: Path) -> None:
+    """Download manifest file with retries."""
+    with httpx.Client() as client:
+        resp = client.get(url, timeout=60, follow_redirects=True)
+        resp.raise_for_status()
+        with output_path.open("wb") as f:
+            for chunk in resp.iter_bytes(chunk_size=8192):
+                f.write(chunk)
+
+
 def fetch_manifest_records() -> list[dict]:
     """Download and return all manifest records from Internet Archive.
 
@@ -169,15 +186,12 @@ def fetch_manifest_records() -> list[dict]:
         with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
             tmp_path = Path(tmp.name)
 
-        # Download manifest
-        with httpx.Client() as client:
-            resp = client.get(manifest_url, timeout=60, follow_redirects=True)
-            if resp.status_code != 200:
-                logger.warning("manifest_download_failed", status=resp.status_code)
-                return []
-            with tmp_path.open("wb") as f:
-                for chunk in resp.iter_bytes(chunk_size=8192):
-                    f.write(chunk)
+        # Download manifest with retry
+        try:
+            _download_manifest_file(manifest_url, tmp_path)
+        except Exception as e:
+            logger.warning("manifest_download_failed", error=str(e))
+            return []
 
         # Query using DuckDB to get records
         con = duckdb.connect()
@@ -415,37 +429,24 @@ def list_zips_for_date(
     return zips, 0
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+    reraise=True,
+)
 def download_zip(item_id: str, filename: str, output_path: Path) -> bool:
-    """Download ZIP from Internet Archive using httpx with retries."""
+    """Download ZIP from Internet Archive using httpx with retries.
+
+    Raises Exception on failure (after retries exhausted).
+    """
     url = f"https://archive.org/download/{item_id}/{filename}"
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            with httpx.stream("GET", url, follow_redirects=True, timeout=300) as response:
-                if response.status_code == 200:
-                    with output_path.open("wb") as f:
-                        for chunk in response.iter_bytes(chunk_size=8192):
-                            f.write(chunk)
-                    return output_path.exists() and output_path.stat().st_size > 0
-                if response.status_code in [502, 503, 504]:
-                    logger.warning(
-                        "download_server_error",
-                        filename=filename,
-                        status=response.status_code,
-                        attempt=attempt + 1,
-                    )
-                    time.sleep(2**attempt)  # Exponential backoff
-                    continue
-                logger.warning(
-                    "download_http_error",
-                    filename=filename,
-                    status=response.status_code,
-                )
-                return False
-        except Exception as e:
-            logger.warning("download_failed", filename=filename, error=str(e), attempt=attempt + 1)
-            time.sleep(2**attempt)
-    return False
+    with httpx.stream("GET", url, follow_redirects=True, timeout=300) as response:
+        response.raise_for_status()
+        with output_path.open("wb") as f:
+            for chunk in response.iter_bytes(chunk_size=8192):
+                f.write(chunk)
+    return output_path.exists() and output_path.stat().st_size > 0
 
 
 def extract_json_from_zip(zip_path: Path) -> list[dict[str, Any]]:
@@ -1031,6 +1032,17 @@ def _is_tribunal_stopped(
 
     # 2. IA Metadata API-based check (slow fallback)
     logger.info("is_tribunal_stopped_api_fallback", tribunal=tribunal, date=date_str)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+    )
+    def _check_tribunal_api(url: str) -> dict:
+        resp = httpx.get(url, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+
     for days_back in range(1, absent_threshold + 1):
         check_date = target_date - timedelta(days=days_back)
         if check_date.weekday() >= 5:  # skip weekends
@@ -1041,14 +1053,8 @@ def _is_tribunal_stopped(
         url = f"https://archive.org/metadata/{item_id}"
 
         try:
-            resp = httpx.get(url, timeout=10)
-            if resp.status_code != 200:
-                # Can't verify - assume not stopped
-                result = False
-                ctx.tribunal_stopped_cache[tribunal][date_str] = result
-                return result
-
-            files = resp.json().get("files", [])
+            data = _check_tribunal_api(url)
+            files = data.get("files", [])
             tribunal_found = False
 
             for f in files:
@@ -1129,11 +1135,20 @@ def _needs_consolidation(
     # 2. IA metadata API fallback
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}"
-    try:
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)),
+    )
+    def _check_date_api(url: str) -> dict:
         resp = httpx.get(url, timeout=30)
-        if resp.status_code != 200:
-            return False
-        files = resp.json().get("files", [])
+        resp.raise_for_status()
+        return resp.json()
+
+    try:
+        data = _check_date_api(url)
+        files = data.get("files", [])
         has_zips = False
         has_consolidated = False
         present_tribunais = set()
@@ -1481,8 +1496,8 @@ def consolidate_date(
         logger.info("nothing_to_consolidate", date=date)
         return stats
 
-    # Use Ibis with DuckDB backend
-    con = ibis.duckdb.connect()
+    # Use Ibis with DuckDB backend (singleton to prevent conflicts)
+    con = get_connection(":memory:")
     init_tables(con)
 
     with tempfile.TemporaryDirectory() as tmpdir:

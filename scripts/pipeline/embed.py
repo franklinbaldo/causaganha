@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 import structlog
+from causaganha.storage.connection import get_connection
 
 
 if TYPE_CHECKING:
@@ -84,7 +85,9 @@ def fetch_unembedded(db_path: Path, limit: int) -> list[tuple[str, str]]:
     if not db_path.exists():
         return []
 
-    con = duckdb.connect(str(db_path), read_only=True)
+    # Use singleton connection
+    backend = get_connection(str(db_path), read_only=True)
+    con = backend.con
     try:
         tables = {t[0] for t in con.execute("SHOW TABLES").fetchall()}
         if "decisions" not in tables:
@@ -105,8 +108,6 @@ def fetch_unembedded(db_path: Path, limit: int) -> list[tuple[str, str]]:
     except duckdb.Error as e:
         logger.warning("query_failed", error=str(e))
         return []
-    finally:
-        con.close()
 
 
 def save_embeddings(db_path: Path, rows: list[tuple[str, list[float]]]) -> int:
@@ -114,22 +115,22 @@ def save_embeddings(db_path: Path, rows: list[tuple[str, list[float]]]) -> int:
     if not rows:
         return 0
 
-    con = duckdb.connect(str(db_path))
-    try:
-        con.execute(f"""
-            CREATE TABLE IF NOT EXISTS embeddings (
-                decision_id VARCHAR PRIMARY KEY,
-                embedding FLOAT[{EMBEDDING_DIM}],
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        con.executemany(
-            "INSERT OR REPLACE INTO embeddings (decision_id, embedding) VALUES (?, ?)",
-            rows,
+    # Use singleton connection (read-write)
+    backend = get_connection(str(db_path), read_only=False)
+    con = backend.con
+
+    con.execute(f"""
+        CREATE TABLE IF NOT EXISTS embeddings (
+            decision_id VARCHAR PRIMARY KEY,
+            embedding FLOAT[{EMBEDDING_DIM}],
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        return len(rows)
-    finally:
-        con.close()
+    """)
+    con.executemany(
+        "INSERT OR REPLACE INTO embeddings (decision_id, embedding) VALUES (?, ?)",
+        rows,
+    )
+    return len(rows)
 
 
 # ── Main loop ────────────────────────────────────────────────

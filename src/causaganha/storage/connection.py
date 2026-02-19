@@ -9,32 +9,41 @@ from ibis.backends.duckdb import Backend
 
 logger = structlog.get_logger()
 
-_connection: Backend | None = None
+_connections: dict[tuple[str, bool], Backend] = {}
 
 
 def get_connection(
     db_path: str = "data/causaganha.duckdb",
+    read_only: bool = False,
 ) -> Backend:
     """Get or create DuckDB connection via Ibis.
 
-    This is a singleton - returns the same connection instance.
+    This is a singleton per database path and mode - returns the same connection instance
+    for the same (path, read_only) pair.
     """
-    global _connection  # noqa: PLW0603
+    global _connections  # noqa: PLW0603
 
-    if _connection is None:
+    key = (db_path, read_only)
+
+    if key not in _connections:
         if db_path != ":memory:":
             db_file = Path(db_path)
             db_file.parent.mkdir(parents=True, exist_ok=True)
-            logger.info("connecting_to_duckdb", path=str(db_file))
-            _connection = ibis.duckdb.connect(str(db_file))
+            logger.info("connecting_to_duckdb", path=str(db_file), read_only=read_only)
+            con = ibis.duckdb.connect(str(db_file), read_only=read_only)
         else:
             logger.info("connecting_to_duckdb_memory")
-            _connection = ibis.duckdb.connect(db_path)
+            con = ibis.duckdb.connect(db_path)
 
-        # Initialize schema if needed
-        _initialize_schema(_connection)
+        # Initialize schema if needed (only for main DB or if requested?)
+        # For now, initialize schema for all connections as it's harmless if empty
+        # Note: If read_only is True, schema initialization might fail if writes are attempted.
+        # But _initialize_schema checks existence first.
+        if not read_only:
+            _initialize_schema(con)
+        _connections[key] = con
 
-    return _connection
+    return _connections[key]
 
 
 def _initialize_schema(con: Backend) -> None:

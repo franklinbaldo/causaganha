@@ -8,6 +8,7 @@ from pathlib import Path
 
 import duckdb
 import httpx
+from causaganha.storage.connection import get_connection
 
 
 def fetch_progress_json(url: str) -> dict | None:
@@ -23,7 +24,9 @@ def fetch_progress_json(url: str) -> dict | None:
 
 def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     """Generate dashboard data from DuckDB."""
-    con = duckdb.connect(str(db_path), read_only=True)
+    # Use singleton connection via Ibis backend, access raw DuckDB connection
+    backend = get_connection(str(db_path), read_only=True)
+    con = backend.con
 
     # Backfill progress
     result = con.execute("""
@@ -75,7 +78,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         ORDER BY count ASC
     """).fetchall()
 
-    con.close()
+    # con.close()  # Do not close singleton connection
 
     # Fetch progress from Internet Archive
     ia_base = "https://archive.org/download/causaganha-catalog"
