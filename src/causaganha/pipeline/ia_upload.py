@@ -30,6 +30,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import internetarchive as ia
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -111,6 +118,13 @@ class InternetArchiveUploader:
 
         logger.info("InternetArchiveUploader initialized")
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_exception_type(OSError),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     async def upload_parquet(
         self,
         file_path: Path,
@@ -150,42 +164,21 @@ class InternetArchiveUploader:
 
         logger.info(f"Uploading {file_path.name} to IA item: {item_id}")
 
-        # Upload with retry logic
-        for attempt in range(self.config.max_retries):
-            try:
-                # Run blocking IA upload in thread pool
-                await asyncio.to_thread(
-                    self._upload_file,
-                    item_id,
-                    file_path,
-                    metadata,
-                )
+        # Run blocking IA upload in thread pool
+        await asyncio.to_thread(
+            self._upload_file,
+            item_id,
+            file_path,
+            metadata,
+        )
 
-                # Verify upload if configured
-                if self.config.verify_after_upload:
-                    await self._verify_upload(item_id, file_path.name)
+        # Verify upload if configured
+        if self.config.verify_after_upload:
+            await self._verify_upload(item_id, file_path.name)
 
-                ia_url = f"https://archive.org/details/{item_id}"
-                logger.info(f"Successfully uploaded to {ia_url}")
-                return ia_url
-
-            except Exception as e:
-                logger.warning(
-                    f"Upload attempt {attempt + 1}/{self.config.max_retries} failed: {e}",
-                )
-
-                if attempt < self.config.max_retries - 1:
-                    # Calculate exponential backoff delay
-                    delay = self.config.initial_retry_delay * (self.config.retry_backoff**attempt)
-                    logger.info(f"Retrying in {delay:.1f} seconds...")
-                    await asyncio.sleep(delay)
-                else:
-                    # Final attempt failed
-                    msg = f"Failed to upload after {self.config.max_retries} attempts: {e}"
-                    raise OSError(
-                        msg,
-                    ) from e
-        return None
+        ia_url = f"https://archive.org/details/{item_id}"
+        logger.info(f"Successfully uploaded to {ia_url}")
+        return ia_url
 
     def _upload_file(
         self,
