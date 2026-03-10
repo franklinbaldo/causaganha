@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 import structlog
+
 from causaganha.storage.connection import get_connection
 
 
