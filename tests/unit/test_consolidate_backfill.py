@@ -1,6 +1,6 @@
 import unittest
 from datetime import date
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from scripts.pipeline.consolidate import ConsolidationContext, find_next_unconsolidated
 

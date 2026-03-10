@@ -14,12 +14,12 @@ from __future__ import annotations
 import configparser
 import hashlib
 import os
-import time
 from pathlib import Path
 
 import httpx
 import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+
 
 logger = structlog.get_logger()
 

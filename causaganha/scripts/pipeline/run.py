@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """CausaGanha Data Pipeline - KISS Version.
 
 Orchestrates pipeline steps sequentially, processing exactly ONE day per run.
@@ -19,19 +18,19 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Mapping
 
-import httpx
-import duckdb
 
 # ── Immutable Data Types ──────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    """Configuration for a pipeline run."""
+
     job: str
     date: str
     tribunal: str
@@ -43,6 +42,8 @@ class PipelineConfig:
 
 @dataclass(frozen=True)
 class StepResult:
+    """Result of a single pipeline step."""
+
     name: str
     success: bool
     outputs: Mapping[str, str]
@@ -51,6 +52,8 @@ class StepResult:
 
 @dataclass(frozen=True)
 class PipelineState:
+    """State of the overall pipeline run."""
+
     results: tuple[StepResult, ...] = ()
     files_added: bool = False
     catalog_updated: bool = False
@@ -74,7 +77,7 @@ def get_next_date(repo_root: str) -> str:
         try:
             state = json.loads(state_path.read_text())
             cursor_date = state.get("cursor_date")
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     if cursor_date:
@@ -103,6 +106,7 @@ def update_cursor(repo_root: str, processed_date: str):
 
 
 def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
+    """Execute a single pipeline step."""
     print(f"\n{'=' * 60}\n  STEP: {name}\n{'=' * 60}\n  cmd: {' '.join(cmd)}\n")
 
     fd, output_file = tempfile.mkstemp(prefix=f"pipeline-{name}-", suffix=".txt")
@@ -111,7 +115,7 @@ def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
     env = {**os.environ, "GITHUB_OUTPUT": output_file, "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}"}
 
     start_time = time.time()
-    result = subprocess.run(cmd, env=env, cwd=cwd)
+    result = subprocess.run(cmd, env=env, cwd=cwd, check=False)
     duration = time.time() - start_time
 
     output_path = Path(output_file)
@@ -135,6 +139,7 @@ def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
 
 
 def main():
+    """Run the pipeline."""
     parser = argparse.ArgumentParser(description="CausaGanha Pipeline (KISS)")
     parser.add_argument("--job", default="all", choices=["all", "collect", "consolidate", "embed"])
     parser.add_argument("--date", default="")
@@ -163,7 +168,7 @@ def main():
         ]
         res = execute_step("collect", cmd, repo_root)
         state = PipelineState(
-            results=state.results + (res,), files_added=res.outputs.get("files_added") == "true"
+            results=(*state.results, res), files_added=res.outputs.get("files_added") == "true"
         )
         if not res.success:
             sys.exit(1)
@@ -173,7 +178,7 @@ def main():
         cmd = ["uv", "run", "python", f"{scripts_dir}/consolidate.py", "--date", target_date]
         res = execute_step("consolidate", cmd, repo_root)
         state = PipelineState(
-            results=state.results + (res,),
+            results=(*state.results, res),
             files_added=state.files_added or res.outputs.get("files_added") == "true",
         )
         if not res.success:
@@ -183,7 +188,7 @@ def main():
     if args.job in ("all", "embed"):
         cmd = ["uv", "run", "python", f"{scripts_dir}/embed.py", "--deadline", "10m"]
         res = execute_step("embed", cmd, repo_root)
-        state = PipelineState(results=state.results + (res,), files_added=state.files_added)
+        state = PipelineState(results=(*state.results, res), files_added=state.files_added)
         if not res.success:
             sys.exit(1)
 
