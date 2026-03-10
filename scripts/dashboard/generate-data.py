@@ -6,8 +6,8 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import duckdb
 import httpx
+
 from causaganha.storage.connection import get_connection
 
 

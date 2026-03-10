@@ -40,7 +40,12 @@ import duckdb  # noqa: E402
 import httpx  # noqa: E402
 import ibis  # noqa: E402
 import structlog  # noqa: E402
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type  # noqa: E402
+from tenacity import (  # noqa: E402
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from causaganha.config import TRIBUNAIS  # noqa: E402
 from causaganha.storage.connection import get_connection  # noqa: E402

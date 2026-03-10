@@ -21,8 +21,6 @@ def get_connection(
     This is a singleton per database path and mode - returns the same connection instance
     for the same (path, read_only) pair.
     """
-    global _connections  # noqa: PLW0603
-
     key = (db_path, read_only)
 
     if key not in _connections:
