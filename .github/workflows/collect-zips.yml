@@ -37,7 +37,7 @@ on:
       cache_version:
         description: 'Cache version (bump to reset state)'
         required: false
-        default: 'v3'
+        default: 'v4'
 
 permissions:
   contents: read
@@ -77,9 +77,9 @@ jobs:
           path: |
             data/backfill-state.json
             data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v3' }}-${{ github.run_id }}
+          key: collect-state-${{ github.event.inputs.cache_version || 'v4' }}-${{ github.run_id }}
           restore-keys: |
-            collect-state-${{ github.event.inputs.cache_version || 'v3' }}-
+            collect-state-${{ github.event.inputs.cache_version || 'v4' }}-
 
       - name: Create data directory
         run: mkdir -p data
@@ -142,4 +142,4 @@ jobs:
           path: |
             data/backfill-state.json
             data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v3' }}-${{ github.run_id }}
+          key: collect-state-${{ github.event.inputs.cache_version || 'v4' }}-${{ github.run_id }}
