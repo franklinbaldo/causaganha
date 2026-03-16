@@ -93,25 +93,31 @@ jobs:
           fi
 
           echo "Running: $CMD"
-          OUTPUT=$($CMD 2>&1)
-          EXIT_CODE=$?
 
-          echo "$OUTPUT"
+          # Stream output live (visible in logs) AND capture for stats parsing
+          LOG_FILE=$(mktemp)
+          set +e
+          $CMD 2>&1 | tee "$LOG_FILE"
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
 
-          # Extract stats from output
-          UPLOADED=$(echo "$OUTPUT" | grep -oP '(?<=uploaded=)\d+' | tail -1 || echo "0")
-          FAILED=$(echo "$OUTPUT" | grep -oP '(?<=failed=)\d+' | tail -1 || echo "0")
-          SKIPPED=$(echo "$OUTPUT" | grep -oP '(?<=skipped_deadline=)\d+' | tail -1 || echo "0")
+          # Extract stats from captured output
+          UPLOADED=$(grep -oP '(?<=uploaded=)\d+' "$LOG_FILE" | tail -1 || echo "0")
+          FAILED=$(grep -oP '(?<=failed=)\d+' "$LOG_FILE" | tail -1 || echo "0")
+          SKIPPED=$(grep -oP '(?<=skipped_deadline=)\d+' "$LOG_FILE" | tail -1 || echo "0")
 
           echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
           echo "failed=$FAILED" >> $GITHUB_OUTPUT
           echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
-          echo "## Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Uploaded: $UPLOADED" >> $GITHUB_STEP_SUMMARY
-          echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
-          echo "- Skipped (deadline): $SKIPPED" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Results"
+            echo "- Uploaded: $UPLOADED"
+            echo "- Failed: $FAILED"
+            echo "- Skipped (deadline): $SKIPPED"
+            echo "- Exit code: $EXIT_CODE"
+          } >> $GITHUB_STEP_SUMMARY
 
           exit $EXIT_CODE
 
