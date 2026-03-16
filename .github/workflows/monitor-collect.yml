@@ -1,0 +1,112 @@
+# ============================================================================
+# MONITOR COLLECT — Watch the collect-zips workflow health
+# ============================================================================
+#
+# Runs every 30 minutes. Analyzes recent collect-zips runs and:
+#   - Reports progress (step summary)
+#   - If stalled: opens a GitHub issue with diagnosis
+#   - If degraded: dispatches a collect run with conservative params (1 worker)
+# ============================================================================
+
+name: Monitor Collect
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+jobs:
+  monitor:
+    name: Check collect-zips health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run monitor
+        id: monitor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          uv run python scripts/monitor_collect.py
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Re-dispatch with conservative settings (if degraded)
+        if: steps.monitor.outputs.status == 'degraded'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Status degraded — dispatching collect with 1 worker"
+          gh workflow run collect-zips.yml \
+            --repo ${{ github.repository }} \
+            -f workers=1 \
+            -f deadline_minutes=17
+
+      - name: Open issue if stalled
+        if: steps.monitor.outputs.status == 'stalled'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CONSECUTIVE="${{ steps.monitor.outputs.consecutive_failures }}"
+          EXISTING=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "collect-stalled" \
+            --state open \
+            --json number \
+            --jq 'length')
+
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Issue already open, skipping"
+          else
+            gh issue create \
+              --repo ${{ github.repository }} \
+              --title "🚨 collect-zips stalled: $CONSECUTIVE consecutive failures" \
+              --label "collect-stalled,bug" \
+              --body "The collect-zips workflow has failed $CONSECUTIVE times in a row.
+
+**Possible causes:**
+- DJEN proxy down or rate-limiting
+- Internet Archive S3 credentials expired
+- djen-backup state file corrupted
+
+**To diagnose:**
+\`\`\`bash
+# Run locally with dry-run
+uv run python -m djen_backup --dry-run --deadline-minutes 5 --workers 1
+\`\`\`
+
+**To reset state and retry:**
+\`\`\`bash
+gh workflow run collect-zips.yml --repo ${{ github.repository }} -f workers=1
+\`\`\`
+
+This issue was opened automatically by the monitor-collect workflow."
+          fi
+
+      - name: Close stall issue if recovered
+        if: steps.monitor.outputs.status == 'healthy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list \
+            --repo ${{ github.repository }} \
+            --label "collect-stalled" \
+            --state open \
+            --json number \
+            --jq '.[].number' | \
+          xargs -I{} gh issue close {} \
+            --repo ${{ github.repository }} \
+            --comment "✅ Workflow recovered — closing automatically." \
+            2>/dev/null || true

@@ -1,0 +1,125 @@
+# ============================================================================
+# COLLECT ZIPS — Download DJEN ZIPs and upload to Internet Archive
+# ============================================================================
+#
+# Focused workflow: only downloads ZIPs from DJEN and uploads to IA.
+# No consolidation, embedding, or catalog steps.
+#
+# Runs every 20 minutes. Each run processes as many dates/tribunals as
+# it can within the deadline budget (17 min leaves 3 min buffer).
+#
+# Progress is persisted via actions/cache between runs.
+# ============================================================================
+
+name: Collect ZIPs
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: 'Parallel workers (1-4)'
+        required: false
+        default: '2'
+      tribunal:
+        description: 'Specific tribunal (e.g. TJSP) — optional'
+        required: false
+      deadline_minutes:
+        description: 'Deadline in minutes'
+        required: false
+        default: '17'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: collect-zips
+  cancel-in-progress: false  # never cancel in-progress — wait for it to finish
+
+jobs:
+  collect:
+    name: Download & Upload ZIPs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+
+    env:
+      DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+
+      - name: Restore backfill state
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/backfill-state.json
+            data/ia-state.json
+          key: collect-state-${{ github.run_id }}
+          restore-keys: |
+            collect-state-
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Run djen-backup
+        id: collect
+        run: |
+          WORKERS="${{ github.event.inputs.workers || '2' }}"
+          DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
+          TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
+
+          CMD="uv run python -m djen_backup"
+          CMD="$CMD --deadline-minutes $DEADLINE"
+          CMD="$CMD --workers $WORKERS"
+          CMD="$CMD --backfill-state-file data/backfill-state.json"
+          CMD="$CMD --state-file data/ia-state.json"
+
+          if [ -n "$TRIBUNAL" ]; then
+            CMD="$CMD --tribunal $TRIBUNAL"
+          fi
+
+          echo "Running: $CMD"
+          OUTPUT=$($CMD 2>&1)
+          EXIT_CODE=$?
+
+          echo "$OUTPUT"
+
+          # Extract stats from output
+          UPLOADED=$(echo "$OUTPUT" | grep -oP '(?<=uploaded=)\d+' | tail -1 || echo "0")
+          FAILED=$(echo "$OUTPUT" | grep -oP '(?<=failed=)\d+' | tail -1 || echo "0")
+          SKIPPED=$(echo "$OUTPUT" | grep -oP '(?<=skipped_deadline=)\d+' | tail -1 || echo "0")
+
+          echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          echo "## Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Uploaded: $UPLOADED" >> $GITHUB_STEP_SUMMARY
+          echo "- Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "- Skipped (deadline): $SKIPPED" >> $GITHUB_STEP_SUMMARY
+
+          exit $EXIT_CODE
+
+      - name: Save backfill state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/backfill-state.json
+            data/ia-state.json
+          key: collect-state-${{ github.run_id }}
