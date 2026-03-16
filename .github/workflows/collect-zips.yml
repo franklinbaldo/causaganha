@@ -2,14 +2,12 @@
 # COLLECT ZIPS — Download DJEN ZIPs and upload to Internet Archive
 # ============================================================================
 #
-# Focused workflow: only downloads ZIPs from DJEN and uploads to IA.
-# No consolidation, embedding, or catalog steps.
+# Success metric: hits/run > 0 (actual ZIPs uploaded to IA)
 #
-# Runs every 20 minutes. Each run processes recent dates first and works
-# backwards. State is persisted between runs via actions/cache.
-#
-# Strategy: start from most recent 12 months. After that range is
-# exhausted, widen via --start-date in a future run.
+# Runs every 20 minutes. Each run:
+#   1. Resets stopped tribunals (so they retry)
+#   2. Processes dates from end_date backwards to start_date
+#   3. Saves state (cursor per tribunal) for next run
 # ============================================================================
 
 name: Collect ZIPs
@@ -34,10 +32,13 @@ on:
         description: 'Oldest date to process (YYYY-MM-DD)'
         required: false
         default: '2025-01-01'
+      end_date:
+        description: 'Newest date to process (YYYY-MM-DD, default: today)'
+        required: false
       cache_version:
         description: 'Cache version (bump to reset state)'
         required: false
-        default: 'v4'
+        default: 'v5'
 
 permissions:
   contents: read
@@ -77,12 +78,23 @@ jobs:
           path: |
             data/backfill-state.json
             data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v4' }}-${{ github.run_id }}
+          key: collect-state-${{ github.event.inputs.cache_version || 'v5' }}-${{ github.run_id }}
           restore-keys: |
-            collect-state-${{ github.event.inputs.cache_version || 'v4' }}-
+            collect-state-${{ github.event.inputs.cache_version || 'v5' }}-
 
       - name: Create data directory
         run: mkdir -p data
+
+      - name: Reset stopped tribunals
+        run: |
+          if [ -f data/backfill-state.json ]; then
+            echo "Resetting stopped tribunals so they retry..."
+            uv run python -m djen_backup reset \
+              --backfill-state-file data/backfill-state.json \
+              --all || true
+          else
+            echo "No backfill state yet — fresh start"
+          fi
 
       - name: Run djen-backup
         id: collect
@@ -91,6 +103,7 @@ jobs:
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
           TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
           START_DATE="${{ github.event.inputs.start_date || '2025-01-01' }}"
+          END_DATE="${{ github.event.inputs.end_date || '' }}"
 
           CMD="uv run python -m djen_backup"
           CMD="$CMD --deadline-minutes $DEADLINE"
@@ -99,38 +112,42 @@ jobs:
           CMD="$CMD --state-file data/ia-state.json"
           CMD="$CMD --start-date $START_DATE"
 
+          if [ -n "$END_DATE" ]; then
+            CMD="$CMD --end-date $END_DATE"
+          fi
           if [ -n "$TRIBUNAL" ]; then
             CMD="$CMD --tribunal $TRIBUNAL"
           fi
 
           echo "Running: $CMD"
-          echo "Start date: $START_DATE | Workers: $WORKERS | Deadline: ${DEADLINE}m"
+          echo "Window: $START_DATE → ${END_DATE:-today} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
 
-          # Stream output live AND capture for stats
           LOG_FILE=$(mktemp)
           set +e
           $CMD 2>&1 | tee "$LOG_FILE"
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
 
-          # Extract stats
           UPLOADED=$(grep -oP '(?<=hits=)\d+' "$LOG_FILE" | tail -1 || echo "0")
           ERRORS=$(grep -oP '(?<=errors=)\d+' "$LOG_FILE" | tail -1 || echo "0")
           EMPTIES=$(grep -oP '(?<=empties=)\d+' "$LOG_FILE" | tail -1 || echo "0")
+          STOPPED=$(grep -oP '(?<=tribunals_stopped=)\d+' "$LOG_FILE" | tail -1 || echo "0")
 
           echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
           echo "errors=$ERRORS" >> $GITHUB_OUTPUT
           echo "empties=$EMPTIES" >> $GITHUB_OUTPUT
+          echo "stopped=$STOPPED" >> $GITHUB_OUTPUT
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
           {
-            echo "## Results"
+            echo "## Results (success = uploaded > 0)"
             echo "| Metric | Value |"
             echo "|--------|-------|"
-            echo "| Uploaded (hits) | $UPLOADED |"
-            echo "| Errors | $ERRORS |"
-            echo "| Empties | $EMPTIES |"
-            echo "| Exit code | $EXIT_CODE |"
+            echo "| ✅ Uploaded (hits) | **$UPLOADED** |"
+            echo "| ❌ Errors | $ERRORS |"
+            echo "| ⬜ Empties | $EMPTIES |"
+            echo "| ⏹ Stopped | $STOPPED |"
+            echo "| Window | $START_DATE → ${END_DATE:-today} |"
           } >> $GITHUB_STEP_SUMMARY
 
           exit $EXIT_CODE
@@ -142,4 +159,4 @@ jobs:
           path: |
             data/backfill-state.json
             data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v4' }}-${{ github.run_id }}
+          key: collect-state-${{ github.event.inputs.cache_version || 'v5' }}-${{ github.run_id }}
