@@ -86,7 +86,7 @@ jobs:
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
           CMD="$CMD --backfill-state-file data/backfill-state.json"
-          CMD="$CMD --state-file data/ia-state.json"
+          CMD="$CMD --state-file data/ia-state.json --start-date 2020-01-01"
 
           if [ -n "$TRIBUNAL" ]; then
             CMD="$CMD --tribunal $TRIBUNAL"
