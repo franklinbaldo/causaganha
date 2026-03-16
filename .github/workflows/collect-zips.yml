@@ -31,7 +31,7 @@ on:
       start_date:
         description: 'Oldest date to process (YYYY-MM-DD)'
         required: false
-        default: '2025-01-01'
+        default: '2013-01-01'
       end_date:
         description: 'Newest date to process (YYYY-MM-DD, default: today)'
         required: false
@@ -102,7 +102,7 @@ jobs:
           WORKERS="${{ github.event.inputs.workers || '1' }}"
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
           TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
-          START_DATE="${{ github.event.inputs.start_date || '2025-01-01' }}"
+          START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
           CMD="uv run python -m djen_backup"
@@ -151,6 +151,15 @@ jobs:
           } >> $GITHUB_STEP_SUMMARY
 
           exit $EXIT_CODE
+
+      - name: Ensure state files exist for caching
+        if: always()
+        run: |
+          mkdir -p data
+          [ -f data/backfill-state.json ] || echo '{}' > data/backfill-state.json
+          [ -f data/ia-state.json ] || echo '{}' > data/ia-state.json
+          echo "State files:"
+          ls -lh data/
 
       - name: Save backfill state
         if: always()
