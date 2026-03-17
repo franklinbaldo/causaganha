@@ -23,10 +23,10 @@ from datetime import UTC, datetime
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
 WORKFLOW = "collect-zips.yml"
-LOOKBACK_RUNS = 6          # examine last 6 runs (~2h)
-STALL_THRESHOLD = 3        # consecutive runs with 0 uploads = stalled
-MIN_UPLOAD_RATE = 5        # expect at least 5 uploads per run on average
-ERROR_RATE_MAX = 0.30      # >30% failures = problem
+LOOKBACK_RUNS = 6  # examine last 6 runs (~2h)
+STALL_THRESHOLD = 3  # consecutive runs with 0 uploads = stalled
+MIN_UPLOAD_RATE = 5  # expect at least 5 uploads per run on average
+ERROR_RATE_MAX = 0.30  # >30% failures = problem
 
 
 def gh(*args: str) -> dict | list | str:
@@ -51,7 +51,7 @@ def get_recent_runs(n: int) -> list[dict]:
         "api",
         f"repos/{REPO}/actions/workflows/{WORKFLOW}/runs",
         "--jq",
-        f"[.workflow_runs[::{n}] | .[] | select(.status == \"completed\") | "
+        f'[.workflow_runs[::{n}] | .[] | select(.status == "completed") | '
         "{id: .id, conclusion: .conclusion, created_at: .created_at, "
         "html_url: .html_url}] | .[:{}]".format(n),
     )
@@ -151,10 +151,12 @@ def main() -> int:
 
     analysis = analyze_runs(runs)
     print(f"\nStatus: {analysis['status'].upper()}")
-    print(f"  Runs: {analysis['total_runs']} | "
-          f"OK: {analysis['successes']} | "
-          f"Fail: {analysis['failures']} | "
-          f"Cancelled: {analysis['cancelled']}")
+    print(
+        f"  Runs: {analysis['total_runs']} | "
+        f"OK: {analysis['successes']} | "
+        f"Fail: {analysis['failures']} | "
+        f"Cancelled: {analysis['cancelled']}"
+    )
 
     if analysis["issues"]:
         print("\nIssues:")
@@ -176,16 +178,16 @@ def main() -> int:
     if summary_file:
         with open(summary_file, "a") as f:
             f.write(f"## Collect Monitor — {analysis['status'].upper()}\n\n")
-            f.write(f"| Metric | Value |\n|--------|-------|\n")
+            f.write("| Metric | Value |\n|--------|-------|\n")
             f.write(f"| Runs analyzed | {analysis['total_runs']} |\n")
             f.write(f"| Success rate | {analysis['successes']}/{analysis['total_runs']} |\n")
             f.write(f"| Consecutive failures | {analysis['consecutive_failures']} |\n")
             if analysis["issues"]:
-                f.write(f"\n### Issues\n")
+                f.write("\n### Issues\n")
                 for issue in analysis["issues"]:
                     f.write(f"- {issue}\n")
             if analysis["recommendations"]:
-                f.write(f"\n### Recommendations\n")
+                f.write("\n### Recommendations\n")
                 for rec in analysis["recommendations"]:
                     f.write(f"- {rec}\n")
 
