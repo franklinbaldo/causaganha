@@ -63,7 +63,7 @@ def get_recent_runs(n: int) -> list[dict]:
 def get_run_summary(run_id: int) -> dict[str, int]:
     """Extract upload stats from a run's job logs (step summary)."""
     # Try to get step summary from the run
-    jobs = gh(
+    gh(
         "api",
         f"repos/{REPO}/actions/runs/{run_id}/jobs",
         "--jq",
