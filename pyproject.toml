@@ -97,4 +97,4 @@ ignore = []
 "scripts/*.py" = ["T201", "S603", "S607", "ERA001", "PLW1510", "PLR1722", "TRY300"]
 
 [tool.uv.sources]
-djen-backup = { git = "https://github.com/franklinbaldo/djen-backup", rev = "1d6034fb4d1497f9ccbc0e6eb7afdec012a57963" }
+djen-backup = { git = "https://github.com/franklinbaldo/djen-backup", rev = "14e477dc8be06ea240ffd54a7eec6490980fc268" }
