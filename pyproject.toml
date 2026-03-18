@@ -38,7 +38,7 @@ dependencies = [
     "google-cloud-pubsub>=2.19.0",
     "google-cloud-tasks>=2.16.0",
     "tenacity>=9.1",
-    "djen-backup",
+    "click>=8.1",  # for djen_backup CLI
 ]
 
 [project.optional-dependencies]
@@ -67,6 +67,7 @@ dev = [
 
 [project.scripts]
 causaganha = "causaganha.cli:app"
+djen-backup = "djen_backup.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -96,5 +97,4 @@ ignore = []
 # Scripts can use print, subprocess, and have section comments
 "scripts/*.py" = ["T201", "S603", "S607", "ERA001", "PLW1510", "PLR1722", "TRY300"]
 
-[tool.uv.sources]
-djen-backup = { git = "https://github.com/franklinbaldo/djen-backup", branch = "main" }
+# djen_backup is now integrated directly in src/djen_backup/
