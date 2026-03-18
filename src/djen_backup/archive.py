@@ -116,14 +116,22 @@ async def upload_zip(
     """Upload a ZIP file to IA S3.
 
     Reads *zip_path* into memory for the upload.
+    Logs size in MB and timing for large file visibility.
     """
+    start_time = time.monotonic()
     content = await asyncio.to_thread(zip_path.read_bytes)
+    size_mb = round(len(content) / 1024 / 1024, 1)
     filename = f"djen-{d.isoformat()}-{tribunal}.zip"
     url = IA_S3_URL.format(date=d.isoformat(), filename=filename)
     md5 = _content_md5(content)
     headers = _build_upload_headers(d, md5, "application/zip", auth)
 
-    log.info("ia_upload_start", date=d.isoformat(), tribunal=tribunal, size=len(content))
+    log.info(
+        "upload_starting",
+        date=d.isoformat(),
+        tribunal=tribunal,
+        size_mb=size_mb,
+    )
     resp = await request_with_retry(
         client,
         "PUT",
@@ -131,19 +139,21 @@ async def upload_zip(
         content=content,
         headers=headers,
     )
+    elapsed = round(time.monotonic() - start_time, 1)
     body = resp.content or b""
     if resp.status_code == HTTP_OK:
         log.info(
-            "ia_upload_done",
+            "upload_complete",
             date=d.isoformat(),
             tribunal=tribunal,
-            status=resp.status_code,
+            size_mb=size_mb,
+            elapsed_s=elapsed,
         )
     else:
         body_preview = body[:500].decode("utf-8", errors="replace") if body else "<empty>"
         if b"appears to be spam" in body:
             log.warning(
-                "ia_upload_spam_rejected",
+                "upload_spam_rejected",
                 date=d.isoformat(),
                 tribunal=tribunal,
                 status=resp.status_code,
@@ -151,10 +161,11 @@ async def upload_zip(
             )
         else:
             log.error(
-                "ia_upload_failed",
+                "upload_failed",
                 date=d.isoformat(),
                 tribunal=tribunal,
                 status=resp.status_code,
+                elapsed_s=elapsed,
                 body=body_preview,
             )
     return resp
