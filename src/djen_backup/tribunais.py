@@ -135,10 +135,10 @@ async def fetch_tribunal_list_from_api(
                         sigla = inst.get("sigla")
                         if isinstance(sigla, str) and sigla:
                             codes.append(sigla)
-        return codes
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         log.warning("tribunal_api_fetch_failed", error=str(exc))
         return []
+    return codes
 
 
 async def get_tribunal_list(

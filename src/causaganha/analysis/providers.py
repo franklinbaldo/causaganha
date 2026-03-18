@@ -111,7 +111,6 @@ class EmbeddingProviderBase(ABC):
                 status="success",
                 model=model.name,
             )
-            return True
         except Exception as e:
             logger.warning(
                 "%s_provider_validation_failed",
@@ -121,6 +120,7 @@ class EmbeddingProviderBase(ABC):
                 model=model.name,
             )
             return False
+        return True
 
 
 class GoogleProvider(EmbeddingProviderBase):
@@ -204,9 +204,6 @@ class GoogleProvider(EmbeddingProviderBase):
                     model=model.name,
                     task_type=task_type,
                 )
-
-                return embedding
-
             except httpx.HTTPError as e:
                 logger.exception(
                     "google_embedding_failed",
@@ -215,6 +212,8 @@ class GoogleProvider(EmbeddingProviderBase):
                     model=model.name,
                 )
                 raise
+            else:
+                return embedding
 
 
 class JinaProvider(EmbeddingProviderBase):
@@ -313,9 +312,6 @@ class JinaProvider(EmbeddingProviderBase):
                     task_type=task_type,
                     jina_task=jina_task,
                 )
-
-                return embedding
-
             except httpx.HTTPError as e:
                 logger.exception(
                     "jina_embedding_failed",
@@ -327,6 +323,8 @@ class JinaProvider(EmbeddingProviderBase):
                     else None,
                 )
                 raise
+            else:
+                return embedding
 
 
 def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProviderBase:

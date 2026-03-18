@@ -19,7 +19,7 @@ from djen_backup.archive import (
     upload_absent_marker,
     upload_zip,
 )
-from djen_backup.djen import DJENNotFound, download_zip, get_caderno_url
+from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.state import ItemStatus, State, load_state, save_state
 from djen_backup.tribunais import get_tribunal_list
 
@@ -45,12 +45,16 @@ def validate_tribunal(code: str) -> str:
 
 @dataclass
 class WorkItem:
+    """Work item representing a (date, tribunal) pair to process."""
+
     date: date
     tribunal: str
 
 
 @dataclass
 class RunConfig:
+    """Configuration for the backup pipeline run."""
+
     start_date: date
     end_date: date
     tribunal: str | None
@@ -66,6 +70,8 @@ class RunConfig:
 
 @dataclass
 class Summary:
+    """Statistics tracking for a pipeline run."""
+
     total: int = 0
     uploaded: int = 0
     absent_marked: int = 0
@@ -75,27 +81,33 @@ class Summary:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     async def inc_uploaded(self) -> None:
+        """Increment the uploaded counter."""
         async with self._lock:
             self.uploaded += 1
 
     async def inc_absent(self) -> None:
+        """Increment the absent marked counter."""
         async with self._lock:
             self.absent_marked += 1
 
     async def inc_skipped_deadline(self) -> None:
+        """Increment the skipped due to deadline counter."""
         async with self._lock:
             self.skipped_deadline += 1
 
     async def inc_skipped_circuit(self) -> None:
+        """Increment the skipped due to circuit breaker counter."""
         async with self._lock:
             self.skipped_circuit += 1
 
     async def inc_failed(self) -> None:
+        """Increment the failed counter."""
         async with self._lock:
             self.failed += 1
 
     @property
     def processed(self) -> int:
+        """Return total processed items (uploaded + absent marked)."""
         return self.uploaded + self.absent_marked
 
     @property
@@ -105,6 +117,7 @@ class Summary:
 
     @property
     def success_rate(self) -> float:
+        """Calculate success rate as a percentage."""
         if self.attempted == 0:
             return 1.0
         return self.processed / self.attempted
@@ -226,7 +239,7 @@ async def process_item(
     try:
         zip_url = await get_caderno_url(client, config.djen_proxy_url, item.tribunal, item.date)
         zip_path = await download_zip(client, zip_url)
-    except DJENNotFound as exc:
+    except DJENNotFoundError as exc:
         # DJEN doesn't have it — mark absent
         log.info(
             "djen_not_found",

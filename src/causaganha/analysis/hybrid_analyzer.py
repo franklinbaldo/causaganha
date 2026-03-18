@@ -108,9 +108,6 @@ class HybridAnalyzer:
                     llm_confidence=llm_result.confidence_score,
                     rag_confidence=rag_result.rag_confidence,
                 )
-
-                return llm_result
-
             except Exception as e:
                 logger.exception(
                     "hybrid_llm_fallback_failed",
@@ -120,6 +117,8 @@ class HybridAnalyzer:
                 # Return RAG result as fallback
                 rag_result.analysis_method = "rag_low_confidence"
                 return rag_result
+            else:
+                return llm_result
 
         except Exception as e:
             logger.exception(

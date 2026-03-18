@@ -246,9 +246,6 @@ class RAGAnalyzer:
                 confidence=result.confidence_score,
                 vote_distribution=dict(outcome_counts),
             )
-
-            return result
-
         except Exception as e:
             logger.exception(
                 "rag_analysis_failed",
@@ -256,6 +253,8 @@ class RAGAnalyzer:
                 error=str(e),
             )
             raise
+        else:
+            return result
 
     async def analyze_batch(
         self,

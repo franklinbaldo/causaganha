@@ -26,6 +26,8 @@ _TTL_DAYS = 90
 
 
 class ItemStatus(StrEnum):
+    """Status values for cache entries."""
+
     UPLOADED = "uploaded"
     ABSENT = "absent"
 
@@ -52,6 +54,7 @@ class State:
             return set(self._entries.get(d.isoformat(), {}).keys())
 
     def is_done(self, d: date, tribunal: str) -> bool:
+        """Check if a tribunal is marked as done for a date."""
         return tribunal in self._entries.get(d.isoformat(), {})
 
     def get_status(self, d: date, tribunal: str) -> str | None:
@@ -68,6 +71,7 @@ class State:
     # ------------------------------------------------------------------
 
     async def mark(self, d: date, tribunal: str, status: ItemStatus) -> None:
+        """Mark a tribunal as done for a date with the given status."""
         async with self._lock:
             key = d.isoformat()
             if key not in self._entries:
@@ -91,6 +95,7 @@ class State:
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, object]:
+        """Convert State to dictionary for serialization."""
         return {
             "version": 1,
             "updated_at": datetime.now(tz=UTC).isoformat(),
@@ -99,6 +104,7 @@ class State:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> State:
+        """Create State from dictionary."""
         state = cls()
         entries = data.get("entries")
         if isinstance(entries, dict):
@@ -125,10 +131,10 @@ def load_state(path: Path | None) -> State:
             path=str(path),
             dates=state.date_count,
         )
-        return state
     except (json.JSONDecodeError, OSError) as exc:
         log.warning("state_cache_corrupt", path=str(path), error=str(exc))
-        return State()
+        state = State()
+    return state
 
 
 def save_state(state: State, path: Path | None) -> None:

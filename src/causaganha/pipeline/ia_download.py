@@ -126,8 +126,6 @@ class IAParquetDownloader:
                     await self._verify_file(file_path, item_id, filename)
 
                 logger.info(f"Successfully downloaded to {file_path}")
-                return file_path
-
             except Exception as e:
                 logger.warning(
                     f"Download attempt {attempt + 1}/{self.config.max_retries} failed: {e}",
@@ -144,6 +142,8 @@ class IAParquetDownloader:
                     raise OSError(
                         msg,
                     ) from e
+            else:
+                return file_path
         return None
 
     async def download_range(

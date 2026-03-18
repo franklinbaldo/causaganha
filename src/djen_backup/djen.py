@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 log = structlog.get_logger()
 
 
-class DJENNotFound(Exception):
+class DJENNotFoundErrorError(Exception):
     """Raised when the DJEN proxy returns 404 or an empty response."""
 
     def __init__(self, status_code: int, reason: str) -> None:
@@ -36,13 +36,13 @@ async def get_caderno_url(
 ) -> str:
     """Return the ZIP download URL for a given tribunal/date.
 
-    Raises :class:`DJENNotFound` when the caderno is unavailable.
+    Raises :class:`DJENNotFoundError` when the caderno is unavailable.
     """
     url = f"{base_url}/api/v1/caderno/{tribunal}/{d.isoformat()}/D"
     resp = await request_with_retry(client, "GET", url, retry_djen_400=True)
 
     if resp.status_code == 404:
-        raise DJENNotFound(status_code=404, reason="Not Found")
+        raise DJENNotFoundError(status_code=404, reason="Not Found")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
@@ -51,11 +51,11 @@ async def get_caderno_url(
     try:
         data: dict[str, object] = resp.json()
     except ValueError as exc:
-        raise DJENNotFound(status_code=resp.status_code, reason="Invalid JSON") from exc
+        raise DJENNotFoundError(status_code=resp.status_code, reason="Invalid JSON") from exc
 
     download_url = data.get("url")
     if not isinstance(download_url, str) or not download_url:
-        raise DJENNotFound(status_code=resp.status_code, reason="Empty or missing URL field")
+        raise DJENNotFoundError(status_code=resp.status_code, reason="Empty or missing URL field")
 
     return download_url
 
@@ -67,17 +67,17 @@ async def download_zip(
     """Download a ZIP file to a temporary file and return its path.
 
     The caller is responsible for cleaning up the temp file.
-    Raises :class:`DJENNotFound` for 404 or empty responses.
+    Raises :class:`DJENNotFoundError` for 404 or empty responses.
     """
     resp = await request_with_retry(client, "GET", url)
 
     if resp.status_code == 404:
-        raise DJENNotFound(status_code=404, reason="ZIP download 404")
+        raise DJENNotFoundError(status_code=404, reason="ZIP download 404")
 
     resp.raise_for_status()
 
     if len(resp.content) == 0:
-        raise DJENNotFound(status_code=resp.status_code, reason="Empty ZIP response")
+        raise DJENNotFoundError(status_code=resp.status_code, reason="Empty ZIP response")
 
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
         tmp.write(resp.content)

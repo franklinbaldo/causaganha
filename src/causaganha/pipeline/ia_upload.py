@@ -341,10 +341,11 @@ class InternetArchiveUploader:
 
         try:
             item = await asyncio.to_thread(ia.get_item, item_id)
-            return item.exists
         except Exception as e:
             logger.warning(f"Error checking if item exists: {e}")
             return False
+        else:
+            return item.exists
 
     async def get_item_url(self, tribunal: str, partition_date: str) -> str:
         """Get Internet Archive URL for an item.

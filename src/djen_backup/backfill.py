@@ -22,7 +22,7 @@ from djen_backup.archive import (
     upload_absent_marker,
     upload_zip,
 )
-from djen_backup.djen import DJENNotFound, download_zip, get_caderno_url
+from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.state import ItemStatus, State
 
 
@@ -49,6 +49,7 @@ class TribunalProgress:
     last_result: str | None = None  # "hit" | "empty" | "error"
 
     def to_dict(self) -> dict[str, object]:
+        """Convert TribunalProgress to dictionary for serialization."""
         return {
             "cursor_date": self.cursor_date.isoformat(),
             "empty_streak": self.empty_streak,
@@ -61,6 +62,7 @@ class TribunalProgress:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> TribunalProgress:
+        """Create TribunalProgress from dictionary."""
         cursor_raw = data.get("cursor_date")
         if not isinstance(cursor_raw, str):
             msg = "missing cursor_date"
@@ -189,6 +191,7 @@ class BackfillState:
     # ── Serialisation ────────────────────────────────────────────────
 
     def to_dict(self) -> dict[str, object]:
+        """Convert BackfillState to dictionary for serialization."""
         return {
             "version": 1,
             "updated_at": datetime.now(tz=UTC).isoformat(),
@@ -197,6 +200,7 @@ class BackfillState:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> BackfillState:
+        """Create BackfillState from dictionary."""
         state = cls()
         tribunals = data.get("tribunals")
         if isinstance(tribunals, dict):
@@ -222,10 +226,10 @@ def load_backfill_state(path: Path | None) -> BackfillState:
             path=str(path),
             tribunals=len(state._tribunals),
         )
-        return state
     except (json.JSONDecodeError, OSError) as exc:
         log.warning("backfill_state_corrupt", path=str(path), error=str(exc))
-        return BackfillState()
+        state = BackfillState()
+    return state
 
 
 def save_backfill_state(state: BackfillState, path: Path | None) -> None:
@@ -241,6 +245,8 @@ def save_backfill_state(state: BackfillState, path: Path | None) -> None:
 
 @dataclass
 class BackfillConfig:
+    """Configuration for the backfill engine."""
+
     start_date: date
     lower_bound: date | None
     tribunal: str | None
@@ -257,6 +263,8 @@ class BackfillConfig:
 
 @dataclass
 class BackfillSummary:
+    """Summary of backfill execution statistics."""
+
     hits: int = 0
     empties: int = 0
     errors: int = 0  # DJEN source errors (download failed, proxy down)
@@ -267,30 +275,37 @@ class BackfillSummary:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     async def inc_hit(self) -> None:
+        """Increment the hit counter."""
         async with self._lock:
             self.hits += 1
 
     async def inc_empty(self) -> None:
+        """Increment the empties counter."""
         async with self._lock:
             self.empties += 1
 
     async def inc_error(self) -> None:
+        """Increment the errors counter."""
         async with self._lock:
             self.errors += 1
 
     async def inc_ia_error(self) -> None:
+        """Increment the IA errors counter."""
         async with self._lock:
             self.ia_errors += 1
 
     async def inc_stopped(self) -> None:
+        """Increment the tribunals stopped counter."""
         async with self._lock:
             self.tribunals_stopped += 1
 
     async def inc_skipped_stopped(self) -> None:
+        """Increment the tribunals skipped stopped counter."""
         async with self._lock:
             self.tribunals_skipped_stopped += 1
 
     async def inc_scanned(self) -> None:
+        """Increment the tribunals scanned counter."""
         async with self._lock:
             self.tribunals_scanned += 1
 
@@ -342,7 +357,7 @@ async def backfill_process_date(
     try:
         zip_url = await get_caderno_url(client, config.djen_proxy_url, tribunal, d)
         zip_path = await download_zip(client, zip_url)
-    except DJENNotFound as exc:
+    except DJENNotFoundError as exc:
         # Authoritative empty from DJEN
         log.info(
             "backfill_empty",

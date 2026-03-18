@@ -117,9 +117,6 @@ class DecisionAnalyzer:
                 outcome=result.data.outcome,
                 confidence=result.data.confidence_score,
             )
-
-            return result.data
-
         except Exception as e:
             logger.exception(
                 "analysis_failed",
@@ -127,6 +124,8 @@ class DecisionAnalyzer:
                 error=str(e),
             )
             raise
+        else:
+            return result.data
 
     async def analyze_batch(
         self,

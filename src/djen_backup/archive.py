@@ -191,6 +191,8 @@ async def upload_absent_marker(
 
 
 class CircuitState(StrEnum):
+    """States for the circuit breaker."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -238,6 +240,7 @@ class CircuitBreaker:
         return self._state
 
     async def allow_request(self) -> bool:
+        """Check if a request is allowed by the circuit breaker."""
         async with self._lock:
             s = self._state_locked()
             if s == CircuitState.CLOSED:
@@ -251,12 +254,14 @@ class CircuitBreaker:
             return False
 
     async def record_success(self) -> None:
+        """Record a successful request and reset the circuit."""
         async with self._lock:
             self._failure_count = 0
             self._state = CircuitState.CLOSED
             self._recovery_timeout = self._base_recovery
 
     async def record_failure(self) -> None:
+        """Record a failed request and update circuit state accordingly."""
         async with self._lock:
             self._failure_count += 1
             if self._state_locked() == CircuitState.HALF_OPEN:

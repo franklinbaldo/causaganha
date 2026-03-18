@@ -212,8 +212,6 @@ class InternetArchiveService:
                 )
 
                 logger.info("upload_success", item_id=item_id, url=result)
-                return result
-
             except (ConnectionError, TimeoutError) as e:
                 # Transient errors - retry
                 if attempt < max_retries - 1:
@@ -227,7 +225,6 @@ class InternetArchiveService:
                 else:
                     logger.exception("upload_failed_max_retries", item_id=item_id, error=str(e))
                     return None
-
             except Exception as e:
                 # Non-transient errors - don't retry
                 logger.exception(
@@ -237,6 +234,8 @@ class InternetArchiveService:
                     error=str(e),
                 )
                 return None
+            else:
+                return result
 
         return None
 

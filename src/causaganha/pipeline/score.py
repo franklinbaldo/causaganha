@@ -182,13 +182,6 @@ async def calculate_ratings(
             processed=processed,
             failed=failed,
         )
-
-        return {
-            "processed": processed,
-            "failed": failed,
-            "status": "success",
-        }
-
     except Exception as e:
         logger.exception("rating_pipeline_failed", error=str(e))
         return {
@@ -196,4 +189,10 @@ async def calculate_ratings(
             "failed": failed,
             "status": "failed",
             "error": str(e),
+        }
+    else:
+        return {
+            "processed": processed,
+            "failed": failed,
+            "status": "success",
         }
