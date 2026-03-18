@@ -111,7 +111,7 @@ class EmbeddingProviderBase(ABC):
                 status="success",
                 model=model.name,
             )
-        except Exception as e:
+        except (httpx.HTTPError, ValueError) as e:
             logger.warning(
                 "%s_provider_validation_failed",
                 self.provider_name.lower(),
@@ -414,7 +414,7 @@ async def auto_select_provider(
                 "provider_validation_failed",
                 provider=provider_name,
             )
-        except Exception as e:
+        except (ValueError, httpx.HTTPError) as e:
             logger.warning(
                 "provider_creation_failed",
                 provider=provider_name,

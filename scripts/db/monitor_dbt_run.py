@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def parse_run_results(results_path: Path) -> None:
     """Parses a dbt run_results.json file and logs a summary of the run."""
     if not results_path.exists():
-        logger.error(f"dbt run_results.json not found at: {results_path}")
+        logger.error("dbt run_results.json not found at: %s", results_path)
         return
 
     try:
@@ -24,18 +24,19 @@ def parse_run_results(results_path: Path) -> None:
             data = json.load(f)
     except json.JSONDecodeError:
         logger.exception(
-            f"Failed to parse JSON from {results_path}. File might be corrupted or not valid JSON.",
+            "Failed to parse JSON from %s. File might be corrupted or not valid JSON.",
+            results_path,
         )
         return
     except Exception:
-        logger.exception(f"An error occurred while reading {results_path}")
+        logger.exception("An error occurred while reading %s", results_path)
         return
 
-    logger.info(f"--- Monitoring dbt Run Results from: {results_path} ---")
-    logger.info(f"Generated at: {data.get('metadata', {}).get('generated_at')}")
-    logger.info(f"dbt Version: {data.get('metadata', {}).get('dbt_version')}")
-    logger.info(f"Invocation ID: {data.get('metadata', {}).get('invocation_id')}")
-    logger.info(f"Elapsed time for run: {data.get('elapsed_time', 0):.2f} seconds")
+    logger.info("--- Monitoring dbt Run Results from: %s ---", results_path)
+    logger.info("Generated at: %s", data.get("metadata", {}).get("generated_at"))
+    logger.info("dbt Version: %s", data.get("metadata", {}).get("dbt_version"))
+    logger.info("Invocation ID: %s", data.get("metadata", {}).get("invocation_id"))
+    logger.info("Elapsed time for run: %.2f seconds", data.get("elapsed_time", 0))
 
     results = data.get("results", [])
     if not results:
@@ -81,21 +82,21 @@ def parse_run_results(results_path: Path) -> None:
     logger.info("\n--- Model/Seed/Snapshot Summary ---")
     if model_statuses:
         for status, count in model_statuses.items():
-            logger.info(f"  {status.capitalize()}: {count}")
+            logger.info("  %s: %s", status.capitalize(), count)
     else:
         logger.info("  No models, seeds, or snapshots were run/processed.")
 
     logger.info("\n--- Test Summary ---")
     if test_statuses:
         for status, count in test_statuses.items():
-            logger.info(f"  {status.capitalize()}: {count}")
+            logger.info("  %s: %s", status.capitalize(), count)
     else:
         logger.info("  No tests were run.")
 
     if error_messages:
         logger.error("\n--- Errors and Failures ---")
         for msg in error_messages:
-            logger.error(f"  - {msg}")
+            logger.error("  - %s", msg)
     else:
         logger.info("\n--- No errors or failures reported in this run. ---")
 
@@ -105,7 +106,11 @@ def parse_run_results(results_path: Path) -> None:
         logger.info("\n--- Top 5 Slowest Nodes ---")
         for i, node_info in enumerate(slowest_nodes[:5]):
             logger.info(
-                f"  {i + 1}. {node_info['name']}: {node_info['time']:.2f}s (Status: {node_info['status']})",
+                "  %s. %s: %.2fs (Status: %s)",
+                i + 1,
+                node_info['name'],
+                node_info['time'],
+                node_info['status'],
             )
 
     logger.info("\n--- End of dbt Run Monitoring ---")
@@ -150,7 +155,8 @@ if __name__ == "__main__":
         effective_run_results_path = args.run_results_path
 
     logger.info(
-        f"Attempting to monitor dbt run from: {effective_run_results_path.resolve()}",
+        "Attempting to monitor dbt run from: %s",
+        effective_run_results_path.resolve(),
     )
     parse_run_results(effective_run_results_path)
 

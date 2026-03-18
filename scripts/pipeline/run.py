@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import subprocess
@@ -92,7 +93,7 @@ class PipelineState:
 
 DATA_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
 
-ALL_STEPS: tuple[str, ...] = DATA_STEPS + ("catalog", "dashboard")
+ALL_STEPS: tuple[str, ...] = (*DATA_STEPS, "catalog", "dashboard")
 
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
@@ -264,7 +265,7 @@ def parse_step_outputs(text: str) -> dict[str, str]:
 def update_state(state: PipelineState, result: StepResult) -> PipelineState:
     """Pure state transition: append result and update flags."""
     return PipelineState(
-        results=state.results + (result,),
+        results=(*state.results, result),
         files_added=state.files_added or result.outputs.get("files_added") == "true",
         catalog_updated=(state.catalog_updated or result.outputs.get("catalog_updated") == "true"),
         start_time=state.start_time,
@@ -347,7 +348,6 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
                 return r
         return None
 
-    # Step: Collect
     collect = get_result("collect")
     if collect:
         out = collect.outputs
@@ -360,7 +360,6 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "duration_seconds": int(collect.duration_seconds),
         }
 
-    # Step: Consolidate
     consolidate = get_result("consolidate")
     if consolidate:
         out = consolidate.outputs
@@ -372,7 +371,6 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "duration_seconds": int(consolidate.duration_seconds),
         }
 
-    # Step: Embed
     embed = get_result("embed")
     if embed:
         out = embed.outputs
@@ -383,7 +381,6 @@ def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> d
             "duration_seconds": int(embed.duration_seconds),
         }
 
-    # Step: Catalog
     catalog = get_result("catalog")
     if catalog:
         out = catalog.outputs
@@ -481,10 +478,8 @@ def run_step(plan: StepPlan, cwd: str) -> StepResult:
     except FileNotFoundError:
         outputs = {}
     finally:
-        try:
+        with contextlib.suppress(OSError):
             output_path.unlink()
-        except OSError:
-            pass
 
     success = result.returncode == 0
 

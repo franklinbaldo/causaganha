@@ -19,7 +19,7 @@ from causaganha.infrastructure.ai.embeddings import EmbeddingAnalyzer
 console = Console()
 
 
-def main():
+def main() -> None:
     """Analisar em detalhes como funciona a comparação."""
     console.print("\n[bold cyan]🔬 DEBUG: Como funciona a comparação de embeddings[/bold cyan]\n")
 

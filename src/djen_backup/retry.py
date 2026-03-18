@@ -10,6 +10,10 @@ import structlog
 
 log = structlog.get_logger()
 
+# HTTP status constants
+HTTP_BAD_REQUEST = 400
+HTTP_SERVICE_UNAVAILABLE = 503
+
 RETRIABLE_STATUS_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})
 
 
@@ -66,7 +70,7 @@ async def request_with_retry(
             # The DJEN proxy occasionally returns HTTP 400 for valid
             # requests under transient load — treat as retriable when the
             # caller opts in via retry_djen_400=True.
-            elif retry_djen_400 and resp.status_code == 400:
+            elif retry_djen_400 and resp.status_code == HTTP_BAD_REQUEST:
                 wait = _backoff(attempt, resp)
                 if attempt < max_retries:
                     log.warning(
@@ -116,6 +120,6 @@ def _backoff(attempt: int, resp: httpx.Response) -> float:
             pass
     base = float(2**attempt)
     # IA S3 503 needs longer minimum backoff — item creation is rate-limited
-    if resp.status_code == 503:
+    if resp.status_code == HTTP_SERVICE_UNAVAILABLE:
         return max(base, 10.0)
     return base

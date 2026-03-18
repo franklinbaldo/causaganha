@@ -58,21 +58,12 @@ async def validate_health() -> None:
                 stats[table] = count
                 logger.info("Table stats", table=table, count=count)
             except Exception as e:
-                logger.exception(f"Failed to count table {table}", error=str(e))
+                logger.exception("Failed to count table %s", table, error=str(e))
 
         # 4. Integrity Checks
         # Check for orphaned analysis results
         con.table("intimations")
         con.table("analysis_results")
-
-        # Count analysis results where intimation_id is not in intimations
-        # joined = t_analysis.left_join(t_intimations, t_analysis.intimation_id == t_intimations.id)
-        # orphaned = joined.filter(t_intimations.id.isnull()).count().execute()
-
-        # if orphaned > 0:
-        #     logger.warning("Found orphaned analysis results", count=orphaned)
-        # else:
-        #     logger.info("Integrity check passed: No orphaned analysis results")
 
         logger.info("Health check complete - SYSTEM OK")
 

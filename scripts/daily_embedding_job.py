@@ -98,7 +98,7 @@ def load_decision_text(intimation_id: int) -> str:
     return row[0] or ""
 
 
-def save_stats(stats, args):
+def save_stats(stats, args) -> None:
     """Save job statistics to file.
 
     Args:
@@ -128,7 +128,7 @@ def save_stats(stats, args):
     logger.info("stats_saved", file=str(stats_file))
 
 
-async def main():
+async def main() -> None:
     """Main entry point for daily embedding job."""
     parser = argparse.ArgumentParser(
         description="Generate embeddings for daily digest",
@@ -182,7 +182,7 @@ async def main():
     )
 
     # Progress callback
-    def log_progress(stats):
+    def log_progress(stats) -> None:
         logger.info(
             "progress",
             processed=stats.processed_decisions,

@@ -103,7 +103,7 @@ def classify_with_knn(
     }
 
 
-def main():
+def main() -> None:
     """Testar acurácia do RAG."""
     console.print("\n[bold cyan]🎯 Teste de Acurácia: RAG com k-NN[/bold cyan]\n")
 

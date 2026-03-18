@@ -6,6 +6,7 @@ Uploads compressed embedding Parquet files to IA for long-term archival.
 
 import argparse
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -15,7 +16,7 @@ import structlog
 logger = structlog.get_logger()
 
 
-def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-embeddings"):
+def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-embeddings") -> bool | None:
     """Upload file to Internet Archive.
 
     Args:
@@ -29,9 +30,7 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
         # Try to import internetarchive
         import internetarchive as ia
     except ImportError:
-        logger.error("internetarchive_not_installed")
-        print("❌ Error: internetarchive library not installed")
-        print("   Install with: pip install internetarchive")
+        logger.exception("internetarchive_not_installed")
         return False
 
     # Get credentials from environment
@@ -40,8 +39,6 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
 
     if not access_key or not secret_key:
         logger.error("missing_ia_credentials")
-        print("❌ Error: Missing Internet Archive credentials")
-        print("   Set IA_ACCESS_KEY and IA_SECRET_KEY environment variables")
         return False
 
     # Configure IA session
@@ -89,19 +86,14 @@ def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-em
             url=f"https://archive.org/details/{item_id}",
         )
 
-        print("✅ Uploaded to Internet Archive")
-        print(f"   Item: {item_id}")
-        print(f"   URL: https://archive.org/details/{item_id}")
-
+    except Exception as e:
+        logger.exception("upload_failed", error=str(e), error_type=type(e).__name__)
+        return False
+    else:
         return True
 
-    except Exception as e:
-        logger.error("upload_failed", error=str(e), error_type=type(e).__name__)
-        print(f"❌ Upload failed: {e}")
-        return False
 
-
-def main():
+def main() -> int:
     """Upload Parquet file to Internet Archive."""
     parser = argparse.ArgumentParser(
         description="Upload embeddings to Internet Archive",
@@ -125,13 +117,11 @@ def main():
 
     if not file_path.exists():
         logger.error("file_not_found", file=str(file_path))
-        print(f"❌ Error: File not found: {file_path}")
         return 1
 
     # Skip upload if file is empty (no embeddings generated)
     if file_path.stat().st_size == 0:
         logger.info("skipping_empty_file", file=str(file_path))
-        print("⚠️  Skipping upload (no embeddings generated today)")
         return 0
 
     # Upload
@@ -141,4 +131,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

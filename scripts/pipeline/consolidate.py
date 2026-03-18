@@ -36,6 +36,9 @@ from typing import Any
 # which triggers InvalidOperation if traps are enabled.
 decimal.getcontext().traps[decimal.InvalidOperation] = False
 
+import contextlib
+import sys
+
 import duckdb  # noqa: E402
 import httpx  # noqa: E402
 import ibis  # noqa: E402
@@ -130,7 +133,7 @@ def save_checkpoint_state(state: dict[str, Any]) -> None:
             processed=len(state.get("processed_zips", [])),
         )
     except Exception as e:
-        logger.error("checkpoint_save_failed", error=str(e))
+        logger.exception("checkpoint_save_failed", error=str(e))
 
 
 def update_checkpoint_progress(date: str, zip_filename: str) -> None:
@@ -209,16 +212,14 @@ def fetch_manifest_records() -> list[dict]:
             records = []
         finally:
             con.close()
-            try:
+            with contextlib.suppress(Exception):
                 tmp_path.unlink()
-            except Exception:
-                pass
-
-        return records
 
     except Exception as e:
         logger.warning("fetch_manifest_failed", error=str(e))
         return []
+    else:
+        return records
 
 
 def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[str]:
@@ -282,7 +283,7 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
 class CheckpointManager:
     """Manages local checkpoint state for backfill progress."""
 
-    def __init__(self, filepath: Path):
+    def __init__(self, filepath: Path) -> None:
         self.filepath = filepath
 
     def load(self) -> str | None:
@@ -956,15 +957,14 @@ def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
         success = _upload_consolidated(client, item_id, marker_path, date_str)
 
         # Cleanup temp file
-        try:
+        with contextlib.suppress(Exception):
             marker_path.unlink()
-        except Exception:
-            pass
 
-        return success
     except Exception as e:
-        logger.error("marker_upload_failed", item_id=item_id, error=str(e))
+        logger.exception("marker_upload_failed", item_id=item_id, error=str(e))
         return False
+    else:
+        return success
 
 
 def _is_tribunal_stopped(
@@ -1200,9 +1200,11 @@ def _needs_consolidation(
                 )
                 return False
 
-        return True
+        result = True
     except Exception:
         return False
+    else:
+        return result
 
 
 def _all_tribunals_stopped(
@@ -1346,10 +1348,12 @@ def _export_and_upload_table(
             uploaded = 1
             logger.info("uploaded", table=table_name)
 
-        return True, size_mb, uploaded
+        result = (True, size_mb, uploaded)
     except Exception as e:
-        logger.error("parquet_export_failed", table=table_name, error=str(e))
+        logger.exception("parquet_export_failed", table=table_name, error=str(e))
         return False, 0.0, 0
+    else:
+        return result
 
 
 def process_zip_entry(
@@ -1391,10 +1395,8 @@ def process_zip_entry(
     records = extract_json_from_zip(zip_path)
     if not records:
         logger.warning("no_records_found", filename=filename)
-        try:
+        with contextlib.suppress(Exception):
             zip_path.unlink()
-        except Exception:
-            pass
         return 0, 0
 
     # Write to NDJSON (per-ZIP file, no lock)
@@ -1409,13 +1411,11 @@ def process_zip_entry(
                 if isinstance(rec, dict):
                     f.write(json.dumps(rec, default=str) + "\n")
     except Exception as e:
-        logger.error("ndjson_write_failed", file=ndjson_filename, error=str(e))
+        logger.exception("ndjson_write_failed", file=ndjson_filename, error=str(e))
         return 0, 0
 
-    try:
+    with contextlib.suppress(Exception):
         zip_path.unlink()
-    except Exception:
-        pass
 
     return 1, len(records)
 
@@ -1538,7 +1538,7 @@ def consolidate_date(
                         update_checkpoint_progress(date, zip_filename)
 
                 except Exception as e:
-                    logger.error("zip_processing_error", zip=zip_filename, error=str(e))
+                    logger.exception("zip_processing_error", zip=zip_filename, error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
         if stats["records"] > 0:
@@ -1589,7 +1589,7 @@ def consolidate_date(
                             stats["uploaded"] += uploaded
                             stats["uploaded_mb"] += size_mb
                     except Exception as e:
-                        logger.error("table_export_error", table=table_name, error=str(e))
+                        logger.exception("table_export_error", table=table_name, error=str(e))
 
             # Phase 4: Upload consolidation marker
             if stats["parquets_created"] > 0 and not dry_run:
@@ -1604,15 +1604,7 @@ def consolidate_date(
 
 
 def _print_stats(stats: dict[str, int]) -> None:
-    print()
-    print("=" * 40)
-    print("CONSOLIDATION SUMMARY")
-    print("=" * 40)
-    print(f"  ZIPs processed:   {stats['zips_processed']}")
-    print(f"  Records:          {stats['records']}")
-    print(f"  Parquets created: {stats['parquets_created']}")
-    print(f"  Uploaded:         {stats['uploaded']}")
-    print(f"  Uploaded MB:      {stats.get('uploaded_mb', 0):.1f}")
+    pass
 
 
 def main() -> int:
@@ -1668,13 +1660,12 @@ def main() -> int:
     if args.backfill or not args.date:
         manifest = fetch_manifest_records()
         if manifest:
-            print(f"Manifest loaded: {len(manifest)} records")
+            pass
         else:
-            print("Warning: Could not load manifest. Falling back to API checks (slow).")
+            pass
 
     if args.date:
         # Explicit date — existing behaviour
-        print(f"Consolidating DJEN data for {args.date}...")
         try:
             stats = consolidate_date(
                 args.date,
@@ -1689,7 +1680,7 @@ def main() -> int:
             for k in total_stats:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
-            logger.error("consolidation_aborted", error=str(e))
+            logger.exception("consolidation_aborted", error=str(e))
             import traceback
 
             traceback.print_exc()
@@ -1697,7 +1688,6 @@ def main() -> int:
 
     elif args.backfill:
         # Backfill: process multiple unconsolidated dates until deadline
-        print(f"Backfill mode: scanning for unconsolidated dates (deadline: {deadline_sec}s)...")
         dates_processed = 0
         ctx = ConsolidationContext()
 
@@ -1706,20 +1696,13 @@ def main() -> int:
             if deadline_sec > 0:
                 elapsed = time.time() - start_time
                 if elapsed > deadline_sec - 120:
-                    print(
-                        f"Deadline approaching ({elapsed:.0f}s / {deadline_sec}s). Stopping after {dates_processed} dates."
-                    )
                     break
 
             target_date_or_none = find_next_unconsolidated(manifest, ctx=ctx)
             if target_date_or_none is None:
-                print("Backfill complete: all dates consolidated or all tribunals stopped.")
                 break
 
             target_date = target_date_or_none
-            print(
-                f"\n[Backfill {dates_processed + 1}] Consolidating DJEN data for {target_date}..."
-            )
 
             try:
                 stats = consolidate_date(
@@ -1736,7 +1719,7 @@ def main() -> int:
                     total_stats[k] += stats.get(k, 0)
                 dates_processed += 1
             except Exception as e:
-                logger.error("consolidation_aborted", date=target_date, error=str(e))
+                logger.exception("consolidation_aborted", date=target_date, error=str(e))
                 import traceback
 
                 traceback.print_exc()
@@ -1745,9 +1728,7 @@ def main() -> int:
                 continue
 
     else:
-        # Default: today
         target_date = date.today().strftime("%Y-%m-%d")
-        print(f"Consolidating DJEN data for {target_date}...")
         try:
             stats = consolidate_date(
                 target_date,
@@ -1762,26 +1743,16 @@ def main() -> int:
             for k in total_stats:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
-            logger.error("consolidation_aborted", error=str(e))
+            logger.exception("consolidation_aborted", error=str(e))
             import traceback
 
             traceback.print_exc()
             return 1
 
     # Output total stats
-    print()
-    print("=" * 40)
-    print("TOTAL RUN SUMMARY")
-    print("=" * 40)
-    print(f"  ZIPs processed:   {total_stats['zips_processed']}")
-    print(f"  Records:          {total_stats['records']}")
-    print(f"  Parquets created: {total_stats['parquets_created']}")
-    print(f"  Uploaded:         {total_stats['uploaded']}")
-    print(f"  Uploaded MB:      {total_stats['uploaded_mb']:.1f}")
 
     # Set GitHub Actions output: did we add any files?
     files_added = total_stats["parquets_created"] > 0
-    print(f"\n  Files added: {files_added}")
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
@@ -1797,4 +1768,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

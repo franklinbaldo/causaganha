@@ -19,29 +19,21 @@ def main() -> int:
     alert_marker = Path(__file__).parent / ".pending_alert.json"
 
     if not alert_marker.exists():
-        print("No pending alerts")
         return 0
 
     try:
         with alert_marker.open() as f:
-            alert_data = json.load(f)
+            json.load(f)
 
         # Print alert info in a format the agent can parse
-        print("PENDING_ALERT_FOUND")
-        print(f"TARGET={alert_data['target']}")
-        print(f"TIMESTAMP={alert_data['timestamp']}")
-        print("MESSAGE_START")
-        print(alert_data["message"])
-        print("MESSAGE_END")
 
         # Remove marker after reading
         alert_marker.unlink()
 
-        return 0
-
-    except Exception as e:
-        print(f"Error reading alert marker: {e}", file=sys.stderr)
+    except Exception:
         return 1
+    else:
+        return 0
 
 
 if __name__ == "__main__":

@@ -25,6 +25,11 @@ log = structlog.get_logger()
 _TTL_DAYS = 90
 
 
+def _get_today() -> date:
+    """Get today's date using UTC."""
+    return datetime.now(tz=UTC).date()
+
+
 class ItemStatus(StrEnum):
     """Status values for cache entries."""
 
@@ -40,6 +45,7 @@ class State:
     """
 
     def __init__(self) -> None:
+        """Initialize the state cache with empty entries and a lock."""
         self._entries: dict[str, dict[str, str]] = {}
         # _entries layout: {"2024-01-15": {"TJSP": "uploaded", "TJRO": "absent"}}
         self._lock = asyncio.Lock()
@@ -84,7 +90,7 @@ class State:
 
     def prune(self, *, ttl_days: int = _TTL_DAYS) -> int:
         """Remove entries older than *ttl_days*.  Returns the number pruned."""
-        cutoff = (date.today() - timedelta(days=ttl_days)).isoformat()
+        cutoff = (_get_today() - timedelta(days=ttl_days)).isoformat()
         old_keys = [k for k in self._entries if k < cutoff]
         for k in old_keys:
             del self._entries[k]

@@ -361,17 +361,10 @@ def send_telegram_alert(message: str, dry_run: bool = False) -> bool:
         True if sent successfully, False otherwise
     """
     if dry_run:
-        print("\n" + "=" * 60)
-        print("DRY RUN - Would send Telegram message:")
-        print("=" * 60)
-        print(message)
-        print("=" * 60)
         return True
 
     # In production, this would use the OpenClaw message tool
     # For now, we'll use a simple approach that can be called from the main agent
-    print(f"\n📱 Sending Telegram alert to {TELEGRAM_TARGET}...")
-    print(f"Message:\n{message}\n")
 
     # Create a marker file that the main agent can detect
     alert_marker = Path(__file__).parent / ".pending_alert.json"
@@ -386,7 +379,6 @@ def send_telegram_alert(message: str, dry_run: bool = False) -> bool:
         ),
     )
 
-    print(f"✅ Alert marker created: {alert_marker}")
     return True
 
 
@@ -431,14 +423,6 @@ def main() -> int:
     errors = check_pipeline_errors(error_threshold=args.error_threshold)
 
     # Print status
-    print(f"\nBackfill Health Check - {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    print("=" * 60)
-    print(status.message)
-    print(f"\nProgress: {status.progress_pct:.2f}%")
-    print(f"Items: {status.total_items}")
-    print(f"Date range: {status.oldest_date} → {status.newest_date}")
-    print(f"Last updated: {status.age_hours:.1f}h ago")
-    print("=" * 60)
 
     # Determine if alert should be sent
     needs_alert = False
@@ -458,14 +442,10 @@ def main() -> int:
             if not args.dry_run:
                 history = mark_alert_sent(alert_type, history)
                 save_alert_history(history)
-                print("✅ Alert sent and logged")
         else:
-            print("❌ Failed to send alert")
             return 2
     elif status.level in ("warning", "critical"):
-        print(
-            f"\n⏸️  Alert suppressed (cooldown active, last sent: {getattr(history, f'{alert_type}_last_sent', 'never')})"
-        )
+        pass
 
     # Return appropriate exit code
     if status.level == "critical":

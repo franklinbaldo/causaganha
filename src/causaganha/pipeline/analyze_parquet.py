@@ -127,7 +127,7 @@ class ParquetAnalyzer:
 
         # Read parquet file
         table = pq.read_table(parquet_path)
-        logger.info(f"Loaded {len(table)} rows from parquet")
+        logger.info("Loaded %s rows from parquet", len(table))
 
         # Filter decisions to analyze
         decisions_to_analyze = self._filter_decisions(table)
@@ -142,8 +142,9 @@ class ParquetAnalyzer:
             }
 
         logger.info(
-            f"Filtered to {len(decisions_to_analyze)} decisions to analyze "
-            f"(from {len(table)} total)",
+            "Filtered to %s decisions to analyze (from %s total)",
+            len(decisions_to_analyze),
+            len(table),
         )
 
         # Initialize analyzer
@@ -394,7 +395,9 @@ class ParquetAnalyzer:
             batch = decisions[i : i + self.config.batch_size]
 
             logger.info(
-                f"Processing batch {i // self.config.batch_size + 1} ({len(batch)} decisions)",
+                "Processing batch %s (%s decisions)",
+                i // self.config.batch_size + 1,
+                len(batch),
             )
 
             intimation_ids = [d["intimation_id"] for d in batch]
@@ -478,7 +481,7 @@ class ParquetAnalyzer:
         output_filename = original_path.stem + f"_analyzed_{timestamp}.parquet"
         output_path = self.config.output_dir / output_filename
 
-        logger.info(f"Writing results to {output_path}")
+        logger.info("Writing results to %s", output_path)
 
         # Create updated columns
         updated_columns = {}
@@ -543,7 +546,10 @@ class ParquetAnalyzer:
 
         file_size_mb = output_path.stat().st_size / (1024 * 1024)
         logger.info(
-            f"Wrote {len(updated_table)} rows to {output_filename} ({file_size_mb:.2f} MB)",
+            "Wrote %s rows to %s (%.2f MB)",
+            len(updated_table),
+            output_filename,
+            file_size_mb,
         )
 
         return output_path
@@ -557,7 +563,7 @@ class ParquetAnalyzer:
         analyses = results["analyses"]
         con = get_connection()
 
-        logger.info(f"Writing {len(analyses)} analyses to DuckDB")
+        logger.info("Writing %s analyses to DuckDB", len(analyses))
 
         for intimation_id, analysis in analyses.items():
             try:

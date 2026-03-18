@@ -18,7 +18,6 @@ import json
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
 
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
@@ -37,7 +36,6 @@ def gh(*args: str) -> dict | list | str:
         text=True,
     )
     if result.returncode != 0:
-        print(f"gh error: {result.stderr[:200]}", file=sys.stderr)
         return {}
     try:
         return json.loads(result.stdout)
@@ -128,45 +126,31 @@ def set_output(key: str, value: str) -> None:
     if output_file:
         with open(output_file, "a") as f:
             f.write(f"{key}={value}\n")
-    print(f"Output: {key}={value}")
 
 
 def main() -> int:
-    print(f"=== Collect Monitor — {datetime.now(UTC).isoformat()[:16]} ===\n")
 
     runs = get_recent_runs(LOOKBACK_RUNS)
-    print(f"Analyzing {len(runs)} recent runs of {WORKFLOW}...")
 
     if not runs:
-        print("No runs found — workflow may not have started yet")
         set_output("status", "unknown")
         set_output("action_needed", "false")
         return 0
 
     for r in runs[:3]:
-        ts = r["created_at"][:16]
-        print(f"  {ts}  {r['conclusion']:12}  {r['html_url']}")
+        r["created_at"][:16]
     if len(runs) > 3:
-        print(f"  ... and {len(runs) - 3} more")
+        pass
 
     analysis = analyze_runs(runs)
-    print(f"\nStatus: {analysis['status'].upper()}")
-    print(
-        f"  Runs: {analysis['total_runs']} | "
-        f"OK: {analysis['successes']} | "
-        f"Fail: {analysis['failures']} | "
-        f"Cancelled: {analysis['cancelled']}"
-    )
 
     if analysis["issues"]:
-        print("\nIssues:")
         for issue in analysis["issues"]:
-            print(f"  ⚠️  {issue}")
+            pass
 
     if analysis["recommendations"]:
-        print("\nRecommendations:")
         for rec in analysis["recommendations"]:
-            print(f"  → {rec}")
+            pass
 
     action_needed = analysis["status"] in ("stalled", "degraded")
     set_output("status", analysis["status"])

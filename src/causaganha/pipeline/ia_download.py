@@ -66,7 +66,8 @@ class IAParquetDownloader:
             ia.configure(access_key, secret_key)
 
         logger.info(
-            f"IAParquetDownloader initialized with cache_dir={self.config.cache_dir}",
+            "IAParquetDownloader initialized with cache_dir=%s",
+            self.config.cache_dir,
         )
 
     async def download(
@@ -102,14 +103,14 @@ class IAParquetDownloader:
         if not force_refresh:
             cached_file = self._get_cached_file(tribunal, date, table)
             if cached_file:
-                logger.info(f"Using cached file: {cached_file}")
+                logger.info("Using cached file: %s", cached_file)
                 return cached_file
 
         # Generate IA item ID and filename
         item_id = self._generate_item_id(date, tribunal)
         filename = self._generate_filename(date, tribunal, table)
 
-        logger.info(f"Downloading {filename} from IA item: {item_id}")
+        logger.info("Downloading %s from IA item: %s", filename, item_id)
 
         # Download with retry logic
         for attempt in range(self.config.max_retries):
@@ -125,16 +126,19 @@ class IAParquetDownloader:
                 if self.config.verify_checksum:
                     await self._verify_file(file_path, item_id, filename)
 
-                logger.info(f"Successfully downloaded to {file_path}")
+                logger.info("Successfully downloaded to %s", file_path)
             except Exception as e:
                 logger.warning(
-                    f"Download attempt {attempt + 1}/{self.config.max_retries} failed: {e}",
+                    "Download attempt %s/%s failed: %s",
+                    attempt + 1,
+                    self.config.max_retries,
+                    e,
                 )
 
                 if attempt < self.config.max_retries - 1:
                     # Calculate exponential backoff delay
                     delay = self.config.initial_retry_delay * (self.config.retry_backoff**attempt)
-                    logger.info(f"Retrying in {delay:.1f} seconds...")
+                    logger.info("Retrying in %.1f seconds...", delay)
                     await asyncio.sleep(delay)
                 else:
                     # Final attempt failed
@@ -184,7 +188,11 @@ class IAParquetDownloader:
             raise ValueError(msg)
 
         logger.info(
-            f"Downloading {tribunal} {table} parquet files from {start_date} to {end_date}",
+            "Downloading %s %s parquet files from %s to %s",
+            tribunal,
+            table,
+            start_date,
+            end_date,
         )
 
         # Generate date range
@@ -194,7 +202,7 @@ class IAParquetDownloader:
             dates.append(current.strftime("%Y-%m-%d"))
             current += timedelta(days=1)
 
-        logger.info(f"Downloading {len(dates)} files for {tribunal}")
+        logger.info("Downloading %s files for %s", len(dates), tribunal)
 
         # Download files
         downloaded_files = []
@@ -205,7 +213,7 @@ class IAParquetDownloader:
                 file_path = await self.download(tribunal, date, table)
                 downloaded_files.append(file_path)
             except Exception as e:
-                logger.exception(f"Failed to download {tribunal} for {date}")
+                logger.exception("Failed to download %s for %s", tribunal, date)
                 failed_downloads.append((date, str(e)))
 
                 if not skip_missing:
@@ -215,13 +223,16 @@ class IAParquetDownloader:
                     ) from e
 
         logger.info(
-            f"Downloaded {len(downloaded_files)}/{len(dates)} files. "
-            f"Failed: {len(failed_downloads)}",
+            "Downloaded %s/%s files. Failed: %s",
+            len(downloaded_files),
+            len(dates),
+            len(failed_downloads),
         )
 
         if failed_downloads:
             logger.warning(
-                f"Failed downloads: {', '.join(date for date, _ in failed_downloads)}",
+                "Failed downloads: %s",
+                ", ".join(date for date, _ in failed_downloads),
             )
 
         return downloaded_files
@@ -254,8 +265,8 @@ class IAParquetDownloader:
             # Check if specific file exists in item
             return any(file["name"] == filename for file in item.files)
 
-        except Exception as e:
-            logger.warning(f"Error checking if item exists: {e}")
+        except (OSError, RuntimeError, AttributeError, TypeError) as e:
+            logger.warning("Error checking if item exists: %s", e)
             return False
 
     def _download_file(self, item_id: str, filename: str) -> Path:
@@ -317,7 +328,7 @@ class IAParquetDownloader:
         Raises:
             IOError: If verification fails
         """
-        logger.debug(f"Verifying checksum for {filename}")
+        logger.debug("Verifying checksum for %s", filename)
 
         try:
             # Get item metadata
@@ -331,7 +342,7 @@ class IAParquetDownloader:
                     break
 
             if not file_meta:
-                logger.warning(f"Could not find file metadata for {filename}")
+                logger.warning("Could not find file metadata for %s", filename)
                 return
 
             # Verify MD5 checksum if available
@@ -345,10 +356,10 @@ class IAParquetDownloader:
                         msg,
                     )
 
-                logger.debug(f"Checksum verified: {actual_md5}")
+                logger.debug("Checksum verified: %s", actual_md5)
 
-        except Exception as e:
-            logger.warning(f"Verification failed: {e}")
+        except (OSError, ValueError, TypeError) as e:
+            logger.warning("Verification failed: %s", e)
             # Don't fail download on verification error, just log
 
     async def _calculate_md5(self, file_path: Path) -> str:
@@ -397,7 +408,9 @@ class IAParquetDownloader:
 
         if file_age_days > self.config.cache_ttl_days:
             logger.info(
-                f"Cache expired for {filename} (age: {file_age_days} days)",
+                "Cache expired for %s (age: %s days)",
+                filename,
+                file_age_days,
             )
             return None
 
@@ -427,7 +440,7 @@ class IAParquetDownloader:
                     file_path.unlink()
                     deleted += 1
 
-        logger.info(f"Cleared {deleted} cached files")
+        logger.info("Cleared %s cached files", deleted)
         return deleted
 
     def _generate_item_id(self, date: str, tribunal: str) -> str:

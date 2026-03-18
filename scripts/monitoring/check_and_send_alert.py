@@ -29,31 +29,22 @@ def main() -> int:
     )
 
     # Print health check output
-    print(result.stdout)
     if result.stderr:
-        print(result.stderr, file=sys.stderr)
+        pass
 
     # Check for pending alert
     alert_marker = script_dir / ".pending_alert.json"
     if alert_marker.exists():
         try:
             with alert_marker.open() as f:
-                alert_data = json.load(f)
+                json.load(f)
 
             # Output alert in format OpenClaw agent can parse
-            print("\n" + "=" * 60)
-            print("SEND_TELEGRAM_ALERT")
-            print(f"TARGET: {alert_data['target']}")
-            print(f"TIMESTAMP: {alert_data['timestamp']}")
-            print("MESSAGE:")
-            print(alert_data["message"])
-            print("=" * 60)
 
             # Remove marker after reading
             alert_marker.unlink()
 
-        except Exception as e:
-            print(f"Error reading alert marker: {e}", file=sys.stderr)
+        except Exception:
             return 1
 
     return result.returncode

@@ -23,6 +23,7 @@ Outputs:
 """
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -126,8 +127,7 @@ def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
         with urllib.request.urlopen(req, timeout=timeout) as response:
             data: dict[str, Any] = json.loads(response.read().decode())
             return data
-    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
-        print(f"  Warning: Failed to fetch {url}: {e}", file=sys.stderr)
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
         return None
 
 
@@ -136,9 +136,9 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
     source = manifest_path or MANIFEST_URL
 
     if manifest_path:
-        print(f"  Loading manifest from local file: {source}")
+        pass
     else:
-        print(f"  Loading manifest from IA: {source}")
+        pass
 
     try:
         con.execute(f"""
@@ -149,7 +149,6 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
         # Check if manifest has expected schema
         schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
         if "date" not in schema:
-            print("  Warning: Manifest has no 'date' column - creating empty fallback table")
             con.execute("DROP TABLE manifest")
             con.execute("""
                 CREATE TABLE manifest (
@@ -163,16 +162,12 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
                     created_at VARCHAR
                 )
             """)
-            print("  Created empty manifest with proper schema")
-            return True
-
-        count = con.execute("SELECT COUNT(*) FROM manifest").fetchone()
-        print(f"  Loaded {count[0]} manifest entries")
-        return True
-    except Exception as e:
-        print(f"  Error loading manifest: {e}", file=sys.stderr)
+            result = True
+        else:
+            con.execute("SELECT COUNT(*) FROM manifest").fetchone()
+            result = True
+    except Exception:
         # Create empty fallback table
-        print("  Creating empty fallback manifest table...")
         try:
             con.execute("""
                 CREATE TABLE manifest (
@@ -186,9 +181,11 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
                     created_at VARCHAR
                 )
             """)
-            return True
+            result = True
         except Exception:
             return False
+    else:
+        return result
 
 
 def load_backfill_needed(con: duckdb.DuckDBPyConnection, backfill_path: str | None) -> bool:
@@ -196,30 +193,26 @@ def load_backfill_needed(con: duckdb.DuckDBPyConnection, backfill_path: str | No
     source = backfill_path or BACKFILL_URL
 
     if backfill_path:
-        print(f"  Loading backfill-needed from local file: {source}")
+        pass
     else:
-        print(f"  Loading backfill-needed from IA: {source}")
+        pass
 
     try:
         con.execute(f"""
             CREATE TABLE backfill_needed AS
             SELECT * FROM read_parquet('{source}')
         """)
-        count = con.execute("SELECT COUNT(*) FROM backfill_needed").fetchone()
-        print(f"  Loaded {count[0]} backfill entries")
-        return True
-    except Exception as e:
-        print(f"  Warning: Could not load backfill-needed: {e}", file=sys.stderr)
-        print("  Backfill progress will be estimated from date range...")
+        con.execute("SELECT COUNT(*) FROM backfill_needed").fetchone()
+    except Exception:
         return False
+    else:
+        return True
 
 
 def fetch_item_sizes() -> dict[str, int]:
     """Fetch item sizes from IA search API (one bulk request)."""
-    print("  Fetching item sizes from IA search API...")
     data = fetch_json(IA_SEARCH_URL)
     if not data or "response" not in data:
-        print("  Warning: Could not fetch item sizes", file=sys.stderr)
         return {}
 
     sizes: dict[str, int] = {}
@@ -231,7 +224,6 @@ def fetch_item_sizes() -> dict[str, int]:
             date_str = identifier[5:15]  # "YYYY-MM-DD"
             sizes[date_str] = int(item_size) if item_size else 0
 
-    print(f"  Got sizes for {len(sizes)} dates")
     return sizes
 
 
@@ -243,11 +235,9 @@ def fetch_ia_item_files(date_str: str) -> dict[str, dict[str, Any]]:
     """
     item_id = f"djen-{date_str}"
     url = f"https://archive.org/metadata/{item_id}/files"
-    print(f"  Fetching file list from IA for {item_id}...")
 
     data = fetch_json(url, timeout=15)
     if not data or "result" not in data:
-        print(f"  Warning: No files found for {item_id}", file=sys.stderr)
         return {}
 
     # Pattern: djen-YYYY-MM-DD-TRIBUNAL.zip or .absent
@@ -268,7 +258,6 @@ def fetch_ia_item_files(date_str: str) -> dict[str, dict[str, Any]]:
                 "size": size if file_type == "zip" else None,
             }
 
-    print(f"  Found {len(tribunal_status)} tribunals for {item_id}")
     return tribunal_status
 
 
@@ -342,7 +331,7 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             round(100.0 * backfill_done / backfill_total, 1) if backfill_total > 0 else 0.0
         )
 
-        return {
+        result = {
             "total_zips": total_zips,
             "days_consolidated": days_consolidated,
             "total_parquets": total_parquets,
@@ -351,8 +340,7 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             "backfill_done": backfill_done,
             "progress_pct": progress_pct,
         }
-    except Exception as e:
-        print(f"  Warning: Could not compute pipeline metrics: {e}", file=sys.stderr)
+    except Exception:
         return {
             "total_zips": 0,
             "days_consolidated": 0,
@@ -362,6 +350,8 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             "backfill_done": 0,
             "progress_pct": 0.0,
         }
+    else:
+        return result
 
 
 def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, Any]]:
@@ -377,8 +367,7 @@ def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str
             GROUP BY tribunal
         """).fetchall()
         return {row[0]: {"last_update": row[1], "doc_count": row[2]} for row in rows}
-    except Exception as e:
-        print(f"  Warning: Could not query tribunal details: {e}", file=sys.stderr)
+    except Exception:
         return {}
 
 
@@ -390,11 +379,10 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    print(f"  Generating today's data ({today})...")
 
     use_ia_fallback = not is_manifest_populated(con)
     if use_ia_fallback:
-        print("  Manifest is empty, falling back to IA metadata API...")
+        pass
 
     tribunal_status: dict[str, dict[str, Any]] = {}
     date_used = today
@@ -406,7 +394,6 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
         # Fallback: fetch file list directly from IA metadata API
         tribunal_status = fetch_ia_item_files(today)
         if not tribunal_status:
-            print(f"  No IA data for today, trying yesterday ({yesterday})...")
             tribunal_status = fetch_ia_item_files(yesterday)
             date_used = yesterday
     else:
@@ -421,7 +408,6 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
         ).fetchall()
 
         if not result:
-            print(f"  No data for today, trying yesterday ({yesterday})...")
             result = con.execute(
                 """
                 SELECT tribunal, file_type
@@ -467,8 +453,6 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
 
 def generate_runs_cache() -> dict[str, Any]:
     """Fetch recent GitHub Actions runs."""
-    print("  Fetching GitHub Actions runs...")
-
     url = f"https://api.github.com/repos/{GITHUB_REPO}/actions/runs?per_page=10"
     data = fetch_json(url)
 
@@ -510,7 +494,6 @@ def fetch_ia_search_with_files(sizes: dict[str, int]) -> dict[str, int]:
         "&fl[]=identifier&fl[]=files_count"
         "&rows=10000&output=json"
     )
-    print("  Fetching file counts from IA search API...")
     data = fetch_json(url, timeout=30)
     if not data or "response" not in data:
         return {}
@@ -529,7 +512,6 @@ def fetch_ia_search_with_files(sizes: dict[str, int]) -> dict[str, int]:
             if int(files_count) > 0 and date_str in sizes:
                 counts[date_str] = max(int(files_count) - 15, 0)
 
-    print(f"  Got file counts for {len(counts)} dates")
     return counts
 
 
@@ -541,8 +523,6 @@ def generate_calendar_cache(
 
     Falls back to IA search data when manifest is empty.
     """
-    print(f"  Generating calendar data ({CALENDAR_DAYS} days)...")
-
     use_ia_fallback = not is_manifest_populated(con)
 
     date_tribunals: dict[str, int] = {}
@@ -625,7 +605,6 @@ def generate_backfill_cache(
     if not is_manifest_populated(con):
         return {}
 
-    print("  Generating backfill progress from manifest...")
 
     try:
         # Per-year progress: count distinct date+tribunal combos collected vs expected
@@ -800,8 +779,7 @@ def generate_backfill_cache(
                 "days_with_data": len(sizes or {}),
             },
         }
-    except Exception as e:
-        print(f"  Warning: Could not generate backfill cache: {e}", file=sys.stderr)
+    except Exception:
         return {}
 
 
@@ -864,22 +842,16 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    print("Generating dashboard cache from catalog manifest...")
-    print(f"   Output: {OUTPUT_DIR}\n")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Initialize DuckDB with httpfs for remote parquet access
     con = duckdb.connect()
     if not args.manifest:
-        try:
+        with contextlib.suppress(Exception):
             con.execute("INSTALL httpfs; LOAD httpfs;")
-        except Exception as e:
-            print(f"  Warning: Could not load httpfs extension: {e}", file=sys.stderr)
-            print("  Will download manifest via urllib instead...")
 
     # Step 1: Load manifest (one HTTP request or local file)
-    print("[1/4] Loading manifest...")
     manifest_path = args.manifest
     if not manifest_path:
         # Try to download manifest via urllib if httpfs failed
@@ -892,15 +864,10 @@ def main() -> None:
             import tempfile
 
             tmp = Path(tempfile.mkdtemp()) / "manifest.parquet"
-            try:
-                print(f"  Downloading manifest to {tmp}...")
-                urllib.request.urlretrieve(MANIFEST_URL, str(tmp))
-                manifest_path = str(tmp)
-            except Exception as e:
-                print(f"  Warning: Could not download manifest: {e}", file=sys.stderr)
+            urllib.request.urlretrieve(MANIFEST_URL, str(tmp))
+            manifest_path = str(tmp)
 
     if not load_manifest(con, manifest_path):
-        print("Error: Could not load manifest. Aborting.", file=sys.stderr)
         sys.exit(1)
 
     # Load backfill-needed for progress calculation (non-fatal if missing)
@@ -910,24 +877,17 @@ def main() -> None:
         import tempfile as _tempfile
 
         tmp_bf = Path(_tempfile.mkdtemp()) / "backfill-needed.parquet"
-        try:
-            print(f"  Downloading backfill-needed to {tmp_bf}...")
-            urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
-            backfill_path = str(tmp_bf)
-        except Exception as e:
-            print(f"  Warning: Could not download backfill-needed: {e}", file=sys.stderr)
+        urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
+        backfill_path = str(tmp_bf)
     load_backfill_needed(con, backfill_path)
 
     manifest_populated = is_manifest_populated(con)
     data_source = "manifest.parquet" if manifest_populated else "IA metadata API (fallback)"
-    print(f"  Data source: {data_source}")
 
     # Step 2: Fetch item sizes from IA search API (one HTTP request)
-    print("[2/4] Fetching item sizes...")
     sizes = fetch_item_sizes()
 
     # Step 3: Generate all caches
-    print("[3/5] Generating cache files...")
     today_data = generate_today_cache(con, sizes)
     runs_data = generate_runs_cache()
     calendar_data = generate_calendar_cache(con, sizes)
@@ -937,7 +897,6 @@ def main() -> None:
     con.close()
 
     # Step 4: Assemble and write
-    print("[4/5] Writing cache files...")
 
     # Add days_archived, health, and pipeline metrics to today data
     today_data["days_archived"] = calendar_data["stats"]["days_with_data"]
@@ -950,9 +909,8 @@ def main() -> None:
         try:
             with Path(run_stats_path).open() as f:
                 today_data["last_run"] = json.load(f)
-            print(f"  Loaded run stats from {run_stats_path}")
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"  Warning: Could not load run stats: {e}", file=sys.stderr)
+        except (json.JSONDecodeError, OSError):
+            pass
 
     # Generate metadata
     meta = {
@@ -977,21 +935,14 @@ def main() -> None:
         path = OUTPUT_DIR / filename
         with path.open("w") as f:
             json.dump(data, f, separators=(",", ":"))
-        size = path.stat().st_size
-        print(f"  {filename}: {size:,} bytes")
+        path.stat().st_size
 
     # Generate RSS feed
     rss_content = generate_rss_feed(today_data, runs_data, calendar_data)
     rss_path = OUTPUT_DIR / "feed.xml"
     with rss_path.open("w") as f:
         f.write(rss_content)
-    print(f"  feed.xml: {rss_path.stat().st_size:,} bytes")
 
-    print("\nCache generation complete!")
-    print(f"  Data source: {data_source}")
-    print(f"  Days with data: {calendar_data['stats']['days_with_data']}")
-    http_count = 3 if manifest_populated else 5
-    print(f"  HTTP requests: ~{http_count}")
 
 
 if __name__ == "__main__":

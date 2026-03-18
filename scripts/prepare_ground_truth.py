@@ -16,7 +16,7 @@ from rich.table import Table
 console = Console()
 
 
-def main():
+def main() -> None:
     """Preparar ground truth validado."""
     console.print("\n[bold cyan]📋 Preparação de Ground Truth[/bold cyan]\n")
 

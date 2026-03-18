@@ -9,6 +9,7 @@ from pytest_bdd import given, parsers, scenario, then
 
 from .conftest import FAKE_AUTH
 
+
 if TYPE_CHECKING:
     import httpx
     import respx

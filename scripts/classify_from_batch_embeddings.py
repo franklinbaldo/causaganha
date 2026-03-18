@@ -60,7 +60,7 @@ def classify_with_knn_precomputed(
     }
 
 
-def main():
+def main() -> None:
     """Classify decisions from batch embeddings."""
     console.print("\n[bold cyan]🎯 Classificação k-NN: Usando Batch Embeddings[/bold cyan]\n")
 

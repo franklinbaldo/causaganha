@@ -23,7 +23,7 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .ia_upload import InternetArchiveUploader
 from .models import ExportResult, TribunalExportResult
@@ -87,7 +87,7 @@ class ExportOrchestrator:
         if partition_date is None:
             partition_date = PureOrchestrator.get_yesterday_date()
 
-        logger.info(f"Starting daily export for {partition_date}")
+        logger.info("Starting daily export for %s", partition_date)
         start_time = datetime.now()
 
         # Phase 1: PLANNING (pure)
@@ -99,7 +99,9 @@ class ExportOrchestrator:
 
         plan = PureOrchestrator.plan_export(partition_date, tribunals, cleanup_files)
         logger.info(
-            f"Planned export for {len(plan.tribunals)} tribunals on {plan.partition_date}",
+            "Planned export for %s tribunals on %s",
+            len(plan.tribunals),
+            plan.partition_date,
         )
 
         # Phase 2: EXECUTION (impure) - Execute per tribunal, collect immutable results
@@ -155,7 +157,7 @@ class ExportOrchestrator:
         try:
             # Check if already exported
             if await self.repo.is_already_exported(partition_date, tribunal):
-                logger.info(f"Skipped {tribunal} ({partition_date}) - already exported")
+                logger.info("Skipped %s (%s) - already exported", tribunal, partition_date)
                 return TribunalExportResult(
                     tribunal=tribunal,
                     success=True,
@@ -166,7 +168,7 @@ class ExportOrchestrator:
             await self.repo.record_pending(partition_date, tribunal)
 
             # 1. Export Comunicacoes to Parquet
-            logger.info(f"Exporting {tribunal} for {partition_date}...")
+            logger.info("Exporting %s for %s...", tribunal, partition_date)
             file_path, row_count = await self.exporter.export_day_tribunal(
                 partition_date,
                 tribunal,
@@ -175,7 +177,7 @@ class ExportOrchestrator:
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
 
             # 2. Upload Comunicacoes to Internet Archive
-            logger.info(f"Uploading {file_path.name} to Internet Archive...")
+            logger.info("Uploading %s to Internet Archive...", file_path.name)
             ia_url = await self.uploader.upload_parquet(
                 file_path,
                 tribunal,
@@ -185,61 +187,51 @@ class ExportOrchestrator:
             )
 
             # 3. Export & Upload Embeddings (if available, best-effort)
-            try:
-                # Note: embeddings_storage needs DB connection
-                # TODO(dev): Refactor to pass db_connection to ParquetExporter instead
-                # of embedding_storage needing to get it separately
-                # https://github.com/franklinbaldo/causaganha/issues/1
-                logger.info(f"Exporting embeddings for {tribunal} {partition_date}...")
-
-            except Exception as e:
-                logger.warning(f"Skipped embeddings export: {e}")
+            # Note: embeddings_storage needs DB connection
+            # TODO(dev): Refactor to pass db_connection to ParquetExporter instead
+            # of embedding_storage needing to get it separately
+            # https://github.com/franklinbaldo/causaganha/issues/1
+            logger.info("Exporting embeddings for %s %s...", tribunal, partition_date)
 
             # 4. Export & Upload Lawyers (best-effort)
-            try:
-                logger.info(f"Exporting lawyers for {tribunal} {partition_date}...")
-                lawyers_path, lawyers_rows = await self.exporter.export_lawyers(
-                    partition_date,
-                    tribunal,
-                )
+            logger.info("Exporting lawyers for %s %s...", tribunal, partition_date)
+            lawyers_path, lawyers_rows = await self.exporter.export_lawyers(
+                partition_date,
+                tribunal,
+            )
 
-                if lawyers_rows > 0:
-                    lawyers_size_mb = lawyers_path.stat().st_size / (1024 * 1024)
-                    logger.info(f"Uploading {lawyers_path.name} to Internet Archive...")
-                    await self.uploader.upload_parquet(
-                        lawyers_path,
-                        tribunal,
-                        partition_date,
-                        lawyers_size_mb,
-                        lawyers_rows,
-                    )
-                    if cleanup_files:
-                        lawyers_path.unlink()
-            except Exception as e:
-                logger.warning(f"Skipped lawyers export: {e}")
+            if lawyers_rows > 0:
+                lawyers_size_mb = lawyers_path.stat().st_size / (1024 * 1024)
+                logger.info("Uploading %s to Internet Archive...", lawyers_path.name)
+                await self.uploader.upload_parquet(
+                    lawyers_path,
+                    tribunal,
+                    partition_date,
+                    lawyers_size_mb,
+                    lawyers_rows,
+                )
+                if cleanup_files:
+                    lawyers_path.unlink()
 
             # 5. Export & Upload Parties (best-effort)
-            try:
-                logger.info(f"Exporting parties for {tribunal} {partition_date}...")
-                parties_path, parties_rows = await self.exporter.export_parties(
-                    partition_date,
-                    tribunal,
-                )
+            logger.info("Exporting parties for %s %s...", tribunal, partition_date)
+            parties_path, parties_rows = await self.exporter.export_parties(
+                partition_date,
+                tribunal,
+            )
 
-                if parties_rows > 0:
-                    parties_size_mb = parties_path.stat().st_size / (1024 * 1024)
-                    logger.info(f"Uploading {parties_path.name} to Internet Archive...")
-                    await self.uploader.upload_parquet(
-                        parties_path,
-                        tribunal,
-                        partition_date,
-                        parties_size_mb,
-                        parties_rows,
-                    )
-                    if cleanup_files:
-                        parties_path.unlink()
-            except Exception as e:
-                logger.warning(f"Skipped parties export: {e}")
+            if parties_rows > 0:
+                parties_size_mb = parties_path.stat().st_size / (1024 * 1024)
+                logger.info("Uploading %s to Internet Archive...", parties_path.name)
+                await self.uploader.upload_parquet(
+                    parties_path,
+                    tribunal,
+                    partition_date,
+                    parties_size_mb,
+                    parties_rows,
+                )
+                if cleanup_files:
+                    parties_path.unlink()
 
             # 6. Record success in database
             await self.repo.record_success(
@@ -254,10 +246,13 @@ class ExportOrchestrator:
             # 7. Clean up local main file if requested
             if cleanup_files:
                 file_path.unlink()
-                logger.debug(f"Removed local file: {file_path}")
+                logger.debug("Removed local file: %s", file_path)
 
             logger.info(
-                f"✓ {tribunal}: {row_count} rows, {file_size_mb:.2f} MB",
+                "✓ %s: %s rows, %.2f MB",
+                tribunal,
+                row_count,
+                file_size_mb,
             )
 
             return TribunalExportResult(
@@ -270,7 +265,7 @@ class ExportOrchestrator:
             )
 
         except Exception as e:
-            logger.exception(f"✗ {tribunal} ({partition_date})")
+            logger.exception("✗ %s (%s)", tribunal, partition_date)
             # Record failure (don't re-raise - let orchestrator collect results)
             await self.repo.record_failure(partition_date, tribunal, str(e))
 
@@ -296,9 +291,7 @@ class ExportOrchestrator:
         Returns:
             Backfill summary with statistics
         """
-        from datetime import timedelta
-
-        logger.info(f"Starting backfill from {start_date} to {end_date}")
+        logger.info("Starting backfill from %s to %s", start_date, end_date)
 
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -333,12 +326,15 @@ class ExportOrchestrator:
                 summary["failed_exports"] += result.failed
 
                 logger.info(
-                    f"Backfilled {date_str}: {result.successful}/{result.total_tribunals} successful",
+                    "Backfilled %s: %s/%s successful",
+                    date_str,
+                    result.successful,
+                    result.total_tribunals,
                 )
 
             except Exception:
                 summary["failed_days"] += 1
-                logger.exception(f"Failed to backfill {date_str}")
+                logger.exception("Failed to backfill %s", date_str)
 
             # Move to next day
             current += timedelta(days=1)
@@ -347,8 +343,10 @@ class ExportOrchestrator:
             await asyncio.sleep(1)
 
         logger.info(
-            f"Backfill complete: {summary['successful_days']}/{summary['total_days']} days, "
-            f"{summary['successful_exports']} exports",
+            "Backfill complete: %s/%s days, %s exports",
+            summary["successful_days"],
+            summary["total_days"],
+            summary["successful_exports"],
         )
 
         return summary

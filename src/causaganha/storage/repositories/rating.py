@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import duckdb
 import structlog
 from ibis import _
 from ibis.backends.duckdb import Backend
@@ -173,7 +174,7 @@ def insert_rating_snapshot(  # noqa: PLR0913
                 losses,
             ],
         )
-    except Exception as e:
+    except (duckdb.Error, ValueError, TypeError) as e:
         # Non-fatal — don't break the rating pipeline for history logging
         logger.warning(
             "rating_snapshot_failed",

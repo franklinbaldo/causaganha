@@ -44,13 +44,13 @@ logger = structlog.get_logger()
 class GracefulShutdown:
     """Handle graceful shutdown on SIGTERM/SIGINT."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize shutdown handler."""
         self.shutdown_requested = False
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
 
-    def _handle_signal(self, signum, frame):
+    def _handle_signal(self, signum, frame) -> None:
         logger.info("shutdown_signal_received", signal=signum)
         self.shutdown_requested = True
 
@@ -87,7 +87,7 @@ def get_unembedded_decisions(limit: int = 100) -> list[int]:
         rows = result.fetchall()
         return [row[0] for row in rows]
     except Exception as e:
-        logger.error("query_failed", error=str(e))
+        logger.exception("query_failed", error=str(e))
         return []
 
 
@@ -113,7 +113,7 @@ def load_decision_text(intimation_id: int) -> str:
         row = result.fetchone()
         return row[0] if row and row[0] else ""
     except Exception as e:
-        logger.error("load_text_failed", intimation_id=intimation_id, error=str(e))
+        logger.exception("load_text_failed", intimation_id=intimation_id, error=str(e))
         return ""
 
 
@@ -136,7 +136,7 @@ async def process_batch(
             text_loader=load_decision_text,
         )
 
-        return {
+        result = {
             "success": True,
             "total": stats.total_decisions,
             "processed": stats.processed_decisions,
@@ -147,11 +147,13 @@ async def process_batch(
         }
 
     except Exception as e:
-        logger.error("batch_failed", error=str(e), error_type=type(e).__name__)
+        logger.exception("batch_failed", error=str(e), error_type=type(e).__name__)
         return {
             "success": False,
             "error": str(e),
         }
+    else:
+        return result
 
 
 async def continuous_loop(
@@ -159,7 +161,7 @@ async def continuous_loop(
     max_concurrency: int = 10,
     idle_sleep: int = 300,
     shutdown: GracefulShutdown = None,
-):
+) -> None:
     """Main continuous processing loop.
 
     Args:
@@ -254,7 +256,7 @@ async def continuous_loop(
 
         except Exception as e:
             consecutive_errors += 1
-            logger.error(
+            logger.exception(
                 "iteration_error",
                 iteration=iteration,
                 error=str(e),
@@ -262,7 +264,7 @@ async def continuous_loop(
             )
 
             if consecutive_errors >= max_consecutive_errors:
-                logger.error("too_many_errors_exiting", consecutive_errors=consecutive_errors)
+                logger.exception("too_many_errors_exiting", consecutive_errors=consecutive_errors)
                 break
 
             # Backoff
@@ -280,7 +282,7 @@ async def continuous_loop(
     )
 
 
-def main():
+def main() -> None:
     """Entry point."""
     # Configuration from environment variables
     batch_size = int(os.getenv("BATCH_SIZE", "50"))
@@ -290,8 +292,6 @@ def main():
     # Verify API key is set
     if not os.getenv("JINA_API_KEY"):
         logger.error("jina_api_key_not_set")
-        print("Error: JINA_API_KEY environment variable not set")
-        print("Set it with: export JINA_API_KEY='your-key-here'")
         sys.exit(1)
 
     logger.info(
@@ -303,17 +303,6 @@ def main():
         python_version=sys.version,
     )
 
-    print("=" * 80)
-    print("CausaGanha Embedding Service (Laptop)")
-    print("=" * 80)
-    print()
-    print(f"  Batch size: {batch_size} decisions")
-    print(f"  Concurrency: {max_concurrency} parallel requests")
-    print(f"  Idle sleep: {idle_sleep} seconds")
-    print(f"  Model: {JINA_V4_1024.name} ({JINA_V4_1024.dimension}D)")
-    print()
-    print("Service running... (Press Ctrl+C to stop)")
-    print()
 
     # Setup graceful shutdown
     shutdown = GracefulShutdown()
@@ -330,13 +319,10 @@ def main():
         )
     except KeyboardInterrupt:
         logger.info("keyboard_interrupt")
-        print("\nShutting down gracefully...")
     except Exception as e:
-        logger.error("service_error", error=str(e))
-        print(f"\nError: {e}")
+        logger.exception("service_error", error=str(e))
         sys.exit(1)
 
-    print("Service stopped.")
 
 
 if __name__ == "__main__":

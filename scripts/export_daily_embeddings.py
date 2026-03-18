@@ -17,7 +17,7 @@ from causaganha.storage.embedding_storage import EmbeddingStorage
 logger = structlog.get_logger()
 
 
-def main():
+def main() -> None:
     """Export embeddings to Parquet."""
     parser = argparse.ArgumentParser(
         description="Export embeddings to Parquet",
@@ -62,12 +62,9 @@ def main():
             file_size_mb=round(file_size_mb, 2),
         )
 
-        print(f"✅ Exported to: {output_path}")
-        print(f"   Size: {file_size_mb:.2f} MB (ZSTD compressed)")
 
     except ValueError as e:
         logger.warning("export_failed", error=str(e))
-        print(f"⚠️  No embeddings to export: {e}")
         # Create empty file to avoid workflow failure
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output).touch()

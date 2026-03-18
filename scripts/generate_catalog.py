@@ -15,8 +15,10 @@ Usage:
 """
 
 import argparse
+import contextlib
 import json
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -80,16 +82,18 @@ def run_ia_command(args: list[str], timeout: int = 300) -> str:
         if result.returncode != 0:
             logger.warning("ia_command_failed", args=args, stderr=result.stderr[:200])
             return ""
-        return result.stdout
+        output = result.stdout
     except subprocess.TimeoutExpired:
         logger.warning("ia_command_timeout", args=args)
         return ""
     except FileNotFoundError:
-        logger.error("ia_cli_not_found")
+        logger.exception("ia_cli_not_found")
         return ""
     except Exception as e:
         logger.warning("ia_command_error", error=str(e))
         return ""
+    else:
+        return output
 
 
 def list_ia_items() -> list[str]:
@@ -160,11 +164,11 @@ def _validate_date_str(date_str: str) -> bool:
             return False
         if month < 1 or month > 12:
             return False
-        if day < 1 or day > 31:
-            return False
-        return True
+        result = not (day < 1 or day > 31)
     except ValueError:
         return False
+    else:
+        return result
 
 
 def _validate_tribunal_code(tribunal: str) -> bool:
@@ -325,7 +329,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 if table_name not in KNOWN_TABLE_NAMES:
                     return None
 
-                return {
+                result = {
                     "date": date_str,
                     "tribunal": "ALL",
                     "file_type": "parquet",
@@ -336,6 +340,8 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 }
             except Exception:
                 return None
+            else:
+                return result
         return None
 
     # Validate file extension
@@ -482,10 +488,11 @@ def load_existing_manifest() -> list[dict]:
 
         records = df.to_dict("records")
         logger.info("loaded_existing_manifest", records=len(records))
-        return records
     except Exception as e:
         logger.warning("load_manifest_failed", error=str(e))
         return []
+    else:
+        return records
 
 
 def get_item_date(item_id: str) -> date | None:
@@ -584,7 +591,7 @@ def generate_manifest(items: list[str], existing_manifest: list[dict] | None = N
                         parsed["created_at"] = datetime.now(tz=UTC).isoformat()
                         manifest.append(parsed)
             except Exception as e:
-                logger.error("manifest_item_failed", item=item_id, error=str(e))
+                logger.exception("manifest_item_failed", item=item_id, error=str(e))
 
             completed_count += 1
             if completed_count % 50 == 0:
@@ -822,7 +829,7 @@ def create_catalog_duckdb(
     try:
         con = duckdb.connect(str(db_path))
     except Exception as e:
-        logger.error("duckdb_connection_failed", path=str(db_path), error=str(e))
+        logger.exception("duckdb_connection_failed", path=str(db_path), error=str(e))
         return None
 
     try:
@@ -914,15 +921,14 @@ def create_catalog_duckdb(
 
         con.close()
         logger.info("duckdb_created", path=str(db_path))
-        return db_path
 
     except Exception as e:
-        logger.error("duckdb_creation_failed", error=str(e))
-        try:
+        logger.exception("duckdb_creation_failed", error=str(e))
+        with contextlib.suppress(Exception):
             con.close()
-        except Exception:
-            pass
         return None
+    else:
+        return db_path
 
 
 def save_parquet(data: list[dict], output_path: Path) -> bool:
@@ -956,11 +962,12 @@ def save_parquet(data: list[dict], output_path: Path) -> bool:
 
         con.execute(f"COPY temp TO '{output_path}' (FORMAT PARQUET)")
         con.close()
-        return True
 
     except Exception as e:
-        logger.error("save_parquet_failed", path=str(output_path), error=str(e))
+        logger.exception("save_parquet_failed", path=str(output_path), error=str(e))
         return False
+    else:
+        return True
 
 
 def upload_to_ia(files: list[Path]) -> bool:
@@ -971,18 +978,7 @@ def upload_to_ia(files: list[Path]) -> bool:
 
     try:
         result = subprocess.run(
-            ["ia", "upload", IA_CATALOG_ITEM]
-            + file_args
-            + [
-                "--metadata=collection:opensource",
-                "--metadata=mediatype:data",
-                "--metadata=title:CausaGanha Catalog",
-                "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.",
-                "--metadata=subject:causaganha;djen;legal;brazil;catalog",
-                "--metadata=creator:CausaGanha",
-                "--retries=3",
-                "--no-derive",
-            ],
+            ["ia", "upload", IA_CATALOG_ITEM, *file_args, "--metadata=collection:opensource", "--metadata=mediatype:data", "--metadata=title:CausaGanha Catalog", "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.", "--metadata=subject:causaganha;djen;legal;brazil;catalog", "--metadata=creator:CausaGanha", "--retries=3", "--no-derive"],
             capture_output=True,
             text=True,
             timeout=600,
@@ -990,16 +986,19 @@ def upload_to_ia(files: list[Path]) -> bool:
 
         if result.returncode == 0:
             logger.info("upload_success")
-            return True
-        logger.error("upload_failed", stderr=result.stderr)
-        return False
+            success = True
+        else:
+            logger.error("upload_failed", stderr=result.stderr)
+            success = False
 
     except subprocess.TimeoutExpired:
-        logger.error("upload_timeout")
+        logger.exception("upload_timeout")
         return False
+    else:
+        return success
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Generate CausaGanha catalog")
     parser.add_argument("--output", type=str, default="./catalog", help="Output directory")
     parser.add_argument("--upload", action="store_true", help="Upload to Internet Archive")
@@ -1024,17 +1023,14 @@ def main():
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except PermissionError:
-        print(f"Error: Cannot create output directory {output_dir} (permission denied)")
         return 1
-    except OSError as e:
-        print(f"Error: Cannot create output directory {output_dir}: {e}")
+    except OSError:
         return 1
 
     # Date range for backfill calculation with validation
     try:
         if args.start_date:
             if not _validate_date_str(args.start_date):
-                print(f"Error: Invalid start date format: {args.start_date} (expected YYYY-MM-DD)")
                 return 1
             start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
         else:
@@ -1042,28 +1038,19 @@ def main():
 
         if args.end_date:
             if not _validate_date_str(args.end_date):
-                print(f"Error: Invalid end date format: {args.end_date} (expected YYYY-MM-DD)")
                 return 1
             end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
         else:
             end_date = date.today() - timedelta(days=1)
-    except ValueError as e:
-        print(f"Error: Invalid date: {e}")
+    except ValueError:
         return 1
 
     if start_date > end_date:
-        print(f"Error: Start date {start_date} is after end date {end_date}")
         return 1
 
-    print("Generating catalog...")
-    print(f"  Output: {output_dir}")
-    print(f"  Backfill range: {start_date} to {end_date}")
-    print(f"  Mode: {'Full' if args.full else 'Incremental'}")
-    print()
 
     # 1. List all IA items
     items = list_ia_items()
-    print(f"Found {len(items)} items on Internet Archive")
 
     # 2. Try to load existing manifest if in incremental mode
     existing_manifest = None
@@ -1072,7 +1059,6 @@ def main():
 
     # 3. Generate manifest
     manifest = generate_manifest(items, existing_manifest)
-    print(f"Manifest: {len(manifest)} files indexed")
 
     # 4. Get local coverage and generate backfill list
     local_coverage = set()
@@ -1083,12 +1069,10 @@ def main():
             con = duckdb.connect(str(main_db_path), read_only=True)
             local_coverage = get_local_coverage(con)
             con.close()
-            print(f"Local state: {len(local_coverage)} items found in database")
         except Exception as e:
             logger.warning("local_state_read_failed", error=str(e))
 
     backfill = generate_backfill_list(manifest, start_date, end_date, local_coverage)
-    print(f"Backfill needed: {len(backfill)} date/tribunal combinations")
 
     # 4. Generate SQL
     sql = generate_catalog_sql(manifest)
@@ -1099,20 +1083,14 @@ def main():
     sql_path = output_dir / "catalog.sql"
 
     if not save_parquet(manifest, manifest_path):
-        print(f"Error: Failed to save {manifest_path}")
         return 1
-    print(f"Saved: {manifest_path}")
 
     if not save_parquet(backfill, backfill_path):
-        print(f"Error: Failed to save {backfill_path}")
         return 1
-    print(f"Saved: {backfill_path}")
 
     try:
         sql_path.write_text(sql)
-        print(f"Saved: {sql_path}")
-    except OSError as e:
-        print(f"Error: Failed to save {sql_path}: {e}")
+    except OSError:
         return 1
 
     # Generate backfill progress metrics for dashboard
@@ -1134,14 +1112,12 @@ def main():
             collect_progress_path = output_dir / "collect-progress.json"
             collect_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
             logger.info("collect_progress_saved", path=str(collect_progress_path))
-            print(f"Saved: {collect_progress_path}")
 
             # Append to history (JSONL)
             collect_history_path = output_dir / "collect-progress.jsonl"
             append_progress_jsonl(collect_history_path, collect_data)
-            print(f"Appended: {collect_history_path}")
         except Exception as e:
-            logger.error("collect_progress_failed", error=str(e))
+            logger.exception("collect_progress_failed", error=str(e))
     else:
         logger.warning("main_db_not_found", path=str(main_db_path))
 
@@ -1152,36 +1128,26 @@ def main():
     consolidate_progress_path = output_dir / "consolidate-progress.json"
     consolidate_progress_path.write_text(json.dumps(consolidate_data, ensure_ascii=False, indent=2))
     logger.info("consolidate_progress_saved", path=str(consolidate_progress_path))
-    print(f"Saved: {consolidate_progress_path}")
 
     # Append to history (JSONL)
     consolidate_history_path = output_dir / "consolidate-progress.jsonl"
     append_progress_jsonl(consolidate_history_path, consolidate_data)
-    print(f"Appended: {consolidate_history_path}")
 
     # Keep backfill-progress.json for backward compatibility (alias to collect)
     if main_db_path.exists():
-        try:
-            backfill_progress_path = output_dir / "backfill-progress.json"
-            backfill_progress_path.write_text(
-                json.dumps(collect_data, ensure_ascii=False, indent=2)
-            )
-            logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
-            print(f"Saved: {backfill_progress_path} (legacy, alias to collect-progress.json)")
-        except Exception:
-            pass
+        backfill_progress_path = output_dir / "backfill-progress.json"
+        backfill_progress_path.write_text(
+            json.dumps(collect_data, ensure_ascii=False, indent=2)
+        )
+        logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
 
     # 6. Create DuckDB
     db_path = create_catalog_duckdb(manifest, backfill, sql, output_dir)
     if db_path is None:
-        print("Error: Failed to create DuckDB catalog")
         return 1
-    print(f"Saved: {db_path}")
 
     # 7. Upload if requested
     if args.upload:
-        print()
-        print("Uploading to Internet Archive...")
         files = [manifest_path, backfill_path, sql_path, db_path]
 
         # Add progress files if they exist (JSON + JSONL)
@@ -1204,41 +1170,24 @@ def main():
 
         success = upload_to_ia(files)
         if success:
-            print(f"Uploaded to https://archive.org/details/{IA_CATALOG_ITEM}")
+            pass
         else:
-            print("Upload failed!")
             return 1
 
     # Summary
-    print()
-    print("=" * 60)
-    print("CATALOG SUMMARY")
-    print("=" * 60)
 
     zip_count = len([m for m in manifest if m["file_type"] == "zip"])
     parquet_count = len([m for m in manifest if m["file_type"] == "parquet"])
-    dates_collected = len(set(m["date"] for m in manifest if m["file_type"] == "zip"))
+    dates_collected = len({m["date"] for m in manifest if m["file_type"] == "zip"})
 
     total_expected = len(backfill) + zip_count
     percent_complete = (zip_count / total_expected * 100) if total_expected > 0 else 0
 
-    print("Collected:")
-    print(f"  - {zip_count} ZIP files")
-    print(f"  - {parquet_count} Parquet files")
-    print(f"  - {dates_collected} unique dates")
-    print()
-    print("Backfill needed:")
-    print(f"  - {len(backfill)} date/tribunal combinations")
-    print()
-    print(f"Progress: {percent_complete:.1f}% complete")
-    print()
-    print(f"Catalog URL: https://archive.org/download/{IA_CATALOG_ITEM}/catalog.duckdb")
 
     # Set GitHub Actions output: catalog was successfully rebuilt
     import os
 
     catalog_updated = True  # If we got here without error, catalog was updated
-    print(f"\n  Catalog updated: {catalog_updated}")
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
@@ -1255,4 +1204,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

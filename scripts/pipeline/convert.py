@@ -18,6 +18,7 @@ Usage:
 import argparse
 import json
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -294,30 +295,20 @@ def convert_data(target_date: str | None = None, max_items: int = 20) -> dict:
     return stats
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Convert DJEN ZIPs to Parquet")
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
     parser.add_argument("--max-items", type=int, default=20)
     args = parser.parse_args()
 
-    print("Converting DJEN data to Parquet...")
     if args.date:
-        print(f"  Date: {args.date}")
-    print(f"  Max items: {args.max_items}")
-    print()
+        pass
 
     stats = convert_data(target_date=args.date, max_items=args.max_items)
 
-    print()
-    print("=" * 40)
-    print("CONVERSION SUMMARY")
-    print("=" * 40)
-    print(f"  Converted: {stats['converted']}")
-    print(f"  Failed:    {stats['failed']}")
-    print(f"  Files uploaded: {stats['files_uploaded']}")
 
     return 0 if stats["failed"] == 0 else 1
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

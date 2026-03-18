@@ -17,10 +17,11 @@ def validate_file(path: Path) -> bool:
         data = json.loads(path.read_text(encoding="utf-8"))
         ExtractionResult.model_validate(data)
         logger.info("%s validated successfully", path)
-        return True
     except Exception:  # broad catch to report any validation error
         logger.exception("Validation failed for %s", path)
         return False
+    else:
+        return True
 
 
 def main() -> None:

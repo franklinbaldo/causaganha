@@ -1,23 +1,39 @@
 """CLI package for CausaGanha."""
 
 import asyncio
+import csv
+import json
+import re
+import sys
+from datetime import date, timedelta
+from pathlib import Path
 
 import duckdb
+import httpx
 import structlog
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-# from causaganha.analysis.ground_truth import GroundTruthManager
+from causaganha.analysis.ground_truth import GroundTruthManager
+from causaganha.analysis.vector_store import VectorStore
+from causaganha.catalog.creator import CatalogCreator
 from causaganha.config import settings
-
-# from causaganha.clients.document import DocumentService
 from causaganha.pipeline.analyze import analyze_pending_decisions
-from causaganha.pipeline.analyze_parquet import analyze_from_parquet
-
-# from causaganha.pipeline.archive import archive_documents
+from causaganha.pipeline.analyze_parquet import (
+    analyze_from_ia as analyze_ia_func,
+)
+from causaganha.pipeline.analyze_parquet import (
+    analyze_from_parquet,
+)
 from causaganha.pipeline.collect import collect_metadata_for_all_courts
+from causaganha.pipeline.export_orchestrator import ExportOrchestrator
+from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
+from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
+from causaganha.pipeline.repositories import DuckDBExportRepository
 from causaganha.pipeline.score import calculate_ratings
 from causaganha.storage.connection import get_connection
+from causaganha.storage.migrations import migration_status, run_migrations
 
 
 # Configure logging
@@ -41,6 +57,19 @@ app.add_typer(groundtruth_app, name="groundtruth")
 
 
 logger = structlog.get_logger()
+
+# Common exceptions that CLI functions might raise
+COMMON_EXCEPTIONS = (
+    OSError,
+    ValueError,
+    RuntimeError,
+    KeyError,
+    AttributeError,
+    TypeError,
+    httpx.HTTPError,
+    duckdb.Error,
+    asyncio.TimeoutError,
+)
 
 
 def _handle_error(e: Exception, message: str) -> None:
@@ -79,42 +108,12 @@ def collect(
             ) as progress:
                 progress.add_task(description="Collecting intimations...", total=None)
                 await collect_metadata_for_all_courts(court_list, days_back)
-            # typer.echo("⊘ Collection currently disabled (switching to DJEN scraper).")
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Collection failed")
 
     asyncio.run(_run())
 
 
-# @app.command()
-# def archive(
-#     limit: int = typer.Option(10, help="Number of items to archive"),
-#     dry_run: bool = typer.Option(False, help="Perform a dry run without uploading"),
-# ) -> None:
-#     """Download and archive documents to Internet Archive."""
-#     logger.info("archive_start", limit=limit, dry_run=dry_run)
-#
-#     async def _run() -> None:
-#         doc_service = DocumentService()
-#         archive_service = create_archive_service()
-#
-#         try:
-#             with Progress(
-#                 SpinnerColumn(),
-#                 TextColumn("[progress.description]{task.description}"),
-#                 transient=True,
-#             ) as progress:
-#                 progress.add_task(description="Archiving documents...", total=None)
-#                 await archive_documents(
-#                     doc_service,
-#                     archive_service,
-#                     limit=limit,
-#                     dry_run=dry_run,
-#                 )
-#         except Exception as e:
-#             _handle_error(e, "Archive failed")
-#
-#     asyncio.run(_run())
 
 
 @app.command()
@@ -177,7 +176,7 @@ def analyze(
                 typer.echo(f"  Cost/decision: ${result['cost_per_decision']:.6f}")
                 typer.echo(f"  Savings vs LLM: {result['savings_vs_llm_pct']:.1f}%")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Analysis failed")
 
     asyncio.run(_run())
@@ -199,79 +198,12 @@ def score(
             ) as progress:
                 progress.add_task(description="Calculating ratings...", total=None)
                 await calculate_ratings(batch_size=limit)
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Scoring failed")
 
     asyncio.run(_run())
 
 
-# @app.command()
-# def pipeline(
-#     days_back: int = typer.Option(1, help="Days back to collect"),
-#     courts: str | None = typer.Option(
-#         None,
-#         help="Comma-separated list of courts. Defaults to config.",
-#     ),
-#     analyze_limit: int = typer.Option(10, help="Number of items to analyze"),
-#     archive_limit: int = typer.Option(10, help="Number of items to archive"),
-#     score_limit: int = typer.Option(100, help="Number of items to score"),
-#     skip_collect: bool = typer.Option(False, help="Skip collection step"),
-#     skip_archive: bool = typer.Option(False, help="Skip archive step"),
-#     skip_analyze: bool = typer.Option(False, help="Skip analysis step"),
-#     skip_score: bool = typer.Option(False, help="Skip scoring step"),
-# ) -> None:
-#     """Run the complete pipeline: collect → archive → analyze → score."""
-#     logger.info("pipeline_start")
-#
-#     court_list = [c.strip() for c in courts.split(",")] if courts else settings.COURTS
-#
-#     async def _run() -> None:
-#         doc_service = DocumentService()
-#         archive_service = create_archive_service()
-#
-#         try:
-#             # Step 1: Collect
-#             if not skip_collect:
-#                 typer.echo("Step 1/4: Collecting intimations (SKIPPED - Switching to DJEN)...")
-#                 # await collect_metadata_for_all_courts(court_list, days_back)
-#                 # typer.echo("✓ Collection complete")
-#             else:
-#                 typer.echo("⊘ Skipping collection")
-#
-#             # Step 2: Archive
-#             if not skip_archive:
-#                 typer.echo("Step 2/4: Archiving to Internet Archive...")
-#                 await archive_documents(
-#                     doc_service,
-#                     archive_service,
-#                     limit=archive_limit,
-#                 )
-#                 typer.echo("✓ Archive complete")
-#             else:
-#                 typer.echo("⊘ Skipping archive")
-#
-#             # Step 3: Analyze
-#             if not skip_analyze:
-#                 typer.echo("Step 3/4: Analyzing decisions...")
-#                 await analyze_pending_decisions(batch_size=analyze_limit)
-#                 typer.echo("✓ Analysis complete")
-#             else:
-#                 typer.echo("⊘ Skipping analysis")
-#
-#             # Step 4: Score
-#             if not skip_score:
-#                 typer.echo("Step 4/4: Calculating ratings...")
-#                 await calculate_ratings(batch_size=score_limit)
-#                 typer.echo("✓ Scoring complete")
-#             else:
-#                 typer.echo("⊘ Skipping scoring")
-#
-#             typer.echo("\n✓ Pipeline complete!")
-#
-#         except Exception as e:
-#             _handle_error(e, "Pipeline failed")
-#
-#     asyncio.run(_run())
 
 
 @app.command()
@@ -288,13 +220,11 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
             con = get_connection()
             # Schema is auto-initialized by get_connection in V2
             typer.echo("✅ Schema initialized successfully.")
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Initialization failed")
     elif action == "migrate":
         try:
             typer.echo("Running migrations...")
-            from causaganha.storage.migrations import migration_status, run_migrations
-
             con = get_connection()
 
             # Show current status
@@ -316,7 +246,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
                     typer.echo(f"    - {name}")
             else:
                 typer.echo("✅ No migrations to apply.")
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Migration failed")
     else:
         typer.echo(f"Unknown action: {action}")
@@ -343,11 +273,6 @@ def export_parquet(
 
     async def _run() -> None:
         try:
-            from causaganha.pipeline.export_orchestrator import ExportOrchestrator
-            from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
-            from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
-            from causaganha.pipeline.repositories import DuckDBExportRepository
-
             # Initialize components with dependency injection
             con = get_connection()
             repository = DuckDBExportRepository(con)  # NEW: inject repository
@@ -368,7 +293,7 @@ def export_parquet(
                         "❌ Backfill requires --start-date and --end-date",
                         fg=typer.colors.RED,
                     )
-                    raise typer.Exit(code=1)  # noqa: TRY301
+                    raise typer.Exit(code=1)
 
                 typer.echo(f"Starting backfill from {start_date} to {end_date}...")
 
@@ -458,7 +383,7 @@ def export_parquet(
                     for failure in result.failures:
                         typer.echo(f"  - {failure['tribunal']}: {failure['error']}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Export failed")
 
     asyncio.run(_run())
@@ -488,8 +413,6 @@ def export_status(
             conditions.append("status = 'failed'")
 
         # Get date range
-        from datetime import date, timedelta
-
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
@@ -585,7 +508,7 @@ def export_status(
         typer.echo(f"  Total rows: {total_rows:,}")
         typer.echo(f"  Total size: {total_size:.1f} MB")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to get export status")
 
 
@@ -596,8 +519,6 @@ def export_status(
 def groundtruth_status() -> None:
     """Check ground truth vector store status."""
     try:
-        from causaganha.analysis.vector_store import VectorStore
-
         store = VectorStore()
         tables = store.list_tables()
 
@@ -613,7 +534,7 @@ def groundtruth_status() -> None:
             typer.echo("\n❌ Ground truth table not found.")
             typer.echo("Run 'causaganha groundtruth init' to create it.")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to check ground truth status")
 
 
@@ -623,12 +544,10 @@ def groundtruth_init(
 ) -> None:
     """Initialize ground truth vector store."""
     try:
-        from causaganha.analysis.ground_truth import GroundTruthManager
-
         manager = GroundTruthManager()
         manager.init_store(overwrite=overwrite)
         typer.echo("✅ Ground truth vector store initialized.")
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to initialize ground truth")
 
 
@@ -642,8 +561,6 @@ def groundtruth_sync(
 
     async def _run() -> None:
         try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
             con = get_connection()
             manager = GroundTruthManager()
 
@@ -666,7 +583,7 @@ def groundtruth_sync(
             elif result["status"] == "already_synced":
                 typer.echo("(i) All available records are already in the vector store.")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Sync failed")
 
     asyncio.run(_run())
@@ -682,8 +599,6 @@ def groundtruth_search(
 
     async def _run() -> None:
         try:
-            from causaganha.analysis.ground_truth import GroundTruthManager
-
             manager = GroundTruthManager()
 
             with Progress(
@@ -721,7 +636,7 @@ def groundtruth_search(
                 typer.echo(f" ID: {int_id} | Similarity: {score:.3f}")
                 typer.echo(f"    {text}...")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Search failed")
 
     asyncio.run(_run())
@@ -758,7 +673,7 @@ def groundtruth_info() -> None:
             typer.echo("  No high-confidence analyses found yet.")
             typer.echo("  Run some LLM analyses first to build ground truth.")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to get ground truth info")
 
 
@@ -831,7 +746,7 @@ def analyze_parquet_file(
             if "output_file" in result:
                 typer.echo(f"  Output file: {result['output_file']}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Parquet analysis failed")
 
     asyncio.run(_run())
@@ -859,8 +774,6 @@ def analyze_from_ia(
 
     async def _run() -> None:
         try:
-            from causaganha.pipeline.analyze_parquet import analyze_from_ia as analyze_ia_func
-
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
@@ -902,7 +815,7 @@ def analyze_from_ia(
             if "output_file" in result:
                 typer.echo(f"  Output file: {result['output_file']}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Internet Archive analysis failed")
 
     asyncio.run(_run())
@@ -920,10 +833,6 @@ def download_parquet(
 
     async def _run() -> None:
         try:
-            from pathlib import Path
-
-            from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
-
             config = DownloadConfig(cache_dir=Path(cache_dir))
             downloader = IAParquetDownloader(config=config)
 
@@ -952,7 +861,7 @@ def download_parquet(
             ia_url = await downloader.get_item_url(tribunal, date)
             typer.echo(f"  Source: {ia_url}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Download failed")
 
     asyncio.run(_run())
@@ -968,8 +877,6 @@ def check_ia_exists(
 
     async def _run() -> None:
         try:
-            from causaganha.pipeline.ia_download import IAParquetDownloader
-
             downloader = IAParquetDownloader()
             exists = await downloader.check_exists(tribunal, date)
 
@@ -986,7 +893,7 @@ def check_ia_exists(
                 typer.echo(f"  Date: {date}")
                 typer.echo(f"  Expected URL: {ia_url}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Check failed")
 
     asyncio.run(_run())
@@ -1004,10 +911,6 @@ def clear_parquet_cache(
     logger.info("clear_cache_command", older_than_days=older_than_days)
 
     try:
-        from pathlib import Path
-
-        from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
-
         config = DownloadConfig(cache_dir=Path(cache_dir))
         downloader = IAParquetDownloader(config=config)
 
@@ -1017,7 +920,7 @@ def clear_parquet_cache(
         if older_than_days:
             typer.echo(f"  (files older than {older_than_days} days)")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Cache clear failed")
 
 
@@ -1045,8 +948,6 @@ def create_catalog(
     logger.info("create_catalog_command", output=output, month=month)
 
     try:
-        from causaganha.catalog.creator import CatalogCreator
-
         typer.echo(f"Creating metadata catalog: {output}")
 
         creator = CatalogCreator(output)
@@ -1086,7 +987,7 @@ def create_catalog(
             )
             typer.echo(f"  {status_icon} {result['check']}: {result['message']}")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Catalog creation failed")
 
 
@@ -1098,13 +999,9 @@ def list_catalog_views(
     logger.info("list_catalog_command", catalog=catalog)
 
     try:
-        from pathlib import Path
-
-        from causaganha.catalog.creator import CatalogCreator
-
         if not Path(catalog).exists():
             typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)  # noqa: TRY301
+            raise typer.Exit(code=1)
 
         creator = CatalogCreator(catalog)
         views = creator.list_views()
@@ -1119,7 +1016,7 @@ def list_catalog_views(
 
         typer.echo(f"Total: {len(views)} views")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to list views")
 
 
@@ -1131,13 +1028,9 @@ def catalog_info(
     logger.info("catalog_info_command", catalog=catalog)
 
     try:
-        from pathlib import Path
-
-        from causaganha.catalog.creator import CatalogCreator
-
         if not Path(catalog).exists():
             typer.secho(f"❌ Catalog not found: {catalog}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)  # noqa: TRY301
+            raise typer.Exit(code=1)
 
         creator = CatalogCreator(catalog)
         info = creator.get_catalog_info()
@@ -1151,7 +1044,7 @@ def catalog_info(
         for view in info["views"]:
             typer.echo(f"  - {view['name']}")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Failed to get catalog info")
 
 
@@ -1163,8 +1056,6 @@ def validate_catalog(
     logger.info("validate_catalog_command", catalog=catalog)
 
     try:
-        from causaganha.catalog.creator import CatalogCreator
-
         creator = CatalogCreator(catalog)
         validation_results = creator.validate()
 
@@ -1190,7 +1081,7 @@ def validate_catalog(
         else:
             typer.echo("\n⚠ Catalog has warnings or errors")
 
-    except Exception as e:
+    except COMMON_EXCEPTIONS as e:
         _handle_error(e, "Validation failed")
 
 
@@ -1207,10 +1098,6 @@ def download_catalog(
 
     async def _run() -> None:
         try:
-            from pathlib import Path
-
-            import httpx
-
             ia_catalog_item = "causaganha-catalog"
             base_url = f"https://archive.org/download/{ia_catalog_item}"
 
@@ -1272,7 +1159,7 @@ def download_catalog(
                         typer.echo(" (timeout - try again later)")
                     except httpx.ConnectError:
                         typer.echo(" (connection error - check internet)")
-                    except Exception as e:
+                    except (httpx.HTTPError, OSError, ValueError) as e:
                         typer.echo(f" (error: {type(e).__name__})")
 
             # Verify at least some files were downloaded
@@ -1284,7 +1171,7 @@ def download_catalog(
                 typer.echo(f"\n✅ Downloaded {len(downloaded)}/{len(files_to_download)} files")
                 typer.echo(f"  Location: {output_dir}")
 
-        except Exception as e:
+        except COMMON_EXCEPTIONS as e:
             _handle_error(e, "Download failed")
 
     asyncio.run(_run())
@@ -1296,8 +1183,6 @@ def _validate_tribunal_code(tribunal: str | None) -> str | None:
         return None
 
     # Tribunal codes are uppercase alphanumeric, max 10 chars
-    import re
-
     if not re.match(r"^[A-Z0-9-]{2,10}$", tribunal.upper()):
         return None
 
@@ -1314,7 +1199,7 @@ def _validate_parquet_schema(
         schema = con.execute(f"DESCRIBE SELECT * FROM read_parquet('{path}') LIMIT 0").fetchall()
         columns = {row[0].lower() for row in schema}
         return all(col.lower() in columns for col in required_cols)
-    except Exception:
+    except (duckdb.Error, ValueError, KeyError):
         return False
 
 
@@ -1331,8 +1216,6 @@ def backfill_status(
     logger.info("backfill_status_command", catalog_dir=catalog_dir)
 
     try:
-        from pathlib import Path
-
         backfill_path = Path(catalog_dir) / "backfill-needed.parquet"
 
         if not backfill_path.exists():
@@ -1452,8 +1335,6 @@ def query_catalog(
     logger.info("query_catalog_command", catalog_dir=catalog_dir)
 
     try:
-        from pathlib import Path
-
         # Validate format parameter
         valid_formats = ["table", "csv", "json"]
         if output_format not in valid_formats:
@@ -1462,7 +1343,7 @@ def query_catalog(
                 fg=typer.colors.RED,
             )
             typer.echo(f"Valid formats: {', '.join(valid_formats)}")
-            raise typer.Exit(code=1)  # noqa: TRY301
+            raise typer.Exit(code=1)
 
         catalog_path = Path(catalog_dir) / "catalog.duckdb"
 
@@ -1472,7 +1353,7 @@ def query_catalog(
                 fg=typer.colors.RED,
             )
             typer.echo("Run 'causaganha catalog download' first.")
-            raise typer.Exit(code=1)  # noqa: TRY301
+            raise typer.Exit(code=1)
 
         # Try to open catalog file - may be corrupted
         try:
@@ -1519,36 +1400,25 @@ def query_catalog(
         def safe_str(v) -> str:
             if v is None:
                 return "NULL"
-            try:
-                return str(v)
-            except Exception:
-                return "<error>"
+            return str(v)
 
         if output_format == "csv":
-            import csv
-            import sys
-
             writer = csv.writer(sys.stdout)
             writer.writerow(columns)
             # Safely convert all values
             for row in rows:
                 writer.writerow([safe_str(v) for v in row])
         elif output_format == "json":
-            import json
-
             # Safely build data with error handling for malformed values
             data = []
             for row in rows:
                 row_dict = {}
                 for col, val in zip(columns, row, strict=False):
-                    try:
-                        # Handle non-serializable types
-                        if hasattr(val, "isoformat"):
-                            row_dict[col] = val.isoformat()
-                        else:
-                            row_dict[col] = val
-                    except Exception:
-                        row_dict[col] = None
+                    # Handle non-serializable types
+                    if hasattr(val, "isoformat"):
+                        row_dict[col] = val.isoformat()
+                    else:
+                        row_dict[col] = val
                 data.append(row_dict)
             typer.echo(json.dumps(data, indent=2, default=str))
         else:
@@ -1563,7 +1433,7 @@ def query_catalog(
 
     except duckdb.Error as e:
         _handle_error(e, "Query failed")
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError) as e:
         # Catch any unexpected errors and provide helpful message
         typer.secho(f"⚠ Unexpected error: {e}", fg=typer.colors.YELLOW)
         typer.echo("The data may contain unexpected values. Try a simpler query.")

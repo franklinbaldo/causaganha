@@ -16,30 +16,31 @@ from djen_backup.archive import CircuitBreaker
 from djen_backup.runner import RunConfig, Summary, WorkItem, process_item
 from djen_backup.state import State
 
+
 FAKE_AUTH = "LOW test-access:test-secret"
 
 
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_api() -> respx.MockRouter:
     """A ``respx`` mock router activated for the test."""
     with respx.mock(assert_all_called=False) as router:
         yield router
 
 
-@pytest.fixture()
+@pytest.fixture
 def state() -> State:
     return State()
 
 
-@pytest.fixture()
+@pytest.fixture
 def circuit_breaker() -> CircuitBreaker:
     return CircuitBreaker(threshold=5, recovery_timeout=60.0)
 
 
-@pytest.fixture()
+@pytest.fixture
 def context() -> dict[str, Any]:
     """A mutable bag for sharing data across Given/When/Then steps."""
     return {}

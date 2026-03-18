@@ -10,6 +10,7 @@ import httpx
 import structlog
 
 from causaganha.config import settings
+from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
@@ -41,8 +42,6 @@ async def collect_metadata_for_court(
     This is the modern scraper that replaces the legacy direct-API version.
     It doesn't require selenium or complex integrations.
     """
-    from causaganha.storage.connection import get_connection
-
     con = get_connection()
 
     # Calculate target dates

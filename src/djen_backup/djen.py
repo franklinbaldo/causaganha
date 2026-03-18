@@ -18,11 +18,15 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
+# HTTP status constants
+HTTP_NOT_FOUND = 404
 
-class DJENNotFoundErrorError(Exception):
+
+class DJENNotFoundError(Exception):
     """Raised when the DJEN proxy returns 404 or an empty response."""
 
     def __init__(self, status_code: int, reason: str) -> None:
+        """Initialize the exception with status code and reason."""
         super().__init__(reason)
         self.status_code = status_code
         self.reason = reason
@@ -41,8 +45,8 @@ async def get_caderno_url(
     url = f"{base_url}/api/v1/caderno/{tribunal}/{d.isoformat()}/D"
     resp = await request_with_retry(client, "GET", url, retry_djen_400=True)
 
-    if resp.status_code == 404:
-        raise DJENNotFoundError(status_code=404, reason="Not Found")
+    if resp.status_code == HTTP_NOT_FOUND:
+        raise DJENNotFoundError(status_code=HTTP_NOT_FOUND, reason="Not Found")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
@@ -71,8 +75,8 @@ async def download_zip(
     """
     resp = await request_with_retry(client, "GET", url)
 
-    if resp.status_code == 404:
-        raise DJENNotFoundError(status_code=404, reason="ZIP download 404")
+    if resp.status_code == HTTP_NOT_FOUND:
+        raise DJENNotFoundError(status_code=HTTP_NOT_FOUND, reason="ZIP download 404")
 
     resp.raise_for_status()
 

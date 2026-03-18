@@ -162,7 +162,7 @@ class InternetArchiveUploader:
             row_count,
         )
 
-        logger.info(f"Uploading {file_path.name} to IA item: {item_id}")
+        logger.info("Uploading %s to IA item: %s", file_path.name, item_id)
 
         # Run blocking IA upload in thread pool
         await asyncio.to_thread(
@@ -177,7 +177,7 @@ class InternetArchiveUploader:
             await self._verify_upload(item_id, file_path.name)
 
         ia_url = f"https://archive.org/details/{item_id}"
-        logger.info(f"Successfully uploaded to {ia_url}")
+        logger.info("Successfully uploaded to %s", ia_url)
         return ia_url
 
     def _upload_file(
@@ -231,7 +231,7 @@ class InternetArchiveUploader:
         Raises:
             IOError: If verification fails
         """
-        logger.debug(f"Verifying upload for {item_id}/{filename}")
+        logger.debug("Verifying upload for %s/%s", item_id, filename)
 
         # Get item metadata
         item = await asyncio.to_thread(ia.get_item, item_id)
@@ -241,7 +241,7 @@ class InternetArchiveUploader:
         for file in item.files:
             if file["name"] == filename:
                 file_found = True
-                logger.debug(f"Verified file exists: {filename}")
+                logger.debug("Verified file exists: %s", filename)
                 break
 
         if not file_found:
@@ -341,8 +341,8 @@ class InternetArchiveUploader:
 
         try:
             item = await asyncio.to_thread(ia.get_item, item_id)
-        except Exception as e:
-            logger.warning(f"Error checking if item exists: {e}")
+        except (OSError, RuntimeError, AttributeError) as e:
+            logger.warning("Error checking if item exists: %s", e)
             return False
         else:
             return item.exists

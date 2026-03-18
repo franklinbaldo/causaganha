@@ -13,12 +13,9 @@ from causaganha.storage.connection import get_connection
 
 def fetch_progress_json(url: str) -> dict | None:
     """Fetch progress JSON from Internet Archive."""
-    try:
-        response = httpx.get(url, timeout=30)
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        print(f"Warning: Failed to fetch {url}: {e}", file=sys.stderr)
+    response = httpx.get(url, timeout=30)
+    if response.status_code == 200:
+        return response.json()
     return None
 
 
@@ -78,8 +75,6 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         ORDER BY count ASC
     """).fetchall()
 
-    # con.close()  # Do not close singleton connection
-
     # Fetch progress from Internet Archive
     ia_base = "https://archive.org/download/causaganha-catalog"
     collect_progress = fetch_progress_json(f"{ia_base}/collect-progress.json")
@@ -129,7 +124,6 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-    print(f"Generated: {output_path}")
 
 
 if __name__ == "__main__":
@@ -137,7 +131,6 @@ if __name__ == "__main__":
     output_path = Path("dashboard/public/dashboard-data.json")
 
     if not db_path.exists():
-        print(f"Error: Database not found at {db_path}", file=sys.stderr)
         sys.exit(1)
 
     generate_dashboard_data(db_path, output_path)

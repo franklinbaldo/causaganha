@@ -69,7 +69,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
         today = date.today()
         start_date = today - timedelta(days=7)
 
-        logger.info(f"Checking {tribunal}...", tribunal=tribunal)
+        logger.info("Checking %s...", tribunal, tribunal=tribunal)
 
         intimations = await client.get_intimations_by_court(
             sigla_tribunal=tribunal,
@@ -79,9 +79,9 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
         )
 
         count = len(intimations)
-        logger.info(f"Court {tribunal} accessible", count=count)
+        logger.info("Court %s accessible", tribunal, count=count)
 
-        return {
+        result = {
             "tribunal": tribunal,
             "status": "OK",
             "count": count,
@@ -89,13 +89,15 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
         }
 
     except Exception as e:
-        logger.warning(f"Court {tribunal} failed", error=str(e))
+        logger.warning("Court %s failed", tribunal, error=str(e))
         return {
             "tribunal": tribunal,
             "status": "ERROR",
             "count": 0,
             "error": str(e),
         }
+    else:
+        return result
 
 
 async def validate_coverage() -> None:

@@ -74,11 +74,8 @@ def get_next_date(repo_root: str) -> str:
     cursor_date = None
 
     if state_path.exists():
-        try:
-            state = json.loads(state_path.read_text())
-            cursor_date = state.get("cursor_date")
-        except Exception:  # noqa: S110
-            pass
+        state = json.loads(state_path.read_text())
+        cursor_date = state.get("cursor_date")
 
     if cursor_date:
         # Move one day back from cursor
@@ -94,7 +91,7 @@ def get_next_date(repo_root: str) -> str:
     return next_d.isoformat()
 
 
-def update_cursor(repo_root: str, processed_date: str):
+def update_cursor(repo_root: str, processed_date: str) -> None:
     """Update the cursor to the date just processed."""
     state_path = Path(repo_root) / STATE_FILE
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,8 +104,6 @@ def update_cursor(repo_root: str, processed_date: str):
 
 def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
     """Execute a single pipeline step."""
-    print(f"\n{'=' * 60}\n  STEP: {name}\n{'=' * 60}\n  cmd: {' '.join(cmd)}\n")
-
     fd, output_file = tempfile.mkstemp(prefix=f"pipeline-{name}-", suffix=".txt")
     os.close(fd)
 
@@ -128,9 +123,8 @@ def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
         output_path.unlink()
 
     success = result.returncode == 0
-    print(f"\n  [{name}] {'OK' if success else 'FAILED'}")
     for k, v in outputs.items():
-        print(f"    {k}={v}")
+        pass
 
     return StepResult(name=name, success=success, outputs=outputs, duration_seconds=duration)
 
@@ -138,7 +132,7 @@ def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
 # ── Main ─────────────────────────────────────────────────────
 
 
-def main():
+def main() -> None:
     """Run the pipeline."""
     parser = argparse.ArgumentParser(description="CausaGanha Pipeline (KISS)")
     parser.add_argument("--job", default="all", choices=["all", "collect", "consolidate", "embed"])
@@ -150,7 +144,6 @@ def main():
     scripts_dir = str(Path(__file__).parent)
 
     target_date = args.date or get_next_date(repo_root)
-    print(f"Pipeline starting | Job: {args.job} | Date: {target_date}")
 
     state = PipelineState()
 
@@ -209,7 +202,6 @@ def main():
     if not args.date and args.job == "all":
         update_cursor(repo_root, target_date)
 
-    print(f"\nPipeline complete. Files added: {state.files_added}")
 
 
 if __name__ == "__main__":

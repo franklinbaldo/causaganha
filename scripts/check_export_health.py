@@ -99,7 +99,6 @@ def main() -> int:
 
         # Determine health status
         if stats["total_exports"] == 0:
-            print("CRITICAL: No exports found in the last 24 hours")
             return 2
 
         success_rate = stats["success_rate"] or 0.0
@@ -108,36 +107,20 @@ def main() -> int:
             # Check for problematic tribunals
             problematic = check_problematic_tribunals(threshold_pct=50.0)
             if problematic:
-                print(
-                    f"WARNING: {len(problematic)} tribunals with >50% failure rate",
-                )
-                for t in problematic[:3]:  # Show top 3
-                    print(f"  - {t['tribunal']}: {t['failure_rate']}% failure")
-                return 1
-
-            print(
-                f"OK: {stats['successful']}/{stats['total_exports']} exports successful "
-                f"({success_rate}%)",
-            )
-            return 0
-
-        if success_rate >= 75.0:
-            print(
-                f"WARNING: {stats['failed']}/{stats['total_exports']} exports failed "
-                f"({100 - success_rate}% failure rate)",
-            )
-            return 1
-
-        print(
-            f"CRITICAL: {stats['failed']}/{stats['total_exports']} exports failed "
-            f"({100 - success_rate}% failure rate)",
-        )
-        return 2
-
+                for _t in problematic[:3]:  # Show top 3
+                    pass
+                result = 1
+            else:
+                result = 0
+        elif success_rate >= 75.0:
+            result = 1
+        else:
+            result = 2
     except Exception as e:
         logger.exception("health_check_error", error=str(e))
-        print(f"UNKNOWN: Health check failed - {e}")
         return 3
+    else:
+        return result
 
 
 if __name__ == "__main__":

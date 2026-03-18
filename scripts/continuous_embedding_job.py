@@ -85,12 +85,11 @@ def get_unembedded_decisions(limit: int | None = None) -> list[int]:
             count=len(intimation_ids),
             sample_ids=intimation_ids[:10] if intimation_ids else [],
         )
-
-        return intimation_ids
-
     except Exception as e:
-        logger.error("failed_to_query_unembedded_decisions", error=str(e))
+        logger.exception("failed_to_query_unembedded_decisions", error=str(e))
         raise
+    else:
+        return intimation_ids
 
 
 def load_decision_text(intimation_id: int) -> str:
@@ -121,7 +120,7 @@ def load_decision_text(intimation_id: int) -> str:
         return row[0]
 
     except Exception as e:
-        logger.error(
+        logger.exception(
             "failed_to_load_decision_text",
             intimation_id=intimation_id,
             error=str(e),
@@ -140,7 +139,7 @@ def create_progress_callback(total: int, start_time: float) -> Callable[[BatchSt
         Progress callback function.
     """
 
-    def progress(stats: BatchStats):
+    def progress(stats: BatchStats) -> None:
         elapsed = time.time() - start_time
         remaining_decisions = total - stats.processed_decisions
         eta_seconds = (
@@ -207,7 +206,7 @@ async def process_with_timeout(
     )
 
 
-def save_statistics(stats: BatchStats, args: argparse.Namespace):
+def save_statistics(stats: BatchStats, args: argparse.Namespace) -> None:
     """Save job statistics to JSON file.
 
     Args:
@@ -242,7 +241,7 @@ def save_statistics(stats: BatchStats, args: argparse.Namespace):
     logger.info("statistics_saved", file=str(stats_file))
 
 
-async def main_async(args: argparse.Namespace):
+async def main_async(args: argparse.Namespace) -> None:
     """Main async entry point.
 
     Args:
@@ -264,15 +263,8 @@ async def main_async(args: argparse.Namespace):
 
     if not intimation_ids:
         logger.info("no_decisions_to_process")
-        print("\n✅ No decisions need embedding - all caught up!\n")
         return
 
-    print("\n🚀 Starting continuous embedding generation")
-    print(f"   Decisions to process: {len(intimation_ids):,}")
-    print(f"   Max concurrency: {args.max_concurrency}")
-    print(f"   Timeout: {args.timeout_minutes} minutes")
-    print(f"   Model: {JINA_V4_1024.name} ({JINA_V4_1024.dimension}D)")
-    print()
 
     # Process with timeout
     stats = await process_with_timeout(
@@ -286,29 +278,13 @@ async def main_async(args: argparse.Namespace):
 
     # Print summary
     job_duration = time.time() - job_start
-    print()
-    print("=" * 80)
-    print("CONTINUOUS JOB COMPLETE")
-    print("=" * 80)
-    print()
-    print(f"Total decisions: {stats.total_decisions:,}")
-    print(f"Cached (skipped): {stats.cached_decisions:,}")
-    print(f"Processed: {stats.processed_decisions:,}")
-    print(f"Failed: {stats.failed_decisions:,}")
-    print()
-    print(f"Cache hit rate: {stats.cache_hit_rate:.1%}")
-    print(f"Success rate: {stats.success_rate:.1%}")
-    print(f"Duration: {stats.duration_seconds:.1f}s ({job_duration:.1f}s total)")
-    print(f"Throughput: {stats.throughput:.2f} decisions/sec")
-    print()
 
     # Calculate remaining work
     remaining = get_unembedded_decisions(limit=1)
     if remaining:
-        print(f"⏰ Still {len(remaining):,}+ decisions remaining to process")
+        pass
     else:
-        print("✅ All decisions embedded - fully caught up!")
-    print()
+        pass
 
     logger.info(
         "continuous_job_complete",
@@ -320,7 +296,7 @@ async def main_async(args: argparse.Namespace):
     )
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Continuous embedding generation for high-throughput processing",

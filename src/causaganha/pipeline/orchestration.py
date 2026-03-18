@@ -13,6 +13,7 @@ Orchestration happens in 3 phases:
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 
 from .models import ExportPlan, ExportResult, TribunalExportResult
 
@@ -48,7 +49,7 @@ class PureOrchestrator:
             cleanup_files=cleanup_files,
         )
         plan.validate()  # Raises ValueError if invalid
-        logger.debug(f"Planned export for {len(tribunals)} tribunals on {partition_date}")
+        logger.debug("Planned export for %s tribunals on %s", len(tribunals), partition_date)
         return plan
 
     @staticmethod
@@ -98,9 +99,13 @@ class PureOrchestrator:
         result.validate()
 
         logger.info(
-            f"Aggregated results for {partition_date}: "
-            f"{result.successful} successful, {result.failed} failed, "
-            f"{result.skipped} skipped ({result.total_rows} rows, {result.total_size_mb:.2f} MB)",
+            "Aggregated results for %s: %s successful, %s failed, %s skipped (%s rows, %.2f MB)",
+            partition_date,
+            result.successful,
+            result.failed,
+            result.skipped,
+            result.total_rows,
+            result.total_size_mb,
         )
         return result
 
@@ -119,7 +124,7 @@ class PureOrchestrator:
             True if any exports succeeded and cleanup should run
         """
         should_cleanup = results.successful > 0
-        logger.debug(f"Should purge old data: {should_cleanup}")
+        logger.debug("Should purge old data: %s", should_cleanup)
         return should_cleanup
 
     @staticmethod
@@ -129,7 +134,5 @@ class PureOrchestrator:
         Returns:
             Yesterday's date as string
         """
-        from datetime import date, timedelta
-
         yesterday = date.today() - timedelta(days=1)
         return yesterday.isoformat()

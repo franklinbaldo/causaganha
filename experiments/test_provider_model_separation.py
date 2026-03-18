@@ -29,69 +29,42 @@ async def test_provider_model_separation() -> None:
     # Test 1: One provider, multiple models
 
     if os.getenv("JINA_API_KEY"):
-        try:
-            # Create ONE provider instance
-            jina_provider = JinaProvider()
+        # Create ONE provider instance
+        jina_provider = JinaProvider()
 
-            # Use the SAME provider with DIFFERENT models
-            test_text = "This is a test sentence for embedding."
+        # Use the SAME provider with DIFFERENT models
+        test_text = "This is a test sentence for embedding."
 
-            # Model 1: Jina v4 with 1024 dimensions
-            await jina_provider.embed_text(test_text, model=JINA_V4_1024)
+        # Model 1: Jina v4 with 1024 dimensions
+        await jina_provider.embed_text(test_text, model=JINA_V4_1024)
 
-            # Model 2: Jina v4 with 768 dimensions (different dimension, same provider!)
-            await jina_provider.embed_text(test_text, model=JINA_V4_768)
+        # Model 2: Jina v4 with 768 dimensions (different dimension, same provider!)
+        await jina_provider.embed_text(test_text, model=JINA_V4_768)
 
-            # Model 3: Jina v3 with 1024 dimensions (different model version!)
-            await jina_provider.embed_text(test_text, model=JINA_V3_1024)
-
-        except Exception:
-            pass
-    else:
-        pass
+        # Model 3: Jina v3 with 1024 dimensions (different model version!)
+        await jina_provider.embed_text(test_text, model=JINA_V3_1024)
 
     # Test 2: EmbeddingService with explicit model selection
-
     if os.getenv("JINA_API_KEY"):
-        try:
-            # Create service with specific model
-            service_v4 = await EmbeddingService.create(
-                provider="jina",
-                model=JINA_V4_1024,  # Explicit model
-            )
+        # Create service with specific model
+        service_v4 = await EmbeddingService.create(
+            provider="jina",
+            model=JINA_V4_1024,  # Explicit model
+        )
 
-            # Embed a text
-            await service_v4.embed_text("Legal decision text example")
-
-        except Exception:
-            pass
-    else:
-        pass
+        # Embed a text
+        await service_v4.embed_text("Legal decision text example")
 
     # Test 3: Auto-selection with default models
-
-    try:
-        # Auto-select (will pick Jina if available, Google otherwise)
-        await EmbeddingService.create(provider="auto")
-
-    except Exception:
-        pass
+    # Auto-select (will pick Jina if available, Google otherwise)
+    await EmbeddingService.create(provider="auto")
 
     # Test 4: Model validation (provider mismatch)
-
     if os.getenv("JINA_API_KEY"):
-        try:
-            jina_provider = JinaProvider()
+        jina_provider = JinaProvider()
 
-            # Try to use a Google model with Jina provider (should fail!)
-            await jina_provider.embed_text("test", model=GOOGLE_GEMINI_768)
-
-        except ValueError:
-            pass
-        except Exception:
-            pass
-    else:
-        pass
+        # Try to use a Google model with Jina provider (should fail with ValueError)
+        await jina_provider.embed_text("test", model=GOOGLE_GEMINI_768)
 
     # Summary
 

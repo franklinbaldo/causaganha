@@ -209,7 +209,6 @@ def main() -> int:
 
     embed_fn = get_embed_fn()
     if embed_fn is None:
-        print("ERROR: Set JINA_API_KEY or GOOGLE_API_KEY")
         return 0  # not a pipeline failure, just nothing to do
 
     stats = generate_embeddings(
@@ -219,9 +218,6 @@ def main() -> int:
         deadline_seconds=deadline_seconds,
     )
 
-    print(
-        f"\nEmbedding: processed={stats['processed']} saved={stats['saved']} failed={stats['failed']}"
-    )
 
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         with Path(gh_output).open("a") as f:

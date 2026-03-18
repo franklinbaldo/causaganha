@@ -98,7 +98,7 @@ def classify_with_knn(
     }
 
 
-def main():
+def main() -> None:
     """Analisar decisões não processadas usando RAG."""
     console.print("\n[bold cyan]🤖 Análise RAG: Classificação de Decisões[/bold cyan]\n")
 

@@ -134,11 +134,8 @@ def ensure_migration_table(con: Backend) -> None:
 
 def get_applied_migrations(con: Backend) -> set[int]:
     """Get set of applied migration versions."""
-    try:
-        result = con.con.execute("SELECT version FROM schema_migrations").fetchall()
-        return {row[0] for row in result}
-    except Exception:
-        return set()
+    result = con.con.execute("SELECT version FROM schema_migrations").fetchall()
+    return {row[0] for row in result}
 
 
 def run_migrations(con: Backend | None = None, dry_run: bool = False) -> list[str]:

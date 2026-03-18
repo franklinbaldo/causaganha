@@ -67,7 +67,7 @@ def get_unembedded_decisions(
         rows = result.fetchall()
         return [row[0] for row in rows]
     except Exception as e:
-        logger.error("failed_to_get_unembedded_decisions", error=str(e))
+        logger.exception("failed_to_get_unembedded_decisions", error=str(e))
         return []
 
 
@@ -95,7 +95,7 @@ def load_decision_text(intimation_id: int) -> str:
         row = result.fetchone()
         return row[0] if row else ""
     except Exception as e:
-        logger.error(
+        logger.exception(
             "failed_to_load_decision_text",
             intimation_id=intimation_id,
             error=str(e),
@@ -131,12 +131,9 @@ async def process_batch_with_retry(
                 cache_hit_rate=stats.cache_hit_rate,
                 throughput=stats.throughput,
             )
-
-            return stats
-
         except Exception as e:
             wait_time = 2**attempt  # Exponential backoff
-            logger.error(
+            logger.exception(
                 "batch_failed",
                 attempt=attempt + 1,
                 max_retries=max_retries,
@@ -147,8 +144,10 @@ async def process_batch_with_retry(
             if attempt < max_retries - 1:
                 await asyncio.sleep(wait_time)
             else:
-                logger.error("batch_failed_permanently", error=str(e))
+                logger.exception("batch_failed_permanently", error=str(e))
                 raise
+        else:
+            return stats
     return None
 
 
@@ -156,7 +155,7 @@ async def continuous_processing_loop(
     batch_size: int = 100,
     max_concurrency: int = 20,
     idle_sleep_seconds: int = 300,
-):
+) -> None:
     """Main continuous processing loop.
 
     Args:
@@ -223,7 +222,7 @@ async def continuous_processing_loop(
             total_processed += stats.processed_decisions
 
         except Exception as e:
-            logger.error("iteration_failed", error=str(e))
+            logger.exception("iteration_failed", error=str(e))
 
         iteration_duration = time.time() - iteration_start
 
@@ -238,7 +237,7 @@ async def continuous_processing_loop(
         await asyncio.sleep(5)
 
 
-def main():
+def main() -> None:
     """Entry point for continuous embedding service."""
     # Configuration from environment variables
     import os

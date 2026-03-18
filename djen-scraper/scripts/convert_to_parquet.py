@@ -91,27 +91,24 @@ def process_item(entry: str) -> bool:
             url = f"https://archive.org/download/{item_id}/{zip_filename}"
 
             with timed(f"download ({zip_filename})"):
-                try:
-                    # Long timeouts for large files from IA
-                    timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
-                    with httpx.stream(
-                        "GET",
-                        url,
-                        timeout=timeout,
-                        follow_redirects=True,
-                    ) as response:
-                        if response.status_code == 200:
-                            downloaded = 0
-                            with open(zip_path, "wb") as f:
-                                for chunk in response.iter_bytes(
-                                    chunk_size=1024 * 1024,
-                                ):  # 1MB chunks
-                                    f.write(chunk)
-                                    downloaded += len(chunk)
-                            download_success = True
-                            break
-                except Exception:
-                    pass
+                # Long timeouts for large files from IA
+                timeout = httpx.Timeout(connect=30, read=600, write=30, pool=30)
+                with httpx.stream(
+                    "GET",
+                    url,
+                    timeout=timeout,
+                    follow_redirects=True,
+                ) as response:
+                    if response.status_code == 200:
+                        downloaded = 0
+                        with open(zip_path, "wb") as f:
+                            for chunk in response.iter_bytes(
+                                chunk_size=1024 * 1024,
+                            ):  # 1MB chunks
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                        download_success = True
+                        break
 
         if not download_success:
             return False
@@ -308,11 +305,12 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
     """Wrapper for process_item that catches exceptions."""
     try:
         result = process_item(entry)
-        return (entry, result, "")
     except Exception:
         import traceback
 
         return (entry, False, traceback.format_exc())
+    else:
+        return (entry, result, "")
 
 
 def main() -> None:

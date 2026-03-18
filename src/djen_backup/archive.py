@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import time
 from datetime import UTC, date, datetime
 from enum import StrEnum
@@ -22,6 +23,13 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
+# ── HTTP status constants ────────────────────────────────────────────
+
+HTTP_OK = 200
+HTTP_BAD_REQUEST = 400
+HTTP_NOT_FOUND = 404
+HTTP_SERVICE_UNAVAILABLE = 503
+
 # ── IA metadata ──────────────────────────────────────────────────────
 
 IA_METADATA_URL = "https://archive.org/metadata/backup-djen-{date}"
@@ -34,7 +42,7 @@ async def fetch_ia_existing(
     """Query IA metadata; return ``{tribunal: "uploaded"|"absent"}``."""
     url = IA_METADATA_URL.format(date=d.isoformat())
     resp = await request_with_retry(client, "GET", url)
-    if resp.status_code != 200:
+    if resp.status_code != HTTP_OK:
         log.warning("ia_metadata_error", date=d.isoformat(), status=resp.status_code)
         return {}
 
@@ -109,7 +117,7 @@ async def upload_zip(
 
     Reads *zip_path* into memory for the upload.
     """
-    content = zip_path.read_bytes()
+    content = await asyncio.to_thread(zip_path.read_bytes)
     filename = f"djen-{d.isoformat()}-{tribunal}.zip"
     url = IA_S3_URL.format(date=d.isoformat(), filename=filename)
     md5 = _content_md5(content)
@@ -124,7 +132,7 @@ async def upload_zip(
         headers=headers,
     )
     body = resp.content or b""
-    if resp.status_code == 200:
+    if resp.status_code == HTTP_OK:
         log.info(
             "ia_upload_done",
             date=d.isoformat(),
@@ -161,8 +169,6 @@ async def upload_absent_marker(
     auth: str,
 ) -> httpx.Response:
     """Upload a ``.absent`` marker with metadata JSON."""
-    import json
-
     filename = f"djen-{d.isoformat()}-{tribunal}.absent"
     url = IA_S3_URL.format(date=d.isoformat(), filename=filename)
 
@@ -212,6 +218,7 @@ class CircuitBreaker:
         threshold: int = 5,
         recovery_timeout: float = 60.0,
     ) -> None:
+        """Initialize the circuit breaker with failure threshold and recovery timeout."""
         self._threshold = threshold
         self._base_recovery = recovery_timeout
         self._recovery_timeout = recovery_timeout

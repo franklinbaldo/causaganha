@@ -5,12 +5,18 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import click
 import structlog
 
+from djen_backup.backfill import (
+    BackfillConfig,
+    load_backfill_state,
+    run_backfill,
+    save_backfill_state,
+)
 from djen_backup.credentials import get_ia_s3_auth
 
 
@@ -123,7 +129,7 @@ def _resolve_ia_auth(*, dry_run: bool) -> str:
     ),
 )
 @click.pass_context
-def main(
+def main(  # noqa: PLR0913
     ctx: click.Context,
     start_date: str | None,
     end_date: str | None,
@@ -133,6 +139,7 @@ def main(
     workers: int,
     backfill_state_file: Path | None,
     state_file: Path | None,
+    *,
     dry_run: bool,
     skip_absent_markers: bool,
 ) -> None:
@@ -145,9 +152,7 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
 
-    from djen_backup.backfill import BackfillConfig, run_backfill
-
-    today = date.today()
+    today = datetime.now(tz=UTC).date()
     resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
     resolved_start = _parse_date(start_date) if start_date else None
 
@@ -194,8 +199,6 @@ def main(
 )
 def status(backfill_state_file: Path) -> None:
     """Show per-tribunal backfill progress."""
-    from djen_backup.backfill import load_backfill_state
-
     bstate = load_backfill_state(backfill_state_file)
     progress = bstate.get_all_progress()
 
@@ -243,11 +246,10 @@ def status(backfill_state_file: Path) -> None:
 def reset(
     backfill_state_file: Path,
     tribunal: str | None,
+    *,
     reset_all: bool,
 ) -> None:
     """Reset stopped tribunal(s) for re-scanning."""
-    from djen_backup.backfill import load_backfill_state, save_backfill_state
-
     if not tribunal and not reset_all:
         click.echo("Error: provide --tribunal CODE or --all", err=True)
         sys.exit(1)

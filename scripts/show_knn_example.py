@@ -36,7 +36,7 @@ def get_embedding(text: str) -> list[float]:
     return result["embedding"]
 
 
-def main():
+def main() -> None:
     """Demonstrar k-NN na prática."""
     console.print("\n[bold cyan]🔍 Exemplo de k-NN: Como Funciona na Prática[/bold cyan]\n")
 

@@ -61,7 +61,7 @@ def get_embedding(text: str, task_type: str = "retrieval_document") -> list[floa
     return result["embedding"]
 
 
-def main():
+def main() -> None:
     """Indexar ground truth no LanceDB."""
     console.print("\n[bold cyan]🗂️  Indexação de Ground Truth no LanceDB[/bold cyan]\n")
 
@@ -135,8 +135,6 @@ def main():
 
     # Criar índice para busca eficiente
     console.print("[yellow]Criando índice IVF-PQ para busca rápida...[/yellow]")
-    # IVF-PQ index for fast approximate search
-    # table.create_index(metric="cosine", num_partitions=32, num_sub_vectors=16)
 
     console.print("\n[bold green]✓ Indexação Completa![/bold green]\n")
 

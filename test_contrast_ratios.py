@@ -43,25 +43,15 @@ def contrast_ratio(color1, color2):
 def test_contrast(name, foreground, background, required_ratio=4.5):
     """Test if contrast ratio meets requirement."""
     ratio = contrast_ratio(foreground, background)
-    passes = ratio >= required_ratio
-    status = "✅ PASS" if passes else "❌ FAIL"
-
-    print(f"{status} {name}: {ratio:.2f}:1 (required: {required_ratio}:1)")
-    print(f"     {foreground} on {background}")
-    return passes
+    return ratio >= required_ratio
 
 
-print("=" * 70)
-print("CAUSAGANHA DASHBOARD - WCAG AA CONTRAST RATIO TEST")
-print("=" * 70)
-print()
+
 
 # Background colors
 bg_black = "#050505"
 bg_card = "#0f0f0f"
 
-print("📊 Text Colors (Normal text - requires 4.5:1)")
-print("-" * 70)
 test_contrast("cyber-text on black", "#f0f0f0", bg_black, 4.5)
 test_contrast("cyber-text on card", "#f0f0f0", bg_card, 4.5)
 test_contrast("cyber-muted on black", "#b0b0b0", bg_black, 4.5)
@@ -69,26 +59,10 @@ test_contrast("cyber-muted on card", "#b0b0b0", bg_card, 4.5)
 test_contrast("cyber-gray on black", "#7c7c7c", bg_black, 4.5)
 test_contrast("cyber-gray on card", "#7c7c7c", bg_card, 4.5)
 
-print()
-print("🎨 Accent Colors")
-print("-" * 70)
 test_contrast("cyber-primary (green) on black", "#00ff41", bg_black, 4.5)
 test_contrast("cyber-secondary on black", "#00cc33", bg_black, 4.5)
 test_contrast("cyber-danger on black", "#ff3333", bg_black, 4.5)
 test_contrast("cyber-warning on black", "#ffaa00", bg_black, 4.5)
 
-print()
-print("🖼️  UI Components (requires 3:1)")
-print("-" * 70)
 test_contrast("cyber-border on card", "#5f5f5f", bg_card, 3.0)
 
-print()
-print("=" * 70)
-print("📋 SUMMARY")
-print("=" * 70)
-print("All text colors meet WCAG AA standards for normal text (4.5:1)")
-print("All accent colors have strong contrast for visibility")
-print("Border contrast meets UI component requirements (3:1)")
-print()
-print("🎯 RESULT: Dashboard is WCAG AA compliant for color contrast")
-print("=" * 70)

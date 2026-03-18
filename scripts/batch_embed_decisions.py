@@ -83,7 +83,7 @@ def prepare_batch_requests(decisions: list[tuple], output_file: str) -> int:
     return request_count
 
 
-def main():
+def main() -> None:
     """Process decisions with Batch API."""
     console.print("\n[bold cyan]🚀 Batch Embedding: Google Batch API (50% custo)[/bold cyan]\n")
 

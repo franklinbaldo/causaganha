@@ -1,5 +1,6 @@
 """DuckDB catalog creator for remote Parquet access."""
 
+import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -198,7 +199,7 @@ class CatalogCreator:
                     "message": f"Found {len(views)} views",
                 },
             )
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             validation_results.append(
                 {
                     "check": "views_accessible",
@@ -278,11 +279,8 @@ class CatalogCreator:
         Returns:
             True if URL is valid, False otherwise
         """
-        try:
-            result = urlparse(url)
-            return all([result.scheme in ["http", "https"], result.netloc])
-        except Exception:
-            return False
+        result = urlparse(url)
+        return all([result.scheme in ["http", "https"], result.netloc])
 
     def add_standard_views(
         self,
@@ -370,8 +368,6 @@ class CatalogCreator:
         Args:
             output_path: Path where JSON file will be written
         """
-        import json
-
         info = self.get_catalog_info()
 
         with Path(output_path).open("w") as f:

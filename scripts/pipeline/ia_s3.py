@@ -230,7 +230,6 @@ def upload_to_ia(
         _perform_upload(client, url, file_path, headers)
         if circuit_breaker is not None:
             circuit_breaker.record_success()
-        return True
     except Exception as e:
         logger.warning(
             "upload_failed",
@@ -241,3 +240,5 @@ def upload_to_ia(
         if circuit_breaker is not None:
             circuit_breaker.record_failure()
         return False
+    else:
+        return True

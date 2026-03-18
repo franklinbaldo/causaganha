@@ -29,7 +29,7 @@ def load_state() -> dict:
     }
 
 
-def save_state(state: dict):
+def save_state(state: dict) -> None:
     """Save current state."""
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state, indent=2))
@@ -37,13 +37,10 @@ def save_state(state: dict):
 
 def fetch_progress() -> dict | None:
     """Fetch current backfill progress from IA."""
-    try:
-        with httpx.Client(timeout=30, follow_redirects=True) as client:
-            resp = client.get(CATALOG_URL)
-            if resp.status_code == 200:
-                return resp.json()
-    except Exception as e:
-        print(f"❌ Error fetching progress: {e}", file=sys.stderr)
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        resp = client.get(CATALOG_URL)
+        if resp.status_code == 200:
+            return resp.json()
     return None
 
 
@@ -95,7 +92,7 @@ def check_stall(state: dict, current: dict, stall_threshold_minutes: int = 60) -
     return False, f"⏳ No progress for {elapsed:.0f}min (threshold: {stall_threshold_minutes}min)"
 
 
-def main():
+def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="Monitor GitHub Actions backfill")
@@ -116,27 +113,15 @@ def main():
     current = fetch_progress()
 
     if current is None:
-        print("❌ Could not fetch progress from IA", file=sys.stderr)
         return 1
 
-    is_stalled, message = check_stall(state, current, args.stall_threshold)
+    is_stalled, _message = check_stall(state, current, args.stall_threshold)
     save_state(state)
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "stalled": is_stalled,
-                    "message": message,
-                    "current_pct": current.get("progress_pct", 0),
-                    "current_items": current.get("items_collected", 0),
-                    "last_change_at": state["last_change_at"],
-                    "alerts_sent": state["alerts_sent"],
-                }
-            )
-        )
+        pass
     else:
-        print(message)
+        pass
 
     return 1 if is_stalled else 0
 

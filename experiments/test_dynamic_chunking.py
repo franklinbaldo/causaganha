@@ -141,68 +141,51 @@ async def test_dynamic_chunking() -> None:
     text_length // 4  # Rough estimate: 1 token ≈ 4 chars
 
     # Test 1: Jina v4 (32K tokens)
+    jina_v4_service = EmbeddingService(
+        provider="jina",
+        model="jina-embeddings-v4",
+        dimension=1024,
+    )
 
-    try:
-        jina_v4_service = EmbeddingService(
-            provider="jina",
-            model="jina-embeddings-v4",
-            dimension=1024,
-        )
+    # Show provider token limit
+    chunker_v4 = create_chunker_for_provider(jina_v4_service.provider)
 
-        # Show provider token limit
-        chunker_v4 = create_chunker_for_provider(jina_v4_service.provider)
+    # Chunk using semantic sections (auto strategy)
+    chunks_v4_auto = chunker_v4.chunk_text(test_text, strategy="auto")
+    for _i, _chunk in enumerate(chunks_v4_auto, 1):
+        pass
 
-        # Chunk using semantic sections (auto strategy)
-        chunks_v4_auto = chunker_v4.chunk_text(test_text, strategy="auto")
-        for _i, _chunk in enumerate(chunks_v4_auto, 1):
-            pass
-
-        # Chunk using sliding window
-        chunks_v4_window = chunker_v4.chunk_text(test_text, strategy="sliding_window")
-        for _i, _chunk in enumerate(chunks_v4_window, 1):
-            pass
-
-    except Exception:
+    # Chunk using sliding window
+    chunks_v4_window = chunker_v4.chunk_text(test_text, strategy="sliding_window")
+    for _i, _chunk in enumerate(chunks_v4_window, 1):
         pass
 
     # Test 2: Jina v3 (8K tokens)
+    jina_v3_service = EmbeddingService(
+        provider="jina",
+        model="jina-embeddings-v3",
+        dimension=1024,
+    )
 
-    try:
-        jina_v3_service = EmbeddingService(
-            provider="jina",
-            model="jina-embeddings-v3",
-            dimension=1024,
-        )
+    chunker_v3 = create_chunker_for_provider(jina_v3_service.provider)
 
-        chunker_v3 = create_chunker_for_provider(jina_v3_service.provider)
-
-        chunks_v3 = chunker_v3.chunk_text(test_text, strategy="auto")
-        for _i, _chunk in enumerate(chunks_v3, 1):
-            pass
-
-    except Exception:
+    chunks_v3 = chunker_v3.chunk_text(test_text, strategy="auto")
+    for _i, _chunk in enumerate(chunks_v3, 1):
         pass
 
     # Test 3: Google Gemini (2K tokens)
-
     if os.getenv("GOOGLE_API_KEY"):
-        try:
-            google_service = EmbeddingService(
-                provider="google",
-                model="gemini-embedding-001",
-                dimension=768,
-            )
+        google_service = EmbeddingService(
+            provider="google",
+            model="gemini-embedding-001",
+            dimension=768,
+        )
 
-            chunker_google = create_chunker_for_provider(google_service.provider)
+        chunker_google = create_chunker_for_provider(google_service.provider)
 
-            chunks_google = chunker_google.chunk_text(test_text, strategy="auto")
-            for _i, _chunk in enumerate(chunks_google, 1):
-                pass
-
-        except Exception:
+        chunks_google = chunker_google.chunk_text(test_text, strategy="auto")
+        for _i, _chunk in enumerate(chunks_google, 1):
             pass
-    else:
-        pass
 
     # Summary comparison
 

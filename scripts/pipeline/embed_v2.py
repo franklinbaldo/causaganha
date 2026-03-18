@@ -22,6 +22,7 @@ Usage:
 import argparse
 import hashlib
 import os
+import sys
 import tempfile
 import time
 
@@ -76,9 +77,11 @@ def get_embedding_client():
                 )
                 return result["embedding"]
 
-            return embed_texts
+            func = embed_texts
         except ImportError:
             pass
+        else:
+            return func
 
     return None
 
@@ -132,10 +135,12 @@ def fetch_texts_from_ia(con: ibis.BaseBackend, date: str) -> ibis.Table | None:
         logger.info("texts_downloaded", date=date, rows=row_count)
         if row_count == 0:
             return None
-        return t
+        result = t
     except Exception as e:
         logger.warning("texts_download_failed", date=date, error=str(e))
         return None
+    else:
+        return result
     finally:
         os.unlink(path)
 
@@ -223,7 +228,7 @@ def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, table_name: str) -
             logger.error("upload_failed", date=date)
             return False
     except Exception as e:
-        logger.error("upload_exception", date=date, error=str(e))
+        logger.exception("upload_exception", date=date, error=str(e))
         return False
 
 
@@ -318,7 +323,7 @@ def generate_embeddings_for_date(
     return stats
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate embeddings for DJEN decisions (IA-based)"
     )
@@ -332,8 +337,6 @@ def main():
     embed_fn = get_embedding_client()
     if embed_fn is None:
         logger.error("no_embedding_client", hint="Set JINA_API_KEY or GOOGLE_API_KEY")
-        print("ERROR: No embedding API key configured")
-        print("Set JINA_API_KEY or GOOGLE_API_KEY environment variable")
         return 1
 
     # Get dates to process
@@ -342,14 +345,10 @@ def main():
     elif args.all:
         dates = fetch_consolidated_dates()
         if not dates:
-            print("No consolidated dates found in catalog")
             return 1
     else:
-        print("ERROR: Specify --date or --all")
         return 1
 
-    print(f"Processing {len(dates)} date(s)...")
-    print()
 
     start_time = time.time()
     timeout_seconds = args.timeout_minutes * 60
@@ -362,9 +361,6 @@ def main():
             logger.info("timeout_reached")
             break
 
-        print(f"\n{'=' * 60}")
-        print(f"Processing {date}")
-        print("=" * 60)
 
         stats = generate_embeddings_for_date(
             date=date,
@@ -376,22 +372,10 @@ def main():
         total_stats["failed"] += stats["failed"]
         total_stats["uploaded"] += stats["uploaded"]
 
-        print(f"  Processed: {stats['processed']}")
-        print(f"  Failed:    {stats['failed']}")
-        print(f"  Uploaded:  {stats['uploaded']}")
 
-    print()
-    print("=" * 60)
-    print("EMBEDDING SUMMARY")
-    print("=" * 60)
-    print(f"  Dates:     {len(dates)}")
-    print(f"  Processed: {total_stats['processed']}")
-    print(f"  Failed:    {total_stats['failed']}")
-    print(f"  Uploaded:  {total_stats['uploaded']}")
 
     # Output for GitHub Actions
     files_added = total_stats["uploaded"] > 0
-    print(f"\n  Files added: {files_added}")
 
     if os_env := os.getenv("GITHUB_OUTPUT"):
         with open(os_env, "a") as f:
@@ -404,4 +388,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

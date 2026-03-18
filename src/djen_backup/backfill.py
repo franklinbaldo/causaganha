@@ -23,7 +23,9 @@ from djen_backup.archive import (
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
-from djen_backup.state import ItemStatus, State
+from djen_backup.runner import validate_tribunal
+from djen_backup.state import ItemStatus, State, load_state, save_state
+from djen_backup.tribunais import get_tribunal_list
 
 
 if TYPE_CHECKING:
@@ -103,6 +105,7 @@ class BackfillState:
     """
 
     def __init__(self) -> None:
+        """Initialize the backfill state with empty tribunals and a lock."""
         self._tribunals: dict[str, TribunalProgress] = {}
         self._lock = asyncio.Lock()
 
@@ -188,6 +191,10 @@ class BackfillState:
         """Return a snapshot of all tribunal progress (not locked — read-only use)."""
         return dict(self._tribunals)
 
+    def tribunal_count(self) -> int:
+        """Return the number of tribunals being tracked."""
+        return len(self._tribunals)
+
     # ── Serialisation ────────────────────────────────────────────────
 
     def to_dict(self) -> dict[str, object]:
@@ -224,7 +231,7 @@ def load_backfill_state(path: Path | None) -> BackfillState:
         log.info(
             "backfill_state_loaded",
             path=str(path),
-            tribunals=len(state._tribunals),
+            tribunals=state.tribunal_count(),
         )
     except (json.JSONDecodeError, OSError) as exc:
         log.warning("backfill_state_corrupt", path=str(path), error=str(exc))
@@ -312,6 +319,116 @@ class BackfillSummary:
 
 # ── Single-date processing ───────────────────────────────────────────
 
+# HTTP status constants
+HTTP_OK = 200
+HTTP_BAD_REQUEST = 400
+
+
+async def _process_djen_not_found(  # noqa: PLR0913
+    client: httpx.AsyncClient,
+    breaker: CircuitBreaker,
+    d: date,
+    tribunal: str,
+    config: BackfillConfig,
+    bstate: BackfillState,
+    ia_state: State,
+    summary: BackfillSummary,
+    exc: DJENNotFoundError,
+) -> str:
+    """Handle DJENNotFoundError by uploading absent marker or skipping."""
+    log.info(
+        "backfill_empty",
+        tribunal=tribunal,
+        date=d.isoformat(),
+        status_code=exc.status_code,
+    )
+    if config.skip_absent_markers:
+        # Skip IA upload — just record empty and advance streak
+        stopped = await bstate.record_empty(tribunal)
+        await summary.inc_empty()
+        if stopped:
+            await summary.inc_stopped()
+        return "empty"
+    # Upload absent marker to IA
+    try:
+        resp = await upload_absent_marker(
+            client,
+            d,
+            tribunal,
+            exc.status_code,
+            exc.reason,
+            config.ia_auth,
+        )
+        if resp.status_code < HTTP_BAD_REQUEST:
+            await breaker.record_success()
+            await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
+            stopped = await bstate.record_empty(tribunal)
+            await summary.inc_empty()
+            if stopped:
+                await summary.inc_stopped()
+            return "empty"
+        await breaker.record_failure()
+    except httpx.HTTPError:
+        await breaker.record_failure()
+    await bstate.record_error(tribunal)
+    await summary.inc_error()
+    return "error"
+
+
+async def _process_upload_to_ia(  # noqa: PLR0913
+    client: httpx.AsyncClient,
+    breaker: CircuitBreaker,
+    d: date,
+    tribunal: str,
+    zip_path: Path,
+    config: BackfillConfig,
+    bstate: BackfillState,
+    ia_state: State,
+    summary: BackfillSummary,
+) -> str:
+    """Upload ZIP to IA and record result."""
+    try:
+        resp = await upload_zip(client, d, tribunal, zip_path, config.ia_auth)
+        if resp.status_code < HTTP_BAD_REQUEST:
+            await breaker.record_success()
+            await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
+            await bstate.record_hit(tribunal, d)
+            await summary.inc_hit()
+            return "hit"
+        body = resp.content or b""
+        if b"appears to be spam" in body:
+            # IA rejected this specific item as spam — skip it, don't trip circuit
+            log.warning(
+                "backfill_item_spam_skipped",
+                tribunal=tribunal,
+                date=d.isoformat(),
+                status=resp.status_code,
+            )
+            # Mark as a DJEN error (skip), not an IA infrastructure error
+            await bstate.record_error(tribunal)
+            await summary.inc_error()
+            return "spam"
+        log.error(
+            "backfill_upload_failed",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            status=resp.status_code,
+            body=body[:300].decode("utf-8", errors="replace"),
+        )
+        await breaker.record_failure()
+    except httpx.HTTPError as exc:
+        log.exception(
+            "backfill_upload_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            exc_info=exc,
+        )
+        await breaker.record_failure()
+
+    await bstate.record_error(tribunal)
+    await summary.inc_ia_error()  # IA error — not a source error
+    return "error"
+
 
 async def backfill_process_date(
     client: httpx.AsyncClient,
@@ -358,44 +475,9 @@ async def backfill_process_date(
         zip_url = await get_caderno_url(client, config.djen_proxy_url, tribunal, d)
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
-        # Authoritative empty from DJEN
-        log.info(
-            "backfill_empty",
-            tribunal=tribunal,
-            date=d.isoformat(),
-            status_code=exc.status_code,
+        return await _process_djen_not_found(
+            client, breaker, d, tribunal, config, bstate, ia_state, summary, exc
         )
-        if config.skip_absent_markers:
-            # Skip IA upload — just record empty and advance streak
-            stopped = await bstate.record_empty(tribunal)
-            await summary.inc_empty()
-            if stopped:
-                await summary.inc_stopped()
-            return "empty"
-        # Upload absent marker to IA
-        try:
-            resp = await upload_absent_marker(
-                client,
-                d,
-                tribunal,
-                exc.status_code,
-                exc.reason,
-                config.ia_auth,
-            )
-            if resp.status_code < 400:
-                await breaker.record_success()
-                await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
-                stopped = await bstate.record_empty(tribunal)
-                await summary.inc_empty()
-                if stopped:
-                    await summary.inc_stopped()
-                return "empty"
-            await breaker.record_failure()
-        except httpx.HTTPError:
-            await breaker.record_failure()
-        await bstate.record_error(tribunal)
-        await summary.inc_error()
-        return "error"
     except httpx.HTTPError as exc:
         log.exception(
             "backfill_download_error",
@@ -408,49 +490,9 @@ async def backfill_process_date(
         return "error"
 
     # Upload to IA
-    try:
-        resp = await upload_zip(client, d, tribunal, zip_path, config.ia_auth)
-        if resp.status_code < 400:
-            await breaker.record_success()
-            await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
-            await bstate.record_hit(tribunal, d)
-            await summary.inc_hit()
-            return "hit"
-        body = resp.content or b""
-        if b"appears to be spam" in body:
-            # IA rejected this specific item as spam — skip it, don't trip circuit
-            log.warning(
-                "backfill_item_spam_skipped",
-                tribunal=tribunal,
-                date=d.isoformat(),
-                status=resp.status_code,
-            )
-            # Mark as a DJEN error (skip), not an IA infrastructure error
-            await bstate.record_error(tribunal)
-            await summary.inc_error()
-            return "spam"
-        log.error(
-            "backfill_upload_failed",
-            tribunal=tribunal,
-            date=d.isoformat(),
-            status=resp.status_code,
-            body=body[:300].decode("utf-8", errors="replace"),
-        )
-        await breaker.record_failure()
-    except httpx.HTTPError as exc:
-        log.exception(
-            "backfill_upload_error",
-            tribunal=tribunal,
-            date=d.isoformat(),
-            exc_info=exc,
-        )
-        await breaker.record_failure()
-
-    await bstate.record_error(tribunal)
-    await summary.inc_ia_error()  # IA error — not a source error
-    return "error"
-    # zip_path cleanup is handled by the caller (backfill_tribunal)
-    # since we always return before reaching here after the try/finally below.
+    return await _process_upload_to_ia(
+        client, breaker, d, tribunal, zip_path, config, bstate, ia_state, summary
+    )
 
 
 # ── Per-tribunal scan loop ───────────────────────────────────────────
@@ -520,7 +562,7 @@ async def backfill_tribunal(
             )
         finally:
             if zip_path is not None:
-                zip_path.unlink(missing_ok=True)
+                await asyncio.to_thread(zip_path.unlink, missing_ok=True)
 
         # Advance on definitive results, including spam rejections that should be skipped.
         # Only genuine upload errors keep the cursor so the next run retries this date.
@@ -553,12 +595,65 @@ async def backfill_tribunal(
 # ── Main orchestration ───────────────────────────────────────────────
 
 
+async def _advance_stopped_cursors(
+    bstate: BackfillState,
+    all_tribunals: list[str],
+    start_date: date,
+) -> None:
+    """Advance stopped tribunal cursors to start_date if needed."""
+    for t in all_tribunals:
+        prog = bstate.get_all_progress().get(t)
+        if prog is not None and prog.stopped:
+            advanced = await bstate.ensure_cursor_at_least(t, start_date)
+            if advanced:
+                log.info(
+                    "cursor_auto_advanced",
+                    tribunal=t,
+                    new_cursor=start_date.isoformat(),
+                )
+
+
+async def _run_backfill_workers(
+    client: httpx.AsyncClient,
+    breaker: CircuitBreaker,
+    config: BackfillConfig,
+    bstate: BackfillState,
+    ia_state: State,
+    deadline: float,
+    summary: BackfillSummary,
+    all_tribunals: list[str],
+) -> None:
+    """Run workers to process tribunals."""
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    for t in all_tribunals:
+        queue.put_nowait(t)
+
+    async def _worker() -> None:
+        while not queue.empty():
+            if time.monotonic() > deadline - 30:
+                break
+            try:
+                tribunal = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            await backfill_tribunal(
+                client,
+                breaker,
+                tribunal,
+                config,
+                bstate,
+                ia_state,
+                deadline,
+                summary,
+            )
+            queue.task_done()
+
+    workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
+    await asyncio.gather(*workers)
+
+
 async def run_backfill(config: BackfillConfig) -> int:
     """Execute the backfill pipeline.  Returns the process exit code."""
-    from djen_backup.runner import validate_tribunal
-    from djen_backup.state import load_state, save_state
-    from djen_backup.tribunais import get_tribunal_list
-
     deadline = time.monotonic() + config.deadline_minutes * 60
     bstate = load_backfill_state(config.backfill_state_file)
     ia_state = load_state(config.state_file)
@@ -571,50 +666,17 @@ async def run_backfill(config: BackfillConfig) -> int:
             validate_tribunal(config.tribunal)
             all_tribunals = [config.tribunal]
 
-        # 2. Advance stopped tribunal cursors so new dates get checked
-        #    Running tribunals keep their cursor to avoid discarding progress.
-        for t in all_tribunals:
-            prog = bstate.get_all_progress().get(t)
-            if prog is not None and prog.stopped:
-                advanced = await bstate.ensure_cursor_at_least(t, config.start_date)
-                if advanced:
-                    log.info(
-                        "cursor_auto_advanced",
-                        tribunal=t,
-                        new_cursor=config.start_date.isoformat(),
-                    )
+        # 2. Advance stopped tribunal cursors
+        await _advance_stopped_cursors(bstate, all_tribunals, config.start_date)
 
         # 3. Process tribunals
         summary = BackfillSummary()
         # Increased threshold from 3 to 10 - was too aggressive, causing many skips
         breaker = CircuitBreaker(threshold=10, recovery_timeout=60.0)
 
-        queue: asyncio.Queue[str] = asyncio.Queue()
-        for t in all_tribunals:
-            queue.put_nowait(t)
-
-        async def _worker() -> None:
-            while not queue.empty():
-                if time.monotonic() > deadline - 30:
-                    break
-                try:
-                    tribunal = queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-                await backfill_tribunal(
-                    client,
-                    breaker,
-                    tribunal,
-                    config,
-                    bstate,
-                    ia_state,
-                    deadline,
-                    summary,
-                )
-                queue.task_done()
-
-        workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
-        await asyncio.gather(*workers)
+        await _run_backfill_workers(
+            client, breaker, config, bstate, ia_state, deadline, summary, all_tribunals
+        )
 
     # 4. Save state
     save_backfill_state(bstate, config.backfill_state_file)

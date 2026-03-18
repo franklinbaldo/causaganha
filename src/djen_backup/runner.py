@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import shutil
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -25,6 +26,10 @@ from djen_backup.tribunais import get_tribunal_list
 
 
 log = structlog.get_logger()
+
+# HTTP status constants
+HTTP_BAD_REQUEST = 400
+SUCCESS_RATE_THRESHOLD = 0.5
 
 _TRIBUNAL_RE = re.compile(r"^[A-Za-z0-9-]+$")
 
@@ -141,6 +146,7 @@ async def _check_date(
     d: date,
     tribunals: set[str],
     state: State,
+    *,
     force_recheck: bool,
     semaphore: asyncio.Semaphore,
 ) -> list[WorkItem]:
@@ -172,6 +178,7 @@ async def discover_gaps(
     tribunals: list[str],
     start_date: date,
     end_date: date,
+    *,
     force_recheck: bool,
 ) -> list[WorkItem]:
     """Build the work queue of (date, tribunal) pairs not yet on IA."""
@@ -190,6 +197,79 @@ async def discover_gaps(
 
 
 # ── Item processing ──────────────────────────────────────────────────
+
+
+async def _handle_djen_not_found_item(
+    client: httpx.AsyncClient,
+    breaker: CircuitBreaker,
+    item: WorkItem,
+    config: RunConfig,
+    state: State,
+    summary: Summary,
+    exc: DJENNotFoundError,
+) -> None:
+    """Handle DJEN not found error by uploading absent marker."""
+    log.info(
+        "djen_not_found",
+        date=item.date.isoformat(),
+        tribunal=item.tribunal,
+        status_code=exc.status_code,
+    )
+    try:
+        resp = await upload_absent_marker(
+            client,
+            item.date,
+            item.tribunal,
+            exc.status_code,
+            exc.reason,
+            config.ia_auth,
+        )
+        if resp.status_code < HTTP_BAD_REQUEST:
+            await breaker.record_success()
+            await state.mark(item.date, item.tribunal, ItemStatus.ABSENT)
+            await summary.inc_absent()
+        else:
+            await breaker.record_failure()
+            await summary.inc_failed()
+    except httpx.HTTPError:
+        await breaker.record_failure()
+        await summary.inc_failed()
+
+
+async def _handle_upload_to_ia(
+    client: httpx.AsyncClient,
+    breaker: CircuitBreaker,
+    item: WorkItem,
+    config: RunConfig,
+    state: State,
+    summary: Summary,
+    zip_path: Path,
+) -> None:
+    """Upload ZIP to IA and handle response."""
+    try:
+        resp = await upload_zip(client, item.date, item.tribunal, zip_path, config.ia_auth)
+        if resp.status_code < HTTP_BAD_REQUEST:
+            await breaker.record_success()
+            await state.mark(item.date, item.tribunal, ItemStatus.UPLOADED)
+            await summary.inc_uploaded()
+        else:
+            log.error(
+                "ia_upload_failed",
+                date=item.date.isoformat(),
+                tribunal=item.tribunal,
+                status=resp.status_code,
+            )
+            await breaker.record_failure()
+            await summary.inc_failed()
+    except httpx.HTTPError as exc:
+        log.exception(
+            "ia_upload_error",
+            date=item.date.isoformat(),
+            tribunal=item.tribunal,
+            exc_info=exc,
+        )
+        await breaker.record_failure()
+        await summary.inc_failed()
 
 
 async def process_item(
@@ -240,32 +320,7 @@ async def process_item(
         zip_url = await get_caderno_url(client, config.djen_proxy_url, item.tribunal, item.date)
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
-        # DJEN doesn't have it — mark absent
-        log.info(
-            "djen_not_found",
-            date=item.date.isoformat(),
-            tribunal=item.tribunal,
-            status_code=exc.status_code,
-        )
-        try:
-            resp = await upload_absent_marker(
-                client,
-                item.date,
-                item.tribunal,
-                exc.status_code,
-                exc.reason,
-                config.ia_auth,
-            )
-            if resp.status_code < 400:
-                await breaker.record_success()
-                await state.mark(item.date, item.tribunal, ItemStatus.ABSENT)
-                await summary.inc_absent()
-            else:
-                await breaker.record_failure()
-                await summary.inc_failed()
-        except httpx.HTTPError:
-            await breaker.record_failure()
-            await summary.inc_failed()
+        await _handle_djen_not_found_item(client, breaker, item, config, state, summary, exc)
         return
     except httpx.HTTPError as exc:
         log.exception(
@@ -279,29 +334,7 @@ async def process_item(
 
     # Upload to IA from the temp file
     try:
-        resp = await upload_zip(client, item.date, item.tribunal, zip_path, config.ia_auth)
-        if resp.status_code < 400:
-            await breaker.record_success()
-            await state.mark(item.date, item.tribunal, ItemStatus.UPLOADED)
-            await summary.inc_uploaded()
-        else:
-            log.error(
-                "ia_upload_failed",
-                date=item.date.isoformat(),
-                tribunal=item.tribunal,
-                status=resp.status_code,
-            )
-            await breaker.record_failure()
-            await summary.inc_failed()
-    except httpx.HTTPError as exc:
-        log.exception(
-            "ia_upload_error",
-            date=item.date.isoformat(),
-            tribunal=item.tribunal,
-            exc_info=exc,
-        )
-        await breaker.record_failure()
-        await summary.inc_failed()
+        await _handle_upload_to_ia(client, breaker, item, config, state, summary, zip_path)
     finally:
         if zip_path is not None:
             zip_path.unlink(missing_ok=True)
@@ -340,7 +373,7 @@ async def run(config: RunConfig) -> int:
             all_tribunals,
             config.start_date,
             config.end_date,
-            config.force_recheck,
+            force_recheck=config.force_recheck,
         )
 
         # Sort newest-first (already done by _date_range, but re-sort for safety)
@@ -381,8 +414,6 @@ async def run(config: RunConfig) -> int:
             await asyncio.gather(*workers)
         finally:
             # Clean up the temp directory
-            import shutil
-
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # 4. Save state
@@ -401,6 +432,6 @@ async def run(config: RunConfig) -> int:
     )
 
     # 6. Exit code: 0 if nothing to do or ≥50% success, else 1
-    if summary.success_rate >= 0.5:
+    if summary.success_rate >= SUCCESS_RATE_THRESHOLD:
         return 0
     return 1

@@ -60,7 +60,7 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
         ratings = v1_con.execute(
             "SELECT advogado_id, mu, sigma, total_partidas FROM ratings",
         ).fetchall()
-        logger.info(f"Found {len(ratings)} ratings in V1")
+        logger.info("Found %s ratings in V1", len(ratings))
 
         migrated_count = 0
         skipped_count = 0
@@ -126,7 +126,7 @@ def main() -> None:
 
     v1_path = args.v1_db_path
     if not Path(v1_path).exists():
-        logger.error(f"V1 database file not found: {v1_path}")
+        logger.error("V1 database file not found: %s", v1_path)
         sys.exit(1)
 
     # Connect to V2 DB

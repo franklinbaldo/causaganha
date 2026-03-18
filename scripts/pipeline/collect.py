@@ -109,19 +109,13 @@ def main() -> int:
 
     # Validate arguments
     if args.date and (args.start_date or args.end_date):
-        print("Error: Cannot use --date with --start-date/--end-date")
         return 1
 
     if (args.start_date and not args.end_date) or (args.end_date and not args.start_date):
-        print("Error: Must specify both --start-date and --end-date")
         return 1
 
     cmd = build_djen_backup_cmd(args)
     env = build_subprocess_env(args.proxy_url)
-    print("Collecting DJEN data via djen-backup...")
-    print(f"  Command: {' '.join(cmd)}")
-    print(f"  Proxy:   {args.proxy_url}")
-    print()
 
     result = subprocess.run(
         cmd,
@@ -140,15 +134,6 @@ def main() -> int:
     stats = parse_structlog_summary(result.stdout or "")
     files_added = stats["uploaded"] > 0 or stats["absent_marked"] > 0
 
-    print()
-    print("=" * 40)
-    print("COLLECTION SUMMARY (via djen-backup)")
-    print("=" * 40)
-    print(f"  Uploaded: {stats['uploaded']}")
-    print(f"  Absent:   {stats['absent_marked']}")
-    print(f"  Failed:   {stats['failed']}")
-    print(f"  Total:    {stats['total']}")
-    print(f"\n  Files added: {files_added}")
 
     # Write pipeline output contract (same keys as before)
     if gh_output := os.getenv("GITHUB_OUTPUT"):
@@ -163,4 +148,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

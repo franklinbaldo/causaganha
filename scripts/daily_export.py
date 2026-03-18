@@ -76,24 +76,27 @@ async def run_daily_export() -> int:
         # Determine exit code
         if result["failed"] == 0:
             logger.info("daily_export_success", message="All tribunals exported successfully")
-            return 0
-        if result["successful"] > 0:
+            exit_code = 0
+        elif result["successful"] > 0:
             logger.warning(
                 "daily_export_partial_failure",
                 message=f"{result['failed']} tribunals failed",
                 failures=result["failures"],
             )
-            return 1
-        logger.error(
-            "daily_export_complete_failure",
-            message="No tribunals exported successfully",
-            failures=result["failures"],
-        )
-        return 2
+            exit_code = 1
+        else:
+            logger.error(
+                "daily_export_complete_failure",
+                message="No tribunals exported successfully",
+                failures=result["failures"],
+            )
+            exit_code = 2
 
     except Exception as e:
         logger.exception("daily_export_error", error=str(e))
         return 3
+    else:
+        return exit_code
 
 
 def main() -> int:

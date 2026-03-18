@@ -52,7 +52,8 @@ class ParquetExporter:
         self.db = db_connection
         self.config = config or ExportConfig()
         logger.info(
-            f"ParquetExporter initialized with compression={self.config.compression}",
+            "ParquetExporter initialized with compression=%s",
+            self.config.compression,
         )
 
     async def export_day_tribunal(
@@ -73,7 +74,7 @@ class ParquetExporter:
             ValueError: If no data found for date+tribunal
             IOError: If file write fails
         """
-        logger.info(f"Exporting {tribunal} for {partition_date}")
+        logger.info("Exporting %s for %s", tribunal, partition_date)
 
         # Query data from DuckDB (in thread)
         intimations_frame = await asyncio.to_thread(
@@ -87,7 +88,7 @@ class ParquetExporter:
                 msg,
             )
 
-        logger.info(f"Found {row_count} rows to export")
+        logger.info("Found %s rows to export", row_count)
 
         # Generate filename
         filename = self._generate_filename(partition_date, tribunal)
@@ -101,7 +102,10 @@ class ParquetExporter:
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         logger.info(
-            f"Exported {row_count} rows to {filename} ({file_size_mb:.2f} MB)",
+            "Exported %s rows to %s (%.2f MB)",
+            row_count,
+            filename,
+            file_size_mb,
         )
 
         return file_path, row_count
@@ -121,7 +125,7 @@ class ParquetExporter:
         Raises:
             ValueError: If no data found for date
         """
-        logger.info(f"Exporting all tribunals for {partition_date}")
+        logger.info("Exporting all tribunals for %s", partition_date)
 
         # Get list of tribunals with data for this date
         tribunals = self._get_tribunals_for_date(partition_date)
@@ -130,7 +134,7 @@ class ParquetExporter:
             msg = f"No data found for date={partition_date}"
             raise ValueError(msg)
 
-        logger.info(f"Found {len(tribunals)} tribunals with data")
+        logger.info("Found %s tribunals with data", len(tribunals))
 
         results = []
         for tribunal in tribunals:
@@ -141,12 +145,14 @@ class ParquetExporter:
                 )
                 results.append((tribunal, file_path, row_count))
             except Exception:
-                logger.exception(f"Failed to export {tribunal}")
+                logger.exception("Failed to export %s", tribunal)
                 # Continue with other tribunals
                 continue
 
         logger.info(
-            f"Successfully exported {len(results)}/{len(tribunals)} tribunals",
+            "Successfully exported %s/%s tribunals",
+            len(results),
+            len(tribunals),
         )
         return results
 
@@ -164,7 +170,7 @@ class ParquetExporter:
         Returns:
             Tuple of (file_path, row_count)
         """
-        logger.info(f"Exporting lawyers for {tribunal} {partition_date}")
+        logger.info("Exporting lawyers for %s %s", tribunal, partition_date)
 
         # Query data (in thread)
         lawyers_frame = await asyncio.to_thread(self._query_lawyers, partition_date, tribunal)
@@ -180,10 +186,13 @@ class ParquetExporter:
 
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(
-                f"Exported {row_count} lawyers to {filename} ({file_size_mb:.2f} MB)",
+                "Exported %s lawyers to %s (%.2f MB)",
+                row_count,
+                filename,
+                file_size_mb,
             )
         else:
-            logger.info(f"No lawyers found for {tribunal} {partition_date}")
+            logger.info("No lawyers found for %s %s", tribunal, partition_date)
             # Ensure empty file is not created or handle as needed.
             # For consistency, we might want to return 0 and not create file,
             # or create empty file. Let's create it if empty to keep set complete?
@@ -287,7 +296,7 @@ class ParquetExporter:
         Returns:
             Tuple (file_path, row_count)
         """
-        logger.info(f"Exporting parties for {tribunal} {partition_date}")
+        logger.info("Exporting parties for %s %s", tribunal, partition_date)
 
         # Query data (in thread)
         parties_frame = await asyncio.to_thread(self._query_parties, partition_date, tribunal)
@@ -302,10 +311,13 @@ class ParquetExporter:
 
             file_size_mb = file_path.stat().st_size / (1024 * 1024)
             logger.info(
-                f"Exported {row_count} parties to {filename} ({file_size_mb:.2f} MB)",
+                "Exported %s parties to %s (%.2f MB)",
+                row_count,
+                filename,
+                file_size_mb,
             )
         else:
-            logger.info(f"No parties found for {tribunal} {partition_date}")
+            logger.info("No parties found for %s %s", tribunal, partition_date)
 
         return file_path, row_count
 
@@ -444,7 +456,7 @@ class ParquetExporter:
             version="2.6",
         )
 
-        logger.debug(f"Wrote Parquet file: {file_path}")
+        logger.debug("Wrote Parquet file: %s", file_path)
 
     def _generate_filename(self, date: str, tribunal: str) -> str:
         """Generate Parquet filename following naming convention.

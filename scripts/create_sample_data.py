@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from causaganha.storage.connection import get_connection
 
 
-def create_sample_data():
+def create_sample_data() -> None:
     """Create sample intimations and decision_analysis data."""
     con = get_connection()
 
@@ -69,12 +69,6 @@ def create_sample_data():
                 )
             """)
 
-    print("✅ Created sample data:")
-    print(f"   - Date: {yesterday}")
-    print(f"   - Tribunals: {', '.join(tribunals)}")
-    print("   - Intimations per tribunal: 10")
-    print(f"   - Total intimations: {len(tribunals) * 10}")
-    print(f"   - Total analyses: {len(tribunals) * 10}")
 
     # Verify
     result = con.raw_sql(f"""
@@ -86,9 +80,8 @@ def create_sample_data():
         GROUP BY sigla_tribunal
     """).fetchall()
 
-    print("\nVerification:")
-    for row in result:
-        print(f"   - {row[0]}: {row[1]} intimations")
+    for _row in result:
+        pass
 
 
 if __name__ == "__main__":

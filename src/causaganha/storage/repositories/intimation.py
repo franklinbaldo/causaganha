@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import duckdb
 import structlog
 from ibis import _
 from ibis.backends.duckdb import Backend
@@ -62,7 +63,7 @@ def store_intimations(
                 ],
             )
             inserted += 1
-        except Exception as e:
+        except (duckdb.Error, KeyError) as e:
             logger.warning(
                 "insert_failed",
                 intimation_id=item.id,
@@ -101,7 +102,7 @@ def store_lawyer_associations(
                 ],
             )
             inserted += 1
-        except Exception as e:
+        except (duckdb.Error, KeyError, AttributeError) as e:
             logger.warning(
                 "lawyer_association_failed",
                 intimation_id=intimation_id,

@@ -1,5 +1,6 @@
 """Analysis storage repository."""
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -15,8 +16,6 @@ def store_analysis(
     analysis: DecisionAnalysis,
 ) -> None:
     """Store analysis results (supports both LLM and RAG analysis)."""
-    import json
-
     # Determine model info based on analysis method
     if analysis.analysis_method == "rag":
         model_used = "rag-embedding-004"

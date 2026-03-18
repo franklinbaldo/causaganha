@@ -74,9 +74,11 @@ def test_parallel_export() -> int:
                 elapsed = time.time() - start
 
                 output_path.stat().st_size / (1024 * 1024)
-                return True, 1, elapsed
+                result = (True, 1, elapsed)
             except Exception:
                 return False, 0, 0
+            else:
+                return result
 
         # Test SEQUENTIAL export first (baseline)
         start_time = time.time()

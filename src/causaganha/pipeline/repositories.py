@@ -11,6 +11,8 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
 
+import duckdb
+
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +131,7 @@ class DuckDBExportRepository(ExportRepository):
             return list(result["sigla_tribunal"].unique())
 
         tribunals = await asyncio.to_thread(_query)
-        logger.info(f"Found {len(tribunals)} tribunals for {partition_date}: {tribunals}")
+        logger.info("Found %s tribunals for %s: %s", len(tribunals), partition_date, tribunals)
         return tuple(tribunals)
 
     async def is_already_exported(self, partition_date: str, tribunal: str) -> bool:
@@ -145,13 +147,13 @@ class DuckDBExportRepository(ExportRepository):
                     [tribunal, partition_date],
                 )
                 return result[0]["cnt"] > 0
-            except Exception as e:
-                logger.warning(f"Could not check export status: {e}")
+            except (duckdb.Error, IndexError, KeyError) as e:
+                logger.warning("Could not check export status: %s", e)
                 return False
 
         already_exported = await asyncio.to_thread(_query)
         if already_exported:
-            logger.info(f"Skipping {tribunal} ({partition_date}) - already exported")
+            logger.info("Skipping %s (%s) - already exported", tribunal, partition_date)
         return already_exported
 
     async def record_pending(self, partition_date: str, tribunal: str) -> None:
@@ -171,7 +173,7 @@ class DuckDBExportRepository(ExportRepository):
             )
 
         await asyncio.to_thread(_insert)
-        logger.debug(f"Recorded {tribunal} ({partition_date}) as pending")
+        logger.debug("Recorded %s (%s) as pending", tribunal, partition_date)
 
     async def record_success(
         self,
@@ -204,8 +206,11 @@ class DuckDBExportRepository(ExportRepository):
 
         await asyncio.to_thread(_insert)
         logger.info(
-            f"Recorded {tribunal} ({partition_date}) as completed: "
-            f"{row_count} rows, {size_mb:.2f} MB",
+            "Recorded %s (%s) as completed: %s rows, %.2f MB",
+            tribunal,
+            partition_date,
+            row_count,
+            size_mb,
         )
 
     async def record_failure(
@@ -232,7 +237,7 @@ class DuckDBExportRepository(ExportRepository):
             )
 
         await asyncio.to_thread(_insert)
-        logger.warning(f"Recorded {tribunal} ({partition_date}) as failed: {error}")
+        logger.warning("Recorded %s (%s) as failed: %s", tribunal, partition_date, error)
 
     async def purge_old_data(
         self,
@@ -262,7 +267,7 @@ class DuckDBExportRepository(ExportRepository):
             return result.get("rows_deleted", 0) if isinstance(result, dict) else 0
 
         deleted = await asyncio.to_thread(_delete)
-        logger.info(f"Purged {deleted} old intimations (older than {days_to_keep} days)")
+        logger.info("Purged %s old intimations (older than %s days)", deleted, days_to_keep)
 
 
 class MockExportRepository(ExportRepository):

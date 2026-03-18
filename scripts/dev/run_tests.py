@@ -31,10 +31,11 @@ def run_pytest(extra_args: list[str] | None = None) -> int:
 
     try:
         subprocess.run(cmd, check=True)
-        return 0
     except subprocess.CalledProcessError as exc:
         logger.exception("Tests failed with exit code %s", exc.returncode)
         return exc.returncode
+    else:
+        return 0
 
 
 def main() -> None:
