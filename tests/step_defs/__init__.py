@@ -1,1 +1,0 @@
-"""Tests step definitions package."""
