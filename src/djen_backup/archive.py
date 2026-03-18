@@ -14,6 +14,7 @@ import structlog
 
 from djen_backup.retry import request_with_retry
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -122,7 +123,7 @@ async def upload_zip(
         content=content,
         headers=headers,
     )
-    body = resp.content if resp.content else b""
+    body = resp.content or b""
     if resp.status_code == 200:
         log.info(
             "ia_upload_done",
@@ -177,14 +178,13 @@ async def upload_absent_marker(
     headers = _build_upload_headers(d, md5, "application/json", auth)
 
     log.info("ia_absent_marker", date=d.isoformat(), tribunal=tribunal)
-    resp = await request_with_retry(
+    return await request_with_retry(
         client,
         "PUT",
         url,
         content=body,
         headers=headers,
     )
-    return resp
 
 
 # ── Circuit breaker ──────────────────────────────────────────────────

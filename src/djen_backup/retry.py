@@ -7,6 +7,7 @@ import asyncio
 import httpx
 import structlog
 
+
 log = structlog.get_logger()
 
 RETRIABLE_STATUS_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})

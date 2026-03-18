@@ -13,6 +13,7 @@ import structlog
 
 from djen_backup.credentials import get_ia_s3_auth
 
+
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,

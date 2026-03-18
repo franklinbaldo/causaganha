@@ -54,7 +54,7 @@ class ExportRepository(ABC):
         """
 
     @abstractmethod
-    async def record_success(  # noqa: PLR0913
+    async def record_success(
         self,
         partition_date: str,
         tribunal: str,
@@ -173,7 +173,7 @@ class DuckDBExportRepository(ExportRepository):
         await asyncio.to_thread(_insert)
         logger.debug(f"Recorded {tribunal} ({partition_date}) as pending")
 
-    async def record_success(  # noqa: PLR0913
+    async def record_success(
         self,
         partition_date: str,
         tribunal: str,
@@ -293,7 +293,7 @@ class MockExportRepository(ExportRepository):
         key = (partition_date, tribunal)
         self.pending[key] = True
 
-    async def record_success(  # noqa: PLR0913
+    async def record_success(
         self,
         partition_date: str,
         tribunal: str,

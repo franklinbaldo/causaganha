@@ -25,6 +25,7 @@ from djen_backup.archive import (
 from djen_backup.djen import DJENNotFound, download_zip, get_caderno_url
 from djen_backup.state import ItemStatus, State
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -63,16 +64,14 @@ class TribunalProgress:
         cursor_raw = data.get("cursor_date")
         if not isinstance(cursor_raw, str):
             msg = "missing cursor_date"
-            raise ValueError(msg)
+            raise TypeError(msg)
 
         last_hit_raw = data.get("last_hit_date")
         last_hit = date.fromisoformat(last_hit_raw) if isinstance(last_hit_raw, str) else None
 
         stop_boundary_raw = data.get("stop_boundary")
         stop_boundary = (
-            date.fromisoformat(stop_boundary_raw)
-            if isinstance(stop_boundary_raw, str)
-            else None
+            date.fromisoformat(stop_boundary_raw) if isinstance(stop_boundary_raw, str) else None
         )
 
         last_checked = data.get("last_checked_at")
@@ -260,8 +259,8 @@ class BackfillConfig:
 class BackfillSummary:
     hits: int = 0
     empties: int = 0
-    errors: int = 0        # DJEN source errors (download failed, proxy down)
-    ia_errors: int = 0     # IA upload errors (our infra broken — fail loudly)
+    errors: int = 0  # DJEN source errors (download failed, proxy down)
+    ia_errors: int = 0  # IA upload errors (our infra broken — fail loudly)
     tribunals_scanned: int = 0
     tribunals_stopped: int = 0
     tribunals_skipped_stopped: int = 0
@@ -383,11 +382,11 @@ async def backfill_process_date(
         await summary.inc_error()
         return "error"
     except httpx.HTTPError as exc:
-        log.error(
+        log.exception(
             "backfill_download_error",
             tribunal=tribunal,
             date=d.isoformat(),
-            error=str(exc),
+            exc_info=exc,
         )
         await bstate.record_error(tribunal)
         await summary.inc_error()
@@ -402,7 +401,7 @@ async def backfill_process_date(
             await bstate.record_hit(tribunal, d)
             await summary.inc_hit()
             return "hit"
-        body = resp.content if resp.content else b""
+        body = resp.content or b""
         if b"appears to be spam" in body:
             # IA rejected this specific item as spam — skip it, don't trip circuit
             log.warning(
@@ -424,11 +423,11 @@ async def backfill_process_date(
         )
         await breaker.record_failure()
     except httpx.HTTPError as exc:
-        log.error(
+        log.exception(
             "backfill_upload_error",
             tribunal=tribunal,
             date=d.isoformat(),
-            error=str(exc),
+            exc_info=exc,
         )
         await breaker.record_failure()
 
@@ -572,7 +571,8 @@ async def run_backfill(config: BackfillConfig) -> int:
 
         # 3. Process tribunals
         summary = BackfillSummary()
-        breaker = CircuitBreaker(threshold=3, recovery_timeout=120.0)
+        # Increased threshold from 3 to 10 - was too aggressive, causing many skips
+        breaker = CircuitBreaker(threshold=10, recovery_timeout=60.0)
 
         queue: asyncio.Queue[str] = asyncio.Queue()
         for t in all_tribunals:

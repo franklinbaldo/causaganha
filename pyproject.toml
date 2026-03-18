@@ -85,16 +85,4 @@ asyncio_mode = "auto"
 addopts = "-v --strict-markers"
 pythonpath = ["src", "."]
 
-[tool.ruff]
-target-version = "py312"
-line-length = 88
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
-ignore = []
-
-[tool.ruff.lint.per-file-ignores]
-# Scripts can use print, subprocess, and have section comments
-"scripts/*.py" = ["T201", "S603", "S607", "ERA001", "PLW1510", "PLR1722", "TRY300"]
-
-# djen_backup is now integrated directly in src/djen_backup/
+# Ruff config is in ruff.toml (takes precedence over pyproject.toml)

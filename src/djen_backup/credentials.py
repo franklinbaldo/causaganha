@@ -8,6 +8,7 @@ from pathlib import Path
 
 import structlog
 
+
 log = structlog.get_logger()
 
 

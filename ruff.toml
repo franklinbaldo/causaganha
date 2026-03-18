@@ -1,161 +1,24 @@
 # Ruff configuration for CausaGanha v2
-# Strict mode: ALL rules enabled, NO exceptions
+# Strict mode: ALL rules enabled
 
-# Target Python 3.11+
-target-version = "py311"
-
-# Line length
+target-version = "py312"
 line-length = 100
 
 [lint]
-# Enable ALL Ruff rules
 select = ["ALL"]
-
-# Disable entire categories irrelevant to this project
-# (ibis/duckdb data pipeline, not pandas/django/fastapi/airflow/numpy)
 ignore = [
-    "PD",       # pandas rules — we use ibis, not pandas
-    "AIR",      # Airflow rules — not an Airflow project
-    "FAST",     # FastAPI rules — not a FastAPI project
-    "DJ",       # Django rules — not a Django project
-    "NPY",      # NumPy rules — no NumPy usage
-
-    # Project conventions
-    "G004",     # f-string in logging OK (performance negligible for data pipeline)
-    "COM812",   # trailing comma conflicts with ruff formatter
-    "ISC001",   # implicit string concat conflicts with ruff formatter
-    "S608",     # SQL construction with f-strings (ibis/duckdb pattern)
-    "RUF003",   # ambiguous characters in comments (Portuguese text)
-    "S310",     # URL audit (often false positive or accepted risk)
-    "TD002",    # TODO author
-    "TD003",    # TODO issue link
-    "FIX002",   # TODO line
-    "ASYNC240", # Path usage in async OK for now
-    "D107",     # Missing docstring in __init__ OK (class docstring sufficient)
-    "S104",     # Binding to all interfaces (often false positive in string checks)
-    "PD004",    # .notnull() OK — ibis uses .notnull() not .notna()
-]
-
-[lint.per-file-ignores]
-# Allow asserts and common test patterns in tests
-"tests/*" = [
-    "S101",     # assert allowed in tests
-    "PLC0415",  # imports in functions OK for test isolation
-    "PLR2004",  # magic values OK in tests
-    "COM812",   # trailing comma optional in tests
-    "ANN",      # type annotations optional in tests
-    "D",        # docstrings optional in tests
-    "ARG001",   # unused args OK (pytest-bdd step context)
-    "S608",     # SQL construction OK (test queries)
-    "F841",     # unused local OK in tests
-    "PLR0124",  # self-comparison OK (contract tests)
-    "PT011",    # broad pytest.raises OK
-    "PLW1510",  # subprocess check OK
-    "PTH",      # pathlib rules optional in tests
-    "N806",     # variable naming OK
-    "SIM",      # simplification rules optional
-    "PT009",    # unittest assertions OK (legacy tests)
-    "PT027",    # unittest raises OK
-    "SLF001",   # private member access OK
-    "PLR0913",  # too many args OK
-    "EXE001",   # shebang OK
-    "PT028",    # test function arg default OK
-]
-"test_*.py" = [
-    "S101", "PLC0415", "PLR2004", "COM812", "ANN", "D", "ARG001", "S608", "F841", "PLR0124", "PT011", "PLW1510", "PTH", "N806", "SIM", "PT009", "PT027", "SLF001", "PLR0913", "EXE001", "PT028"
-]
-# Scripts are CLI tools - allow print, subprocess, section comments
-"scripts/**/*.py" = [
-    "T201",     # print() allowed in CLI scripts
-    "S603",     # subprocess calls OK (controlled input)
-    "S607",     # partial executable path OK
-    "S608",     # SQL construction OK (no user input)
-    "ERA001",   # section comments not "commented-out code"
-    "PLW1510",  # subprocess.run without check OK
-    "PLR1722",  # exit() vs sys.exit() OK
-    "PLR2004",  # magic values OK in scripts
-    "TRY300",   # return in try OK
-    "TRY400",   # logging.error vs exception OK
-    "C901",     # complex functions OK in scripts
-    "C401",     # set comprehension style OK
-    "PLR0912",  # too many branches OK
-    "PLR0915",  # too many statements OK
-    "PLR0911",  # too many return statements OK (error handling)
-    "PLR0913",  # too many arguments OK
-    "PERF401",  # list.append in loop OK
-    "D100",     # missing docstring at top OK
-    "D103",     # missing docstring in functions OK
-    "D104",     # missing docstring in package OK
-    "ANN",      # type annotations optional in scripts
-    "INP001",   # implicit namespace package OK
-    "E501",     # line length OK in scripts
-    "DTZ",      # datetime timezone OK (dates only)
-    "ARG",      # unused args OK (API compatibility)
-    "RUF005",   # list concatenation style OK
-    "BLE001",   # blind exception OK (resilience to bad data)
-    "S110",     # try-except-pass OK (graceful error handling)
-    "S112",     # try-except-continue OK (skip malformed data)
-    "PLC0415",  # import in function OK (lazy loading)
-    "SIM103",   # return condition simplification - clarity OK
-    "SIM105",   # contextlib.suppress - explicit try OK
-    "PLW2901",  # loop variable overwritten OK (common pattern)
-    "FBT",      # boolean args OK in scripts
-    "B904",     # raise from OK in scripts
-    "PTH",      # pathlib not required in scripts
-    "S324",     # hashlib OK
-    "SIM108",   # ternary not required
-    "TRY301",   # abstract raise not required
-    "SLF001",   # private member access OK in debug scripts
-    "SIM",      # simplification rules optional in scripts
-    "PLW0603",  # global statement OK in scripts
-    "D",        # docstrings optional in scripts
-]
-# Experiments are throwaway/exploratory code
-"experiments/**/*.py" = [
-    "ALL",
-]
-# Root-level utility scripts
-"*.py" = [
-    "INP001",   # implicit namespace package OK at root
-    "D100",     # missing docstring OK
-    "T201",     # print OK
-    "ANN",      # type annotations optional
-    "S603",     # subprocess OK
-    "S607",     # partial path OK
-    "C901",     # complexity OK
-    "PLR0912",  # branches OK
-    "PLR0915",  # statements OK
-    "PERF401",  # list.append OK
-    "BLE001",   # blind exception OK
-    "ERA001",   # commented code OK
-    "PLR2004",  # magic values OK
-    "FBT",      # boolean args OK
-    "E501",     # line length OK
-    "PLC0415",  # import in function OK
-    "DTZ",      # datetime OK
-    "TRY300",   # return in try OK
-    "S101",     # assert OK
-]
-# djen-scraper is a separate legacy project
-"djen-scraper/**/*.py" = [
-    "ALL",
-]
-# Tutorial notebooks and docs are educational - relaxed rules
-"docs/**" = [
-    "ALL",
+    "COM812",  # trailing comma - conflicts with ruff formatter
+    "ISC001",  # implicit string concat - conflicts with ruff formatter
 ]
 
 [lint.mccabe]
-# Maximum cyclomatic complexity
 max-complexity = 10
 
 [lint.pydocstyle]
-# Use Google docstring convention
 convention = "google"
 
 [lint.isort]
-# Import sorting
-known-first-party = ["causaganha"]
+known-first-party = ["causaganha", "djen_backup"]
 force-single-line = false
 lines-after-imports = 2
 
@@ -165,13 +28,12 @@ multiline-quotes = "double"
 docstring-quotes = "double"
 
 [lint.pylint]
-max-args = 5
+max-args = 8
 max-branches = 12
-max-returns = 6
+max-returns = 8
 max-statements = 50
 
 [format]
-# Formatting options
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"

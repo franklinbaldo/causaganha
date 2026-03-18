@@ -323,7 +323,7 @@ def db(action: str = typer.Argument(..., help="Action: init, status, migrate")) 
 
 
 @app.command()
-def export_parquet(  # noqa: PLR0913
+def export_parquet(
     date: str | None = typer.Option(
         None,
         help="Date to export (YYYY-MM-DD), defaults to yesterday",

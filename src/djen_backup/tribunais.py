@@ -7,6 +7,7 @@ import structlog
 
 from djen_backup.retry import request_with_retry
 
+
 log = structlog.get_logger()
 
 TRIBUNAIS: list[str] = [

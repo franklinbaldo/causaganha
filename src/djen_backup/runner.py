@@ -23,6 +23,7 @@ from djen_backup.djen import DJENNotFound, download_zip, get_caderno_url
 from djen_backup.state import ItemStatus, State, load_state, save_state
 from djen_backup.tribunais import get_tribunal_list
 
+
 log = structlog.get_logger()
 
 _TRIBUNAL_RE = re.compile(r"^[A-Za-z0-9-]+$")
@@ -254,11 +255,11 @@ async def process_item(
             await summary.inc_failed()
         return
     except httpx.HTTPError as exc:
-        log.error(
+        log.exception(
             "djen_download_error",
             date=item.date.isoformat(),
             tribunal=item.tribunal,
-            error=str(exc),
+            exc_info=exc,
         )
         await summary.inc_failed()
         return
@@ -280,11 +281,11 @@ async def process_item(
             await breaker.record_failure()
             await summary.inc_failed()
     except httpx.HTTPError as exc:
-        log.error(
+        log.exception(
             "ia_upload_error",
             date=item.date.isoformat(),
             tribunal=item.tribunal,
-            error=str(exc),
+            exc_info=exc,
         )
         await breaker.record_failure()
         await summary.inc_failed()

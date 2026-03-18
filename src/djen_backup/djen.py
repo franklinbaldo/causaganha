@@ -10,6 +10,7 @@ import structlog
 
 from djen_backup.retry import request_with_retry
 
+
 if TYPE_CHECKING:
     from datetime import date
 
