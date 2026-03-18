@@ -21,9 +21,14 @@
 
 name: Data Pipeline
 
+# DISABLED: This workflow was competing with collect-zips.yml for the same work
+# using separate state caches, causing inconsistencies and wasted effort.
+# Use collect-zips.yml for collection - it runs every 20 minutes.
+# This workflow is kept for manual runs only (consolidate, embed, catalog, dashboard).
+
 on:
-  schedule:
-    - cron: '*/20 * * * *'
+  # schedule:
+  #   - cron: '*/20 * * * *'  # DISABLED - use collect-zips.yml instead
 
   workflow_dispatch:
     inputs:

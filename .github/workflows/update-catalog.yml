@@ -30,6 +30,8 @@ permissions:
 jobs:
   update-catalog:
     name: Regenerate manifest.parquet
+    # Only run if triggered by schedule/dispatch OR if the triggering workflow succeeded
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev

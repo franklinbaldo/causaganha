@@ -5,9 +5,12 @@
 # Success metric: hits/run > 0 (actual ZIPs uploaded to IA)
 #
 # Runs every 20 minutes. Each run:
-#   1. Resets stopped tribunals (so they retry)
+#   1. Restores state from previous run (cursor per tribunal)
 #   2. Processes dates from end_date backwards to start_date
-#   3. Saves state (cursor per tribunal) for next run
+#   3. Saves state for next run
+#
+# NOTE: Tribunals stop after 60 consecutive empty days. They are NOT reset
+# automatically - use manual workflow_dispatch with reset_stopped=true if needed.
 # ============================================================================
 
 name: Collect ZIPs
@@ -20,7 +23,7 @@ on:
       workers:
         description: 'Parallel workers (1-4)'
         required: false
-        default: '1'
+        default: '4'
       tribunal:
         description: 'Specific tribunal (e.g. TJSP) — optional'
         required: false
@@ -39,6 +42,11 @@ on:
         description: 'Cache version (bump to reset state)'
         required: false
         default: 'v7'
+      reset_stopped:
+        description: 'Reset stopped tribunals (use sparingly!)'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: read
@@ -85,21 +93,23 @@ jobs:
       - name: Create data directory
         run: mkdir -p data
 
-      - name: Reset stopped tribunals
+      - name: Reset stopped tribunals (manual only)
+        if: ${{ github.event.inputs.reset_stopped == 'true' }}
         run: |
           if [ -f data/backfill-state.json ]; then
-            echo "Resetting stopped tribunals so they retry..."
+            echo "⚠️ Manual reset requested - resetting stopped tribunals..."
             uv run python -m djen_backup reset \
               --backfill-state-file data/backfill-state.json \
-              --all || true
+              --all
+            echo "✅ Reset complete"
           else
-            echo "No backfill state yet — fresh start"
+            echo "No backfill state yet — nothing to reset"
           fi
 
       - name: Run djen-backup
         id: collect
         run: |
-          WORKERS="${{ github.event.inputs.workers || '1' }}"
+          WORKERS="${{ github.event.inputs.workers || '4' }}"
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
           TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
           START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
@@ -111,7 +121,7 @@ jobs:
           CMD="$CMD --backfill-state-file data/backfill-state.json"
           CMD="$CMD --state-file data/ia-state.json"
           CMD="$CMD --start-date $START_DATE"
-          CMD="$CMD --skip-absent-markers"  # Skip IA absent markers for historical dates
+          # NOTE: We DO upload absent markers to IA - this persists state even if cache expires
 
           if [ -n "$END_DATE" ]; then
             CMD="$CMD --end-date $END_DATE"
