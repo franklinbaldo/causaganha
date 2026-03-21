@@ -13,7 +13,7 @@ from pytest_bdd import given, parsers, scenario, then, when
 from djen_backup.archive import CircuitBreaker
 from djen_backup.runner import RunConfig, Summary, WorkItem, process_item
 
-from .conftest import FAKE_AUTH
+from tests.djen_backup.conftest import FAKE_AUTH
 
 
 if TYPE_CHECKING:
@@ -25,12 +25,12 @@ if TYPE_CHECKING:
 # ── Scenarios ────────────────────────────────────────────────────────
 
 
-@scenario("../deadline.feature", "Skip item when deadline is near")
+@scenario("deadline.feature", "Skip item when deadline is near")
 def test_skip_near_deadline() -> None:
     pass
 
 
-@scenario("../deadline.feature", "Process all items when time is sufficient")
+@scenario("deadline.feature", "Process all items when time is sufficient")
 def test_process_all() -> None:
     pass
 

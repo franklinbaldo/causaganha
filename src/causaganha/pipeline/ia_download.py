@@ -451,9 +451,10 @@ class IAParquetDownloader:
             tribunal: Tribunal code
 
         Returns:
-            Item ID: djen-raw-2025-01-15-TJRO
+            Item ID: djen-tjro-2025
         """
-        return f"djen-raw-{date}-{tribunal}"
+        year = date[:4]
+        return f"djen-{tribunal.lower()}-{year}"
 
     def _generate_filename(self, date: str, tribunal: str, table: str) -> str:
         """Generate parquet filename.

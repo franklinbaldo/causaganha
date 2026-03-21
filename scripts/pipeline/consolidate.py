@@ -67,6 +67,7 @@ from causaganha.storage.djen_schema import (  # noqa: E402
 from scripts.pipeline.ia_s3 import (  # noqa: E402
     CircuitBreaker,
     get_ia_s3_auth,
+    get_ia_item_id,
     parse_deadline,
     upload_to_ia,
 )
@@ -374,7 +375,6 @@ def list_zips_for_date(
     If manifest is provided, use it (fast). Otherwise use IA metadata API (slow).
     """
     logger.info("listing_zips", date=date)
-    item_id = f"djen-{date}"
     zips: list[dict[str, Any]] = []
 
     # 1. Use manifest if available (fast)
@@ -396,43 +396,39 @@ def list_zips_for_date(
         return zips, len(present)
 
     # 2. Use IA metadata API (slow fallback)
-    try:
-        # Use IA metadata API
-        url = f"https://archive.org/metadata/{item_id}"
-        response = httpx.get(url, timeout=60)
+    present = set()
+    for tribunal in TRIBUNAIS:
+        item_id = get_ia_item_id(tribunal, date)
+        try:
+            url = f"https://archive.org/metadata/{item_id}"
+            response = httpx.get(url, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                files = data.get("files", [])
 
-        if response.status_code == 200:
-            data = response.json()
-            files = data.get("files", [])
+                target_zip = f"djen-{date}-{tribunal.upper()}.zip"
+                target_absent = f"djen-{date}-{tribunal.upper()}.absent"
 
-            # Identify what's on IA
-            present = set()
-            for file_info in files:
-                filename = file_info.get("name", "")
-                if filename.endswith((".zip", ".absent")):
-                    parts = filename.replace(".zip", "").replace(".absent", "").split("-")
-                    tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
-                    present.add(tribunal)
-
-                    if filename.endswith(".zip"):
+                for file_info in files:
+                    filename = file_info.get("name", "")
+                    if filename == target_zip:
+                        present.add(tribunal)
                         zips.append(
                             {
                                 "filename": filename,
                                 "tribunal": tribunal,
                                 "item_id": item_id,
                                 "size": file_info.get("size", 0),
-                            },
+                            }
                         )
+                    elif filename == target_absent:
+                        present.add(tribunal)
 
-            # Return both zip list and completion status
-            return zips, len(present)
-        logger.warning("metadata_fetch_failed", item_id=item_id, status=response.status_code)
-
-    except Exception as e:
-        logger.warning("list_failed", item_id=item_id, error=str(e))
+        except Exception as e:
+            logger.warning("metadata_fetch_failed", item_id=item_id, error=str(e))
 
     logger.info("zips_found", count=len(zips), date=date)
-    return zips, 0
+    return zips, len(present)
 
 
 @retry(
@@ -1054,12 +1050,15 @@ def _is_tribunal_stopped(
             continue
 
         check_date_str = check_date.strftime("%Y-%m-%d")
-        item_id = f"djen-{check_date_str}"
+        item_id = get_ia_item_id(tribunal, check_date_str)
         url = f"https://archive.org/metadata/{item_id}"
 
         try:
             data = _check_tribunal_api(url)
             files = data.get("files", [])
+            target_zip = f"djen-{check_date_str}-{tribunal.upper()}.zip"
+            target_absent = f"djen-{check_date_str}-{tribunal.upper()}.absent"
+
             tribunal_found = False
 
             for f in files:
@@ -1067,17 +1066,13 @@ def _is_tribunal_stopped(
                     continue
                 name = f.get("name", "")
 
-                # Check if this file belongs to the tribunal
-                if tribunal in name:
-                    # If we find a .zip (not .absent), tribunal is active
-                    if name.endswith(".zip"):
-                        result = False
-                        ctx.tribunal_stopped_cache[tribunal][date_str] = result
-                        return result
-                    # If .absent, mark as found and continue checking other days
-                    if name.endswith(".absent"):
-                        tribunal_found = True
-                        break
+                if name == target_zip:
+                    result = False
+                    ctx.tribunal_stopped_cache[tribunal][date_str] = result
+                    return result
+                if name == target_absent:
+                    tribunal_found = True
+                    break
 
             # If no file for this tribunal on this day, can't conclude stopped
             if not tribunal_found:
@@ -1178,16 +1173,33 @@ def _needs_consolidation(
             return False
 
         if must_be_complete:
-            # Count only non-stopped tribunals
             target_d = date.fromisoformat(date_str)
             active_tribunals = []
+            present_tribunais = set()
 
+            # Slow fallback: fetch individually
             for trib in TRIBUNAIS:
-                if trib not in present_tribunais:
-                    # Check if this tribunal is stopped (60+ days absent)
-                    if not _is_tribunal_stopped(trib, target_d, ctx=ctx):
-                        # Not stopped - we need it
-                        active_tribunals.append(trib)
+                if not _is_tribunal_stopped(trib, target_d, ctx=ctx):
+                    active_tribunals.append(trib)
+                    item_id = get_ia_item_id(trib, date_str)
+                    url = f"https://archive.org/metadata/{item_id}"
+                    try:
+                        data = _check_date_api(url)
+                        files = data.get("files", [])
+                        target_zip = f"djen-{date_str}-{trib.upper()}.zip"
+                        target_absent = f"djen-{date_str}-{trib.upper()}.absent"
+
+                        has_zip = False
+
+                        for f in files:
+                            name = f.get("name", "")
+                            if name in (target_zip, target_absent):
+                                has_zip = True
+
+                        if has_zip:
+                            present_tribunais.add(trib)
+                    except Exception:
+                        pass  # missing
 
             # Must have data for all active (non-stopped) tribunals
             missing_active = [t for t in active_tribunals if t not in present_tribunais]

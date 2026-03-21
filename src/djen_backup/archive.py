@@ -73,7 +73,12 @@ async def fetch_ia_existing(
 
 # ── IA S3 upload ─────────────────────────────────────────────────────
 
-IA_S3_URL = "https://s3.us.archive.org/backup-djen-{date}/{filename}"
+IA_S3_URL = "https://s3.us.archive.org/{item}/{filename}"
+
+
+def get_ia_item_id(tribunal: str, d: date) -> str:
+    """Canonical item naming strategy: djen-{tribunal}-{year}."""
+    return f"djen-{tribunal.lower()}-{d.year}"
 
 
 def _content_md5(data: bytes) -> str:
@@ -121,8 +126,9 @@ async def upload_zip(
     start_time = time.monotonic()
     content = await asyncio.to_thread(zip_path.read_bytes)
     size_mb = round(len(content) / 1024 / 1024, 1)
-    filename = f"djen-{d.isoformat()}-{tribunal}.zip"
-    url = IA_S3_URL.format(date=d.isoformat(), filename=filename)
+    filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
+    item_id = get_ia_item_id(tribunal, d)
+    url = IA_S3_URL.format(item=item_id, filename=filename)
     md5 = _content_md5(content)
     headers = _build_upload_headers(d, md5, "application/zip", auth)
 
@@ -180,8 +186,9 @@ async def upload_absent_marker(
     auth: str,
 ) -> httpx.Response:
     """Upload a ``.absent`` marker with metadata JSON."""
-    filename = f"djen-{d.isoformat()}-{tribunal}.absent"
-    url = IA_S3_URL.format(date=d.isoformat(), filename=filename)
+    filename = f"djen-{d.isoformat()}-{tribunal.upper()}.absent"
+    item_id = get_ia_item_id(tribunal, d)
+    url = IA_S3_URL.format(item=item_id, filename=filename)
 
     body = json.dumps(
         {

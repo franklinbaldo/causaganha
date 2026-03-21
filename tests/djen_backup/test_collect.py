@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pytest_bdd import given, parsers, scenario, then
 
-from .conftest import FAKE_AUTH
+from tests.djen_backup.conftest import FAKE_AUTH
 
 
 if TYPE_CHECKING:
@@ -17,17 +17,17 @@ if TYPE_CHECKING:
 # ── Scenarios ────────────────────────────────────────────────────────
 
 
-@scenario("../collect.feature", "Successfully download and upload a ZIP")
+@scenario("collect.feature", "Successfully download and upload a ZIP")
 def test_upload_zip() -> None:
     pass
 
 
-@scenario("../collect.feature", "Upload includes Content-MD5 header")
+@scenario("collect.feature", "Upload includes Content-MD5 header")
 def test_upload_md5() -> None:
     pass
 
 
-@scenario("../collect.feature", "Idempotent — already uploaded item is skipped")
+@scenario("collect.feature", "Idempotent — already uploaded item is skipped")
 def test_idempotent() -> None:
     pass
 

@@ -316,20 +316,39 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     if not filename or not isinstance(filename, str):
         return None
 
-    # Expected: djen-2026-01-15-TJSP.zip or djen-2026-01-15-TJSP-comunicacoes.parquet
-    if not filename.startswith("djen-"):
-        # Handle consolidated parquets in item root (e.g. textos.parquet in djen-2026-02-10)
-        if filename.endswith(".parquet") and item_id.startswith("djen-"):
+    if filename == "_consolidated.marker":
+        # Extract date from item_id
+        if item_id.startswith("djen-"):
+            date_str = item_id.replace("djen-", "")
+            if _validate_date_str(date_str):
+                return {
+                    "date": date_str,
+                    "tribunal": "ALL",
+                    "file_type": "marker",
+                    "table_name": None,
+                    "file_name": filename,
+                    "ia_item": item_id,
+                    "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+                }
+        return None
+
+    # Handle consolidated parquets in daily item root (e.g. textos.parquet in djen-2026-02-10)
+    if (
+        filename.endswith(".parquet")
+        and not filename.startswith("djen-")
+        and len(filename.split("-")) == 1
+    ):
+        if item_id.startswith("djen-"):
             try:
                 date_str = item_id.replace("djen-", "")
                 if not _validate_date_str(date_str):
                     return None
 
                 table_name = filename.replace(".parquet", "")
-                if table_name not in KNOWN_TABLE_NAMES:
+                if table_name not in KNOWN_TABLE_NAMES and table_name != "embeddings":
                     return None
 
-                result = {
+                return {
                     "date": date_str,
                     "tribunal": "ALL",
                     "file_type": "parquet",
@@ -340,59 +359,24 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 }
             except Exception:
                 return None
-            else:
-                return result
         return None
 
     # Validate file extension
     if not filename.endswith((".zip", ".parquet", ".absent")):
         return None
 
-    parts = (
-        filename.replace("djen-", "")
-        .replace(".zip", "")
-        .replace(".parquet", "")
-        .replace(".absent", "")
-    )
+    if not filename.startswith("djen-") and not filename.endswith(".parquet"):
+        return None
 
-    if filename.endswith(".zip"):
+    if filename.startswith("djen-") and (filename.endswith(".zip") or filename.endswith(".absent")):
+        parts = filename.replace("djen-", "").replace(".zip", "").replace(".absent", "")
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
-        # djen-2026-01-15-TRE-AC.zip -> date=2026-01-15, tribunal=TRE-AC
-        try:
-            # Format: YYYY-MM-DD-TRIBUNAL (tribunal may contain dashes, e.g. TRE-AC)
-            split_parts = parts.split("-")
-            if len(split_parts) < 4:
-                return None
-            date_str = "-".join(split_parts[:3])
-            tribunal = "-".join(split_parts[3:])  # Join all remaining parts
-
-            # Validate date and tribunal
-            if not _validate_date_str(date_str):
-                return None
-            if not _validate_tribunal_code(tribunal):
-                return None
-
-            return {
-                "date": date_str,
-                "tribunal": tribunal.upper(),
-                "file_type": "zip",
-                "table_name": None,
-                "file_name": filename,
-                "ia_item": item_id,
-                "ia_url": f"https://archive.org/download/{item_id}/{filename}",
-            }
-        except (IndexError, ValueError):
-            return None
-
-    elif filename.endswith(".absent"):
-        # djen-2026-01-15-TJSP.absent -> date=2026-01-15, tribunal=TJSP
-        # djen-2026-01-15-TRE-AC.absent -> date=2026-01-15, tribunal=TRE-AC
         try:
             split_parts = parts.split("-")
             if len(split_parts) < 4:
                 return None
             date_str = "-".join(split_parts[:3])
-            tribunal = "-".join(split_parts[3:])  # Join all remaining parts
+            tribunal = "-".join(split_parts[3:])
 
             if not _validate_date_str(date_str):
                 return None
@@ -402,7 +386,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
             return {
                 "date": date_str,
                 "tribunal": tribunal.upper(),
-                "file_type": "absent",
+                "file_type": "zip" if filename.endswith(".zip") else "absent",
                 "table_name": None,
                 "file_name": filename,
                 "ia_item": item_id,
@@ -412,52 +396,42 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
             return None
 
     elif filename.endswith(".parquet"):
-        # djen-2026-01-15-TJSP-comunicacoes.parquet
-        # djen-2026-01-15-TRE-AC-comunicacoes.parquet (tribunal with dash)
-        try:
-            # Format: YYYY-MM-DD-TRIBUNAL-table (tribunal may contain dashes)
-            split_parts = parts.split("-")
-            if len(split_parts) < 5:
-                return None
-            date_str = "-".join(split_parts[:3])
+        # Expecting: TRIBUNAL-YYYY-MM-DD-table.parquet
+        parts = filename.replace(".parquet", "").split("-")
 
-            # Find table name by checking from end (table names are known)
-            table_name = None
-            tribunal_end_idx = len(split_parts)
-            for i in range(len(split_parts) - 1, 2, -1):
-                candidate = "-".join(split_parts[i:])
-                if candidate in KNOWN_TABLE_NAMES:
-                    table_name = candidate
-                    tribunal_end_idx = i
-                    break
-                # Also check single part
-                if split_parts[i] in KNOWN_TABLE_NAMES:
-                    table_name = split_parts[i]
-                    tribunal_end_idx = i
-                    break
+        # Find table name
+        table_name = None
+        for i in range(len(parts) - 1, 0, -1):
+            candidate = "-".join(parts[i:])
+            if candidate in KNOWN_TABLE_NAMES or candidate == "embeddings":
+                table_name = candidate
+                table_idx = i
+                break
+            if parts[i] in KNOWN_TABLE_NAMES or parts[i] == "embeddings":
+                table_name = parts[i]
+                table_idx = i
+                break
 
-            if not table_name:
-                return None  # Unknown table format
+        if table_name and table_idx >= 3:
+            # Depending on if it's TJSP-YYYY-MM-DD or djen-YYYY-MM-DD-TJSP
+            # Let's check the date format first. The date is usually 3 parts: YYYY-MM-DD
+            if parts[0] == "djen":
+                date_str = "-".join(parts[1:4])
+                tribunal = "-".join(parts[4:table_idx])
+            else:
+                date_str = "-".join(parts[table_idx - 3 : table_idx])
+                tribunal = "-".join(parts[: table_idx - 3])
 
-            tribunal = "-".join(split_parts[3:tribunal_end_idx])
-
-            # Validate date and tribunal
-            if not _validate_date_str(date_str):
-                return None
-            if not _validate_tribunal_code(tribunal):
-                return None
-
-            return {
-                "date": date_str,
-                "tribunal": tribunal.upper(),
-                "file_type": "parquet",
-                "table_name": table_name,
-                "file_name": filename,
-                "ia_item": item_id,
-                "ia_url": f"https://archive.org/download/{item_id}/{filename}",
-            }
-        except (IndexError, ValueError):
-            return None
+            if _validate_date_str(date_str) and _validate_tribunal_code(tribunal):
+                return {
+                    "date": date_str,
+                    "tribunal": tribunal.upper(),
+                    "file_type": "parquet",
+                    "table_name": table_name,
+                    "file_name": filename,
+                    "ia_item": item_id,
+                    "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+                }
 
     return None
 
@@ -978,7 +952,20 @@ def upload_to_ia(files: list[Path]) -> bool:
 
     try:
         result = subprocess.run(
-            ["ia", "upload", IA_CATALOG_ITEM, *file_args, "--metadata=collection:opensource", "--metadata=mediatype:data", "--metadata=title:CausaGanha Catalog", "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.", "--metadata=subject:causaganha;djen;legal;brazil;catalog", "--metadata=creator:CausaGanha", "--retries=3", "--no-derive"],
+            [
+                "ia",
+                "upload",
+                IA_CATALOG_ITEM,
+                *file_args,
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                "--metadata=title:CausaGanha Catalog",
+                "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.",
+                "--metadata=subject:causaganha;djen;legal;brazil;catalog",
+                "--metadata=creator:CausaGanha",
+                "--retries=3",
+                "--no-derive",
+            ],
             capture_output=True,
             text=True,
             timeout=600,
@@ -1047,7 +1034,6 @@ def main() -> int:
 
     if start_date > end_date:
         return 1
-
 
     # 1. List all IA items
     items = list_ia_items()
@@ -1136,9 +1122,7 @@ def main() -> int:
     # Keep backfill-progress.json for backward compatibility (alias to collect)
     if main_db_path.exists():
         backfill_progress_path = output_dir / "backfill-progress.json"
-        backfill_progress_path.write_text(
-            json.dumps(collect_data, ensure_ascii=False, indent=2)
-        )
+        backfill_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
         logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
 
     # 6. Create DuckDB
@@ -1182,7 +1166,6 @@ def main() -> int:
 
     total_expected = len(backfill) + zip_count
     percent_complete = (zip_count / total_expected * 100) if total_expected > 0 else 0
-
 
     # Set GitHub Actions output: catalog was successfully rebuilt
     import os

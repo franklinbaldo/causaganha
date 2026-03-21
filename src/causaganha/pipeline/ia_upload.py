@@ -255,7 +255,7 @@ class InternetArchiveUploader:
 
         .. note::
             This generates ``djen-raw-{date}-{tribunal}`` which differs from
-            the production item ID scheme ``djen-{date}`` used by
+            the production item ID scheme ``djen-{tribunal}-{year}`` used by
             ``scripts/pipeline/ia_s3.py`` and ``scripts/pipeline/collect.py``.
             This module is NOT used for production uploads.
 

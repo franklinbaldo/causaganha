@@ -108,9 +108,9 @@ def parse_run_results(results_path: Path) -> None:
             logger.info(
                 "  %s. %s: %.2fs (Status: %s)",
                 i + 1,
-                node_info['name'],
-                node_info['time'],
-                node_info['status'],
+                node_info["name"],
+                node_info["time"],
+                node_info["status"],
             )
 
     logger.info("\n--- End of dbt Run Monitoring ---")

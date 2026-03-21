@@ -69,7 +69,6 @@ def create_sample_data() -> None:
                 )
             """)
 
-
     # Verify
     result = con.raw_sql(f"""
         SELECT

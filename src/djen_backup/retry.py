@@ -81,8 +81,10 @@ async def request_with_retry(
                     )
                     await asyncio.sleep(wait)
                     continue
-            else:
-                return resp
+
+            # Either it was a success, a non-retriable error, or retries are exhausted.
+            # Just return the response and let the caller handle it.
+            return resp
 
         except httpx.TransportError as exc:
             last_exc = exc

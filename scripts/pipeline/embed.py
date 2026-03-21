@@ -218,7 +218,6 @@ def main() -> int:
         deadline_seconds=deadline_seconds,
     )
 
-
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         with Path(gh_output).open("a") as f:
             f.write(f"files_added={'true' if stats['saved'] > 0 else 'false'}\n")

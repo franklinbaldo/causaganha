@@ -19,7 +19,6 @@ async def test_export() -> None:
     con = get_connection()
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-
     # Initialize exporter
     config = ExportConfig(output_dir=Path("data/exports"))
     exporter = ParquetExporter(con, config)
@@ -28,7 +27,6 @@ async def test_export() -> None:
     tribunals = ["TJRO", "TJSP", "TJAC"]
 
     for tribunal in tribunals:
-
         try:
             file_path, _row_count = await exporter.export_day_tribunal(
                 partition_date=yesterday,
@@ -53,7 +51,6 @@ async def test_export() -> None:
             import traceback
 
             traceback.print_exc()
-
 
 
 if __name__ == "__main__":

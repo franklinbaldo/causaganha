@@ -63,6 +63,20 @@ def get_ia_s3_auth() -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def get_ia_item_id(tribunal: str, date_str: str) -> str:
+    """Canonical item naming strategy: djen-{tribunal}-{year}.
+
+    Args:
+        tribunal: Tribunal code (e.g. TJSP, TRE-AC).
+        date_str: Date string (YYYY-MM-DD or datetime object with isoformat).
+
+    Returns:
+        The canonical item ID for the Internet Archive.
+    """
+    year = date_str[:4]
+    return f"djen-{tribunal.lower()}-{year}"
+
+
 def compute_md5(file_path: Path) -> str:
     """Compute hex-encoded MD5 checksum (IA S3 format)."""
     h = hashlib.md5()

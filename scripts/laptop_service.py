@@ -303,7 +303,6 @@ def main() -> None:
         python_version=sys.version,
     )
 
-
     # Setup graceful shutdown
     shutdown = GracefulShutdown()
 
@@ -322,7 +321,6 @@ def main() -> None:
     except Exception as e:
         logger.exception("service_error", error=str(e))
         sys.exit(1)
-
 
 
 if __name__ == "__main__":

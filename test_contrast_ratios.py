@@ -46,8 +46,6 @@ def test_contrast(name, foreground, background, required_ratio=4.5):
     return ratio >= required_ratio
 
 
-
-
 # Background colors
 bg_black = "#050505"
 bg_card = "#0f0f0f"
@@ -65,4 +63,3 @@ test_contrast("cyber-danger on black", "#ff3333", bg_black, 4.5)
 test_contrast("cyber-warning on black", "#ffaa00", bg_black, 4.5)
 
 test_contrast("cyber-border on card", "#5f5f5f", bg_card, 3.0)
-
