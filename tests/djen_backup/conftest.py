@@ -14,7 +14,8 @@ from pytest_bdd import given, parsers, then, when
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from djen_backup.archive import CircuitBreaker
 from djen_backup.runner import RunConfig, Summary, WorkItem, process_item

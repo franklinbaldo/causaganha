@@ -333,7 +333,11 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         return None
 
     # Handle consolidated parquets in daily item root (e.g. textos.parquet in djen-2026-02-10)
-    if filename.endswith(".parquet") and not filename.startswith("djen-") and len(filename.split("-")) == 1:
+    if (
+        filename.endswith(".parquet")
+        and not filename.startswith("djen-")
+        and len(filename.split("-")) == 1
+    ):
         if item_id.startswith("djen-"):
             try:
                 date_str = item_id.replace("djen-", "")
@@ -415,8 +419,8 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 date_str = "-".join(parts[1:4])
                 tribunal = "-".join(parts[4:table_idx])
             else:
-                date_str = "-".join(parts[table_idx-3:table_idx])
-                tribunal = "-".join(parts[:table_idx-3])
+                date_str = "-".join(parts[table_idx - 3 : table_idx])
+                tribunal = "-".join(parts[: table_idx - 3])
 
             if _validate_date_str(date_str) and _validate_tribunal_code(tribunal):
                 return {
@@ -948,7 +952,20 @@ def upload_to_ia(files: list[Path]) -> bool:
 
     try:
         result = subprocess.run(
-            ["ia", "upload", IA_CATALOG_ITEM, *file_args, "--metadata=collection:opensource", "--metadata=mediatype:data", "--metadata=title:CausaGanha Catalog", "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.", "--metadata=subject:causaganha;djen;legal;brazil;catalog", "--metadata=creator:CausaGanha", "--retries=3", "--no-derive"],
+            [
+                "ia",
+                "upload",
+                IA_CATALOG_ITEM,
+                *file_args,
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                "--metadata=title:CausaGanha Catalog",
+                "--metadata=description:Master catalog for CausaGanha DJEN data. Contains manifest of all files and views for remote queries.",
+                "--metadata=subject:causaganha;djen;legal;brazil;catalog",
+                "--metadata=creator:CausaGanha",
+                "--retries=3",
+                "--no-derive",
+            ],
             capture_output=True,
             text=True,
             timeout=600,
@@ -1017,7 +1034,6 @@ def main() -> int:
 
     if start_date > end_date:
         return 1
-
 
     # 1. List all IA items
     items = list_ia_items()
@@ -1106,9 +1122,7 @@ def main() -> int:
     # Keep backfill-progress.json for backward compatibility (alias to collect)
     if main_db_path.exists():
         backfill_progress_path = output_dir / "backfill-progress.json"
-        backfill_progress_path.write_text(
-            json.dumps(collect_data, ensure_ascii=False, indent=2)
-        )
+        backfill_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
         logger.info("backfill_progress_saved_legacy", path=str(backfill_progress_path))
 
     # 6. Create DuckDB
@@ -1152,7 +1166,6 @@ def main() -> int:
 
     total_expected = len(backfill) + zip_count
     percent_complete = (zip_count / total_expected * 100) if total_expected > 0 else 0
-
 
     # Set GitHub Actions output: catalog was successfully rebuilt
     import os

@@ -413,12 +413,14 @@ def list_zips_for_date(
                     filename = file_info.get("name", "")
                     if filename == target_zip:
                         present.add(tribunal)
-                        zips.append({
-                            "filename": filename,
-                            "tribunal": tribunal,
-                            "item_id": item_id,
-                            "size": file_info.get("size", 0),
-                        })
+                        zips.append(
+                            {
+                                "filename": filename,
+                                "tribunal": tribunal,
+                                "item_id": item_id,
+                                "size": file_info.get("size", 0),
+                            }
+                        )
                     elif filename == target_absent:
                         present.add(tribunal)
 
@@ -1197,7 +1199,7 @@ def _needs_consolidation(
                         if has_zip:
                             present_tribunais.add(trib)
                     except Exception:
-                        pass # missing
+                        pass  # missing
 
             # Must have data for all active (non-stopped) tribunals
             missing_active = [t for t in active_tribunals if t not in present_tribunais]

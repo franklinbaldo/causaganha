@@ -16,7 +16,9 @@ import structlog
 logger = structlog.get_logger()
 
 
-def upload_to_internet_archive(file_path: Path, collection: str = "causaganha-embeddings") -> bool | None:
+def upload_to_internet_archive(
+    file_path: Path, collection: str = "causaganha-embeddings"
+) -> bool | None:
     """Upload file to Internet Archive.
 
     Args:

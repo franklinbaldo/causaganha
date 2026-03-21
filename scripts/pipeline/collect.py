@@ -134,7 +134,6 @@ def main() -> int:
     stats = parse_structlog_summary(result.stdout or "")
     files_added = stats["uploaded"] > 0 or stats["absent_marked"] > 0
 
-
     # Write pipeline output contract (same keys as before)
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         with open(gh_output, "a") as f:

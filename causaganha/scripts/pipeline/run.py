@@ -203,6 +203,5 @@ def main() -> None:
         update_cursor(repo_root, target_date)
 
 
-
 if __name__ == "__main__":
     main()

@@ -24,6 +24,7 @@ def _raise_not_found(status_code: int, reason: str) -> None:
     """Helper to raise DJENNotFoundError (satisfies TRY301)."""
     raise DJENNotFoundError(status_code=status_code, reason=reason)
 
+
 # HTTP status constants
 HTTP_NOT_FOUND = 404
 
@@ -56,6 +57,10 @@ async def get_caderno_url(
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
+    if resp.status_code >= 500:
+        import httpx
+
+        raise httpx.HTTPError(f"Server error: {resp.status_code}")
     resp.raise_for_status()
 
     try:

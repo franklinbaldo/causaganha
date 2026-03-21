@@ -114,8 +114,6 @@ def collect(
     asyncio.run(_run())
 
 
-
-
 @app.command()
 def analyze(
     limit: int = typer.Option(10, help="Number of items to analyze"),
@@ -202,8 +200,6 @@ def score(
             _handle_error(e, "Scoring failed")
 
     asyncio.run(_run())
-
-
 
 
 @app.command()

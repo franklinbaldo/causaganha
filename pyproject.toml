@@ -54,6 +54,7 @@ dev = [
     "pytest-mock>=3.12",
     "pytest-bdd>=7.0.0",
     "pytest-cov>=6.2.1",
+    "respx>=0.22.0",
     "ruff>=0.12.0",
     "pip-audit>=2.7.2",
     "safety>=3.2.0",

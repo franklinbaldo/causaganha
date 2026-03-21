@@ -394,7 +394,7 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
 
     # Calculate metrics
     zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")
-    size_today = sizes.get(date_used, 0) # Fallback to 0
+    size_today = sizes.get(date_used, 0)  # Fallback to 0
 
     return {
         "date": date_used,
@@ -523,7 +523,6 @@ def generate_backfill_cache(
     """
     if not is_manifest_populated(con):
         return {}
-
 
     try:
         # Per-year progress: count distinct date+tribunal combos collected vs expected
@@ -761,7 +760,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Initialize DuckDB with httpfs for remote parquet access
@@ -861,7 +859,6 @@ def main() -> None:
     rss_path = OUTPUT_DIR / "feed.xml"
     with rss_path.open("w") as f:
         f.write(rss_content)
-
 
 
 if __name__ == "__main__":

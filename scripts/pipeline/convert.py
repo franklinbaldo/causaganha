@@ -289,12 +289,17 @@ def convert_data(target_date: str | None = None, max_items: int = 20) -> dict:
                 stats["failed"] += 1
                 continue
 
-            # Upload Parquets to daily item, not the zip item (which is now yearly)
+            # Upload Parquets to tribunal-year item
             parts = base_name.replace("djen-", "").split("-")
-            date_str = "-".join(parts[:3])
-            daily_item_id = f"djen-{date_str}"
+            if len(parts) >= 4:
+                date_str = "-".join(parts[:3])
+                tribunal = parts[3]
+                year = date_str[:4]
+                upload_item_id = f"djen-{tribunal.lower()}-{year}"
+            else:
+                upload_item_id = item_id
 
-            uploaded = upload_parquets(daily_item_id, parquet_files)
+            uploaded = upload_parquets(upload_item_id, parquet_files)
             stats["files_uploaded"] += uploaded
             stats["converted"] += 1
             logger.info("converted", zip=zip_name, parquets=len(parquet_files))
@@ -312,7 +317,6 @@ def main() -> int:
         pass
 
     stats = convert_data(target_date=args.date, max_items=args.max_items)
-
 
     return 0 if stats["failed"] == 0 else 1
 

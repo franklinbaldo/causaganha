@@ -1,6 +1,7 @@
 import pytest
 from scripts.generate_catalog import parse_filename
 
+
 def test_parse_filename_zip():
     item_id = "djen-tjsp-2026"
     filename = "djen-2026-01-15-TJSP.zip"
@@ -9,6 +10,7 @@ def test_parse_filename_zip():
     assert res["date"] == "2026-01-15"
     assert res["tribunal"] == "TJSP"
     assert res["file_type"] == "zip"
+
 
 def test_parse_filename_absent():
     item_id = "djen-tre-ac-2026"
@@ -19,6 +21,7 @@ def test_parse_filename_absent():
     assert res["tribunal"] == "TRE-AC"
     assert res["file_type"] == "absent"
 
+
 def test_parse_filename_parquet():
     item_id = "djen-tjsp-2026"
     filename = "TJSP-2026-01-15-comunicacoes.parquet"
@@ -28,6 +31,7 @@ def test_parse_filename_parquet():
     assert res["tribunal"] == "TJSP"
     assert res["file_type"] == "parquet"
     assert res["table_name"] == "comunicacoes"
+
 
 def test_parse_filename_parquet_legacy():
     item_id = "djen-2026-01-15"

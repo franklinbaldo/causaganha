@@ -47,7 +47,9 @@ def test_cache_skip() -> None:
     target_fixture="ia_date_str",
 )
 def given_ia_empty(mock_api: respx.MockRouter, date_str: str) -> str:
-    mock_api.get(f"https://archive.org/metadata/backup-djen-{date_str}").respond(200, json={"files": []})
+    mock_api.get(f"https://archive.org/metadata/backup-djen-{date_str}").respond(
+        200, json={"files": []}
+    )
     return date_str
 
 

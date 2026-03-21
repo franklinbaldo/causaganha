@@ -21,34 +21,39 @@ from djen_backup.state import State
 
 # ── Scenarios ────────────────────────────────────────────────────────
 
+
 @scenario("ratcheting.feature", "Stopped tribunal stops at previous boundary if no new data found")
 def test_stopped_tribunal_stops_at_boundary() -> None:
     pass
+
 
 @scenario("ratcheting.feature", "Stopped tribunal resumes scanning if data is found")
 def test_stopped_tribunal_resumes_scanning() -> None:
     pass
 
+
 # ── Fixtures ─────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def context():
     return {}
 
+
 # ── Steps ────────────────────────────────────────────────────────────
+
 
 @given(parsers.parse('a tribunal "{tribunal}" stopped at "{stop_date}" with 60 empties'))
 def given_stopped_tribunal(tribunal: str, stop_date: str, context: dict[str, Any]) -> None:
     bstate = BackfillState()
     prog = TribunalProgress(
-        cursor_date=date.fromisoformat(stop_date),
-        empty_streak=60,
-        stopped=True
+        cursor_date=date.fromisoformat(stop_date), empty_streak=60, stopped=True
     )
     bstate._tribunals[tribunal] = prog
     context["tribunal"] = tribunal
     context["bstate"] = bstate
     context["stop_date"] = date.fromisoformat(stop_date)
+
 
 @when(parsers.parse('backfill runs starting from "{start_date}"'))
 def when_backfill_runs(start_date: str, context: dict[str, Any]) -> None:
@@ -60,13 +65,17 @@ def when_backfill_runs(start_date: str, context: dict[str, Any]) -> None:
     # ensure_cursor_at_least is called
     async def _ensure() -> None:
         await bstate.ensure_cursor_at_least(tribunal, date.fromisoformat(start_date))
+
     asyncio.run(_ensure())
 
     prog = bstate._tribunals[tribunal]
     context["prog"] = prog
 
+
 @when(parsers.parse('no data is found between "{start_date}" and "{stop_date}"'))
-def when_no_data_found(start_date: str, stop_date: str, context: dict[str, Any], mock_api: respx.MockRouter) -> None:
+def when_no_data_found(
+    start_date: str, stop_date: str, context: dict[str, Any], mock_api: respx.MockRouter
+) -> None:
     context["tribunal"]
 
     # Mock DJEN to always return 404
@@ -75,13 +84,16 @@ def when_no_data_found(start_date: str, stop_date: str, context: dict[str, Any],
 
     _run_backfill(context, mock_api)
 
+
 @when(parsers.parse('data is found at "{hit_date}"'))
 def when_data_found(hit_date: str, context: dict[str, Any], mock_api: respx.MockRouter) -> None:
     tribunal = context["tribunal"]
     hit_d = date.fromisoformat(hit_date)
 
     # Mock hit date FIRST (so it takes precedence if using regex order)
-    mock_api.get(url__regex=rf"https://djen-proxy\.test/api/v1/caderno/{tribunal}/{hit_d.isoformat()}/D").respond(200, json={"url": "http://djen-proxy.test/zip"})
+    mock_api.get(
+        url__regex=rf"https://djen-proxy\.test/api/v1/caderno/{tribunal}/{hit_d.isoformat()}/D"
+    ).respond(200, json={"url": "http://djen-proxy.test/zip"})
     mock_api.get("http://djen-proxy.test/zip").respond(200, content=b"zipcontent")
 
     # Mock other dates as 404
@@ -89,6 +101,7 @@ def when_data_found(hit_date: str, context: dict[str, Any], mock_api: respx.Mock
     mock_api.put(url__startswith="https://s3.us.archive.org/").respond(200)
 
     _run_backfill(context, mock_api)
+
 
 def _run_backfill(context: dict[str, Any], mock_api: respx.MockRouter) -> None:
     tribunal = context["tribunal"]
@@ -100,13 +113,13 @@ def _run_backfill(context: dict[str, Any], mock_api: respx.MockRouter) -> None:
         lower_bound=None,
         tribunal=tribunal,
         deadline_minutes=10,
-        max_items=200, # enough to pass the boundary
+        max_items=200,  # enough to pass the boundary
         workers=1,
         backfill_state_file=None,
         state_file=None,
         djen_proxy_url="https://djen-proxy.test",
         ia_auth="test",
-        dry_run=False
+        dry_run=False,
     )
 
     ia_state = State()
@@ -126,7 +139,9 @@ def _run_backfill(context: dict[str, Any], mock_api: respx.MockRouter) -> None:
                 deadline,
                 summary,
             )
+
     asyncio.run(_run())
+
 
 @then(parsers.parse('the tribunal cursor should remain at "{expected_date}"'))
 def then_cursor_remains(expected_date: str, context: dict[str, Any]) -> None:
@@ -134,11 +149,13 @@ def then_cursor_remains(expected_date: str, context: dict[str, Any]) -> None:
     expected = date.fromisoformat(expected_date)
     assert prog.cursor_date == expected
 
+
 @then("the tribunal should be stopped")
 def then_tribunal_stopped(context: dict[str, Any]) -> None:
     prog = context["prog"]
     assert prog.stopped is True
-    assert prog.stop_boundary is None # Cleared
+    assert prog.stop_boundary is None  # Cleared
+
 
 @then(parsers.parse('the tribunal cursor should be older than "{expected_date}"'))
 def then_cursor_older(expected_date: str, context: dict[str, Any]) -> None:

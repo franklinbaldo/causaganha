@@ -177,7 +177,9 @@ def _compute_md5(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
 
 
-def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, tribunal: str, table_name: str) -> bool:
+def upload_embeddings_to_ia(
+    con: ibis.BaseBackend, date: str, tribunal: str, table_name: str
+) -> bool:
     """Export embeddings table to parquet bytes and upload to IA."""
     year = date[:4]
     item_name = f"djen-{tribunal.lower()}-{year}"
@@ -358,7 +360,6 @@ def main() -> int:
     else:
         return 1
 
-
     start_time = time.time()
     timeout_seconds = args.timeout_minutes * 60
 
@@ -369,7 +370,6 @@ def main() -> int:
         if time.time() - start_time > timeout_seconds:
             logger.info("timeout_reached")
             break
-
 
         from causaganha.config import TRIBUNAIS
 
@@ -383,8 +383,6 @@ def main() -> int:
         total_stats["processed"] += stats["processed"]
         total_stats["failed"] += stats["failed"]
         total_stats["uploaded"] += stats["uploaded"]
-
-
 
     # Output for GitHub Actions
     files_added = total_stats["uploaded"] > 0

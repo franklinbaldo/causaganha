@@ -187,7 +187,10 @@ async def discover_gaps(
     sem = asyncio.Semaphore(5)
 
     results = await asyncio.gather(
-        *(_check_date(client, d, tribunal_set, state, force_recheck, sem) for d in dates)
+        *(
+            _check_date(client, d, tribunal_set, state, force_recheck=force_recheck, semaphore=sem)
+            for d in dates
+        )
     )
 
     work: list[WorkItem] = []

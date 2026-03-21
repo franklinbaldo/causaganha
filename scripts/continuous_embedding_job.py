@@ -265,7 +265,6 @@ async def main_async(args: argparse.Namespace) -> None:
         logger.info("no_decisions_to_process")
         return
 
-
     # Process with timeout
     stats = await process_with_timeout(
         intimation_ids=intimation_ids,

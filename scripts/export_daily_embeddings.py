@@ -62,7 +62,6 @@ def main() -> None:
             file_size_mb=round(file_size_mb, 2),
         )
 
-
     except ValueError as e:
         logger.warning("export_failed", error=str(e))
         # Create empty file to avoid workflow failure
