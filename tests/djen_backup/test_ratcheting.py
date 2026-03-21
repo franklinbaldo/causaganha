@@ -21,11 +21,11 @@ from djen_backup.state import State
 
 # ── Scenarios ────────────────────────────────────────────────────────
 
-@scenario("../ratcheting.feature", "Stopped tribunal stops at previous boundary if no new data found")
+@scenario("ratcheting.feature", "Stopped tribunal stops at previous boundary if no new data found")
 def test_stopped_tribunal_stops_at_boundary() -> None:
     pass
 
-@scenario("../ratcheting.feature", "Stopped tribunal resumes scanning if data is found")
+@scenario("ratcheting.feature", "Stopped tribunal resumes scanning if data is found")
 def test_stopped_tribunal_resumes_scanning() -> None:
     pass
 

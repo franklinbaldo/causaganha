@@ -30,42 +30,42 @@ BASE_DATE = date(2024, 6, 1)
 # ── Scenarios ────────────────────────────────────────────────────────
 
 
-@scenario("../backfill.feature", "60 consecutive empty dates stop tribunal")
+@scenario("backfill.feature", "60 consecutive empty dates stop tribunal")
 def test_60_empties_stop() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Hit before 60 resets streak")
+@scenario("backfill.feature", "Hit before 60 resets streak")
 def test_hit_resets_streak() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Errors do not count as empty")
+@scenario("backfill.feature", "Errors do not count as empty")
 def test_errors_not_counted() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Stopped tribunal is skipped on next run")
+@scenario("backfill.feature", "Stopped tribunal is skipped on next run")
 def test_stopped_skipped() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Manual reset re-enables tribunal")
+@scenario("backfill.feature", "Manual reset re-enables tribunal")
 def test_manual_reset() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Lower bound stops scanning")
+@scenario("backfill.feature", "Lower bound stops scanning")
 def test_lower_bound() -> None:
     pass
 
 
-@scenario("../backfill.feature", "No lower bound — stop rule halts scanning")
+@scenario("backfill.feature", "No lower bound — stop rule halts scanning")
 def test_no_lower_bound() -> None:
     pass
 
 
-@scenario("../backfill.feature", "Already-uploaded item on IA counts as hit")
+@scenario("backfill.feature", "Already-uploaded item on IA counts as hit")
 def test_ia_uploaded_counts_as_hit() -> None:
     pass
 

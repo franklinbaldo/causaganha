@@ -200,7 +200,7 @@ class BackfillState:
     def to_dict(self) -> dict[str, object]:
         """Convert BackfillState to dictionary for serialization."""
         return {
-            "version": 1,
+            "version": 2,
             "updated_at": datetime.now(tz=UTC).isoformat(),
             "tribunals": {k: v.to_dict() for k, v in self._tribunals.items()},
         }
@@ -209,6 +209,9 @@ class BackfillState:
     def from_dict(cls, data: dict[str, object]) -> BackfillState:
         """Create BackfillState from dictionary."""
         state = cls()
+        if data.get("version") != 2:
+            return state
+
         tribunals = data.get("tribunals")
         if isinstance(tribunals, dict):
             for code, raw in tribunals.items():

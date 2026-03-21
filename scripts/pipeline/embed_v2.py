@@ -118,26 +118,28 @@ def fetch_consolidated_dates() -> list[str]:
         return []
 
 
-def fetch_texts_from_ia(con: ibis.BaseBackend, date: str) -> ibis.Table | None:
+def fetch_texts_from_ia(con: ibis.BaseBackend, date: str, tribunal: str) -> ibis.Table | None:
     """Download textos.parquet from IA and register as ibis table."""
-    item_name = f"djen-{date}"
-    url = f"{IA_BASE_URL}/{item_name}/textos.parquet"
+    year = date[:4]
+    item_name = f"djen-{tribunal.lower()}-{year}"
+    filename = f"{tribunal.upper()}-{date}-textos.parquet"
+    url = f"{IA_BASE_URL}/{item_name}/{filename}"
 
-    logger.info("downloading_texts", date=date, url=url)
+    logger.info("downloading_texts", date=date, tribunal=tribunal, url=url)
     path = _download_parquet(url)
     if path is None:
-        logger.warning("texts_not_found", date=date)
+        logger.warning("texts_not_found", date=date, tribunal=tribunal)
         return None
 
     try:
         t = con.read_parquet(path)
         row_count = t.count().execute()
-        logger.info("texts_downloaded", date=date, rows=row_count)
+        logger.info("texts_downloaded", date=date, tribunal=tribunal, rows=row_count)
         if row_count == 0:
             return None
         result = t
     except Exception as e:
-        logger.warning("texts_download_failed", date=date, error=str(e))
+        logger.warning("texts_download_failed", date=date, tribunal=tribunal, error=str(e))
         return None
     else:
         return result
@@ -145,24 +147,26 @@ def fetch_texts_from_ia(con: ibis.BaseBackend, date: str) -> ibis.Table | None:
         os.unlink(path)
 
 
-def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str) -> set[str]:
+def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str, tribunal: str) -> set[str]:
     """Check which texts already have embeddings on IA."""
-    item_name = f"djen-{date}"
-    url = f"{IA_BASE_URL}/{item_name}/embeddings.parquet"
+    year = date[:4]
+    item_name = f"djen-{tribunal.lower()}-{year}"
+    filename = f"{tribunal.upper()}-{date}-embeddings.parquet"
+    url = f"{IA_BASE_URL}/{item_name}/{filename}"
 
-    logger.info("checking_existing_embeddings", date=date)
+    logger.info("checking_existing_embeddings", date=date, tribunal=tribunal)
     path = _download_parquet(url, timeout=60)
     if path is None:
-        logger.info("no_existing_embeddings", date=date)
+        logger.info("no_existing_embeddings", date=date, tribunal=tribunal)
         return set()
 
     try:
         t = con.read_parquet(path)
         ids = t.select("id").to_pyarrow().column("id").to_pylist()
-        logger.info("existing_embeddings_found", date=date, count=len(ids))
+        logger.info("existing_embeddings_found", date=date, tribunal=tribunal, count=len(ids))
         return set(ids)
     except Exception as e:
-        logger.info("embeddings_check_failed", date=date, error=str(e))
+        logger.info("embeddings_check_failed", date=date, tribunal=tribunal, error=str(e))
         return set()
     finally:
         os.unlink(path)
@@ -173,10 +177,11 @@ def _compute_md5(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()
 
 
-def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, table_name: str) -> bool:
+def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, tribunal: str, table_name: str) -> bool:
     """Export embeddings table to parquet bytes and upload to IA."""
-    item_name = f"djen-{date}"
-    filename = "embeddings.parquet"
+    year = date[:4]
+    item_name = f"djen-{tribunal.lower()}-{year}"
+    filename = f"{tribunal.upper()}-{date}-embeddings.parquet"
 
     # Export to parquet bytes via temp file
     with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
@@ -234,91 +239,95 @@ def upload_embeddings_to_ia(con: ibis.BaseBackend, date: str, table_name: str) -
 
 def generate_embeddings_for_date(
     date: str,
+    tribunals: list[str],
     max_texts: int = 500,
     embed_fn=None,
 ) -> dict:
-    """Generate embeddings for a single date."""
+    """Generate embeddings for a single date across multiple tribunals."""
     stats = {"processed": 0, "failed": 0, "uploaded": 0}
 
     con = ibis.duckdb.connect()
 
-    # Fetch texts
-    texts = fetch_texts_from_ia(con, date)
-    if texts is None:
-        logger.info("no_texts_for_date", date=date)
-        return stats
+    for tribunal in tribunals:
+        logger.info("processing_tribunal", date=date, tribunal=tribunal)
+        # Fetch texts
+        texts = fetch_texts_from_ia(con, date, tribunal)
+        if texts is None:
+            logger.info("no_texts_for_date_tribunal", date=date, tribunal=tribunal)
+            continue
 
-    # Fetch existing embeddings
-    existing_ids = fetch_existing_embedding_ids(con, date)
+        # Fetch existing embeddings
+        existing_ids = fetch_existing_embedding_ids(con, date, tribunal)
 
-    # Filter unprocessed texts using ibis
-    if existing_ids:
-        texts = texts.filter(~texts.id.isin(existing_ids))
+        # Filter unprocessed texts using ibis
+        if existing_ids:
+            texts = texts.filter(~texts.id.isin(existing_ids))
 
-    # Filter valid texts (must have texto, length > 50)
-    texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > 50))
+        # Filter valid texts (must have texto, length > 50)
+        texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > 50))
 
-    row_count = texts.count().execute()
-    if row_count == 0:
-        logger.info("all_texts_already_embedded", date=date)
-        return stats
+        row_count = texts.count().execute()
+        if row_count == 0:
+            logger.info("all_texts_already_embedded", date=date, tribunal=tribunal)
+            continue
 
-    # Limit if requested
-    if max_texts and row_count > max_texts:
-        texts = texts.limit(max_texts)
-        row_count = max_texts
+        # Limit if requested
+        if max_texts and row_count > max_texts:
+            texts = texts.limit(max_texts)
+            row_count = max_texts
 
-    logger.info("texts_to_embed", date=date, count=row_count)
+        logger.info("texts_to_embed", date=date, tribunal=tribunal, count=row_count)
 
-    # Stream batches directly from ibis for API calls
-    result_ids = []
-    result_embeddings = []
-    batch_num = 0
+        # Stream batches directly from ibis for API calls
+        result_ids = []
+        result_embeddings = []
+        batch_num = 0
 
-    for batch in texts.select("id", "texto").to_pyarrow_batches(chunk_size=BATCH_SIZE):
-        batch_num += 1
-        batch_texts = [t[:8000] for t in batch.column("texto").to_pylist()]
+        for batch in texts.select("id", "texto").to_pyarrow_batches(chunk_size=BATCH_SIZE):
+            batch_num += 1
+            batch_texts = [t[:8000] for t in batch.column("texto").to_pylist()]
 
-        try:
-            embeddings = embed_fn(batch_texts)
+            try:
+                embeddings = embed_fn(batch_texts)
 
-            if embeddings and len(embeddings) == len(batch):
-                result_ids.extend(batch.column("id").to_pylist())
-                result_embeddings.extend(embeddings)
-                stats["processed"] += len(batch)
-                logger.info(
-                    "batch_embedded",
-                    date=date,
-                    batch=batch_num,
-                    count=len(batch),
-                )
-            else:
+                if embeddings and len(embeddings) == len(batch):
+                    result_ids.extend(batch.column("id").to_pylist())
+                    result_embeddings.extend(embeddings)
+                    stats["processed"] += len(batch)
+                    logger.info(
+                        "batch_embedded",
+                        date=date,
+                        tribunal=tribunal,
+                        batch=batch_num,
+                        count=len(batch),
+                    )
+                else:
+                    stats["failed"] += len(batch)
+
+            except Exception as e:
+                logger.warning("batch_failed", date=date, tribunal=tribunal, error=str(e))
                 stats["failed"] += len(batch)
 
-        except Exception as e:
-            logger.warning("batch_failed", date=date, error=str(e))
-            stats["failed"] += len(batch)
+            # Rate limiting
+            time.sleep(0.5)
 
-        # Rate limiting
-        time.sleep(0.5)
+        if not result_ids:
+            logger.warning("no_embeddings_generated", date=date, tribunal=tribunal)
+            continue
 
-    if not result_ids:
-        logger.warning("no_embeddings_generated", date=date)
-        return stats
+        # Register results as ibis table for export
+        emb_table_name = f"embeddings_out_{tribunal.lower()}"
+        con.raw_sql(f"DROP TABLE IF EXISTS {emb_table_name}")
+        con.create_table(
+            emb_table_name,
+            ibis.memtable({"id": result_ids, "embedding": result_embeddings}),
+        )
 
-    # Register results as ibis table for export
-    emb_table_name = "embeddings_out"
-    con.raw_sql(f"DROP TABLE IF EXISTS {emb_table_name}")
-    con.create_table(
-        emb_table_name,
-        ibis.memtable({"id": result_ids, "embedding": result_embeddings}),
-    )
-
-    # Upload to IA
-    if upload_embeddings_to_ia(con, date, emb_table_name):
-        stats["uploaded"] = len(result_ids)
-    else:
-        logger.error("upload_failed", date=date)
+        # Upload to IA
+        if upload_embeddings_to_ia(con, date, tribunal, emb_table_name):
+            stats["uploaded"] += len(result_ids)
+        else:
+            logger.error("upload_failed", date=date, tribunal=tribunal)
 
     return stats
 
@@ -362,8 +371,11 @@ def main() -> int:
             break
 
 
+        from causaganha.config import TRIBUNAIS
+
         stats = generate_embeddings_for_date(
             date=date,
+            tribunals=TRIBUNAIS,
             max_texts=args.max_texts,
             embed_fn=embed_fn,
         )

@@ -10,7 +10,7 @@ from pytest_bdd import given, parsers, scenario, then
 
 from djen_backup.state import ItemStatus, State
 
-from .conftest import parse_table
+from tests.djen_backup.conftest import parse_table
 
 
 if TYPE_CHECKING:
@@ -19,22 +19,22 @@ if TYPE_CHECKING:
     from djen_backup.runner import WorkItem
 
 
-@scenario("../gap_detection.feature", "Detect missing tribunals for a date")
+@scenario("gap_detection.feature", "Detect missing tribunals for a date")
 def test_detect_missing() -> None:
     pass
 
 
-@scenario("../gap_detection.feature", "No gaps when all tribunals are covered")
+@scenario("gap_detection.feature", "No gaps when all tribunals are covered")
 def test_no_gaps() -> None:
     pass
 
 
-@scenario("../gap_detection.feature", "All tribunals missing when IA item does not exist")
+@scenario("gap_detection.feature", "All tribunals missing when IA item does not exist")
 def test_all_missing() -> None:
     pass
 
 
-@scenario("../gap_detection.feature", "State cache skips IA query for fully-covered date")
+@scenario("gap_detection.feature", "State cache skips IA query for fully-covered date")
 def test_cache_skip() -> None:
     pass
 

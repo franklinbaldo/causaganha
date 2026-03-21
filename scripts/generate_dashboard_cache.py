@@ -45,7 +45,7 @@ MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet
 BACKFILL_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php"
-    "?q=identifier:djen-20*"
+    "?q=identifier:djen-*"
     "&fl[]=identifier&fl[]=item_size"
     "&rows=10000&output=json"
 )
@@ -219,46 +219,10 @@ def fetch_item_sizes() -> dict[str, int]:
     for doc in data["response"].get("docs", []):
         identifier = doc.get("identifier", "")
         item_size = doc.get("item_size", 0)
-        # Extract date from identifier: djen-YYYY-MM-DD -> YYYY-MM-DD
-        if identifier.startswith("djen-") and len(identifier) >= 15:
-            date_str = identifier[5:15]  # "YYYY-MM-DD"
-            sizes[date_str] = int(item_size) if item_size else 0
+        if identifier.startswith("djen-") and identifier != "causaganha-catalog":
+            sizes[identifier] = int(item_size) if item_size else 0
 
     return sizes
-
-
-def fetch_ia_item_files(date_str: str) -> dict[str, dict[str, Any]]:
-    """Fetch file list for a specific date from IA metadata API.
-
-    Returns dict mapping tribunal code to {status, size} for .zip and .absent files.
-    This is used as a fallback when the manifest is empty.
-    """
-    item_id = f"djen-{date_str}"
-    url = f"https://archive.org/metadata/{item_id}/files"
-
-    data = fetch_json(url, timeout=15)
-    if not data or "result" not in data:
-        return {}
-
-    # Pattern: djen-YYYY-MM-DD-TRIBUNAL.zip or .absent
-    pattern = re.compile(
-        r"^djen-\d{4}-\d{2}-\d{2}-([A-Z0-9]+)\.(zip|absent)$",
-    )
-
-    tribunal_status: dict[str, dict[str, Any]] = {}
-    for file_info in data["result"]:
-        name = file_info.get("name", "")
-        match = pattern.match(name)
-        if match:
-            tribunal = match.group(1)
-            file_type = match.group(2)
-            size = int(file_info.get("size", 0))
-            tribunal_status[tribunal] = {
-                "status": "ok" if file_type == "zip" else "absent",
-                "size": size if file_type == "zip" else None,
-            }
-
-    return tribunal_status
 
 
 def is_manifest_populated(con: duckdb.DuckDBPyConnection) -> bool:
@@ -373,30 +337,20 @@ def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str
 
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
     """Generate today's metrics and tribunal status from manifest.
-
-    Falls back to IA metadata API if the manifest is empty.
+    Fallback to IA metadata API is removed because items are no longer daily.
     """
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
-
-    use_ia_fallback = not is_manifest_populated(con)
-    if use_ia_fallback:
-        pass
+    manifest_populated = is_manifest_populated(con)
 
     tribunal_status: dict[str, dict[str, Any]] = {}
     date_used = today
 
     # Get per-tribunal details (last_update, doc_count) from full manifest
-    tribunal_details = query_tribunal_details(con) if not use_ia_fallback else {}
+    tribunal_details = query_tribunal_details(con) if manifest_populated else {}
 
-    if use_ia_fallback:
-        # Fallback: fetch file list directly from IA metadata API
-        tribunal_status = fetch_ia_item_files(today)
-        if not tribunal_status:
-            tribunal_status = fetch_ia_item_files(yesterday)
-            date_used = yesterday
-    else:
+    if manifest_populated:
         # Primary: query manifest for today's tribunal statuses
         result = con.execute(
             """
@@ -440,14 +394,14 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
 
     # Calculate metrics
     zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")
-    size_today = sizes.get(date_used, 0)
+    size_today = sizes.get(date_used, 0) # Fallback to 0
 
     return {
         "date": date_used,
         "files_today": zip_count,
         "size_today": size_today,
         "tribunal_status": tribunal_status,
-        "manifest_available": not use_ia_fallback,
+        "manifest_available": manifest_populated,
     }
 
 
@@ -481,53 +435,18 @@ def generate_runs_cache() -> dict[str, Any]:
     return {"runs": runs, "health": health}
 
 
-def fetch_ia_search_with_files(sizes: dict[str, int]) -> dict[str, int]:
-    """Estimate tribunal counts from IA search results.
-
-    When the manifest is empty, we can use the IA advanced search API
-    with file_count to estimate how many tribunals have data per date.
-    Each item typically has: N zip files + N absent files + derived parquets.
-    """
-    url = (
-        "https://archive.org/advancedsearch.php"
-        "?q=identifier:djen-20*"
-        "&fl[]=identifier&fl[]=files_count"
-        "&rows=10000&output=json"
-    )
-    data = fetch_json(url, timeout=30)
-    if not data or "response" not in data:
-        return {}
-
-    counts: dict[str, int] = {}
-    for doc in data["response"].get("docs", []):
-        identifier = doc.get("identifier", "")
-        files_count = doc.get("files_count", 0)
-        if identifier.startswith("djen-") and len(identifier) >= 15:
-            date_str = identifier[5:15]
-            # Estimate: each tribunal produces ~1 zip + 1 absent file
-            # Plus there are consolidated parquets and metadata files (~15)
-            # So tribunal_count ~ (files_count - 15) / 1 approximately
-            # A more reliable estimate: if the item exists and has data,
-            # use size > 0 as existence indicator
-            if int(files_count) > 0 and date_str in sizes:
-                counts[date_str] = max(int(files_count) - 15, 0)
-
-    return counts
-
-
 def generate_calendar_cache(
     con: duckdb.DuckDBPyConnection,
     sizes: dict[str, int],
 ) -> dict[str, Any]:
     """Generate calendar data for last N days from manifest.
-
-    Falls back to IA search data when manifest is empty.
+    Fallback to IA search is removed.
     """
-    use_ia_fallback = not is_manifest_populated(con)
+    manifest_populated = is_manifest_populated(con)
 
     date_tribunals: dict[str, int] = {}
 
-    if not use_ia_fallback:
+    if manifest_populated:
         # Primary: query manifest for zip counts per date
         result = con.execute(
             """

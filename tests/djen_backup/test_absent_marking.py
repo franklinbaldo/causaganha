@@ -16,12 +16,12 @@ if TYPE_CHECKING:
 # ── Scenarios ────────────────────────────────────────────────────────
 
 
-@scenario("../absent_marking.feature", "Mark absent when DJEN returns 404")
+@scenario("absent_marking.feature", "Mark absent when DJEN returns 404")
 def test_absent_404() -> None:
     pass
 
 
-@scenario("../absent_marking.feature", "Mark absent when DJEN returns empty URL")
+@scenario("absent_marking.feature", "Mark absent when DJEN returns empty URL")
 def test_absent_empty() -> None:
     pass
 

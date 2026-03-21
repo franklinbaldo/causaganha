@@ -13,17 +13,17 @@ from djen_backup.archive import CircuitBreaker, CircuitState
 # ── Scenarios ────────────────────────────────────────────────────────
 
 
-@scenario("../circuit_breaker.feature", "Circuit opens after 5 consecutive failures")
+@scenario("circuit_breaker.feature", "Circuit opens after 5 consecutive failures")
 def test_circuit_opens() -> None:
     pass
 
 
-@scenario("../circuit_breaker.feature", "Circuit enters half-open after recovery timeout")
+@scenario("circuit_breaker.feature", "Circuit enters half-open after recovery timeout")
 def test_half_open() -> None:
     pass
 
 
-@scenario("../circuit_breaker.feature", "Successful test request closes the circuit")
+@scenario("circuit_breaker.feature", "Successful test request closes the circuit")
 def test_circuit_closes() -> None:
     pass
 

@@ -49,7 +49,7 @@ def get_unconverted_zips() -> list[dict]:
     try:
         # List all djen-* items
         result = subprocess.run(
-            ["ia", "search", "identifier:djen-20*", "--itemlist"],
+            ["ia", "search", "identifier:djen-*", "--itemlist"],
             capture_output=True,
             text=True,
             timeout=120,
@@ -61,6 +61,9 @@ def get_unconverted_zips() -> list[dict]:
         items = [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
         for item_id in items:
+            if item_id == "causaganha-catalog":
+                continue
+
             try:
                 list_result = subprocess.run(
                     ["ia", "list", item_id, "--glob", "*.{zip,parquet}"],
@@ -286,8 +289,12 @@ def convert_data(target_date: str | None = None, max_items: int = 20) -> dict:
                 stats["failed"] += 1
                 continue
 
-            # Upload Parquets
-            uploaded = upload_parquets(item_id, parquet_files)
+            # Upload Parquets to daily item, not the zip item (which is now yearly)
+            parts = base_name.replace("djen-", "").split("-")
+            date_str = "-".join(parts[:3])
+            daily_item_id = f"djen-{date_str}"
+
+            uploaded = upload_parquets(daily_item_id, parquet_files)
             stats["files_uploaded"] += uploaded
             stats["converted"] += 1
             logger.info("converted", zip=zip_name, parquets=len(parquet_files))

@@ -103,7 +103,7 @@ class State:
     def to_dict(self) -> dict[str, object]:
         """Convert State to dictionary for serialization."""
         return {
-            "version": 1,
+            "version": 2,
             "updated_at": datetime.now(tz=UTC).isoformat(),
             "entries": self._entries,
         }
@@ -112,6 +112,9 @@ class State:
     def from_dict(cls, data: dict[str, object]) -> State:
         """Create State from dictionary."""
         state = cls()
+        if data.get("version") != 2:
+            return state
+
         entries = data.get("entries")
         if isinstance(entries, dict):
             for date_key, tribunals in entries.items():
