@@ -98,7 +98,7 @@ jobs:
         run: |
           if [ -f data/backfill-state.json ]; then
             echo "⚠️ Manual reset requested - resetting stopped tribunals..."
-            uv run python -m djen_backup reset \
+            uv run causaganha backfill reset \
               --backfill-state-file data/backfill-state.json \
               --all
             echo "✅ Reset complete"
@@ -106,7 +106,7 @@ jobs:
             echo "No backfill state yet — nothing to reset"
           fi
 
-      - name: Run djen-backup
+      - name: Run causaganha backfill
         id: collect
         run: |
           WORKERS="${{ github.event.inputs.workers || '4' }}"
@@ -115,7 +115,7 @@ jobs:
           START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
-          CMD="uv run python -m djen_backup"
+          CMD="uv run causaganha backfill run"
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
           CMD="$CMD --backfill-state-file data/backfill-state.json"
@@ -133,35 +133,7 @@ jobs:
           echo "Running: $CMD"
           echo "Window: $START_DATE → ${END_DATE:-today} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
 
-          LOG_FILE=$(mktemp)
-          set +e
-          $CMD 2>&1 | tee "$LOG_FILE"
-          EXIT_CODE=${PIPESTATUS[0]}
-          set -e
-
-          UPLOADED=$(grep -oP '(?<=hits=)\d+' "$LOG_FILE" | tail -1 || echo "0")
-          ERRORS=$(grep -oP '(?<=errors=)\d+' "$LOG_FILE" | tail -1 || echo "0")
-          EMPTIES=$(grep -oP '(?<=empties=)\d+' "$LOG_FILE" | tail -1 || echo "0")
-          STOPPED=$(grep -oP '(?<=tribunals_stopped=)\d+' "$LOG_FILE" | tail -1 || echo "0")
-
-          echo "uploaded=$UPLOADED" >> $GITHUB_OUTPUT
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "empties=$EMPTIES" >> $GITHUB_OUTPUT
-          echo "stopped=$STOPPED" >> $GITHUB_OUTPUT
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          {
-            echo "## Results (success = uploaded > 0)"
-            echo "| Metric | Value |"
-            echo "|--------|-------|"
-            echo "| ✅ Uploaded (hits) | **$UPLOADED** |"
-            echo "| ❌ Errors | $ERRORS |"
-            echo "| ⬜ Empties | $EMPTIES |"
-            echo "| ⏹ Stopped | $STOPPED |"
-            echo "| Window | $START_DATE → ${END_DATE:-today} |"
-          } >> $GITHUB_STEP_SUMMARY
-
-          exit $EXIT_CODE
+          $CMD
 
       - name: Ensure state files exist for caching
         if: always()

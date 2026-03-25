@@ -28,6 +28,7 @@ from causaganha.pipeline.analyze_parquet import (
 from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.export_orchestrator import ExportOrchestrator
 from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
+from causaganha.cli.commands import backfill
 from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
 from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
 from causaganha.pipeline.repositories import DuckDBExportRepository
@@ -51,6 +52,7 @@ app = typer.Typer(
     help="CausaGanha V2: Judicial Analysis Platform",
     no_args_is_help=True,
 )
+app.add_typer(backfill.app, name="backfill")
 
 groundtruth_app = typer.Typer(name="groundtruth", help="Manage ground truth vector store")
 app.add_typer(groundtruth_app, name="groundtruth")

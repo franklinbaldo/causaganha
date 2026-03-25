@@ -244,8 +244,10 @@ uv run python scripts/pipeline/run.py
 # Run specific step via orchestrator
 uv run python scripts/pipeline/run.py --job collect --date 2026-01-27
 
+# Run backfill via Python CLI
+uv run causaganha backfill run --workers 4
+
 # Run individual scripts for debugging
-uv run python scripts/pipeline/collect.py --date 2026-01-27
 uv run python scripts/pipeline/consolidate.py --date 2026-01-27
 uv run python scripts/pipeline/embed.py --max-decisions 100
 uv run python scripts/generate_catalog.py --upload
