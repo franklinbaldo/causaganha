@@ -50,8 +50,8 @@ def get_recent_runs(n: int) -> list[dict]:
         f"repos/{REPO}/actions/workflows/{WORKFLOW}/runs",
         "--jq",
         f'[.workflow_runs[::{n}] | .[] | select(.status == "completed") | '
-        "{id: .id, conclusion: .conclusion, created_at: .created_at, "
-        "html_url: .html_url}] | .[:{}]".format(n),
+        f"{{id: .id, conclusion: .conclusion, created_at: .created_at, "
+        f"html_url: .html_url}}] | .[:{n}]",
     )
     if isinstance(data, list):
         return data
