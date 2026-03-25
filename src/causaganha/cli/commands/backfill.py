@@ -26,13 +26,16 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+
 def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
     return date.fromisoformat(value)
 
+
 def _resolve_proxy_url() -> str:
     return os.environ.get("DJEN_PROXY_URL", "").strip() or DEFAULT_PROXY_URL
+
 
 def _resolve_ia_auth(*, dry_run: bool) -> str:
     try:
