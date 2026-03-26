@@ -20,6 +20,8 @@ import structlog
 
 from djen_backup.archive import (
     CircuitBreaker,
+    fetch_absent_csv,
+    upload_absent_csv,
     upload_absent_marker,
     upload_zip,
 )
@@ -715,10 +717,17 @@ async def run_backfill(config: BackfillConfig) -> int:
                     merged = {**existing, **new_dates}
                     resp = await upload_absent_csv(client, trib, year, merged, config.ia_auth)
                     if resp.status_code >= HTTP_BAD_REQUEST:
-                        log.error("upload_absent_csv_failed", tribunal=trib, year=year, status=resp.status_code)
+                        log.error(
+                            "upload_absent_csv_failed",
+                            tribunal=trib,
+                            year=year,
+                            status=resp.status_code,
+                        )
                         await summary.inc_ia_error()
                 except Exception as exc:
-                    log.exception("upload_absent_csv_error", tribunal=trib, year=year, error=str(exc))
+                    log.exception(
+                        "upload_absent_csv_error", tribunal=trib, year=year, error=str(exc)
+                    )
                     await summary.inc_ia_error()
 
     # 5. Save state

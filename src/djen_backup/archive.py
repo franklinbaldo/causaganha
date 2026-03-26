@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import csv
 import hashlib
+import io
 import json
 import time
 from datetime import UTC, date, datetime
@@ -34,9 +36,6 @@ HTTP_SERVICE_UNAVAILABLE = 503
 
 IA_METADATA_URL = "https://archive.org/metadata/backup-djen-{date}"
 
-
-import csv
-import io
 
 async def fetch_ia_existing(
     client: httpx.AsyncClient,
@@ -240,7 +239,7 @@ async def upload_absent_csv(
     body = out.getvalue().encode("utf-8")
     md5 = _content_md5(body)
 
-    d_dummy = date(year, 1, 1) # just for metadata headers
+    d_dummy = date(year, 1, 1)  # just for metadata headers
     headers = _build_upload_headers(d_dummy, md5, "text/csv", auth)
 
     log.info("ia_upload_absent_csv", tribunal=tribunal, year=year, count=len(dates))
