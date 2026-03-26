@@ -597,7 +597,7 @@ def generate_backfill_cache(
             tribunal_etas[tribunal] = {
                 "missing_days": missing_days,
                 "velocity_14d": velocity_14d,
-                "eta_days": eta_days
+                "eta_days": eta_days,
             }
 
         progress_by_year: dict[str, dict[str, Any]] = {}

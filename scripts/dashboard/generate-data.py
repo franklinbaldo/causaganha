@@ -96,7 +96,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     tribunal_etas = {}
     from datetime import date
-    end_date_obj = date(2026, 2, 3) # Based on target range end 2026-02-03
+
+    end_date_obj = date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
@@ -117,7 +118,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         tribunal_etas[tribunal] = {
             "missing_days": missing_days,
             "velocity_14d": velocity_14d,
-            "eta_days": eta_days
+            "eta_days": eta_days,
         }
 
     # Fetch progress from Internet Archive
