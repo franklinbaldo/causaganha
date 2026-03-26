@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -370,8 +371,29 @@ async def _process_djen_not_found(  # noqa: PLR0913
             if stopped:
                 await summary.inc_stopped()
             return "empty"
+        body = resp.content or b""
+        if b"appears to be spam" in body:
+            # IA rejected this specific item as spam — skip without tripping circuit
+            log.warning(
+                "backfill_absent_spam_skipped",
+                tribunal=tribunal,
+                date=d.isoformat(),
+                status=resp.status_code,
+            )
+            await bstate.record_error(tribunal)
+            await summary.inc_error()
+            return "spam"
         await breaker.record_failure()
-    except httpx.HTTPError:
+    except (httpx.HTTPError, RuntimeError) as upload_exc:
+        # RuntimeError is raised by request_with_retry when all retries are
+        # exhausted (e.g. IA returns 503 "spam" on every attempt).  Treat as a
+        # transient upload failure so the run can continue with other dates.
+        log.warning(
+            "backfill_absent_marker_failed",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            error=str(upload_exc),
+        )
         await breaker.record_failure()
     await bstate.record_error(tribunal)
     await summary.inc_error()
@@ -419,12 +441,15 @@ async def _process_upload_to_ia(  # noqa: PLR0913
             body=body[:300].decode("utf-8", errors="replace"),
         )
         await breaker.record_failure()
-    except httpx.HTTPError as exc:
-        log.exception(
+    except (httpx.HTTPError, RuntimeError) as exc:
+        # RuntimeError is raised by request_with_retry when all retries are
+        # exhausted (e.g. IA returns 503 "spam" on every attempt).  Treat as a
+        # transient upload failure so the run can continue with other dates.
+        log.warning(
             "backfill_upload_error",
             tribunal=tribunal,
             date=d.isoformat(),
-            exc_info=exc,
+            error=str(exc),
         )
         await breaker.record_failure()
 
