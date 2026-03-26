@@ -77,7 +77,9 @@ def test_reset_specific_tribunal(tmp_path: Path):
     }
     state_file.write_text(json.dumps(state_data))
 
-    result = runner.invoke(app, ["reset", "--tribunal", "TJSP", "--backfill-state-file", str(state_file)])
+    result = runner.invoke(
+        app, ["reset", "--tribunal", "TJSP", "--backfill-state-file", str(state_file)]
+    )
     assert result.exit_code == 0
     assert "Reset TJSP" in result.stdout
     assert "1 tribunal(s) reset" in result.stdout
@@ -136,7 +138,9 @@ def test_reset_specific_tribunal_not_found(tmp_path: Path):
     }
     state_file.write_text(json.dumps(state_data))
 
-    result = runner.invoke(app, ["reset", "--tribunal", "TJRS", "--backfill-state-file", str(state_file)])
+    result = runner.invoke(
+        app, ["reset", "--tribunal", "TJRS", "--backfill-state-file", str(state_file)]
+    )
     assert result.exit_code == 0
     assert "Tribunal TJRS not found in state." in result.stderr
     assert "Nothing to reset." in result.stdout
