@@ -115,7 +115,7 @@ jobs:
           START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
-          CMD="uv run causaganha backfill run"
+          CMD="uv run python -m djen_backup"
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
           CMD="$CMD --backfill-state-file data/backfill-state.json"
@@ -134,6 +134,14 @@ jobs:
           echo "Window: $START_DATE → ${END_DATE:-today} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
 
           $CMD
+
+      - name: Show backfill status
+        if: always()
+        run: |
+          echo "## Backfill Status" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          uv run causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Ensure state files exist for caching
         if: always()
