@@ -35,6 +35,9 @@ HTTP_SERVICE_UNAVAILABLE = 503
 IA_METADATA_URL = "https://archive.org/metadata/backup-djen-{date}"
 
 
+import csv
+import io
+
 async def fetch_ia_existing(
     client: httpx.AsyncClient,
     d: date,
@@ -61,13 +64,15 @@ async def fetch_ia_existing(
         if not isinstance(entry, dict):
             continue
         name = entry.get("name")
-        if not isinstance(name, str) or not name.startswith(prefix):
+        if not isinstance(name, str):
             continue
-        rest = name[len(prefix) :]
-        if rest.endswith(".zip"):
-            result[rest[: -len(".zip")]] = "uploaded"
-        elif rest.endswith(".absent"):
-            result[rest[: -len(".absent")]] = "absent"
+        if name.startswith(prefix):
+            rest = name[len(prefix) :]
+            if rest.endswith(".zip"):
+                result[rest[: -len(".zip")]] = "uploaded"
+            elif rest.endswith(".absent"):
+                result[rest[: -len(".absent")]] = "absent"
+
     return result
 
 
@@ -177,6 +182,77 @@ async def upload_zip(
     return resp
 
 
+async def fetch_absent_csv(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    year: int,
+) -> dict[date, tuple[int, str]]:
+    """Download existing absent-{year}.csv from IA and return its contents."""
+    item_id = f"djen-{tribunal.lower()}-{year}"
+    filename = f"absent-{year}.csv"
+    url = f"https://archive.org/download/{item_id}/{filename}"
+
+    resp = await request_with_retry(client, "GET", url)
+    if resp.status_code == HTTP_NOT_FOUND:
+        return {}
+    resp.raise_for_status()
+
+    result = {}
+    content = resp.content.decode("utf-8")
+    reader = csv.reader(io.StringIO(content))
+    try:
+        next(reader)  # Skip header
+        for row in reader:
+            if len(row) >= 3:
+                try:
+                    d = date.fromisoformat(row[0])
+                    status = int(row[1])
+                    checked_at = row[2]
+                    result[d] = (status, checked_at)
+                except ValueError:
+                    continue
+    except Exception as e:
+        log.warning("failed_to_parse_absent_csv", tribunal=tribunal, year=year, error=str(e))
+
+    return result
+
+
+async def upload_absent_csv(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    year: int,
+    dates: dict[date, tuple[int, str]],
+    auth: str,
+) -> httpx.Response:
+    """Upload merged absent-{year}.csv back to IA."""
+    item_id = f"djen-{tribunal.lower()}-{year}"
+    filename = f"absent-{year}.csv"
+    url = IA_S3_URL.format(item=item_id, filename=filename)
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["date", "status_code", "checked_at"])
+
+    for d in sorted(dates.keys()):
+        status, checked_at = dates[d]
+        writer.writerow([d.isoformat(), status, checked_at])
+
+    body = out.getvalue().encode("utf-8")
+    md5 = _content_md5(body)
+
+    d_dummy = date(year, 1, 1) # just for metadata headers
+    headers = _build_upload_headers(d_dummy, md5, "text/csv", auth)
+
+    log.info("ia_upload_absent_csv", tribunal=tribunal, year=year, count=len(dates))
+    return await request_with_retry(
+        client,
+        "PUT",
+        url,
+        content=body,
+        headers=headers,
+    )
+
+
 async def upload_absent_marker(
     client: httpx.AsyncClient,
     d: date,
@@ -185,7 +261,7 @@ async def upload_absent_marker(
     reason: str,
     auth: str,
 ) -> httpx.Response:
-    """Upload a ``.absent`` marker with metadata JSON."""
+    """Legacy marker upload - replaced by upload_absent_csv but kept for interface compatibility if needed."""
     filename = f"djen-{d.isoformat()}-{tribunal.upper()}.absent"
     item_id = get_ia_item_id(tribunal, d)
     url = IA_S3_URL.format(item=item_id, filename=filename)

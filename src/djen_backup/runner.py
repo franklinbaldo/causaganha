@@ -419,7 +419,22 @@ async def run(config: RunConfig) -> int:
             # Clean up the temp directory
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    # 4. Save state
+        # 4. Upload absent CSVs
+        if summary.new_absent_dates and not config.dry_run:
+            log.info("uploading_absent_csvs", count=len(summary.new_absent_dates))
+            for (trib, year), new_dates in summary.new_absent_dates.items():
+                try:
+                    existing = await fetch_absent_csv(client, trib, year)
+                    merged = {**existing, **new_dates}
+                    resp = await upload_absent_csv(client, trib, year, merged, config.ia_auth)
+                    if resp.status_code >= HTTP_BAD_REQUEST:
+                        log.error("upload_absent_csv_failed", tribunal=trib, year=year, status=resp.status_code)
+                        await summary.inc_failed()
+                except Exception as exc:
+                    log.exception("upload_absent_csv_error", tribunal=trib, year=year, error=str(exc))
+                    await summary.inc_failed()
+
+    # 5. Save state
     save_state(state, config.state_file)
 
     # 5. Summary
