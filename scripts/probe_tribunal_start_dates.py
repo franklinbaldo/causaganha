@@ -12,19 +12,19 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
-import os
 
 # Add src/ to sys.path so we can import from causaganha
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from causaganha.config import TRIBUNAIS
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -39,9 +39,7 @@ MAX_CONCURRENT_REQUESTS = 3
 sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 
-async def check_date_has_data(
-    client: httpx.AsyncClient, tribunal: str, target_date: date
-) -> bool:
+async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
     """Check if a tribunal has data for a specific date via the DJEN proxy."""
     url = f"{PROXY_URL}/api/v1/caderno/{tribunal}/{target_date.isoformat()}/D"
 
@@ -63,7 +61,9 @@ async def check_date_has_data(
                 return False
             if e.response.status_code == 429:
                 # Retry on 429 using exponential backoff inside the function
-                logger.warning(f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 5s...")
+                logger.warning(
+                    f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 5s..."
+                )
                 await asyncio.sleep(5.0)
                 return await check_date_has_data(client, tribunal, target_date)
             logger.warning(f"HTTP error checking {tribunal} at {target_date}: {e}")
@@ -71,6 +71,7 @@ async def check_date_has_data(
         except Exception as e:
             logger.warning(f"Error checking {tribunal} at {target_date}: {e}")
             return False
+
 
 async def confirm_void(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
     """Check if `target_date` AND `target_date - 60 days` are BOTH absent.
@@ -83,8 +84,7 @@ async def confirm_void(client: httpx.AsyncClient, tribunal: str, target_date: da
     date2 = target_date - timedelta(days=60)
 
     res1, res2 = await asyncio.gather(
-        check_date_has_data(client, tribunal, date1),
-        check_date_has_data(client, tribunal, date2)
+        check_date_has_data(client, tribunal, date1), check_date_has_data(client, tribunal, date2)
     )
 
     # Void is confirmed if BOTH are absent (False)
@@ -103,7 +103,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     # Verify if the tribunal has ANY data at all recently
     res_today, res_today_30 = await asyncio.gather(
         check_date_has_data(client, tribunal, today),
-        check_date_has_data(client, tribunal, today - timedelta(days=30))
+        check_date_has_data(client, tribunal, today - timedelta(days=30)),
     )
     if not res_today and not res_today_30:
         logger.warning(f"[{tribunal}] No recent data found. Is the tribunal active?")
@@ -115,7 +115,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     current_date = today - timedelta(days=step)
     prev_date = today
 
-    lo_date = None   # Edge of void (no data)
+    lo_date = None  # Edge of void (no data)
     hi_date = today  # Known to have data eventually
 
     while True:
@@ -129,7 +129,9 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
         if is_void:
             lo_date = current_date
             hi_date = prev_date
-            logger.info(f"[{tribunal}] Confirmed >= 60 day void at {lo_date}. Bracket found: [{lo_date}, {hi_date}]")
+            logger.info(
+                f"[{tribunal}] Confirmed >= 60 day void at {lo_date}. Bracket found: [{lo_date}, {hi_date}]"
+            )
             break
 
         logger.info(f"[{tribunal}] No void at {current_date}. Probing further back...")
@@ -151,7 +153,9 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
         mid_days = (hi_date - lo_date).days // 2
         mid_date = lo_date + timedelta(days=mid_days)
 
-        logger.info(f"[{tribunal}] Binary search checking {mid_date} (span: {(hi_date - lo_date).days} days)")
+        logger.info(
+            f"[{tribunal}] Binary search checking {mid_date} (span: {(hi_date - lo_date).days} days)"
+        )
         is_void = await confirm_void(client, tribunal, mid_date)
 
         if is_void:
@@ -164,7 +168,9 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     # The exact right edge of the void is `hi_date`.
     # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR `hi_date - 60` has data.
     # To find the EXACT start date, we scan forward starting from `hi_date - 60` up to `hi_date`.
-    logger.info(f"[{tribunal}] Void right edge found at {hi_date}. Scanning forward to find exact start date...")
+    logger.info(
+        f"[{tribunal}] Void right edge found at {hi_date}. Scanning forward to find exact start date..."
+    )
 
     start_scan_date = hi_date - timedelta(days=60)
 
@@ -182,7 +188,9 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-tribunals", type=int, default=0, help="Max tribunals to check (for testing)")
+    parser.add_argument(
+        "--max-tribunals", type=int, default=0, help="Max tribunals to check (for testing)"
+    )
     args = parser.parse_args()
 
     # Use a large timeout for the client and higher connection limits
@@ -193,7 +201,7 @@ async def main():
     # Check if we already have some results to resume
     if OUTPUT_FILE.exists():
         try:
-            with open(OUTPUT_FILE, "r") as f:
+            with open(OUTPUT_FILE) as f:
                 results = json.load(f)
             logger.info(f"Loaded {len(results)} existing results from {OUTPUT_FILE}")
         except json.JSONDecodeError:
@@ -202,11 +210,13 @@ async def main():
     async with httpx.AsyncClient(transport=transport, timeout=60.0) as client:
         tribunals_to_check = TRIBUNAIS
         if args.max_tribunals > 0:
-            tribunals_to_check = tribunals_to_check[:args.max_tribunals]
+            tribunals_to_check = tribunals_to_check[: args.max_tribunals]
 
         for tribunal in tribunals_to_check:
             if tribunal in results:
-                logger.info(f"[{tribunal}] Already processed (start date: {results[tribunal]}), skipping.")
+                logger.info(
+                    f"[{tribunal}] Already processed (start date: {results[tribunal]}), skipping."
+                )
                 continue
 
             start_date = await find_start_date(client, tribunal)
@@ -221,6 +231,7 @@ async def main():
                 json.dump(results, f, indent=2)
 
     logger.info(f"Finished processing. Results saved to {OUTPUT_FILE}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
