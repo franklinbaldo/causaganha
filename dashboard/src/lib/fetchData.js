@@ -66,6 +66,9 @@ export function deriveData(stats, dashboardData, cacheData) {
     return dashboardData || cacheBackfill || null;
   })();
   const backfillProgress = effectiveBackfill?.backfill_progress;
+  const tribunalCoverage = effectiveBackfill?.tribunal_coverage || {};
+  const tribunalEtas = effectiveBackfill?.tribunal_etas || {};
+  const targetRange = effectiveBackfill?.target_range || { start: "2024-01-01", end: "2026-02-03", total_days: 764 };
 
   // Derive calendar heatmap data
   const calendarData = (() => {
@@ -124,5 +127,8 @@ export function deriveData(stats, dashboardData, cacheData) {
     timelineData,
     progressByYear,
     enrichedStats,
+    tribunalCoverage,
+    tribunalEtas,
+    targetRange,
   };
 }

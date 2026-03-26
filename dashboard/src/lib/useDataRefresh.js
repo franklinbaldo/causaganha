@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchAllData, deriveData } from './fetchData';
+import { fetchAllData } from './fetchData';
 
 // Shared client-side cache to avoid duplicate fetches across islands
 if (typeof window !== 'undefined' && !window.__CAUSAGANHA_DATA) {

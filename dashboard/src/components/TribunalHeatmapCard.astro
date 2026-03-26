@@ -1,0 +1,120 @@
+---
+/**
+ * TribunalHeatmapCard.astro
+ * Displays a single tribunal's name, ETA, and a contribution heatmap.
+ */
+
+const { tribunalName, presentDates, etaData, startDate, endDate } = Astro.props;
+
+const presentSet = new Set(presentDates);
+
+// Generate array of dates from startDate to endDate
+const start = new Date(startDate + "T00:00:00Z");
+const end = new Date(endDate + "T00:00:00Z");
+const days = [];
+
+let current = new Date(start);
+while (current <= end) {
+  const dStr = current.toISOString().split('T')[0];
+  days.push(dStr);
+  current.setUTCDate(current.getUTCDate() + 1);
+}
+
+// Calculate some stats
+const totalDays = days.length;
+const coveredDays = days.filter(d => presentSet.has(d)).length;
+const missingDays = totalDays - coveredDays;
+
+let etaText = "";
+if (missingDays === 0) {
+  etaText = "Complete ✓";
+} else if (etaData.eta_days) {
+  if (etaData.eta_days < 30) {
+    etaText = `~${etaData.eta_days} days`;
+  } else {
+    const months = Math.round(etaData.eta_days / 30);
+    etaText = `~${months} month${months > 1 ? 's' : ''}`;
+  }
+} else {
+  etaText = "Pending";
+}
+
+// A simple way to group by week for a standard calendar layout
+// To align correctly, we pad the start to Sunday
+const startDayOfWeek = start.getUTCDay();
+const paddedDays = Array(startDayOfWeek).fill(null).concat(days);
+
+const weeks = [];
+for (let i = 0; i < paddedDays.length; i += 7) {
+  weeks.push(paddedDays.slice(i, i + 7));
+}
+
+function getCellColor(dateStr) {
+  if (!dateStr) return "bg-transparent"; // padding cell
+  if (presentSet.has(dateStr)) return "bg-success hover:bg-success-hover"; // Green cell
+
+  // Outside expected range (could calculate if today is before endDate etc)
+  // But by definition, "days" only contains the expected range.
+  return "bg-danger hover:bg-danger-hover"; // Red cell
+}
+
+function getAriaLabel(dateStr) {
+  if (!dateStr) return "Empty cell";
+  const isPresent = presentSet.has(dateStr);
+  return `${dateStr}: ${isPresent ? 'Collected' : 'Missing'}`;
+}
+
+const statusColor = missingDays === 0 ? "text-success" : (missingDays < totalDays ? "text-warning" : "text-danger");
+---
+
+<div class="card p-4 flex flex-col gap-3">
+  <div class="flex justify-between items-center">
+    <h3 class="text-base font-semibold text-content" title={tribunalName}>{tribunalName}</h3>
+    <span class={`text-xs font-medium ${statusColor}`}>
+      {etaText}
+    </span>
+  </div>
+
+  <div class="flex flex-col gap-1 overflow-x-auto pb-1 custom-scrollbar">
+    <div class="flex gap-1" role="grid" aria-label={`Activity heatmap for ${tribunalName}`}>
+      {weeks.map((week, weekIndex) => (
+        <div class="flex flex-col gap-1 flex-shrink-0" role="row">
+          {week.map((day) => (
+            <div
+              role="gridcell"
+              class={`w-2.5 h-2.5 rounded-sm transition-colors duration-200 ${getCellColor(day)} cursor-default opacity-80 hover:opacity-100`}
+              title={day ? `${day}: ${presentSet.has(day) ? 'Collected' : 'Missing'}` : ''}
+              aria-label={getAriaLabel(day)}
+            ></div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <div class="flex justify-between items-center text-[10px] text-content-tertiary">
+    <span>{coveredDays} / {totalDays} days</span>
+    <div class="flex items-center gap-1.5">
+      <div class="w-2 h-2 rounded-sm bg-danger opacity-80"></div>
+      <span>Missing</span>
+      <div class="w-2 h-2 rounded-sm bg-success opacity-80 ml-1"></div>
+      <span>OK</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: var(--color-content-tertiary);
+  }
+</style>
