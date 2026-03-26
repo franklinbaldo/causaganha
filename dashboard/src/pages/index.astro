@@ -1,14 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ActivityChart from '../components/ActivityChart.astro';
-import ActivityCalendar from '../components/ActivityCalendar.astro';
-import YearProgress from '../components/YearProgress.astro';
-import { BackfillHero } from '../components/BackfillHero';
-import TribunalGrid from '../components/TribunalGrid.astro';
-import { TribunalFilter } from '../components/TribunalFilter';
-import { SystemStatus } from '../components/SystemStatus';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { fetchAllData } from '../lib/fetchData';
+import TribunalHeatmapGrid from '../components/TribunalHeatmapGrid.astro';
+import { SystemStatus } from '../components/SystemStatus';
 
 // Fetch data at build time for static rendering
 let data = null;
@@ -21,15 +16,46 @@ try {
 const backfillProgress = data?.backfillProgress;
 const lastUpdated = backfillProgress?.last_updated;
 
-// Compute tribunal counts at build time for the filter pills
-const tribunals = data?.enrichedStats?.tribunals || {};
-const tribunalItems = Object.entries(tribunals);
-const tribunalCounts = {
-  all: tribunalItems.length,
-  success: tribunalItems.filter(([, d]) => d.status === 'success').length,
-  error: tribunalItems.filter(([, d]) => d.status !== 'success' && d.status !== 'absent').length,
-  absent: tribunalItems.filter(([, d]) => d.status === 'absent').length,
-};
+const tribunal_coverage = data?.tribunalCoverage || {};
+const tribunal_etas = data?.tribunalEtas || {};
+
+// Count healthy tribunals
+let healthyTribunals = 0;
+let maxEta = 0;
+let pendingCount = 0;
+
+const tribunalKeys = Object.keys(tribunal_etas);
+if (tribunalKeys.length > 0) {
+  for (const t in tribunal_etas) {
+    const etaData = tribunal_etas[t];
+    const missing = etaData.missing_days || 0;
+    if (missing === 0) healthyTribunals++;
+
+    if (etaData.eta_days) {
+      if (etaData.eta_days > maxEta) {
+        maxEta = etaData.eta_days;
+      }
+    } else if (missing > 0) {
+      pendingCount++;
+    }
+  }
+}
+
+const targetRangeStart = data?.targetRange?.start || "2024-01-01";
+const targetRangeEnd = data?.targetRange?.end || "2026-02-03";
+
+function formatEta(days, pendingCount, healthyTribunals, totalTribunals) {
+  if (totalTribunals === 0) return "Pending";
+  if (healthyTribunals === totalTribunals) return "All Complete ✓";
+  if (pendingCount > 0 || days === 0) return "Pending"; // If not all complete, but maxEta is 0, it means no velocity data
+
+  if (days < 30) return `~${days} days`;
+  const months = Math.round(days / 30);
+  return `~${months} month${months > 1 ? 's' : ''}`;
+}
+
+const totalTribunalsInStats = tribunalKeys.length > 0 ? tribunalKeys.length : 91;
+const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTribunalsInStats);
 ---
 
 <Layout
@@ -52,7 +78,7 @@ const tribunalCounts = {
             CausaGanha
           </h1>
           <p class="text-sm text-content-tertiary">
-            Judicial Data Intelligence Pipeline
+            {healthyTribunals} of 91 tribunais saudáveis | última coleta: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : '--:--'} | Global ETA: {globalEtaText}
           </p>
         </div>
       </div>
@@ -67,32 +93,14 @@ const tribunalCounts = {
     </header>
 
     <main class="max-w-7xl mx-auto space-y-6">
-      <!-- Row 1: Hero — Backfill Progress + Year Breakdown -->
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div class="lg:col-span-3">
-          <BackfillHero client:load initialData={data?.effectiveBackfill} />
-        </div>
-        <div class="lg:col-span-2">
-          <YearProgress progressByYear={data?.progressByYear} />
-        </div>
-      </div>
 
-      <!-- Row 2: Activity — Calendar + Recent Chart (static SVG, zero JS) -->
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div class="lg:col-span-3">
-          <ActivityCalendar data={data?.calendarData} />
-        </div>
-        <div class="lg:col-span-2">
-          <ActivityChart data={data?.timelineData} />
-        </div>
-      </div>
+      <TribunalHeatmapGrid
+        coverage={tribunal_coverage}
+        etas={tribunal_etas}
+        startDate={targetRangeStart}
+        endDate={targetRangeEnd}
+      />
 
-      <!-- Row 3: Tribunal Grid (static cards + tiny filter island) -->
-      <TribunalGrid enrichedStats={data?.enrichedStats}>
-        <TribunalFilter client:visible counts={tribunalCounts} />
-      </TribunalGrid>
-
-      <!-- Row 4: System Status (React island — countdown timer) -->
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
 
       <!-- Footer — pure Astro HTML, zero JS -->

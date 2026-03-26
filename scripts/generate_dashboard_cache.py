@@ -552,6 +552,54 @@ def generate_backfill_cache(
 
         num_tribunals = len(TRIBUNALS)
 
+        target_days = sum(year_cfg["days"] for year_cfg in BACKFILL_YEARS.values())
+
+        # Coverage map and ETAs
+        coverage_rows = con.execute("""
+            SELECT tribunal, CAST(date AS VARCHAR) as date_str
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent', 'parquet')
+            ORDER BY tribunal, date
+        """).fetchall()
+
+        tribunal_coverage: dict[str, list[str]] = {}
+        for t, d in coverage_rows:
+            if t not in tribunal_coverage:
+                tribunal_coverage[t] = []
+            tribunal_coverage[t].append(d)
+
+        # Velocity over last 14 days
+        velocity_date_limit = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+        velocity_rows = con.execute(f"""
+            SELECT
+                tribunal,
+                COUNT(DISTINCT date) as velocity_14d
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent', 'parquet')
+              AND CAST(date AS VARCHAR) >= '{velocity_date_limit}'
+            GROUP BY tribunal
+        """).fetchall()
+
+        velocity_map = {t: v for t, v in velocity_rows}
+        tribunal_etas: dict[str, dict[str, Any]] = {}
+
+        for tribunal in TRIBUNALS:
+            coverage_list = tribunal_coverage.get(tribunal, [])
+            unique_days_t = len(set(coverage_list))
+            missing_days = max(0, target_days - unique_days_t)
+            velocity_14d = velocity_map.get(tribunal, 0)
+
+            eta_days = None
+            if missing_days > 0 and velocity_14d > 0:
+                velocity_per_day = velocity_14d / 14.0
+                eta_days = int(missing_days / velocity_per_day)
+
+            tribunal_etas[tribunal] = {
+                "missing_days": missing_days,
+                "velocity_14d": velocity_14d,
+                "eta_days": eta_days
+            }
+
         progress_by_year: dict[str, dict[str, Any]] = {}
         total_unique_days = 0
         total_combos_done = 0

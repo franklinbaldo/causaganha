@@ -65,15 +65,60 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         ORDER BY date
     """).fetchall()
 
-    # Tribunal stats (all tribunals for variance calculation)
-    tribunal_stats = con.execute("""
+    # Per-tribunal coverage and stats
+    coverage_rows = con.execute("""
         SELECT
             tribunal,
-            COUNT(*) as count
+            date
         FROM djen_state.coverage
-        GROUP BY tribunal
-        ORDER BY count ASC
+        ORDER BY tribunal, date
     """).fetchall()
+
+    tribunal_coverage = {}
+    for t, d in coverage_rows:
+        date_str = str(d)
+        if t not in tribunal_coverage:
+            tribunal_coverage[t] = []
+        tribunal_coverage[t].append(date_str)
+
+    # Velocity over last 14 days
+    velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
+    velocity_rows = con.execute(f"""
+        SELECT
+            tribunal,
+            COUNT(DISTINCT date) as velocity_14d
+        FROM djen_state.coverage
+        WHERE date >= '{velocity_date_limit}'
+        GROUP BY tribunal
+    """).fetchall()
+
+    velocity_map = {t: v for t, v in velocity_rows}
+
+    tribunal_etas = {}
+    from datetime import date
+    end_date_obj = date(2026, 2, 3) # Based on target range end 2026-02-03
+    start_date_obj = date(2024, 1, 1)
+    # The true count of expected days is `target_days` (764)
+    # Actually, we should count missing days within the date range from target_start to today, or just total target_days
+
+    for tribunal in list(set(t for t, _ in coverage_rows)):
+        coverage_list = tribunal_coverage.get(tribunal, [])
+        # Only count unique dates in the target range? Let's just use unique total since target_days is fixed
+        # to simplify, assume all dates in coverage are valid
+        unique_days_t = len(set(coverage_list))
+        missing_days = max(0, target_days - unique_days_t)
+        velocity_14d = velocity_map.get(tribunal, 0)
+
+        eta_days = None
+        if missing_days > 0 and velocity_14d > 0:
+            velocity_per_day = velocity_14d / 14.0
+            eta_days = int(missing_days / velocity_per_day)
+
+        tribunal_etas[tribunal] = {
+            "missing_days": missing_days,
+            "velocity_14d": velocity_14d,
+            "eta_days": eta_days
+        }
 
     # Fetch progress from Internet Archive
     ia_base = "https://archive.org/download/causaganha-catalog"
@@ -119,7 +164,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "last_updated": datetime.now(UTC).isoformat(),
         },
         "backfill_progress": backfill_progress,
-        "tribunal_stats": [{"tribunal": t, "count": c} for t, c in tribunal_stats],
+        "tribunal_coverage": tribunal_coverage,
+        "tribunal_etas": tribunal_etas,
+        "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

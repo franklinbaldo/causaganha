@@ -30,6 +30,7 @@ export default {
         },
         success: {
           DEFAULT: '#22c55e',
+          hover: '#16a34a',
           light: '#4ade80',
           muted: 'rgba(34, 197, 94, 0.12)',
         },
@@ -40,6 +41,7 @@ export default {
         },
         danger: {
           DEFAULT: '#ef4444',
+          hover: '#dc2626',
           light: '#f87171',
           muted: 'rgba(239, 68, 68, 0.12)',
         },
