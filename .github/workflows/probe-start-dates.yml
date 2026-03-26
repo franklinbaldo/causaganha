@@ -1,0 +1,38 @@
+name: Probe Tribunal Start Dates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    name: Run Start Date Prober
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run probe script
+        run: |
+          uv run python scripts/probe_tribunal_start_dates.py
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add dashboard/public/tribunal_start_dates.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to tribunal start dates."
+          else
+            git commit -m "chore: update tribunal start dates [skip ci]"
+            git push
+          fi
