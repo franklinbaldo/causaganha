@@ -3,6 +3,106 @@ import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
 
+function calculateVelocityAndRegression(coverageSet, targetRangeEndStr, tribunalStartDateStr) {
+  if (!tribunalStartDateStr) return null;
+
+  const targetRangeEnd = new Date(targetRangeEndStr + "T00:00:00Z");
+  const tribunalStartDate = new Date(tribunalStartDateStr + "T00:00:00Z");
+
+  if (targetRangeEnd < tribunalStartDate) return null;
+
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+  let totalHistoricalDays = 0;
+  let totalHistoricalCollected = 0;
+
+  let current30Days = 0;
+  let current30Collected = 0;
+  let baseline60Days = 0;
+  let baseline60Collected = 0;
+
+  let current = new Date(tribunalStartDate);
+  while (current <= targetRangeEnd) {
+    totalHistoricalDays++;
+    const dStr = current.toISOString().split('T')[0];
+    const isCollected = coverageSet.has(dStr);
+
+    if (isCollected) {
+      totalHistoricalCollected++;
+    }
+
+    const diffDays = Math.floor((targetRangeEnd - current) / MS_PER_DAY);
+    if (diffDays < 30) {
+      current30Days++;
+      if (isCollected) current30Collected++;
+    } else if (diffDays < 90) {
+      baseline60Days++;
+      if (isCollected) baseline60Collected++;
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  const weeklyData = [];
+  let recent4WeeksCollected = 0;
+
+  for (let w = 11; w >= 0; w--) {
+    let weekCollected = 0;
+
+    const weekEnd = new Date(targetRangeEnd.getTime() - w * 7 * MS_PER_DAY);
+    const weekStart = new Date(weekEnd.getTime() - 6 * MS_PER_DAY);
+
+    let day = new Date(weekStart);
+    while (day <= weekEnd) {
+      if (day >= tribunalStartDate) {
+        const dStr = day.toISOString().split('T')[0];
+        if (coverageSet.has(dStr)) weekCollected++;
+      }
+      day.setUTCDate(day.getUTCDate() + 1);
+    }
+
+    weeklyData.push({
+      weekOffset: w,
+      collected: weekCollected,
+    });
+
+    if (w < 4) {
+      recent4WeeksCollected += weekCollected;
+    }
+  }
+
+  const historicalAvgVelocity = (totalHistoricalCollected / totalHistoricalDays) * 7;
+  const currentVelocity = recent4WeeksCollected / 4;
+
+  let trend = 0;
+  if (historicalAvgVelocity > 0) {
+    trend = ((currentVelocity - historicalAvgVelocity) / historicalAvgVelocity) * 100;
+  } else if (currentVelocity > 0) {
+    trend = 100;
+  }
+
+  let baselineCoverage = 0;
+  if (baseline60Days > 0) baselineCoverage = baseline60Collected / baseline60Days;
+
+  let currentCoverage = 0;
+  if (current30Days > 0) currentCoverage = current30Collected / current30Days;
+
+  let regressionDrop = 0;
+  if (baselineCoverage > 0) {
+    regressionDrop = ((baselineCoverage - currentCoverage) / baselineCoverage) * 100;
+  }
+
+  return {
+    weeklyData,
+    historicalAvgVelocity,
+    currentVelocity,
+    trend,
+    baselineCoverage: baselineCoverage * 100,
+    currentCoverage: currentCoverage * 100,
+    regressionDrop,
+    hasEnoughHistory: totalHistoricalDays >= 10
+  };
+}
+
 const TRIBUNALS = [
   "STF", "STJ", "TST", "TSE", "STM", "CNJ",
   "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6",
@@ -43,15 +143,28 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
     ? selectedEtaData.missing_days
     : Math.max(0, expectedDays - selectedCoverage.size);
 
+  // Calculate Velocity and Regression dynamically
+  const velocityMetrics = calculateVelocityAndRegression(selectedCoverage, targetRange.end, tribunalStartDate);
+
+  // Determine dynamic ETA based on 4-week trend velocity
+  let dynamicEtaDays = selectedEtaData.eta_days;
+  if (velocityMetrics && velocityMetrics.currentVelocity > 0 && actualMissingDays > 0) {
+    // currentVelocity is per week (recent4WeeksCollected / 4)
+    // missing days / (days collected per week / 7)
+    dynamicEtaDays = Math.ceil(actualMissingDays / (velocityMetrics.currentVelocity / 7));
+  } else if (velocityMetrics && velocityMetrics.currentVelocity === 0 && actualMissingDays > 0) {
+    dynamicEtaDays = null; // Stalled
+  }
+
   // Render text ETA
   let etaText = "Pending";
   if (actualMissingDays === 0 && expectedDays > 0) {
     etaText = "Complete ✓";
-  } else if (selectedEtaData.eta_days) {
-    if (selectedEtaData.eta_days < 30) {
-      etaText = `~${selectedEtaData.eta_days} days`;
+  } else if (dynamicEtaDays) {
+    if (dynamicEtaDays < 30) {
+      etaText = `~${dynamicEtaDays} days`;
     } else {
-      const months = Math.round(selectedEtaData.eta_days / 30);
+      const months = Math.round(dynamicEtaDays / 30);
       etaText = `~${months} month${months > 1 ? 's' : ''}`;
     }
   }
@@ -79,6 +192,18 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
               ))}
             </select>
           </div>
+
+          {velocityMetrics && velocityMetrics.hasEnoughHistory && velocityMetrics.regressionDrop > 30 && (
+            <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 text-sm" role="alert" aria-live="polite">
+              <div className="flex items-center gap-2 text-danger font-semibold mb-1">
+                <span aria-hidden="true">🚨</span> Regression Alert
+              </div>
+              <p className="text-danger dark:text-danger-light leading-tight">
+                Coverage dropped from {velocityMetrics.baselineCoverage.toFixed(0)}% → {velocityMetrics.currentCoverage.toFixed(0)}%
+                ({velocityMetrics.regressionDrop.toFixed(0)}% decline).
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800">
             <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
@@ -130,6 +255,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
             tribunalStartDateStr={tribunalStartDate}
             coverageSet={selectedCoverage}
             tribunalName={selectedTribunal}
+            velocityMetrics={velocityMetrics}
           />
         </div>
 
@@ -138,8 +264,80 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   );
 }
 
+function VelocityTimeline({ metrics }) {
+  if (!metrics || !metrics.hasEnoughHistory) return null;
+
+  const { weeklyData, historicalAvgVelocity, currentVelocity, trend } = metrics;
+
+  // Find max value for scaling the bars
+  const maxCollected = Math.max(7, ...weeklyData.map(w => w.collected));
+
+  let trendColor = "text-gray-500 dark:text-gray-400";
+  let trendText = "Stable";
+  if (currentVelocity > historicalAvgVelocity * 1.2) {
+    trendColor = "text-success";
+    trendText = "Accelerating";
+  } else if (currentVelocity < historicalAvgVelocity * 0.7) {
+    trendColor = "text-danger";
+    trendText = "Declining";
+  }
+
+  const getBarColor = (collected) => {
+    if (collected === 0) return "bg-danger";
+    if (collected < 4) return "bg-warning";
+    return "bg-success";
+  };
+
+  return (
+    <div className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4" aria-label="Velocity Timeline">
+      <div className="flex justify-between items-end mb-3">
+        <div>
+          <h4 className="text-sm font-medium text-black dark:text-white">Velocity Timeline</h4>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Last 12 weeks collection rate</p>
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-mono text-black dark:text-white">{currentVelocity.toFixed(1)} docs/wk avg</div>
+          <div className={`text-xs ${trendColor}`}>
+            {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs avg ({trendText})
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-end gap-1 h-16 w-full mt-2" role="list">
+        {weeklyData.map((week, idx) => {
+          const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
+
+          return (
+            <div
+              key={`w-${idx}`}
+              className="group relative flex-1 flex flex-col justify-end h-full"
+              role="listitem"
+            >
+              <div
+                className={`w-full rounded-t-sm opacity-80 group-hover:opacity-100 transition-opacity ${getBarColor(week.collected)}`}
+                style={{ height: `${heightPct}%` }}
+              ></div>
+
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max bg-slate-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                <div className="font-mono text-center">{week.collected} days collected</div>
+                <div className="text-[10px] text-gray-300 text-center opacity-80 mt-0.5">Week {12 - week.weekOffset}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-between text-[10px] text-gray-400 mt-1 uppercase font-mono tracking-wider">
+        <span>12 wks ago</span>
+        <span>Current</span>
+      </div>
+    </div>
+  );
+}
+
 // Sub-component for the multi-year heatmap
-function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName }) {
+function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
   const [hoveredCell, setHoveredCell] = useState(null);
 
   // Close tooltip if tapping outside
@@ -318,6 +516,8 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
           </div>
         </div>
       </div>
+
+      <VelocityTimeline metrics={velocityMetrics} />
 
       {hoveredCell && (
         <CellTooltip
