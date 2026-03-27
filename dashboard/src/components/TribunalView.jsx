@@ -2,6 +2,8 @@ import { useState, useEffect } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
+import { FilterPanel } from './TribunalFilters/FilterPanel';
+import { BatchDownload } from './TribunalFilters/BatchDownload';
 
 const TRIBUNALS = [
   "STF", "STJ", "TST", "TSE", "STM", "CNJ",
@@ -13,7 +15,41 @@ const TRIBUNALS = [
 
 export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates }) {
   const { data: allData } = useDataRefresh(null, null);
-  const [selectedTribunal, setSelectedTribunal] = useState("STF");
+
+  // Default filter state
+  const defaultFilters = {
+    dateRange: { start: '', end: '' }, // empty means use targetRange
+    coverageRange: [0, 100],
+    gapPattern: false,
+    velocityTrend: 'all',
+    status: 'all' // active | inactive
+  };
+
+  const [filters, setFilters] = useState(defaultFilters);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [selectedTribunals, setSelectedTribunals] = useState(new Set());
+
+  // Load from localStorage on client mount only to prevent hydration mismatch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('causaganha-filters');
+      if (saved) {
+        try {
+          setFilters(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse saved filters", e);
+        }
+      }
+      setIsHydrated(true);
+    }
+  }, []);
+
+  // Persist filters when they change
+  useEffect(() => {
+    if (isHydrated && typeof window !== 'undefined') {
+      localStorage.setItem('causaganha-filters', JSON.stringify(filters));
+    }
+  }, [filters, isHydrated]);
 
   // Prefer fresh client-side data, fall back to build-time props
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -21,118 +57,234 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const targetRange = allData?.targetRange ?? initialTargetRange ?? { start: "2024-01-01", end: "2026-02-03" };
   const startDates = allData?.tribunalStartDates ?? initialStartDates;
 
-  const selectedCoverage = new Set(coverage[selectedTribunal] || []);
-  const selectedEtaData = etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null };
-
   const isStartDatesLoading = !startDates;
   const safeStartDates = startDates || {};
-  const tribunalStartDate = safeStartDates[selectedTribunal];
 
-  // Calculate total days expected for this tribunal
-  let expectedDays = 0;
-  if (tribunalStartDate) {
-    const start = new Date(tribunalStartDate + "T00:00:00Z");
-    const end = new Date(targetRange.end + "T00:00:00Z");
-    if (start <= end) {
-      expectedDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  // Apply filters to TRIBUNALS
+  const filteredTribunals = TRIBUNALS.filter(t => {
+    const tCoverage = new Set(coverage[t] || []);
+    const tEta = etas[t] || { missing_days: null, velocity_14d: 0, eta_days: null };
+    const tStartStr = safeStartDates[t];
+
+    // Determine the effective date range based on filters and targetRange
+    const effectiveStartStr = filters.dateRange.start || targetRange.start;
+    const effectiveEndStr = filters.dateRange.end || targetRange.end;
+
+    // We only count days from the LATEST of (tribunal start date, effective start date)
+    const startObj = new Date(Math.max(
+      new Date((tStartStr || targetRange.start) + "T00:00:00Z"),
+      new Date(effectiveStartStr + "T00:00:00Z")
+    ));
+    const endObj = new Date(effectiveEndStr + "T00:00:00Z");
+
+    let expectedInFilter = 0;
+    let missingInFilter = 0;
+    let maxContinuousGap = 0;
+    let currentGap = 0;
+
+    if (startObj <= endObj) {
+      expectedInFilter = Math.floor((endObj - startObj) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Iterate through the dates to count missing and find >7 days gaps
+      let current = new Date(startObj);
+      while (current <= endObj) {
+        const dateStr = current.toISOString().split('T')[0];
+        if (!tCoverage.has(dateStr)) {
+          missingInFilter++;
+          currentGap++;
+          if (currentGap > maxContinuousGap) {
+            maxContinuousGap = currentGap;
+          }
+        } else {
+          currentGap = 0;
+        }
+        current.setUTCDate(current.getUTCDate() + 1);
+      }
     }
-  }
 
-  // Calculate actual missing days if not provided
-  const actualMissingDays = selectedEtaData.missing_days !== null
-    ? selectedEtaData.missing_days
-    : Math.max(0, expectedDays - selectedCoverage.size);
+    const coveragePct = expectedInFilter > 0 ? ((expectedInFilter - missingInFilter) / expectedInFilter) * 100 : 0;
 
-  // Render text ETA
-  let etaText = "Pending";
-  if (actualMissingDays === 0 && expectedDays > 0) {
-    etaText = "Complete ✓";
-  } else if (selectedEtaData.eta_days) {
-    if (selectedEtaData.eta_days < 30) {
-      etaText = `~${selectedEtaData.eta_days} days`;
+    // Coverage Range
+    if (coveragePct < filters.coverageRange[0] || coveragePct > filters.coverageRange[1]) return false;
+
+    // Status
+    // Active means velocity > 0 AND there's missing data (they are actively working).
+    // Inactive means velocity = 0 AND there's missing data (stalled).
+    // If missing == 0, it's neither active nor inactive, it's complete. We'll exclude complete from active/inactive filters unless 'all' is chosen.
+    const isComplete = missingInFilter === 0;
+    if (filters.status === 'active' && (tEta.velocity_14d === 0 || isComplete)) return false;
+    if (filters.status === 'inactive' && (tEta.velocity_14d > 0 || isComplete)) return false;
+
+    // Velocity Trend
+    // We only have velocity_14d right now. Let's use it as a proxy for now, but a proper trend needs historical velocity.
+    // If 'all', pass. Otherwise, we do basic heuristics or skip if we lack data.
+    if (filters.velocityTrend !== 'all') {
+       if (filters.velocityTrend === 'stable' && tEta.velocity_14d === 0) return false;
+       if (filters.velocityTrend === 'accelerating' && tEta.velocity_14d < 10) return false; // dummy heuristic since we don't have trend data
+       if (filters.velocityTrend === 'decelerating' && tEta.velocity_14d > 0 && tEta.velocity_14d < 10) return false;
+    }
+
+    // Gap Pattern (> 7 days gap)
+    if (filters.gapPattern && maxContinuousGap <= 7) {
+       return false;
+    }
+
+    return true;
+  });
+
+  const handleToggleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allFiltered = new Set(filteredTribunals);
+      setSelectedTribunals(allFiltered);
     } else {
-      const months = Math.round(selectedEtaData.eta_days / 30);
-      etaText = `~${months} month${months > 1 ? 's' : ''}`;
+      setSelectedTribunals(new Set());
     }
-  }
+  };
 
-  const statusColor = (actualMissingDays === 0 && expectedDays > 0) ? "text-success" : "text-warning";
+  const handleToggleSelect = (t) => {
+    const nextSet = new Set(selectedTribunals);
+    if (nextSet.has(t)) {
+      nextSet.delete(t);
+    } else {
+      nextSet.add(t);
+    }
+    setSelectedTribunals(nextSet);
+  };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="card p-4 flex flex-col lg:flex-row gap-6">
+      <FilterPanel
+        filters={filters}
+        setFilters={setFilters}
+        filteredCount={filteredTribunals.length}
+        totalCount={TRIBUNALS.length}
+      />
 
-        {/* Sidebar: Dropdown and Details */}
-        <div className="w-full lg:w-64 flex flex-col gap-4 flex-shrink-0">
-          <div>
-            <label htmlFor="tribunal-select" className="block text-sm font-medium text-black dark:text-white mb-2">
-              Select Tribunal
-            </label>
-            <select
-              id="tribunal-select"
-              value={selectedTribunal}
-              onChange={(e) => setSelectedTribunal(e.target.value)}
-              className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-black dark:text-white focus:outline-none focus:border-accent"
-            >
-              {TRIBUNALS.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 card p-4">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer font-medium text-black dark:text-white text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 text-accent focus:ring-accent w-4 h-4 cursor-pointer"
+              checked={filteredTribunals.length > 0 && selectedTribunals.size === filteredTribunals.length}
+              onChange={handleToggleSelectAll}
+            />
+            Selecionar todos os {filteredTribunals.length}
+          </label>
+        </div>
+
+        <BatchDownload
+          selectedTribunals={selectedTribunals}
+          filteredTribunals={filteredTribunals}
+          allData={allData}
+          initialCoverage={initialCoverage}
+          initialStartDates={initialStartDates}
+          targetRange={targetRange}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {filteredTribunals.length === 0 ? (
+          <div className="card p-8 text-center text-gray-500 dark:text-gray-400">
+            Nenhum tribunal corresponde aos filtros selecionados.
           </div>
+        ) : (
+          filteredTribunals.map(t => {
+            const tCoverage = new Set(coverage[t] || []);
+            const tEta = etas[t] || { missing_days: null, velocity_14d: 0, eta_days: null };
+            const tStartStr = safeStartDates[t];
 
-          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800">
-            <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
+          let tExpected = 0;
+          if (tStartStr) {
+            const start = new Date(tStartStr + "T00:00:00Z");
+            const end = new Date(targetRange.end + "T00:00:00Z");
+            if (start <= end) {
+              tExpected = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+            }
+          }
 
-            <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Start Date</span>
-              <span className="font-mono text-black dark:text-white">
-                {isStartDatesLoading ? (
-                  <span className="text-gray-500 dark:text-gray-400 italic">Pending...</span>
-                ) : (
-                  tribunalStartDate || "Unknown"
-                )}
-              </span>
-            </div>
+            const tMissing = tEta.missing_days !== null ? tEta.missing_days : Math.max(0, tExpected - tCoverage.size);
 
-            <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Status</span>
-              <span className={`font-medium ${statusColor}`}>{etaText}</span>
-            </div>
+            let etaText = "Pending";
+            if (tMissing === 0 && tExpected > 0) {
+              etaText = "Complete ✓";
+            } else if (tEta.eta_days) {
+              if (tEta.eta_days < 30) {
+                etaText = `~${tEta.eta_days} days`;
+              } else {
+                const months = Math.round(tEta.eta_days / 30);
+                etaText = `~${months} month${months > 1 ? 's' : ''}`;
+              }
+            }
 
-            <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Missing</span>
-              <span className="font-mono text-black dark:text-white">
-                {isStartDatesLoading ? "..." : `${actualMissingDays} days`}
-              </span>
-            </div>
+            const statusColor = (tMissing === 0 && tExpected > 0) ? "text-success" : "text-warning";
+            const isSelected = selectedTribunals.has(t);
 
-            {selectedEtaData.velocity_14d > 0 && (
-              <div className="text-sm flex justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Velocity</span>
-                <span className="font-mono text-black dark:text-white">{selectedEtaData.velocity_14d.toFixed(1)} docs/day</span>
+            return (
+              <div key={t} className={`card flex flex-col lg:flex-row gap-6 p-4 border-l-4 transition-colors ${isSelected ? 'border-l-accent bg-accent/5' : 'border-l-transparent'}`}>
+
+                {/* Sidebar: Checkbox and Details */}
+                <div className="w-full lg:w-64 flex flex-col gap-4 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 font-semibold text-lg text-black dark:text-white cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-accent focus:ring-accent w-4 h-4 cursor-pointer"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(t)}
+                      />
+                      {t}
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800">
+                    <div className="text-sm flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Start Date</span>
+                      <span className="font-mono text-black dark:text-white">
+                        {isStartDatesLoading ? (
+                          <span className="text-gray-500 dark:text-gray-400 italic">Pending...</span>
+                        ) : (
+                          tStartStr || "Unknown"
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="text-sm flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Status</span>
+                      <span className={`font-medium ${statusColor}`}>{etaText}</span>
+                    </div>
+
+                    <div className="text-sm flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-300">Missing</span>
+                      <span className="font-mono text-black dark:text-white">
+                        {isStartDatesLoading ? "..." : `${tMissing} days`}
+                      </span>
+                    </div>
+
+                    {tEta.velocity_14d > 0 && (
+                      <div className="text-sm flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-300">Velocity</span>
+                        <span className="font-mono text-black dark:text-white">{tEta.velocity_14d.toFixed(1)} docs/day</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Main: Heatmap area */}
+                <div className="flex-1 overflow-x-auto custom-scrollbar pb-4">
+                  <Heatmap
+                    globalStartDateStr={targetRange.start}
+                    globalEndDateStr={targetRange.end}
+                    tribunalStartDateStr={tStartStr}
+                    coverageSet={tCoverage}
+                    tribunalName={t}
+                  />
+                </div>
+
               </div>
-            )}
-
-            <div className="text-sm flex justify-between mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
-               <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
-               <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
-                 {allData?.backfillProgress?.last_updated ? new Date(allData.backfillProgress.last_updated).toLocaleDateString() : 'Never'}
-               </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Main: Heatmap area */}
-        <div className="flex-1 overflow-x-auto custom-scrollbar pb-4">
-          <Heatmap
-            globalStartDateStr={targetRange.start}
-            globalEndDateStr={targetRange.end}
-            tribunalStartDateStr={tribunalStartDate}
-            coverageSet={selectedCoverage}
-            tribunalName={selectedTribunal}
-          />
-        </div>
-
+            );
+          })
+        )}
       </div>
     </div>
   );
