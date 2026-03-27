@@ -17,6 +17,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from causaganha.analysis.ground_truth import GroundTruthManager
 from causaganha.analysis.vector_store import VectorStore
 from causaganha.catalog.creator import CatalogCreator
+from causaganha.cli.commands import archival, backfill
 from causaganha.config import settings
 from causaganha.pipeline.analyze import analyze_pending_decisions
 from causaganha.pipeline.analyze_parquet import (
@@ -28,7 +29,6 @@ from causaganha.pipeline.analyze_parquet import (
 from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.export_orchestrator import ExportOrchestrator
 from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
-from causaganha.cli.commands import backfill
 from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
 from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
 from causaganha.pipeline.repositories import DuckDBExportRepository
@@ -53,6 +53,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(backfill.app, name="backfill")
+app.add_typer(archival.app, name="archival")
 
 groundtruth_app = typer.Typer(name="groundtruth", help="Manage ground truth vector store")
 app.add_typer(groundtruth_app, name="groundtruth")

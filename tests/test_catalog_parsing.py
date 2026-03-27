@@ -1,4 +1,3 @@
-import pytest
 from scripts.generate_catalog import parse_filename
 
 

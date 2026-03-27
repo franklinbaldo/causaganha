@@ -12,7 +12,6 @@ from pytest_bdd import given, parsers, scenario, then, when
 
 from djen_backup.archive import CircuitBreaker
 from djen_backup.runner import RunConfig, Summary, WorkItem, process_item
-
 from tests.djen_backup.conftest import FAKE_AUTH
 
 

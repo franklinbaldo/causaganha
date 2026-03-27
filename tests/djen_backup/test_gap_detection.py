@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from pytest_bdd import given, parsers, scenario, then
 
 from djen_backup.state import ItemStatus, State
-
 from tests.djen_backup.conftest import parse_table
 
 

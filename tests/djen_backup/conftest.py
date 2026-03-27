@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
 import time
 from datetime import date
 from typing import Any
@@ -12,8 +14,6 @@ import pytest
 import respx
 from pytest_bdd import given, parsers, then, when
 
-import sys
-import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 

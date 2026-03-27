@@ -1,10 +1,10 @@
 import json
-from datetime import date
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from causaganha.cli.commands.backfill import app
+
 
 runner = CliRunner()
 
