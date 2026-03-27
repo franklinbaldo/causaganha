@@ -4,6 +4,8 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { fetchAllData } from '../lib/fetchData';
 import { TribunalView } from '../components/TribunalView';
 import { SystemStatus } from '../components/SystemStatus';
+import { CommandPalette } from '../components/CommandPalette';
+import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
 
 // Fetch data at build time for static rendering
 let data = null;
@@ -92,7 +94,7 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
       </div>
     </header>
 
-    <main class="max-w-7xl mx-auto space-y-6">
+    <main id="main-content" class="max-w-7xl mx-auto space-y-6">
 
       <TribunalView
         client:load
@@ -110,5 +112,8 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
         <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
       </footer>
     </main>
+
+    <CommandPalette client:load />
+    <NetworkStatusBanner client:load />
   </div>
 </Layout>

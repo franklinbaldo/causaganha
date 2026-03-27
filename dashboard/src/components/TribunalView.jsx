@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/compat';
+import { useState, useEffect, useMemo, useRef } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
@@ -357,6 +357,8 @@ function VelocityTimeline({ metrics }) {
 // Sub-component for the multi-year heatmap
 function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
   const [hoveredCell, setHoveredCell] = useState(null);
+  const [focusedCell, setFocusedCell] = useState(null); // format: "YYYY-MM-DD"
+  const gridRef = useRef(null);
 
   // Close tooltip if tapping outside
   useEffect(() => {
@@ -412,9 +414,15 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
     if (!dateStr) return "bg-transparent"; // padding cell
 
     const status = getCellStatus(dateStr);
-    if (status === 'outside') return "bg-gray-50 dark:bg-slate-800 hover:bg-border"; // Gray cell
-    if (status === 'collected') return "bg-success hover:bg-success-hover"; // Green cell
-    return "bg-danger hover:bg-danger-hover"; // Red cell
+    const base = status === 'outside' ? "bg-gray-50 dark:bg-slate-800 hover:bg-border" :
+                 status === 'collected' ? "bg-success hover:bg-success-hover" :
+                 "bg-danger hover:bg-danger-hover";
+
+    // Add focus ring for keyboard navigation
+    const isFocused = focusedCell === dateStr;
+    const focusClasses = isFocused ? "ring-2 ring-accent ring-offset-1 dark:ring-offset-slate-950 z-10" : "";
+
+    return clsx(base, focusClasses);
   };
 
   const getAriaLabel = (dateStr) => {
@@ -477,15 +485,73 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
     });
   };
 
+  const handleGridKeyDown = (e) => {
+    if (!days.length) return;
+
+    // Find index of currently focused day, or start at the last valid day (today)
+    let currentIndex = focusedCell ? days.indexOf(focusedCell) : days.length - 1;
+    if (currentIndex === -1) currentIndex = days.length - 1;
+
+    let newIndex = currentIndex;
+
+    switch (e.key) {
+      case 'ArrowUp':
+        newIndex = Math.max(0, currentIndex - 1); // Previous day in the column
+        e.preventDefault();
+        break;
+      case 'ArrowDown':
+        newIndex = Math.min(days.length - 1, currentIndex + 1); // Next day in the column
+        e.preventDefault();
+        break;
+      case 'ArrowLeft':
+        newIndex = Math.max(0, currentIndex - 7); // Previous week
+        e.preventDefault();
+        break;
+      case 'ArrowRight':
+        newIndex = Math.min(days.length - 1, currentIndex + 7); // Next week
+        e.preventDefault();
+        break;
+      case 'Enter':
+      case ' ':
+        if (focusedCell) {
+          e.preventDefault();
+          // Simulate click for tooltip (centered on cell or fallback)
+          const cellEl = document.getElementById(`cell-${focusedCell}`);
+          const rect = cellEl ? cellEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+          handleCellInteraction({ clientX: rect.x + 6, clientY: rect.y + 6, stopPropagation: () => {} }, focusedCell, 'click');
+        }
+        break;
+      case 'Escape':
+        setHoveredCell(null);
+        e.preventDefault();
+        break;
+      default:
+        return;
+    }
+
+    if (newIndex !== currentIndex && days[newIndex]) {
+      setFocusedCell(days[newIndex]);
+    }
+  };
+
   const coveredDays = days.filter(d => coverageSet.has(d)).length;
   const totalDays = days.length;
 
   return (
     <div className="flex flex-col gap-4 min-w-max">
 
-      <div className="flex gap-1" role="grid" aria-label={`Activity heatmap for ${tribunalName}`}>
+      <div
+        ref={gridRef}
+        className="flex gap-1 outline-none"
+        role="grid"
+        aria-label={`Activity heatmap for ${tribunalName}. Use arrow keys to navigate.`}
+        tabIndex={0}
+        onKeyDown={handleGridKeyDown}
+        onFocus={() => { if (!focusedCell) setFocusedCell(days[days.length - 1]); }}
+        onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}
+      >
         {/* Weekday labels */}
-        <div className="flex flex-col gap-1 flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400 font-mono pt-1 mr-2 justify-between h-[104px]">
+        <div className="flex flex-col gap-1 flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400 font-mono pt-1 mr-2 justify-between h-[104px]" aria-hidden="true">
           <div className="h-3" aria-hidden="true"></div>
           <div className="h-3 leading-3" aria-hidden="true">Mon</div>
           <div className="h-3" aria-hidden="true"></div>
@@ -500,6 +566,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
             {week.map((day, dayIndex) => (
               <div
                 key={day || `empty-${weekIndex}-${dayIndex}`}
+                id={day ? `cell-${day}` : undefined}
                 role="gridcell"
                 className={clsx(
                   "w-3 h-3 rounded-sm transition-colors duration-200 opacity-80 hover:opacity-100",
@@ -507,6 +574,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
                   getCellColor(day)
                 )}
                 aria-label={getAriaLabel(day)}
+                aria-selected={focusedCell === day}
                 onMouseEnter={(e) => handleCellInteraction(e, day, 'enter')}
                 onMouseMove={(e) => handleCellInteraction(e, day, 'move')}
                 onMouseLeave={(e) => handleCellInteraction(e, day, 'leave')}
@@ -514,6 +582,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCellInteraction(e, day, 'click');
+                  setFocusedCell(day);
                 }}
               />
             ))}
