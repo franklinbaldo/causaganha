@@ -111,7 +111,7 @@ const TRIBUNALS = [
   "TRE-AC", "TRE-AL", "TRE-AM", "TRE-AP", "TRE-BA", "TRE-CE", "TRE-DF", "TRE-ES", "TRE-GO", "TRE-MA", "TRE-MG", "TRE-MS", "TRE-MT", "TRE-PA", "TRE-PB", "TRE-PE", "TRE-PI", "TRE-PR", "TRE-RJ", "TRE-RN", "TRE-RO", "TRE-RR", "TRE-RS", "TRE-SC", "TRE-SE", "TRE-SP", "TRE-TO"
 ];
 
-export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates }) {
+export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState("STF");
 
@@ -120,6 +120,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const etas = allData?.tribunalEtas ?? initialEtas ?? {};
   const targetRange = allData?.targetRange ?? initialTargetRange ?? { start: "2024-01-01", end: "2026-02-03" };
   const startDates = allData?.tribunalStartDates ?? initialStartDates;
+  const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
 
   const selectedCoverage = new Set(coverage[selectedTribunal] || []);
   const selectedEtaData = etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null };
@@ -205,10 +206,27 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
             </div>
           )}
 
-          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800">
-            <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
+          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800 relative">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
+              {qualityScores[selectedTribunal] && (
+                <div
+                  className={clsx(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded cursor-help",
+                    qualityScores[selectedTribunal].grade === 'A' ? "bg-success text-white" :
+                    qualityScores[selectedTribunal].grade === 'B' ? "bg-info text-white" :
+                    qualityScores[selectedTribunal].grade === 'C' ? "bg-warning text-white" :
+                    qualityScores[selectedTribunal].grade === 'D' ? "bg-danger text-white" :
+                    "bg-gray-500 text-white"
+                  )}
+                  title={`Completeness: ${qualityScores[selectedTribunal].completeness}%\nRecency: ${qualityScores[selectedTribunal].recency}%\nConsistency: ${qualityScores[selectedTribunal].consistency}%`}
+                >
+                  Grade {qualityScores[selectedTribunal].grade}
+                </div>
+              )}
+            </div>
 
-            <div className="text-sm flex justify-between">
+            <div className="text-sm flex justify-between mt-2">
               <span className="text-gray-600 dark:text-gray-300">Start Date</span>
               <span className="font-mono text-black dark:text-white">
                 {isStartDatesLoading ? (

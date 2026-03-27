@@ -1,0 +1,60 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ThemeToggle } from '../../components/ThemeToggle';
+import { PerfDashboard } from '../../components/PerfDashboard';
+
+let perfMetrics = null;
+let qualityScores = null;
+
+try {
+  // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
+  const fetchLocal = async (url) => {
+    // In dev mode, we can fetch from localhost. In build time, we might need a relative path depending on Astro's setup.
+    // Astro's static build will evaluate these at build time. To avoid fetching external URLs during build,
+    // we use Node fs directly for public files.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const filePath = path.join(process.cwd(), 'public', url);
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+  };
+
+  perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
+  qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
+} catch (e) {
+  console.warn('Failed to load performance metrics at build time:', e);
+}
+---
+
+<Layout
+  title="CausaGanha - Performance Dashboard"
+  description="System health and performance metrics for the CausaGanha backfill pipeline."
+>
+  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
+    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/causaganha/" class="p-2 bg-accent-muted rounded-xl hover:bg-accent hover:text-white transition-colors">
+          <svg class="w-5 h-5 text-accent hover:text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </a>
+        <div>
+          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
+            Performance Monitoring
+          </h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            System latency, upload success rates, and tribunal data quality scores
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <ThemeToggle client:load />
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto space-y-6">
+      <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
+    </main>
+  </div>
+</Layout>

@@ -1,0 +1,50 @@
+{
+  "collect_progress": {
+    "oldest_date": null,
+    "newest_date": null,
+    "unique_days": 0,
+    "total_items": 0,
+    "target_range": {
+      "start": "2024-01-01",
+      "end": "2026-02-03",
+      "total_days": 764
+    },
+    "progress_pct": 0,
+    "last_updated": "2026-03-27T07:37:52.825993+00:00"
+  },
+  "consolidate_progress": {
+    "oldest_date": null,
+    "newest_date": null,
+    "unique_days": 0,
+    "total_items": 0,
+    "target_range": {
+      "start": "2024-01-01",
+      "end": "2026-02-03",
+      "total_days": 764
+    },
+    "progress_pct": 0.0,
+    "last_updated": "2026-03-27T07:37:52.826099+00:00"
+  },
+  "backfill_progress": {
+    "oldest_date": null,
+    "newest_date": null,
+    "unique_days": 0,
+    "total_items": 0,
+    "target_range": {
+      "start": "2024-01-01",
+      "end": "2026-02-03",
+      "total_days": 764
+    },
+    "progress_pct": 0,
+    "last_updated": "2026-03-27T07:37:52.825993+00:00",
+    "daily_stats": [],
+    "recent_activity": []
+  },
+  "tribunal_coverage": {},
+  "tribunal_etas": {},
+  "target_range": {
+    "start": "2024-01-01",
+    "end": "2026-02-03",
+    "total_days": 764
+  }
+}
