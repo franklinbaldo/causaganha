@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'preact/compat';
+import { useState, useEffect, useRef } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
@@ -112,8 +112,13 @@ const TRIBUNALS = [
 ];
 
 export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
-  const { data: allData } = useDataRefresh(null, null);
+  const { data: allData, refresh } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState("STF");
+
+  // When selectedTribunal changes, cancel any ongoing retries and immediately start a fresh fetch
+  useEffect(() => {
+    refresh(true);
+  }, [selectedTribunal, refresh]);
 
   // Prefer fresh client-side data, fall back to build-time props
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};

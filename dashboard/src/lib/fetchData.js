@@ -15,19 +15,16 @@ function resolve(path) {
   return base + path;
 }
 
-export async function fetchWithRetry(url, options = {}, maxRetries = 5) {
+export async function fetchWithRetry(url, options = {}, maxRetries = 6) {
   let lastError;
   const isBrowser = typeof window !== 'undefined';
+  const delays = [1000, 3000, 9000, 27000, 27000];
 
-  // Astro build uses relative URLs via resolve(), node-fetch requires absolute URLs
-  // The original fetch simply suppressed errors, but fetchWithRetry throws on absolute URL error.
   if (!isBrowser) {
     try {
       const response = await fetch(url, options);
       return response;
     } catch {
-      // Return a dummy error response or simply fail fast without retry
-      // This is expected during build time if using relative paths in node.
       return { ok: false, status: 500, json: async () => ({}) };
     }
   }
@@ -42,24 +39,61 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       const response = await fetch(url, options);
-      if (!response.ok && response.status >= 500) {
-        throw new Error(`HTTP Error: ${response.status}`);
+      if (!response.ok) {
+        if ([429, 502, 503, 504].includes(response.status)) {
+          throw new Error(`Transient HTTP Error: ${response.status}`);
+        } else if (response.status >= 400 && response.status < 500) {
+          // Do NOT retry definitive client errors
+          const err = new Error(`Definitive HTTP Error: ${response.status}`);
+          err.isDefinitive = true;
+          throw err;
+        } else if (response.status >= 500) {
+          throw new Error(`HTTP Error: ${response.status}`);
+        }
       }
+
       if (isBrowser) {
         clearTimeout(slowTimer);
         window.dispatchEvent(new CustomEvent('cg-network-success'));
       }
       return response;
     } catch (error) {
+      if (error.name === 'AbortError') {
+        if (isBrowser) clearTimeout(slowTimer);
+        throw error; // Bubble up immediately without retry
+      }
+      if (error.isDefinitive) {
+        if (isBrowser) clearTimeout(slowTimer);
+        throw error;
+      }
+
       lastError = error;
       if (i < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(3, i), 30000);
+        const delay = delays[i] || delays[delays.length - 1];
         if (isBrowser) {
           window.dispatchEvent(new CustomEvent('cg-network-retry', {
-            detail: { attempt: i + 1, maxRetries, delay }
+            detail: { attempt: i + 1, maxRetries: delays.length, delay }
           }));
         }
-        await new Promise(r => setTimeout(r, delay));
+
+        // Wait for delay or abort
+        await new Promise((resolve, reject) => {
+          let timeoutId;
+          const onAbort = () => {
+            clearTimeout(timeoutId);
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+
+          if (options.signal) {
+            if (options.signal.aborted) return onAbort();
+            options.signal.addEventListener('abort', onAbort);
+          }
+
+          timeoutId = setTimeout(() => {
+            if (options.signal) options.signal.removeEventListener('abort', onAbort);
+            resolve();
+          }, delay);
+        });
       }
     }
   }
@@ -73,11 +107,14 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 5) {
   throw lastError;
 }
 
-async function safeFetch(url) {
+async function safeFetch(url, options = {}) {
   try {
-    const res = await fetchWithRetry(url);
+    const res = await fetchWithRetry(url, options);
     if (res && res.ok) return await res.json();
   } catch (err) {
+    if (err.name === 'AbortError') {
+      throw err; // Re-throw to caller to stop Promise.all
+    }
     console.error(`Failed to fetch ${url}:`, err);
   }
   return null;
@@ -87,16 +124,17 @@ async function safeFetch(url) {
  * Fetch all data sources. Works both server-side and client-side.
  * For server-side (Astro build), pass a custom fetcher that reads from the filesystem.
  */
-export async function fetchAllData() {
+export async function fetchAllData(signal) {
+  const options = signal ? { signal } : {};
   const [stats, dashboardData, today, calendar, runs, backfill, tribunalStartDates, tribunalQualityScores] = await Promise.all([
-    safeFetch(resolve('run-stats.json')),
-    safeFetch(resolve('dashboard-data.json')),
-    safeFetch(resolve('cache/today.json')),
-    safeFetch(resolve('cache/calendar.json')),
-    safeFetch(resolve('cache/runs.json')),
-    safeFetch(resolve('cache/backfill.json')),
-    safeFetch(resolve('tribunal_start_dates.json')),
-    safeFetch(resolve('tribunal_quality_scores.json')),
+    safeFetch(resolve('run-stats.json'), options),
+    safeFetch(resolve('dashboard-data.json'), options),
+    safeFetch(resolve('cache/today.json'), options),
+    safeFetch(resolve('cache/calendar.json'), options),
+    safeFetch(resolve('cache/runs.json'), options),
+    safeFetch(resolve('cache/backfill.json'), options),
+    safeFetch(resolve('tribunal_start_dates.json'), options),
+    safeFetch(resolve('tribunal_quality_scores.json'), options),
   ]);
 
   const cacheData = {};

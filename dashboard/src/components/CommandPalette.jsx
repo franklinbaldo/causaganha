@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'preact/compat';
-import clsx from 'clsx';
 
 export function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);

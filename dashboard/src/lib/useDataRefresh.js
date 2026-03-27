@@ -3,36 +3,60 @@ import { fetchAllData } from './fetchData';
 
 // Shared client-side cache to avoid duplicate fetches across islands
 if (typeof window !== 'undefined' && !window.__CAUSAGANHA_DATA) {
-  window.__CAUSAGANHA_DATA = { data: null, timestamp: 0, promise: null };
+  window.__CAUSAGANHA_DATA = { data: null, timestamp: 0, promise: null, controller: null };
 }
 
 const STALE_MS = 15000; // Consider cache stale after 15s
 
-async function fetchShared() {
+async function fetchShared(force = false) {
   const cache = window.__CAUSAGANHA_DATA;
   const now = Date.now();
 
-  // Return cached data if fresh
-  if (cache.data && now - cache.timestamp < STALE_MS) {
+  // Return cached data if fresh and not forcing
+  if (!force && cache.data && now - cache.timestamp < STALE_MS) {
     return cache.data;
   }
 
-  // Deduplicate concurrent fetches
-  if (cache.promise) return cache.promise;
+  // Deduplicate concurrent fetches unless forcing
+  if (cache.promise) {
+    if (force && cache.controller) {
+      cache.controller.abort();
+      cache.promise = null;
+      cache.controller = null;
+    } else {
+      return cache.promise;
+    }
+  }
 
-  cache.promise = fetchAllData()
+  cache.controller = new AbortController();
+
+  cache.promise = fetchAllData(cache.controller.signal)
     .then(result => {
       cache.data = result;
       cache.timestamp = Date.now();
       cache.promise = null;
+      cache.controller = null;
       return result;
     })
     .catch(err => {
-      cache.promise = null;
+      if (err.name !== 'AbortError') {
+        cache.promise = null;
+        cache.controller = null;
+      }
       throw err;
     });
 
   return cache.promise;
+}
+
+// Allow aborting requests completely without starting a new one
+export function abortSharedFetch() {
+  const cache = window.__CAUSAGANHA_DATA;
+  if (cache && cache.controller) {
+    cache.controller.abort();
+    cache.promise = null;
+    cache.controller = null;
+  }
 }
 
 /**
@@ -48,14 +72,18 @@ export function useDataRefresh(dataKey, initialData = null, interval = 60000) {
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
 
-  const refresh = useCallback(async (isInitial = false) => {
+  const refresh = useCallback(async (force = false) => {
     try {
-      if (!isInitial) setLoading(false); // Don't show loading on refresh
+      if (force) setLoading(true);
       setError(null);
-      const allData = await fetchShared();
+      const allData = await fetchShared(force);
       const value = dataKey ? allData[dataKey] : allData;
       setData(value);
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log(`[useDataRefresh] Fetch aborted for ${dataKey || 'all'}`);
+        return; // Don't set error state if intentionally aborted
+      }
       console.error(`[useDataRefresh] Error fetching ${dataKey}:`, err);
       setError(err.message || 'Failed to fetch data');
     } finally {
@@ -73,7 +101,22 @@ export function useDataRefresh(dataKey, initialData = null, interval = 60000) {
     }
 
     const timer = setInterval(() => refresh(false), interval);
-    return () => clearInterval(timer);
+
+    // Listen for manual retries from the NetworkStatusBanner
+    const handleManualRetry = () => {
+      refresh(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cg-network-manual-retry', handleManualRetry);
+    }
+
+    return () => {
+      clearInterval(timer);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('cg-network-manual-retry', handleManualRetry);
+      }
+    };
   }, [refresh, interval, initialData]);
 
   return { data, loading, error, refresh };
