@@ -15,11 +15,71 @@ function resolve(path) {
   return base + path;
 }
 
+export async function fetchWithRetry(url, options = {}, maxRetries = 5) {
+  let lastError;
+  const isBrowser = typeof window !== 'undefined';
+
+  // Astro build uses relative URLs via resolve(), node-fetch requires absolute URLs
+  // The original fetch simply suppressed errors, but fetchWithRetry throws on absolute URL error.
+  if (!isBrowser) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch {
+      // Return a dummy error response or simply fail fast without retry
+      // This is expected during build time if using relative paths in node.
+      return { ok: false, status: 500, json: async () => ({}) };
+    }
+  }
+
+  let slowTimer;
+  if (isBrowser) {
+    slowTimer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('cg-network-slow'));
+    }, 10000);
+  }
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok && response.status >= 500) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+      if (isBrowser) {
+        clearTimeout(slowTimer);
+        window.dispatchEvent(new CustomEvent('cg-network-success'));
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (i < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(3, i), 30000);
+        if (isBrowser) {
+          window.dispatchEvent(new CustomEvent('cg-network-retry', {
+            detail: { attempt: i + 1, maxRetries, delay }
+          }));
+        }
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+
+  if (isBrowser) {
+    clearTimeout(slowTimer);
+    window.dispatchEvent(new CustomEvent('cg-network-error', {
+      detail: { error: lastError }
+    }));
+  }
+  throw lastError;
+}
+
 async function safeFetch(url) {
   try {
-    const res = await fetch(url);
-    if (res.ok) return res.json();
-  } catch { /* swallow */ }
+    const res = await fetchWithRetry(url);
+    if (res && res.ok) return await res.json();
+  } catch (err) {
+    console.error(`Failed to fetch ${url}:`, err);
+  }
   return null;
 }
 

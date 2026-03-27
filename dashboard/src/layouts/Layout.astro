@@ -49,6 +49,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     </script>
   </head>
   <body class="min-h-screen bg-white dark:bg-slate-950 text-black dark:text-white antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-white focus:text-black focus:top-0 focus:left-0 focus:border focus:shadow-lg">
+      Skip to main content
+    </a>
     <slot />
   </body>
 </html>
