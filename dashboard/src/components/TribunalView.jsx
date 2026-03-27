@@ -65,14 +65,14 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
         {/* Sidebar: Dropdown and Details */}
         <div className="w-full lg:w-64 flex flex-col gap-4 flex-shrink-0">
           <div>
-            <label htmlFor="tribunal-select" className="block text-sm font-medium text-content mb-2">
+            <label htmlFor="tribunal-select" className="block text-sm font-medium text-black dark:text-white mb-2">
               Select Tribunal
             </label>
             <select
               id="tribunal-select"
               value={selectedTribunal}
               onChange={(e) => setSelectedTribunal(e.target.value)}
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-content focus:outline-none focus:border-accent"
+              className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-black dark:text-white focus:outline-none focus:border-accent"
             >
               {TRIBUNALS.map(t => (
                 <option key={t} value={t}>{t}</option>
@@ -80,14 +80,14 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
             </select>
           </div>
 
-          <div className="flex flex-col gap-2 p-3 bg-surface-overlay rounded-lg border border-border-muted">
-            <h3 className="text-lg font-semibold text-content">{selectedTribunal}</h3>
+          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800">
+            <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
 
             <div className="text-sm flex justify-between">
-              <span className="text-content-secondary">Start Date</span>
-              <span className="font-mono text-content">
+              <span className="text-gray-600 dark:text-gray-300">Start Date</span>
+              <span className="font-mono text-black dark:text-white">
                 {isStartDatesLoading ? (
-                  <span className="text-content-tertiary italic">Pending...</span>
+                  <span className="text-gray-500 dark:text-gray-400 italic">Pending...</span>
                 ) : (
                   tribunalStartDate || "Unknown"
                 )}
@@ -95,27 +95,27 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
             </div>
 
             <div className="text-sm flex justify-between">
-              <span className="text-content-secondary">Status</span>
+              <span className="text-gray-600 dark:text-gray-300">Status</span>
               <span className={`font-medium ${statusColor}`}>{etaText}</span>
             </div>
 
             <div className="text-sm flex justify-between">
-              <span className="text-content-secondary">Missing</span>
-              <span className="font-mono text-content">
+              <span className="text-gray-600 dark:text-gray-300">Missing</span>
+              <span className="font-mono text-black dark:text-white">
                 {isStartDatesLoading ? "..." : `${actualMissingDays} days`}
               </span>
             </div>
 
             {selectedEtaData.velocity_14d > 0 && (
               <div className="text-sm flex justify-between">
-                <span className="text-content-secondary">Velocity</span>
-                <span className="font-mono text-content">{selectedEtaData.velocity_14d.toFixed(1)} docs/day</span>
+                <span className="text-gray-600 dark:text-gray-300">Velocity</span>
+                <span className="font-mono text-black dark:text-white">{selectedEtaData.velocity_14d.toFixed(1)} docs/day</span>
               </div>
             )}
 
-            <div className="text-sm flex justify-between mt-2 pt-2 border-t border-border-muted">
-               <span className="text-content-secondary">Last Updated</span>
-               <span className="font-mono text-xs text-content-tertiary">
+            <div className="text-sm flex justify-between mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+               <span className="text-gray-600 dark:text-gray-300">Last Updated</span>
+               <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
                  {allData?.backfillProgress?.last_updated ? new Date(allData.backfillProgress.last_updated).toLocaleDateString() : 'Never'}
                </span>
             </div>
@@ -165,7 +165,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
 
   // Protect against bad data
   if (start > end) {
-    return <div className="text-content-secondary p-4">Invalid date range.</div>;
+    return <div className="text-gray-600 dark:text-gray-300 p-4">Invalid date range.</div>;
   }
 
   let current = new Date(start);
@@ -196,7 +196,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
     if (!dateStr) return "bg-transparent"; // padding cell
 
     const status = getCellStatus(dateStr);
-    if (status === 'outside') return "bg-surface-overlay hover:bg-border"; // Gray cell
+    if (status === 'outside') return "bg-gray-50 dark:bg-slate-800 hover:bg-border"; // Gray cell
     if (status === 'collected') return "bg-success hover:bg-success-hover"; // Green cell
     return "bg-danger hover:bg-danger-hover"; // Red cell
   };
@@ -269,7 +269,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
 
       <div className="flex gap-1" role="grid" aria-label={`Activity heatmap for ${tribunalName}`}>
         {/* Weekday labels */}
-        <div className="flex flex-col gap-1 flex-shrink-0 text-[10px] text-content-tertiary font-mono pt-1 mr-2 justify-between h-[104px]">
+        <div className="flex flex-col gap-1 flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400 font-mono pt-1 mr-2 justify-between h-[104px]">
           <div className="h-3" aria-hidden="true"></div>
           <div className="h-3 leading-3" aria-hidden="true">Mon</div>
           <div className="h-3" aria-hidden="true"></div>
@@ -305,7 +305,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
         ))}
       </div>
 
-      <div className="flex justify-between items-center text-xs text-content-tertiary">
+      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
         <span>{coveredDays} / {totalDays} days collected</span>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">

@@ -38,8 +38,6 @@
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-content);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -77,7 +75,7 @@
 
 @layer components {
   .card {
-    @apply bg-surface-raised border border-border rounded-xl p-5 shadow-card transition-shadow;
+    @apply bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-5 shadow-card transition-shadow;
   }
 
   .card-hover {
@@ -85,11 +83,11 @@
   }
 
   .stat-value {
-    @apply text-2xl font-semibold font-mono text-content tabular-nums tracking-tight;
+    @apply text-2xl font-semibold font-mono text-black dark:text-white tabular-nums tracking-tight;
   }
 
   .stat-label {
-    @apply text-xs font-medium text-content-tertiary uppercase tracking-wider;
+    @apply text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider;
   }
 
   .badge {

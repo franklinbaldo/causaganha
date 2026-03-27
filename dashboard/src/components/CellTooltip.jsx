@@ -52,21 +52,21 @@ export function CellTooltip({ cellData, position }) {
       break;
     case 'outside':
       statusText = 'Outside active range';
-      statusClass = 'text-content-tertiary italic';
+      statusClass = 'text-gray-500 dark:text-gray-400 italic';
       break;
     default:
       statusText = cellData.status;
-      statusClass = 'text-content-secondary';
+      statusClass = 'text-gray-600 dark:text-gray-300';
   }
 
   const tooltipContent = (
     <div
       ref={tooltipRef}
       role="tooltip"
-      className="fixed z-50 pointer-events-none bg-surface border border-border rounded-lg shadow-lg p-3 min-w-[200px] text-sm"
+      className="fixed z-50 pointer-events-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-3 min-w-[200px] text-sm"
       style={style}
     >
-      <div className="font-mono font-medium text-content mb-1">
+      <div className="font-mono font-medium text-black dark:text-white mb-1">
         {cellData.date}
       </div>
       <div className={clsx("font-medium", statusClass)}>
@@ -74,13 +74,13 @@ export function CellTooltip({ cellData, position }) {
       </div>
 
       {cellData.uploadedAt && (
-        <div className="mt-2 text-xs text-content-secondary">
+        <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
           <span className="opacity-70">Uploaded:</span>{' '}
           <span className="font-mono">{new Date(cellData.uploadedAt).toLocaleString()}</span>
         </div>
       )}
       {cellData.sizeMb && (
-        <div className="text-xs text-content-secondary mt-0.5">
+        <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
           <span className="opacity-70">Size:</span>{' '}
           <span className="font-mono">{cellData.sizeMb.toFixed(2)} MB</span>
         </div>
