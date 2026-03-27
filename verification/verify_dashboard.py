@@ -2,13 +2,14 @@ from playwright.sync_api import sync_playwright
 import time
 import subprocess
 
+
 def run():
     print("Starting Astro build and preview server...")
     # Build astro first to serve static pages
     subprocess.run(["pnpm", "install"], cwd="dashboard")
     subprocess.run(["pnpm", "build"], cwd="dashboard")
     server = subprocess.Popen(["pnpm", "preview", "--port", "4321"], cwd="dashboard")
-    time.sleep(3) # Wait for server to start
+    time.sleep(3)  # Wait for server to start
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -34,6 +35,7 @@ def run():
 
     server.terminate()
     print("Verification complete.")
+
 
 if __name__ == "__main__":
     run()

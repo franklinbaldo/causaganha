@@ -11,9 +11,12 @@ import httpx
 from causaganha.storage.connection import get_connection
 
 
-def calculate_quality_scores(tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str) -> dict:
+def calculate_quality_scores(
+    tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str
+) -> dict:
     """Calculate data quality scores per tribunal based on completeness, recency, and consistency."""
     from datetime import datetime, UTC
+
     scores = {}
 
     end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -36,7 +39,9 @@ def calculate_quality_scores(tribunal_coverage: dict, tribunal_start_dates: dict
         if expected_days <= 0:
             continue
 
-        sorted_dates = sorted([datetime.strptime(d, "%Y-%m-%d").date() for d in set(coverage_dates)])
+        sorted_dates = sorted(
+            [datetime.strptime(d, "%Y-%m-%d").date() for d in set(coverage_dates)]
+        )
         days_with_data = len(sorted_dates)
 
         # 1. Completeness (40%)
@@ -63,7 +68,7 @@ def calculate_quality_scores(tribunal_coverage: dict, tribunal_start_dates: dict
             num_gaps = 0
             total_periods = len(sorted_dates) - 1
             for i in range(total_periods):
-                gap_days = (sorted_dates[i+1] - sorted_dates[i]).days - 1
+                gap_days = (sorted_dates[i + 1] - sorted_dates[i]).days - 1
                 if gap_days > 0:
                     # Penalize >7 day gaps heavily by counting them as multiple gaps
                     if gap_days > 7:
@@ -95,7 +100,7 @@ def calculate_quality_scores(tribunal_coverage: dict, tribunal_start_dates: dict
             "grade": grade,
             "completeness": round(completeness, 1),
             "recency": round(recency, 1),
-            "consistency": round(consistency, 1)
+            "consistency": round(consistency, 1),
         }
 
     return scores
@@ -247,7 +252,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "causaganha_upload_success_rate": 0,
         "causaganha_active_tribunals": len(tribunal_start_dates),
         "causaganha_backlog_pending_days": 0,
-        "slowest_tribunals": []
+        "slowest_tribunals": [],
     }
 
     total_missing_days = sum(eta.get("missing_days", 0) for eta in tribunal_etas.values())
@@ -256,9 +261,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Calculate slowest tribunals based on lowest velocity
     sorted_tribunals = sorted(
         [(t, v["velocity_14d"]) for t, v in tribunal_etas.items() if v.get("missing_days", 0) > 0],
-        key=lambda x: x[1]
+        key=lambda x: x[1],
     )
-    perf_metrics["slowest_tribunals"] = [{"tribunal": t, "velocity_14d": v} for t, v in sorted_tribunals[:5]]
+    perf_metrics["slowest_tribunals"] = [
+        {"tribunal": t, "velocity_14d": v} for t, v in sorted_tribunals[:5]
+    ]
 
     run_stats_path = Path("run_stats.json")
     if run_stats_path.exists():
@@ -266,7 +273,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             runs = json.loads(run_stats_path.read_text())
             success_count = sum(1 for r in runs if r.get("conclusion") == "success")
             if runs:
-                perf_metrics["causaganha_upload_success_rate"] = round((success_count / len(runs)) * 100, 2)
+                perf_metrics["causaganha_upload_success_rate"] = round(
+                    (success_count / len(runs)) * 100, 2
+                )
 
             latencies = []
             for r in runs:
@@ -280,14 +289,18 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ")
                         latency_ms = int((end - start).total_seconds() * 1000)
                     else:
-                        latency_ms = 1200000 if r.get("conclusion") == "success" else 300000 # 20 mins or 5 mins
+                        latency_ms = (
+                            1200000 if r.get("conclusion") == "success" else 300000
+                        )  # 20 mins or 5 mins
 
                     if latency_ms > 0:
-                        latencies.append({
-                            "date": r["createdAt"],
-                            "latency_ms": latency_ms,
-                            "status": r.get("conclusion")
-                        })
+                        latencies.append(
+                            {
+                                "date": r["createdAt"],
+                                "latency_ms": latency_ms,
+                                "status": r.get("conclusion"),
+                            }
+                        )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
         except Exception as e:
