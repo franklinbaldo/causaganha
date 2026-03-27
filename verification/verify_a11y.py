@@ -80,6 +80,7 @@ def run():
 
 if __name__ == "__main__":
     import os
+
     os.makedirs("verification/screenshots", exist_ok=True)
     os.makedirs("verification/videos", exist_ok=True)
     run()
