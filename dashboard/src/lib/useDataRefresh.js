@@ -43,7 +43,7 @@ async function fetchShared() {
  * @param {object} initialData - Build-time data passed as prop from Astro
  * @param {number} interval - Refresh interval in ms (default 60s)
  */
-export function useDataRefresh(dataKey, initialData = null, interval = 60000) {
+export function useDataRefresh(dataKey, initialData = null, interval = 30000) {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);

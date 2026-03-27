@@ -116,6 +116,18 @@ def fetch_progress_json(url: str) -> dict | None:
 
 def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     """Generate dashboard data from DuckDB."""
+
+    # Load ML ETA Model if available
+    eta_model = None
+    model_path = output_path.parent / "eta_model.pkl"
+    if model_path.exists():
+        import pickle
+        try:
+            with open(model_path, "rb") as f:
+                eta_model = pickle.load(f)
+        except Exception as e:
+            print(f"Warning: Failed to load ETA model: {e}")
+
     # Use singleton connection via Ibis backend, access raw DuckDB connection
     backend = get_connection(str(db_path), read_only=True)
     con = backend.con
@@ -230,14 +242,71 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         velocity_14d = velocity_map.get(tribunal, 0)
 
         eta_days = None
+        confidence = None
+        eta_range = None
+
+        # Base heuristic ETA
         if missing_days > 0 and velocity_14d > 0:
             velocity_per_day = velocity_14d / 14.0
             eta_days = int(missing_days / velocity_per_day)
+
+        # Try ML Model Prediction
+        if eta_model and missing_days > 0 and coverage_list:
+            import pandas as pd
+            import numpy as np
+
+            # Simple feature extraction for the prediction
+            dates = sorted([datetime.strptime(d, "%Y-%m-%d").date() for d in coverage_list])
+            if dates:
+                last_date = dates[-1]
+                days_since_last = (datetime.now(UTC).date() - last_date).days
+
+                # Assign arbitrary IDs for categorical features if not in training mapping (fallback gracefully)
+                # In production, this mapping should be saved/loaded alongside the model.
+                # For now, we use a custom deterministic hash to sync with training mapping.
+                def deterministic_hash(string):
+                    h = 5381
+                    for c in string:
+                        h = ((h << 5) + h) + ord(c)
+                    return h & 0xFFFFFFFF
+
+                t_id = deterministic_hash(tribunal) % 91
+                if tribunal.startswith("ST"):
+                    t_cat = 0
+                elif tribunal.startswith("TRF") or tribunal.startswith("TRT"):
+                    t_cat = 1
+                else:
+                    t_cat = 2
+
+                df_pred = pd.DataFrame([{
+                    "tribunal_id": t_id,
+                    "tribunal_category": t_cat,
+                    "days_since_last": days_since_last,
+                    "velocity_14d": velocity_14d,
+                    "day_of_week": datetime.now(UTC).weekday(),
+                    "month": datetime.now(UTC).month
+                }])
+
+                try:
+                    pred_days = eta_model.predict(df_pred)[0]
+                    # We estimate confidence based loosely on velocity stability
+                    # A more complex model would output variance directly
+                    model_confidence = 0.85 if velocity_14d > 5 else 0.65
+
+                    if model_confidence >= 0.70:
+                        eta_days = int(pred_days)
+                        confidence = model_confidence
+                        margin = max(1, int(pred_days * 0.15))
+                        eta_range = [max(1, eta_days - margin), eta_days + margin]
+                except Exception as e:
+                    pass
 
         tribunal_etas[tribunal] = {
             "missing_days": missing_days,
             "velocity_14d": velocity_14d,
             "eta_days": eta_days,
+            "confidence": confidence,
+            "range": eta_range,
         }
 
     # Calculate Data Quality Scores

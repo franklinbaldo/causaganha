@@ -134,6 +134,33 @@ def main() -> int:
     stats = parse_structlog_summary(result.stdout or "")
     files_added = stats["uploaded"] > 0 or stats["absent_marked"] > 0
 
+    # Broadcast to WebSocket Server
+    if files_added:
+        import urllib.request
+        import json
+        import time
+        from datetime import datetime
+
+        payload = json.dumps({
+            "tribunal": args.tribunal or "All",
+            "new_status": "collected",
+            "uploaded": stats.get("uploaded", 0),
+            "absent_marked": stats.get("absent_marked", 0),
+            "timestamp": time.time(),
+            "date": args.date or args.end_date or datetime.now().strftime("%Y-%m-%d")
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "http://localhost:8080/emit",
+            data=payload,
+            headers={'Content-Type': 'application/json'}
+        )
+        try:
+            urllib.request.urlopen(req, timeout=2)
+        except Exception as e:
+            # We don't want the pipeline to fail if WS is down
+            print(f"Warning: Failed to emit real-time event: {e}")
+
     # Write pipeline output contract (same keys as before)
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         with open(gh_output, "a") as f:

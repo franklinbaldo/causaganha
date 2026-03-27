@@ -1,0 +1,35 @@
+name: Train ETA Model
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      # You might normally pull latest data or sync from Internet Archive catalog here
+      - name: Run training script
+        run: uv run python scripts/pipeline/train_eta_model.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard/public/eta_model.pkl
+          git commit -m "chore(ml): update predictive ETA model [skip ci]" || echo "No changes to commit"
+          git push

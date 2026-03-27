@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/compat';
+import { useState, useEffect, createPortal } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
@@ -115,6 +115,79 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState("STF");
 
+  const [liveCoverage, setLiveCoverage] = useState({});
+  const [toastMessage, setToastMessage] = useState(null);
+  const [recentlyUpdatedCells, setRecentlyUpdatedCells] = useState(new Map());
+
+  useEffect(() => {
+    let ws;
+    let isMounted = true;
+
+    const connectWs = () => {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // For local development it connects to 8080, in prod it would be mapped
+        const host = window.location.hostname === 'localhost' ? 'localhost:8080' : window.location.host;
+        ws = new WebSocket(`${protocol}//${host}/ws`);
+
+        ws.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.tribunal && msg.new_status === 'collected' && msg.date) {
+              setLiveCoverage(prev => {
+                const updated = { ...prev };
+                if (!updated[msg.tribunal]) {
+                  updated[msg.tribunal] = new Set();
+                } else {
+                  updated[msg.tribunal] = new Set(updated[msg.tribunal]);
+                }
+                updated[msg.tribunal].add(msg.date);
+                return updated;
+              });
+
+              setRecentlyUpdatedCells(prev => {
+                const next = new Map(prev);
+                next.set(msg.date, Date.now());
+                return next;
+              });
+
+              // Clean up the animation class after 2.5s
+              setTimeout(() => {
+                if (isMounted) {
+                  setRecentlyUpdatedCells(prev => {
+                    const next = new Map(prev);
+                    next.delete(msg.date);
+                    return next;
+                  });
+                }
+              }, 2500);
+
+              const pctText = msg.uploaded > 0 ? ` (+${msg.uploaded} docs)` : (msg.absent_marked > 0 ? ` (absent marked)` : "");
+              setToastMessage(`${msg.tribunal} data received!${pctText}`);
+              setTimeout(() => {
+                if (isMounted) setToastMessage(null);
+              }, 4000);
+            }
+          } catch (err) {
+            console.error('Failed to parse WS message', err);
+          }
+        };
+      } catch (e) {
+        console.warn('Failed to connect to WS', e);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      connectWs();
+    }
+
+    return () => {
+      isMounted = false;
+      if (ws) ws.close();
+    };
+  }, []);
+
   // Prefer fresh client-side data, fall back to build-time props
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const etas = allData?.tribunalEtas ?? initialEtas ?? {};
@@ -122,7 +195,10 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const startDates = allData?.tribunalStartDates ?? initialStartDates;
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
 
-  const selectedCoverage = new Set(coverage[selectedTribunal] || []);
+  const baseCoverageSet = new Set(coverage[selectedTribunal] || []);
+  const liveSet = liveCoverage[selectedTribunal] || new Set();
+  const selectedCoverage = new Set([...baseCoverageSet, ...liveSet]);
+
   const selectedEtaData = etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null };
 
   const isStartDatesLoading = !startDates;
@@ -239,7 +315,17 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
 
             <div className="text-sm flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Status</span>
-              <span className={`font-medium ${statusColor}`}>{etaText}</span>
+              <div className="flex flex-col items-end">
+                <span className={`font-medium ${statusColor}`}>{etaText}</span>
+                {selectedEtaData.confidence && (
+                  <div className="text-[10px] text-gray-500 flex flex-col items-end mt-0.5" title="ML Predictive ETA">
+                    <span>Confidence: {Math.round(selectedEtaData.confidence * 100)}%</span>
+                    {selectedEtaData.range && (
+                      <span>Range: {selectedEtaData.range[0]}-{selectedEtaData.range[1]} days</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="text-sm flex justify-between">
@@ -278,6 +364,16 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
         </div>
 
       </div>
+
+      {toastMessage && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-success text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+            <span className="text-xl leading-none" aria-hidden="true">📡</span>
+            <span className="font-medium text-sm">{toastMessage}</span>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -355,7 +451,7 @@ function VelocityTimeline({ metrics }) {
 }
 
 // Sub-component for the multi-year heatmap
-function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
+function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics, recentlyUpdatedCells }) {
   const [hoveredCell, setHoveredCell] = useState(null);
 
   // Close tooltip if tapping outside
@@ -413,7 +509,10 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
 
     const status = getCellStatus(dateStr);
     if (status === 'outside') return "bg-gray-50 dark:bg-slate-800 hover:bg-border"; // Gray cell
-    if (status === 'collected') return "bg-success hover:bg-success-hover"; // Green cell
+    if (status === 'collected') {
+      const isRecent = recentlyUpdatedCells && recentlyUpdatedCells.has(dateStr);
+      return isRecent ? "bg-success animate-cell-highlight relative z-10" : "bg-success hover:bg-success-hover";
+    }
     return "bg-danger hover:bg-danger-hover"; // Red cell
   };
 

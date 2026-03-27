@@ -73,6 +73,16 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        cellHighlight: {
+          '0%': { transform: 'scale(1)', backgroundColor: 'var(--color-success)', boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.7)' },
+          '50%': { transform: 'scale(1.5)', backgroundColor: '#ffffff', boxShadow: '0 0 10px 5px rgba(34, 197, 94, 0)' },
+          '100%': { transform: 'scale(1)', backgroundColor: 'var(--color-success)', boxShadow: '0 0 0 0 rgba(34, 197, 94, 0)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'cell-highlight': 'cellHighlight 2s ease-out',
       },
     },
   },

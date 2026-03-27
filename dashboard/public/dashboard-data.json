@@ -10,7 +10,7 @@
       "total_days": 764
     },
     "progress_pct": 0,
-    "last_updated": "2026-03-27T07:37:52.825993+00:00"
+    "last_updated": "2026-03-27T09:42:23.486194+00:00"
   },
   "consolidate_progress": {
     "oldest_date": null,
@@ -23,7 +23,7 @@
       "total_days": 764
     },
     "progress_pct": 0.0,
-    "last_updated": "2026-03-27T07:37:52.826099+00:00"
+    "last_updated": "2026-03-27T09:42:23.486221+00:00"
   },
   "backfill_progress": {
     "oldest_date": null,
@@ -36,7 +36,7 @@
       "total_days": 764
     },
     "progress_pct": 0,
-    "last_updated": "2026-03-27T07:37:52.825993+00:00",
+    "last_updated": "2026-03-27T09:42:23.486194+00:00",
     "daily_stats": [],
     "recent_activity": []
   },
