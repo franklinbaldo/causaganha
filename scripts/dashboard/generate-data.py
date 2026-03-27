@@ -15,15 +15,14 @@ def calculate_quality_scores(
     tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str
 ) -> dict:
     """Calculate data quality scores per tribunal based on completeness, recency, and consistency."""
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
 
     scores = {}
 
     end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").date()
     today_date = datetime.now(UTC).date()
     # Use today as end date if end_date_str is in the future
-    if end_date_obj > today_date:
-        end_date_obj = today_date
+    end_date_obj = min(end_date_obj, today_date)
 
     for tribunal, coverage_dates in tribunal_coverage.items():
         if tribunal not in tribunal_start_dates:

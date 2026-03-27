@@ -66,8 +66,8 @@ from causaganha.storage.djen_schema import (  # noqa: E402
 )
 from scripts.pipeline.ia_s3 import (  # noqa: E402
     CircuitBreaker,
-    get_ia_s3_auth,
     get_ia_item_id,
+    get_ia_s3_auth,
     parse_deadline,
     upload_to_ia,
 )

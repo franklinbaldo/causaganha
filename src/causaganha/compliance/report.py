@@ -1,10 +1,17 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from fpdf import FPDF
-import os
+
 from causaganha.storage.connection import get_connection
 
+
 class LGPDComplianceReport(FPDF):
-    def __init__(self, period: str, controller: str = "Franklin / CausaGanha", basis: str = "Judicial transparency"):
+    def __init__(
+        self,
+        period: str,
+        controller: str = "Franklin / CausaGanha",
+        basis: str = "Judicial transparency",
+    ):
         super().__init__()
         self.period = period
         self.controller = controller
@@ -12,31 +19,31 @@ class LGPDComplianceReport(FPDF):
 
     def header(self):
         # Arial bold 15
-        self.set_font('Arial', 'B', 15)
+        self.set_font("Arial", "B", 15)
         # Title
-        self.cell(0, 10, 'LGPD Compliance Report', 0, 1, 'C')
-        self.set_font('Arial', '', 12)
+        self.cell(0, 10, "LGPD Compliance Report", 0, 1, "C")
+        self.set_font("Arial", "", 12)
 
         # Meta info
-        self.cell(0, 8, f'Period: {self.period}', 0, 1, 'L')
-        self.cell(0, 8, f'Data Controller: {self.controller}', 0, 1, 'L')
-        self.cell(0, 8, f'Processing Basis: {self.basis}', 0, 1, 'L')
+        self.cell(0, 8, f"Period: {self.period}", 0, 1, "L")
+        self.cell(0, 8, f"Data Controller: {self.controller}", 0, 1, "L")
+        self.cell(0, 8, f"Processing Basis: {self.basis}", 0, 1, "L")
 
         # Line break
         self.ln(10)
 
     def chapter_title(self, num: int, label: str):
-        self.set_font('Arial', 'B', 12)
+        self.set_font("Arial", "B", 12)
         # Background color
         self.set_fill_color(200, 220, 255)
         # Title
-        self.cell(0, 10, f'Section {num}: {label}', 0, 1, 'L', 1)
+        self.cell(0, 10, f"Section {num}: {label}", 0, 1, "L", 1)
         # Line break
         self.ln(4)
 
     def chapter_body(self, text: str):
         # Times 12
-        self.set_font('Times', '', 12)
+        self.set_font("Times", "", 12)
         # Output text
         self.multi_cell(0, 10, text)
         # Line break
@@ -46,25 +53,25 @@ class LGPDComplianceReport(FPDF):
         self.add_page()
 
         # Section 1
-        self.chapter_title(1, 'Data Access Log')
+        self.chapter_title(1, "Data Access Log")
         self.chapter_body(access_logs)
 
         # Section 2
-        self.chapter_title(2, 'Data Retention')
+        self.chapter_title(2, "Data Retention")
         retention_text = """Hotline: 3 months rolling (fast access)
 Cold: 6+ months (Archived to AWS S3 Glacier)
 Deletion policy: Automated deletion after 24 months total retention period."""
         self.chapter_body(retention_text)
 
         # Section 3
-        self.chapter_title(3, 'Third-party Sharing')
+        self.chapter_title(3, "Third-party Sharing")
         sharing_text = """BigQuery exports: External Analytics Team A
 Webhook deliveries: Legal Tech Partner X (https://partner-x.com/webhook)
 Archive locations: AWS S3 Glacier (causaganha-archive/cold)"""
         self.chapter_body(sharing_text)
 
         # Section 4
-        self.chapter_title(4, 'Security Measures')
+        self.chapter_title(4, "Security Measures")
         security_text = """Encryption in transit: TLS 1.3 enabled for all API and dashboard traffic.
 Encryption at rest: AWS S3 KMS enabled for cold storage.
 Access controls: Authentication required for all dashboard and API access.
@@ -72,8 +79,9 @@ Audit logging: Enabled for all data access and administrative actions."""
         self.chapter_body(security_text)
 
         # Output
-        self.output(filepath, 'F')
+        self.output(filepath, "F")
         print(f"Generated LGPD Compliance Report: {filepath}")
+
 
 def _get_access_logs(year: int, month: int) -> str:
     con = get_connection()
@@ -102,12 +110,15 @@ def _get_access_logs(year: int, month: int) -> str:
         for row in results:
             user, action, resource, accessed_at, ip = row
             # fpdf doesn't like unicode sometimes, so simplify string
-            formatted_logs.append(f"User: {user} | IP: {ip}\nTime: {accessed_at}\nAction: {action} | Resource: {resource}\n")
+            formatted_logs.append(
+                f"User: {user} | IP: {ip}\nTime: {accessed_at}\nAction: {action} | Resource: {resource}\n"
+            )
 
         return "\n".join(formatted_logs)
 
     except Exception as e:
         return f"Failed to retrieve access logs: {e}"
+
 
 def generate_monthly_report():
     # Typically, get current month/year for the period
@@ -125,9 +136,9 @@ def generate_monthly_report():
 
     # Generate HTML equivalent
     html_filepath = f"lgpd_report_{now.strftime('%Y_%m')}.html"
-    with open(html_filepath, 'w') as f:
+    with open(html_filepath, "w") as f:
         # Escape html chars
-        html_logs = access_logs.replace('\n', '<br>')
+        html_logs = access_logs.replace("\n", "<br>")
 
         f.write(f"""
         <html>
@@ -160,6 +171,7 @@ def generate_monthly_report():
         </html>
         """)
     print(f"Generated HTML equivalent: {html_filepath}")
+
 
 if __name__ == "__main__":
     generate_monthly_report()

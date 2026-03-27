@@ -1,7 +1,7 @@
-import pytest
 from datetime import date
-from scripts.pipeline.ia_s3 import get_ia_item_id as get_ia_item_id_s3
+
 from djen_backup.archive import get_ia_item_id as get_ia_item_id_archive
+from scripts.pipeline.ia_s3 import get_ia_item_id as get_ia_item_id_s3
 
 
 def test_get_ia_item_id():
