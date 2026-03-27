@@ -28,13 +28,14 @@ async function safeFetch(url) {
  * For server-side (Astro build), pass a custom fetcher that reads from the filesystem.
  */
 export async function fetchAllData() {
-  const [stats, dashboardData, today, calendar, runs, backfill] = await Promise.all([
+  const [stats, dashboardData, today, calendar, runs, backfill, tribunalStartDates] = await Promise.all([
     safeFetch(resolve('run-stats.json')),
     safeFetch(resolve('dashboard-data.json')),
     safeFetch(resolve('cache/today.json')),
     safeFetch(resolve('cache/calendar.json')),
     safeFetch(resolve('cache/runs.json')),
     safeFetch(resolve('cache/backfill.json')),
+    safeFetch(resolve('tribunal_start_dates.json')),
   ]);
 
   const cacheData = {};
@@ -45,14 +46,14 @@ export async function fetchAllData() {
 
   const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
-  return deriveData(stats, dashboardData, cache);
+  return deriveData(stats, dashboardData, cache, tribunalStartDates);
 }
 
 /**
  * Derive all computed data from raw sources.
  * Extracted from Dashboard.jsx to be reusable.
  */
-export function deriveData(stats, dashboardData, cacheData) {
+export function deriveData(stats, dashboardData, cacheData, tribunalStartDates = null) {
   const hasAnyData = !!(stats || dashboardData || cacheData);
 
   // Effective backfill data: merge dashboard-data.json with cache/backfill.json
@@ -120,6 +121,7 @@ export function deriveData(stats, dashboardData, cacheData) {
     stats,
     dashboardData,
     cacheData,
+    tribunalStartDates,
     hasAnyData,
     effectiveBackfill,
     backfillProgress,

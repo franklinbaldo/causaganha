@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { fetchAllData } from '../lib/fetchData';
-import TribunalHeatmapGrid from '../components/TribunalHeatmapGrid.astro';
+import { TribunalView } from '../components/TribunalView';
 import { SystemStatus } from '../components/SystemStatus';
 
 // Fetch data at build time for static rendering
@@ -94,11 +94,12 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
 
     <main class="max-w-7xl mx-auto space-y-6">
 
-      <TribunalHeatmapGrid
-        coverage={tribunal_coverage}
-        etas={tribunal_etas}
-        startDate={targetRangeStart}
-        endDate={targetRangeEnd}
+      <TribunalView
+        client:load
+        initialCoverage={tribunal_coverage}
+        initialEtas={tribunal_etas}
+        initialTargetRange={data?.targetRange}
+        initialStartDates={data?.tribunalStartDates}
       />
 
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
