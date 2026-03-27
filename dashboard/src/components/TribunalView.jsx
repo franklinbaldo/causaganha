@@ -1,6 +1,7 @@
-import { useState } from 'preact/compat';
+import { useState, useEffect } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
+import { CellTooltip } from './CellTooltip';
 
 const TRIBUNALS = [
   "STF", "STJ", "TST", "TSE", "STM", "CNJ",
@@ -139,6 +140,24 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
 
 // Sub-component for the multi-year heatmap
 function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName }) {
+  const [hoveredCell, setHoveredCell] = useState(null);
+
+  // Close tooltip if tapping outside
+  useEffect(() => {
+    const handleOutsideInteraction = () => setHoveredCell(null);
+    // document might be undefined in SSR
+    if (typeof document !== 'undefined') {
+      document.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
+      document.addEventListener('click', handleOutsideInteraction, { passive: true });
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('touchstart', handleOutsideInteraction);
+        document.removeEventListener('click', handleOutsideInteraction);
+      }
+    };
+  }, []);
+
   // Generate all days in the global backfill range
   const start = new Date(globalStartDateStr + "T00:00:00Z");
   const end = new Date(globalEndDateStr + "T00:00:00Z");
@@ -166,25 +185,80 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
     weeks.push(paddedDays.slice(i, i + 7));
   }
 
+  const getCellStatus = (dateStr) => {
+    if (tribunalStartDateStr && dateStr < tribunalStartDateStr) {
+      return 'outside';
+    }
+    return coverageSet.has(dateStr) ? 'collected' : 'missing';
+  };
+
   const getCellColor = (dateStr) => {
     if (!dateStr) return "bg-transparent"; // padding cell
 
-    // If it's before the tribunal started, it's gray
-    if (tribunalStartDateStr && dateStr < tribunalStartDateStr) {
-      return "bg-surface-overlay hover:bg-border"; // Gray cell
-    }
-
-    if (coverageSet.has(dateStr)) return "bg-success hover:bg-success-hover"; // Green cell
+    const status = getCellStatus(dateStr);
+    if (status === 'outside') return "bg-surface-overlay hover:bg-border"; // Gray cell
+    if (status === 'collected') return "bg-success hover:bg-success-hover"; // Green cell
     return "bg-danger hover:bg-danger-hover"; // Red cell
   };
 
   const getAriaLabel = (dateStr) => {
     if (!dateStr) return "Empty cell";
-    if (tribunalStartDateStr && dateStr < tribunalStartDateStr) {
-      return `${dateStr}: Before Tribunal Joined`;
+    const status = getCellStatus(dateStr);
+    if (status === 'outside') return `${dateStr}: Before Tribunal Joined`;
+    return `${dateStr}: ${status === 'collected' ? 'Collected' : 'Missing'}`;
+  };
+
+  const handleCellInteraction = (e, dateStr, type) => {
+    e.stopPropagation(); // prevent document listener from closing tooltip immediately
+    if (!dateStr) return;
+
+    if (type === 'leave') {
+      setHoveredCell(null);
+      return;
     }
-    const isPresent = coverageSet.has(dateStr);
-    return `${dateStr}: ${isPresent ? 'Collected' : 'Missing'}`;
+
+    // Handle touch interactions to prevent simulated clicks from firing immediately after touch
+    if (type === 'touch') {
+      // Prevent default to stop the subsequent simulated click event
+      if (e.cancelable) e.preventDefault();
+
+      const pos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+      if (hoveredCell?.data?.date === dateStr) {
+        // Second touch on the same cell hides tooltip
+        setHoveredCell(null);
+      } else {
+        setHoveredCell({
+          data: {
+            date: dateStr,
+            status: getCellStatus(dateStr),
+            uploadedAt: null,
+            sizeMb: null
+          },
+          position: pos
+        });
+      }
+      return;
+    }
+
+    const pos = { x: e.clientX, y: e.clientY };
+
+    // For click, we want to toggle similar to touch if it's the same cell
+    if (type === 'click' && hoveredCell?.data?.date === dateStr) {
+      setHoveredCell(null);
+      return;
+    }
+
+    setHoveredCell({
+      data: {
+        date: dateStr,
+        status: getCellStatus(dateStr),
+        // placeholder for potentially added backend fields
+        uploadedAt: null,
+        sizeMb: null
+      },
+      position: pos
+    });
   };
 
   const coveredDays = days.filter(d => coverageSet.has(d)).length;
@@ -212,11 +286,19 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
                 key={day || `empty-${weekIndex}-${dayIndex}`}
                 role="gridcell"
                 className={clsx(
-                  "w-3 h-3 rounded-sm transition-colors duration-200 cursor-default opacity-80 hover:opacity-100",
+                  "w-3 h-3 rounded-sm transition-colors duration-200 opacity-80 hover:opacity-100",
+                  day ? "cursor-pointer" : "cursor-default",
                   getCellColor(day)
                 )}
-                title={day ? `${day}: ${coverageSet.has(day) ? 'Collected' : 'Missing'}` : ''}
                 aria-label={getAriaLabel(day)}
+                onMouseEnter={(e) => handleCellInteraction(e, day, 'enter')}
+                onMouseMove={(e) => handleCellInteraction(e, day, 'move')}
+                onMouseLeave={(e) => handleCellInteraction(e, day, 'leave')}
+                onTouchStart={(e) => handleCellInteraction(e, day, 'touch')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCellInteraction(e, day, 'click');
+                }}
               />
             ))}
           </div>
@@ -236,6 +318,13 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
           </div>
         </div>
       </div>
+
+      {hoveredCell && (
+        <CellTooltip
+          cellData={hoveredCell.data}
+          position={hoveredCell.position}
+        />
+      )}
 
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
