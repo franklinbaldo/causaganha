@@ -16,13 +16,13 @@ export function ThemeToggle() {
   const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light') {
-      setDark(false);
-      document.documentElement.classList.remove('dark');
-    } else {
+    const saved = localStorage.getItem('causaganha-theme');
+    if (saved === 'dark') {
       setDark(true);
       document.documentElement.classList.add('dark');
+    } else {
+      setDark(false);
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
@@ -31,23 +31,23 @@ export function ThemeToggle() {
     setDark(next);
     if (next) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      localStorage.setItem('causaganha-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      localStorage.setItem('causaganha-theme', 'light');
     }
   };
 
   return (
     <button
       onClick={toggle}
-      className="p-2 rounded-lg border border-border hover:bg-surface-overlay transition-colors"
+      className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
       {dark ? (
-        <SunIcon className="w-4 h-4 text-content-secondary" />
+        <SunIcon className="w-4 h-4 text-black dark:text-white" />
       ) : (
-        <MoonIcon className="w-4 h-4 text-content-secondary" />
+        <MoonIcon className="w-4 h-4 text-black dark:text-white" />
       )}
     </button>
   );

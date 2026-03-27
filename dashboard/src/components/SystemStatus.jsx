@@ -71,14 +71,14 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
                 </div>
               )
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-surface-overlay animate-pulse" />
+              <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-800 animate-pulse" />
             )}
             <div>
-              <div className="text-sm font-medium text-content">
+              <div className="text-sm font-medium text-black dark:text-white">
                 {stats ? (isSuccess ? 'Pipeline Operational' : 'Pipeline Issue') : 'Loading...'}
               </div>
               {stats?.timestamp && (
-                <div className="text-xs text-content-tertiary">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   Last run: {new Date(stats.timestamp).toLocaleString()}
                 </div>
               )}
@@ -89,7 +89,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           </div>
 
           {/* Stat pills */}
-          <div className="flex items-center gap-4 text-sm text-content-secondary">
+          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
             {health != null && (
               <div className="flex items-center gap-1.5">
                 <ActivityIcon className="w-3.5 h-3.5" aria-hidden="true" />
@@ -102,7 +102,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             {filesToday != null && (
               <div className="flex items-center gap-1.5">
                 <span>Today:</span>
-                <span className="font-mono font-medium tabular-nums text-content">{filesToday}/91</span>
+                <span className="font-mono font-medium tabular-nums text-black dark:text-white">{filesToday}/91</span>
               </div>
             )}
             {stats?.duration_seconds != null && (
@@ -118,7 +118,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
         <div className="flex items-center gap-4">
           {stats?.timestamp && (
             <div className="hidden sm:block text-right">
-              <div className="text-[10px] text-content-tertiary uppercase tracking-wider">Next run</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">Next run</div>
               <div className="text-lg font-mono font-semibold tabular-nums text-accent">{countdown}</div>
             </div>
           )}
@@ -126,14 +126,14 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           {stats?.steps && (
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="p-2 rounded-lg border border-border hover:bg-surface-overlay transition-colors"
+              className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800 transition-colors"
               aria-expanded={showDetails}
               aria-label="Toggle run details"
             >
               {showDetails ? (
-                <ChevronUpIcon className="w-4 h-4 text-content-secondary" aria-hidden="true" />
+                <ChevronUpIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" aria-hidden="true" />
               ) : (
-                <ChevronDownIcon className="w-4 h-4 text-content-secondary" aria-hidden="true" />
+                <ChevronDownIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" aria-hidden="true" />
               )}
             </button>
           )}
@@ -146,16 +146,16 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
           "transition-all duration-300 overflow-hidden",
           showDetails ? "max-h-[1000px] mt-5 opacity-100" : "max-h-0 opacity-0"
         )}>
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-medium text-content mb-3">Pipeline Steps</h3>
+          <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+            <h3 className="text-sm font-medium text-black dark:text-white mb-3">Pipeline Steps</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {Object.entries(stats.steps).map(([stepName, stepData]) => {
                 const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true;
 
                 return (
-                  <div key={stepName} className="p-3 bg-surface rounded-lg border border-border-muted">
+                  <div key={stepName} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-content capitalize">
+                      <span className="text-sm font-medium text-black dark:text-white capitalize">
                         {stepName.replace(/_/g, ' ')}
                       </span>
                       <span className={clsx("badge gap-1", isOk ? "badge-success" : "badge-danger")}>
@@ -167,13 +167,13 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
                         <span>{isOk ? 'OK' : 'Issue'}</span>
                       </span>
                     </div>
-                    <div className="space-y-1 text-xs text-content-secondary">
+                    <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
                       {Object.entries(stepData).map(([k, v]) => {
                         if (k === 'success') return null;
                         return (
                           <div key={k} className="flex justify-between">
                             <span className="capitalize">{k.replace(/_/g, ' ')}</span>
-                            <span className="font-mono tabular-nums text-content">{v}</span>
+                            <span className="font-mono tabular-nums text-black dark:text-white">{v}</span>
                           </div>
                         );
                       })}
@@ -187,7 +187,7 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
       )}
 
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-border-muted flex items-center justify-between text-xs text-content-tertiary">
+      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
         <span>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</span>
         <a
           href="https://github.com/franklinbaldo/causaganha/actions"

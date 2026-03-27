@@ -62,7 +62,7 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
   title="CausaGanha Dashboard - Sistema de Monitoramento"
   description="Dashboard de monitoramento do pipeline de coleta e análise de dados judiciais brasileiros. Elimine assimetria de informação no mercado jurídico."
 >
-  <div class="min-h-screen bg-[var(--color-bg)] p-4 md:p-6 lg:p-8">
+  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
     <!-- Header — pure Astro HTML, zero JS -->
     <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -74,17 +74,17 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
           </svg>
         </div>
         <div>
-          <h1 class="text-xl font-semibold text-content tracking-tight">
+          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
             CausaGanha
           </h1>
-          <p class="text-sm text-content-tertiary">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
             {healthyTribunals} of 91 tribunais saudáveis | última coleta: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : '--:--'} | Global ETA: {globalEtaText}
           </p>
         </div>
       </div>
       <div class="flex items-center gap-3">
         {lastUpdated && (
-          <span class="text-xs text-content-tertiary hidden sm:block">
+          <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
             Updated {new Date(lastUpdated).toLocaleString('pt-BR')}
           </span>
         )}
@@ -105,7 +105,7 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
 
       <!-- Footer — pure Astro HTML, zero JS -->
-      <footer class="text-center text-xs text-content-tertiary pt-4 pb-2">
+      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
         <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
       </footer>
     </main>
