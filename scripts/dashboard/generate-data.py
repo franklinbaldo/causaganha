@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -113,31 +112,30 @@ def fetch_progress_json(url: str) -> dict | None:
     return None
 
 
-
 def get_incident_status():
     """Fetch recent workflow runs and PR status to build incident object."""
-    import urllib.request
-    import os
     import json
+    import os
+    import urllib.request
 
-    token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
-    headers = {'Authorization': f'token {token}'} if token else {}
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    headers = {"Authorization": f"token {token}"} if token else {}
 
     incident = {
         "streak": 0,
         "latest_failing_run_url": None,
         "pr_number": 436,
         "pr_url": "https://github.com/franklinbaldo/causaganha/pull/436",
-        "pr_blocked_by": "Kilo Code Review"
+        "pr_blocked_by": "Kilo Code Review",
     }
 
     try:
         req = urllib.request.Request(
-            'https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/runs?per_page=15',
-            headers=headers
+            "https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/runs?per_page=15",
+            headers=headers,
         )
         with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
             runs = data.get("workflow_runs", [])
 
             streak = 0
@@ -157,7 +155,7 @@ def get_incident_status():
             else:
                 return None
     except Exception as e:
-        print(f"Warning: Failed to fetch workflow runs for incident status: {e}")
+        print(f"Warning: Failed to fetch workflow runs for incident status: {e}")  # noqa: T201
         return None
 
     return incident
@@ -195,7 +193,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 newest_date = str(result[1]) if result[1] else None
                 unique_days = result[2] or 0
                 total_items = result[3] or 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Warning: Failed to query djen_state.coverage: {e}")
 
     target_days = 764  # 2024-01-01 to 2026-02-03
@@ -207,7 +205,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     if start_dates_path.exists():
         try:
             tribunal_start_dates = json.loads(start_dates_path.read_text())
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     daily_stats = []
@@ -259,7 +257,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 GROUP BY tribunal
                 ORDER BY tribunal
             """).fetchall()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Warning: Failed to query detailed dashboard stats from DuckDB: {e}")
 
     tribunal_coverage = {}
@@ -283,8 +281,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     "stopped": info.get("stopped", False),
                     "empty_streak": info.get("empty_streak", 0),
                 }
-        except Exception as e:
-            print(f"Warning: Failed to load backfill state: {e}")
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: Failed to load backfill state: {e}")  # noqa: T201
 
     # Read backfill state from state.json (authoritative for both uploaded and absent)
     state_json_path = Path("data/state.json")
@@ -304,8 +302,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             tribunal_coverage[tcode] = []
                         if date_key not in tribunal_coverage[tcode]:
                             tribunal_coverage[tcode].append(date_key)
-        except Exception as e:
-            print(f"Warning: Failed to load progress from state.json: {e}")
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: Failed to load progress from state.json: {e}")  # noqa: T201
 
     # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
     all_dates = set()
@@ -313,13 +311,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -331,9 +329,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -344,7 +345,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     if genesis_path.exists():
         try:
             discovered_start_dates = json.loads(genesis_path.read_text())
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     for tribunal in sorted(all_tribunals):
@@ -355,11 +356,15 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-        except Exception:
+        except Exception:  # noqa: BLE001
             start_date_obj = date(2024, 1, 1)
 
         total_days_since_genesis = (today - start_date_obj).days + 1
@@ -383,7 +388,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
@@ -453,8 +462,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
-        except Exception as e:
-            print(f"Warning: Failed to process run_stats.json for perf metrics: {e}")
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: Failed to process run_stats.json for perf metrics: {e}")  # noqa: T201
 
     metrics_path.write_text(json.dumps(perf_metrics, ensure_ascii=False, indent=2))
 
