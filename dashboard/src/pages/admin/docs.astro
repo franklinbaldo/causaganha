@@ -1,17 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { ThemeToggle } from '../../components/ThemeToggle';
-import { PerfDashboard } from '../../components/PerfDashboard';
+import { DocsDashboard } from '../../components/DocsDashboard';
 
-let perfMetrics = null;
-let qualityScores = null;
+let docsWarnings = null;
 
 try {
-  // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
   const fetchLocal = async (url) => {
-    // In dev mode, we can fetch from localhost. In build time, we might need a relative path depending on Astro's setup.
-    // Astro's static build will evaluate these at build time. To avoid fetching external URLs during build,
-    // we use Node fs directly for public files.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const filePath = path.join(process.cwd(), 'public', url);
@@ -19,21 +14,20 @@ try {
     return JSON.parse(content);
   };
 
-  perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
-  qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
+  docsWarnings = await fetchLocal('docs-warnings.json').catch(() => null);
 } catch (e) {
-  console.warn('Failed to load performance metrics at build time:', e);
+  console.warn('Failed to load docs warnings at build time:', e);
 }
 ---
 
 <Layout
-  title="CausaGanha - Performance Dashboard"
-  description="System health and performance metrics for the CausaGanha backfill pipeline."
+  title="CausaGanha - Docs Warnings Digest"
+  description="Compact operational summary of documentation build warnings."
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
     <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <a href="/causaganha/" class="p-2 bg-accent-muted rounded-xl hover:bg-accent hover:text-white transition-colors">
+        <a href="/causaganha/" class="p-2 bg-accent-muted rounded-xl hover:bg-accent hover:text-white transition-colors" aria-label="Voltar para o início">
           <svg class="w-5 h-5 text-accent hover:text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
@@ -41,21 +35,27 @@ try {
         </a>
         <div>
           <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
-            Performance Monitoring
+            Docs Warnings Digest
           </h1>
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            System latency, upload success rates, and tribunal data quality scores
+            Categorized operational summary of mkdocs build warnings
           </p>
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <a href="/causaganha/admin/docs" class="text-sm text-accent hover:underline hidden sm:block">Docs Warnings</a>
+        <a href="/causaganha/admin/perf" class="text-sm text-accent hover:underline hidden sm:block">Perf Dashboard</a>
         <ThemeToggle client:load />
       </div>
     </header>
 
     <main class="max-w-7xl mx-auto space-y-6">
-      <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
+      {docsWarnings ? (
+        <DocsDashboard client:load docsWarnings={docsWarnings} />
+      ) : (
+        <div class="p-8 text-center bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800">
+          <p class="text-gray-500 dark:text-gray-400">No docs-warnings.json found. The documentation build may be clean, or the CI artifact has not been fetched.</p>
+        </div>
+      )}
     </main>
   </div>
 </Layout>

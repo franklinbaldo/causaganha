@@ -33,6 +33,9 @@ djen_proxy
 # Temporary files from agent execution
 prs.json
 files_*.json
+mkdocs.log
+docs-warnings.json
+dashboard/public/docs-warnings.json
 
 # Gemini CLI
 .gemini/
