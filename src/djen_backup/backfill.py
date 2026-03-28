@@ -273,6 +273,7 @@ class BackfillConfig:
     ia_auth: str
     dry_run: bool
     skip_absent_markers: bool = False
+    publish_live_status: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
