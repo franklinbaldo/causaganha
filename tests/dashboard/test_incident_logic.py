@@ -1,4 +1,5 @@
 """Tests for the dashboard incident logic."""
+
 import importlib.util
 import json
 import sys
