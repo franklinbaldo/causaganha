@@ -1,35 +1,111 @@
 import { useState, useEffect } from 'preact/compat';
 
+const NTFY_TOPIC = 'causaganha-a7f3b2e9c1d4';
+const NTFY_SSE_URL = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
+const NTFY_POLL_URL = `https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=1h`;
+const IA_FALLBACK_URL = 'https://archive.org/download/causaganha-live-status/status.json';
+
 export function LiveStatusWidget() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
+  const [source, setSource] = useState('loading');
 
   useEffect(() => {
     let isMounted = true;
+    let es = null;
+    let fallbackInterval = null;
 
-    const fetchStatus = async () => {
+    const applyMessage = (msgStr) => {
       try {
-        const resp = await fetch('https://archive.org/download/causaganha-live-status/status.json?t=' + new Date().getTime());
-        if (!resp.ok) {
-          throw new Error('Failed to fetch status');
-        }
-        const json = await resp.json();
+        const parsed = JSON.parse(msgStr);
         if (isMounted) {
-          setData(json);
+          setData(parsed);
           setError(false);
         }
-      } catch (err) {
-        if (isMounted) {
-          setError(true);
-        }
+      } catch (_) {}
+    };
+
+    // Try ntfy SSE first (real-time push)
+    const startSSE = () => {
+      try {
+        es = new EventSource(NTFY_SSE_URL);
+        es.onopen = () => {
+          if (isMounted) setSource('ntfy-sse');
+        };
+        es.onmessage = (e) => {
+          try {
+            const envelope = JSON.parse(e.data);
+            if (envelope.event === 'message' && envelope.message) {
+              applyMessage(envelope.message);
+            }
+          } catch (_) {}
+        };
+        es.onerror = () => {
+          es.close();
+          startFallback();
+        };
+      } catch (_) {
+        startFallback();
       }
     };
 
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 60000);
+    // Fallback: poll ntfy JSON endpoint, then IA
+    const startFallback = () => {
+      if (!isMounted) return;
+      setSource('polling');
+
+      const poll = async () => {
+        // Try ntfy poll first
+        try {
+          const resp = await fetch(NTFY_POLL_URL);
+          if (resp.ok) {
+            const text = await resp.text();
+            const lines = text.trim().split('\n').filter(Boolean);
+            if (lines.length > 0) {
+              const last = JSON.parse(lines[lines.length - 1]);
+              applyMessage(last.message);
+              return;
+            }
+          }
+        } catch (_) {}
+
+        // Last resort: IA static file
+        try {
+          const resp = await fetch(IA_FALLBACK_URL + '?t=' + Date.now());
+          if (resp.ok) {
+            const json = await resp.json();
+            if (isMounted) {
+              setData(json);
+              setError(false);
+            }
+          }
+        } catch (_) {
+          if (isMounted) setError(true);
+        }
+      };
+
+      poll();
+      fallbackInterval = setInterval(poll, 60000);
+    };
+
+    // Load latest on mount via ntfy poll (before SSE connects)
+    fetch(NTFY_POLL_URL)
+      .then((r) => r.ok ? r.text() : Promise.reject())
+      .then((text) => {
+        const lines = text.trim().split('\n').filter(Boolean);
+        if (lines.length > 0) {
+          const last = JSON.parse(lines[lines.length - 1]);
+          applyMessage(last.message);
+        }
+      })
+      .catch(() => {});
+
+    startSSE();
+
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (es) es.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, []);
 
@@ -52,13 +128,9 @@ export function LiveStatusWidget() {
   }
 
   const { last_updated, zips_uploaded, active_tribunals, status } = data;
-  const isRunning = status === 'running';
-
-  // Check if really running based on last_updated (within 5 minutes)
   const lastUpdatedTime = new Date(last_updated);
-  const now = new Date();
-  const diffMinutes = (now - lastUpdatedTime) / 1000 / 60;
-  const isActuallyRunning = isRunning && diffMinutes <= 5;
+  const diffMinutes = (Date.now() - lastUpdatedTime) / 1000 / 60;
+  const isActuallyRunning = status === 'running' && diffMinutes <= 5;
 
   return (
     <div className="card p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
@@ -73,7 +145,10 @@ export function LiveStatusWidget() {
         )}
         <div>
           <h2 className="text-sm font-semibold text-black dark:text-white flex items-center gap-2">
-            Pipeline {isActuallyRunning ? 'Running' : (status.charAt(0).toUpperCase() + status.slice(1))}
+            Pipeline {isActuallyRunning ? 'Running' : (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown')}
+            {source === 'ntfy-sse' && (
+              <span className="text-xs font-normal text-gray-400">● live</span>
+            )}
           </h2>
           <p className="text-xs text-gray-500">
             Updated {lastUpdatedTime.toLocaleTimeString()}
@@ -84,12 +159,12 @@ export function LiveStatusWidget() {
       <div className="flex items-center gap-6">
         <div className="text-center">
           <p className="text-xs text-gray-500 mb-1">ZIPs Uploaded</p>
-          <p className="text-lg font-bold text-black dark:text-white">{zips_uploaded}</p>
+          <p className="text-lg font-bold text-black dark:text-white">{zips_uploaded ?? '—'}</p>
         </div>
         <div className="w-px h-8 bg-gray-200 dark:bg-slate-700"></div>
         <div className="text-center">
           <p className="text-xs text-gray-500 mb-1">Active Tribunals</p>
-          <p className="text-lg font-bold text-black dark:text-white">{active_tribunals}</p>
+          <p className="text-lg font-bold text-black dark:text-white">{active_tribunals ?? '—'}</p>
         </div>
       </div>
     </div>

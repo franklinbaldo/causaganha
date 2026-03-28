@@ -16,8 +16,11 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import contextlib
 import httpx
 import structlog
+
+import httpx
 
 from djen_backup.archive import (
     CircuitBreaker,
@@ -322,48 +325,42 @@ class BackfillSummary:
             self.tribunals_scanned += 1
 
 
-async def _publish_ia_status(
-    ia_auth: str,
+NTFY_TOPIC = "causaganha-a7f3b2e9c1d4"
+
+
+async def _publish_ntfy_status(
     summary: BackfillSummary,
     status: str,
     bstate: BackfillState,
 ) -> None:
-    """Publish live status to the causaganha-live-status IA item."""
-    if not ia_auth or "dry-run" in ia_auth:
-        return
-
+    """Publish live pipeline status to ntfy.sh topic."""
     progress = bstate.get_all_progress()
     active_tribunals = sum(1 for p in progress.values() if not p.stopped)
 
-    payload_dict = {
-        "last_updated": datetime.now(tz=UTC).isoformat(),
-        "zips_uploaded": summary.hits,
-        "active_tribunals": active_tribunals,
-        "status": status,
-    }
-    payload_bytes = json.dumps(payload_dict, indent=2).encode("utf-8")
-
-    url = "https://s3.us.archive.org/causaganha-live-status/status.json"
-    headers = {
-        "Authorization": ia_auth,
-        "x-amz-auto-make-bucket": "1",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-subject": "causaganha;pipeline;status",
-    }
-
-    import httpx
+    payload = json.dumps(
+        {
+            "last_updated": datetime.now(tz=UTC).isoformat(),
+            "zips_uploaded": summary.hits,
+            "zips_failed": summary.errors,
+            "active_tribunals": active_tribunals,
+            "status": status,
+        }
+    )
 
     try:
-        # We use a short timeout and background tasks, but here it's simple enough
-        # to just use an async client directly.
         async with httpx.AsyncClient() as client:
-            resp = await client.put(url, headers=headers, content=payload_bytes, timeout=10.0)
-            if resp.status_code != 200:
-                log.warning("ia_publish_failed", status=resp.status_code, body=resp.text)
+            resp = await client.post(
+                f"https://ntfy.sh/{NTFY_TOPIC}",
+                content=payload.encode(),
+                headers={"Content-Type": "application/json", "Title": "CausaGanha Pipeline"},
+                timeout=10.0,
+            )
+            if resp.status_code >= 300:
+                log.warning("ntfy_publish_failed", status_code=resp.status_code)
             else:
-                log.debug("ia_publish_success", status=status, zips=summary.hits)
+                log.debug("ntfy_publish_success", status=status, zips=summary.hits)
     except Exception as e:
-        log.warning("ia_publish_error", error=str(e))
+        log.warning("ntfy_publish_error", error=str(e))
 
 
 # ── Single-date processing ───────────────────────────────────────────
@@ -708,8 +705,7 @@ async def _run_backfill_workers(
 
         while True:
             await asyncio.sleep(interval)
-            await _publish_ia_status(
-                config.ia_auth,
+            await _publish_ntfy_status(
                 summary,
                 "running",
                 bstate,
@@ -719,8 +715,6 @@ async def _run_backfill_workers(
     publisher_task = asyncio.create_task(_status_publisher())
 
     await asyncio.gather(*workers)
-
-    import contextlib
 
     # Cancel the publisher once workers finish
     publisher_task.cancel()
@@ -763,9 +757,7 @@ async def run_backfill(config: BackfillConfig) -> int:
 
         if config.publish_live_status:
             # Fire and forget initial status
-            _bg_task = asyncio.create_task(
-                _publish_ia_status(config.ia_auth, summary, "running", bstate)
-            )
+            _bg_task = asyncio.create_task(_publish_ntfy_status(summary, "running", bstate))
 
         await _run_backfill_workers(
             client, breaker, config, bstate, ia_state, deadline, summary, all_tribunals
@@ -821,6 +813,6 @@ async def run_backfill(config: BackfillConfig) -> int:
     if config.publish_live_status:
         # Publish final status blockingly
         final_status = "failed" if exit_code != 0 else "completed"
-        await _publish_ia_status(config.ia_auth, summary, final_status, bstate)
+        await _publish_ntfy_status(summary, final_status, bstate)
 
     return exit_code
