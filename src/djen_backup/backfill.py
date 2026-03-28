@@ -503,13 +503,15 @@ async def backfill_tribunal(
 
     # Determine per-tribunal dynamic lower bound (Genesis)
     genesis_str = config.genesis_dates.get(tribunal)
-    genesis_date = date.fromisoformat(genesis_str) if genesis_str and genesis_str != "None" else None
+    genesis_date = (
+        date.fromisoformat(genesis_str) if genesis_str and genesis_str != "None" else None
+    )
 
     while True:
         # Check against global lower bound
         if config.lower_bound and prog.cursor_date < config.lower_bound:
             break
-            
+
         # Check against discovered Genesis (discovery script)
         if genesis_date and prog.cursor_date < genesis_date:
             log.info(
