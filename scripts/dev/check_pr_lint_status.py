@@ -62,7 +62,7 @@ def check_pr_status(pr_number: int) -> dict[str, Any]:
             "title": "fix: collect zips failure and monitor-collect workflow syntax",
             "url": f"https://github.com/{REPO}/pull/{pr_number}",
             "core_checks_green": True,
-            "remaining_blocker": "Kilo Code Review"
+            "remaining_blocker": "Kilo Code Review",
         }
 
     head_sha = pr.get("head", {}).get("sha")
@@ -81,7 +81,7 @@ def check_pr_status(pr_number: int) -> dict[str, Any]:
                 if conclusion != "success" or status != "completed":
                     blocker = "Kilo Code Review"
             elif name == "CodeQL":
-                pass # Ignore non-blocking checks
+                pass  # Ignore non-blocking checks
             elif conclusion == "failure":
                 core_checks_green = False
                 blocker = name
@@ -95,7 +95,7 @@ def check_pr_status(pr_number: int) -> dict[str, Any]:
         "title": pr.get("title", f"PR #{pr_number}"),
         "url": pr.get("html_url", f"https://github.com/{REPO}/pull/{pr_number}"),
         "core_checks_green": core_checks_green,
-        "remaining_blocker": blocker
+        "remaining_blocker": blocker,
     }
 
 
@@ -103,8 +103,12 @@ def main() -> int:
     """Run the main command-line interface for the script."""
     parser = argparse.ArgumentParser(description="Check PR lint and blocking status.")
     parser.add_argument("--pr", type=int, required=True, help="PR number to check")
-    parser.add_argument("--workflow", type=str, help="Incident/workflow name", default="Collect ZIPs")
-    parser.add_argument("--failing-run", type=str, help="Failing run ID on main", default="23678658465")
+    parser.add_argument(
+        "--workflow", type=str, help="Incident/workflow name", default="Collect ZIPs"
+    )
+    parser.add_argument(
+        "--failing-run", type=str, help="Failing run ID on main", default="23678658465"
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
@@ -118,7 +122,7 @@ def main() -> int:
         "corrective_pr_title": status["title"],
         "corrective_pr_url": status["url"],
         "core_checks_green": status["core_checks_green"],
-        "remaining_blocker": status["remaining_blocker"]
+        "remaining_blocker": status["remaining_blocker"],
     }
 
     if args.json:
@@ -128,9 +132,13 @@ def main() -> int:
         sys.stdout.write("====================================\n")
         sys.stdout.write(f"Workflow: {report['incident_name']}\n")
         sys.stdout.write(f"Failing run on main: {report['latest_failing_run_main']}\n")
-        sys.stdout.write(f"Corrective PR: #{report['corrective_pr_number']} ({report['corrective_pr_title']})\n")
+        sys.stdout.write(
+            f"Corrective PR: #{report['corrective_pr_number']} ({report['corrective_pr_title']})\n"
+        )
         sys.stdout.write(f"PR URL: {report['corrective_pr_url']}\n")
-        sys.stdout.write(f"Core checks green: {'✅ Yes' if report['core_checks_green'] else '❌ No'}\n")
+        sys.stdout.write(
+            f"Core checks green: {'✅ Yes' if report['core_checks_green'] else '❌ No'}\n"
+        )
         sys.stdout.write(f"Remaining blocker: {report['remaining_blocker']}\n")
 
     return 0

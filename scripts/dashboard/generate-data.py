@@ -280,9 +280,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -304,7 +307,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -332,7 +339,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
@@ -461,7 +472,6 @@ if __name__ == "__main__":
     db_path = Path("data/causaganha.duckdb")
     output_path = Path("dashboard/public/dashboard-data.json")
 
-
     # Generate mock blocked fixes for demonstration
     import contextlib
     import subprocess
@@ -474,7 +484,7 @@ if __name__ == "__main__":
             subprocess.run(
                 [sys.executable, "scripts/dev/check_pr_lint_status.py", "--pr", "436", "--json"],
                 stdout=out_f,
-                check=False
+                check=False,
             )
 
         # Format the output as array (required by the dashboard component)
