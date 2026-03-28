@@ -346,9 +346,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     tribunal_etas = {}
 
-
-
     from datetime import date
+
     date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
