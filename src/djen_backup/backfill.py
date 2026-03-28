@@ -269,6 +269,7 @@ class BackfillConfig:
     djen_proxy_url: str
     ia_auth: str
     dry_run: bool
+    skip_absent_markers: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
@@ -346,7 +347,8 @@ async def _process_djen_not_found(  # noqa: PLR0913
         date=d.isoformat(),
         status_code=exc.status_code,
     )
-    await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
+    if not config.skip_absent_markers:
+        await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
     stopped = await bstate.record_empty(tribunal)
     await summary.inc_empty()
     if stopped:
