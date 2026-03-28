@@ -236,7 +236,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         except Exception as e:
             print(f"Warning: Failed to load backfill state: {e}")
 
-    # Read absent days from state.json
+    # Read backfill state from state.json (authoritative for both uploaded and absent)
     state_json_path = Path("data/state.json")
     tribunal_absent_coverage = {}
     if state_json_path.exists():
@@ -249,8 +249,28 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         if tcode not in tribunal_absent_coverage:
                             tribunal_absent_coverage[tcode] = []
                         tribunal_absent_coverage[tcode].append(date_key)
+                    elif status == "uploaded":
+                        if tcode not in tribunal_coverage:
+                            tribunal_coverage[tcode] = []
+                        if date_key not in tribunal_coverage[tcode]:
+                            tribunal_coverage[tcode].append(date_key)
         except Exception as e:
-            print(f"Warning: Failed to load absent days from state.json: {e}")
+            print(f"Warning: Failed to load progress from state.json: {e}")
+
+    # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
+    all_dates = set()
+    total_items = 0
+    for dates in tribunal_coverage.values():
+        all_dates.update(dates)
+        total_items += len(dates)
+    
+    unique_days = len(all_dates)
+    if all_dates:
+        sorted_all = sorted(all_dates)
+        oldest_date = sorted_all[0]
+        newest_date = sorted_all[-1]
+    
+    progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
     from datetime import date
