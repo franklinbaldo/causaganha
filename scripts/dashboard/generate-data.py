@@ -345,17 +345,17 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
-    from datetime import date
 
+
+
+    from datetime import date
     date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = (
-        {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
-    )
+    all_tribunals = {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
 
