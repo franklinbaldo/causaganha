@@ -16,6 +16,10 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
   const activeTribunals = perfMetrics.causaganha_active_tribunals || 0;
   const slowestTribunals = perfMetrics.slowest_tribunals || [];
 
+  const prQueues = perfMetrics.pr_queues || {};
+  const usefulButLintBroken = prQueues.useful_but_lint_broken || [];
+  const readyExceptKilo = prQueues.ready_except_kilo || [];
+
   // Grade Distribution
   const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
   Object.values(qualityScores).forEach(score => {
@@ -114,6 +118,48 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
               </li>
             ))}
             {slowestTribunals.length === 0 && <li className="text-gray-500">All tribunals are up to date!</li>}
+          </ul>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="card p-6 border border-warning/30 bg-warning/5 dark:bg-warning/10">
+          <h3 className="text-lg font-semibold mb-2 text-warning flex items-center gap-2">
+            <span>Useful but Lint-Broken</span>
+            <span className="px-2 py-0.5 rounded-full bg-warning/20 text-warning text-xs">{usefulButLintBroken.length}</span>
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            PRs that are green on core checks but failing lint/style checks.
+          </p>
+          <ul className="space-y-2">
+            {usefulButLintBroken.map(pr => (
+              <li key={pr.number} className="text-sm">
+                <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline break-words">
+                  #{pr.number}: {pr.title}
+                </a>
+              </li>
+            ))}
+            {usefulButLintBroken.length === 0 && <li className="text-sm text-gray-500">No PRs in this queue.</li>}
+          </ul>
+        </div>
+
+        <div className="card p-6 border border-success/30 bg-success/5 dark:bg-success/10">
+          <h3 className="text-lg font-semibold mb-2 text-success flex items-center gap-2">
+            <span>Ready except Kilo</span>
+            <span className="px-2 py-0.5 rounded-full bg-success/20 text-success text-xs">{readyExceptKilo.length}</span>
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            PRs fully ready except for Kilo Code Review.
+          </p>
+          <ul className="space-y-2">
+            {readyExceptKilo.map(pr => (
+              <li key={pr.number} className="text-sm">
+                <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline break-words">
+                  #{pr.number}: {pr.title}
+                </a>
+              </li>
+            ))}
+            {readyExceptKilo.length === 0 && <li className="text-sm text-gray-500">No PRs in this queue.</li>}
           </ul>
         </div>
       </div>

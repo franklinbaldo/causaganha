@@ -43,5 +43,21 @@
       "tribunal": "TJRR",
       "velocity_14d": 0
     }
-  ]
+  ],
+  "pr_queues": {
+    "useful_but_lint_broken": [
+      {
+        "number": 444,
+        "title": "feat: add incident banner for pipeline failure streaks",
+        "url": "https://github.com/franklinbaldo/causaganha/pull/444"
+      }
+    ],
+    "ready_except_kilo": [
+      {
+        "number": 436,
+        "title": "fix: resolve data sync issue",
+        "url": "https://github.com/franklinbaldo/causaganha/pull/436"
+      }
+    ]
+  }
 }

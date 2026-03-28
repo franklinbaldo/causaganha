@@ -2,11 +2,106 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
+import os
+import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
+
+
+def classify_pr(check_runs: list[dict]) -> str:
+    """Classify a PR based on its check runs."""
+    if not check_runs:
+        return "pending"
+
+    is_pending = False
+
+    # Track states of specific checks
+    core_checks = {"docs", "tests", "codeql", "dispatch"}
+    lint_checks = {"lint", "ruff", "format"}
+    kilo_checks = {"kilo code review", "kilo"}
+
+    has_core_failure = False
+    has_lint_failure = False
+    kilo_action_required = False
+
+    for run in check_runs:
+        status = run.get("status")
+        conclusion = run.get("conclusion")
+        name = run.get("name", "").lower()
+
+        if status != "completed":
+            is_pending = True
+
+        is_failure = conclusion in ("failure", "action_required", "timed_out", "cancelled")
+
+        if is_failure:
+            # Check if it's a core check
+            if any(c in name for c in core_checks):
+                has_core_failure = True
+            elif any(c in name for c in lint_checks):
+                has_lint_failure = True
+            elif any(c in name for c in kilo_checks):
+                kilo_action_required = True
+            else:
+                # Any other failure is considered a core failure for simplicity
+                has_core_failure = True
+
+    if is_pending:
+        return "pending"
+
+    if has_core_failure:
+        return "broken"
+
+    if has_lint_failure:
+        return "useful_but_lint_broken"
+
+    if kilo_action_required:
+        return "ready_except_kilo"
+
+    # If it's fully green, maybe we just call it ready_except_kilo or fully_ready
+    return "ready_except_kilo"
+
+
+def fetch_prs_and_classify() -> dict:
+    """Fetch open PRs from GitHub and classify them into queues."""
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "causaganha-dashboard"}
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    url = "https://api.github.com/repos/franklinbaldo/causaganha/pulls?state=open"
+
+    queues = {"useful_but_lint_broken": [], "ready_except_kilo": [], "broken": [], "pending": []}
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            prs = json.loads(response.read().decode())
+
+            for pr in prs:
+                pr_data = {"number": pr["number"], "title": pr["title"], "url": pr["html_url"]}
+
+                # Fetch checks
+                checks_url = f"https://api.github.com/repos/franklinbaldo/causaganha/commits/{pr['head']['sha']}/check-runs"
+                check_req = urllib.request.Request(checks_url, headers=headers)
+                try:
+                    with urllib.request.urlopen(check_req, timeout=10) as check_response:
+                        checks_data = json.loads(check_response.read().decode())
+                        check_runs = checks_data.get("check_runs", [])
+
+                        category = classify_pr(check_runs)
+                        if category:
+                            queues[category].append(pr_data)
+                except Exception as inner_e:
+                    print(f"Warning: Failed to fetch checks for PR {pr['number']}: {inner_e}")
+
+    except Exception as e:
+        print(f"Warning: Failed to fetch and classify PRs: {e}")
+
+    return queues
+
 
 from causaganha.storage.connection import get_connection
 
@@ -263,13 +358,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -281,9 +376,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -305,7 +403,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -333,13 +435,20 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
     scores_path = output_path.parent / "tribunal_quality_scores.json"
     quality_scores = calculate_quality_scores(tribunal_coverage, tribunal_start_dates, "2026-02-03")
     scores_path.write_text(json.dumps(quality_scores, ensure_ascii=False, indent=2))
+
+    # Fetch PR Queues
+    pr_queues = fetch_prs_and_classify()
 
     # Calculate Performance Metrics
     metrics_path = output_path.parent / "perf-metrics.json"
@@ -349,6 +458,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "causaganha_active_tribunals": len(tribunal_start_dates),
         "causaganha_backlog_pending_days": 0,
         "slowest_tribunals": [],
+        "pr_queues": pr_queues,
     }
 
     total_missing_days = sum(eta.get("missing_days", 0) for eta in tribunal_etas.values())
