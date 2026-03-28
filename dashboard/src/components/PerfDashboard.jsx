@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
 
-export function PerfDashboard({ perfMetrics, qualityScores }) {
+export function PerfDashboard({ perfMetrics, qualityScores, kiloQueue }) {
   if (!perfMetrics || !qualityScores) {
     return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
   }
+
+  const kiloData = kiloQueue || { metrics: { total: 0, avg_age_mins: 0, max_age_mins: 0 }, prs: [] };
 
   const chartRef = useRef(null);
   const pieRef = useRef(null);
@@ -77,6 +79,78 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
           </div>
         </div>
 
+      {/* Kilo Queue Section */}
+      <div className="card p-6 border-l-4 border-warning">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-black dark:text-white flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Kilo Code Review Queue
+          </h3>
+          <div className="flex gap-4 text-sm">
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.total}</strong> Blocked PRs</span>
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.avg_age_mins}m</strong> Avg Age</span>
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.max_age_mins}m</strong> Max Age</span>
+          </div>
+        </div>
+
+        {kiloData.prs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800 text-sm text-gray-500">
+                  <th className="py-2 px-4 font-medium">PR</th>
+                  <th className="py-2 px-4 font-medium">Title</th>
+                  <th className="py-2 px-4 font-medium">Age</th>
+                  <th className="py-2 px-4 font-medium">Status</th>
+                  <th className="py-2 px-4 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kiloData.prs.map(pr => (
+                  <tr key={pr.number} className="border-b border-gray-50 dark:border-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3 px-4 font-mono text-sm">
+                      <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">#{pr.number}</a>
+                    </td>
+                    <td className="py-3 px-4 text-sm truncate max-w-md text-black dark:text-white" title={pr.title}>
+                      {pr.title}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {pr.age_mins < 60 ? `${pr.age_mins}m` : `${Math.floor(pr.age_mins/60)}h ${pr.age_mins%60}m`}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                        ${pr.bucket === 'fresh' ? 'bg-success/10 text-success' :
+                          pr.bucket === 'warning' ? 'bg-warning/10 text-warning' :
+                          'bg-danger/10 text-danger'}`}>
+                        {pr.bucket}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {pr.kilo_url ? (
+                        <a href={pr.kilo_url} target="_blank" rel="noopener noreferrer" className="text-accent-muted hover:text-accent font-medium">
+                          Review Kilo &rarr;
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            No PRs are currently blocked by Kilo. Great job!
+          </div>
+        )}
+      </div>
+
         <div className="card text-center p-6">
           <div className="text-sm text-gray-500 mb-2">Pending Backlog Days</div>
           <div className="text-4xl font-bold text-accent">
@@ -90,6 +164,78 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
             {activeTribunals}
           </div>
         </div>
+      </div>
+
+      {/* Kilo Queue Section */}
+      <div className="card p-6 border-l-4 border-warning">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-black dark:text-white flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Kilo Code Review Queue
+          </h3>
+          <div className="flex gap-4 text-sm">
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.total}</strong> Blocked PRs</span>
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.avg_age_mins}m</strong> Avg Age</span>
+            <span className="text-gray-500"><strong className="text-black dark:text-white">{kiloData.metrics.max_age_mins}m</strong> Max Age</span>
+          </div>
+        </div>
+
+        {kiloData.prs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800 text-sm text-gray-500">
+                  <th className="py-2 px-4 font-medium">PR</th>
+                  <th className="py-2 px-4 font-medium">Title</th>
+                  <th className="py-2 px-4 font-medium">Age</th>
+                  <th className="py-2 px-4 font-medium">Status</th>
+                  <th className="py-2 px-4 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kiloData.prs.map(pr => (
+                  <tr key={pr.number} className="border-b border-gray-50 dark:border-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3 px-4 font-mono text-sm">
+                      <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">#{pr.number}</a>
+                    </td>
+                    <td className="py-3 px-4 text-sm truncate max-w-md text-black dark:text-white" title={pr.title}>
+                      {pr.title}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {pr.age_mins < 60 ? `${pr.age_mins}m` : `${Math.floor(pr.age_mins/60)}h ${pr.age_mins%60}m`}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                        ${pr.bucket === 'fresh' ? 'bg-success/10 text-success' :
+                          pr.bucket === 'warning' ? 'bg-warning/10 text-warning' :
+                          'bg-danger/10 text-danger'}`}>
+                        {pr.bucket}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {pr.kilo_url ? (
+                        <a href={pr.kilo_url} target="_blank" rel="noopener noreferrer" className="text-accent-muted hover:text-accent font-medium">
+                          Review Kilo &rarr;
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            No PRs are currently blocked by Kilo. Great job!
+          </div>
+        )}
       </div>
 
       <div className="card p-6">

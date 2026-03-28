@@ -5,6 +5,7 @@ import { PerfDashboard } from '../../components/PerfDashboard';
 
 let perfMetrics = null;
 let qualityScores = null;
+let kiloQueue = null;
 
 try {
   // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
@@ -21,6 +22,7 @@ try {
 
   perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
   qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
+  kiloQueue = await fetchLocal('kilo-queue.json').catch(() => null);
 } catch (e) {
   console.warn('Failed to load performance metrics at build time:', e);
 }
@@ -54,7 +56,7 @@ try {
     </header>
 
     <main class="max-w-7xl mx-auto space-y-6">
-      <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
+      <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} kiloQueue={kiloQueue} />
     </main>
   </div>
 </Layout>

@@ -1,0 +1,99 @@
+{
+  "metrics": {
+    "total": 10,
+    "avg_age_mins": 163.9,
+    "max_age_mins": 310
+  },
+  "prs": [
+    {
+      "number": 426,
+      "title": "ci: update GitHub Actions to Node 24 compatible versions",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/426",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68970525325",
+      "age_mins": 310,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 427,
+      "title": "feat(dashboard): add compact PR readiness gate explainer component",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/427",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68971402253",
+      "age_mins": 297,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 428,
+      "title": "Fix YAML parsing error in monitor-collect workflow",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/428",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68973520631",
+      "age_mins": 262,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 429,
+      "title": "feat: add main branch health digest to performance dashboard",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/429",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68975807288",
+      "age_mins": 219,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 430,
+      "title": "feat: Collect ZIPs Incident Digest",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/430",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68977175238",
+      "age_mins": 191,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 432,
+      "title": "Add Auto-format Patch Bot path for agent PRs",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/432",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68980222468",
+      "age_mins": 130,
+      "bucket": "stale",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 433,
+      "title": "feat: implement Collect ZIPs failure deduper",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/433",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68981571509",
+      "age_mins": 99,
+      "bucket": "warning",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 434,
+      "title": "feat(monitoring): Dashboard Live-Status Verifier",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/434",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68982865965",
+      "age_mins": 71,
+      "bucket": "warning",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 435,
+      "title": "feat(monitoring): add browserless dashboard heartbeat fallback",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/435",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68984195571",
+      "age_mins": 46,
+      "bucket": "fresh",
+      "all_other_checks_green": true
+    },
+    {
+      "number": 436,
+      "title": "fix: collect zips failure and monitor-collect workflow syntax",
+      "url": "https://github.com/franklinbaldo/causaganha/pull/436",
+      "kilo_url": "https://github.com/franklinbaldo/causaganha/runs/68985590000",
+      "age_mins": 14,
+      "bucket": "fresh",
+      "all_other_checks_green": true
+    }
+  ]
+}
