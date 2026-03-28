@@ -974,11 +974,19 @@ def upload_to_ia(files: list[Path]) -> bool:
         }
         try:
             result = subprocess.run(
-                ["curl", "-s", "-X", "PUT", url,
-                 *[f for h, v in headers.items() for f in ["--header", f"{h}:{v}"]],
-                 "--upload-file", str(file_path),
-                 "--write-out", "%{http_code}",
-                 "--silent"],
+                [
+                    "curl",
+                    "-s",
+                    "-X",
+                    "PUT",
+                    url,
+                    *[f for h, v in headers.items() for f in ["--header", f"{h}:{v}"]],
+                    "--upload-file",
+                    str(file_path),
+                    "--write-out",
+                    "%{http_code}",
+                    "--silent",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -987,7 +995,12 @@ def upload_to_ia(files: list[Path]) -> bool:
             if result.returncode == 0 and http_code in ("200", "201"):
                 logger.info("file_upload_success", file=file_path.name, http_code=http_code)
             else:
-                logger.error("file_upload_failed", file=file_path.name, http_code=http_code, stderr=result.stderr[:200])
+                logger.error(
+                    "file_upload_failed",
+                    file=file_path.name,
+                    http_code=http_code,
+                    stderr=result.stderr[:200],
+                )
                 success = False
         except subprocess.TimeoutExpired:
             logger.error("file_upload_timeout", file=file_path.name)
@@ -996,12 +1009,6 @@ def upload_to_ia(files: list[Path]) -> bool:
     if success:
         logger.info("upload_success")
     return success
-
-    except subprocess.TimeoutExpired:
-        logger.exception("upload_timeout")
-        return False
-    else:
-        return success
 
 
 def main() -> int:
