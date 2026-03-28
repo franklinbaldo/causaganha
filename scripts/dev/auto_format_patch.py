@@ -15,12 +15,14 @@ import json
 import shlex
 from typing import Set
 
+
 def get_failed_run_for_pr(pr_number: str) -> str:
     """Gets the latest failed workflow run ID for a given PR."""
     try:
         pr_info_output = subprocess.check_output(
             ["gh", "pr", "view", pr_number, "--json", "headRefName"],
-            text=True, stderr=subprocess.DEVNULL
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
         pr_info = json.loads(pr_info_output)
         branch = pr_info.get("headRefName")
@@ -29,8 +31,21 @@ def get_failed_run_for_pr(pr_number: str) -> str:
             return ""
 
         run_output = subprocess.check_output(
-            ["gh", "run", "list", "--branch", branch, "--status", "failure", "--json", "databaseId", "-L", "1"],
-            text=True, stderr=subprocess.DEVNULL
+            [
+                "gh",
+                "run",
+                "list",
+                "--branch",
+                branch,
+                "--status",
+                "failure",
+                "--json",
+                "databaseId",
+                "-L",
+                "1",
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
         run_data = json.loads(run_output)
         if not run_data:
@@ -40,12 +55,14 @@ def get_failed_run_for_pr(pr_number: str) -> str:
     except Exception:
         return ""
 
+
 def get_pr_number_from_run(run_id: str) -> str:
     """Attempts to find the PR number associated with a specific run ID."""
     try:
         output = subprocess.check_output(
             ["gh", "run", "view", run_id, "--json", "headBranch"],
-            text=True, stderr=subprocess.DEVNULL
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
         data = json.loads(output)
         branch = data.get("headBranch", "")
@@ -55,7 +72,8 @@ def get_pr_number_from_run(run_id: str) -> str:
 
         pr_output = subprocess.check_output(
             ["gh", "pr", "list", "--head", branch, "--json", "number"],
-            text=True, stderr=subprocess.DEVNULL
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
         pr_data = json.loads(pr_output)
         if pr_data and len(pr_data) > 0:
@@ -72,10 +90,11 @@ def parse_logs(log_text: str) -> Set[str]:
     # e.g., "2024-03-01T... Would reformat: file.py"
     # Ruff output format: "Would reformat: path/to/file.py"
     for line in log_text.splitlines():
-        match = re.search(r'Would reformat:\s+([^\s\x1b]+)', line)
+        match = re.search(r"Would reformat:\s+([^\s\x1b]+)", line)
         if match:
             files_to_format.add(match.group(1).strip())
     return files_to_format
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -86,7 +105,9 @@ def main():
     group.add_argument("--run-id", help="GitHub Actions Run ID to analyze")
     group.add_argument("--log-file", help="Local log file to parse (useful for debugging)")
 
-    parser.add_argument("--apply", action="store_true", help="Run the suggested format command automatically")
+    parser.add_argument(
+        "--apply", action="store_true", help="Run the suggested format command automatically"
+    )
 
     args = parser.parse_args()
 
@@ -95,7 +116,7 @@ def main():
 
     if args.log_file:
         try:
-            with open(args.log_file, 'r', encoding='utf-8') as f:
+            with open(args.log_file, "r", encoding="utf-8") as f:
                 log_text = f.read()
         except FileNotFoundError:
             print(f"Error: Could not find log file {args.log_file}")
@@ -106,11 +127,14 @@ def main():
             print(f"Fetching logs for run {args.run_id}...")
             log_text = subprocess.check_output(
                 ["gh", "run", "view", args.run_id, "--log-failed"],
-                text=True, stderr=subprocess.DEVNULL
+                text=True,
+                stderr=subprocess.DEVNULL,
             )
             pr_number = get_pr_number_from_run(args.run_id)
         except subprocess.CalledProcessError:
-            print(f"Error: Could not fetch logs for run {args.run_id}. Ensure GitHub CLI is installed and authenticated.")
+            print(
+                f"Error: Could not fetch logs for run {args.run_id}. Ensure GitHub CLI is installed and authenticated."
+            )
             sys.exit(1)
 
     elif args.pr:
@@ -123,8 +147,7 @@ def main():
         try:
             print(f"Fetching logs for failed run {run_id}...")
             log_text = subprocess.check_output(
-                ["gh", "run", "view", run_id, "--log-failed"],
-                text=True, stderr=subprocess.DEVNULL
+                ["gh", "run", "view", run_id, "--log-failed"], text=True, stderr=subprocess.DEVNULL
             )
         except subprocess.CalledProcessError:
             print(f"Error: Could not fetch logs for run {run_id}.")
@@ -157,6 +180,7 @@ def main():
         else:
             print("\nError applying format patch.")
             sys.exit(result.returncode)
+
 
 if __name__ == "__main__":
     main()
