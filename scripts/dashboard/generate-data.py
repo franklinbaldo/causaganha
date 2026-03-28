@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -104,6 +103,38 @@ def calculate_quality_scores(
 
     return scores
 
+
+def calculate_recent_failure_rate(runs: list[dict], window_size: int = 8) -> dict:
+    """Calculate failure rate metrics for the most recent N runs."""
+    if not runs:
+        return {
+            "recent_failed_count": 0,
+            "recent_window_size": 0,
+            "recent_failure_rate": 0.0,
+            "latest_failed_run_url": None,
+        }
+
+    # Sort runs by createdAt descending to ensure we get the most recent ones
+    sorted_runs = sorted(runs, key=lambda x: x.get("createdAt", ""), reverse=True)
+    recent_runs = sorted_runs[:window_size]
+
+    failed_runs = [
+        r for r in recent_runs
+        if r.get("conclusion") in ("failure", "timed_out")
+    ]
+
+    failed_count = len(failed_runs)
+    actual_window_size = len(recent_runs)
+    failure_rate = round((failed_count / actual_window_size) * 100, 2) if actual_window_size > 0 else 0.0
+
+    latest_failed_url = failed_runs[0].get("url") if failed_runs else None
+
+    return {
+        "recent_failed_count": failed_count,
+        "recent_window_size": actual_window_size,
+        "recent_failure_rate": failure_rate,
+        "latest_failed_run_url": latest_failed_url,
+    }
 
 def fetch_progress_json(url: str) -> dict | None:
     """Fetch progress JSON from Internet Archive."""
@@ -263,13 +294,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -372,6 +403,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 perf_metrics["causaganha_upload_success_rate"] = round(
                     (success_count / len(runs)) * 100, 2
                 )
+                recent_failure_stats = calculate_recent_failure_rate(runs, window_size=8)
+                perf_metrics["causaganha_recent_failure_rate"] = recent_failure_stats["recent_failure_rate"]
+                perf_metrics["causaganha_recent_failed_count"] = recent_failure_stats["recent_failed_count"]
+                perf_metrics["causaganha_recent_window_size"] = recent_failure_stats["recent_window_size"]
+                perf_metrics["causaganha_latest_failed_run_url"] = recent_failure_stats["latest_failed_run_url"]
 
             latencies = []
             for r in runs:
