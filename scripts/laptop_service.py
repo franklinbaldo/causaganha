@@ -1,3 +1,4 @@
+from datetime import timezone
 """Continuous embedding service for running on laptop/personal computer.
 
 This service runs 24/7 on your laptop and continuously processes unembedded decisions.
@@ -28,7 +29,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -299,7 +300,7 @@ def main() -> None:
         batch_size=batch_size,
         max_concurrency=max_concurrency,
         idle_sleep=idle_sleep,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         python_version=sys.version,
     )
 

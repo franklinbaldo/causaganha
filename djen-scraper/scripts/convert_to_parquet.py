@@ -10,6 +10,7 @@ Usage:
     python convert_to_parquet.py batch.txt
 """
 
+import traceback
 import json
 
 # Parallel processing config (adaptive based on CPU)
@@ -306,7 +307,6 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
     try:
         result = process_item(entry)
     except Exception:
-        import traceback
 
         return (entry, False, traceback.format_exc())
     else:

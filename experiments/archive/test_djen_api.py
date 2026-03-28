@@ -1,3 +1,4 @@
+from datetime import timezone
 """Experiment: Test PJe DJEN API connectivity and basic operations.
 
 This script tests the PJe Communications API (DJEN - Diário de Justiça Eletrônico Nacional)
@@ -54,7 +55,7 @@ async def test_djen_connectivity() -> None:
     try:
         # Try to fetch a very small number of intimations from TJRO
         # Using a recent date range to get minimal data
-        end_date = date.today()
+        end_date = datetime.now(timezone.utc).date()
         start_date = end_date - timedelta(days=1)  # Just 1 day
 
         intimations = await client.get_intimations_by_court(

@@ -1,3 +1,4 @@
+import asyncio
 """CLI command module for CausaGanha backfill."""
 
 from pathlib import Path
@@ -62,7 +63,6 @@ def reset(
     ),
 ) -> None:
     """Reset stopped tribunal(s) for re-scanning."""
-    import asyncio
 
     if not tribunal and not all:
         typer.echo("Error: provide --tribunal CODE or --all", err=True)

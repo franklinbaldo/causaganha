@@ -10,6 +10,7 @@ Measures:
   - Bottlenecks and optimization opportunities
 """
 
+import psutil
 import json
 import os
 import subprocess
@@ -67,7 +68,6 @@ class StepMetrics:
 def get_memory_usage() -> float:
     """Get current process memory usage in MB."""
     try:
-        import psutil
 
         process = psutil.Process()
         return process.memory_info().rss / 1024 / 1024

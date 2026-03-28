@@ -1,3 +1,4 @@
+from datetime import timezone
 #!/usr/bin/env python3
 import argparse
 import asyncio
@@ -47,7 +48,7 @@ async def main() -> None:
     repository = IntimationRepository(con)
     client = PJeAPIClient()
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     start_date = (today - timedelta(days=args.days)).isoformat()
     end_date = today.isoformat()
 

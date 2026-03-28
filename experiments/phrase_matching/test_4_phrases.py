@@ -1,3 +1,4 @@
+from collections import Counter
 #!/usr/bin/env python3
 """Testa com 4 frases-chave: WIN, LOSS, UNKNOWN, PARTIAL."""
 
@@ -155,7 +156,6 @@ def main() -> None:
     console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
 
     # Matriz de confusão
-    from collections import Counter
 
     conf_table = Table(title="Matriz de Confusão")
     conf_table.add_column("Real", style="cyan")

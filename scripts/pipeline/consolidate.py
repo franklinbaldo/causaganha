@@ -1,3 +1,4 @@
+from datetime import timezone
 #!/usr/bin/env python3
 """Consolidate DJEN ZIP files into daily Parquet files.
 
@@ -13,6 +14,9 @@ Usage:
     python scripts/pipeline/consolidate.py --date 2026-01-27 --dry-run
 """
 
+import pandas as pd
+import shutil
+import traceback
 import argparse
 import decimal
 import json
@@ -260,7 +264,6 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
         # Load manifest list into a DuckDB table
         # We only need date and file_type
         df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-        import pandas as pd
 
         df = pd.DataFrame(df_data)  # noqa: F841
 
@@ -1268,7 +1271,7 @@ def find_next_unconsolidated(
     checkpoint = CheckpointManager(checkpoint_file)
     last_checked = checkpoint.load()
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     days_ago = 0
 
     if last_checked:
@@ -1392,7 +1395,6 @@ def process_zip_entry(
 
     # Download or copy
     if local_zips and "local_path" in zip_entry:
-        import shutil
 
         try:
             shutil.copy2(zip_entry["local_path"], zip_path)
@@ -1693,7 +1695,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-            import traceback
 
             traceback.print_exc()
             return 1
@@ -1732,7 +1733,6 @@ def main() -> int:
                 dates_processed += 1
             except Exception as e:
                 logger.exception("consolidation_aborted", date=target_date, error=str(e))
-                import traceback
 
                 traceback.print_exc()
                 # Continue to next date instead of aborting the entire run
@@ -1740,7 +1740,7 @@ def main() -> int:
                 continue
 
     else:
-        target_date = date.today().strftime("%Y-%m-%d")
+        target_date = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
         try:
             stats = consolidate_date(
                 target_date,
@@ -1756,7 +1756,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-            import traceback
 
             traceback.print_exc()
             return 1

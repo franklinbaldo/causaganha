@@ -19,6 +19,8 @@ Usage:
     python scripts/pipeline/embed_v2.py --all --timeout-minutes 50
 """
 
+import google.generativeai as genai
+from causaganha.config import TRIBUNAIS
 import argparse
 import hashlib
 import os
@@ -65,7 +67,6 @@ def get_embedding_client():
 
     if google_key:
         try:
-            import google.generativeai as genai
 
             genai.configure(api_key=google_key)
 
@@ -371,7 +372,6 @@ def main() -> int:
             logger.info("timeout_reached")
             break
 
-        from causaganha.config import TRIBUNAIS
 
         stats = generate_embeddings_for_date(
             date=date,

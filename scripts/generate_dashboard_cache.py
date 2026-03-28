@@ -1,3 +1,4 @@
+from datetime import timezone
 #!/usr/bin/env python3
 """Generate dashboard cache JSON files from the catalog manifest.
 
@@ -22,6 +23,9 @@ Outputs:
   - dashboard/public/cache/calendar.json # Historical calendar data
 """
 
+from datetime import date as date_type
+import tempfile
+import tempfile as _tempfile
 import argparse
 import contextlib
 import json
@@ -29,7 +33,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -278,10 +282,9 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             backfill_pending = pending[0] if pending else 0
         except Exception:
             # Estimate total from date range: weekdays from 2024-01-01 to yesterday × tribunals
-            from datetime import date as date_type
 
             start = date_type(2024, 1, 1)
-            end = date_type.today() - timedelta(days=1)
+            end = datetime.now(timezone.utc).date() - timedelta(days=1)
             weekdays = sum(
                 1
                 for i in range((end - start).days + 1)
@@ -338,8 +341,8 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
     """Generate today's metrics and tribunal status from manifest.
     Fallback to IA metadata API is removed because items are no longer daily.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     manifest_populated = is_manifest_populated(con)
 
@@ -471,7 +474,7 @@ def generate_calendar_cache(
               AND date >= ?
             GROUP BY date
         """,
-            [(datetime.now() - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")],
+            [(datetime.now(timezone.utc) - timedelta(days=CALENDAR_DAYS)).strftime("%Y-%m-%d")],
         ).fetchall()
         date_tribunals = {row[0]: row[1] for row in result}
 
@@ -480,7 +483,7 @@ def generate_calendar_cache(
     max_size = 0
 
     for i in range(CALENDAR_DAYS):
-        date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        date = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
         size = sizes.get(date, 0)
         tribunal_count = date_tribunals.get(date, 0)
         exists = tribunal_count > 0 or size > 0
@@ -584,7 +587,7 @@ def generate_backfill_cache(
             tribunal_coverage[t].append(d)
 
         # Velocity over last 14 days
-        velocity_date_limit = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+        velocity_date_limit = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%d")
         velocity_rows = con.execute(f"""
             SELECT
                 tribunal,
@@ -623,12 +626,11 @@ def generate_backfill_cache(
 
         for year, unique_days, combos_done, zips in year_rows:
             # Calculate expected weekdays for this year
-            from datetime import date as date_type
 
             year_start = date_type(year, 1, 1)
             year_end = min(
                 date_type(year, 12, 31),
-                date_type.today() - timedelta(days=1),
+                datetime.now(timezone.utc).date() - timedelta(days=1),
             )
             if year_start > year_end:
                 continue
@@ -679,7 +681,7 @@ def generate_backfill_cache(
         daily_stats = [{"date": row[0], "count": row[1]} for row in daily_rows]
 
         # Recent activity: last 14 days (for TimelineGraph)
-        cutoff = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%d")
         recent = [d for d in daily_stats if d["date"] >= cutoff]
 
         # Per-tribunal reliability: coverage ratio
@@ -717,11 +719,11 @@ def generate_backfill_cache(
                 "total_items": total_combos_done,
                 "target_range": {
                     "start": oldest_date or "2024-01-01",
-                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "end": newest_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
                 },
                 "progress_pct": total_pct,
-                "last_updated": datetime.now().isoformat() + "Z",
+                "last_updated": datetime.now(timezone.utc).isoformat() + "Z",
             },
             "consolidate_progress": {
                 "oldest_date": oldest_date,
@@ -730,13 +732,13 @@ def generate_backfill_cache(
                 "total_items": 0,
                 "target_range": {
                     "start": oldest_date or "2024-01-01",
-                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "end": newest_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
                 },
                 "progress_pct": round(100.0 * total_days_consolidated / total_unique_days, 1)
                 if total_unique_days > 0
                 else 0.0,
-                "last_updated": datetime.now().isoformat() + "Z",
+                "last_updated": datetime.now(timezone.utc).isoformat() + "Z",
             },
             "backfill_progress": {
                 "oldest_date": oldest_date,
@@ -745,11 +747,11 @@ def generate_backfill_cache(
                 "total_items": total_combos_done,
                 "target_range": {
                     "start": oldest_date or "2024-01-01",
-                    "end": newest_date or datetime.now().strftime("%Y-%m-%d"),
+                    "end": newest_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     "total_days": total_expected // len(TRIBUNALS) if total_expected > 0 else 0,
                 },
                 "progress_pct": total_pct,
-                "last_updated": datetime.now().isoformat() + "Z",
+                "last_updated": datetime.now(timezone.utc).isoformat() + "Z",
                 "daily_stats": daily_stats,
                 "recent_activity": recent,
             },
@@ -780,7 +782,7 @@ def generate_rss_feed(
     calendar_data: dict[str, Any],
 ) -> str:
     """Generate RSS feed with status updates."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     date_str = today_data.get("date", now.strftime("%Y-%m-%d"))
     files_today = today_data.get("files_today", 0)
     size_today = today_data.get("size_today", 0)
@@ -841,7 +843,6 @@ def main() -> None:
             )
         except Exception:
             # httpfs not available, download manually
-            import tempfile
 
             tmp = Path(tempfile.mkdtemp()) / "manifest.parquet"
             urllib.request.urlretrieve(MANIFEST_URL, str(tmp))
@@ -854,7 +855,6 @@ def main() -> None:
     backfill_path = None
     if manifest_path:
         # If manifest was downloaded manually, also download backfill
-        import tempfile as _tempfile
 
         tmp_bf = Path(_tempfile.mkdtemp()) / "backfill-needed.parquet"
         urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
@@ -895,7 +895,7 @@ def main() -> None:
     # Generate metadata
     meta = {
         "version": "3.1",
-        "generated_at": datetime.now().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "source": data_source,
         "calendar_days": CALENDAR_DAYS,
         "manifest_available": manifest_populated,

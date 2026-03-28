@@ -1,0 +1,956 @@
+[
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 22,
+      "row": 70
+    },
+    "filename": "/app/analyze_pipeline_performance.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 70
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 70,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 25,
+      "row": 309
+    },
+    "filename": "/app/djen-scraper/scripts/convert_to_parquet.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 309
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 309,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 24,
+      "row": 167
+    },
+    "filename": "/app/experiments/archive/test_all_improvements.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 167
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 167,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 61,
+      "row": 70
+    },
+    "filename": "/app/experiments/archive/test_embedding_storage.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 70
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 70,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 65,
+      "row": 84
+    },
+    "filename": "/app/experiments/archive/test_embedding_storage.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 84
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 84,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 24,
+      "row": 138
+    },
+    "filename": "/app/experiments/archive/test_embedding_storage.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 138
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 138,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 158
+    },
+    "filename": "/app/experiments/phrase_matching/test_4_phrases.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 158
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 158,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 105
+    },
+    "filename": "/app/experiments/phrase_matching/test_simple_phrase_full.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 105
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 105,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 162
+    },
+    "filename": "/app/experiments/phrase_matching/test_simple_phrase_matching.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 162
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 162,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 16,
+      "row": 65
+    },
+    "filename": "/app/experiments/test_jina_embeddings.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 65
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 65,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 16,
+      "row": 79
+    },
+    "filename": "/app/experiments/test_jina_embeddings.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 79
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 79,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 247
+    },
+    "filename": "/app/scripts/analyze_with_rag.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 247
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 247,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 14,
+      "row": 243
+    },
+    "filename": "/app/scripts/continuous_embedding_service.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 243
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 243,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 69,
+      "row": 37
+    },
+    "filename": "/app/scripts/daily_embedding_job.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 37
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 37,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 70,
+      "row": 163
+    },
+    "filename": "/app/scripts/daily_embedding_job.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 163
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 163,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 39,
+      "row": 17
+    },
+    "filename": "/app/scripts/dashboard/generate-data.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 17
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 17,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 30,
+      "row": 275
+    },
+    "filename": "/app/scripts/dashboard/generate-data.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 275
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 275,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 48,
+      "row": 287
+    },
+    "filename": "/app/scripts/dashboard/generate-data.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 287
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 287,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 14,
+      "row": 156
+    },
+    "filename": "/app/scripts/generate_catalog.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 156
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 156,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 14,
+      "row": 176
+    },
+    "filename": "/app/scripts/generate_catalog.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 176
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 176,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 14,
+      "row": 1171
+    },
+    "filename": "/app/scripts/generate_catalog.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 1171
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 1171,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 51,
+      "row": 281
+    },
+    "filename": "/app/scripts/generate_dashboard_cache.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 281
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 281,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 51,
+      "row": 626
+    },
+    "filename": "/app/scripts/generate_dashboard_cache.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 626
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 626,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 28,
+      "row": 844
+    },
+    "filename": "/app/scripts/generate_dashboard_cache.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 844
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 844,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 37,
+      "row": 857
+    },
+    "filename": "/app/scripts/generate_dashboard_cache.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 857
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 857,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 142
+    },
+    "filename": "/app/scripts/index_ground_truth.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 142
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 142,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 33,
+      "row": 146
+    },
+    "filename": "/app/scripts/index_ground_truth.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 146
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 146,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 121
+    },
+    "filename": "/app/scripts/migrate_v1_to_v2.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 121
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 121,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 96
+    },
+    "filename": "/app/scripts/monitor_github_backfill.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 96
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 96,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 26,
+      "row": 152
+    },
+    "filename": "/app/scripts/monitoring/check_backfill_health.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 152
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 152,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 22,
+      "row": 228
+    },
+    "filename": "/app/scripts/monitoring/check_backfill_health.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 228
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 228,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 28,
+      "row": 263
+    },
+    "filename": "/app/scripts/pipeline/consolidate.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 263
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 263,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 22,
+      "row": 1395
+    },
+    "filename": "/app/scripts/pipeline/consolidate.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 1395
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 1395,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 29,
+      "row": 1696
+    },
+    "filename": "/app/scripts/pipeline/consolidate.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 1696
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 1696,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 33,
+      "row": 1735
+    },
+    "filename": "/app/scripts/pipeline/consolidate.py",
+    "fix": null,
+    "location": {
+      "column": 17,
+      "row": 1735
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 1735,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 29,
+      "row": 1759
+    },
+    "filename": "/app/scripts/pipeline/consolidate.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 1759
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 1759,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 17,
+      "row": 41
+    },
+    "filename": "/app/scripts/pipeline/embed.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 41
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 41,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 40,
+      "row": 57
+    },
+    "filename": "/app/scripts/pipeline/embed.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 57
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 57,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 48,
+      "row": 68
+    },
+    "filename": "/app/scripts/pipeline/embed_v2.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 68
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 68,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 48,
+      "row": 374
+    },
+    "filename": "/app/scripts/pipeline/embed_v2.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 374
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 374,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 75
+    },
+    "filename": "/app/scripts/prepare_ground_truth.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 75
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 75,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 15,
+      "row": 116
+    },
+    "filename": "/app/scripts/prepare_ground_truth.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 116
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 116,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 45,
+      "row": 41
+    },
+    "filename": "/app/scripts/test_export.py",
+    "fix": null,
+    "location": {
+      "column": 17,
+      "row": 41
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 41,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 29,
+      "row": 51
+    },
+    "filename": "/app/scripts/test_export.py",
+    "fix": null,
+    "location": {
+      "column": 13,
+      "row": 51
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 51,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 37,
+      "row": 33
+    },
+    "filename": "/app/scripts/upload_to_ia.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 33
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 33,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 19,
+      "row": 65
+    },
+    "filename": "/app/src/causaganha/cli/commands/backfill.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 65
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 65,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 21,
+      "row": 61
+    },
+    "filename": "/app/src/djen_backup/djen.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 61
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 61,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 49,
+      "row": 152
+    },
+    "filename": "/app/tests/djen_backup/conftest.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 152
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 152,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 36,
+      "row": 246
+    },
+    "filename": "/app/tests/djen_backup/test_backfill.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 246
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 246,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 257
+    },
+    "filename": "/app/tests/djen_backup/test_backfill.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 257
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 257,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 301
+    },
+    "filename": "/app/tests/djen_backup/test_backfill.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 301
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 301,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 20,
+      "row": 458
+    },
+    "filename": "/app/tests/djen_backup/test_backfill.py",
+    "fix": null,
+    "location": {
+      "column": 9,
+      "row": 458
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 458,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  },
+  {
+    "cell": null,
+    "code": "PLC0415",
+    "end_location": {
+      "column": 18,
+      "row": 104
+    },
+    "filename": "/app/tests/djen_backup/test_collect.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 104
+    },
+    "message": "`import` should be at the top-level of a file",
+    "noqa_row": 104,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/import-outside-top-level"
+  }
+]

@@ -1,3 +1,4 @@
+from collections import Counter
 #!/usr/bin/env python3
 """Testa a ideia original: comparação direta com 2 frases-chave."""
 
@@ -159,7 +160,6 @@ def main() -> None:
     conf_table.add_column("Previsto", style="yellow")
     conf_table.add_column("Count", style="green")
 
-    from collections import Counter
 
     confusion = Counter([(r["real"], r["previsto"]) for r in results])
 

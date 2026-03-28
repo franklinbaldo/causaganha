@@ -1,3 +1,4 @@
+from datetime import timezone
 """Batch processing pipeline for generating and storing embeddings.
 
 This module provides high-throughput embedding generation with:
@@ -10,7 +11,7 @@ This module provides high-throughput embedding generation with:
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -38,7 +39,7 @@ class BatchStats:
     def duration_seconds(self) -> float:
         """Calculate duration in seconds."""
         if self.end_time is None:
-            return (datetime.utcnow() - self.start_time).total_seconds()
+            return (datetime.now(timezone.utc) - self.start_time).total_seconds()
         return (self.end_time - self.start_time).total_seconds()
 
     @property
@@ -257,7 +258,7 @@ class EmbeddingPipeline:
                 progress_interval=10,
             )
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         stats = BatchStats(
             total_decisions=len(intimation_ids),
@@ -293,7 +294,7 @@ class EmbeddingPipeline:
             if progress_callback and (i + 1) % progress_interval == 0:
                 progress_callback(stats)
 
-        stats.end_time = datetime.utcnow()
+        stats.end_time = datetime.now(timezone.utc)
 
         logger.info(
             "batch_processing_complete",

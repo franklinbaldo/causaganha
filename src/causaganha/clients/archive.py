@@ -1,3 +1,4 @@
+from datetime import timezone
 """Internet Archive service for uploading documents.
 
 .. deprecated::
@@ -133,7 +134,7 @@ class LocalArchiveService:
         """Generate archive metadata from intimation data for hierarchical storage."""
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get("data_disponibilizacao", datetime.now(timezone.utc).date().isoformat())
 
         return {
             "collection": IA_DEFAULT_COLLECTION,
@@ -311,7 +312,7 @@ class InternetArchiveService:
         """
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get("data_disponibilizacao", datetime.now(timezone.utc).date().isoformat())
 
         return {
             "collection": IA_DEFAULT_COLLECTION,

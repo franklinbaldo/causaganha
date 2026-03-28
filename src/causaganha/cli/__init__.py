@@ -1,3 +1,4 @@
+from datetime import timezone
 """CLI package for CausaGanha."""
 
 import asyncio
@@ -412,7 +413,7 @@ def export_status(
             conditions.append("status = 'failed'")
 
         # Get date range
-        end_date = date.today()
+        end_date = datetime.now(timezone.utc).date()
         start_date = end_date - timedelta(days=days)
 
         conditions.append("partition_date >= ? AND partition_date <= ?")

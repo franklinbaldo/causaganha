@@ -1,3 +1,4 @@
+from collections import Counter
 #!/usr/bin/env python3
 """Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 
@@ -102,7 +103,6 @@ def main() -> None:
     console.print(f"[cyan]Testando com {len(decisoes)} decisões do ground truth[/cyan]\n")
 
     # Contar distribuição
-    from collections import Counter
 
     distribuicao = Counter([d[1] for d in decisoes])
 

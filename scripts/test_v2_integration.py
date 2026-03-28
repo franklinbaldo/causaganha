@@ -1,3 +1,4 @@
+from datetime import timezone
 """Integration test script for V2 pipeline."""
 
 import asyncio
@@ -36,7 +37,7 @@ async def main() -> None:
     # 1. Mock External Services
 
     # Mock API Response
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     yesterday = today - timedelta(days=1)
 
     mock_intimation = Intimation(

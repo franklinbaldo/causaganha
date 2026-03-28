@@ -1,3 +1,4 @@
+from datetime import timezone
 """Embedding storage using Ibis/DuckDB for local processing and Parquet export.
 
 This module handles:
@@ -14,7 +15,7 @@ Design:
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -177,7 +178,7 @@ class EmbeddingStorage:
                 (text_chunks[i][:200] if text_chunks and i < len(text_chunks) else "")
                 for i in range(num_chunks)
             ],
-            "created_at": [datetime.utcnow()] * num_chunks,
+            "created_at": [datetime.now(timezone.utc)] * num_chunks,
         }
 
         embeddings_frame = pd.DataFrame(data)

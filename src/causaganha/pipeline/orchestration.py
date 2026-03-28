@@ -1,3 +1,5 @@
+from __future__ import annotations
+from datetime import timezone
 """Pure orchestration logic for the export pipeline.
 
 All functions here are pure (no side effects), making them fully testable
@@ -10,7 +12,6 @@ Orchestration happens in 3 phases:
 3. AGGREGATION (pure) - Combine results into final output
 """
 
-from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
@@ -134,5 +135,5 @@ class PureOrchestrator:
         Returns:
             Yesterday's date as string
         """
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
         return yesterday.isoformat()

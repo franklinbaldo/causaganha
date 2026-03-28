@@ -24,6 +24,8 @@ Exit codes:
     2: CRITICAL - Backfill stuck or failing
 """
 
+import urllib.request
+import subprocess
 import argparse
 import json
 import sys
@@ -149,7 +151,6 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
     Returns:
         BackfillStatus with health information
     """
-    import urllib.request
 
     url = "https://archive.org/download/causaganha-catalog/backfill-progress.json"
 
@@ -225,7 +226,6 @@ def check_pipeline_errors(error_threshold: float = DEFAULT_ERROR_THRESHOLD_PCT) 
     Returns:
         Dictionary with error statistics
     """
-    import subprocess
 
     try:
         # Get last 5 runs of "Data Pipeline"

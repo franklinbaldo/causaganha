@@ -1,3 +1,4 @@
+from datetime import timezone
 """Parquet Data Lake Export Module.
 
 Exports analyzed judicial decisions from DuckDB to Parquet files
@@ -14,7 +15,7 @@ Usage:
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import ibis
@@ -473,5 +474,5 @@ class ParquetExporter:
     @staticmethod
     def get_yesterday() -> str:
         """Get yesterday's date in YYYY-MM-DD format."""
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         return yesterday.strftime("%Y-%m-%d")
