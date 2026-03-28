@@ -70,27 +70,29 @@ jobs:
           if [ "$EXISTING" -gt 0 ]; then
             echo "Issue already open, skipping"
           else
-            cat << EOF > issue_body.txt
-The collect-zips workflow has failed $CONSECUTIVE times in a row.
+            cat << 'ISSUE_EOF' > issue_body.txt
+          The collect-zips workflow has failed multiple times in a row.
 
-**Possible causes:**
-- DJEN proxy down or rate-limiting
-- Internet Archive S3 credentials expired
-- djen-backup state file corrupted
+          **Possible causes:**
+          - DJEN proxy down or rate-limiting
+          - Internet Archive S3 credentials expired
+          - djen-backup state file corrupted
 
-**To diagnose:**
-\`\`\`bash
-# Run locally with dry-run
-uv run python -m djen_backup --dry-run --deadline-minutes 5 --workers 1
-\`\`\`
+          **To diagnose:**
+          ```bash
+          # Run locally with dry-run
+          uv run python -m djen_backup --dry-run --deadline-minutes 5 --workers 1
+          ```
 
-**To reset state and retry:**
-\`\`\`bash
-gh workflow run collect-zips.yml --repo ${{ github.repository }} -f workers=1
-\`\`\`
+          **To reset state and retry:**
+          ```bash
+          gh workflow run collect-zips.yml -f workers=1
+          ```
 
-This issue was opened automatically by the monitor-collect workflow.
-EOF
+          This issue was opened automatically by the monitor-collect workflow.
+          ISSUE_EOF
+            # Inject actual failure count into first line
+            sed -i "1s/multiple/$CONSECUTIVE/" issue_body.txt
             gh issue create \
               --repo ${{ github.repository }} \
               --title "🚨 collect-zips stalled: $CONSECUTIVE consecutive failures" \

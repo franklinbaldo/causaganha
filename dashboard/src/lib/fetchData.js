@@ -121,14 +121,15 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
   const hasAnyData = !!(stats || dashboardData || cacheData);
 
   // Effective backfill data: merge dashboard-data.json with cache/backfill.json
-  // backfill.json always has the richest data (progress_by_year, tribunal_stats, etc.)
+  // cache/backfill.json is generated from live Internet Archive data and takes precedence;
+  // dashboard-data.json is a fallback generated from an ephemeral DuckDB artifact.
   const cacheBackfill = cacheData?.backfill || null;
   const effectiveBackfill = (() => {
     if (dashboardData && cacheBackfill) {
-      // Merge: cache backfill as base, overlay with dashboardData fields
-      return { ...cacheBackfill, ...dashboardData };
+      // Merge: dashboardData as base, cache backfill (live data) takes precedence
+      return { ...dashboardData, ...cacheBackfill };
     }
-    return dashboardData || cacheBackfill || null;
+    return cacheBackfill || dashboardData || null;
   })();
   const backfillProgress = effectiveBackfill?.backfill_progress;
   const tribunalCoverage = effectiveBackfill?.tribunal_coverage || {};
