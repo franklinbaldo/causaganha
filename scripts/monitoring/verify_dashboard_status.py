@@ -60,7 +60,9 @@ def analyze_html(html: str | None) -> dict[str, Any]:
     # Extract ZIPs Synced (from fallback structure like test_healthy_fallback.html)
     zips_synced_done = 0
     zips_synced_total = 0
-    zips_match = re.search(r"ZIPs Synchronized.*?>(\d+)\s*/\s*(\d+)<", html, re.DOTALL | re.IGNORECASE)
+    zips_match = re.search(
+        r"ZIPs Synchronized.*?>(\d+)\s*/\s*(\d+)<", html, re.DOTALL | re.IGNORECASE
+    )
     if zips_match:
         zips_synced_done = int(zips_match.group(1))
         zips_synced_total = int(zips_match.group(2))
@@ -88,6 +90,7 @@ def analyze_html(html: str | None) -> dict[str, Any]:
 
 if __name__ == "__main__":
     import sys
+
     html = fetch_html()
     if html:
         sys.stdout.write(json.dumps(analyze_html(html), indent=2) + "\n")

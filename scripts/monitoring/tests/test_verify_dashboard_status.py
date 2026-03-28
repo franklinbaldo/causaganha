@@ -5,6 +5,7 @@ from scripts.monitoring.verify_dashboard_status import analyze_html
 
 TOTAL_TRIBUNALS = 91
 
+
 def test_analyze_html_stale() -> None:
     """Test stale HTML."""
     with open("scripts/monitoring/tests/test_fallback.html") as f:
