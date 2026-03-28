@@ -1020,68 +1020,37 @@ def save_parquet(data: list[dict], output_path: Path) -> bool:
 
 
 def upload_to_ia(files: list[Path]) -> bool:
-    """Upload catalog files to Internet Archive using IAS3 API directly."""
-    import os as _os
-
-    access_key = _os.environ.get("IAS3_ACCESS_KEY", "")
-    secret_key = _os.environ.get("IAS3_SECRET_KEY", "")
-
-    if not access_key or not secret_key:
-        logger.error("upload_skipped_no_credentials")
-        return False
-
+    """Upload catalog files to Internet Archive using ia CLI."""
     logger.info("uploading_to_ia", files=[f.name for f in files])
-    auth_header = f"LOW {access_key}:{secret_key}"
-    success = True
-
-    for file_path in files:
-        url = f"https://s3.us.archive.org/{IA_CATALOG_ITEM}/{file_path.name}"
-        headers = {
-            "Authorization": auth_header,
-            "x-amz-auto-make-bucket": "1",
-            "x-archive-meta-collection": "opensource",
-            "x-archive-meta-mediatype": "data",
-            "x-archive-meta-title": "CausaGanha Catalog",
-            "x-archive-meta-subject": "causaganha;djen;legal;brazil;catalog",
-            "x-archive-no-derive": "1",
-        }
-        try:
-            result = subprocess.run(
-                [
-                    "curl",
-                    "-s",
-                    "-X",
-                    "PUT",
-                    url,
-                    *[f for h, v in headers.items() for f in ["--header", f"{h}:{v}"]],
-                    "--upload-file",
-                    str(file_path),
-                    "--write-out",
-                    "%{http_code}",
-                    "--silent",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            http_code = result.stdout.strip()
-            if result.returncode == 0 and http_code in ("200", "201"):
-                logger.info("file_upload_success", file=file_path.name, http_code=http_code)
-            else:
-                logger.error(
-                    "file_upload_failed",
-                    file=file_path.name,
-                    http_code=http_code,
-                    stderr=result.stderr[:200],
-                )
-                success = False
-        except subprocess.TimeoutExpired:
-            logger.error("file_upload_timeout", file=file_path.name)
-            success = False
-
-    if success:
-        logger.info("upload_success")
-    return success
+    file_args = [str(f) for f in files]
+    try:
+        result = subprocess.run(
+            [
+                "ia",
+                "upload",
+                IA_CATALOG_ITEM,
+                *file_args,
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                "--metadata=title:CausaGanha Catalog",
+                "--metadata=description:Master catalog for CausaGanha DJEN data.",
+                "--metadata=subject:causaganha;djen;legal;brazil;catalog",
+                "--metadata=creator:CausaGanha",
+                "--retries=3",
+                "--no-derive",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode == 0:
+            logger.info("upload_success")
+            return True
+        logger.error("upload_failed", stderr=result.stderr[:400])
+        return False
+    except subprocess.TimeoutExpired:
+        logger.exception("upload_timeout")
+        return False
 
 
 def main() -> int:
