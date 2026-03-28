@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -263,13 +262,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -281,9 +280,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -305,7 +307,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -333,7 +339,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
@@ -461,6 +471,53 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 if __name__ == "__main__":
     db_path = Path("data/causaganha.duckdb")
     output_path = Path("dashboard/public/dashboard-data.json")
+
+    # Generate mock blocked fixes for demonstration
+    import contextlib
+    import subprocess
+    import sys
+
+    with contextlib.suppress(Exception):
+        # Update blocked-fixes.json based on existing PRs or default to 436
+        blocked_fixes_path = output_path.parent / "blocked-fixes.json"
+        prs_to_check = [436]
+
+        if blocked_fixes_path.exists():
+            try:
+                with blocked_fixes_path.open("r") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        prs_to_check = [item.get("corrective_pr_number") or item.get("pr_number") for item in data]
+                        prs_to_check = [pr for pr in prs_to_check if pr is not None]
+                    elif isinstance(data, dict):
+                        pr = data.get("corrective_pr_number") or data.get("pr_number")
+                        if pr is not None:
+                            prs_to_check = [pr]
+            except Exception:
+                pass
+
+        # Default back to 436 if empty
+        if not prs_to_check:
+            prs_to_check = [436]
+
+        updated_data = []
+        for pr_number in prs_to_check:
+            result = subprocess.run(
+                [sys.executable, "scripts/dev/check_pr_lint_status.py", "--pr", str(pr_number), "--json"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.stdout:
+                try:
+                    pr_data = json.loads(result.stdout)
+                    updated_data.append(pr_data)
+                except json.JSONDecodeError:
+                    pass
+
+        if updated_data:
+            with blocked_fixes_path.open("w") as f:
+                json.dump(updated_data, f, indent=2)
 
     # No exit if DB is missing; let get_connection handle it
     generate_dashboard_data(db_path, output_path)

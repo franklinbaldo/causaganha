@@ -1,0 +1,13 @@
+[
+  {
+    "incident_name": "Collect ZIPs",
+    "latest_failing_run_main": "23678658465",
+    "corrective_pr_number": 436,
+    "corrective_pr_title": "fix: collect zips failure and monitor-collect workflow syntax",
+    "corrective_pr_url": "https://github.com/franklinbaldo/causaganha/pull/436",
+    "core_checks_green": true,
+    "remaining_blocker": "Kilo Code Review",
+    "ready_since_hours": 1,
+    "urgency_bucket": "fresh"
+  }
+]

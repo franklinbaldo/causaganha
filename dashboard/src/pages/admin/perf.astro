@@ -5,6 +5,7 @@ import { PerfDashboard } from '../../components/PerfDashboard';
 
 let perfMetrics = null;
 let qualityScores = null;
+let blockedFixes = null;
 
 try {
   // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
@@ -21,6 +22,7 @@ try {
 
   perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
   qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
+  blockedFixes = await fetchLocal('blocked-fixes.json').catch(() => null);
 } catch (e) {
   console.warn('Failed to load performance metrics at build time:', e);
 }
@@ -54,6 +56,74 @@ try {
     </header>
 
     <main class="max-w-7xl mx-auto space-y-6">
+      {blockedFixes && blockedFixes.length > 0 && (
+        <div class="card border-l-4 border-warning bg-warning-muted/10 p-4 mb-6">
+          <div class="flex items-start gap-4">
+            <div class="text-warning mt-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                <path d="M12 9v4"></path>
+                <path d="M12 17h.01"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-black dark:text-white flex items-center gap-2">
+                Blocked Fix in Queue
+              </h3>
+              <div class="space-y-6">
+                {blockedFixes.map((fix) => (
+                  <div class="mt-3 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <span class="font-medium text-gray-500">Incident/Workflow:</span>
+                        <span class="ml-2">{fix.incident_name}</span>
+                      </div>
+                      <div>
+                        <span class="font-medium text-gray-500">Failing Run:</span>
+                        <span class="ml-2 font-mono">{fix.latest_failing_run_main}</span>
+                      </div>
+                      <div>
+                        <span class="font-medium text-gray-500">Corrective PR:</span>
+                        <a href={fix.corrective_pr_url} target="_blank" rel="noopener noreferrer" class="ml-2 text-accent hover:underline">
+                          #{fix.corrective_pr_number} ({fix.corrective_pr_title})
+                        </a>
+                      </div>
+                      <div>
+                        <span class="font-medium text-gray-500">Status:</span>
+                        <span class="ml-2">
+                          {fix.core_checks_green ? '✅ Core checks green' : '❌ Checks failing'}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="mt-2 pt-2 border-t border-warning/20 flex flex-wrap gap-4">
+                      <div>
+                        <span class="font-medium text-gray-500">Remaining Blocker:</span>
+                        <span class="ml-2 font-medium text-black dark:text-white bg-warning-muted px-2 py-0.5 rounded text-xs uppercase tracking-wider">
+                          {fix.remaining_blocker}
+                        </span>
+                      </div>
+                      {fix.urgency_bucket && (
+                        <div>
+                          <span class="font-medium text-gray-500">Age:</span>
+                          <span class="ml-2 text-sm">{fix.ready_since_hours} hours</span>
+                          <span class={`ml-2 px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider ${
+                            fix.urgency_bucket === 'fresh' ? 'bg-success/20 text-success' :
+                            fix.urgency_bucket === 'warning' ? 'bg-warning/20 text-warning-strong' :
+                            'bg-danger/20 text-danger'
+                          }`}>
+                            {fix.urgency_bucket}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
     </main>
   </div>
