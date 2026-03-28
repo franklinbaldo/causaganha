@@ -951,6 +951,16 @@ def upload_to_ia(files: list[Path]) -> bool:
     file_args = [str(f) for f in files]
 
     try:
+        # Pass IA credentials via env (IAS3_ACCESS_KEY / IAS3_SECRET_KEY from GitHub secrets)
+        # ia CLI reads IA_ACCESS_KEY and IA_SECRET_KEY from environment
+        import os as _os
+
+        upload_env = _os.environ.copy()
+        if "IAS3_ACCESS_KEY" in upload_env and "IA_ACCESS_KEY" not in upload_env:
+            upload_env["IA_ACCESS_KEY"] = upload_env["IAS3_ACCESS_KEY"]
+        if "IAS3_SECRET_KEY" in upload_env and "IA_SECRET_KEY" not in upload_env:
+            upload_env["IA_SECRET_KEY"] = upload_env["IAS3_SECRET_KEY"]
+
         result = subprocess.run(
             [
                 "ia",
@@ -969,6 +979,7 @@ def upload_to_ia(files: list[Path]) -> bool:
             capture_output=True,
             text=True,
             timeout=600,
+            env=upload_env,
         )
 
         if result.returncode == 0:
