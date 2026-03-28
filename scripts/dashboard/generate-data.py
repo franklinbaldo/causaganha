@@ -2,6 +2,7 @@ from datetime import timezone
 from datetime import UTC, datetime, timezone
 from datetime import date
 from causaganha.config import TRIBUNAIS
+
 #!/usr/bin/env python3
 """Generate dashboard-data.json from DuckDB catalog."""
 
@@ -32,7 +33,9 @@ def calculate_quality_scores(
 
         start_date_str = tribunal_start_dates[tribunal]
         try:
-            start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            start_date_obj = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            )
         except ValueError:
             continue
 
@@ -41,7 +44,10 @@ def calculate_quality_scores(
             continue
 
         sorted_dates = sorted(
-            [datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).date() for d in set(coverage_dates)]
+            [
+                datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+                for d in set(coverage_dates)
+            ]
         )
         days_with_data = len(sorted_dates)
 
@@ -286,7 +292,6 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
     )
     if not all_tribunals:
-
         all_tribunals = set(TRIBUNAIS)
 
     today = datetime.now(timezone.utc).date()
@@ -315,7 +320,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         )
 
         try:
-            start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            start_date_obj = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            )
         except Exception:
             start_date_obj = date(2024, 1, 1)
 
@@ -392,8 +399,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     # Or we skip latency if 'updatedAt' is missing, but for performance dashboard
                     # we can use a generated mock latency if real one isn't present for demonstration.
                     if r.get("updatedAt"):
-                        start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-                        end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                        start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                            tzinfo=timezone.utc
+                        )
+                        end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                            tzinfo=timezone.utc
+                        )
                         latency_ms = int((end - start).total_seconds() * 1000)
                     else:
                         latency_ms = (

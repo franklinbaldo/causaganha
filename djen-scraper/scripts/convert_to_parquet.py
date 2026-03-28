@@ -307,7 +307,6 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
     try:
         result = process_item(entry)
     except Exception:
-
         return (entry, False, traceback.format_exc())
     else:
         return (entry, result, "")

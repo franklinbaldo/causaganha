@@ -132,6 +132,7 @@ def get_unanalyzed_intimations(
 def mark_as_analyzed(
     con: Backend,
     intimation_id: int,
+    *,
     success: bool,
     error: str | None = None,
 ) -> None:

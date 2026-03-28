@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Create sample data for testing Parquet export system."""
 

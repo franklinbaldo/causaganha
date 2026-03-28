@@ -1,5 +1,6 @@
 from __future__ import annotations
 import httpx
+
 """DJEN proxy client — caderno info lookup and ZIP download."""
 
 
@@ -59,7 +60,6 @@ async def get_caderno_url(
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
     if resp.status_code >= 500:
-
         raise httpx.HTTPError(f"Server error: {resp.status_code}")
     resp.raise_for_status()
 

@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Daily Parquet export runner for scheduled execution.
 

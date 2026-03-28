@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """Internet Archive Parquet Downloader.
 
 Downloads parquet files from Internet Archive for reanalysis workflows.
@@ -405,7 +406,10 @@ class IAParquetDownloader:
             return None
 
         # Check if cache is expired
-        file_age_days = (datetime.now(timezone.utc) - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=timezone.utc)).days
+        file_age_days = (
+            datetime.now(timezone.utc)
+            - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=timezone.utc)
+        ).days
 
         if file_age_days > self.config.cache_ttl_days:
             logger.info(
@@ -434,7 +438,8 @@ class IAParquetDownloader:
                 deleted += 1
             else:
                 file_age_days = (
-                    datetime.now(timezone.utc) - datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+                    datetime.now(timezone.utc)
+                    - datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
                 ).days
 
                 if file_age_days > older_than_days:

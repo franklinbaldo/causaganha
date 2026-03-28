@@ -1,6 +1,7 @@
 from datetime import timezone
 import pyarrow.parquet as pq
 import traceback
+
 #!/usr/bin/env python3
 """Test Parquet export functionality."""
 
@@ -50,7 +51,6 @@ async def test_export() -> None:
                 pass
 
         except Exception:
-
             traceback.print_exc()
 
 

@@ -67,7 +67,6 @@ def get_embedding_client():
 
     if google_key:
         try:
-
             genai.configure(api_key=google_key)
 
             def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -371,7 +370,6 @@ def main() -> int:
         if time.time() - start_time > timeout_seconds:
             logger.info("timeout_reached")
             break
-
 
         stats = generate_embeddings_for_date(
             date=date,

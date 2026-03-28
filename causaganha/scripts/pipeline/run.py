@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """CausaGanha Data Pipeline - KISS Version.
 
 Orchestrates pipeline steps sequentially, processing exactly ONE day per run.

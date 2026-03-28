@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """Embedding storage using Ibis/DuckDB for local processing and Parquet export.
 
 This module handles:
@@ -188,14 +189,14 @@ class EmbeddingStorage:
 
         # Delete existing embeddings for this text
         self.con.con.execute(
-            f"DELETE FROM {table_name} WHERE texto_id = ?",
+            f"DELETE FROM {table_name} WHERE texto_id = ?",  # noqa: S608
             [texto_id],
         )
 
         # Register DataFrame and insert
         self.con.con.register("temp_embeddings", embeddings_frame)
         self.con.con.execute(
-            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",
+            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",  # noqa: S608
         )
         self.con.con.unregister("temp_embeddings")
 
@@ -401,7 +402,7 @@ class EmbeddingStorage:
 
         # Use DuckDB's native list_cosine_similarity for fast vector search
         # Query only chunk_index=0 to get one result per text
-        query_sql = f"""
+        query_sql = f"""  # noqa: S608
             SELECT
                 texto_id,
                 chunk_index,

@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """CLI package for CausaGanha."""
 
 import asyncio

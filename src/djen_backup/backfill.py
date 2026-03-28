@@ -1,3 +1,6 @@
+from __future__ import annotations
+import anyio
+
 """Backfill engine — scan historical dates per tribunal with 60-empty-day stop rule.
 
 For each tribunal, scans backward one day at a time.  When 60 consecutive
@@ -5,7 +8,6 @@ For each tribunal, scans backward one day at a time.  When 60 consecutive
 skipped on future runs.  Errors and timeouts never count as empty.
 """
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -732,9 +734,9 @@ async def run_backfill(config: BackfillConfig) -> int:
     # 0. Load discovered Genesis dates
     genesis_dates = {}
     genesis_path = Path("dashboard/public/tribunal_start_dates.json")
-    if genesis_path.exists():
+    if await anyio.Path(genesis_path).exists():
         try:
-            genesis_dates = json.loads(genesis_path.read_text(encoding="utf-8"))
+            genesis_dates = json.loads(await anyio.Path(genesis_path).read_text(encoding="utf-8"))
             log.info("backfill_genesis_loaded", tribunals=len(genesis_dates))
         except (json.JSONDecodeError, OSError):
             log.warning("backfill_genesis_load_failed", path=str(genesis_path))
@@ -782,24 +784,24 @@ async def run_backfill(config: BackfillConfig) -> int:
 
     # Pass metrics to CI environment if running in GitHub Actions
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        with open(gh_output, "a") as f:
-            f.write(f"uploaded={summary.hits}\n")
-            f.write(f"errors={summary.errors}\n")
-            f.write(f"empties={summary.empties}\n")
-            f.write(f"stopped={summary.tribunals_stopped}\n")
+        async with await anyio.open_file(gh_output, "a") as f:
+            await f.write(f"uploaded={summary.hits}\n")
+            await f.write(f"errors={summary.errors}\n")
+            await f.write(f"empties={summary.empties}\n")
+            await f.write(f"stopped={summary.tribunals_stopped}\n")
 
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
         start_date_str = config.lower_bound.isoformat() if config.lower_bound else "2013-01-01"
         end_date_str = config.start_date.isoformat()
-        with open(gh_summary, "a") as f:
-            f.write("## Results (success = uploaded > 0)\n")
-            f.write("| Metric | Value |\n")
-            f.write("|--------|-------|\n")
-            f.write(f"| ✅ Uploaded (hits) | **{summary.hits}** |\n")
-            f.write(f"| ❌ Errors | {summary.errors} |\n")
-            f.write(f"| ⬜ Empties | {summary.empties} |\n")
-            f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")
-            f.write(f"| Window | {start_date_str} → {end_date_str} |\n\n")
+        async with await anyio.open_file(gh_summary, "a") as f:
+            await f.write("## Results (success = uploaded > 0)\n")
+            await f.write("| Metric | Value |\n")
+            await f.write("|--------|-------|\n")
+            await f.write(f"| ✅ Uploaded (hits) | **{summary.hits}** |\n")
+            await f.write(f"| ❌ Errors | {summary.errors} |\n")
+            await f.write(f"| ⬜ Empties | {summary.empties} |\n")
+            await f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")
+            await f.write(f"| Window | {start_date_str} → {end_date_str} |\n\n")
 
     exit_code = 0
     if summary.ia_errors > 0:

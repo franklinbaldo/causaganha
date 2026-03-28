@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Health check script for Parquet export system.
 

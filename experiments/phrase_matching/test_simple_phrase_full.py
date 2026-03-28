@@ -1,4 +1,5 @@
 from collections import Counter
+
 #!/usr/bin/env python3
 """Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 

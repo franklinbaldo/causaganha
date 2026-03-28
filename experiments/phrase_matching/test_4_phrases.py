@@ -1,4 +1,5 @@
 from collections import Counter
+
 #!/usr/bin/env python3
 """Testa com 4 frases-chave: WIN, LOSS, UNKNOWN, PARTIAL."""
 

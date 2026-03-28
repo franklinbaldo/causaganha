@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """Integration test script for V2 pipeline."""
 
 import asyncio

@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Consolidate DJEN ZIP files into daily Parquet files.
 
@@ -1395,7 +1396,6 @@ def process_zip_entry(
 
     # Download or copy
     if local_zips and "local_path" in zip_entry:
-
         try:
             shutil.copy2(zip_entry["local_path"], zip_path)
         except Exception as e:

@@ -1,4 +1,5 @@
 from collections import Counter
+
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 
@@ -72,7 +73,6 @@ def main() -> None:
     table.add_column("Outcome", style="cyan")
     table.add_column("Count", style="yellow")
     table.add_column("Avg Confidence", style="green")
-
 
     outcome_counts = Counter(c[1] for c in candidates)
     outcome_confidence = {}

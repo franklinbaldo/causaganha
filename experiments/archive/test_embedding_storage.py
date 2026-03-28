@@ -83,7 +83,6 @@ async def test_embedding_storage() -> None:
 
     # Save another intimation with different model (simulate mixed models)
 
-
     # Generate with 768D model
     service_768 = await EmbeddingService.create(
         provider="jina",

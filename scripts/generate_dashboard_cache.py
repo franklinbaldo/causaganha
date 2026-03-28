@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Generate dashboard cache JSON files from the catalog manifest.
 

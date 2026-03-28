@@ -1,4 +1,5 @@
 from datetime import timezone
+
 #!/usr/bin/env python3
 """Script to validate PJe API coverage across different Brazilian courts.
 

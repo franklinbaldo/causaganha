@@ -1,4 +1,5 @@
 from datetime import timezone
+
 """Continuous embedding service for running on laptop/personal computer.
 
 This service runs 24/7 on your laptop and continuously processes unembedded decisions.
