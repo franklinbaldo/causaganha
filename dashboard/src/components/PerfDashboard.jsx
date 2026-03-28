@@ -15,6 +15,9 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
   const backlogDays = perfMetrics.causaganha_backlog_pending_days || 0;
   const activeTribunals = perfMetrics.causaganha_active_tribunals || 0;
   const slowestTribunals = perfMetrics.slowest_tribunals || [];
+  const failureStreak = perfMetrics.causaganha_current_failure_streak || 0;
+  const lastSuccessLabel = perfMetrics.causaganha_last_successful_run_label || 'N/A';
+  const wasRestored = perfMetrics.causaganha_was_restored === true;
 
   // Grade Distribution
   const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
@@ -69,11 +72,35 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
 
   return (
     <div className="space-y-8">
+      {wasRestored && perfMetrics.causaganha_last_successful_run_iso && (
+        <div className="bg-success/10 border border-success/20 text-success p-4 rounded-lg flex items-center gap-3 animate-fade-in shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span className="font-medium text-sm">
+            ✅ Pipeline restaurado — última coleta: {new Date(perfMetrics.causaganha_last_successful_run_iso).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute:'2-digit', timeZone: 'UTC'})} UTC
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card text-center p-6">
+        <div className="card text-center p-6 flex flex-col justify-center">
           <div className="text-sm text-gray-500 mb-2">Upload Success Rate</div>
-          <div className={`text-4xl font-bold ${successRate >= 90 ? 'text-success' : 'text-danger'}`}>
+          <div className={`text-4xl font-bold ${successRate >= 90 ? 'text-success' : 'text-danger'} mb-2`}>
             {successRate.toFixed(1)}%
+          </div>
+          {failureStreak > 0 ? (
+            <div className="text-xs text-danger font-medium mt-1">
+              Falhas consecutivas: {failureStreak}
+            </div>
+          ) : (
+            <div className="text-xs text-success font-medium mt-1">
+              Sem falhas recentes
+            </div>
+          )}
+          <div className="text-xs text-gray-400 mt-1">
+            Último sucesso: {lastSuccessLabel}
           </div>
         </div>
 

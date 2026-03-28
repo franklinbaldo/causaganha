@@ -32,16 +32,32 @@
     }
   ],
   "causaganha_upload_success_rate": 83.33,
-  "causaganha_active_tribunals": 20,
-  "causaganha_backlog_pending_days": 1634,
+  "causaganha_active_tribunals": 54,
+  "causaganha_backlog_pending_days": 71439,
   "slowest_tribunals": [
     {
-      "tribunal": "TJPB",
+      "tribunal": "CJF",
       "velocity_14d": 0
     },
     {
-      "tribunal": "TJRR",
+      "tribunal": "CNJ",
+      "velocity_14d": 0
+    },
+    {
+      "tribunal": "PJeCor",
+      "velocity_14d": 0
+    },
+    {
+      "tribunal": "SEEU",
+      "velocity_14d": 0
+    },
+    {
+      "tribunal": "STF",
       "velocity_14d": 0
     }
-  ]
+  ],
+  "causaganha_current_failure_streak": 0,
+  "causaganha_last_successful_run_iso": "2026-03-28T18:09:08Z",
+  "causaganha_last_successful_run_label": "28/03/2026 18:09 UTC",
+  "causaganha_was_restored": true
 }

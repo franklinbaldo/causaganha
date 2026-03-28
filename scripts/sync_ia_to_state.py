@@ -2,10 +2,12 @@
 """Sync Internet Archive metadata to data/state.json for dashboard visibility."""
 
 import json
-import httpx
-from pathlib import Path
 from datetime import date
+from pathlib import Path
+
+import httpx
 import structlog
+
 
 log = structlog.get_logger()
 
@@ -43,7 +45,7 @@ def parse_identifier(identifier, title):
                 return date_str, tribunal
         except Exception:
             pass
-            
+
     # Fallback for detailed identifiers
     # djen-raw-2026-01-23-TJSP
     parts = identifier.split("-")
@@ -59,14 +61,14 @@ def parse_identifier(identifier, title):
 
 def main():
     log.info("sync_ia_starting", query=QUERY)
-    
+
     params = {
         "q": QUERY,
         "fl[]": ["identifier", "title", "date", "description"],
         "rows": 10000,
         "output": "json"
     }
-    
+
     response = httpx.get(IA_SEARCH_URL, params=params, timeout=60)
     if response.status_code != 200:
         log.error("ia_search_failed", status=response.status_code)
@@ -90,14 +92,14 @@ def main():
     for doc in docs:
         identifier = doc.get("identifier", "")
         title = doc.get("title", "")
-        
+
         # log.debug("processing_item", id=identifier, title=title)
         date_str, tribunal = parse_identifier(identifier, title)
-        
+
         if date_str and tribunal:
             if date_str not in entries:
                 entries[date_str] = {}
-            
+
             # Use status 'uploaded' to match backfill code
             if entries[date_str].get(tribunal) != "uploaded":
                 entries[date_str][tribunal] = "uploaded"
@@ -109,17 +111,16 @@ def main():
     state["updated_at"] = date.today().isoformat()
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state, indent=2))
-    
+
     log.info("sync_ia_finalized", total_hits_found=len(docs), new_successful_mappings=count_new, total_recorded=len(entries))
 
     # --- AUTOMATIC DASHBOARD UPDATE ---
     try:
         import sys
-        import os
         repo_root = "/home/franklin/workspace/causaganha"
         if repo_root not in sys.path:
             sys.path.insert(0, repo_root)
-            
+
         from scripts.dashboard.generate_data import generate_dashboard_data
         db_path = Path(f"{repo_root}/data/causaganha.duckdb")
         output_path = Path(f"{repo_root}/dashboard/public/dashboard-data.json")

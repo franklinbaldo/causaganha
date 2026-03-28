@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -385,6 +384,61 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 perf_metrics["causaganha_upload_success_rate"] = round(
                     (success_count / len(runs)) * 100, 2
                 )
+
+            # Calculate failure streak and last successful run
+            current_failure_streak = 0
+            last_successful_run_iso = None
+            last_successful_run_label = None
+
+            # Sort runs by createdAt descending to ensure we check newest first
+            sorted_runs = sorted(
+                runs,
+                key=lambda x: x.get("createdAt", ""),
+                reverse=True
+            )
+
+            was_restored = False
+
+            if sorted_runs:
+                most_recent_run = sorted_runs[0]
+                if most_recent_run.get("conclusion") == "success":
+                    last_successful_run_iso = most_recent_run.get("createdAt")
+
+                    # Check if the previous run was a failure (meaning a streak was broken)
+                    if len(sorted_runs) > 1 and sorted_runs[1].get("conclusion") == "failure":
+                        if last_successful_run_iso:
+                            try:
+                                dt = datetime.strptime(last_successful_run_iso, "%Y-%m-%dT%H:%M:%SZ")
+                                # Consider restored if it happened within the last 24 hours
+                                if (datetime.now(UTC).replace(tzinfo=None) - dt).total_seconds() < 24 * 3600:
+                                    was_restored = True
+                            except ValueError:
+                                pass
+                else:
+                    # If most recent is failure, count consecutive failures
+                    for r in sorted_runs:
+                        if r.get("conclusion") == "failure":
+                            current_failure_streak += 1
+                        else:
+                            break
+
+            # Now find the last successful run overall
+            for r in sorted_runs:
+                if r.get("conclusion") == "success":
+                    if not last_successful_run_iso:
+                        last_successful_run_iso = r.get("createdAt")
+                    if last_successful_run_iso and not last_successful_run_label:
+                        try:
+                            dt = datetime.strptime(last_successful_run_iso, "%Y-%m-%dT%H:%M:%SZ")
+                            last_successful_run_label = dt.strftime("%d/%m/%Y %H:%M UTC")
+                        except ValueError:
+                            pass
+                    break
+
+            perf_metrics["causaganha_current_failure_streak"] = current_failure_streak
+            perf_metrics["causaganha_last_successful_run_iso"] = last_successful_run_iso
+            perf_metrics["causaganha_last_successful_run_label"] = last_successful_run_label
+            perf_metrics["causaganha_was_restored"] = was_restored
 
             latencies = []
             for r in runs:
