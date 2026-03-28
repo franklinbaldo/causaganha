@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -263,13 +262,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -461,6 +460,30 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 if __name__ == "__main__":
     db_path = Path("data/causaganha.duckdb")
     output_path = Path("dashboard/public/dashboard-data.json")
+
+
+    # Generate mock blocked fixes for demonstration
+    import contextlib
+    import subprocess
+    import sys
+
+    with contextlib.suppress(Exception):
+        # Generate blocked-fixes.json
+        blocked_fixes_path = output_path.parent / "blocked-fixes.json"
+        with blocked_fixes_path.open("w") as out_f:
+            subprocess.run(
+                [sys.executable, "scripts/dev/check_pr_lint_status.py", "--pr", "436", "--json"],
+                stdout=out_f,
+                check=False
+            )
+
+        # Format the output as array (required by the dashboard component)
+        if blocked_fixes_path.exists():
+            with blocked_fixes_path.open("r") as f:
+                data = json.load(f)
+            if not isinstance(data, list):
+                with blocked_fixes_path.open("w") as f:
+                    json.dump([data], f, indent=2)
 
     # No exit if DB is missing; let get_connection handle it
     generate_dashboard_data(db_path, output_path)
