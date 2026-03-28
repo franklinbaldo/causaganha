@@ -888,6 +888,7 @@ def main() -> None:
     # Generate health digest independently
     try:
         import subprocess
+
         health_script = Path("scripts/dashboard/generate-health.py")
         if health_script.exists():
             subprocess.run([sys.executable, str(health_script)], check=False)
