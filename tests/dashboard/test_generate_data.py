@@ -1,11 +1,11 @@
-import pytest
-import sys
-import os
 import importlib.util
+import os
+import sys
+
 
 # Load module dynamically because its name has a hyphen
-module_name = 'generate_data'
-module_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../scripts/dashboard/generate-data.py'))
+module_name = "generate_data"
+module_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../scripts/dashboard/generate-data.py"))
 
 spec = importlib.util.spec_from_file_location(module_name, module_path)
 generate_data = importlib.util.module_from_spec(spec)

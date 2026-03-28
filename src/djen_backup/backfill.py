@@ -509,7 +509,7 @@ async def backfill_tribunal(
         # Check against global lower bound
         if config.lower_bound and prog.cursor_date < config.lower_bound:
             break
-            
+
         # Check against discovered Genesis (discovery script)
         if genesis_date and prog.cursor_date < genesis_date:
             log.info(
