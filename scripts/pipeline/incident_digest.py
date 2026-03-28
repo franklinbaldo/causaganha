@@ -62,7 +62,7 @@ def format_digest(job: dict, run_id: str) -> str:
             if fail_time_str:
                 fail_time = datetime.strptime(fail_time_str, "%Y-%m-%dT%H:%M:%SZ")
                 elapsed = (fail_time - start_time).total_seconds()
-                lines.append(f"- **Time to Failure:** {elapsed/60:.1f} minutes")
+                lines.append(f"- **Time to Failure:** {elapsed / 60:.1f} minutes")
 
     lines.append(f"- **Job Conclusion:** `{job.get('conclusion')}`")
 
