@@ -32,7 +32,16 @@
     }
   ],
   "causaganha_upload_success_rate": 83.33,
-  "causaganha_active_tribunals": 1,
-  "causaganha_backlog_pending_days": 0,
-  "slowest_tribunals": []
+  "causaganha_active_tribunals": 15,
+  "causaganha_backlog_pending_days": 1634,
+  "slowest_tribunals": [
+    {
+      "tribunal": "TJPB",
+      "velocity_14d": 0
+    },
+    {
+      "tribunal": "TJRR",
+      "velocity_14d": 0
+    }
+  ]
 }

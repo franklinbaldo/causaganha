@@ -115,31 +115,38 @@ def fetch_progress_json(url: str) -> dict | None:
 
 def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     """Generate dashboard data from DuckDB."""
-    # Use singleton connection via Ibis backend, access raw DuckDB connection
-    backend = get_connection(str(db_path), read_only=True)
-    con = backend.con
-
-    # Backfill progress
+    # Attempt to get a connection; handle missing database by skipping DB-bound queries
     try:
-        result = con.execute("""
-            SELECT
-                MIN(date) as oldest_date,
-                MAX(date) as newest_date,
-                COUNT(DISTINCT date) as unique_days,
-                COUNT(*) as total_items
-            FROM djen_state.coverage
-        """).fetchone()
-
-        oldest_date = str(result[0]) if result[0] else None
-        newest_date = str(result[1]) if result[1] else None
-        unique_days = result[2] or 0
-        total_items = result[3] or 0
+        backend = get_connection(str(db_path), read_only=True)
+        con = backend.con
     except Exception as e:
-        print(f"Warning: Failed to query djen_state.coverage. Database may be empty: {e}")
-        oldest_date = None
-        newest_date = None
-        unique_days = 0
-        total_items = 0
+        print(f"Warning: Could not connect to database {db_path}: {e}")
+        con = None
+
+    # Get stats from DB only if connected
+    oldest_date = None
+    newest_date = None
+    unique_days = 0
+    total_items = 0
+
+    if con:
+        try:
+            result = con.execute("""
+                SELECT
+                    MIN(date) as oldest_date,
+                    MAX(date) as newest_date,
+                    COUNT(DISTINCT date) as unique_days,
+                    COUNT(*) as total_items
+                FROM djen_state.coverage
+            """).fetchone()
+
+            if result:
+                oldest_date = str(result[0]) if result[0] else None
+                newest_date = str(result[1]) if result[1] else None
+                unique_days = result[2] or 0
+                total_items = result[3] or 0
+        except Exception as e:
+            print(f"Warning: Failed to query djen_state.coverage: {e}")
 
     target_days = 764  # 2024-01-01 to 2026-02-03
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
@@ -158,50 +165,52 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     coverage_rows = []
     velocity_rows = []
 
-    try:
-        # Daily Stats for CalendarHeatmap
-        daily_stats = con.execute("""
-            SELECT
-                date,
-                COUNT(*) as count
-            FROM djen_state.coverage
-            GROUP BY date
-            ORDER BY date
-        """).fetchall()
+    if con:
+        try:
+            # Daily Stats for CalendarHeatmap
+            daily_stats = con.execute("""
+                SELECT
+                    date,
+                    COUNT(*) as count
+                FROM djen_state.coverage
+                GROUP BY date
+                ORDER BY date
+            """).fetchall()
 
-        # Recent Activity (last 7 days) for TimelineGraph
-        recent_date_limit = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
-        recent_activity = con.execute(f"""
-            SELECT
-                date,
-                COUNT(*) as count
-            FROM djen_state.coverage
-            WHERE date >= '{recent_date_limit}'
-            GROUP BY date
-            ORDER BY date
-        """).fetchall()
+            # Recent Activity (last 7 days) for TimelineGraph
+            recent_date_limit = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
+            recent_activity = con.execute(f"""
+                SELECT
+                    date,
+                    COUNT(*) as count
+                FROM djen_state.coverage
+                WHERE date >= '{recent_date_limit}'
+                GROUP BY date
+                ORDER BY date
+            """).fetchall()
 
-        # Per-tribunal coverage and stats
-        coverage_rows = con.execute("""
-            SELECT
-                tribunal,
-                date
-            FROM djen_state.coverage
-            ORDER BY tribunal, date
-        """).fetchall()
+            # Per-tribunal coverage and stats
+            coverage_rows = con.execute("""
+                SELECT
+                    tribunal,
+                    date
+                FROM djen_state.coverage
+                ORDER BY tribunal, date
+            """).fetchall()
 
-        # Velocity over last 14 days
-        velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
-        velocity_rows = con.execute(f"""
-            SELECT
-                tribunal,
-                COUNT(DISTINCT date) as velocity_14d
-            FROM djen_state.coverage
-            WHERE date >= '{velocity_date_limit}'
-            GROUP BY tribunal
-        """).fetchall()
-    except Exception:
-        pass
+            # Velocity over last 14 days
+            velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
+            velocity_rows = con.execute(f"""
+                SELECT
+                    tribunal,
+                    COUNT(DISTINCT date) as velocity_14d
+                FROM djen_state.coverage
+                WHERE date >= '{velocity_date_limit}'
+                GROUP BY tribunal
+                ORDER BY tribunal
+            """).fetchall()
+        except Exception as e:
+            print(f"Warning: Failed to query detailed dashboard stats from DuckDB: {e}")
 
     tribunal_coverage = {}
     for t, d in coverage_rows:
@@ -212,6 +221,37 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     velocity_map = {t: v for t, v in velocity_rows}
 
+    # Read backfill state (cursors and streaks)
+    backfill_state_path = Path("data/backfill-state.json")
+    backfill_cursors = {}
+    if backfill_state_path.exists():
+        try:
+            bs = json.loads(backfill_state_path.read_text())
+            for t, info in bs.get("tribunals", {}).items():
+                backfill_cursors[t] = {
+                    "cursor_date": info.get("cursor_date"),
+                    "stopped": info.get("stopped", False),
+                    "empty_streak": info.get("empty_streak", 0),
+                }
+        except Exception as e:
+            print(f"Warning: Failed to load backfill state: {e}")
+
+    # Read absent days from state.json
+    state_json_path = Path("data/state.json")
+    tribunal_absent_coverage = {}
+    if state_json_path.exists():
+        try:
+            sj = json.loads(state_json_path.read_text())
+            entries = sj.get("entries", {})
+            for date_key, tribunals in entries.items():
+                for tcode, status in tribunals.items():
+                    if status == "absent":
+                        if tcode not in tribunal_absent_coverage:
+                            tribunal_absent_coverage[tcode] = []
+                        tribunal_absent_coverage[tcode].append(date_key)
+        except Exception as e:
+            print(f"Warning: Failed to load absent days from state.json: {e}")
+
     tribunal_etas = {}
     from datetime import date
 
@@ -220,12 +260,41 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # The true count of expected days is `target_days` (764)
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
-    for tribunal in list(set(t for t, _ in coverage_rows)):
+    # The set of tribunals to report on: either from DB or from the canonical list
+    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    if not all_tribunals:
+        from causaganha.config import TRIBUNAIS
+        all_tribunals = set(TRIBUNAIS)
+
+    today = date.today()
+
+    # Load discovered start dates for dynamic calculation
+    discovered_start_dates = {}
+    genesis_path = output_path.parent / "tribunal_start_dates.json"
+    if genesis_path.exists():
+        try:
+            discovered_start_dates = json.loads(genesis_path.read_text())
+        except Exception:
+            pass
+
+    for tribunal in sorted(all_tribunals):
         coverage_list = tribunal_coverage.get(tribunal, [])
-        # Only count unique dates in the target range? Let's just use unique total since target_days is fixed
-        # to simplify, assume all dates in coverage are valid
+        absent_list = tribunal_absent_coverage.get(tribunal, [])
         unique_days_t = len(set(coverage_list))
-        missing_days = max(0, target_days - unique_days_t)
+        absent_days_t = len(set(absent_list))
+
+        # Determine the anchor date for this tribunal
+        # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
+        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+
+        try:
+            start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        except Exception:
+            start_date_obj = date(2024, 1, 1)
+
+        total_days_since_genesis = (today - start_date_obj).days + 1
+        missing_days = max(0, total_days_since_genesis - unique_days_t - absent_days_t)
+
         velocity_14d = velocity_map.get(tribunal, 0)
 
         eta_days = None
@@ -233,10 +302,18 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             velocity_per_day = velocity_14d / 14.0
             eta_days = int(missing_days / velocity_per_day)
 
+        # Include backfill state if available
+        cursor_info = backfill_cursors.get(tribunal, {})
         tribunal_etas[tribunal] = {
             "missing_days": missing_days,
             "velocity_14d": velocity_14d,
             "eta_days": eta_days,
+            "cursor_date": cursor_info.get("cursor_date"),
+            "stopped": cursor_info.get("stopped", False),
+            "empty_streak": cursor_info.get("empty_streak", 0),
+            "genesis_date": start_date_str,
+            "absent_days_count": absent_days_t,
+            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
         }
 
     # Calculate Data Quality Scores
@@ -352,6 +429,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         },
         "backfill_progress": backfill_progress,
         "tribunal_coverage": tribunal_coverage,
+        "tribunal_absent_coverage": tribunal_absent_coverage,
         "tribunal_etas": tribunal_etas,
         "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
     }
@@ -364,7 +442,5 @@ if __name__ == "__main__":
     db_path = Path("data/causaganha.duckdb")
     output_path = Path("dashboard/public/dashboard-data.json")
 
-    if not db_path.exists():
-        sys.exit(1)
-
+    # No exit if DB is missing; let get_connection handle it
     generate_dashboard_data(db_path, output_path)

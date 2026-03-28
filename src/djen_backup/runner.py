@@ -17,7 +17,6 @@ import structlog
 from djen_backup.archive import (
     CircuitBreaker,
     fetch_ia_existing,
-    upload_absent_marker,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
@@ -211,32 +210,15 @@ async def _handle_djen_not_found_item(
     summary: Summary,
     exc: DJENNotFoundError,
 ) -> None:
-    """Handle DJEN not found error by uploading absent marker."""
+    """Handle DJEN not found error by marking as absent in state."""
     log.info(
         "djen_not_found",
         date=item.date.isoformat(),
         tribunal=item.tribunal,
         status_code=exc.status_code,
     )
-    try:
-        resp = await upload_absent_marker(
-            client,
-            item.date,
-            item.tribunal,
-            exc.status_code,
-            exc.reason,
-            config.ia_auth,
-        )
-        if resp.status_code < HTTP_BAD_REQUEST:
-            await breaker.record_success()
-            await state.mark(item.date, item.tribunal, ItemStatus.ABSENT)
-            await summary.inc_absent()
-        else:
-            await breaker.record_failure()
-            await summary.inc_failed()
-    except httpx.HTTPError:
-        await breaker.record_failure()
-        await summary.inc_failed()
+    await state.mark(item.date, item.tribunal, ItemStatus.ABSENT)
+    await summary.inc_absent()
 
 
 async def _handle_upload_to_ia(

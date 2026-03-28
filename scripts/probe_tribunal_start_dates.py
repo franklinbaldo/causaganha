@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 OUTPUT_FILE = Path("dashboard/public/tribunal_start_dates.json")
 
-# Concurrency limits - Reduced to prevent 429 Too Many Requests
-MAX_CONCURRENT_REQUESTS = 3
+# Concurrency limits - Increased for faster discovery
+MAX_CONCURRENT_REQUESTS = 10
 
 # Create a semaphore for global rate limiting
 sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
@@ -62,9 +62,9 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             if e.response.status_code == 429:
                 # Retry on 429 using exponential backoff inside the function
                 logger.warning(
-                    f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 5s..."
+                    f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 10s..."
                 )
-                await asyncio.sleep(5.0)
+                await asyncio.sleep(10.0)
                 return await check_date_has_data(client, tribunal, target_date)
             logger.warning(f"HTTP error checking {tribunal} at {target_date}: {e}")
             return False

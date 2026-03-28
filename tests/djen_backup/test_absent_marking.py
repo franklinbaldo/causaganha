@@ -65,23 +65,4 @@ def given_djen_empty_url(
 
 # ── Then ─────────────────────────────────────────────────────────────
 
-
-@then(
-    parsers.parse('an absent marker should be uploaded as "{filename}"'),
-)
-def then_absent_uploaded(context: dict[str, Any], filename: str) -> None:
-    ia_requests: list[httpx.Request] = context["ia_requests"]
-    urls = [str(r.url) for r in ia_requests]
-    matching = [u for u in urls if filename in u]
-    assert matching, f"Expected absent marker upload for {filename}, got URLs: {urls}"
-
-
-@then(
-    parsers.parse("the absent marker should contain JSON with status_code {code:d}"),
-)
-def then_absent_json(context: dict[str, Any], code: int) -> None:
-    ia_requests: list[httpx.Request] = context["ia_requests"]
-    assert ia_requests
-    body = json.loads(ia_requests[0].content)
-    assert body["status_code"] == code
-    assert "checked_at" in body
+# (Removed then_absent_uploaded and then_absent_json as they are no longer in the feature)

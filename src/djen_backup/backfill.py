@@ -20,7 +20,6 @@ import structlog
 
 from djen_backup.archive import (
     CircuitBreaker,
-    upload_absent_marker,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
@@ -269,7 +268,7 @@ class BackfillConfig:
     djen_proxy_url: str
     ia_auth: str
     dry_run: bool
-    skip_absent_markers: bool = False
+    genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
 @dataclass
@@ -339,65 +338,19 @@ async def _process_djen_not_found(  # noqa: PLR0913
     summary: BackfillSummary,
     exc: DJENNotFoundError,
 ) -> str:
-    """Handle DJENNotFoundError by uploading absent marker or skipping."""
+    """Handle DJENNotFoundError by marking as absent in state."""
     log.info(
         "backfill_empty",
         tribunal=tribunal,
         date=d.isoformat(),
         status_code=exc.status_code,
     )
-    if config.skip_absent_markers:
-        # Skip IA upload — just record empty and advance streak
-        stopped = await bstate.record_empty(tribunal)
-        await summary.inc_empty()
-        if stopped:
-            await summary.inc_stopped()
-        return "empty"
-    # Upload absent marker to IA
-    try:
-        resp = await upload_absent_marker(
-            client,
-            d,
-            tribunal,
-            exc.status_code,
-            exc.reason,
-            config.ia_auth,
-        )
-        if resp.status_code < HTTP_BAD_REQUEST:
-            await breaker.record_success()
-            await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
-            stopped = await bstate.record_empty(tribunal)
-            await summary.inc_empty()
-            if stopped:
-                await summary.inc_stopped()
-            return "empty"
-        body = resp.content or b""
-        if b"appears to be spam" in body:
-            # IA rejected this specific item as spam — skip without tripping circuit
-            log.warning(
-                "backfill_absent_spam_skipped",
-                tribunal=tribunal,
-                date=d.isoformat(),
-                status=resp.status_code,
-            )
-            await bstate.record_error(tribunal)
-            await summary.inc_error()
-            return "spam"
-        await breaker.record_failure()
-    except (httpx.HTTPError, RuntimeError) as upload_exc:
-        # RuntimeError is raised by request_with_retry when all retries are
-        # exhausted (e.g. IA returns 503 "spam" on every attempt).  Treat as a
-        # transient upload failure so the run can continue with other dates.
-        log.warning(
-            "backfill_absent_marker_failed",
-            tribunal=tribunal,
-            date=d.isoformat(),
-            error=str(upload_exc),
-        )
-        await breaker.record_failure()
-    await bstate.record_error(tribunal)
-    await summary.inc_error()
-    return "error"
+    await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
+    stopped = await bstate.record_empty(tribunal)
+    await summary.inc_empty()
+    if stopped:
+        await summary.inc_stopped()
+    return "empty"
 
 
 async def _process_upload_to_ia(  # noqa: PLR0913
@@ -547,7 +500,25 @@ async def backfill_tribunal(
     await summary.inc_scanned()
     items_processed = 0
 
-    while config.lower_bound is None or prog.cursor_date >= config.lower_bound:
+    # Determine per-tribunal dynamic lower bound (Genesis)
+    genesis_str = config.genesis_dates.get(tribunal)
+    genesis_date = date.fromisoformat(genesis_str) if genesis_str and genesis_str != "None" else None
+
+    while True:
+        # Check against global lower bound
+        if config.lower_bound and prog.cursor_date < config.lower_bound:
+            break
+            
+        # Check against discovered Genesis (discovery script)
+        if genesis_date and prog.cursor_date < genesis_date:
+            log.info(
+                "backfill_hit_genesis",
+                tribunal=tribunal,
+                genesis=genesis_date.isoformat(),
+                cursor=prog.cursor_date.isoformat(),
+            )
+            await bstate.stop_at_boundary(tribunal)
+            break
         # Deadline guard
         if time.monotonic() > deadline - 30:
             log.info("backfill_deadline_reached", tribunal=tribunal)
@@ -685,6 +656,17 @@ async def run_backfill(config: BackfillConfig) -> int:
     deadline = time.monotonic() + config.deadline_minutes * 60
     bstate = load_backfill_state(config.backfill_state_file)
     ia_state = load_state(config.state_file)
+
+    # 0. Load discovered Genesis dates
+    genesis_dates = {}
+    genesis_path = Path("dashboard/public/tribunal_start_dates.json")
+    if genesis_path.exists():
+        try:
+            genesis_dates = json.loads(genesis_path.read_text(encoding="utf-8"))
+            log.info("backfill_genesis_loaded", tribunals=len(genesis_dates))
+        except (json.JSONDecodeError, OSError):
+            log.warning("backfill_genesis_load_failed", path=str(genesis_path))
+    config.genesis_dates = genesis_dates
 
     timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
