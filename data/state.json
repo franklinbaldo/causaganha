@@ -1,0 +1,519 @@
+{
+  "version": 2,
+  "updated_at": "2026-03-28T11:42:12.719964+00:00",
+  "entries": {
+    "2026-03-27": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-26": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "2026": "uploaded"
+    },
+    "2026-03-25": {
+      "CNJ": "uploaded",
+      "SEEU": "absent",
+      "STF": "absent",
+      "2026": "uploaded",
+      "CJF": "uploaded",
+      "PJECOR": "uploaded"
+    },
+    "2026-03-24": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "2026": "uploaded"
+    },
+    "2026-03-23": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-22": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-21": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-20": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "STM": "uploaded",
+      "2026": "uploaded"
+    },
+    "2026-03-19": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-18": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "STJ": "uploaded"
+    },
+    "2026-03-17": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-16": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-15": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-14": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-13": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-12": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-11": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-10": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-09": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-08": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-03-07": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-06": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-05": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-04": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-03": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-02": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "03": "uploaded"
+    },
+    "2026-03-01": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-02-28": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent"
+    },
+    "2026-02-27": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-26": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-25": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-24": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-23": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-22": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-21": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-20": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-19": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-18": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-17": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-16": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-15": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-14": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-13": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-12": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-11": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-10": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-09": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-08": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-07": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-06": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-05": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-04": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-03": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-02": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-02-01": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "02": "uploaded"
+    },
+    "2026-01-31": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "01": "uploaded"
+    },
+    "2026-01-30": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "01": "uploaded"
+    },
+    "2026-01-29": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "01": "uploaded"
+    },
+    "2026-01-28": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "01": "uploaded"
+    },
+    "2026-01-27": {
+      "CNJ": "absent",
+      "SEEU": "absent",
+      "STF": "absent",
+      "01": "uploaded"
+    },
+    "2026-01-23": {
+      "STM": "uploaded",
+      "TJBA": "uploaded",
+      "TJCE": "uploaded",
+      "TRT24": "uploaded",
+      "TRT9": "uploaded",
+      "TJPE": "uploaded",
+      "TRF2": "uploaded",
+      "TRT7": "uploaded",
+      "TJAL": "uploaded",
+      "TJPI": "uploaded",
+      "TJRS": "uploaded",
+      "TRT13": "uploaded",
+      "TRT18": "uploaded",
+      "TRT14": "uploaded",
+      "TRT19": "uploaded",
+      "TJPA": "uploaded",
+      "TJPB": "uploaded",
+      "TRT10": "uploaded",
+      "TRT11": "uploaded",
+      "TRT12": "uploaded",
+      "TJRJ": "uploaded",
+      "TJRN": "uploaded",
+      "TJSP": "uploaded",
+      "TJMA": "uploaded",
+      "TJSC": "uploaded",
+      "TRT17": "uploaded",
+      "TJES": "uploaded",
+      "TJTO": "uploaded",
+      "TRT15": "uploaded",
+      "TRT6": "uploaded",
+      "TRT23": "uploaded",
+      "TRF4": "uploaded",
+      "TST": "uploaded",
+      "TRT4": "uploaded",
+      "STJ": "uploaded",
+      "TJMG": "uploaded",
+      "TJMT": "uploaded",
+      "TRF3": "uploaded",
+      "TRF5": "uploaded",
+      "TRT22": "uploaded",
+      "01": "uploaded",
+      "TJPR": "uploaded",
+      "TJRO": "uploaded",
+      "TJAP": "uploaded",
+      "TJGO": "uploaded",
+      "TRT16": "uploaded",
+      "TRT3": "uploaded",
+      "TRT21": "uploaded",
+      "TRT5": "uploaded",
+      "TJAM": "uploaded",
+      "TJRR": "uploaded",
+      "TRT20": "uploaded",
+      "TRT8": "uploaded",
+      "TRF1": "uploaded",
+      "TRT2": "uploaded",
+      "TJMS": "uploaded",
+      "TJSE": "uploaded",
+      "TRF6": "uploaded",
+      "TRT1": "uploaded"
+    },
+    "2026-01-04": {
+      "01": "uploaded"
+    },
+    "2025-12-31": {
+      "STJ": "uploaded",
+      "12": "uploaded",
+      "2025": "uploaded"
+    },
+    "2026-01-14": {
+      "01": "uploaded"
+    },
+    "2026-01-24": {
+      "01": "uploaded",
+      "CNJ": "absent"
+    },
+    "2026-01-05": {
+      "01": "uploaded"
+    },
+    "2026-01-21": {
+      "TRF1": "uploaded",
+      "TRF6": "uploaded",
+      "01": "uploaded",
+      "TRF5": "uploaded",
+      "TRF3": "uploaded",
+      "TRF4": "uploaded",
+      "TRF2": "uploaded"
+    },
+    "2026-01-01": {
+      "01": "uploaded"
+    },
+    "2026-01-12": {
+      "01": "uploaded"
+    },
+    "2026-01-10": {
+      "01": "uploaded"
+    },
+    "2026-01-16": {
+      "01": "uploaded"
+    },
+    "2026-01-09": {
+      "01": "uploaded"
+    },
+    "2026-01-17": {
+      "01": "uploaded"
+    },
+    "2026-01-08": {
+      "01": "uploaded"
+    },
+    "2025-12-28": {
+      "12": "uploaded"
+    },
+    "2026-01-07": {
+      "01": "uploaded"
+    },
+    "2025-12-30": {
+      "12": "uploaded"
+    },
+    "2025-12-29": {
+      "12": "uploaded"
+    },
+    "2026-01-26": {
+      "01": "uploaded",
+      "CNJ": "absent"
+    },
+    "2026-01-18": {
+      "01": "uploaded"
+    },
+    "2026-01-03": {
+      "01": "uploaded"
+    },
+    "2026-01-13": {
+      "01": "uploaded"
+    },
+    "2026-01-15": {
+      "01": "uploaded"
+    },
+    "2026-01-19": {
+      "01": "uploaded"
+    },
+    "2026-01-25": {
+      "01": "uploaded",
+      "CNJ": "absent"
+    },
+    "2026-01-06": {
+      "01": "uploaded"
+    },
+    "2026-01-11": {
+      "01": "uploaded"
+    },
+    "2026-01-02": {
+      "01": "uploaded"
+    },
+    "2026-01-20": {
+      "01": "uploaded"
+    },
+    "2026-01-22": {
+      "01": "uploaded"
+    }
+  }
+}
