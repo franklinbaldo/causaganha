@@ -766,9 +766,7 @@ async def run_backfill(config: BackfillConfig) -> int:
         if config.publish_live_status:
             # Fire and forget initial status
             _bg_task = asyncio.create_task(
-                _publish_ia_status(
-                    config.ia_auth, summary, "running", bstate
-                )
+                _publish_ia_status(config.ia_auth, summary, "running", bstate)
             )
 
         await _run_backfill_workers(
@@ -825,8 +823,6 @@ async def run_backfill(config: BackfillConfig) -> int:
     if config.publish_live_status:
         # Publish final status blockingly
         final_status = "failed" if exit_code != 0 else "completed"
-        await _publish_ia_status(
-            config.ia_auth, summary, final_status, bstate
-        )
+        await _publish_ia_status(config.ia_auth, summary, final_status, bstate)
 
     return exit_code
