@@ -246,3 +246,20 @@ scripts/monitoring/
 **Requested by:** Franklin  
 **Project:** causaganha backfill monitoring  
 **Date:** 2026-02-05
+
+### 4. Browserless Dashboard Heartbeat Fallback
+`verify_dashboard_status.py` - Lightweight public dashboard verification
+
+A small, reusable utility that verifies the status of the public Astro dashboard using only standard library HTTP tools (`urllib.request`). It extracts key indicators (like healthy tribunal counts, last collection timestamp, and global ETA) directly from the published static HTML without requiring a browser or Playwright dependencies.
+
+**Features:**
+- Analyzes published dashboard text/HTML.
+- Extracts status and returns structured JSON output.
+- Classifies operational status: `alive`, `alive_but_stale_looking`, `advancing`, or `fetch_failed`.
+- Useful as a quick heartbeat fallback to ensure the dashboard isn't just reachable, but actually progressing.
+
+**Usage:**
+```bash
+# Returns a JSON summary
+python scripts/monitoring/verify_dashboard_status.py
+```
