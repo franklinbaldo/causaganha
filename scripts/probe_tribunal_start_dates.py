@@ -53,9 +53,7 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
 
             # Additional check: confirm valid JSON and presence of 'url'
             data = response.json()
-            if data and data.get("url"):
-                return True
-            return False
+            return bool(data and data.get("url"))
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return False
@@ -186,7 +184,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     return hi_date.isoformat()
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--max-tribunals", type=int, default=0, help="Max tribunals to check (for testing)"

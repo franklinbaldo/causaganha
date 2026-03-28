@@ -368,7 +368,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     if not filename.startswith("djen-") and not filename.endswith(".parquet"):
         return None
 
-    if filename.startswith("djen-") and (filename.endswith(".zip") or filename.endswith(".absent")):
+    if filename.startswith("djen-") and (filename.endswith((".zip", ".absent"))):
         parts = filename.replace("djen-", "").replace(".zip", "").replace(".absent", "")
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
         try:

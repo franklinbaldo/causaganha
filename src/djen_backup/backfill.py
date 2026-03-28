@@ -14,7 +14,6 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import httpx
 import structlog
@@ -28,9 +27,6 @@ from djen_backup.runner import validate_tribunal
 from djen_backup.state import ItemStatus, State, load_state, save_state
 from djen_backup.tribunais import get_tribunal_list
 
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 log = structlog.get_logger()
 
@@ -509,7 +505,7 @@ async def backfill_tribunal(
         # Check against global lower bound
         if config.lower_bound and prog.cursor_date < config.lower_bound:
             break
-            
+
         # Check against discovered Genesis (discovery script)
         if genesis_date and prog.cursor_date < genesis_date:
             log.info(

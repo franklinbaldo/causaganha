@@ -4,8 +4,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 
-def run():
-    print("Starting Astro preview server...")
+def run() -> None:
     server = subprocess.Popen(["pnpm", "preview", "--port", "4321"], cwd="dashboard")
     time.sleep(3)
 
@@ -24,7 +23,6 @@ def run():
             page.keyboard.press("Control+k")
             page.wait_for_timeout(1000)
             page.screenshot(path="verification/screenshots/command_palette.png")
-            print("Captured command palette.")
 
             # Close palette
             page.keyboard.press("Escape")
@@ -34,13 +32,11 @@ def run():
             page.evaluate("window.dispatchEvent(new CustomEvent('cg-network-slow'))")
             page.wait_for_timeout(1000)
             page.screenshot(path="verification/screenshots/network_slow.png")
-            print("Captured network slow banner.")
 
             # Simulate error network
             page.evaluate("window.dispatchEvent(new CustomEvent('cg-network-error'))")
             page.wait_for_timeout(1000)
             page.screenshot(path="verification/screenshots/network_error.png")
-            print("Captured network error banner.")
 
             # Test 3: Keyboard Navigation on Heatmap
             # Tab to the heatmap (it has tabIndex=0)
@@ -58,13 +54,11 @@ def run():
 
             # Take screenshot showing focus ring
             page.screenshot(path="verification/screenshots/heatmap_focus.png")
-            print("Captured heatmap focus.")
 
             # Press Enter to open tooltip
             page.keyboard.press("Enter")
             page.wait_for_timeout(1000)
             page.screenshot(path="verification/screenshots/heatmap_tooltip.png")
-            print("Captured heatmap tooltip via keyboard.")
 
             # Close tooltip
             page.keyboard.press("Escape")
@@ -75,7 +69,6 @@ def run():
             browser.close()
 
     server.terminate()
-    print("Verification complete.")
 
 
 if __name__ == "__main__":

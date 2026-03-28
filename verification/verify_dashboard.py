@@ -4,8 +4,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 
-def run():
-    print("Starting Astro build and preview server...")
+def run() -> None:
     # Build astro first to serve static pages
     subprocess.run(["pnpm", "install"], cwd="dashboard")
     subprocess.run(["pnpm", "build"], cwd="dashboard")
@@ -22,7 +21,6 @@ def run():
 
         # Take screenshot of the index
         page.screenshot(path="verification/index_screenshot.png")
-        print("Captured index screenshot.")
 
         # Navigate to admin/perf
         page.goto("http://localhost:4321/causaganha/admin/perf")
@@ -30,12 +28,10 @@ def run():
 
         # Take screenshot of the admin/perf page
         page.screenshot(path="verification/admin_perf_screenshot.png")
-        print("Captured admin/perf screenshot.")
 
         browser.close()
 
     server.terminate()
-    print("Verification complete.")
 
 
 if __name__ == "__main__":

@@ -60,7 +60,8 @@ async def get_caderno_url(
     if resp.status_code >= 500:
         import httpx
 
-        raise httpx.HTTPError(f"Server error: {resp.status_code}")
+        msg = f"Server error: {resp.status_code}"
+        raise httpx.HTTPError(msg)
     resp.raise_for_status()
 
     try:

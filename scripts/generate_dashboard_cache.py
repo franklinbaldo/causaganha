@@ -579,7 +579,7 @@ def generate_backfill_cache(
             GROUP BY tribunal
         """).fetchall()
 
-        velocity_map = {t: v for t, v in velocity_rows}
+        velocity_map = dict(velocity_rows)
         tribunal_etas: dict[str, dict[str, Any]] = {}
 
         for tribunal in TRIBUNALS:

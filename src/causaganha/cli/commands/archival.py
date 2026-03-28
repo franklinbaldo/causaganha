@@ -19,7 +19,7 @@ def run_cold_storage(
     s3_bucket: str = typer.Option(
         "causaganha-archive", "--bucket", help="S3 bucket for cold storage"
     ),
-):
+) -> None:
     """Run daily cold storage archival process."""
     logger.info("Starting daily cold storage archival check")
     archiver = ColdStorageArchiver(s3_bucket=s3_bucket)
@@ -48,7 +48,7 @@ def restore_archived_data(
     s3_bucket: str = typer.Option(
         "causaganha-archive", "--bucket", help="S3 bucket for cold storage"
     ),
-):
+) -> None:
     """Trigger an S3 Glacier restore for an archived period."""
     logger.info(f"Initiating restore for {tribunal} {year}-{month:02d}")
     archiver = ColdStorageArchiver(s3_bucket=s3_bucket)
@@ -67,7 +67,7 @@ def restore_archived_data(
 @app.command("generate-compliance-report")
 def generate_compliance_report(
     email: str | None = typer.Option(None, "--email", help="Email to send the report to"),
-):
+) -> None:
     """Generate the monthly LGPD compliance report."""
     logger.info("Generating monthly LGPD compliance report")
     try:
@@ -79,7 +79,7 @@ def generate_compliance_report(
             typer.echo(f"Emailed report to {email}")
 
     except Exception as e:
-        logger.error(f"Failed to generate report: {e}")
+        logger.exception(f"Failed to generate report: {e}")
         raise typer.Exit(code=1)
 
 

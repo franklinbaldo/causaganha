@@ -4,12 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import csv
 import hashlib
-import io
-import json
 import time
-from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -19,6 +15,7 @@ from djen_backup.retry import request_with_retry
 
 
 if TYPE_CHECKING:
+    from datetime import date
     from pathlib import Path
 
     import httpx

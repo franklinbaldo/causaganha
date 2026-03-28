@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate dashboard-data.json from DuckDB catalog."""
 
+import contextlib
 import json
 import os
-import sys
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -109,8 +109,6 @@ def calculate_quality_scores(
 
 def fetch_kilo_ready_count() -> int:
     """Count PRs that are ready except for Kilo Code Review."""
-    import os
-    import urllib.request
     import json
 
     repo = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
@@ -172,12 +170,11 @@ def fetch_kilo_ready_count() -> int:
 
                             if has_kilo_failure and is_kilo_only:
                                 kilo_ready_count += 1
-                    except Exception as e:
-                        print(f"Warning: Failed to fetch checks for PR {pr['number']}: {e}")
+                    except Exception:
+                        pass
 
                 page += 1
-        except Exception as e:
-            print(f"Warning: Failed to fetch PRs for Kilo count: {e}")
+        except Exception:
             break
 
     return kilo_ready_count
@@ -197,8 +194,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     try:
         backend = get_connection(str(db_path), read_only=True)
         con = backend.con
-    except Exception as e:
-        print(f"Warning: Could not connect to database {db_path}: {e}")
+    except Exception:
         con = None
 
     # Get stats from DB only if connected
@@ -223,8 +219,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 newest_date = str(result[1]) if result[1] else None
                 unique_days = result[2] or 0
                 total_items = result[3] or 0
-        except Exception as e:
-            print(f"Warning: Failed to query djen_state.coverage: {e}")
+        except Exception:
+            pass
 
     target_days = 764  # 2024-01-01 to 2026-02-03
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
@@ -233,10 +229,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     start_dates_path = output_path.parent / "tribunal_start_dates.json"
     tribunal_start_dates = {}
     if start_dates_path.exists():
-        try:
+        with contextlib.suppress(Exception):
             tribunal_start_dates = json.loads(start_dates_path.read_text())
-        except Exception:
-            pass
 
     daily_stats = []
     recent_activity = []
@@ -287,8 +281,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 GROUP BY tribunal
                 ORDER BY tribunal
             """).fetchall()
-        except Exception as e:
-            print(f"Warning: Failed to query detailed dashboard stats from DuckDB: {e}")
+        except Exception:
+            pass
 
     tribunal_coverage = {}
     for t, d in coverage_rows:
@@ -297,7 +291,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             tribunal_coverage[t] = []
         tribunal_coverage[t].append(date_str)
 
-    velocity_map = {t: v for t, v in velocity_rows}
+    velocity_map = dict(velocity_rows)
 
     # Read backfill state (cursors and streaks)
     backfill_state_path = Path("data/backfill-state.json")
@@ -311,8 +305,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     "stopped": info.get("stopped", False),
                     "empty_streak": info.get("empty_streak", 0),
                 }
-        except Exception as e:
-            print(f"Warning: Failed to load backfill state: {e}")
+        except Exception:
+            pass
 
     # Read backfill state from state.json (authoritative for both uploaded and absent)
     state_json_path = Path("data/state.json")
@@ -332,8 +326,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             tribunal_coverage[tcode] = []
                         if date_key not in tribunal_coverage[tcode]:
                             tribunal_coverage[tcode].append(date_key)
-        except Exception as e:
-            print(f"Warning: Failed to load progress from state.json: {e}")
+        except Exception:
+            pass
 
     # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
     all_dates = set()
@@ -353,14 +347,14 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     tribunal_etas = {}
     from datetime import date
 
-    end_date_obj = date(2026, 2, 3)  # Based on target range end 2026-02-03
+    date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
     all_tribunals = (
-        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+        {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
     )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
@@ -373,10 +367,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     discovered_start_dates = {}
     genesis_path = output_path.parent / "tribunal_start_dates.json"
     if genesis_path.exists():
-        try:
+        with contextlib.suppress(Exception):
             discovered_start_dates = json.loads(genesis_path.read_text())
-        except Exception:
-            pass
 
     for tribunal in sorted(all_tribunals):
         coverage_list = tribunal_coverage.get(tribunal, [])
@@ -489,8 +481,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
-        except Exception as e:
-            print(f"Warning: Failed to process run_stats.json for perf metrics: {e}")
+        except Exception:
+            pass
 
     metrics_path.write_text(json.dumps(perf_metrics, ensure_ascii=False, indent=2))
 
