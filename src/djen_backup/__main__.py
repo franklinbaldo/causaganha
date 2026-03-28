@@ -118,7 +118,6 @@ def _resolve_ia_auth(*, dry_run: bool) -> str:
     default=False,
     help="Log actions without uploading.",
 )
-
 @click.pass_context
 def main(  # noqa: PLR0913
     ctx: click.Context,
