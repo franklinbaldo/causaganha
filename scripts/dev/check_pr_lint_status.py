@@ -12,7 +12,7 @@ import json
 import os
 import sys
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -58,7 +58,7 @@ def calculate_urgency(created_at_str: str | None) -> tuple[int, str]:
 
     try:
         created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         age_hours = int((now - created_at).total_seconds() / 3600)
     except ValueError:
         age_hours = 0

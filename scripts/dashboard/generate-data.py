@@ -487,7 +487,10 @@ if __name__ == "__main__":
                 with blocked_fixes_path.open("r") as f:
                     data = json.load(f)
                     if isinstance(data, list):
-                        prs_to_check = [item.get("corrective_pr_number") or item.get("pr_number") for item in data]
+                        prs_to_check = [
+                            item.get("corrective_pr_number") or item.get("pr_number")
+                            for item in data
+                        ]
                         prs_to_check = [pr for pr in prs_to_check if pr is not None]
                     elif isinstance(data, dict):
                         pr = data.get("corrective_pr_number") or data.get("pr_number")
@@ -503,7 +506,13 @@ if __name__ == "__main__":
         updated_data = []
         for pr_number in prs_to_check:
             result = subprocess.run(
-                [sys.executable, "scripts/dev/check_pr_lint_status.py", "--pr", str(pr_number), "--json"],
+                [
+                    sys.executable,
+                    "scripts/dev/check_pr_lint_status.py",
+                    "--pr",
+                    str(pr_number),
+                    "--json",
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
