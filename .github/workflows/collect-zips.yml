@@ -162,3 +162,9 @@ jobs:
             data/backfill-state.json
             data/ia-state.json
           key: collect-state-${{ github.event.inputs.cache_version || 'v7' }}-${{ github.run_id }}
+
+      - name: Generate Incident Digest
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/pipeline/incident_digest.py
