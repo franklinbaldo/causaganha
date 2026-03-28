@@ -1,3 +1,5 @@
+from datetime import timezone
+
 #!/usr/bin/env python3
 """Generate CausaGanha catalog for Internet Archive.
 
@@ -14,13 +16,15 @@ Usage:
     python scripts/generate_catalog.py --output ./catalog/
 """
 
+import re
+import os
 import argparse
 import contextlib
 import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timezone, timedelta
 from pathlib import Path
 
 import duckdb
@@ -153,7 +157,6 @@ def list_item_files(item_id: str) -> list[dict]:
 
 def _validate_date_str(date_str: str) -> bool:
     """Validate date string is a valid YYYY-MM-DD date."""
-    import re
 
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
         return False
@@ -173,7 +176,6 @@ def _validate_date_str(date_str: str) -> bool:
 
 def _validate_tribunal_code(tribunal: str) -> bool:
     """Validate tribunal code format."""
-    import re
 
     # Tribunal codes: 2-10 uppercase letters/numbers, may include dashes (e.g. TRE-AC)
     return bool(re.match(r"^[A-Z0-9][A-Z0-9-]{1,9}$", tribunal.upper()))
@@ -476,7 +478,7 @@ def get_item_date(item_id: str) -> date | None:
     try:
         # djen-YYYY-MM-DD
         date_str = item_id.replace("djen-", "")[:10]
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
     except Exception:
         return None
 
@@ -1030,16 +1032,20 @@ def main() -> int:
         if args.start_date:
             if not _validate_date_str(args.start_date):
                 return 1
-            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
+            start_date = (
+                datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            )
         else:
             start_date = DJEN_START_DATE
 
         if args.end_date:
             if not _validate_date_str(args.end_date):
                 return 1
-            end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
+            end_date = (
+                datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            )
         else:
-            end_date = date.today() - timedelta(days=1)
+            end_date = datetime.now(timezone.utc).date() - timedelta(days=1)
     except ValueError:
         return 1
 
@@ -1179,7 +1185,6 @@ def main() -> int:
     percent_complete = (zip_count / total_expected * 100) if total_expected > 0 else 0
 
     # Set GitHub Actions output: catalog was successfully rebuilt
-    import os
 
     catalog_updated = True  # If we got here without error, catalog was updated
 

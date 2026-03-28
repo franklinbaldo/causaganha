@@ -1,13 +1,16 @@
+from datetime import timezone
+
 #!/usr/bin/env python3
 """Upload Parquet files to Internet Archive.
 
 Uploads compressed embedding Parquet files to IA for long-term archival.
 """
 
+import internetarchive as ia
 import argparse
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
@@ -29,8 +32,7 @@ def upload_to_internet_archive(
         Requires IA_ACCESS_KEY and IA_SECRET_KEY environment variables.
     """
     try:
-        # Try to import internetarchive
-        import internetarchive as ia
+        pass
     except ImportError:
         logger.exception("internetarchive_not_installed")
         return False
@@ -47,7 +49,7 @@ def upload_to_internet_archive(
     session = ia.get_session(config={"s3": {"access": access_key, "secret": secret_key}})
 
     # Create item identifier (e.g., causaganha-embeddings-2026-01-21)
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     item_id = f"causaganha-embeddings-{date_str}"
 
     # Metadata

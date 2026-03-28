@@ -1,3 +1,5 @@
+from datetime import timezone
+
 """Parquet-Based Analysis Pipeline.
 
 Analyzes judicial decisions from parquet files (local or Internet Archive).
@@ -20,7 +22,7 @@ Usage:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -477,7 +479,7 @@ class ParquetAnalyzer:
         analyses = results["analyses"]
 
         # Generate output filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         output_filename = original_path.stem + f"_analyzed_{timestamp}.parquet"
         output_path = self.config.output_dir / output_filename
 
@@ -529,7 +531,7 @@ class ParquetAnalyzer:
 
                 if "analyzed_at" not in updated_columns:
                     updated_columns["analyzed_at"] = [None] * len(original_table)
-                updated_columns["analyzed_at"][i] = datetime.now()
+                updated_columns["analyzed_at"][i] = datetime.now(timezone.utc)
 
         # Convert to PyArrow table (use original schema if possible)
         updated_table = pa.Table.from_pydict(updated_columns)

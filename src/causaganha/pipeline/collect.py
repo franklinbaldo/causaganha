@@ -1,3 +1,4 @@
+from datetime import timezone
 import asyncio
 import io
 import json
@@ -45,7 +46,7 @@ async def collect_metadata_for_court(
     con = get_connection()
 
     # Calculate target dates
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     target_dates = [(today - timedelta(days=i)).isoformat() for i in range(1, days_back + 1)]
 
     total_new = 0

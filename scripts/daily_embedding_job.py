@@ -1,3 +1,5 @@
+from datetime import timezone
+
 #!/usr/bin/env python3
 """Daily embedding generation job for GitHub Actions.
 
@@ -5,10 +7,12 @@ Processes decisions from the last N days that don't have embeddings yet.
 Optimized for daily digest processing with caching.
 """
 
+from causaganha.storage.embedding_storage import _get_table_name
+from causaganha.pipeline.embedding_pipeline import BatchStats
 import argparse
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import structlog
@@ -34,7 +38,6 @@ def get_decisions_to_process(days_back: int = 1) -> list[int]:
     con = get_connection("data/causaganha.duckdb")
 
     # Get table name for checking existing embeddings
-    from causaganha.storage.embedding_storage import _get_table_name
 
     table_name = _get_table_name(JINA_V4_1024)
 
@@ -61,7 +64,7 @@ def get_decisions_to_process(days_back: int = 1) -> list[int]:
             ORDER BY i.analyzed_at DESC
         """
 
-    cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)
     result = con.con.execute(query, [cutoff_date])
 
     decision_ids = [row[0] for row in result.fetchall()]
@@ -109,7 +112,7 @@ def save_stats(stats, args) -> None:
     stats_dir.mkdir(parents=True, exist_ok=True)
 
     stats_data = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "days_back": args.days_back,
         "max_concurrency": args.max_concurrency,
         "total_decisions": stats.total_decisions,
@@ -122,7 +125,7 @@ def save_stats(stats, args) -> None:
         "throughput": stats.throughput,
     }
 
-    stats_file = stats_dir / f"job_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    stats_file = stats_dir / f"job_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
     stats_file.write_text(json.dumps(stats_data, indent=2))
 
     logger.info("stats_saved", file=str(stats_file))
@@ -160,15 +163,14 @@ async def main() -> None:
     if not decision_ids:
         logger.info("no_decisions_to_process")
         # Create empty stats file
-        from causaganha.pipeline.embedding_pipeline import BatchStats
 
         empty_stats = BatchStats(
             total_decisions=0,
             cached_decisions=0,
             processed_decisions=0,
             failed_decisions=0,
-            start_time=datetime.utcnow(),
-            end_time=datetime.utcnow(),
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
         )
         save_stats(empty_stats, args)
         return
