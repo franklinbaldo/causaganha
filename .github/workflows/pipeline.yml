@@ -86,7 +86,7 @@ jobs:
           fi
           echo "No concurrent pipeline runs detected. Proceeding."
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - uses: ./.github/actions/setup
         with:
@@ -98,7 +98,7 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Restore pipeline state cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             data/backfill-state.json
@@ -128,7 +128,7 @@ jobs:
 
       - name: Save dashboard cache
         if: steps.pipeline.outputs.catalog_updated == 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: dashboard/public/cache
           key: dashboard-cache-${{ github.run_number }}
