@@ -145,6 +145,13 @@ jobs:
           uv run causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Summarize operational failures
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run python scripts/pipeline/incident_digest.py
+
       - name: Ensure state files exist for caching
         if: always()
         run: |
