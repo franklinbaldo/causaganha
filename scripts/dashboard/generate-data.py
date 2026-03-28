@@ -27,9 +27,7 @@ def calculate_quality_scores(
         if tribunal not in tribunal_start_dates:
             continue
 
-        start_date_str = tribunal_start_dates.get(tribunal)
-        if not start_date_str:
-            continue
+        start_date_str = tribunal_start_dates[tribunal]
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         except ValueError:

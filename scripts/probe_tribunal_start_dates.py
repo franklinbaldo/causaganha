@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 OUTPUT_FILE = Path("dashboard/public/tribunal_start_dates.json")
 
-# Concurrency limits - Reduced to avoid 429
-MAX_CONCURRENT_REQUESTS = 1
+# Concurrency limits - Increased for faster discovery
+MAX_CONCURRENT_REQUESTS = 10
 
 # Create a semaphore for global rate limiting
 sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
@@ -62,9 +62,9 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             if e.response.status_code == 429:
                 # Retry on 429 using exponential backoff inside the function
                 logger.warning(
-                    f"Rate limited (429) checking {tribunal} at {target_date}. Cooling down for 30s..."
+                    f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 10s..."
                 )
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(10.0)
                 return await check_date_has_data(client, tribunal, target_date)
             logger.warning(f"HTTP error checking {tribunal} at {target_date}: {e}")
             return False
@@ -73,96 +73,117 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             return False
 
 
-def get_nearest_weekday(d: date) -> date:
-    """If the date falls on a weekend, shift it to the nearest weekday.
-    Saturday -> Friday. Sunday -> Monday.
-    This guarantees mathematically that the galloping jumps never hit weekends.
+async def confirm_void(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
+    """Check if `target_date` AND `target_date - 60 days` are BOTH absent.
+
+    If both are absent, this confirms a >= 60 day patch (primordial void).
+    Uses concurrent fetching for speed.
     """
-    if d.weekday() == 5: # Saturday
-        return d - timedelta(days=1)
-    elif d.weekday() == 6: # Sunday
-        return d + timedelta(days=1)
-    return d
+    # Check X and X - 60 simultaneously
+    date1 = target_date
+    date2 = target_date - timedelta(days=60)
+
+    res1, res2 = await asyncio.gather(
+        check_date_has_data(client, tribunal, date1), check_date_has_data(client, tribunal, date2)
+    )
+
+    # Void is confirmed if BOTH are absent (False)
+    return not res1 and not res2
 
 
-async def find_start_date(client: httpx.AsyncClient, tribunal: str, known_oldest: str | None = None) -> str | None:
-    """Robust Galloping Search (Exponential Jumps + Binary Search).
-    
-    Flies backward from the oldest known date using mathematically snapped (workday) steps.
+async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | None:
+    """Find the true start date for a tribunal using exponential 60-day patch confirmation.
+
+    Phase 1: Exponential probe backwards from today (step=60, 120, 240, 480...)
+    Phase 2: Binary search to find the exact right edge of the 60-day void.
     """
     today = date.today()
-    logger.info(f"[{tribunal}] Iniciando Robust Galloping Search...")
+    logger.info(f"[{tribunal}] Starting exponential probe...")
 
-    current = today
-    if known_oldest:
-        try:
-             current = date.fromisoformat(known_oldest)
-        except ValueError:
-             pass
+    # Verify if the tribunal has ANY data at all recently
+    res_today, res_today_30 = await asyncio.gather(
+        check_date_has_data(client, tribunal, today),
+        check_date_has_data(client, tribunal, today - timedelta(days=30)),
+    )
+    if not res_today and not res_today_30:
+        logger.warning(f"[{tribunal}] No recent data found. Is the tribunal active?")
+        # It's possible the tribunal is completely offline or not in DJEN
+        return None
 
-    # Safety: ensure starting point has data.
-    current_test = get_nearest_weekday(current)
-    if not await check_date_has_data(client, tribunal, current_test):
-         current_test = get_nearest_weekday(today)
-         if not await check_date_has_data(client, tribunal, current_test):
-             # Try 15 days ago if today is holiday
-             backup = get_nearest_weekday(today - timedelta(days=15))
-             if not await check_date_has_data(client, tribunal, backup):
-                 logger.warning(f"[{tribunal}] Tribunal totalmente inativo ou vazio. Ignorando.")
-                 return None
-             current_test = backup
-             
-    current = current_test
-    logger.info(f"[{tribunal}] Ponto Inicial Confirmado: {current}")
-
+    # Phase 1: Exponential probe backwards
     step = 60
-    void_date = None
+    current_date = today - timedelta(days=step)
+    prev_date = today
 
-    # Phase 1: Exponential Jump Backwards
+    lo_date = None  # Edge of void (no data)
+    hi_date = today  # Known to have data eventually
+
     while True:
-        probe_date = get_nearest_weekday(current - timedelta(days=step))
-        
-        if probe_date.year < 1980:
-            logger.warning(f"[{tribunal}] Chegou no passado remoto (1980). Assumindo limite máximo de retroatividade.")
-            void_date = date(1980, 1, 1)
+        # Guard against going too far back (e.g. before 1990)
+        if current_date.year < 1990:
+            logger.warning(f"[{tribunal}] Probe went too far back ({current_date}).")
+            return None
+
+        is_void = await confirm_void(client, tribunal, current_date)
+
+        if is_void:
+            lo_date = current_date
+            hi_date = prev_date
+            logger.info(
+                f"[{tribunal}] Confirmed >= 60 day void at {lo_date}. Bracket found: [{lo_date}, {hi_date}]"
+            )
             break
 
-        logger.info(f"[{tribunal}] Salto EXPO: Testando {probe_date} (Pulo de {step} dias)")
-        
-        if await check_date_has_data(client, tribunal, probe_date):
-            # HIT! Origin is older, step x 2
-            current = probe_date
-            step *= 2
+        logger.info(f"[{tribunal}] No void at {current_date}. Probing further back...")
+        prev_date = current_date
+
+        # Double the step (60, 120, 240, 480, 960...)
+        step *= 2
+        current_date = today - timedelta(days=step)
+
+    if not lo_date:
+        return None
+
+    logger.info(f"[{tribunal}] Phase 2: Binary search between {lo_date} and {hi_date}")
+
+    # Phase 2: Binary search
+    # We must use `confirm_void` as the predicate to maintain a monotonic signal.
+    # We want to narrow down the bracket [lo_date (is_void=True), hi_date (is_void=False)]
+    while (hi_date - lo_date).days > 1:
+        mid_days = (hi_date - lo_date).days // 2
+        mid_date = lo_date + timedelta(days=mid_days)
+
+        logger.info(
+            f"[{tribunal}] Binary search checking {mid_date} (span: {(hi_date - lo_date).days} days)"
+        )
+        is_void = await confirm_void(client, tribunal, mid_date)
+
+        if is_void:
+            # Still in the void
+            lo_date = mid_date
         else:
-            # MISS! Triggers Phase 2.
-            logger.info(f"[{tribunal}] DESERTO ENCONTRADO em {probe_date}. Invertendo motor para Refino Binário...")
-            void_date = probe_date
-            break
+            # Not a void (we hit data, or at least a gap < 60 days)
+            hi_date = mid_date
 
-    # Phase 2: Robust Binary Search
-    # Genesis is exactly between void_date (False) and current (True)
-    low = void_date
-    high = current
-    
-    logger.info(f"[{tribunal}] Busca Binária entre {low} e {high}")
-    
-    while (high - low).days > 1:
-        mid_days = (high - low).days // 2
-        mid_date = get_nearest_weekday(low + timedelta(days=mid_days))
-        
-        # Snapping safeguard (so we don't infinitely loop on weekends)
-        if mid_date <= low or mid_date >= high:
-            break
-            
-        logger.info(f"[{tribunal}] Divisão Binária: Testando {mid_date} (Janela de {(high-low).days} dias)")
-        
-        if await check_date_has_data(client, tribunal, mid_date):
-            high = mid_date
-        else:
-            low = mid_date
+    # The exact right edge of the void is `hi_date`.
+    # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR `hi_date - 60` has data.
+    # To find the EXACT start date, we scan forward starting from `hi_date - 60` up to `hi_date`.
+    logger.info(
+        f"[{tribunal}] Void right edge found at {hi_date}. Scanning forward to find exact start date..."
+    )
 
-    logger.info(f"[{tribunal}] GÊNESE ENCONTRADA: {high}")
-    return high.isoformat()
+    start_scan_date = hi_date - timedelta(days=60)
+
+    # We linearly scan forward for the exact first day with data
+    for i in range(61):
+        check_d = start_scan_date + timedelta(days=i)
+        if await check_date_has_data(client, tribunal, check_d):
+            logger.info(f"[{tribunal}] Exact start date found: {check_d}")
+            return check_d.isoformat()
+
+    # Fallback (should not be reached if confirm_void returned False)
+    logger.info(f"[{tribunal}] Fallback start date found: {hi_date}")
+    return hi_date.isoformat()
 
 
 async def main():
@@ -192,12 +213,13 @@ async def main():
             tribunals_to_check = tribunals_to_check[: args.max_tribunals]
 
         for tribunal in tribunals_to_check:
-            known_start = results.get(tribunal)
-            
-            # Since we implemented the new powerful exponential algorithm,
-            # we WANT to re-probe to find if there are older dates behind the 60-day limit.
-            # But we use the existing `known_start` as the seed!
-            start_date = await find_start_date(client, tribunal, known_oldest=known_start)
+            if tribunal in results:
+                logger.info(
+                    f"[{tribunal}] Already processed (start date: {results[tribunal]}), skipping."
+                )
+                continue
+
+            start_date = await find_start_date(client, tribunal)
             if start_date:
                 results[tribunal] = start_date
             else:
@@ -207,9 +229,6 @@ async def main():
             OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(OUTPUT_FILE, "w") as f:
                 json.dump(results, f, indent=2)
-            
-            # Cool down to avoid 429
-            await asyncio.sleep(2.0)
 
     logger.info(f"Finished processing. Results saved to {OUTPUT_FILE}")
 
