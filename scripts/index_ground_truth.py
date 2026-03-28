@@ -1,3 +1,6 @@
+from collections import Counter
+from rich.table import Table
+
 #!/usr/bin/env python3
 """Indexar ground truth no LanceDB com chunks prefixados."""
 
@@ -139,11 +142,8 @@ def main() -> None:
     console.print("\n[bold green]✓ Indexação Completa![/bold green]\n")
 
     # Estatísticas
-    from collections import Counter
 
     outcome_counts = Counter(r["outcome"] for r in records)
-
-    from rich.table import Table
 
     stats_table = Table(title="Estatísticas de Indexação")
     stats_table.add_column("Outcome", style="cyan")

@@ -14,6 +14,7 @@ _connections: dict[tuple[str, bool], Backend] = {}
 
 def get_connection(
     db_path: str = "data/causaganha.duckdb",
+    *,
     read_only: bool = False,
 ) -> Backend:
     """Get or create DuckDB connection via Ibis.

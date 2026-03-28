@@ -1,3 +1,5 @@
+from datetime import timezone
+
 """Continuous embedding generation service for Cloud Run.
 
 This service runs 24/7 and continuously processes unembedded decisions.
@@ -18,9 +20,10 @@ Usage:
         --timeout 3600
 """
 
+import os
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 
@@ -240,7 +243,6 @@ async def continuous_processing_loop(
 def main() -> None:
     """Entry point for continuous embedding service."""
     # Configuration from environment variables
-    import os
 
     batch_size = int(os.getenv("BATCH_SIZE", "100"))
     max_concurrency = int(os.getenv("MAX_CONCURRENCY", "20"))
@@ -251,7 +253,7 @@ def main() -> None:
         batch_size=batch_size,
         max_concurrency=max_concurrency,
         idle_sleep_seconds=idle_sleep,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
     # Run continuous loop

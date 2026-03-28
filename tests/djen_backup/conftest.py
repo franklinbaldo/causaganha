@@ -1,6 +1,8 @@
+from __future__ import annotations
+from djen_backup.runner import discover_gaps
+
 """Shared fixtures and step definitions for BDD step implementations."""
 
-from __future__ import annotations
 
 import asyncio
 import os
@@ -149,7 +151,6 @@ def when_detect_gaps(
     tribunal_list: list[str],
     date_str: str,
 ) -> list[WorkItem]:
-    from djen_backup.runner import discover_gaps
 
     d = date.fromisoformat(date_str)
 

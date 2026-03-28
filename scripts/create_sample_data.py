@@ -1,8 +1,10 @@
+from datetime import timezone
+
 #!/usr/bin/env python3
 """Create sample data for testing Parquet export system."""
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -17,7 +19,7 @@ def create_sample_data() -> None:
     con = get_connection()
 
     # Create sample intimations for yesterday (3 tribunals)
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     tribunals = ["TJRO", "TJSP", "TJAC"]
 
