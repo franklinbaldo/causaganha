@@ -18,6 +18,7 @@ sys.modules["generate_data"] = generate_data
 spec.loader.exec_module(generate_data)
 generate_dashboard_data = generate_data.generate_dashboard_data
 
+
 @patch("generate_data.get_connection")
 def test_calculate_streak_and_last_success(mock_get_connection, tmp_path):
     # Mocking database connection to avoid DB errors
@@ -32,7 +33,7 @@ def test_calculate_streak_and_last_success(mock_get_connection, tmp_path):
         {"conclusion": "failure", "createdAt": "2026-03-25T12:00:00Z"},
         {"conclusion": "failure", "createdAt": "2026-03-26T12:00:00Z"},
         {"conclusion": "success", "createdAt": "2026-03-24T12:00:00Z"},
-        {"conclusion": "success", "createdAt": "2026-03-23T12:00:00Z"}
+        {"conclusion": "success", "createdAt": "2026-03-23T12:00:00Z"},
     ]
 
     # Change CWD or mock the Path("run_stats.json")
@@ -68,6 +69,7 @@ def test_calculate_streak_and_last_success(mock_get_connection, tmp_path):
         assert metrics["causaganha_last_successful_run_label"] == "24/03/2026 12:00 UTC"
         assert metrics["causaganha_was_restored"] is False
 
+
 @patch("generate_data.get_connection")
 def test_calculate_streak_zero_on_success(mock_get_connection, tmp_path):
     mock_con = MagicMock()
@@ -78,7 +80,7 @@ def test_calculate_streak_zero_on_success(mock_get_connection, tmp_path):
     # Run stats with a success at the top
     run_stats = [
         {"conclusion": "success", "createdAt": "2026-03-26T12:00:00Z"},
-        {"conclusion": "failure", "createdAt": "2026-03-25T12:00:00Z"}
+        {"conclusion": "failure", "createdAt": "2026-03-25T12:00:00Z"},
     ]
 
     with patch("generate_data.Path") as MockPath:
@@ -107,6 +109,7 @@ def test_calculate_streak_zero_on_success(mock_get_connection, tmp_path):
         assert metrics["causaganha_last_successful_run_label"] == "26/03/2026 12:00 UTC"
         assert metrics["causaganha_was_restored"] is False
 
+
 @patch("generate_data.get_connection")
 def test_calculate_was_restored(mock_get_connection, tmp_path):
     mock_con = MagicMock()
@@ -122,7 +125,7 @@ def test_calculate_was_restored(mock_get_connection, tmp_path):
 
     run_stats = [
         {"conclusion": "success", "createdAt": recent_iso},
-        {"conclusion": "failure", "createdAt": "2026-03-25T12:00:00Z"}
+        {"conclusion": "failure", "createdAt": "2026-03-25T12:00:00Z"},
     ]
 
     with patch("generate_data.Path") as MockPath:

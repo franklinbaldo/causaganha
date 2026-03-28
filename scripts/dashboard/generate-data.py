@@ -391,11 +391,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             last_successful_run_label = None
 
             # Sort runs by createdAt descending to ensure we check newest first
-            sorted_runs = sorted(
-                runs,
-                key=lambda x: x.get("createdAt", ""),
-                reverse=True
-            )
+            sorted_runs = sorted(runs, key=lambda x: x.get("createdAt", ""), reverse=True)
 
             was_restored = False
 
@@ -408,9 +404,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     if len(sorted_runs) > 1 and sorted_runs[1].get("conclusion") == "failure":
                         if last_successful_run_iso:
                             try:
-                                dt = datetime.strptime(last_successful_run_iso, "%Y-%m-%dT%H:%M:%SZ")
+                                dt = datetime.strptime(
+                                    last_successful_run_iso, "%Y-%m-%dT%H:%M:%SZ"
+                                )
                                 # Consider restored if it happened within the last 24 hours
-                                if (datetime.now(UTC).replace(tzinfo=None) - dt).total_seconds() < 24 * 3600:
+                                if (
+                                    datetime.now(UTC).replace(tzinfo=None) - dt
+                                ).total_seconds() < 24 * 3600:
                                     was_restored = True
                             except ValueError:
                                 pass
