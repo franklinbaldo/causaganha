@@ -13,6 +13,7 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
   const latencies = perfMetrics.causaganha_collect_latency_ms || [];
   const successRate = perfMetrics.causaganha_upload_success_rate || 0;
   const backlogDays = perfMetrics.causaganha_backlog_pending_days || 0;
+  const kiloReadyCount = perfMetrics.causaganha_kilo_ready_count || 0;
   const activeTribunals = perfMetrics.causaganha_active_tribunals || 0;
   const slowestTribunals = perfMetrics.slowest_tribunals || [];
 
@@ -69,7 +70,14 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="card text-center p-6 bg-warning/10 border-warning/20">
+          <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">PRs ready except Kilo</div>
+          <div className="text-4xl font-bold text-warning">
+            {kiloReadyCount}
+          </div>
+        </div>
+
         <div className="card text-center p-6">
           <div className="text-sm text-gray-500 mb-2">Upload Success Rate</div>
           <div className={`text-4xl font-bold ${successRate >= 90 ? 'text-success' : 'text-danger'}`}>

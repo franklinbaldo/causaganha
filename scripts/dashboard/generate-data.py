@@ -2,7 +2,9 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
+import os
 import sys
+import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -103,6 +105,82 @@ def calculate_quality_scores(
         }
 
     return scores
+
+
+def fetch_kilo_ready_count() -> int:
+    """Count PRs that are ready except for Kilo Code Review."""
+    import os
+    import urllib.request
+    import json
+
+    repo = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
+    url = f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=100"
+    req = urllib.request.Request(url, headers={"User-Agent": "CausaGanha-Bot"})
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+
+    kilo_ready_count = 0
+    page = 1
+
+    while True:
+        url = f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=100&page={page}"
+        req = urllib.request.Request(url, headers={"User-Agent": "CausaGanha-Bot"})
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                prs = json.loads(response.read())
+
+                if not prs:
+                    break
+
+                for pr in prs:
+                    sha = pr["head"]["sha"]
+                    checks_url = (
+                        f"https://api.github.com/repos/{repo}/commits/{sha}/check-runs?per_page=100"
+                    )
+                    checks_req = urllib.request.Request(
+                        checks_url, headers={"User-Agent": "CausaGanha-Bot"}
+                    )
+                    if token:
+                        checks_req.add_header("Authorization", f"Bearer {token}")
+
+                    try:
+                        with urllib.request.urlopen(checks_req, timeout=30) as checks_response:
+                            checks_data = json.loads(checks_response.read())
+                            checks = checks_data.get("check_runs", [])
+
+                            if not checks:
+                                continue
+
+                            is_kilo_only = True
+                            has_kilo_failure = False
+
+                            for check in checks:
+                                if check["name"] == "Kilo Code Review":
+                                    if check["conclusion"] != "success":
+                                        has_kilo_failure = True
+                                else:
+                                    if check["status"] != "completed":
+                                        is_kilo_only = False
+                                        break
+                                    if check["conclusion"] not in ["success", "skipped"]:
+                                        is_kilo_only = False
+                                        break
+
+                            if has_kilo_failure and is_kilo_only:
+                                kilo_ready_count += 1
+                    except Exception as e:
+                        print(f"Warning: Failed to fetch checks for PR {pr['number']}: {e}")
+
+                page += 1
+        except Exception as e:
+            print(f"Warning: Failed to fetch PRs for Kilo count: {e}")
+            break
+
+    return kilo_ready_count
 
 
 def fetch_progress_json(url: str) -> dict | None:
@@ -263,13 +341,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -281,9 +359,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -305,7 +386,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -333,7 +418,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
@@ -348,6 +437,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "causaganha_upload_success_rate": 0,
         "causaganha_active_tribunals": len(tribunal_start_dates),
         "causaganha_backlog_pending_days": 0,
+        "causaganha_kilo_ready_count": fetch_kilo_ready_count(),
         "slowest_tribunals": [],
     }
 
