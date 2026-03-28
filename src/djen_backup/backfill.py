@@ -270,6 +270,8 @@ class BackfillConfig:
     ia_auth: str
     dry_run: bool
     skip_absent_markers: bool = False
+    gist_status_id: str | None = None
+    github_token: str | None = None
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
@@ -320,6 +322,50 @@ class BackfillSummary:
         """Increment the tribunals scanned counter."""
         async with self._lock:
             self.tribunals_scanned += 1
+
+
+async def _publish_ia_status(
+    ia_auth: str,
+    summary: BackfillSummary,
+    status: str,
+    bstate: BackfillState,
+) -> None:
+    """Publish live status to the causaganha-live-status IA item."""
+    if not ia_auth or "dry-run" in ia_auth:
+        return
+
+    progress = bstate.get_all_progress()
+    active_tribunals = sum(1 for p in progress.values() if not p.stopped)
+
+    payload_dict = {
+        "last_updated": datetime.now(tz=UTC).isoformat(),
+        "zips_uploaded": summary.hits,
+        "active_tribunals": active_tribunals,
+        "status": status,
+    }
+    payload_bytes = json.dumps(payload_dict, indent=2).encode("utf-8")
+
+    url = "https://s3.us.archive.org/causaganha-live-status/status.json"
+    headers = {
+        "Authorization": ia_auth,
+        "x-amz-auto-make-bucket": "1",
+        "x-archive-meta-mediatype": "data",
+        "x-archive-meta-subject": "causaganha;pipeline;status",
+    }
+
+    import httpx
+
+    try:
+        # We use a short timeout and background tasks, but here it's simple enough
+        # to just use an async client directly.
+        async with httpx.AsyncClient() as client:
+            resp = await client.put(url, headers=headers, content=payload_bytes, timeout=10.0)
+            if resp.status_code != 200:
+                log.warning("ia_publish_failed", status=resp.status_code, body=resp.text)
+            else:
+                log.debug("ia_publish_success", status=status, zips=summary.hits)
+    except Exception as e:
+        log.warning("ia_publish_error", error=str(e))
 
 
 # ── Single-date processing ───────────────────────────────────────────
@@ -652,8 +698,36 @@ async def _run_backfill_workers(
             )
             queue.task_done()
 
+    async def _status_publisher() -> None:
+        if not config.publish_live_status:
+            return
+
+        interval_str = os.getenv("LIVE_STATUS_INTERVAL_SECONDS", "60")
+        try:
+            interval = float(interval_str)
+        except ValueError:
+            interval = 60.0
+
+        while True:
+            await asyncio.sleep(interval)
+            await _publish_ia_status(
+                config.ia_auth,
+                summary,
+                "running",
+                bstate,
+            )
+
     workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
+    publisher_task = asyncio.create_task(_status_publisher())
+
     await asyncio.gather(*workers)
+
+    import contextlib
+
+    # Cancel the publisher once workers finish
+    publisher_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await publisher_task
 
 
 async def run_backfill(config: BackfillConfig) -> int:
@@ -688,6 +762,14 @@ async def run_backfill(config: BackfillConfig) -> int:
         summary = BackfillSummary()
         # Increased threshold from 3 to 10 - was too aggressive, causing many skips
         breaker = CircuitBreaker(threshold=10, recovery_timeout=60.0)
+
+        if config.publish_live_status:
+            # Fire and forget initial status
+            _bg_task = asyncio.create_task(
+                _publish_ia_status(
+                    config.ia_auth, summary, "running", bstate
+                )
+            )
 
         await _run_backfill_workers(
             client, breaker, config, bstate, ia_state, deadline, summary, all_tribunals
@@ -730,6 +812,7 @@ async def run_backfill(config: BackfillConfig) -> int:
             f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")
             f.write(f"| Window | {start_date_str} → {end_date_str} |\n\n")
 
+    exit_code = 0
     if summary.ia_errors > 0:
         log.error(
             "backfill_failed",
@@ -737,5 +820,13 @@ async def run_backfill(config: BackfillConfig) -> int:
             djen_errors=summary.errors,
             message="IA upload errors detected — pipeline must not silently succeed",
         )
-        return 1
-    return 0
+        exit_code = 1
+
+    if config.publish_live_status:
+        # Publish final status blockingly
+        final_status = "failed" if exit_code != 0 else "completed"
+        await _publish_ia_status(
+            config.ia_auth, summary, final_status, bstate
+        )
+
+    return exit_code

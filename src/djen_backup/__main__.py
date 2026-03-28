@@ -124,6 +124,12 @@ def _resolve_ia_auth(*, dry_run: bool) -> str:
     default=False,
     help="Skip uploading absent markers to avoid IA spam detection.",
 )
+@click.option(
+    "--publish-live-status",
+    is_flag=True,
+    default=False,
+    help="Publish live status JSON to the causaganha-live-status Internet Archive item.",
+)
 @click.pass_context
 def main(  # noqa: PLR0913
     ctx: click.Context,
@@ -136,6 +142,7 @@ def main(  # noqa: PLR0913
     backfill_state_file: Path | None,
     state_file: Path | None,
     *,
+    publish_live_status: bool,
     dry_run: bool,
     skip_absent_markers: bool,
 ) -> None:
@@ -165,6 +172,7 @@ def main(  # noqa: PLR0913
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
         skip_absent_markers=skip_absent_markers,
+        publish_live_status=publish_live_status,
     )
 
     log = structlog.get_logger()
