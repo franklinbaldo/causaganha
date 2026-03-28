@@ -29,8 +29,8 @@ jobs:
       - name: Configure Internet Archive credentials
         uses: ./.github/actions/configure-ia
         with:
-          access-key: ${{ secrets.IAS3_ACCESS_KEY }}
-          secret-key: ${{ secrets.IAS3_SECRET_KEY }}
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Generate and upload catalog
         run: |
@@ -38,9 +38,6 @@ jobs:
           echo "Generating catalog from IA data..."
           uv run python scripts/generate_catalog.py --upload
           echo "Catalog updated."
-        env:
-          IAS3_ACCESS_KEY: ${{ secrets.IAS3_ACCESS_KEY }}
-          IAS3_SECRET_KEY: ${{ secrets.IAS3_SECRET_KEY }}
 
       - name: Trigger dashboard deploy
         uses: actions/github-script@v7
