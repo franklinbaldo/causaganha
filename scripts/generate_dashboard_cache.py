@@ -371,6 +371,22 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
             ).fetchall()
             date_used = yesterday
 
+        if not result:
+            # Fallback to the latest available date in the manifest
+            latest_date_row = con.execute(
+                "SELECT MAX(date) FROM manifest WHERE file_type IN ('zip', 'absent')"
+            ).fetchone()
+            if latest_date_row and latest_date_row[0]:
+                date_used = latest_date_row[0]
+                result = con.execute(
+                    """
+                    SELECT tribunal, file_type
+                    FROM manifest
+                    WHERE date = ? AND file_type IN ('zip', 'absent')
+                """,
+                    [date_used],
+                ).fetchall()
+
         for tribunal, file_type in result:
             details = tribunal_details.get(tribunal, {})
             tribunal_status[tribunal] = {

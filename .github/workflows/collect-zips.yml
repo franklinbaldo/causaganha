@@ -160,6 +160,21 @@ jobs:
           uv run causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Generate and upload catalog
+        if: success()
+        run: |
+          echo "Generating catalog from IA data..."
+          uv run python scripts/generate_catalog.py --upload
+          echo "Catalog updated."
+
+      - name: Trigger dashboard deploy
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run deploy-dashboard.yml --repo franklinbaldo/causaganha
+          echo "Dashboard deploy triggered."
+
       - name: Ensure state files exist for caching
         if: always()
         run: |
