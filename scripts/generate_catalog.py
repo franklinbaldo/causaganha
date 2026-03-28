@@ -438,7 +438,6 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     return None
 
 
-
 def load_completed_items() -> set[str]:
     """Load list of completed items from Internet Archive.
 
