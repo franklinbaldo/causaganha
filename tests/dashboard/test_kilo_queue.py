@@ -1,4 +1,5 @@
 """Tests for the Kilo Queue Dashboard generator."""
+
 import json
 from datetime import UTC, datetime
 
@@ -9,6 +10,7 @@ from scripts.dashboard.generate_kilo_queue import get_kilo_queue
 
 def create_mock_response(data: dict):  # noqa: ANN201
     """Create a mock context manager response object matching urllib.request.urlopen."""
+
     class MockResponse:
         def __enter__(self):  # noqa: ANN204
             return self
