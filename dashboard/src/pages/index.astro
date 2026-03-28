@@ -6,6 +6,8 @@ import { TribunalView } from '../components/TribunalView';
 import { SystemStatus } from '../components/SystemStatus';
 import { CommandPalette } from '../components/CommandPalette';
 import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
+import { IncidentBanner } from '../components/IncidentBanner';
+
 
 // Fetch data at build time for static rendering
 let data = null;
@@ -18,6 +20,7 @@ try {
 const backfillProgress = data?.backfillProgress;
 const lastUpdated = backfillProgress?.last_updated;
 
+const incident = data?.perfMetrics?.incident || null;
 const tribunal_coverage = data?.tribunalCoverage || {};
 const tribunal_etas = data?.tribunalEtas || {};
 
@@ -95,6 +98,8 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
     </header>
 
     <main id="main-content" class="max-w-7xl mx-auto space-y-6">
+
+      <IncidentBanner client:load incident={incident} />
 
       <TribunalView
         client:load

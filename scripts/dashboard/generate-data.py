@@ -113,6 +113,56 @@ def fetch_progress_json(url: str) -> dict | None:
     return None
 
 
+
+def get_incident_status():
+    """Fetch recent workflow runs and PR status to build incident object."""
+    import urllib.request
+    import os
+    import json
+
+    token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+    headers = {'Authorization': f'token {token}'} if token else {}
+
+    incident = {
+        "streak": 0,
+        "latest_failing_run_url": None,
+        "pr_number": 436,
+        "pr_url": "https://github.com/franklinbaldo/causaganha/pull/436",
+        "pr_blocked_by": "Kilo Code Review"
+    }
+
+    try:
+        req = urllib.request.Request(
+            'https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/runs?per_page=15',
+            headers=headers
+        )
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            runs = data.get("workflow_runs", [])
+
+            streak = 0
+            latest_url = None
+            for run in runs:
+                conclusion = run.get("conclusion")
+                if conclusion == "failure":
+                    streak += 1
+                    if not latest_url:
+                        latest_url = run.get("html_url")
+                elif conclusion == "success":
+                    break
+
+            if streak > 0:
+                incident["streak"] = streak
+                incident["latest_failing_run_url"] = latest_url
+            else:
+                return None
+    except Exception as e:
+        print(f"Warning: Failed to fetch workflow runs for incident status: {e}")
+        return None
+
+    return incident
+
+
 def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     """Generate dashboard data from DuckDB."""
     # Attempt to get a connection; handle missing database by skipping DB-bound queries
@@ -350,6 +400,10 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "causaganha_backlog_pending_days": 0,
         "slowest_tribunals": [],
     }
+
+    incident = get_incident_status()
+    if incident:
+        perf_metrics["incident"] = incident
 
     total_missing_days = sum(eta.get("missing_days", 0) for eta in tribunal_etas.values())
     perf_metrics["causaganha_backlog_pending_days"] = total_missing_days
