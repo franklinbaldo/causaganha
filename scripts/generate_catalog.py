@@ -19,6 +19,8 @@ import contextlib
 import json
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -436,6 +438,87 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     return None
 
 
+
+def load_completed_items() -> set[str]:
+    """Load list of completed items from Internet Archive.
+
+    Returns empty set if not found or on error.
+    """
+    url = f"https://archive.org/download/{IA_CATALOG_ITEM}/completed-items.json"
+    logger.info("loading_completed_items", url=url)
+
+    try:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                items = set(data.get("completed_items", []))
+                logger.info("loaded_completed_items", count=len(items))
+                return items
+    except urllib.error.URLError as e:
+        logger.info("no_completed_items_found", error=str(e))
+    except Exception as e:
+        logger.info("completed_items_error", error=str(e))
+
+    return set()
+
+
+def is_complete(files: list[dict], total_tribunals: int) -> bool:
+    """Check if an item has .zip or .absent files for >= 80% of tribunals."""
+    if not files:
+        return False
+
+    # Count unique tribunals that have either a zip or absent file
+    tribunals_present = {
+        f.get("tribunal")
+        for f in files
+        if f.get("file_type") in ("zip", "absent") and f.get("tribunal")
+    }
+
+    # Needs at least 80% of expected tribunals
+    threshold = total_tribunals * 0.8
+    return len(tribunals_present) >= threshold
+
+
+def needs_listing(
+    item_id: str,
+    item_date: date | None,
+    today: date,
+    existing_files: list[dict],
+    completed_items: set[str] | None,
+) -> tuple[bool, str]:
+    """Determine if an item needs to be listed from IA.
+
+    Returns (should_list, reason).
+    """
+    # If not in existing manifest at all, list it
+    if not existing_files:
+        return True, "new_item"
+
+    # If recent (< 7 days old), always list to catch updates
+    recency_threshold = timedelta(days=7)
+    if item_date and (today - item_date) < recency_threshold:
+        return True, "recent_date"
+
+    # If it's already marked as complete in completed-items.json, skip listing
+    if completed_items is not None and item_id in completed_items:
+        return False, "already_complete"
+
+    # Check if it lacks parquets but has zips (pending consolidation)
+    has_zip = any(f.get("file_type") == "zip" for f in existing_files)
+    has_parquet = any(f.get("file_type") == "parquet" for f in existing_files)
+
+    if has_zip and not has_parquet:
+        return True, "pending_consolidation"
+
+    # Default to False if it's old, not complete (or we don't know),
+    # and has parquets (already consolidated) or has neither zips/parquets (empty/absent)
+    if completed_items is not None and item_id not in completed_items:
+        return True, "not_complete"
+
+    return False, "unchanged_old_item"
+
+
 def load_existing_manifest() -> list[dict]:
     """Load existing manifest from Internet Archive.
 
@@ -481,7 +564,11 @@ def get_item_date(item_id: str) -> date | None:
         return None
 
 
-def generate_manifest(items: list[str], existing_manifest: list[dict] | None = None) -> list[dict]:
+def generate_manifest(
+    items: list[str],
+    existing_manifest: list[dict] | None = None,
+    completed_items: set[str] | None = None,
+) -> list[dict]:
     """Generate manifest of all files in Internet Archive.
 
     If existing_manifest is provided, performs incremental listing:
@@ -511,35 +598,22 @@ def generate_manifest(items: list[str], existing_manifest: list[dict] | None = N
 
     for item_id in items:
         item_date = get_item_date(item_id)
+        existing_files = existing_by_item.get(item_id, [])
 
-        # Determine if we should re-list this item
-        should_list = False
-        reason = ""
-
-        if item_id not in existing_by_item:
-            should_list = True
-            reason = "new_item"
-        # Check if it's recent
-        elif item_date and (today - item_date) < recency_threshold:
-            should_list = True
-            reason = "recent_date"
-        else:
-            # Check if it lacks parquets but has zips
-            # (means it might be pending consolidation)
-            files = existing_by_item[item_id]
-            has_zip = any(f.get("file_type") == "zip" for f in files)
-            has_parquet = any(f.get("file_type") == "parquet" for f in files)
-
-            if has_zip and not has_parquet:
-                should_list = True
-                reason = "pending_consolidation"
+        should_list, reason = needs_listing(
+            item_id=item_id,
+            item_date=item_date,
+            today=today,
+            existing_files=existing_files,
+            completed_items=completed_items,
+        )
 
         if should_list:
             items_to_list.append(item_id)
             logger.debug("item_queued_for_listing", item=item_id, reason=reason)
         else:
             # Use existing entries
-            manifest.extend(existing_by_item[item_id])
+            manifest.extend(existing_files)
 
     if not items_to_list:
         logger.info("no_items_to_list_incremental")
@@ -1051,11 +1125,40 @@ def main() -> int:
 
     # 2. Try to load existing manifest if in incremental mode
     existing_manifest = None
+    completed_items = None
     if not args.full:
         existing_manifest = load_existing_manifest()
+        completed_items = load_completed_items()
 
     # 3. Generate manifest
-    manifest = generate_manifest(items, existing_manifest)
+    manifest = generate_manifest(items, existing_manifest, completed_items)
+
+    # 3b. Determine newly completed items
+    # Group manifest by item
+    manifest_by_item = {}
+    for m in manifest:
+        item = m.get("ia_item")
+        if item:
+            manifest_by_item.setdefault(item, []).append(m)
+
+    # Calculate completed items
+    new_completed_items = set()
+    total_tribunals = len(TRIBUNAIS)
+    for item_id, files in manifest_by_item.items():
+        if is_complete(files, total_tribunals):
+            new_completed_items.add(item_id)
+
+    # Save completed items
+    completed_items_path = output_dir / "completed-items.json"
+    try:
+        completed_items_path.write_text(
+            json.dumps({"completed_items": list(new_completed_items)}, indent=2)
+        )
+        logger.info(
+            "completed_items_saved", count=len(new_completed_items), path=str(completed_items_path)
+        )
+    except Exception as e:
+        logger.warning("completed_items_save_failed", error=str(e))
 
     # 4. Get local coverage and generate backfill list
     local_coverage = set()
@@ -1162,6 +1265,10 @@ def main() -> int:
         legacy_progress = output_dir / "backfill-progress.json"
         if legacy_progress.exists():
             files.append(legacy_progress)
+
+        completed_items_file = output_dir / "completed-items.json"
+        if completed_items_file.exists():
+            files.append(completed_items_file)
 
         success = upload_to_ia(files)
         if success:
