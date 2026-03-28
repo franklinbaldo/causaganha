@@ -21,12 +21,16 @@ import httpx
 
 
 # Add src/ to sys.path so we can import from causaganha
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+)
 
 from causaganha.config import TRIBUNAIS
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
@@ -39,7 +43,9 @@ MAX_CONCURRENT_REQUESTS = 10
 sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 
-async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
+async def check_date_has_data(
+    client: httpx.AsyncClient, tribunal: str, target_date: date
+) -> bool:
     """Check if a tribunal has data for a specific date via the DJEN proxy."""
     url = f"{PROXY_URL}/api/v1/caderno/{tribunal}/{target_date.isoformat()}/D"
 
@@ -73,7 +79,9 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             return False
 
 
-async def confirm_void(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
+async def confirm_void(
+    client: httpx.AsyncClient, tribunal: str, target_date: date
+) -> bool:
     """Check if `target_date` AND `target_date - 60 days` are BOTH absent.
 
     If both are absent, this confirms a >= 60 day patch (primordial void).
@@ -84,7 +92,8 @@ async def confirm_void(client: httpx.AsyncClient, tribunal: str, target_date: da
     date2 = target_date - timedelta(days=60)
 
     res1, res2 = await asyncio.gather(
-        check_date_has_data(client, tribunal, date1), check_date_has_data(client, tribunal, date2)
+        check_date_has_data(client, tribunal, date1),
+        check_date_has_data(client, tribunal, date2),
     )
 
     # Void is confirmed if BOTH are absent (False)
@@ -189,7 +198,10 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--max-tribunals", type=int, default=0, help="Max tribunals to check (for testing)"
+        "--max-tribunals",
+        type=int,
+        default=0,
+        help="Max tribunals to check (for testing)",
     )
     args = parser.parse_args()
 
