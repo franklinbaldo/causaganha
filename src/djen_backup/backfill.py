@@ -587,15 +587,17 @@ async def backfill_tribunal(
         # --- AUTOMATIC DASHBOARD UPDATE ---
         try:
             import sys
+
             repo_root = "/home/franklin/workspace/causaganha"
             if repo_root not in sys.path:
                 sys.path.insert(0, repo_root)
             from scripts.dashboard.generate_data import generate_dashboard_data
+
             db_path = Path(f"{repo_root}/data/causaganha.duckdb")
             output_path = Path(f"{repo_root}/dashboard/public/dashboard-data.json")
             generate_dashboard_data(db_path, output_path)
         except Exception:
-            pass # Silent failure to not stop the backfill
+            pass  # Silent failure to not stop the backfill
 
         # Check if just stopped
         if prog.stopped:

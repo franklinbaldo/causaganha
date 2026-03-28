@@ -15,9 +15,10 @@ STATE_FILE = Path("/home/franklin/workspace/causaganha/data/state.json")
 QUERY = "collection:(causaganha-archive) OR identifier:(djen-*)"
 IA_SEARCH_URL = "https://archive.org/advancedsearch.php"
 
+
 def parse_identifier(identifier, title):
     """Extract date and tribunal from IA identifier or title.
-    
+
     Examples:
     - djen-pjecor-2025 -> Tribunal: PJECOR, Year: 2025 (Needs more date info from metadata/title)
     - djen-stj-2026 -> Tribunal: STJ, Year: 2026
@@ -59,6 +60,7 @@ def parse_identifier(identifier, title):
 
     return None, None
 
+
 def main():
     log.info("sync_ia_starting", query=QUERY)
 
@@ -66,7 +68,7 @@ def main():
         "q": QUERY,
         "fl[]": ["identifier", "title", "date", "description"],
         "rows": 10000,
-        "output": "json"
+        "output": "json",
     }
 
     response = httpx.get(IA_SEARCH_URL, params=params, timeout=60)
@@ -112,16 +114,23 @@ def main():
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
-    log.info("sync_ia_finalized", total_hits_found=len(docs), new_successful_mappings=count_new, total_recorded=len(entries))
+    log.info(
+        "sync_ia_finalized",
+        total_hits_found=len(docs),
+        new_successful_mappings=count_new,
+        total_recorded=len(entries),
+    )
 
     # --- AUTOMATIC DASHBOARD UPDATE ---
     try:
         import sys
+
         repo_root = "/home/franklin/workspace/causaganha"
         if repo_root not in sys.path:
             sys.path.insert(0, repo_root)
 
         from scripts.dashboard.generate_data import generate_dashboard_data
+
         db_path = Path(f"{repo_root}/data/causaganha.duckdb")
         output_path = Path(f"{repo_root}/dashboard/public/dashboard-data.json")
         log.info("dashboard_update_starting")
@@ -129,6 +138,7 @@ def main():
         log.info("dashboard_update_complete")
     except Exception as e:
         log.error("dashboard_update_failed", error=str(e))
+
 
 if __name__ == "__main__":
     main()
