@@ -1,6 +1,10 @@
 from __future__ import annotations
 import anyio
 
+
+HTTP_300_MULTIPLE_CHOICES = 300
+MAGIC_VAL_2 = 2
+
 """Backfill engine — scan historical dates per tribunal with 60-empty-day stop rule.
 
 For each tribunal, scans backward one day at a time.  When 60 consecutive
@@ -215,7 +219,7 @@ class BackfillState:
     def from_dict(cls, data: dict[str, object]) -> BackfillState:
         """Create BackfillState from dictionary."""
         state = cls()
-        if data.get("version") != 2:
+        if data.get("version") != MAGIC_VAL_2:
             return state
 
         tribunals = data.get("tribunals")
@@ -358,7 +362,7 @@ async def _publish_ntfy_status(
                 headers={"Content-Type": "application/json", "Title": "CausaGanha Pipeline"},
                 timeout=10.0,
             )
-            if resp.status_code >= 300:
+            if resp.status_code >= HTTP_300_MULTIPLE_CHOICES:
                 log.warning("ntfy_publish_failed", status_code=resp.status_code)
             else:
                 log.debug("ntfy_publish_success", status=status, zips=summary.hits)

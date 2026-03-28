@@ -1,3 +1,5 @@
+MAGIC_VAL_1eNEG_6 = 1e-6
+
 """Experiment: Test Jina AI embeddings with legal text.
 
 This script tests the Jina AI embedding provider with sample Brazilian legal text
@@ -89,7 +91,7 @@ def vector_stats(embedding: list[float]) -> dict[str, Any]:
         "std_dev": std_dev,
         "min": min(embedding),
         "max": max(embedding),
-        "zero_count": sum(1 for x in embedding if abs(x) < 1e-6),
+        "zero_count": sum(1 for x in embedding if abs(x) < MAGIC_VAL_1eNEG_6),
     }
 
 

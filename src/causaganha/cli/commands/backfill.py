@@ -53,6 +53,7 @@ def reset(
         None,
         help="Reset a specific tribunal. Omit for --all.",
     ),
+    *,
     all: bool = typer.Option(
         False,
         "--all",

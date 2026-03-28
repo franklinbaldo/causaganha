@@ -20,7 +20,7 @@ def parse_run_results(results_path: Path) -> None:
         return
 
     try:
-        with open(results_path) as f:
+        with Path(results_path).open() as f:
             data = json.load(f)
     except json.JSONDecodeError:
         logger.exception(

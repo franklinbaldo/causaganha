@@ -1,6 +1,11 @@
 from datetime import timezone
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_5 = 5
+MAGIC_VAL_4 = 4
+HTTP_200_OK = 200
+
 """Consolidate DJEN ZIP files into daily Parquet files.
 
 This script downloads all ZIP files for a specific date from Internet Archive,
@@ -357,7 +362,7 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
     for zip_file in local_dir.glob("*.zip"):
         # Extract tribunal from filename: djen-2026-01-23-TJSP.zip
         parts = zip_file.stem.split("-")
-        tribunal = parts[-1] if len(parts) >= 4 else "UNKNOWN"
+        tribunal = parts[-1] if len(parts) >= MAGIC_VAL_4 else "UNKNOWN"
         zips.append(
             {
                 "filename": zip_file.name,
@@ -406,7 +411,7 @@ def list_zips_for_date(
         try:
             url = f"https://archive.org/metadata/{item_id}"
             response = httpx.get(url, timeout=30)
-            if response.status_code == 200:
+            if response.status_code == HTTP_200_OK:
                 data = response.json()
                 files = data.get("files", [])
 
@@ -1008,7 +1013,7 @@ def _is_tribunal_stopped(
 
         for days_back in range(1, absent_threshold + 1):
             check_date = target_date - timedelta(days=days_back)
-            if check_date.weekday() >= 5:  # skip weekends
+            if check_date.weekday() >= MAGIC_VAL_5:  # skip weekends
                 continue
 
             check_date_str = check_date.strftime("%Y-%m-%d")
@@ -1050,7 +1055,7 @@ def _is_tribunal_stopped(
 
     for days_back in range(1, absent_threshold + 1):
         check_date = target_date - timedelta(days=days_back)
-        if check_date.weekday() >= 5:  # skip weekends
+        if check_date.weekday() >= MAGIC_VAL_5:  # skip weekends
             continue
 
         check_date_str = check_date.strftime("%Y-%m-%d")
@@ -1166,7 +1171,7 @@ def _needs_consolidation(
                 has_zips = True
                 # Identify tribunal from filename
                 parts = name.replace(".zip", "").replace(".absent", "").split("-")
-                if len(parts) >= 4:
+                if len(parts) >= MAGIC_VAL_4:
                     present_tribunais.add(parts[-1])
 
             # Check for any .parquet file or the sentinel marker as proof of consolidation
@@ -1296,7 +1301,7 @@ def find_next_unconsolidated(
         d_str = d.strftime("%Y-%m-%d")
 
         # Skip weekends
-        if d.weekday() >= 5:
+        if d.weekday() >= MAGIC_VAL_5:
             days_ago += 1
             continue
 

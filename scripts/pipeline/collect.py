@@ -19,6 +19,7 @@ Usage:
     python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
 """
 
+from pathlib import Path
 import argparse
 import os
 import re
@@ -136,7 +137,7 @@ def main() -> int:
 
     # Write pipeline output contract (same keys as before)
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        with open(gh_output, "a") as f:
+        with Path(gh_output).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
             f.write(f"collect_success={stats['uploaded'] + stats['absent_marked']}\n")
             f.write(f"collect_failed={stats['failed']}\n")

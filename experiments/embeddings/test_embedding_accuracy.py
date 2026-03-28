@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_60 = 60
+MAGIC_VAL_80 = 80
+
 """Test embedding-based analysis vs LLM analysis."""
 
 import asyncio
@@ -239,12 +243,12 @@ async def test_embedding_accuracy() -> None:
     # Final recommendation
     console.print("\n[bold cyan]🎯 RECOMENDAÇÃO[/bold cyan]\n")
 
-    if accuracy >= 80:
+    if accuracy >= MAGIC_VAL_80:
         console.print(
             f"[green]✅ Acurácia de {accuracy:.1f}% é excelente! "
             f"Embeddings podem substituir LLM com economia de ${total_savings_5k:.2f}[/green]",
         )
-    elif accuracy >= 60:
+    elif accuracy >= MAGIC_VAL_60:
         console.print(
             f"[yellow]⚠️  Acurácia de {accuracy:.1f}% é aceitável. "
             f"Considere usar embeddings para triagem e LLM para confirmação.[/yellow]",

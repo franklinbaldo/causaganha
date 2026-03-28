@@ -185,6 +185,7 @@ class ParquetAnalyzer:
         date: str,
         strategy: AnalysisStrategy | str = AnalysisStrategy.HYBRID,
         confidence_threshold: float = 0.70,
+        *,
         auto_download: bool = True,
     ) -> dict[str, Any]:
         """Analyze decisions from Internet Archive.
@@ -588,6 +589,7 @@ async def analyze_from_parquet(
     strategy: AnalysisStrategy | str = AnalysisStrategy.HYBRID,
     output_mode: OutputMode | str = OutputMode.PARQUET,
     confidence_threshold: float = 0.70,
+    *,
     filter_unanalyzed: bool = True,
 ) -> dict[str, Any]:
     """Analyze decisions from a parquet file.

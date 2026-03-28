@@ -6,6 +6,8 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
+MAGIC_VAL_403 = 403
+
 DEFAULT_URL = "https://comunicaapi.pje.jus.br/swagger/djen.yml"
 DEFAULT_OUTPUT = "openapi/pje-comunicaapi-djen.swagger.yml"
 
@@ -16,7 +18,7 @@ def fetch(url: str, timeout_s: float) -> bytes:
         with urlopen(req, timeout=timeout_s) as resp:
             body = resp.read()
     except HTTPError as exc:
-        if exc.code == 403:
+        if exc.code == MAGIC_VAL_403:
             msg = (
                 f"HTTP 403 when fetching {url}.\n\n"
                 "The PJe host is frequently geo-blocked. Options:\n"

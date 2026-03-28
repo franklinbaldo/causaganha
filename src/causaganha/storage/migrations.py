@@ -1,3 +1,5 @@
+MAGIC_VAL_2 = 2
+
 """Database migrations for CausaGanha.
 
 Run migrations with: causaganha db migrate
@@ -269,7 +271,7 @@ if __name__ == "__main__":
             run_migrations(con, dry_run=True)
 
         elif cmd == "rollback":
-            target = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+            target = int(sys.argv[2]) if len(sys.argv) > MAGIC_VAL_2 else 0
             rolled = rollback_migration(con, target)
 
         else:

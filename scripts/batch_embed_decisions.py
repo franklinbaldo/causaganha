@@ -57,7 +57,7 @@ def prepare_batch_requests(decisions: list[tuple], output_file: str) -> int:
 
     request_count = 0
 
-    with open(output_file, "w") as f:
+    with Path(output_file).open("w") as f:
         for intimation_id, texto in decisions:
             chunks = chunk_text_with_prefix(texto)
 
@@ -263,7 +263,7 @@ def main() -> None:
             output_file = "data/batch_embed_results.jsonl"
             content = client.files.download(file=status.dest.file_name)
 
-            with open(output_file, "wb") as f:
+            with Path(output_file).open("wb") as f:
                 f.write(content)
 
             console.print(f"[green]✓ Resultados salvos em: {output_file}[/green]\n")
@@ -273,7 +273,7 @@ def main() -> None:
 
             embeddings_by_id = {}
 
-            with open(output_file) as f:
+            with Path(output_file).open() as f:
                 for line in f:
                     result = json.loads(line)
                     key = result.get("key", "")
@@ -302,7 +302,7 @@ def main() -> None:
 
             # Salvar embeddings estruturados
             structured_output = "data/decision_embeddings.jsonl"
-            with open(structured_output, "w") as f:
+            with Path(structured_output).open("w") as f:
                 for intimation_id, chunks in embeddings_by_id.items():
                     # Ordenar chunks
                     chunks.sort(key=lambda x: x["chunk_idx"])

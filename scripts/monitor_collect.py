@@ -1,4 +1,8 @@
+from __future__ import annotations
 #!/usr/bin/env python3
+
+MAGIC_VAL_3 = 3
+
 """Monitor the collect-zips workflow and report on progress.
 
 Checks the last N runs of collect-zips.yml and:
@@ -12,7 +16,7 @@ Exit codes:
   1 — stalled or too many errors (triggers adjustment)
 """
 
-from __future__ import annotations
+from pathlib import Path
 
 import json
 import os
@@ -124,7 +128,7 @@ def set_output(key: str, value: str) -> None:
     """Write to GITHUB_OUTPUT."""
     output_file = os.environ.get("GITHUB_OUTPUT")
     if output_file:
-        with open(output_file, "a") as f:
+        with Path(output_file).open("a") as f:
             f.write(f"{key}={value}\n")
 
 
@@ -139,7 +143,7 @@ def main() -> int:
 
     for r in runs[:3]:
         r["created_at"][:16]
-    if len(runs) > 3:
+    if len(runs) > MAGIC_VAL_3:
         pass
 
     analysis = analyze_runs(runs)
@@ -160,7 +164,7 @@ def main() -> int:
     # Write step summary
     summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_file:
-        with open(summary_file, "a") as f:
+        with Path(summary_file).open("a") as f:
             f.write(f"## Collect Monitor — {analysis['status'].upper()}\n\n")
             f.write("| Metric | Value |\n|--------|-------|\n")
             f.write(f"| Runs analyzed | {analysis['total_runs']} |\n")

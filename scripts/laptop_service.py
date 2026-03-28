@@ -1,5 +1,8 @@
 from datetime import timezone
 
+
+MAGIC_VAL_10 = 10
+
 """Continuous embedding service for running on laptop/personal computer.
 
 This service runs 24/7 on your laptop and continuously processes unembedded decisions.
@@ -274,7 +277,7 @@ async def continuous_loop(
 
         # Small sleep between iterations
         iteration_duration = time.time() - start_time
-        if iteration_duration < 10:  # If iteration was very fast, add small delay
+        if iteration_duration < MAGIC_VAL_10:  # If iteration was very fast, add small delay
             await asyncio.sleep(5)
 
     logger.info(

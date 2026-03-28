@@ -13,6 +13,7 @@ app = typer.Typer(help="Manage data archival and compliance reporting")
 
 @app.command("run-cold-storage")
 def run_cold_storage(
+    *,
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Simulate archival without modifying data"
     ),

@@ -132,6 +132,7 @@ class EmbeddingPipeline:
         self,
         intimation_id: int,
         text_loader: Callable[[int], str],
+        *,
         force: bool = False,
     ) -> dict[str, any]:
         """Process a single decision.
@@ -231,6 +232,7 @@ class EmbeddingPipeline:
         self,
         intimation_ids: list[int],
         text_loader: Callable[[int], str],
+        *,
         force: bool = False,
         progress_callback: Callable[[BatchStats], None] | None = None,
         progress_interval: int = 10,
@@ -316,6 +318,7 @@ async def process_decisions_batch(
     text_loader: Callable[[int], str],
     model: EmbeddingModel,
     max_concurrency: int = 10,
+    *,
     force: bool = False,
 ) -> BatchStats:
     """Convenience function to process a batch of decisions.

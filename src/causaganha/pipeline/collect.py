@@ -26,6 +26,8 @@ from causaganha.storage.djen_schema import (
 )
 from causaganha.storage.repositories.intimation import store_intimations
 
+HTTP_200_OK = 200
+
 
 logger = structlog.get_logger()
 
@@ -61,7 +63,7 @@ async def collect_metadata_for_court(
                 info_url = f"{proxy_url}/api/v1/caderno/{tribunal}/{target_date}/D"
                 response = await client.get(info_url)
 
-                if response.status_code != 200:
+                if response.status_code != HTTP_200_OK:
                     logger.warning(
                         "caderno_not_available",
                         tribunal=tribunal,
@@ -81,7 +83,7 @@ async def collect_metadata_for_court(
                 logger.debug("downloading_zip", url=download_url)
                 zip_response = await client.get(download_url, follow_redirects=True)
 
-                if zip_response.status_code != 200:
+                if zip_response.status_code != HTTP_200_OK:
                     logger.error("zip_download_failed", status=zip_response.status_code)
                     continue
 

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_0_60 = 0.60
+MAGIC_VAL_0_80 = 0.80
+
 """Classify decisions using pre-computed batch embeddings + k-NN (zero additional cost)."""
 
 import sys
@@ -105,7 +109,7 @@ def main() -> None:
     console.print(f"[yellow]Carregando embeddings de {embeddings_file}...[/yellow]")
 
     embeddings_data = []
-    with open(embeddings_file) as f:
+    with Path(embeddings_file).open() as f:
         for line in f:
             record = json.loads(line)
             embeddings_data.append(record)
@@ -162,9 +166,11 @@ def main() -> None:
     console.print("\n[bold]Análise de Confiança:[/bold]\n")
 
     confidence_buckets = {
-        "Alta (≥80%)": sum(1 for r in results if r["confidence"] >= 0.80),
-        "Média (60-80%)": sum(1 for r in results if 0.60 <= r["confidence"] < 0.80),
-        "Baixa (<60%)": sum(1 for r in results if r["confidence"] < 0.60),
+        "Alta (≥80%)": sum(1 for r in results if r["confidence"] >= MAGIC_VAL_0_80),
+        "Média (60-80%)": sum(
+            1 for r in results if MAGIC_VAL_0_60 <= r["confidence"] < MAGIC_VAL_0_80
+        ),
+        "Baixa (<60%)": sum(1 for r in results if r["confidence"] < MAGIC_VAL_0_60),
     }
 
     conf_table = Table()
@@ -182,8 +188,8 @@ def main() -> None:
     console.print("\n[bold]Amostras de Classificações:[/bold]\n")
 
     # Mostrar 3 de cada tipo de confiança
-    high_conf = [r for r in results if r["confidence"] >= 0.80][:3]
-    low_conf = [r for r in results if r["confidence"] < 0.60][:3]
+    high_conf = [r for r in results if r["confidence"] >= MAGIC_VAL_0_80][:3]
+    low_conf = [r for r in results if r["confidence"] < MAGIC_VAL_0_60][:3]
 
     console.print("[cyan]Alta Confiança (≥80%):[/cyan]")
     for r in high_conf:

@@ -1,6 +1,11 @@
 from datetime import timezone
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_1990 = 1990
+HTTP_429_TOO_MANY_REQUESTS = 429
+HTTP_404_NOT_FOUND = 404
+
 """Probe the true start date for each DJEN tribunal.
 
 Discovers when each of the 96 DJEN tribunals started publishing data using
@@ -49,7 +54,7 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
         try:
             # The proxy returns 404 when there is no data
             response = await client.get(url, timeout=30.0)
-            if response.status_code == 404:
+            if response.status_code == HTTP_404_NOT_FOUND:
                 return False
             response.raise_for_status()
 
@@ -59,9 +64,9 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
                 return True
             return False
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
+            if e.response.status_code == HTTP_404_NOT_FOUND:
                 return False
-            if e.response.status_code == 429:
+            if e.response.status_code == HTTP_429_TOO_MANY_REQUESTS:
                 # Retry on 429 using exponential backoff inside the function
                 logger.warning(
                     f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 10s..."
@@ -122,7 +127,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
 
     while True:
         # Guard against going too far back (e.g. before 1990)
-        if current_date.year < 1990:
+        if current_date.year < MAGIC_VAL_1990:
             logger.warning(f"[{tribunal}] Probe went too far back ({current_date}).")
             return None
 
@@ -203,7 +208,7 @@ async def main():
     # Check if we already have some results to resume
     if OUTPUT_FILE.exists():
         try:
-            with open(OUTPUT_FILE) as f:
+            with Path(OUTPUT_FILE).open() as f:
                 results = json.load(f)
             logger.info(f"Loaded {len(results)} existing results from {OUTPUT_FILE}")
         except json.JSONDecodeError:
@@ -229,7 +234,7 @@ async def main():
 
             # Save incrementally
             OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(OUTPUT_FILE, "w") as f:
+            with Path(OUTPUT_FILE).open("w") as f:
                 json.dump(results, f, indent=2)
 
     logger.info(f"Finished processing. Results saved to {OUTPUT_FILE}")

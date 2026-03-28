@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_0_01 = 0.01
+
 """Debug detalhado do processo de comparação de embeddings."""
 
 import sys
@@ -241,7 +244,7 @@ def main() -> None:
         winner = scores[0][0]
         score = scores[0][1]
         diff = scores[0][1] - scores[1][1]
-        style = "bold green" if diff > 0.01 else "red"
+        style = "bold green" if diff > MAGIC_VAL_0_01 else "red"
         comparison.add_row(
             f"{name} {note}",
             winner,

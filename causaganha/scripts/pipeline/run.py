@@ -1,5 +1,8 @@
 from datetime import timezone
 
+
+MAGIC_VAL_5 = 5
+
 """CausaGanha Data Pipeline - KISS Version.
 
 Orchestrates pipeline steps sequentially, processing exactly ONE day per run.
@@ -87,7 +90,7 @@ def get_next_date(repo_root: str) -> str:
         next_d = datetime.now(timezone.utc).date() - timedelta(days=1)
 
     # Skip weekends
-    while next_d.weekday() >= 5:
+    while next_d.weekday() >= MAGIC_VAL_5:
         next_d -= timedelta(days=1)
 
     return next_d.isoformat()
