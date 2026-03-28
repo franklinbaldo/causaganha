@@ -9,10 +9,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+
 REPO = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
 WORKFLOW = "collect-zips.yml"
 TOKEN = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
 MAX_RUNS_TO_DISPLAY = 5
+
 
 def api_get(path: str) -> Any:  # noqa: ANN401
     """Make an authenticated API request to GitHub."""
@@ -32,6 +34,7 @@ def api_get(path: str) -> Any:  # noqa: ANN401
         sys.stderr.write(f"Error fetching {url}: {e}\n")
         return None
 
+
 def get_failed_steps_for_run(run_id: str) -> list[str]:
     """Retrieve the names of all steps that failed in a given run."""
     data = api_get(f"actions/runs/{run_id}/jobs")
@@ -41,11 +44,10 @@ def get_failed_steps_for_run(run_id: str) -> list[str]:
     failed_steps = []
     for job in data["jobs"]:
         failed_steps.extend(
-            step.get("name")
-            for step in job.get("steps", [])
-            if step.get("conclusion") == "failure"
+            step.get("name") for step in job.get("steps", []) if step.get("conclusion") == "failure"
         )
     return failed_steps
+
 
 def get_recent_failed_runs(limit: int = 10) -> list[dict[str, Any]]:
     """Get the most recent failed runs for the target workflow."""
@@ -53,6 +55,7 @@ def get_recent_failed_runs(limit: int = 10) -> list[dict[str, Any]]:
     if not data or "workflow_runs" not in data:
         return []
     return data["workflow_runs"]
+
 
 def main() -> None:  # noqa: C901, PLR0912
     """Main entrypoint to summarize incident data and output it to the step summary."""
@@ -129,6 +132,7 @@ def main() -> None:  # noqa: C901, PLR0912
                 f.write(summary_text + "\n")
         except Exception as e:  # noqa: BLE001
             sys.stderr.write(f"Error writing to GITHUB_STEP_SUMMARY: {e}\n")
+
 
 if __name__ == "__main__":
     main()
