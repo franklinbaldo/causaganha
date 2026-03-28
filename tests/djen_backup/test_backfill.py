@@ -1,6 +1,11 @@
+from __future__ import annotations
+
+import time
+from dataclasses import replace
+
+
 """BDD steps for the backfill feature."""
 
-from __future__ import annotations
 
 import asyncio
 from datetime import date, timedelta
@@ -243,7 +248,6 @@ def when_backfill(
     config: BackfillConfig = context["config"]
 
     # Limit to requested number of dates
-    from dataclasses import replace
 
     config = replace(config, max_items=n)
 
@@ -254,7 +258,6 @@ def when_backfill(
 
     async def _run() -> None:
         breaker = CircuitBreaker(threshold=5)
-        import time
 
         deadline = time.monotonic() + 300
         async with httpx.AsyncClient() as client:
@@ -298,7 +301,6 @@ def when_backfill_no_lower(
 
     async def _run() -> None:
         breaker = CircuitBreaker(threshold=5)
-        import time
 
         deadline = time.monotonic() + 300
         async with httpx.AsyncClient() as client:
@@ -455,7 +457,6 @@ def test_backfill_tribunal_advances_cursor_on_spam_rejection(
 
     async def _run() -> None:
         breaker = CircuitBreaker(threshold=5)
-        import time
 
         deadline = time.monotonic() + 300
         async with httpx.AsyncClient() as client:

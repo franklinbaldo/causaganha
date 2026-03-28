@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+import base64
+
+
 """BDD steps for the collect and upload feature."""
 
-from __future__ import annotations
 
 import hashlib
 from typing import TYPE_CHECKING, Any
@@ -101,7 +105,6 @@ def then_ia_headers(context: dict[str, Any]) -> None:
 
 @then("the upload Content-MD5 should match the file's MD5 hash")
 def then_md5_matches(context: dict[str, Any]) -> None:
-    import base64
 
     ia_requests: list[httpx.Request] = context["ia_requests"]
     assert ia_requests

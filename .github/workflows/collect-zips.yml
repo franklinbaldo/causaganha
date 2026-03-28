@@ -106,6 +106,19 @@ jobs:
             echo "No backfill state yet — nothing to reset"
           fi
 
+      - name: Validate CLI flags
+        run: |
+          echo "Validating CLI flags..."
+          HELP_OUTPUT=$(uv run python -m djen_backup --help)
+          FLAGS=("--deadline-minutes" "--workers" "--backfill-state-file" "--state-file" "--start-date")
+          for FLAG in "${FLAGS[@]}"; do
+            if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
+              echo "❌ Error: Required flag $FLAG is missing from djen_backup CLI!"
+              exit 1
+            fi
+          done
+          echo "✅ All required CLI flags are present in djen_backup CLI."
+
       - name: Run causaganha backfill
         id: collect
         run: |
@@ -124,6 +137,8 @@ jobs:
           # Skip absent markers to avoid IA spam detection (hundreds of tiny files in sequence)
           # The 60-day stop rule still works — empty streak increments normally
           CMD="$CMD --skip-absent-markers"
+
+          CMD="$CMD --publish-live-status"
 
           if [ -n "$END_DATE" ]; then
             CMD="$CMD --end-date $END_DATE"

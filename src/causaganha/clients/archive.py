@@ -17,7 +17,7 @@
 import asyncio
 import os
 import shutil
-from datetime import date
+from datetime import UTC, date
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -133,7 +133,9 @@ class LocalArchiveService:
         """Generate archive metadata from intimation data for hierarchical storage."""
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get(
+            "data_disponibilizacao", datetime.now(UTC).date().isoformat()
+        )
 
         return {
             "collection": IA_DEFAULT_COLLECTION,
@@ -311,7 +313,9 @@ class InternetArchiveService:
         """
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get("data_disponibilizacao", date.today().isoformat())
+        data_pub = intimation_data.get(
+            "data_disponibilizacao", datetime.now(UTC).date().isoformat()
+        )
 
         return {
             "collection": IA_DEFAULT_COLLECTION,

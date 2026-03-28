@@ -138,7 +138,7 @@ def get_applied_migrations(con: Backend) -> set[int]:
     return {row[0] for row in result}
 
 
-def run_migrations(con: Backend | None = None, dry_run: bool = False) -> list[str]:
+def run_migrations(con: Backend | None = None, *, dry_run: bool = False) -> list[str]:
     """Run all pending migrations.
 
     Args:

@@ -1,3 +1,6 @@
+import json
+
+
 #!/usr/bin/env python3
 """Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794)."""
 
@@ -244,8 +247,6 @@ def main() -> None:
     # Inserir resultados
     console.print("[yellow]Salvando resultados no banco...[/yellow]")
     for r in results:
-        import json
-
         conn.execute(
             """
             INSERT OR REPLACE INTO rag_classifications

@@ -1,7 +1,7 @@
 import logging
 import os
 import tarfile
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import boto3
 
@@ -25,8 +25,8 @@ class ColdStorageArchiver:
         con = get_connection()
 
         # Calculate cutoff date for 3 months hot window
-        three_months_ago = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
-        nine_months_ago = (datetime.now() - timedelta(days=270)).strftime("%Y-%m-%d")
+        three_months_ago = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
+        nine_months_ago = (datetime.now(UTC) - timedelta(days=270)).strftime("%Y-%m-%d")
 
         # Find tribunals and months that have completed exports
         # older than 3 months but newer than 9 months (6 months window)

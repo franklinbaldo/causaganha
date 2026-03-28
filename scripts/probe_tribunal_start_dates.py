@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
 import httpx
@@ -97,7 +97,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     Phase 1: Exponential probe backwards from today (step=60, 120, 240, 480...)
     Phase 2: Binary search to find the exact right edge of the 60-day void.
     """
-    today = date.today()
+    today = datetime.now(UTC).date()
     logger.info(f"[{tribunal}] Starting exponential probe...")
 
     # Verify if the tribunal has ANY data at all recently

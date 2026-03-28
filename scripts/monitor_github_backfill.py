@@ -4,6 +4,7 @@
 Checks Internet Archive catalog for progress and alerts if stalled.
 """
 
+import argparse
 import json
 import sys
 from datetime import UTC, datetime
@@ -93,7 +94,6 @@ def check_stall(state: dict, current: dict, stall_threshold_minutes: int = 60) -
 
 
 def main() -> int:
-    import argparse
 
     parser = argparse.ArgumentParser(description="Monitor GitHub Actions backfill")
     parser.add_argument(

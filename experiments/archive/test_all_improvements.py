@@ -11,6 +11,8 @@ This script demonstrates:
 import asyncio
 from pathlib import Path
 
+import pandas as pd
+
 from causaganha.analysis.embedding_models import JINA_V4_1024
 from causaganha.analysis.embedding_service_v2 import EmbeddingService
 from causaganha.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
@@ -164,7 +166,6 @@ async def test_all_improvements() -> None:
     file_size / 1024
 
     # Verify Parquet contents
-    import pandas as pd
 
     df = pd.read_parquet(parquet_path)
     for _col in df.columns:

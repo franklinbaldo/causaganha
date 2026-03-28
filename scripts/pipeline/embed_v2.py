@@ -26,9 +26,12 @@ import sys
 import tempfile
 import time
 
+import google.generativeai as genai
 import httpx
 import ibis
 import structlog
+
+from causaganha.config import TRIBUNAIS
 
 
 logger = structlog.get_logger()
@@ -65,8 +68,6 @@ def get_embedding_client():
 
     if google_key:
         try:
-            import google.generativeai as genai
-
             genai.configure(api_key=google_key)
 
             def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -370,8 +371,6 @@ def main() -> int:
         if time.time() - start_time > timeout_seconds:
             logger.info("timeout_reached")
             break
-
-        from causaganha.config import TRIBUNAIS
 
         stats = generate_embeddings_for_date(
             date=date,

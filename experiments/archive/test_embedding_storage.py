@@ -9,8 +9,11 @@ This script demonstrates:
 import asyncio
 from pathlib import Path
 
-from causaganha.analysis.embedding_models import JINA_V4_1024
+import pandas as pd
+
+from causaganha.analysis.embedding_models import JINA_V4_768, JINA_V4_1024
 from causaganha.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.analysis.text_chunker import TextChunker
 from causaganha.storage.connection import get_connection
 from causaganha.storage.embedding_storage import EmbeddingStorage
 
@@ -67,7 +70,6 @@ async def test_embedding_storage() -> None:
     intimation_id = 12345  # Simulated intimation ID
 
     # Split decision into chunks for text preview
-    from causaganha.analysis.text_chunker import TextChunker
 
     chunker = TextChunker(max_tokens=service.model.max_tokens)
     text_chunks = chunker.chunk_text(sample_decision, strategy="auto")
@@ -80,8 +82,6 @@ async def test_embedding_storage() -> None:
     )
 
     # Save another intimation with different model (simulate mixed models)
-
-    from causaganha.analysis.embedding_models import JINA_V4_768
 
     # Generate with 768D model
     service_768 = await EmbeddingService.create(
@@ -135,7 +135,6 @@ async def test_embedding_storage() -> None:
     )
 
     # Read back the Parquet file to verify
-    import pandas as pd
 
     pd.read_parquet(parquet_path)
 

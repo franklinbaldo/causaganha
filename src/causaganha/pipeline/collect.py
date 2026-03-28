@@ -2,7 +2,7 @@ import asyncio
 import io
 import json
 import zipfile
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -45,7 +45,7 @@ async def collect_metadata_for_court(
     con = get_connection()
 
     # Calculate target dates
-    today = date.today()
+    today = datetime.now(UTC).date()
     target_dates = [(today - timedelta(days=i)).isoformat() for i in range(1, days_back + 1)]
 
     total_new = 0

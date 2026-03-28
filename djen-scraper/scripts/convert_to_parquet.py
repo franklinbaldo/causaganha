@@ -18,6 +18,7 @@ import os
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -306,8 +307,6 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
     try:
         result = process_item(entry)
     except Exception:
-        import traceback
-
         return (entry, False, traceback.format_exc())
     else:
         return (entry, result, "")

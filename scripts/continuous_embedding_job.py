@@ -28,7 +28,7 @@ import asyncio
 import json
 import time
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -216,11 +216,11 @@ def save_statistics(stats: BatchStats, args: argparse.Namespace) -> None:
     stats_dir = Path("data/stats")
     stats_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     stats_file = stats_dir / f"continuous_{timestamp}.json"
 
     stats_data = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "run_type": "continuous",
         "max_decisions": args.max_decisions,
         "max_concurrency": args.max_concurrency,

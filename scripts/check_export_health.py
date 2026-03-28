@@ -12,7 +12,7 @@ Exit codes:
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import structlog
@@ -38,7 +38,7 @@ def check_recent_exports(days: int = 1) -> dict:
     """
     con = get_connection()
 
-    cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff_date = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
 
     result = con.raw_sql(f"""
         SELECT

@@ -1,3 +1,6 @@
+from collections import Counter
+
+
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 
@@ -72,8 +75,6 @@ def main() -> None:
     table.add_column("Count", style="yellow")
     table.add_column("Avg Confidence", style="green")
 
-    from collections import Counter
-
     outcome_counts = Counter(c[1] for c in candidates)
     outcome_confidence = {}
 
@@ -113,7 +114,6 @@ def main() -> None:
         console.print(f"   Preview: {texto[:150]}...\n")
 
     # Confirmar (auto-confirm em modo não-interativo)
-    import sys
 
     if sys.stdin.isatty():
         if not Confirm.ask("\n[yellow]Inserir estes dados na tabela ground_truth?[/yellow]"):

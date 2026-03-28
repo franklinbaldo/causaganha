@@ -1,3 +1,6 @@
+from datetime import timezone
+
+
 """CLI package for CausaGanha."""
 
 import asyncio
@@ -5,7 +8,7 @@ import csv
 import json
 import re
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
 import duckdb
@@ -412,7 +415,7 @@ def export_status(
             conditions.append("status = 'failed'")
 
         # Get date range
-        end_date = date.today()
+        end_date = datetime.now(UTC).date()
         start_date = end_date - timedelta(days=days)
 
         conditions.append("partition_date >= ? AND partition_date <= ?")

@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import psutil
 import structlog
 
 
@@ -67,8 +68,6 @@ class StepMetrics:
 def get_memory_usage() -> float:
     """Get current process memory usage in MB."""
     try:
-        import psutil
-
         process = psutil.Process()
         return process.memory_info().rss / 1024 / 1024
     except ImportError:

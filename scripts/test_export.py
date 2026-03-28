@@ -1,9 +1,14 @@
+import traceback
+
+import pyarrow.parquet as pq
+
+
 #!/usr/bin/env python3
 """Test Parquet export functionality."""
 
 import asyncio
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -17,7 +22,7 @@ from causaganha.storage.connection import get_connection
 async def test_export() -> None:
     """Test exporting data to Parquet."""
     con = get_connection()
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Initialize exporter
     config = ExportConfig(output_dir=Path("data/exports"))
@@ -38,7 +43,6 @@ async def test_export() -> None:
                 file_path.stat().st_size / (1024 * 1024)
 
                 # Try reading the Parquet file
-                import pyarrow.parquet as pq
 
                 table = pq.read_table(file_path)
                 export_frame = table.to_pandas()
@@ -48,8 +52,6 @@ async def test_export() -> None:
                 pass
 
         except Exception:
-            import traceback
-
             traceback.print_exc()
 
 

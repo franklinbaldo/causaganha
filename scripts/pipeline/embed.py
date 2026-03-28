@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
+import google.generativeai as genai
+import httpx
 import structlog
 
 from causaganha.storage.connection import get_connection
@@ -38,7 +40,6 @@ MAX_TEXT_LENGTH = 8000
 
 
 def _jina_embed(api_key: str) -> Callable[[list[str]], list[list[float]]]:
-    import httpx
 
     def embed(texts: list[str]) -> list[list[float]]:
         with httpx.Client(timeout=60) as client:
@@ -54,7 +55,6 @@ def _jina_embed(api_key: str) -> Callable[[list[str]], list[list[float]]]:
 
 
 def _google_embed(api_key: str) -> Callable[[list[str]], list[list[float]]]:
-    import google.generativeai as genai
 
     genai.configure(api_key=api_key)
 

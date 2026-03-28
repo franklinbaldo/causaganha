@@ -1,10 +1,13 @@
+from datetime import UTC, date, datetime
+
+
 #!/usr/bin/env python3
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
 import os
 import urllib.request
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -110,11 +113,9 @@ def calculate_quality_scores(
     tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str
 ) -> dict:
     """Calculate data quality scores per tribunal based on completeness, recency, and consistency."""
-    from datetime import UTC, datetime
-
     scores = {}
 
-    end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
     today_date = datetime.now(UTC).date()
     # Use today as end date if end_date_str is in the future
     end_date_obj = min(end_date_obj, today_date)
@@ -125,7 +126,9 @@ def calculate_quality_scores(
 
         start_date_str = tribunal_start_dates[tribunal]
         try:
-            start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            start_date_obj = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
+            )
         except ValueError:
             continue
 
@@ -134,7 +137,10 @@ def calculate_quality_scores(
             continue
 
         sorted_dates = sorted(
-            [datetime.strptime(d, "%Y-%m-%d").date() for d in set(coverage_dates)]
+            [
+                datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=UTC).date()
+                for d in set(coverage_dates)
+            ]
         )
         days_with_data = len(sorted_dates)
 
@@ -368,7 +374,6 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
-    from datetime import date
 
     end_date_obj = date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
@@ -384,7 +389,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         all_tribunals = set(TRIBUNAIS)
 
-    today = date.today()
+    today = datetime.now(UTC).date()
 
     # Load discovered start dates for dynamic calculation
     discovered_start_dates = {}
@@ -410,7 +415,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         )
 
         try:
-            start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            start_date_obj = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
+            )
         except Exception:
             start_date_obj = date(2024, 1, 1)
 
@@ -491,8 +498,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     # Or we skip latency if 'updatedAt' is missing, but for performance dashboard
                     # we can use a generated mock latency if real one isn't present for demonstration.
                     if r.get("updatedAt"):
-                        start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ")
-                        end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ")
+                        start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                            tzinfo=UTC
+                        )
+                        end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                            tzinfo=UTC
+                        )
                         latency_ms = int((end - start).total_seconds() * 1000)
                     else:
                         latency_ms = (

@@ -17,17 +17,21 @@ import argparse
 import decimal
 import json
 import os
+import shutil
 import tempfile
 import time
+import traceback
 import unicodedata
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 
 # Disable strict decimal traps that cause crashes in ibis/sqlglot
@@ -260,7 +264,6 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
         # Load manifest list into a DuckDB table
         # We only need date and file_type
         df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-        import pandas as pd
 
         df = pd.DataFrame(df_data)  # noqa: F841
 
@@ -1268,7 +1271,7 @@ def find_next_unconsolidated(
     checkpoint = CheckpointManager(checkpoint_file)
     last_checked = checkpoint.load()
 
-    today = date.today()
+    today = datetime.now(UTC).date()
     days_ago = 0
 
     if last_checked:
@@ -1392,8 +1395,6 @@ def process_zip_entry(
 
     # Download or copy
     if local_zips and "local_path" in zip_entry:
-        import shutil
-
         try:
             shutil.copy2(zip_entry["local_path"], zip_path)
         except Exception as e:
@@ -1693,7 +1694,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-            import traceback
 
             traceback.print_exc()
             return 1
@@ -1732,7 +1732,6 @@ def main() -> int:
                 dates_processed += 1
             except Exception as e:
                 logger.exception("consolidation_aborted", date=target_date, error=str(e))
-                import traceback
 
                 traceback.print_exc()
                 # Continue to next date instead of aborting the entire run
@@ -1740,7 +1739,7 @@ def main() -> int:
                 continue
 
     else:
-        target_date = date.today().strftime("%Y-%m-%d")
+        target_date = datetime.now(UTC).date().strftime("%Y-%m-%d")
         try:
             stats = consolidate_date(
                 target_date,
@@ -1756,7 +1755,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-            import traceback
 
             traceback.print_exc()
             return 1

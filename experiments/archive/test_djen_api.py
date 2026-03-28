@@ -10,7 +10,7 @@ to verify:
 """
 
 import asyncio
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 
 import httpx
 import structlog
@@ -54,7 +54,7 @@ async def test_djen_connectivity() -> None:
     try:
         # Try to fetch a very small number of intimations from TJRO
         # Using a recent date range to get minimal data
-        end_date = date.today()
+        end_date = datetime.now(UTC).date()
         start_date = end_date - timedelta(days=1)  # Just 1 day
 
         intimations = await client.get_intimations_by_court(
