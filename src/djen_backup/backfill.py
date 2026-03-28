@@ -270,8 +270,6 @@ class BackfillConfig:
     ia_auth: str
     dry_run: bool
     skip_absent_markers: bool = False
-    gist_status_id: str | None = None
-    github_token: str | None = None
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
