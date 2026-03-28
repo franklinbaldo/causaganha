@@ -1,19 +1,21 @@
-#!/usr/bin/env python3
 """Dashboard Live-Status Verifier for CausaGanha."""
 
 import argparse
-import os
+import json
 import re
 import sys
+import urllib.request
+from pathlib import Path
 from typing import Any
 
 
 def extract_with_playwright(url: str, screenshot_path: str | None = None) -> tuple[bool, str]:
     """Attempt to extract text content using Playwright.
+
     Returns (success, text_content).
     """
     try:
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import sync_playwright  # noqa: PLC0415
     except ImportError:
         return False, ""
 
@@ -26,18 +28,17 @@ def extract_with_playwright(url: str, screenshot_path: str | None = None) -> tup
             try:
                 page.wait_for_selector("text=CausaGanha", timeout=10000)
                 page.wait_for_timeout(2000)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
             if screenshot_path:
-                os.makedirs(os.path.dirname(os.path.abspath(screenshot_path)), exist_ok=True)
+                Path(screenshot_path).resolve().parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=screenshot_path)
 
-            # Extract full text
             text_content = page.evaluate("document.body.innerText")
             browser.close()
             return True, text_content
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False, ""
 
 
@@ -46,25 +47,21 @@ def extract_with_urllib(url: str) -> tuple[bool, str]:
 
     Returns (success, text_content)
     """
-    import urllib.request
-
     try:
         print(f"Loading {url} via urllib fallback...")  # noqa: T201
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
         with urllib.request.urlopen(req, timeout=15.0) as response:  # noqa: S310
             html_content = response.read().decode("utf-8", errors="replace")
-
+    except Exception as e:  # noqa: BLE001
+        print(f"urllib extraction failed: {e}")  # noqa: T201
+        return False, ""
+    else:
         text = re.sub(
             r"<(script|style)[^>]*>.*?</\1>", " ", html_content, flags=re.IGNORECASE | re.DOTALL
         )
         text = re.sub(r"<[^>]+>", " ", text)
         text = text.replace("&nbsp;", " ")
-        text = re.sub(r"\s+", " ", text).strip()
-
-        return True, text
-    except Exception as e:  # noqa: BLE001
-        print(f"urllib extraction failed: {e}")  # noqa: T201
-        return False, ""
+        return True, re.sub(r"\s+", " ", text).strip()
 
 
 def parse_dashboard_signals(text: str) -> dict[str, Any]:
@@ -78,32 +75,25 @@ def parse_dashboard_signals(text: str) -> dict[str, Any]:
         "overall_state": "unknown",
     }
 
-    # "0 of 91 tribunais saudáveis"
     healthy_match = re.search(r"(\d+)\s+of\s+(\d+)\s+tribunais saudáveis", text, re.IGNORECASE)
     if healthy_match:
         signals["healthy_tribunals"] = healthy_match.group(1)
         signals["total_tribunals"] = healthy_match.group(2)
 
-    # "última coleta: --:--"
     coleta_match = re.search(r"última coleta:\s*([^\s\|]+)", text, re.IGNORECASE)
     if coleta_match:
         signals["last_collection"] = coleta_match.group(1)
 
-    # "Global ETA: Pending" or "Global ETA: 12 days"
     eta_match = re.search(r"Global ETA:\s*([A-Za-z0-9\s]+)", text, re.IGNORECASE)
     if eta_match:
-        # Strip trailing newlines or extra text if any, limit length
         val = eta_match.group(1).strip()
         if "Global Archiving" in val:
             val = val.split("Global")[0].strip()
         signals["global_eta"] = val
 
-    # Count occurrences of "Status PENDING" or "STATUS\nPENDING"
-    # To handle both single line (fallback) and newline (playwright) representations
     pending_count = len(re.findall(r"status\s*pending", text, re.IGNORECASE))
     signals["pending_cards_count"] = pending_count
 
-    # Determine overall state
     if (
         signals["last_collection"] == "--:--"
         or "pending" in str(signals["global_eta"]).lower()
@@ -132,28 +122,39 @@ def main() -> None:
 
     content = ""
     success = False
+    layer = "none"
 
-    # Try browser first
     success, content = extract_with_playwright(args.url, args.screenshot_path)
     if success:
-        pass
+        layer = "browser"
     else:
-        # Fallback to urllib
         success, content = extract_with_urllib(args.url)
         if success:
-            pass
+            layer = "urllib"
 
     if not success:
         print("Failed to fetch dashboard via all available layers.", file=sys.stderr)  # noqa: T201
         sys.exit(1)
 
-    parse_dashboard_signals(content)
+    signals = parse_dashboard_signals(content)
 
+    result = {
+        "target": args.url,
+        "extraction_layer": layer,
+        "signals": signals,
+    }
 
     if args.format == "json":
-        pass
+        print(json.dumps(result, indent=2))  # noqa: T201
     else:
-        pass
+        print("=== Dashboard Verification Report ===")  # noqa: T201
+        print(f"Target: {args.url}")  # noqa: T201
+        print(f"Extraction Layer: {layer}")  # noqa: T201
+        print(f"Overall State: {signals['overall_state']}")  # noqa: T201
+        print(f"Healthy Tribunals: {signals['healthy_tribunals']} / {signals['total_tribunals']}")  # noqa: T201
+        print(f"Last Collection: {signals['last_collection']}")  # noqa: T201
+        print(f"Global ETA: {signals['global_eta']}")  # noqa: T201
+        print(f"Pending Cards Found: {signals['pending_cards_count']}")  # noqa: T201
 
 
 if __name__ == "__main__":
