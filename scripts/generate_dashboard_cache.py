@@ -848,6 +848,50 @@ def generate_rss_feed(
 </rss>"""
 
 
+IA_DASHBOARD_ITEM = "causaganha-dashboard"
+
+
+def upload_dashboard_to_ia(files: dict[str, Any]) -> bool:
+    """Upload dashboard cache JSON files to Internet Archive."""
+    import subprocess
+
+    tmp_dir = Path(tempfile.mkdtemp())
+    file_paths = []
+    for filename, data in files.items():
+        path = tmp_dir / filename
+        with path.open("w") as f:
+            json.dump(data, f, separators=(",", ":"))
+        file_paths.append(str(path))
+
+    try:
+        result = subprocess.run(
+            [
+                "ia",
+                "upload",
+                IA_DASHBOARD_ITEM,
+                *file_paths,
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                "--metadata=title:CausaGanha Dashboard Cache",
+                "--metadata=description:Live cache JSONs for the CausaGanha dashboard.",
+                "--metadata=subject:causaganha;dashboard;cache",
+                "--metadata=creator:CausaGanha",
+                "--retries=3",
+                "--no-derive",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            return True
+        print(f"IA upload failed: {result.stderr[:400]}", file=sys.stderr)
+        return False
+    except subprocess.TimeoutExpired:
+        print("IA upload timed out", file=sys.stderr)
+        return False
+
+
 def main() -> None:
     """Generate all cache files from catalog manifest."""
     parser = argparse.ArgumentParser(description="Generate dashboard cache from catalog manifest")
@@ -856,6 +900,11 @@ def main() -> None:
         type=str,
         default=None,
         help="Path to local manifest.parquet (default: download from IA)",
+    )
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Upload cache JSONs to Internet Archive item causaganha-dashboard",
     )
     args = parser.parse_args()
 
@@ -956,6 +1005,13 @@ def main() -> None:
     rss_path = OUTPUT_DIR / "feed.xml"
     with rss_path.open("w") as f:
         f.write(rss_content)
+
+    # Upload to Internet Archive for live dashboard access
+    if args.upload:
+        if upload_dashboard_to_ia(files):
+            print("Dashboard cache uploaded to IA item: causaganha-dashboard")
+        else:
+            print("Warning: IA upload failed, local files still generated", file=sys.stderr)
 
 
 if __name__ == "__main__":

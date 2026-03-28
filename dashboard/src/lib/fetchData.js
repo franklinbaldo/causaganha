@@ -2,10 +2,22 @@
  * Shared data fetching module for CausaGanha Dashboard.
  * Used by Astro pages (build-time) and React islands (client-side refresh).
  *
- * 3-tier fallback: dashboard-data.json > cache/backfill.json > empty state
+ * Client-side: fetches live data from Internet Archive (causaganha-dashboard item),
+ * falling back to static files bundled at build time.
+ * Server-side (Astro build): uses local static files only.
  */
 
 const BASE = import.meta.env.BASE_URL ?? '/causaganha/';
+const IA_BASE = 'https://archive.org/download/causaganha-dashboard/';
+
+// Cache file mapping: IA filename -> local path
+const IA_CACHE_FILES = {
+  'today.json': 'cache/today.json',
+  'calendar.json': 'cache/calendar.json',
+  'runs.json': 'cache/runs.json',
+  'backfill.json': 'cache/backfill.json',
+  'meta.json': 'cache/meta.json',
+};
 
 function resolve(path) {
   // In Node/build context, fetch from the public dir via relative paths
@@ -13,6 +25,10 @@ function resolve(path) {
   // In browser, resolve relative to base URL
   const base = BASE.endsWith('/') ? BASE : BASE + '/';
   return base + path;
+}
+
+function resolveIA(filename) {
+  return IA_BASE + filename;
 }
 
 export async function fetchWithRetry(url, options = {}, maxRetries = 5) {
@@ -85,21 +101,39 @@ async function safeFetch(url) {
 
 /**
  * Fetch all data sources. Works both server-side and client-side.
- * For server-side (Astro build), pass a custom fetcher that reads from the filesystem.
+ * Client-side: tries Internet Archive first for live cache data, falls back to static files.
+ * Server-side (Astro build): uses local static files only.
  */
 export async function fetchAllData() {
-  const [stats, dashboardData, today, calendar, runs, backfill, tribunalStartDates, tribunalQualityScores,
-    perfMetrics] = await Promise.all([
-    safeFetch(resolve('run-stats.json')),
-    safeFetch(resolve('dashboard-data.json')),
-    safeFetch(resolve('cache/today.json')),
-    safeFetch(resolve('cache/calendar.json')),
-    safeFetch(resolve('cache/runs.json')),
-    safeFetch(resolve('cache/backfill.json')),
-    safeFetch(resolve('tribunal_start_dates.json')),
-    safeFetch(resolve('tribunal_quality_scores.json')),
-    safeFetch(resolve('perf-metrics.json')),
-  ]);
+  const isBrowser = typeof window !== 'undefined';
+
+  // Static files (always from local/GitHub Pages)
+  const [stats, dashboardData, tribunalStartDates, tribunalQualityScores, perfMetrics] =
+    await Promise.all([
+      safeFetch(resolve('run-stats.json')),
+      safeFetch(resolve('dashboard-data.json')),
+      safeFetch(resolve('tribunal_start_dates.json')),
+      safeFetch(resolve('tribunal_quality_scores.json')),
+      safeFetch(resolve('perf-metrics.json')),
+    ]);
+
+  // Cache files: try IA first (live), fall back to local static
+  let today, calendar, runs, backfill;
+  if (isBrowser) {
+    [today, calendar, runs, backfill] = await Promise.all([
+      safeFetch(resolveIA('today.json')).then(d => d || safeFetch(resolve('cache/today.json'))),
+      safeFetch(resolveIA('calendar.json')).then(d => d || safeFetch(resolve('cache/calendar.json'))),
+      safeFetch(resolveIA('runs.json')).then(d => d || safeFetch(resolve('cache/runs.json'))),
+      safeFetch(resolveIA('backfill.json')).then(d => d || safeFetch(resolve('cache/backfill.json'))),
+    ]);
+  } else {
+    [today, calendar, runs, backfill] = await Promise.all([
+      safeFetch(resolve('cache/today.json')),
+      safeFetch(resolve('cache/calendar.json')),
+      safeFetch(resolve('cache/runs.json')),
+      safeFetch(resolve('cache/backfill.json')),
+    ]);
+  }
 
   const cacheData = {};
   if (today) cacheData.today = today;
@@ -111,6 +145,35 @@ export async function fetchAllData() {
 
   return deriveData(stats, dashboardData, cache, tribunalStartDates, tribunalQualityScores,
     perfMetrics);
+}
+
+/**
+ * Start polling for live data updates from Internet Archive.
+ * Calls the callback with new derived data whenever it changes.
+ * Returns a cleanup function to stop polling.
+ */
+export function startLivePolling(onUpdate, intervalMs = 3 * 60 * 1000) {
+  if (typeof window === 'undefined') return () => {};
+
+  let lastMetaGenerated = null;
+
+  const poll = async () => {
+    try {
+      // Quick check: did meta.json change?
+      const meta = await safeFetch(resolveIA('meta.json'));
+      if (meta && meta.generated_at === lastMetaGenerated) return; // no change
+      if (meta) lastMetaGenerated = meta.generated_at;
+
+      // Full refresh
+      const data = await fetchAllData();
+      onUpdate(data);
+    } catch {
+      // Silent fail — will retry next interval
+    }
+  };
+
+  const id = setInterval(poll, intervalMs);
+  return () => clearInterval(id);
 }
 
 /**
