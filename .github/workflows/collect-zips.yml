@@ -125,6 +125,8 @@ jobs:
           # The 60-day stop rule still works — empty streak increments normally
           CMD="$CMD --skip-absent-markers"
 
+          CMD="$CMD --publish-live-status"
+
           if [ -n "$END_DATE" ]; then
             CMD="$CMD --end-date $END_DATE"
           fi
