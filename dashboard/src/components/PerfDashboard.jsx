@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
+import { LiveStatusWidget } from './LiveStatusWidget';
 
 export function PerfDashboard({ perfMetrics, qualityScores }) {
   if (!perfMetrics || !qualityScores) {
@@ -70,6 +71,10 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
 
   return (
     <div className="space-y-8">
+      <div className="w-full">
+        <LiveStatusWidget />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="card text-center p-6 bg-warning/10 border-warning/20">
           <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">PRs ready except Kilo</div>
@@ -77,7 +82,6 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
             {kiloReadyCount}
           </div>
         </div>
-
         <div className="card text-center p-6">
           <div className="text-sm text-gray-500 mb-2">Upload Success Rate</div>
           <div className={`text-4xl font-bold ${successRate >= 90 ? 'text-success' : 'text-danger'}`}>

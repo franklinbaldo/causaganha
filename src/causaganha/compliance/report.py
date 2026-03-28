@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import timezone
+from datetime import datetime, timezone
 
 from fpdf import FPDF
 
@@ -118,7 +119,7 @@ def _get_access_logs(year: int, month: int) -> str:
 
 def generate_monthly_report() -> None:
     # Typically, get current month/year for the period
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     period = f"{now.strftime('%B')} {now.year}"
 
     # Get the logs from duckdb

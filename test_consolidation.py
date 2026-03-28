@@ -59,7 +59,7 @@ def test_parallel_export() -> int:
         output_dir.mkdir()
 
         # Helper function (same as in consolidate.py)
-        def _export_and_upload_table(table_name: str, con, output_dir: Path, _dry_run: bool):
+        def _export_and_upload_table(table_name: str, con, output_dir: Path, *, _dry_run: bool):
             try:
                 t = con.table(table_name)
                 count = t.count().to_pandas()
@@ -84,7 +84,9 @@ def test_parallel_export() -> int:
         start_time = time.time()
         total_exported = 0
         for table_name in TABLES:
-            success, _, _elapsed = _export_and_upload_table(table_name, con, output_dir, True)
+            success, _, _elapsed = _export_and_upload_table(
+                table_name, con, output_dir, _dry_run=True
+            )
             if success:
                 total_exported += 1
         seq_time = time.time() - start_time
@@ -97,7 +99,9 @@ def test_parallel_export() -> int:
         start_time = time.time()
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = [
-                executor.submit(_export_and_upload_table, table_name, con, output_dir, True)
+                executor.submit(
+                    _export_and_upload_table, table_name, con, output_dir, _dry_run=True
+                )
                 for table_name in TABLES
             ]
             total_exported = 0
