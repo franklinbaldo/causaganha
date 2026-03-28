@@ -580,13 +580,20 @@ def generate_backfill_cache(
             WHERE file_type IN ('zip', 'absent')
         """).fetchone()
         if date_bounds and date_bounds[0]:
-            bf_start = date_bounds[0] if isinstance(date_bounds[0], date_type) else datetime.strptime(str(date_bounds[0]), "%Y-%m-%d").date()
+            bf_start = (
+                date_bounds[0]
+                if isinstance(date_bounds[0], date_type)
+                else datetime.strptime(str(date_bounds[0]), "%Y-%m-%d").date()
+            )
             bf_end = min(
-                date_bounds[1] if isinstance(date_bounds[1], date_type) else datetime.strptime(str(date_bounds[1]), "%Y-%m-%d").date(),
+                date_bounds[1]
+                if isinstance(date_bounds[1], date_type)
+                else datetime.strptime(str(date_bounds[1]), "%Y-%m-%d").date(),
                 datetime.now(timezone.utc).date() - timedelta(days=1),
             )
             target_days = sum(
-                1 for i in range((bf_end - bf_start).days + 1)
+                1
+                for i in range((bf_end - bf_start).days + 1)
                 if (bf_start + timedelta(days=i)).weekday() < 5
             )
         else:
