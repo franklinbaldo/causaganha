@@ -224,7 +224,9 @@ def fetch_item_sizes() -> dict[str, int]:
         identifier = doc.get("identifier", "")
         item_size = doc.get("item_size", 0)
         if identifier.startswith("djen-") and identifier != "causaganha-catalog":
-            sizes[identifier] = int(item_size) if item_size else 0
+            # Strip "djen-" prefix so keys match date lookups (e.g. "2026-03-16")
+            date_key = identifier.removeprefix("djen-")
+            sizes[date_key] = int(item_size) if item_size else 0
 
     return sizes
 
@@ -571,7 +573,24 @@ def generate_backfill_cache(
 
         num_tribunals = len(TRIBUNALS)
 
-        target_days = sum(year_cfg["days"] for year_cfg in BACKFILL_YEARS.values())
+        # Calculate target_days: total weekdays from earliest manifest date to yesterday
+        date_bounds = con.execute("""
+            SELECT MIN(date), MAX(date)
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+        """).fetchone()
+        if date_bounds and date_bounds[0]:
+            bf_start = date_bounds[0] if isinstance(date_bounds[0], date_type) else datetime.strptime(str(date_bounds[0]), "%Y-%m-%d").date()
+            bf_end = min(
+                date_bounds[1] if isinstance(date_bounds[1], date_type) else datetime.strptime(str(date_bounds[1]), "%Y-%m-%d").date(),
+                datetime.now(timezone.utc).date() - timedelta(days=1),
+            )
+            target_days = sum(
+                1 for i in range((bf_end - bf_start).days + 1)
+                if (bf_start + timedelta(days=i)).weekday() < 5
+            )
+        else:
+            target_days = 0
 
         # Coverage map and ETAs
         coverage_rows = con.execute("""
