@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -263,13 +262,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -349,6 +348,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "causaganha_active_tribunals": len(tribunal_start_dates),
         "causaganha_backlog_pending_days": 0,
         "slowest_tribunals": [],
+        "causaganha_consecutive_failures": 0,
+        "causaganha_failure_severity": None,
+        "causaganha_last_failing_run_url": None,
     }
 
     total_missing_days = sum(eta.get("missing_days", 0) for eta in tribunal_etas.values())
@@ -372,6 +374,28 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 perf_metrics["causaganha_upload_success_rate"] = round(
                     (success_count / len(runs)) * 100, 2
                 )
+
+                # Calculate consecutive failures
+                sorted_runs = sorted(runs, key=lambda r: r.get("createdAt", ""), reverse=True)
+                consecutive_failures = 0
+                last_failing_url = None
+
+                for r in sorted_runs:
+                    if r.get("conclusion") in ("failure", "timed_out"):
+                        consecutive_failures += 1
+                        if last_failing_url is None:
+                            last_failing_url = r.get("url")
+                    elif r.get("conclusion") == "success":
+                        break
+
+                perf_metrics["causaganha_consecutive_failures"] = consecutive_failures
+                if consecutive_failures >= 5:
+                    perf_metrics["causaganha_failure_severity"] = "critical"
+                elif consecutive_failures >= 3:
+                    perf_metrics["causaganha_failure_severity"] = "warning"
+
+                if consecutive_failures > 0:
+                    perf_metrics["causaganha_last_failing_run_url"] = last_failing_url
 
             latencies = []
             for r in runs:

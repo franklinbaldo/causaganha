@@ -1,28 +1,29 @@
-import { useState, useEffect, useRef } from 'preact/compat';
+import { useEffect, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
 
 export function PerfDashboard({ perfMetrics, qualityScores }) {
-  if (!perfMetrics || !qualityScores) {
-    return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
-  }
-
   const chartRef = useRef(null);
   const pieRef = useRef(null);
-  const barRef = useRef(null);
 
-  const latencies = perfMetrics.causaganha_collect_latency_ms || [];
-  const successRate = perfMetrics.causaganha_upload_success_rate || 0;
-  const backlogDays = perfMetrics.causaganha_backlog_pending_days || 0;
-  const activeTribunals = perfMetrics.causaganha_active_tribunals || 0;
-  const slowestTribunals = perfMetrics.slowest_tribunals || [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const latencies = perfMetrics?.causaganha_collect_latency_ms || [];
+  const successRate = perfMetrics?.causaganha_upload_success_rate || 0;
+  const backlogDays = perfMetrics?.causaganha_backlog_pending_days || 0;
+  const activeTribunals = perfMetrics?.causaganha_active_tribunals || 0;
+  const slowestTribunals = perfMetrics?.slowest_tribunals || [];
+  const consecutiveFailures = perfMetrics?.causaganha_consecutive_failures || 0;
+  const failureSeverity = perfMetrics?.causaganha_failure_severity;
+  const lastFailingRunUrl = perfMetrics?.causaganha_last_failing_run_url;
 
   // Grade Distribution
   const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
-  Object.values(qualityScores).forEach(score => {
-    if (gradeCounts[score.grade] !== undefined) {
-      gradeCounts[score.grade]++;
-    }
-  });
+  if (qualityScores) {
+    Object.values(qualityScores).forEach(score => {
+      if (gradeCounts[score.grade] !== undefined) {
+        gradeCounts[score.grade]++;
+      }
+    });
+  }
 
   const gradeData = Object.entries(gradeCounts).map(([grade, count]) => ({ grade, count })).filter(d => d.count > 0);
 
@@ -67,8 +68,48 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
     }
   }, [latencies, gradeData]);
 
+  if (!perfMetrics || !qualityScores) {
+    return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
+  }
+
   return (
     <div className="space-y-8">
+      {consecutiveFailures > 0 && failureSeverity && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between ${
+          failureSeverity === 'critical'
+            ? 'bg-danger/10 border-danger text-danger dark:bg-danger/20 dark:text-red-400'
+            : 'bg-warning/10 border-warning text-warning dark:bg-warning/20 dark:text-yellow-400'
+        }`}>
+          <div className="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h3 className="font-semibold text-lg">
+                Collect ZIPs {failureSeverity === 'critical' ? 'Critical Failure Streak' : 'Warning: Failing Streak'}
+              </h3>
+              <p className="text-sm">
+                The pipeline has failed for {consecutiveFailures} consecutive runs.
+              </p>
+            </div>
+          </div>
+          {lastFailingRunUrl && (
+            <a
+              href={lastFailingRunUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                failureSeverity === 'critical'
+                  ? 'bg-danger text-white hover:bg-red-600'
+                  : 'bg-warning text-white hover:bg-yellow-600'
+              }`}
+            >
+              View Last Run
+            </a>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card text-center p-6">
           <div className="text-sm text-gray-500 mb-2">Upload Success Rate</div>
