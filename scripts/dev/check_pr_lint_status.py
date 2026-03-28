@@ -85,7 +85,7 @@ def analyze_checks(pr_number: int, check_runs: list[dict]) -> str:
     #   - We want to cover PR #437-style failures, where Kilo is blocked AND lint is blocked.
     # What if only Kilo is blocked?
     if not blocking_failures and "lint" not in failures:
-         return f"PR #{pr_number}: no lint failure. Other blocked checks: {failures}"
+        return f"PR #{pr_number}: no lint failure. Other blocked checks: {failures}"
 
     return f"PR #{pr_number}: logical or non-lint failures present: {failures}"
 
@@ -96,12 +96,8 @@ def main() -> None:
         description="Check if a PR has only a mechanical lint failure."
     )
     parser.add_argument("--pr", type=int, required=True, help="PR number to check")
-    parser.add_argument(
-        "--owner", type=str, default="franklinbaldo", help="Repository owner"
-    )
-    parser.add_argument(
-        "--repo", type=str, default="causaganha", help="Repository name"
-    )
+    parser.add_argument("--owner", type=str, default="franklinbaldo", help="Repository owner")
+    parser.add_argument("--repo", type=str, default="causaganha", help="Repository name")
     args = parser.parse_args()
 
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")

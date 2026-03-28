@@ -1,5 +1,7 @@
 """Tests for the check_pr_lint_status script."""
 
+# ruff: noqa: S101
+
 from __future__ import annotations
 
 import sys
