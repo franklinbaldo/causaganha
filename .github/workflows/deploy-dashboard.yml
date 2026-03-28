@@ -76,19 +76,19 @@ jobs:
         env:
           PIPELINE_RUN_STATS: /tmp/last-run.json
 
-      - name: Sync with Internet Archive (Truth Source)
-        run: |
-          pip install httpx structlog
-          export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python3 scripts/sync_ia_to_state.py
-        continue-on-error: true
+      - name: Download DuckDB artifact
+        id: download-db
+        uses: actions/download-artifact@v4
+        with:
+          name: causaganha-db
+          path: data/
+        continue-on-error: true  # Artifact may not exist on scheduled/manual runs
 
       - name: Generate dashboard data (requires DuckDB artifact)
-        if: always()
+        if: steps.download-db.outcome == 'success'
         run: |
-          pip install duckdb httpx structlog
-          export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python3 scripts/dashboard/generate-data.py
+          pip install duckdb httpx
+          python scripts/dashboard/generate-data.py
         continue-on-error: true
 
       - name: Install dependencies

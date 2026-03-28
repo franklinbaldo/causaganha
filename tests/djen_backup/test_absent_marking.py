@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
-from pytest_bdd import given, parsers, scenario, then
+from pytest_bdd import given, parsers, scenario
 
 
 if TYPE_CHECKING:
-    import httpx
     import respx
 
 

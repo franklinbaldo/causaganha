@@ -121,8 +121,9 @@ jobs:
           CMD="$CMD --backfill-state-file data/backfill-state.json"
           CMD="$CMD --state-file data/ia-state.json"
           CMD="$CMD --start-date $START_DATE"
-          # NOTE: --skip-absent-markers removed temporarily (hotfix) — option not yet in main
-          # Re-enable after PR #436 is merged
+          # Skip absent markers to avoid IA spam detection (hundreds of tiny files in sequence)
+          # The 60-day stop rule still works — empty streak increments normally
+          CMD="$CMD --skip-absent-markers"
 
           if [ -n "$END_DATE" ]; then
             CMD="$CMD --end-date $END_DATE"
