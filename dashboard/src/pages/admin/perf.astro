@@ -5,6 +5,7 @@ import { PerfDashboard } from '../../components/PerfDashboard';
 
 let perfMetrics = null;
 let qualityScores = null;
+let healthDigest = null;
 
 try {
   // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
@@ -21,6 +22,7 @@ try {
 
   perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
   qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
+  healthDigest = await fetchLocal('cache/health-digest.json').catch(() => null);
 } catch (e) {
   console.warn('Failed to load performance metrics at build time:', e);
 }
@@ -54,6 +56,20 @@ try {
     </header>
 
     <main class="max-w-7xl mx-auto space-y-6">
+      {healthDigest && healthDigest.summary && (
+        <div class="card p-4 bg-gray-50 dark:bg-slate-900 border-l-4 border-l-accent flex items-center justify-between text-sm">
+          <div class="font-mono text-gray-800 dark:text-gray-200">
+            main @ {healthDigest.time_str}:
+            {healthDigest.workflows ? healthDigest.workflows.map((w, index) => (
+              <span key={w.name}>
+                <a href={w.url} target="_blank" rel="noopener noreferrer" class="hover:underline text-accent">
+                  {w.name}
+                </a> {w.status}{index < healthDigest.workflows.length - 1 ? ', ' : ''}
+              </span>
+            )) : healthDigest.summary}
+          </div>
+        </div>
+      )}
       <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
     </main>
   </div>

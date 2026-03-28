@@ -885,6 +885,15 @@ def main() -> None:
         "manifest_available": manifest_populated,
     }
 
+    # Generate health digest independently
+    try:
+        import subprocess
+        health_script = Path("scripts/dashboard/generate-health.py")
+        if health_script.exists():
+            subprocess.run([sys.executable, str(health_script)], check=False)
+    except Exception as e:
+        print(f"Warning: Failed to run generate-health.py: {e}")
+
     # Write local files
     files: dict[str, Any] = {
         "meta.json": meta,
