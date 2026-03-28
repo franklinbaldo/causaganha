@@ -237,7 +237,7 @@ def save_statistics(stats: BatchStats, args: argparse.Namespace) -> None:
         "throughput": round(stats.throughput, 2),
     }
 
-    with open(stats_file, "w") as f:
+    with Path(stats_file).open("w") as f:
         json.dump(stats_data, f, indent=2)
 
     logger.info("statistics_saved", file=str(stats_file))

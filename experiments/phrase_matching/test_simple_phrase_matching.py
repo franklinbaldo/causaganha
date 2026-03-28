@@ -1,6 +1,10 @@
 from collections import Counter
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_13_3 = 13.3
+MAGIC_VAL_70 = 70
+
 """Testa a ideia original: comparação direta com 2 frases-chave."""
 
 import sys
@@ -153,7 +157,9 @@ def main() -> None:
 
     console.print("\n[bold]📊 Resultado:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
-    console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
+    console.print(
+        f"  Acurácia: [{'green' if acuracia >= MAGIC_VAL_70 else 'red'}]{acuracia:.1f}%[/]\n"
+    )
 
     # Mostrar matriz de confusão
     conf_table = Table(title="Matriz de Confusão")
@@ -215,7 +221,7 @@ def main() -> None:
             "[yellow]Frases Genéricas (múltiplas):[/yellow] 13.3% (teste anterior)\n"
             "[green]RAG k-NN (ground truth):[/green] 83.3% (validado)\n"
             "[cyan]LLM (Gemini Flash):[/cyan] ~85% (baseline)\n\n"
-            f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > 13.3 else '❌ Não funcionou bem'}",
+            f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > MAGIC_VAL_13_3 else '❌ Não funcionou bem'}",
             title="📊 Comparação",
         ),
     )

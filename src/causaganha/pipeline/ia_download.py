@@ -77,6 +77,7 @@ class IAParquetDownloader:
         tribunal: str,
         date: str,
         table: str = "diarios",
+        *,
         force_refresh: bool = False,
     ) -> Path:
         """Download parquet file for a specific date and tribunal.
@@ -158,6 +159,7 @@ class IAParquetDownloader:
         end_date: str,
         tribunal: str,
         table: str = "diarios",
+        *,
         skip_missing: bool = True,
     ) -> list[Path]:
         """Download parquet files for a date range.

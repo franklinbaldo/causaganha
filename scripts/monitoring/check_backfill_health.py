@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_0_1 = 0.1
+
 """Backfill health monitoring with Telegram alerting.
 
 This script monitors the backfill progress and sends Telegram alerts when:
@@ -174,7 +177,7 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
             age_hours = 999.0  # Assume stale if parsing fails
 
         is_stale = age_hours > stale_hours
-        is_stuck = progress_pct < 0.1 and age_hours > stale_hours * 2
+        is_stuck = progress_pct < MAGIC_VAL_0_1 and age_hours > stale_hours * 2
 
         # Determine level and message
         if is_stuck:
@@ -350,7 +353,7 @@ def format_telegram_message(status: BackfillStatus, errors: dict) -> str:
     return "\n".join(lines)
 
 
-def send_telegram_alert(message: str, dry_run: bool = False) -> bool:
+def send_telegram_alert(message: str, *, dry_run: bool = False) -> bool:
     """Send Telegram alert via OpenClaw message tool.
 
     Args:

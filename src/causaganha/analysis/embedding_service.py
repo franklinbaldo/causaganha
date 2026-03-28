@@ -154,6 +154,7 @@ class EmbeddingService:
         self,
         text: str,
         task_type: TaskType = "RETRIEVAL_QUERY",
+        *,
         add_prefix: bool = True,
     ) -> list[float]:
         """Generate embedding for a single text.
@@ -178,6 +179,7 @@ class EmbeddingService:
         self,
         texts: list[str],
         task_type: TaskType = "RETRIEVAL_QUERY",
+        *,
         add_prefix: bool = True,
     ) -> list[list[float]]:
         """Generate embeddings for multiple texts concurrently.

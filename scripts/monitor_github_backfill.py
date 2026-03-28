@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+HTTP_200_OK = 200
+
 """Monitor GitHub Actions backfill progress.
 
 Checks Internet Archive catalog for progress and alerts if stalled.
@@ -40,7 +43,7 @@ def fetch_progress() -> dict | None:
     """Fetch current backfill progress from IA."""
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         resp = client.get(CATALOG_URL)
-        if resp.status_code == 200:
+        if resp.status_code == HTTP_200_OK:
             return resp.json()
     return None
 

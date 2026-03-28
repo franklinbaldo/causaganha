@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+MAGIC_VAL_2 = 2
+
 """Persistent state cache backed by a JSON file.
 
 Used as a GHA artifact to avoid redundant Internet Archive metadata queries
@@ -5,7 +9,6 @@ across runs.  The IA metadata API remains the authoritative source — this
 cache is purely an optimisation.
 """
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -112,7 +115,7 @@ class State:
     def from_dict(cls, data: dict[str, object]) -> State:
         """Create State from dictionary."""
         state = cls()
-        if data.get("version") != 2:
+        if data.get("version") != MAGIC_VAL_2:
             return state
 
         entries = data.get("entries")

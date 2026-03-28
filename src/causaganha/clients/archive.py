@@ -1,5 +1,8 @@
 from datetime import timezone
 
+
+MAGIC_VAL_3 = 3
+
 """Internet Archive service for uploading documents.
 
 .. deprecated::
@@ -103,7 +106,7 @@ class LocalArchiveService:
             if not tribunal:
                 # Try to parse from item_id
                 parts = item_id.split("-")
-                if len(parts) >= 3 and parts[0] == "causaganha":
+                if len(parts) >= MAGIC_VAL_3 and parts[0] == "causaganha":
                     tribunal = parts[1].upper()
 
             if date_str and tribunal:

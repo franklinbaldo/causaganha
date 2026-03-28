@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_2 = 2
+HTTP_200_OK = 200
+
 """Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
 
 Optimized version:
@@ -100,9 +104,9 @@ def process_item(entry: str) -> bool:
                     timeout=timeout,
                     follow_redirects=True,
                 ) as response:
-                    if response.status_code == 200:
+                    if response.status_code == HTTP_200_OK:
                         downloaded = 0
-                        with open(zip_path, "wb") as f:
+                        with Path(zip_path).open("wb") as f:
                             for chunk in response.iter_bytes(
                                 chunk_size=1024 * 1024,
                             ):  # 1MB chunks
@@ -119,7 +123,7 @@ def process_item(entry: str) -> bool:
 
         with timed("extract+flatten"):
             total_records = 0
-            with zipfile.ZipFile(zip_path) as zf, open(ndjson_path, "w") as out:
+            with zipfile.ZipFile(zip_path) as zf, Path(ndjson_path).open("w") as out:
                 for name in zf.namelist():
                     if name.endswith(".json"):
                         with zf.open(name) as f:
@@ -313,7 +317,7 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
+    if len(sys.argv) < MAGIC_VAL_2:
         sys.exit(1)
 
     batch_file = Path(sys.argv[1])

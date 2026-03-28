@@ -1,3 +1,7 @@
+MAGIC_VAL_2 = 2
+MAGIC_VAL_95 = 95
+MAGIC_VAL_10 = 10
+
 """Experiment: Stress test Jina AI embeddings to find optimal rate limits.
 
 This script tests Jina embedding API with increasing concurrency to determine:
@@ -142,7 +146,7 @@ async def find_optimal_rate() -> None:
             break
 
         # Wait between tests to avoid cumulative rate limiting
-        if concurrency >= 10:
+        if concurrency >= MAGIC_VAL_10:
             wait_time = 5
             await asyncio.sleep(wait_time)
 
@@ -151,7 +155,7 @@ async def find_optimal_rate() -> None:
     # Find optimal concurrency (highest success rate with minimal rate limiting)
     optimal = None
     for result in results:
-        if result["success_rate"] >= 95 and result["rate_limited"] <= 2:
+        if result["success_rate"] >= MAGIC_VAL_95 and result["rate_limited"] <= MAGIC_VAL_2:
             if optimal is None or result["requests_per_second"] > optimal["requests_per_second"]:
                 optimal = result
 

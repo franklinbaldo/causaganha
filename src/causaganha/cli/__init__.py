@@ -1,5 +1,12 @@
 from datetime import timezone
 
+
+HTTP_404_NOT_FOUND = 404
+MAGIC_VAL_1024 = 1024
+MAGIC_VAL_100 = 100
+HTTP_200_OK = 200
+MAGIC_VAL_80 = 80
+
 """CLI package for CausaGanha."""
 
 import asyncio
@@ -260,6 +267,7 @@ def export_parquet(
         help="Date to export (YYYY-MM-DD), defaults to yesterday",
     ),
     tribunal: str | None = typer.Option(None, help="Specific tribunal to export (optional)"),
+    *,
     backfill: bool = typer.Option(False, help="Backfill mode"),
     start_date: str | None = typer.Option(None, help="Start date for backfill (YYYY-MM-DD)"),
     end_date: str | None = typer.Option(None, help="End date for backfill (YYYY-MM-DD)"),
@@ -394,6 +402,7 @@ def export_parquet(
 def export_status(
     tribunal: str | None = typer.Option(None, help="Filter by tribunal"),
     days: int = typer.Option(7, help="Show last N days"),
+    *,
     failed_only: bool = typer.Option(False, help="Show only failed exports"),
 ) -> None:
     """Show Parquet export status and statistics."""
@@ -541,6 +550,7 @@ def groundtruth_status() -> None:
 
 @groundtruth_app.command("init")
 def groundtruth_init(
+    *,
     overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing table"),
 ) -> None:
     """Initialize ground truth vector store."""
@@ -698,6 +708,7 @@ def analyze_parquet_file(
         0.70,
         help="Confidence threshold for hybrid strategy",
     ),
+    *,
     filter_unanalyzed: bool = typer.Option(
         True,
         help="Only analyze rows without analysis",
@@ -826,6 +837,7 @@ def analyze_from_ia(
 def download_parquet(
     tribunal: str = typer.Argument(..., help="Tribunal code (e.g., TJRO)"),
     date: str = typer.Argument(..., help="Date in YYYY-MM-DD format"),
+    *,
     force: bool = typer.Option(False, help="Force re-download (ignore cache)"),
     cache_dir: str = typer.Option("./ia_cache", help="Cache directory"),
 ) -> None:
@@ -1012,7 +1024,9 @@ def list_catalog_views(
         for i, view in enumerate(views, 1):
             typer.echo(f"{i}. {view['name']}")
             # Show first 80 chars of SQL
-            sql_preview = view["sql"][:80] + "..." if len(view["sql"]) > 80 else view["sql"]
+            sql_preview = (
+                view["sql"][:80] + "..." if len(view["sql"]) > MAGIC_VAL_80 else view["sql"]
+            )
             typer.echo(f"   {sql_preview}\n")
 
         typer.echo(f"Total: {len(views)} views")
@@ -1092,6 +1106,7 @@ def download_catalog(
         "./causaganha-catalog",
         help="Output directory for downloaded catalog files",
     ),
+    *,
     force: bool = typer.Option(False, help="Force re-download even if files exist"),
 ) -> None:
     """Download master catalog from Internet Archive."""
@@ -1129,11 +1144,11 @@ def download_catalog(
 
                     try:
                         response = await client.get(url)
-                        if response.status_code == 200:
+                        if response.status_code == HTTP_200_OK:
                             content = response.content
 
                             # Basic validation: check file is not empty
-                            if len(content) < 100:
+                            if len(content) < MAGIC_VAL_100:
                                 typer.echo(" (warning: file too small, may be corrupted)")
                                 continue
 
@@ -1145,14 +1160,14 @@ def download_catalog(
                                 continue
 
                             # Validate DuckDB files
-                            if filename.endswith(".duckdb") and len(content) < 1024:
+                            if filename.endswith(".duckdb") and len(content) < MAGIC_VAL_1024:
                                 typer.echo(" (warning: duckdb file too small)")
                                 continue
 
                             output_path.write_bytes(content)
                             size_kb = len(content) / 1024
                             typer.echo(f" ({size_kb:.1f} KB)")
-                        elif response.status_code == 404:
+                        elif response.status_code == HTTP_404_NOT_FOUND:
                             typer.echo(" (not found - catalog may not exist yet)")
                         else:
                             typer.echo(f" (HTTP {response.status_code})")

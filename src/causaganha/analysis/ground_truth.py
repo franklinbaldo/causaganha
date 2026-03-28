@@ -36,7 +36,7 @@ class GroundTruthManager:
             self.embedding_service = await EmbeddingService.create()
         return self.embedding_service
 
-    def init_store(self, overwrite: bool = False) -> None:
+    def init_store(self, *, overwrite: bool = False) -> None:
         """Initialize the ground truth table in vector store.
 
         Args:

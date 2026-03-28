@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_1_5 = 1.5
+
 """Test parallel Parquet export with local ZIPs."""
 
 import sys
@@ -115,7 +118,7 @@ def test_parallel_export() -> int:
         speedup = seq_time / par_time
         (seq_time - par_time) / seq_time * 100
 
-        if speedup >= 1.5:
+        if speedup >= MAGIC_VAL_1_5:
             return 0
         return 0
 

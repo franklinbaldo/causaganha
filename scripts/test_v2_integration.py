@@ -1,5 +1,10 @@
 from datetime import timezone
 
+
+MAGIC_VAL_25_0 = 25.0
+MAGIC_VAL_2 = 2
+MAGIC_VAL_1001 = 1001
+
 """Integration test script for V2 pipeline."""
 
 import asyncio
@@ -109,7 +114,7 @@ async def main() -> None:
     # Verify Collection
     intimations = con.table("intimations").execute()
     assert len(intimations) == 1
-    assert intimations.iloc[0]["id"] == 1001
+    assert intimations.iloc[0]["id"] == MAGIC_VAL_1001
     logger.info("Collection Stage Verified")
 
     # --- STAGE 2: ANALYSIS ---
@@ -134,7 +139,7 @@ async def main() -> None:
     # Verify Analysis
     analyses = con.table("analysis_results").execute()
     assert len(analyses) == 1
-    assert analyses.iloc[0]["intimation_id"] == 1001
+    assert analyses.iloc[0]["intimation_id"] == MAGIC_VAL_1001
 
     # Check outcome - expecting "WIN" based on Enum definition
     assert analyses.iloc[0]["outcome"] == "WIN"
@@ -153,15 +158,15 @@ async def main() -> None:
     # Verify 'lawyer_ratings' table exists and has entries
 
     ratings = con.table("lawyer_ratings").execute()
-    assert len(ratings) >= 2  # Winner and Loser
+    assert len(ratings) >= MAGIC_VAL_2  # Winner and Loser
 
     winner = ratings[ratings["oab_number"] == "1001"].iloc[0]
     loser = ratings[ratings["oab_number"] == "1002"].iloc[0]
 
     # Check values - default mu is 25.0
     # Winner should be > 25, Loser should be < 25
-    assert winner["mu"] > 25.0, f"Winner mu should be > 25, got {winner['mu']}"
-    assert loser["mu"] < 25.0, f"Loser mu should be < 25, got {loser['mu']}"
+    assert winner["mu"] > MAGIC_VAL_25_0, f"Winner mu should be > 25, got {winner['mu']}"
+    assert loser["mu"] < MAGIC_VAL_25_0, f"Loser mu should be < 25, got {loser['mu']}"
 
     logger.info("Scoring Stage Verified")
 

@@ -1,6 +1,9 @@
 from collections import Counter
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_70 = 70
+
 """Testa com 4 frases-chave: WIN, LOSS, UNKNOWN, PARTIAL."""
 
 import sys
@@ -154,7 +157,9 @@ def main() -> None:
 
     console.print("\n[bold]📊 Resultado Geral:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
-    console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
+    console.print(
+        f"  Acurácia: [{'green' if acuracia >= MAGIC_VAL_70 else 'red'}]{acuracia:.1f}%[/]\n"
+    )
 
     # Matriz de confusão
 
@@ -222,7 +227,7 @@ def main() -> None:
             "  RAG k-NN: $0.000008\n"
             "  LLM: $0.000420\n\n"
             f"[bold]Veredicto:[/bold] "
-            f"{'✅ Funciona muito bem!' if acuracia >= 70 else '⚠️ Melhor que 2 frases mas ainda abaixo do RAG'}",
+            f"{'✅ Funciona muito bem!' if acuracia >= MAGIC_VAL_70 else '⚠️ Melhor que 2 frases mas ainda abaixo do RAG'}",
             title="📊 Resultado Final",
         ),
     )

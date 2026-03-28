@@ -1,6 +1,16 @@
 from datetime import timezone
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_5 = 5
+HTTP_200_OK = 200
+MAGIC_VAL_3 = 3
+MAGIC_VAL_4 = 4
+MAGIC_VAL_31 = 31
+MAGIC_VAL_12 = 12
+MAGIC_VAL_2030 = 2030
+MAGIC_VAL_2020 = 2020
+
 """Generate CausaGanha catalog for Internet Archive.
 
 Creates:
@@ -165,11 +175,11 @@ def _validate_date_str(date_str: str) -> bool:
     try:
         year, month, day = map(int, date_str.split("-"))
         # Basic sanity checks
-        if year < 2020 or year > 2030:
+        if year < MAGIC_VAL_2020 or year > MAGIC_VAL_2030:
             return False
-        if month < 1 or month > 12:
+        if month < 1 or month > MAGIC_VAL_12:
             return False
-        result = not (day < 1 or day > 31)
+        result = not (day < 1 or day > MAGIC_VAL_31)
     except ValueError:
         return False
     else:
@@ -377,7 +387,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
         try:
             split_parts = parts.split("-")
-            if len(split_parts) < 4:
+            if len(split_parts) < MAGIC_VAL_4:
                 return None
             date_str = "-".join(split_parts[:3])
             tribunal = "-".join(split_parts[3:])
@@ -416,7 +426,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 table_idx = i
                 break
 
-        if table_name and table_idx >= 3:
+        if table_name and table_idx >= MAGIC_VAL_3:
             # Depending on if it's TJSP-YYYY-MM-DD or djen-YYYY-MM-DD-TJSP
             # Let's check the date format first. The date is usually 3 parts: YYYY-MM-DD
             if parts[0] == "djen":
@@ -451,7 +461,7 @@ def load_completed_items() -> set[str]:
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status == 200:
+            if response.status == HTTP_200_OK:
                 data = json.loads(response.read().decode("utf-8"))
                 items = set(data.get("completed_items", []))
                 logger.info("loaded_completed_items", count=len(items))
@@ -681,7 +691,7 @@ def _is_tribunal_stopped(
     # Check last N days
     for days_back in range(1, absent_threshold + 1):
         check_date = target_date - timedelta(days=days_back)
-        if check_date.weekday() >= 5:  # skip weekends
+        if check_date.weekday() >= MAGIC_VAL_5:  # skip weekends
             continue
 
         check_date_str = check_date.strftime("%Y-%m-%d")
@@ -746,7 +756,7 @@ def generate_backfill_list(
     current = start_date
     while current <= end_date:
         # Skip weekends (courts don't publish on weekends)
-        if current.weekday() < 5:  # Monday = 0, Friday = 4
+        if current.weekday() < MAGIC_VAL_5:  # Monday = 0, Friday = 4
             date_str = current.strftime("%Y-%m-%d")
             for tribunal in TRIBUNAIS:
                 if (date_str, tribunal) not in collected:
@@ -1278,7 +1288,7 @@ def main() -> int:
 
     # Output for GitHub Actions conditional triggers
     if os_env := os.getenv("GITHUB_OUTPUT"):
-        with open(os_env, "a") as f:
+        with Path(os_env).open("a") as f:
             f.write(f"catalog_updated={'true' if catalog_updated else 'false'}\n")
             f.write(f"catalog_manifest={len(manifest)}\n")
             f.write(f"catalog_backfill={len(backfill)}\n")

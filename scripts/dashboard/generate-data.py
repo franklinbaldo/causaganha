@@ -4,6 +4,16 @@ from datetime import date
 from causaganha.config import TRIBUNAIS
 
 #!/usr/bin/env python3
+
+HTTP_200_OK = 200
+MAGIC_VAL_60 = 60
+MAGIC_VAL_70 = 70
+MAGIC_VAL_80 = 80
+MAGIC_VAL_90 = 90
+MAGIC_VAL_7 = 7
+MAGIC_VAL_2 = 2
+MAGIC_VAL_30 = 30
+
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
@@ -62,14 +72,14 @@ def calculate_quality_scores(
             days_old = (end_date_obj - max_date).days
             if days_old <= 0:
                 recency = 100.0
-            elif days_old >= 30:
+            elif days_old >= MAGIC_VAL_30:
                 recency = 0.0
             else:
                 # Linear interpolation
                 recency = 100.0 * (1.0 - (days_old / 30.0))
 
         # 3. Consistency (30%)
-        if len(sorted_dates) < 2:
+        if len(sorted_dates) < MAGIC_VAL_2:
             consistency = 0.0 if expected_days > 1 else 100.0
         else:
             num_gaps = 0
@@ -78,7 +88,7 @@ def calculate_quality_scores(
                 gap_days = (sorted_dates[i + 1] - sorted_dates[i]).days - 1
                 if gap_days > 0:
                     # Penalize >7 day gaps heavily by counting them as multiple gaps
-                    if gap_days > 7:
+                    if gap_days > MAGIC_VAL_7:
                         num_gaps += 1 + (gap_days // 7)
                     else:
                         num_gaps += 1
@@ -91,13 +101,13 @@ def calculate_quality_scores(
         score = (completeness * 0.4) + (recency * 0.3) + (consistency * 0.3)
 
         # Grade mapping
-        if score >= 90:
+        if score >= MAGIC_VAL_90:
             grade = "A"
-        elif score >= 80:
+        elif score >= MAGIC_VAL_80:
             grade = "B"
-        elif score >= 70:
+        elif score >= MAGIC_VAL_70:
             grade = "C"
-        elif score >= 60:
+        elif score >= MAGIC_VAL_60:
             grade = "D"
         else:
             grade = "F"
@@ -116,7 +126,7 @@ def calculate_quality_scores(
 def fetch_progress_json(url: str) -> dict | None:
     """Fetch progress JSON from Internet Archive."""
     response = httpx.get(url, timeout=30)
-    if response.status_code == 200:
+    if response.status_code == HTTP_200_OK:
         return response.json()
     return None
 

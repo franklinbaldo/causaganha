@@ -9,6 +9,8 @@ import boto3
 from causaganha.storage.connection import get_connection
 
 
+MAGIC_VAL_12 = 12
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,7 +157,7 @@ class ColdStorageArchiver:
             # First day of month
             start_date = date(year, month, 1)
             # Last day of month
-            if month == 12:
+            if month == MAGIC_VAL_12:
                 end_date = date(year + 1, 1, 1) - timedelta(days=1)
             else:
                 end_date = date(year, month + 1, 1) - timedelta(days=1)

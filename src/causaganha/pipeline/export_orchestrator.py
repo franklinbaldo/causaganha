@@ -65,6 +65,7 @@ class ExportOrchestrator:
     async def run_daily_export(
         self,
         partition_date: str | None = None,
+        *,
         cleanup_files: bool = True,
     ) -> ExportResult:
         """Run daily export for specified date (defaults to yesterday).
@@ -139,6 +140,7 @@ class ExportOrchestrator:
         self,
         partition_date: str,
         tribunal: str,
+        *,
         cleanup_files: bool,
     ) -> TribunalExportResult:
         """Execute single tribunal export (returns immutable result).
@@ -281,6 +283,7 @@ class ExportOrchestrator:
         self,
         start_date: str,
         end_date: str,
+        *,
         cleanup_files: bool = True,
     ) -> dict:
         """Backfill historical data exports.

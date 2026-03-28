@@ -1,9 +1,13 @@
+from pathlib import Path
 from datetime import timezone
 from datetime import datetime, timezone
 
 from fpdf import FPDF
 
 from causaganha.storage.connection import get_connection
+
+
+MAGIC_VAL_12 = 12
 
 
 class LGPDComplianceReport(FPDF):
@@ -89,7 +93,7 @@ def _get_access_logs(year: int, month: int) -> str:
     try:
         # Construct start and end dates
         start_date = f"{year}-{month:02d}-01"
-        if month == 12:
+        if month == MAGIC_VAL_12:
             end_date = f"{year + 1}-01-01"
         else:
             end_date = f"{year}-{month + 1:02d}-01"
@@ -137,7 +141,7 @@ def generate_monthly_report():
 
     # Generate HTML equivalent
     html_filepath = f"lgpd_report_{now.strftime('%Y_%m')}.html"
-    with open(html_filepath, "w") as f:
+    with Path(html_filepath).open("w") as f:
         # Escape html chars
         html_logs = access_logs.replace("\n", "<br>")
 

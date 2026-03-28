@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+HTTP_500_INTERNAL_SERVER_ERROR = 500
+
 """Shared Internet Archive S3-compatible upload utilities.
 
 This is the canonical module for uploading files to Internet Archive
@@ -9,7 +13,6 @@ CRITICAL: We use httpx (direct HTTP PUT) instead of boto3 or the
 while IA requires ``x-archive-meta-*``. See CONTRIBUTING.md and PR #348.
 """
 
-from __future__ import annotations
 
 import configparser
 import hashlib
@@ -167,7 +170,7 @@ def create_upload_client(
 def _is_retryable_upload_error(exception: Exception) -> bool:
     """Retry on network errors or 5xx server errors."""
     if isinstance(exception, httpx.HTTPStatusError):
-        return exception.response.status_code >= 500
+        return exception.response.status_code >= HTTP_500_INTERNAL_SERVER_ERROR
     return isinstance(exception, httpx.RequestError)
 
 

@@ -1,3 +1,5 @@
+HTTP_200_OK = 200
+
 """Internet Archive Upload Module.
 
 .. deprecated::
@@ -215,7 +217,7 @@ class InternetArchiveUploader:
             )
 
         # Check response
-        if response[0].status_code != 200:
+        if response[0].status_code != HTTP_200_OK:
             msg = f"Upload failed with status {response[0].status_code}: {response[0].text}"
             raise OSError(
                 msg,

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+MAGIC_VAL_50 = 50
+HTTP_200_OK = 200
+
 """Generate embeddings for DJEN decisions (IA Parquet-based).
 
 This script generates vector embeddings for judicial decisions stored in
@@ -19,6 +23,7 @@ Usage:
     python scripts/pipeline/embed_v2.py --all --timeout-minutes 50
 """
 
+from pathlib import Path
 import google.generativeai as genai
 from causaganha.config import TRIBUNAIS
 import argparse
@@ -57,7 +62,7 @@ def get_embedding_client():
                         "input": texts,
                     },
                 )
-                if response.status_code == 200:
+                if response.status_code == HTTP_200_OK:
                     data = response.json()
                     return [item["embedding"] for item in data["data"]]
                 logger.warning("jina_api_error", status=response.status_code)
@@ -91,7 +96,7 @@ def _download_parquet(url: str, timeout: int = 120) -> str | None:
     try:
         with httpx.Client(timeout=timeout) as client:
             response = client.get(url)
-            if response.status_code == 200:
+            if response.status_code == HTTP_200_OK:
                 tmp = tempfile.NamedTemporaryFile(suffix=".parquet", delete=False)
                 tmp.write(response.content)
                 tmp.close()
@@ -108,7 +113,7 @@ def fetch_consolidated_dates() -> list[str]:
     try:
         with httpx.Client(timeout=30) as client:
             response = client.get(catalog_url)
-            if response.status_code == 200:
+            if response.status_code == HTTP_200_OK:
                 data = response.json()
                 return sorted(data.get("dates_consolidated", []))
             logger.warning("catalog_fetch_failed", status=response.status_code)
@@ -193,7 +198,7 @@ def upload_embeddings_to_ia(
         con.raw_sql(
             f"COPY {table_name} TO '{tmp_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
         )
-        with open(tmp_path, "rb") as f:
+        with Path(tmp_path).open("rb") as f:
             parquet_bytes = f.read()
     finally:
         os.unlink(tmp_path)
@@ -266,7 +271,7 @@ def generate_embeddings_for_date(
             texts = texts.filter(~texts.id.isin(existing_ids))
 
         # Filter valid texts (must have texto, length > 50)
-        texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > 50))
+        texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > MAGIC_VAL_50))
 
         row_count = texts.count().execute()
         if row_count == 0:
@@ -386,7 +391,7 @@ def main() -> int:
     files_added = total_stats["uploaded"] > 0
 
     if os_env := os.getenv("GITHUB_OUTPUT"):
-        with open(os_env, "a") as f:
+        with Path(os_env).open("a") as f:
             f.write(f"files_added={'true' if files_added else 'false'}\n")
             f.write(f"embed_processed={total_stats['processed']}\n")
             f.write(f"embed_uploaded={total_stats['uploaded']}\n")

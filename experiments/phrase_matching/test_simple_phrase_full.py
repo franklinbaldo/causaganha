@@ -1,6 +1,9 @@
 from collections import Counter
 
 #!/usr/bin/env python3
+
+MAGIC_VAL_70 = 70
+
 """Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 
 import sys
@@ -168,7 +171,9 @@ def main() -> None:
 
     console.print("\n[bold]📊 Resultado Geral:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
-    console.print(f"  Acurácia: [{'green' if acuracia >= 70 else 'red'}]{acuracia:.1f}%[/]\n")
+    console.print(
+        f"  Acurácia: [{'green' if acuracia >= MAGIC_VAL_70 else 'red'}]{acuracia:.1f}%[/]\n"
+    )
 
     # Matriz de confusão
     conf_table = Table(title="Matriz de Confusão Completa")
@@ -240,7 +245,7 @@ def main() -> None:
             f"  RAG k-NN: $0.000008 (embeddings + busca)\n"
             f"  LLM: $0.000420\n\n"
             f"[bold]Veredicto:[/bold] "
-            f"{'✅ Simples e eficaz!' if acuracia >= 70 else '⚠️ Precisa melhorar para UNKNOWN/PARTIAL'}",
+            f"{'✅ Simples e eficaz!' if acuracia >= MAGIC_VAL_70 else '⚠️ Precisa melhorar para UNKNOWN/PARTIAL'}",
             title="📊 Resultado Final",
         ),
     )

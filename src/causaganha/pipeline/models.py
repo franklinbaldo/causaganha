@@ -1,10 +1,17 @@
+from __future__ import annotations
+
+MAGIC_VAL_31 = 31
+MAGIC_VAL_12 = 12
+MAGIC_VAL_9999 = 9999
+MAGIC_VAL_1000 = 1000
+MAGIC_VAL_3 = 3
+
 """Immutable data models for the export pipeline.
 
 Follows the pattern from scripts/pipeline/run.py - pure data objects
 with no side effects. All state is immutable (frozen dataclasses).
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 
@@ -30,11 +37,15 @@ class ExportPlan:
         # Validate date format (YYYY-MM-DD)
         try:
             parts = self.partition_date.split("-")
-            if len(parts) != 3:
+            if len(parts) != MAGIC_VAL_3:
                 msg = "Invalid date format"
                 raise ValueError(msg)  # noqa: TRY301
             year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-            if not (1000 <= year <= 9999 and 1 <= month <= 12 and 1 <= day <= 31):
+            if not (
+                MAGIC_VAL_1000 <= year <= MAGIC_VAL_9999
+                and 1 <= month <= MAGIC_VAL_12
+                and 1 <= day <= MAGIC_VAL_31
+            ):
                 msg = "Invalid date values"
                 raise ValueError(msg)  # noqa: TRY301
         except (ValueError, AttributeError) as e:
