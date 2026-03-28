@@ -21,25 +21,21 @@ def _parse_warning_line(warning_msg: str, warnings: defaultdict) -> None:
             warning_msg,
         )
         if match:
-            warnings["broken_links"].append({
-                "file": match.group(1),
-                "link": match.group(2),
-                "target": match.group(3)
-            })
+            warnings["broken_links"].append(
+                {"file": match.group(1), "link": match.group(2), "target": match.group(3)}
+            )
     elif "mkdocs_autorefs" in warning_msg:
         match = re.search(
             r"mkdocs_autorefs: ([^:]+): Could not find cross-reference target '([^']+)'",
-            warning_msg
+            warning_msg,
         )
         if match:
-            warnings["broken_autorefs"].append({
-                "file": match.group(1),
-                "target": match.group(2)
-            })
+            warnings["broken_autorefs"].append({"file": match.group(1), "target": match.group(2)})
     elif "git-revision-date" in warning_msg or "fetch-depth" in warning_msg:
         warnings["git_revision"].append(warning_msg)
     else:
         warnings["other"].append(warning_msg)
+
 
 def parse_logs(log_content: str) -> tuple[dict, list]:
     """Parse mkdocs log output to extract and categorize warnings."""
@@ -50,7 +46,7 @@ def parse_logs(log_content: str) -> tuple[dict, list]:
     in_missing_nav_block = False
 
     missing_nav_start = (
-        'The following pages exist in the docs directory, '
+        "The following pages exist in the docs directory, "
         'but are not included in the "nav" configuration:'
     )
 
@@ -74,6 +70,7 @@ def parse_logs(log_content: str) -> tuple[dict, list]:
 
     return dict(warnings), missing_nav
 
+
 def generate_digest(warnings: dict, missing_nav: list, output_path: str) -> None:
     """Generate the json digest and write to GITHUB_STEP_SUMMARY."""
     digest = {
@@ -85,8 +82,8 @@ def generate_digest(warnings: dict, missing_nav: list, output_path: str) -> None
                 "broken_autorefs": len(warnings.get("broken_autorefs", [])),
                 "orphaned_docs": len(missing_nav),
                 "git_revision_warnings": len(warnings.get("git_revision", [])),
-                "other": len(warnings.get("other", []))
-            }
+                "other": len(warnings.get("other", [])),
+            },
         },
         "details": {
             "missing_nav_targets": warnings.get("missing_nav_targets", []),
@@ -94,8 +91,8 @@ def generate_digest(warnings: dict, missing_nav: list, output_path: str) -> None
             "broken_autorefs": warnings.get("broken_autorefs", []),
             "orphaned_docs_examples": missing_nav[:5],
             "git_revision_warnings": warnings.get("git_revision", []),
-            "other_examples": warnings.get("other", [])[:5]
-        }
+            "other_examples": warnings.get("other", [])[:5],
+        },
     }
 
     with Path(output_path).open("w") as f:
@@ -127,6 +124,7 @@ def generate_digest(warnings: dict, missing_nav: list, output_path: str) -> None
                 f.write("\n### 👻 Orphaned Docs (Not in Nav - Top 5)\n")
                 lines = (f"- `{item}`\n" for item in digest["details"]["orphaned_docs_examples"])
                 f.writelines(lines)
+
 
 if __name__ == "__main__":
     REQUIRED_ARGS = 3
