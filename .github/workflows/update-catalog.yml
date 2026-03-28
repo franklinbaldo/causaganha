@@ -1,53 +1,32 @@
-# ============================================================================
-# UPDATE CATALOG — Regenerate manifest.parquet from IA data
-# ============================================================================
-#
-# Scans all djen-* items on Internet Archive and regenerates the catalog
-# (manifest.parquet + backfill-needed.parquet), then uploads to the
-# causaganha-catalog IA item.
-#
-# The dashboard (deploy-dashboard.yml) reads from this manifest to show
-# up-to-date statistics on how many ZIPs have been collected.
-#
-# Runs every 2 hours and after every successful collect-zips run.
-# ============================================================================
-
 name: Update Catalog
 
 on:
-  schedule:
-    # Every 2 hours
-    - cron: '15 */2 * * *'
   workflow_run:
-    workflows: ['Collect ZIPs']
+    workflows: ["Collect ZIPs"]
     types: [completed]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  actions: write
+concurrency:
+  group: update-catalog
+  cancel-in-progress: false
 
 jobs:
-  update-catalog:
-    name: Regenerate manifest.parquet
-    # Only run if triggered by schedule/dispatch OR if the triggering workflow succeeded
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+  update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: dev
-
-    env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
-
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Setup
-        uses: ./.github/actions/setup
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
 
-      - name: Configure Internet Archive
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Configure Internet Archive credentials
         uses: ./.github/actions/configure-ia
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
@@ -55,14 +34,18 @@ jobs:
 
       - name: Generate and upload catalog
         run: |
+          uv sync --no-dev
           echo "Generating catalog from IA data..."
           uv run python scripts/generate_catalog.py --upload
           echo "Catalog updated."
 
       - name: Trigger dashboard deploy
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run deploy-dashboard.yml --repo franklinbaldo/causaganha
-          echo "Dashboard deploy triggered."
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-dashboard.yml',
+              ref: 'main'
+            });

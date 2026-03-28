@@ -1,3 +1,5 @@
+from datetime import timezone
+
 """CausaGanha Data Pipeline - KISS Version.
 
 Orchestrates pipeline steps sequentially, processing exactly ONE day per run.
@@ -20,7 +22,7 @@ import tempfile
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -82,7 +84,7 @@ def get_next_date(repo_root: str) -> str:
         next_d = date.fromisoformat(cursor_date) - timedelta(days=1)
     else:
         # Start from yesterday
-        next_d = date.today() - timedelta(days=1)
+        next_d = datetime.now(timezone.utc).date() - timedelta(days=1)
 
     # Skip weekends
     while next_d.weekday() >= 5:

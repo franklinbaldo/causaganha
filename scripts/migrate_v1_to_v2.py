@@ -5,6 +5,7 @@ This script migrates lawyer ratings from V1 to V2.
 It assumes V1 uses DuckDB and lawyer IDs are strings in format "Name (OAB/UF Number)".
 """
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -118,7 +119,6 @@ def migrate_ratings(v1_path: str, v2_con) -> None:
 
 
 def main() -> None:
-    import argparse
 
     parser = argparse.ArgumentParser(description="Migrate CausaGanha V1 data to V2")
     parser.add_argument("v1_db_path", help="Path to V1 DuckDB file")

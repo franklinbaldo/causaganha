@@ -1,3 +1,6 @@
+from __future__ import annotations
+import anyio
+
 """Backfill engine — scan historical dates per tribunal with 60-empty-day stop rule.
 
 For each tribunal, scans backward one day at a time.  When 60 consecutive
@@ -5,7 +8,6 @@ For each tribunal, scans backward one day at a time.  When 60 consecutive
 skipped on future runs.  Errors and timeouts never count as empty.
 """
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -16,8 +18,11 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import contextlib
 import httpx
 import structlog
+
+import httpx
 
 from djen_backup.archive import (
     CircuitBreaker,
@@ -269,6 +274,8 @@ class BackfillConfig:
     djen_proxy_url: str
     ia_auth: str
     dry_run: bool
+    skip_absent_markers: bool = False
+    publish_live_status: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
@@ -321,6 +328,44 @@ class BackfillSummary:
             self.tribunals_scanned += 1
 
 
+NTFY_TOPIC = "causaganha-a7f3b2e9c1d4"
+
+
+async def _publish_ntfy_status(
+    summary: BackfillSummary,
+    status: str,
+    bstate: BackfillState,
+) -> None:
+    """Publish live pipeline status to ntfy.sh topic."""
+    progress = bstate.get_all_progress()
+    active_tribunals = sum(1 for p in progress.values() if not p.stopped)
+
+    payload = json.dumps(
+        {
+            "last_updated": datetime.now(tz=UTC).isoformat(),
+            "zips_uploaded": summary.hits,
+            "zips_failed": summary.errors,
+            "active_tribunals": active_tribunals,
+            "status": status,
+        }
+    )
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"https://ntfy.sh/{NTFY_TOPIC}",
+                content=payload.encode(),
+                headers={"Content-Type": "application/json", "Title": "CausaGanha Pipeline"},
+                timeout=10.0,
+            )
+            if resp.status_code >= 300:
+                log.warning("ntfy_publish_failed", status_code=resp.status_code)
+            else:
+                log.debug("ntfy_publish_success", status=status, zips=summary.hits)
+    except Exception as e:
+        log.warning("ntfy_publish_error", error=str(e))
+
+
 # ── Single-date processing ───────────────────────────────────────────
 
 # HTTP status constants
@@ -346,7 +391,8 @@ async def _process_djen_not_found(  # noqa: PLR0913
         date=d.isoformat(),
         status_code=exc.status_code,
     )
-    await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
+    if not config.skip_absent_markers:
+        await ia_state.mark(d, tribunal, ItemStatus.ABSENT)
     stopped = await bstate.record_empty(tribunal)
     await summary.inc_empty()
     if stopped:
@@ -650,8 +696,33 @@ async def _run_backfill_workers(
             )
             queue.task_done()
 
+    async def _status_publisher() -> None:
+        if not config.publish_live_status:
+            return
+
+        interval_str = os.getenv("LIVE_STATUS_INTERVAL_SECONDS", "60")
+        try:
+            interval = float(interval_str)
+        except ValueError:
+            interval = 60.0
+
+        while True:
+            await asyncio.sleep(interval)
+            await _publish_ntfy_status(
+                summary,
+                "running",
+                bstate,
+            )
+
     workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
+    publisher_task = asyncio.create_task(_status_publisher())
+
     await asyncio.gather(*workers)
+
+    # Cancel the publisher once workers finish
+    publisher_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await publisher_task
 
 
 async def run_backfill(config: BackfillConfig) -> int:
@@ -663,9 +734,9 @@ async def run_backfill(config: BackfillConfig) -> int:
     # 0. Load discovered Genesis dates
     genesis_dates = {}
     genesis_path = Path("dashboard/public/tribunal_start_dates.json")
-    if genesis_path.exists():
+    if await anyio.Path(genesis_path).exists():
         try:
-            genesis_dates = json.loads(genesis_path.read_text(encoding="utf-8"))
+            genesis_dates = json.loads(await anyio.Path(genesis_path).read_text(encoding="utf-8"))
             log.info("backfill_genesis_loaded", tribunals=len(genesis_dates))
         except (json.JSONDecodeError, OSError):
             log.warning("backfill_genesis_load_failed", path=str(genesis_path))
@@ -686,6 +757,10 @@ async def run_backfill(config: BackfillConfig) -> int:
         summary = BackfillSummary()
         # Increased threshold from 3 to 10 - was too aggressive, causing many skips
         breaker = CircuitBreaker(threshold=10, recovery_timeout=60.0)
+
+        if config.publish_live_status:
+            # Fire and forget initial status
+            _bg_task = asyncio.create_task(_publish_ntfy_status(summary, "running", bstate))
 
         await _run_backfill_workers(
             client, breaker, config, bstate, ia_state, deadline, summary, all_tribunals
@@ -709,25 +784,26 @@ async def run_backfill(config: BackfillConfig) -> int:
 
     # Pass metrics to CI environment if running in GitHub Actions
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        with open(gh_output, "a") as f:
-            f.write(f"uploaded={summary.hits}\n")
-            f.write(f"errors={summary.errors}\n")
-            f.write(f"empties={summary.empties}\n")
-            f.write(f"stopped={summary.tribunals_stopped}\n")
+        async with await anyio.open_file(gh_output, "a") as f:
+            await f.write(f"uploaded={summary.hits}\n")
+            await f.write(f"errors={summary.errors}\n")
+            await f.write(f"empties={summary.empties}\n")
+            await f.write(f"stopped={summary.tribunals_stopped}\n")
 
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
         start_date_str = config.lower_bound.isoformat() if config.lower_bound else "2013-01-01"
         end_date_str = config.start_date.isoformat()
-        with open(gh_summary, "a") as f:
-            f.write("## Results (success = uploaded > 0)\n")
-            f.write("| Metric | Value |\n")
-            f.write("|--------|-------|\n")
-            f.write(f"| ✅ Uploaded (hits) | **{summary.hits}** |\n")
-            f.write(f"| ❌ Errors | {summary.errors} |\n")
-            f.write(f"| ⬜ Empties | {summary.empties} |\n")
-            f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")
-            f.write(f"| Window | {start_date_str} → {end_date_str} |\n\n")
+        async with await anyio.open_file(gh_summary, "a") as f:
+            await f.write("## Results (success = uploaded > 0)\n")
+            await f.write("| Metric | Value |\n")
+            await f.write("|--------|-------|\n")
+            await f.write(f"| ✅ Uploaded (hits) | **{summary.hits}** |\n")
+            await f.write(f"| ❌ Errors | {summary.errors} |\n")
+            await f.write(f"| ⬜ Empties | {summary.empties} |\n")
+            await f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")
+            await f.write(f"| Window | {start_date_str} → {end_date_str} |\n\n")
 
+    exit_code = 0
     if summary.ia_errors > 0:
         log.error(
             "backfill_failed",
@@ -735,5 +811,11 @@ async def run_backfill(config: BackfillConfig) -> int:
             djen_errors=summary.errors,
             message="IA upload errors detected — pipeline must not silently succeed",
         )
-        return 1
-    return 0
+        exit_code = 1
+
+    if config.publish_live_status:
+        # Publish final status blockingly
+        final_status = "failed" if exit_code != 0 else "completed"
+        await _publish_ntfy_status(summary, final_status, bstate)
+
+    return exit_code

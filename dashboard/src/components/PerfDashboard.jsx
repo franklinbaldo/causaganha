@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
+import { LiveStatusWidget } from './LiveStatusWidget';
 import { IncidentBanner } from './IncidentBanner';
 
 export function PerfDashboard({ perfMetrics, qualityScores }) {
@@ -70,6 +71,10 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
 
   return (
     <div className="space-y-8">
+      <div className="w-full">
+        <LiveStatusWidget />
+      </div>
+
             {perfMetrics.incident && <IncidentBanner incident={perfMetrics.incident} />}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card text-center p-6">

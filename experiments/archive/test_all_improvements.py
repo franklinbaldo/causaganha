@@ -8,6 +8,7 @@ This script demonstrates:
 5. Batch processing pipeline
 """
 
+import pandas as pd
 import asyncio
 from pathlib import Path
 
@@ -164,7 +165,6 @@ async def test_all_improvements() -> None:
     file_size / 1024
 
     # Verify Parquet contents
-    import pandas as pd
 
     df = pd.read_parquet(parquet_path)
     for _col in df.columns:

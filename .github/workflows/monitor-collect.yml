@@ -70,11 +70,8 @@ jobs:
           if [ "$EXISTING" -gt 0 ]; then
             echo "Issue already open, skipping"
           else
-            gh issue create \
-              --repo ${{ github.repository }} \
-              --title "🚨 collect-zips stalled: $CONSECUTIVE consecutive failures" \
-              --label "collect-stalled,bug" \
-              --body "The collect-zips workflow has failed $CONSECUTIVE times in a row.
+            cat << EOF > issue_body.txt
+The collect-zips workflow has failed $CONSECUTIVE times in a row.
 
 **Possible causes:**
 - DJEN proxy down or rate-limiting
@@ -92,7 +89,13 @@ uv run python -m djen_backup --dry-run --deadline-minutes 5 --workers 1
 gh workflow run collect-zips.yml --repo ${{ github.repository }} -f workers=1
 \`\`\`
 
-This issue was opened automatically by the monitor-collect workflow."
+This issue was opened automatically by the monitor-collect workflow.
+EOF
+            gh issue create \
+              --repo ${{ github.repository }} \
+              --title "🚨 collect-zips stalled: $CONSECUTIVE consecutive failures" \
+              --label "collect-stalled,bug" \
+              --body-file issue_body.txt
           fi
 
       - name: Close stall issue if recovered
