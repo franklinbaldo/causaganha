@@ -26,6 +26,12 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Configure Internet Archive credentials
+        uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IAS3_ACCESS_KEY }}
+          secret-key: ${{ secrets.IAS3_SECRET_KEY }}
+
       - name: Generate and upload catalog
         run: |
           uv sync --no-dev
