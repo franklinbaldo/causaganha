@@ -1,18 +1,20 @@
 import json
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 import os
-import urllib.request
 import sys
+from unittest.mock import MagicMock, patch
+
+
 # Make scripts discoverable
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import importlib.util
+
+
 spec = importlib.util.spec_from_file_location("generate_data", "scripts/dashboard/generate-data.py")
 generate_data = importlib.util.module_from_spec(spec)
 sys.modules["generate_data"] = generate_data
 spec.loader.exec_module(generate_data)
+
 
 @patch("generate_data.get_connection")
 @patch("urllib.request.urlopen")
@@ -21,26 +23,28 @@ def test_generate_data_incident_metrics(mock_urlopen, mock_get_connection, tmp_p
     mock_get_connection.side_effect = Exception("No DB in test")
 
     mock_runs_response = MagicMock()
-    mock_runs_response.read.return_value = json.dumps({
-        "workflow_runs": [
-            {"conclusion": "failure", "html_url": "http://run/2"},
-            {"conclusion": "failure", "html_url": "http://run/1"},
-            {"conclusion": "success"}
-        ]
-    }).encode()
+    mock_runs_response.read.return_value = json.dumps(
+        {
+            "workflow_runs": [
+                {"conclusion": "failure", "html_url": "http://run/2"},
+                {"conclusion": "failure", "html_url": "http://run/1"},
+                {"conclusion": "success"},
+            ]
+        }
+    ).encode()
 
     mock_prs_response = MagicMock()
-    mock_prs_response.read.return_value = json.dumps([
-        {"head": {"sha": "abc1234"}}
-    ]).encode()
+    mock_prs_response.read.return_value = json.dumps([{"head": {"sha": "abc1234"}}]).encode()
 
     mock_checks_response = MagicMock()
-    mock_checks_response.read.return_value = json.dumps({
-        "check_runs": [
-            {"name": "Kilo Code Review", "conclusion": "failure"},
-            {"name": "Other Test", "status": "completed", "conclusion": "success"}
-        ]
-    }).encode()
+    mock_checks_response.read.return_value = json.dumps(
+        {
+            "check_runs": [
+                {"name": "Kilo Code Review", "conclusion": "failure"},
+                {"name": "Other Test", "status": "completed", "conclusion": "success"},
+            ]
+        }
+    ).encode()
 
     def side_effect(req, timeout=None):
         url = req.full_url
@@ -54,7 +58,7 @@ def test_generate_data_incident_metrics(mock_urlopen, mock_get_connection, tmp_p
         elif "check-runs" in url:
             mock_resp.read = mock_checks_response.read
         else:
-            mock_resp.read.return_value = b'{}'
+            mock_resp.read.return_value = b"{}"
 
         return mock_resp
 

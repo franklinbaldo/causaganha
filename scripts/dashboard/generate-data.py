@@ -2,7 +2,6 @@
 """Generate dashboard-data.json from DuckDB catalog."""
 
 import json
-import sys
 import os
 import urllib.request
 from datetime import UTC, datetime, timedelta
@@ -265,13 +264,13 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     for dates in tribunal_coverage.values():
         all_dates.update(dates)
         total_items += len(dates)
-    
+
     unique_days = len(all_dates)
     if all_dates:
         sorted_all = sorted(all_dates)
         oldest_date = sorted_all[0]
         newest_date = sorted_all[-1]
-    
+
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
 
     tribunal_etas = {}
@@ -283,9 +282,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    all_tribunals = (
+        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
+    )
     if not all_tribunals:
         from causaganha.config import TRIBUNAIS
+
         all_tribunals = set(TRIBUNAIS)
 
     today = date.today()
@@ -307,7 +309,11 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         # Determine the anchor date for this tribunal
         # Priority: Discovered Genesis > Hardcoded Start Date > Jan 1st 2024
-        start_date_str = discovered_start_dates.get(tribunal) or tribunal_start_dates.get(tribunal) or "2024-01-01"
+        start_date_str = (
+            discovered_start_dates.get(tribunal)
+            or tribunal_start_dates.get(tribunal)
+            or "2024-01-01"
+        )
 
         try:
             start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -335,14 +341,17 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "empty_streak": cursor_info.get("empty_streak", 0),
             "genesis_date": start_date_str,
             "absent_days_count": absent_days_t,
-            "completion_pct": round(((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1) if total_days_since_genesis > 0 else 0
+            "completion_pct": round(
+                ((unique_days_t + absent_days_t) / total_days_since_genesis) * 100, 1
+            )
+            if total_days_since_genesis > 0
+            else 0,
         }
 
     # Calculate Data Quality Scores
     scores_path = output_path.parent / "tribunal_quality_scores.json"
     quality_scores = calculate_quality_scores(tribunal_coverage, tribunal_start_dates, "2026-02-03")
     scores_path.write_text(json.dumps(quality_scores, ensure_ascii=False, indent=2))
-
 
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "causaganha-dashboard"}
@@ -352,7 +361,10 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     collect_failure_streak = 0
     latest_failure_url = None
     try:
-        req = urllib.request.Request("https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/runs?per_page=10", headers=headers)
+        req = urllib.request.Request(
+            "https://api.github.com/repos/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/runs?per_page=10",
+            headers=headers,
+        )
         with urllib.request.urlopen(req, timeout=10) as response:
             runs = json.loads(response.read().decode())["workflow_runs"]
             for r in runs:
@@ -367,13 +379,19 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     kilo_ready_count = 0
     try:
-        req = urllib.request.Request("https://api.github.com/repos/franklinbaldo/causaganha/pulls?state=open&per_page=30", headers=headers)
+        req = urllib.request.Request(
+            "https://api.github.com/repos/franklinbaldo/causaganha/pulls?state=open&per_page=30",
+            headers=headers,
+        )
         with urllib.request.urlopen(req, timeout=10) as response:
             prs = json.loads(response.read().decode())
             for pr in prs:
                 sha = pr["head"]["sha"]
                 try:
-                    check_req = urllib.request.Request(f"https://api.github.com/repos/franklinbaldo/causaganha/commits/{sha}/check-runs", headers=headers)
+                    check_req = urllib.request.Request(
+                        f"https://api.github.com/repos/franklinbaldo/causaganha/commits/{sha}/check-runs",
+                        headers=headers,
+                    )
                     with urllib.request.urlopen(check_req, timeout=10) as check_res:
                         checks = json.loads(check_res.read().decode())["check_runs"]
                         all_others_success = True
@@ -382,9 +400,12 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             if check["name"] == "Kilo Code Review":
                                 if check["conclusion"] != "success":
                                     kilo_blocking = True
-                            else:
-                                if check["status"] != "completed" or check["conclusion"] not in ["success", "skipped", "neutral"]:
-                                    all_others_success = False
+                            elif check["status"] != "completed" or check["conclusion"] not in [
+                                "success",
+                                "skipped",
+                                "neutral",
+                            ]:
+                                all_others_success = False
                         if all_others_success and kilo_blocking:
                             kilo_ready_count += 1
                 except Exception:
@@ -396,7 +417,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     corrective_pr_info = {
         "number": 436,
         "title": "fix: collect zips failure and monitor-collect workflow syntax",
-        "url": "https://github.com/franklinbaldo/causaganha/pull/436"
+        "url": "https://github.com/franklinbaldo/causaganha/pull/436",
     }
 
     # Calculate Performance Metrics
@@ -414,10 +435,9 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             "latest_failure_url": latest_failure_url,
             "corrective_pr": corrective_pr_info,
             "remaining_blocker": "Kilo Code Review",
-            "causaganha_kilo_ready_count": kilo_ready_count
-        }
+            "causaganha_kilo_ready_count": kilo_ready_count,
+        },
     }
-
 
     total_missing_days = sum(eta.get("missing_days", 0) for eta in tribunal_etas.values())
     perf_metrics["causaganha_backlog_pending_days"] = total_missing_days
