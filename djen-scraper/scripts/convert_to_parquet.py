@@ -14,7 +14,6 @@ Usage:
     python convert_to_parquet.py batch.txt
 """
 
-import traceback
 import json
 
 # Parallel processing config (adaptive based on CPU)
@@ -23,6 +22,7 @@ import os
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed

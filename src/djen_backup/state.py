@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 MAGIC_VAL_2 = 2
 
 """Persistent state cache backed by a JSON file.

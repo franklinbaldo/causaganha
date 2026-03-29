@@ -1,5 +1,3 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 
 MAGIC_VAL_5 = 5
@@ -20,24 +18,25 @@ Usage:
     python scripts/pipeline/consolidate.py --date 2026-01-27 --dry-run
 """
 
-import pandas as pd
-import shutil
-import traceback
 import argparse
 import decimal
 import json
 import os
+import shutil
 import tempfile
 import time
+import traceback
 import unicodedata
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 
 # Disable strict decimal traps that cause crashes in ibis/sqlglot
@@ -49,20 +48,20 @@ decimal.getcontext().traps[decimal.InvalidOperation] = False
 import contextlib
 import sys
 
-import duckdb  # noqa: E402
-import httpx  # noqa: E402
-import ibis  # noqa: E402
-import structlog  # noqa: E402
-from tenacity import (  # noqa: E402
+import duckdb
+import httpx
+import ibis
+import structlog
+from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
 
-from causaganha.config import TRIBUNAIS  # noqa: E402
-from causaganha.storage.connection import get_connection  # noqa: E402
-from causaganha.storage.djen_schema import (  # noqa: E402
+from causaganha.config import TRIBUNAIS
+from causaganha.storage.connection import get_connection
+from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
     FIELD_NOME_CLASSE,
@@ -74,7 +73,7 @@ from causaganha.storage.djen_schema import (  # noqa: E402
     FIELD_TIPO_DOCUMENTO,
     FIELD_UF_OAB,
 )
-from scripts.pipeline.ia_s3 import (  # noqa: E402
+from scripts.pipeline.ia_s3 import (
     CircuitBreaker,
     get_ia_item_id,
     get_ia_s3_auth,
@@ -1277,7 +1276,7 @@ def find_next_unconsolidated(
     checkpoint = CheckpointManager(checkpoint_file)
     last_checked = checkpoint.load()
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     days_ago = 0
 
     if last_checked:
@@ -1745,7 +1744,7 @@ def main() -> int:
                 continue
 
     else:
-        target_date = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
+        target_date = datetime.now(UTC).date().strftime("%Y-%m-%d")
         try:
             stats = consolidate_date(
                 target_date,

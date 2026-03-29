@@ -1,6 +1,5 @@
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import timezone
-from datetime import datetime, timezone
 
 from fpdf import FPDF
 
@@ -16,13 +15,13 @@ class LGPDComplianceReport(FPDF):
         period: str,
         controller: str = "Franklin / CausaGanha",
         basis: str = "Judicial transparency",
-    ):
+    ) -> None:
         super().__init__()
         self.period = period
         self.controller = controller
         self.basis = basis
 
-    def header(self):
+    def header(self) -> None:
         # Arial bold 15
         self.set_font("Arial", "B", 15)
         # Title
@@ -37,7 +36,7 @@ class LGPDComplianceReport(FPDF):
         # Line break
         self.ln(10)
 
-    def chapter_title(self, num: int, label: str):
+    def chapter_title(self, num: int, label: str) -> None:
         self.set_font("Arial", "B", 12)
         # Background color
         self.set_fill_color(200, 220, 255)
@@ -46,7 +45,7 @@ class LGPDComplianceReport(FPDF):
         # Line break
         self.ln(4)
 
-    def chapter_body(self, text: str):
+    def chapter_body(self, text: str) -> None:
         # Times 12
         self.set_font("Times", "", 12)
         # Output text
@@ -54,7 +53,7 @@ class LGPDComplianceReport(FPDF):
         # Line break
         self.ln()
 
-    def generate_report(self, filepath: str, access_logs: str):
+    def generate_report(self, filepath: str, access_logs: str) -> None:
         self.add_page()
 
         # Section 1
@@ -85,7 +84,6 @@ Audit logging: Enabled for all data access and administrative actions."""
 
         # Output
         self.output(filepath, "F")
-        print(f"Generated LGPD Compliance Report: {filepath}")
 
 
 def _get_access_logs(year: int, month: int) -> str:
@@ -93,10 +91,7 @@ def _get_access_logs(year: int, month: int) -> str:
     try:
         # Construct start and end dates
         start_date = f"{year}-{month:02d}-01"
-        if month == MAGIC_VAL_12:
-            end_date = f"{year + 1}-01-01"
-        else:
-            end_date = f"{year}-{month + 1:02d}-01"
+        end_date = f"{year + 1}-01-01" if month == MAGIC_VAL_12 else f"{year}-{month + 1:02d}-01"
 
         # Query audit_log table
         query = """
@@ -125,9 +120,9 @@ def _get_access_logs(year: int, month: int) -> str:
         return f"Failed to retrieve access logs: {e}"
 
 
-def generate_monthly_report():
+def generate_monthly_report() -> None:
     # Typically, get current month/year for the period
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     period = f"{now.strftime('%B')} {now.year}"
 
     # Get the logs from duckdb
@@ -175,7 +170,6 @@ def generate_monthly_report():
         </body>
         </html>
         """)
-    print(f"Generated HTML equivalent: {html_filepath}")
 
 
 if __name__ == "__main__":

@@ -12,8 +12,6 @@ Usage:
 
 from __future__ import annotations
 
-import httpx
-import google.generativeai as genai
 import argparse
 import os
 import time
@@ -21,6 +19,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
+import google.generativeai as genai
+import httpx
 import structlog
 
 from causaganha.storage.connection import get_connection

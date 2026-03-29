@@ -1,5 +1,6 @@
 from collections import Counter
 
+
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 

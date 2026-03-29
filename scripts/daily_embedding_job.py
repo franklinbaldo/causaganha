@@ -1,5 +1,3 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 """Daily embedding generation job for GitHub Actions.
 
@@ -7,20 +5,18 @@ Processes decisions from the last N days that don't have embeddings yet.
 Optimized for daily digest processing with caching.
 """
 
-from causaganha.storage.embedding_storage import _get_table_name
-from causaganha.pipeline.embedding_pipeline import BatchStats
 import argparse
 import asyncio
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import structlog
 
 from causaganha.analysis.embedding_models import JINA_V4_1024
-from causaganha.pipeline.embedding_pipeline import EmbeddingPipeline
+from causaganha.pipeline.embedding_pipeline import BatchStats, EmbeddingPipeline
 from causaganha.storage.connection import get_connection
-from causaganha.storage.embedding_storage import EmbeddingStorage
+from causaganha.storage.embedding_storage import EmbeddingStorage, _get_table_name
 
 
 logger = structlog.get_logger()
@@ -64,7 +60,7 @@ def get_decisions_to_process(days_back: int = 1) -> list[int]:
             ORDER BY i.analyzed_at DESC
         """
 
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_back)
+    cutoff_date = datetime.now(UTC) - timedelta(days=days_back)
     result = con.con.execute(query, [cutoff_date])
 
     decision_ids = [row[0] for row in result.fetchall()]
@@ -112,7 +108,7 @@ def save_stats(stats, args) -> None:
     stats_dir.mkdir(parents=True, exist_ok=True)
 
     stats_data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "days_back": args.days_back,
         "max_concurrency": args.max_concurrency,
         "total_decisions": stats.total_decisions,
@@ -125,7 +121,7 @@ def save_stats(stats, args) -> None:
         "throughput": stats.throughput,
     }
 
-    stats_file = stats_dir / f"job_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    stats_file = stats_dir / f"job_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
     stats_file.write_text(json.dumps(stats_data, indent=2))
 
     logger.info("stats_saved", file=str(stats_file))
@@ -169,8 +165,8 @@ async def main() -> None:
             cached_decisions=0,
             processed_decisions=0,
             failed_decisions=0,
-            start_time=datetime.now(timezone.utc),
-            end_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
+            end_time=datetime.now(UTC),
         )
         save_stats(empty_stats, args)
         return

@@ -1,8 +1,7 @@
-from datetime import timezone
 import logging
 import os
 import tarfile
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import boto3
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class ColdStorageArchiver:
-    def __init__(self, s3_bucket: str = "causaganha-archive"):
+    def __init__(self, s3_bucket: str = "causaganha-archive") -> None:
         self.s3_client = boto3.client("s3")
         self.s3_bucket = s3_bucket
 
@@ -28,8 +27,8 @@ class ColdStorageArchiver:
         con = get_connection()
 
         # Calculate cutoff date for 3 months hot window
-        three_months_ago = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
-        nine_months_ago = (datetime.now(timezone.utc) - timedelta(days=270)).strftime("%Y-%m-%d")
+        three_months_ago = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
+        nine_months_ago = (datetime.now(UTC) - timedelta(days=270)).strftime("%Y-%m-%d")
 
         # Find tribunals and months that have completed exports
         # older than 3 months but newer than 9 months (6 months window)
@@ -52,7 +51,7 @@ class ColdStorageArchiver:
             results = con.con.execute(query, [three_months_ago, nine_months_ago]).fetchall()
 
             for row in results:
-                tribunal, yr, mo, days_exported = row
+                tribunal, yr, mo, _days_exported = row
                 yr = int(yr)
                 mo = int(mo)
 
@@ -85,11 +84,11 @@ class ColdStorageArchiver:
                         )
 
         except Exception as e:
-            logger.error(f"Error checking archival eligible data: {e}")
+            logger.exception(f"Error checking archival eligible data: {e}")
 
         return eligible_data
 
-    def archive_data(self, tribunal: str, year: int, month: int, file_paths: list[str]):
+    def archive_data(self, tribunal: str, year: int, month: int, file_paths: list[str]) -> None:
         """Create tarball and upload to S3 Glacier, then update metadata and delete local files.
         If S3 upload fails, raises exception and aborts deletion/purging.
         """
@@ -127,7 +126,7 @@ class ColdStorageArchiver:
                     os.remove(file_path)
                     logger.info(f"Deleted hot file: {file_path}")
                 except Exception as e:
-                    logger.error(f"Failed to delete hot file {file_path}: {e}")
+                    logger.exception(f"Failed to delete hot file {file_path}: {e}")
 
         # 5. Purge old data from database (Only happens if S3 upload succeeded)
         self._purge_hot_database_records(tribunal, year, month)
@@ -136,7 +135,7 @@ class ColdStorageArchiver:
         if os.path.exists(tarball_path):
             os.remove(tarball_path)
 
-    def _update_metadata(self, tribunal: str, year: int, month: int, s3_key: str):
+    def _update_metadata(self, tribunal: str, year: int, month: int, s3_key: str) -> None:
         con = get_connection()
         try:
             con.con.execute(
@@ -148,10 +147,10 @@ class ColdStorageArchiver:
             )
             logger.info(f"Updated archival_log for {tribunal} {year}-{month:02d}")
         except Exception as e:
-            logger.error(f"Failed to update metadata: {e}")
-            raise e
+            logger.exception(f"Failed to update metadata: {e}")
+            raise
 
-    def _purge_hot_database_records(self, tribunal: str, year: int, month: int):
+    def _purge_hot_database_records(self, tribunal: str, year: int, month: int) -> None:
         con = get_connection()
         try:
             # First day of month
@@ -177,8 +176,8 @@ class ColdStorageArchiver:
             )
             logger.info(f"Purged old intimations from hot DB for {tribunal} {year}-{month:02d}")
         except Exception as e:
-            logger.error(f"Failed to purge hot database records: {e}")
-            raise e
+            logger.exception(f"Failed to purge hot database records: {e}")
+            raise
 
     def trigger_restore(self, tribunal: str, year: int, month: int) -> bool:
         """Trigger S3 restore for archived data (SLA 3-6 hours).

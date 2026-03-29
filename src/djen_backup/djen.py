@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import httpx
 
 
@@ -20,7 +21,6 @@ from djen_backup.retry import request_with_retry
 if TYPE_CHECKING:
     from datetime import date
 
-    import httpx
 
 log = structlog.get_logger()
 
@@ -63,7 +63,8 @@ async def get_caderno_url(
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
     if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
-        raise httpx.HTTPError(f"Server error: {resp.status_code}")
+        msg = f"Server error: {resp.status_code}"
+        raise httpx.HTTPError(msg)
     resp.raise_for_status()
 
     try:
@@ -89,7 +90,7 @@ async def download_zip(
     Raises :class:`DJENNotFoundError` for 404 or empty responses.
     """
     # Create temp file first
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)  # noqa: SIM115
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
     tmp_path = Path(tmp.name)
     total_bytes = 0
     last_logged_mb = 0

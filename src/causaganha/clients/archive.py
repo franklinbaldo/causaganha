@@ -1,4 +1,3 @@
-from datetime import timezone
 
 
 MAGIC_VAL_3 = 3
@@ -22,7 +21,7 @@ MAGIC_VAL_3 = 3
 import asyncio
 import os
 import shutil
-from datetime import date
+from datetime import UTC, date
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -139,7 +138,7 @@ class LocalArchiveService:
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
         data_pub = intimation_data.get(
-            "data_disponibilizacao", datetime.now(timezone.utc).date().isoformat()
+            "data_disponibilizacao", datetime.now(UTC).date().isoformat()
         )
 
         return {
@@ -319,7 +318,7 @@ class InternetArchiveService:
         processo = intimation_data.get("numero_processo", "unknown")
         tribunal = intimation_data.get("sigla_tribunal", "unknown")
         data_pub = intimation_data.get(
-            "data_disponibilizacao", datetime.now(timezone.utc).date().isoformat()
+            "data_disponibilizacao", datetime.now(UTC).date().isoformat()
         )
 
         return {

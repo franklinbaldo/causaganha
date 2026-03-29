@@ -1,4 +1,3 @@
-from datetime import timezone
 
 
 MAGIC_VAL_25_0 = 25.0
@@ -8,7 +7,7 @@ MAGIC_VAL_1001 = 1001
 """Integration test script for V2 pipeline."""
 
 import asyncio
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -43,7 +42,7 @@ async def main() -> None:
     # 1. Mock External Services
 
     # Mock API Response
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     yesterday = today - timedelta(days=1)
 
     mock_intimation = Intimation(

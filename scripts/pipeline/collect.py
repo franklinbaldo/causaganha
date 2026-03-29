@@ -19,12 +19,12 @@ Usage:
     python scripts/pipeline/collect.py --date 2026-01-27 --tribunal TJSP
 """
 
-from pathlib import Path
 import argparse
 import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from scripts.pipeline.ia_s3 import parse_deadline
 

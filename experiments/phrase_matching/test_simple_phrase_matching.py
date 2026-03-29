@@ -1,5 +1,6 @@
 from collections import Counter
 
+
 #!/usr/bin/env python3
 
 MAGIC_VAL_13_3 = 13.3

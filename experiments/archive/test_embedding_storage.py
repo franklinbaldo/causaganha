@@ -6,14 +6,14 @@ This script demonstrates:
 3. Exporting embeddings to Parquet for Internet Archive
 """
 
-from causaganha.analysis.text_chunker import TextChunker
-from causaganha.analysis.embedding_models import JINA_V4_768
-import pandas as pd
 import asyncio
 from pathlib import Path
 
-from causaganha.analysis.embedding_models import JINA_V4_1024
+import pandas as pd
+
+from causaganha.analysis.embedding_models import JINA_V4_768, JINA_V4_1024
 from causaganha.analysis.embedding_service_v2 import EmbeddingService
+from causaganha.analysis.text_chunker import TextChunker
 from causaganha.storage.connection import get_connection
 from causaganha.storage.embedding_storage import EmbeddingStorage
 

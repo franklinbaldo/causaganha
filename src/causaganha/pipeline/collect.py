@@ -1,9 +1,8 @@
-from datetime import timezone
 import asyncio
 import io
 import json
 import zipfile
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -25,6 +24,7 @@ from causaganha.storage.djen_schema import (
     get_field,
 )
 from causaganha.storage.repositories.intimation import store_intimations
+
 
 HTTP_200_OK = 200
 
@@ -48,7 +48,7 @@ async def collect_metadata_for_court(
     con = get_connection()
 
     # Calculate target dates
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     target_dates = [(today - timedelta(days=i)).isoformat() for i in range(1, days_back + 1)]
 
     total_new = 0

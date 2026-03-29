@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import anyio
 
 
@@ -14,19 +15,16 @@ skipped on future runs.  Errors and timeouts never count as empty.
 
 
 import asyncio
+import contextlib
 import json
 import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-import contextlib
 import httpx
 import structlog
-
-import httpx
 
 from djen_backup.archive import (
     CircuitBreaker,
@@ -37,9 +35,6 @@ from djen_backup.runner import validate_tribunal
 from djen_backup.state import ItemStatus, State, load_state, save_state
 from djen_backup.tribunais import get_tribunal_list
 
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 log = structlog.get_logger()
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 MAGIC_VAL_31 = 31
 MAGIC_VAL_12 = 12
 MAGIC_VAL_9999 = 9999

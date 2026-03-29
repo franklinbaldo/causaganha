@@ -1,4 +1,4 @@
-from datetime import timezone
+
 
 """Continuous embedding generation service for Cloud Run.
 
@@ -20,10 +20,10 @@ Usage:
         --timeout 3600
 """
 
-import os
 import asyncio
+import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -253,7 +253,7 @@ def main() -> None:
         batch_size=batch_size,
         max_concurrency=max_concurrency,
         idle_sleep_seconds=idle_sleep,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
     # Run continuous loop

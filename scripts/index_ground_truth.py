@@ -1,5 +1,7 @@
 from collections import Counter
+
 from rich.table import Table
+
 
 #!/usr/bin/env python3
 """Indexar ground truth no LanceDB com chunks prefixados."""

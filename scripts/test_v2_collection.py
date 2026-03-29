@@ -1,10 +1,8 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 import argparse
 import asyncio
 import sys
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 
 import structlog
@@ -49,7 +47,7 @@ async def main() -> None:
     repository = IntimationRepository(con)
     client = PJeAPIClient()
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     start_date = (today - timedelta(days=args.days)).isoformat()
     end_date = today.isoformat()
 

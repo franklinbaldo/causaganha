@@ -1,4 +1,4 @@
-from datetime import timezone
+
 
 """Embedding storage using Ibis/DuckDB for local processing and Parquet export.
 
@@ -16,7 +16,7 @@ Design:
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -179,7 +179,7 @@ class EmbeddingStorage:
                 (text_chunks[i][:200] if text_chunks and i < len(text_chunks) else "")
                 for i in range(num_chunks)
             ],
-            "created_at": [datetime.now(timezone.utc)] * num_chunks,
+            "created_at": [datetime.now(UTC)] * num_chunks,
         }
 
         embeddings_frame = pd.DataFrame(data)
@@ -189,14 +189,14 @@ class EmbeddingStorage:
 
         # Delete existing embeddings for this text
         self.con.con.execute(
-            f"DELETE FROM {table_name} WHERE texto_id = ?",  # noqa: S608
+            f"DELETE FROM {table_name} WHERE texto_id = ?",
             [texto_id],
         )
 
         # Register DataFrame and insert
         self.con.con.register("temp_embeddings", embeddings_frame)
         self.con.con.execute(
-            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",  # noqa: S608
+            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",
         )
         self.con.con.unregister("temp_embeddings")
 

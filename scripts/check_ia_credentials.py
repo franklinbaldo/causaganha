@@ -31,7 +31,7 @@ def main() -> int:
     try:
         # Check scheme explicitly to satisfy security considerations
         if req.full_url.startswith("https://"):
-            urllib.request.urlopen(req)  # noqa: S310
+            urllib.request.urlopen(req)
     except HTTPError as e:
         body = e.read().decode("utf-8")
         if "InvalidAccessKeyId" in body:
