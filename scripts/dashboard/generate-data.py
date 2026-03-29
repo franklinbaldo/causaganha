@@ -484,6 +484,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
         "tribunal_absent_coverage": tribunal_absent_coverage,
         "tribunal_etas": tribunal_etas,
         "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": target_days},
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
