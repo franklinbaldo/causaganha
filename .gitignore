@@ -37,3 +37,8 @@ files_*.json
 # Gemini CLI
 .gemini/
 gha-creds-*.json
+
+# Generated dashboard files
+dashboard/public/dashboard-data.json
+dashboard/public/perf-metrics.json
+dashboard/public/tribunal_quality_scores.json
