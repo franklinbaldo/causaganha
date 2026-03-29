@@ -368,6 +368,12 @@ All data is publicly archived on Internet Archive:
 
 We welcome contributions to CausaGanha! This project is open-source and relies on the community to improve transparency in the Brazilian legal system.
 
+Please see our comprehensive [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on:
+- Setting up your development environment
+- Project architecture and structure
+- How to add a new tribunal scraper
+- Our PR checklist and code style guidelines
+
 ### How to Run Locally
 
 ```bash
