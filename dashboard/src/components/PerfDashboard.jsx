@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
 import { LiveStatusWidget } from './LiveStatusWidget';
+import { PipelineRunHistory } from './PipelineRunHistory';
 
 export function PerfDashboard({ perfMetrics, qualityScores }) {
   if (!perfMetrics || !qualityScores) {
@@ -121,6 +122,10 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
             {slowestTribunals.length === 0 && <li className="text-gray-500">All tribunals are up to date!</li>}
           </ul>
         </div>
+      </div>
+
+      <div className="w-full">
+        <PipelineRunHistory />
       </div>
     </div>
   );
