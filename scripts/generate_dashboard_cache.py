@@ -823,6 +823,8 @@ def generate_backfill_cache(
                 "recent_activity": recent,
             },
             "tribunal_stats": tribunal_stats,
+            "tribunal_coverage": {t: list(set(d)) for t, d in tribunal_coverage.items()},
+            "tribunal_etas": tribunal_etas,
             "volume": {
                 "total_bytes": total_volume_bytes,
                 "total_gb": round(total_volume_bytes / (1024**3), 2),
