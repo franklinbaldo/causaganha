@@ -1,0 +1,98 @@
+name: Bulk Rebase Conflicting PRs
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bulk-rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Find and rebase conflicting PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > bulk_rebase.py
+          import subprocess
+          import json
+          import sys
+
+          def run_command(cmd, check=False):
+              print(f"Running: {cmd}")
+              result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+              if result.returncode != 0:
+                  print(f"Error running '{cmd}': {result.stderr}")
+                  if check:
+                      sys.exit(1)
+              return result
+
+          # Get open PRs
+          list_cmd = "gh pr list --state open --json number,headRefName,mergeable,headRepositoryOwner --limit 200"
+          result = run_command(list_cmd, check=True)
+          output = result.stdout.strip()
+          if not output:
+              print("No open PRs found.")
+              sys.exit(0)
+
+          prs = json.loads(output)
+          print(f"Found {len(prs)} open PRs.")
+
+          for pr in prs:
+              mergeable = pr.get('mergeable')
+              owner = pr.get('headRepositoryOwner', {}).get('login', '')
+
+              if mergeable == 'CONFLICTING' and owner == 'franklinbaldo':
+                  number = pr.get('number')
+                  branch = pr.get('headRefName')
+                  print(f"\nProcessing PR #{number} (branch: {branch})...")
+
+                  # Fetch the branch explicitly
+                  run_command(f"git fetch origin {branch}")
+
+                  # Checkout the branch
+                  co_res = run_command(f"git checkout {branch}")
+                  if co_res.returncode != 0:
+                      print(f"Failed to checkout {branch}, skipping.")
+                      continue
+
+                  # Attempt rebase
+                  rebase_res = run_command("git rebase origin/main")
+
+                  if rebase_res.returncode == 0:
+                      # Rebase succeeded, push back
+                      push_res = run_command(f"git push --force-with-lease origin {branch}")
+                      if push_res.returncode == 0:
+                          print(f"Successfully rebased and pushed PR #{number}.")
+                      else:
+                          print(f"Failed to push PR #{number}.")
+                  else:
+                      # Rebase failed
+                      print(f"Rebase failed for PR #{number}. Aborting rebase and commenting...")
+                      run_command("git rebase --abort")
+
+                      comment = "Rebase automatico falhou — conflito manual necessario. Faca `git rebase origin/main` localmente e resolva os conflitos."
+                      # Escape backticks for shell if necessary, but gh pr comment with --body is safer with triple quotes or a file
+                      with open('comment.txt', 'w') as f:
+                          f.write(comment)
+                      run_command(f"gh pr comment {number} --body-file comment.txt")
+
+                  # Return to main
+                  run_command("git checkout main")
+          EOF
+          python3 bulk_rebase.py
