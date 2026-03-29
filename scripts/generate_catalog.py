@@ -475,6 +475,34 @@ def load_completed_items() -> set[str]:
     return set()
 
 
+def calculate_completed_items(manifest: list[dict], total_tribunals: int) -> dict:
+    """Calculate completed items and their metadata from the manifest."""
+    manifest_by_item = {}
+    for m in manifest:
+        item = m.get("ia_item")
+        if item:
+            manifest_by_item.setdefault(item, []).append(m)
+
+    new_completed_items = {}
+    for item_id, files in manifest_by_item.items():
+        if is_complete(files, total_tribunals):
+            zips = [f.get("tribunal") for f in files if f.get("file_type") == "zip" and f.get("tribunal")]
+            absents = [f.get("tribunal") for f in files if f.get("file_type") == "absent" and f.get("tribunal")]
+
+            # Use sorted set to get unique sorted list of tribunals
+            tribunais_coletados = sorted(set(zips))
+            tribunais_ausentes = sorted(set(absents))
+
+            new_completed_items[item_id] = {
+                "tribunal_count": len(zips),
+                "absent_count": len(absents),
+                "tribunais_coletados": tribunais_coletados,
+                "tribunais_ausentes": tribunais_ausentes,
+            }
+
+    return new_completed_items
+
+
 def is_complete(files: list[dict], total_tribunals: int) -> bool:
     """Check if an item has .zip or .absent files for >= 80% of tribunals."""
     if not files:
@@ -1128,25 +1156,8 @@ def main() -> int:
     manifest = generate_manifest(items, existing_manifest, completed_items)
 
     # 3b. Determine newly completed items
-    # Group manifest by item
-    manifest_by_item = {}
-    for m in manifest:
-        item = m.get("ia_item")
-        if item:
-            manifest_by_item.setdefault(item, []).append(m)
-
-    # Calculate completed items
-    new_completed_items = {}
     total_tribunals = len(TRIBUNAIS)
-    for item_id, files in manifest_by_item.items():
-        if is_complete(files, total_tribunals):
-            # Count zips and absents for the completed item
-            zip_count = sum(1 for f in files if f.get("file_type") == "zip")
-            absent_count = sum(1 for f in files if f.get("file_type") == "absent")
-            new_completed_items[item_id] = {
-                "tribunal_count": zip_count,
-                "absent_count": absent_count,
-            }
+    new_completed_items = calculate_completed_items(manifest, total_tribunals)
 
     # Save completed items
     completed_items_path = output_dir / "completed-items.json"
