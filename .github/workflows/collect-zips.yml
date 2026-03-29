@@ -152,6 +152,26 @@ jobs:
 
           $CMD
 
+      - name: Smoke test (check for zero ZIPs)
+        if: success() || failure()
+        run: |
+          UPLOADED="${{ steps.collect.outputs.uploaded }}"
+
+          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(hits\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+          fi
+
+          if [ -z "$UPLOADED" ]; then
+            UPLOADED=0
+          fi
+
+          echo "ZIPs uploaded in this run: $UPLOADED"
+          if [ "$UPLOADED" -eq 0 ]; then
+            echo "CRITICAL: Zero ZIPs collected today - pipeline may be broken"
+            exit 1
+          fi
+          echo "Pipeline successful - $UPLOADED ZIPs collected"
+
       - name: Show backfill status
         if: always()
         run: |
