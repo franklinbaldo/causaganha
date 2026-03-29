@@ -1098,18 +1098,14 @@ def main() -> int:
         if args.start_date:
             if not _validate_date_str(args.start_date):
                 return 1
-            start_date = (
-                datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
-            )
+            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
         else:
             start_date = DJEN_START_DATE
 
         if args.end_date:
             if not _validate_date_str(args.end_date):
                 return 1
-            end_date = (
-                datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
-            )
+            end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
         else:
             end_date = datetime.now(UTC).date() - timedelta(days=1)
     except ValueError:
