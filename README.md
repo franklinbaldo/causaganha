@@ -1,8 +1,12 @@
 # CausaGanha
 
+![CI Status](https://github.com/franklinbaldo/causaganha/actions/workflows/pipeline.yml/badge.svg)
+![Last Deploy](https://github.com/franklinbaldo/causaganha/actions/workflows/deploy-dashboard.yml/badge.svg)
 ![Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
 
 **CausaGanha** is a judicial analytics platform that collects, archives, and analyzes data from the Brazilian DJEN (Diário de Justiça Eletrônico Nacional) to provide transparent lawyer performance ratings.
+
+Our pipeline scrapes 91 Brazilian court websites daily, aggregates judicial data into a public archive, and serves an open analytics dashboard. This exposes lawyer track records, case outcomes, and litigation timelines, creating unprecedented transparency in the Brazilian legal market.
 
 ## [Live Dashboard](https://franklinbaldo.github.io/causaganha/)
 
@@ -64,19 +68,30 @@ We're building a **complete historical archive** of DJEN data:
 
 ## Architecture
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
+```mermaid
+flowchart LR
+    subgraph pipeline ["GitHub Actions Pipeline"]
+        direction LR
+        A["1. Collect ZIPs\n(Daily)"] --> B["2. Update Catalog\n(Post-collect)"]
+        B --> C["3. Deploy Dashboard\n(Post-catalog)"]
+    end
 
-│                           CAUSAGANHA PIPELINE                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+    A -.-> |"Scrape 91 courts\nUpload ZIPs"| IA1[("Internet Archive\n(Daily Items)")]
+    B -.-> |"Generate catalog.json\n(Metadata + Stats)"| IA2[("Internet Archive\n(Master Catalog)")]
+    C -.-> |"React/Astro UI\nFetch from IA"| GH["GitHub Pages\nDashboard"]
 
-┌──────────────┐     ┌──────────────┐     ┌──────────────────────────────────┐
-│   DJEN API   │────▶│  DJEN Proxy  │────▶│      GitHub Actions (20min)      │
-│ (geo-blocked)│     │ (Cloud Run)  │     │  Download ZIP → Upload to IA     │
-└──────────────┘     └──────────────┘     └──────────────────────────────────┘
-                                                         │
-                                                         ▼
+    classDef workflow fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
+    classDef storage fill:#2b6cb0,stroke:#2c5282,color:#fff,stroke-width:2px;
+    classDef hosting fill:#276749,stroke:#22543d,color:#fff,stroke-width:2px;
+
+    class A,B,C workflow;
+    class IA1,IA2 storage;
+    class GH hosting;
 ```
+
+1. **Collect ZIPs** (daily workflow): scrapes 91 Brazilian court websites, downloads legal gazette ZIPs, and uploads them to the Internet Archive.
+2. **Update Catalog** (runs after collect): generates catalog JSON with metadata (`tribunal_count`, `generated_at`), and uploads it to the Internet Archive.
+3. **Deploy Dashboard** (runs after catalog): React/Astro dashboard hosted on GitHub Pages showing pipeline status, tribunal coverage (91 courts), and run history.
 
 ## Development Status (V2 Refactoring)
 
@@ -349,24 +364,40 @@ All data is publicly archived on Internet Archive:
 | `causaganha-catalog` | Master DuckDB catalog + manifest |
 | `causaganha-embeddings-*` | Embedding vectors for semantic search |
 
-## Development
+## Development & How to Contribute
+
+We welcome contributions to CausaGanha! This project is open-source and relies on the community to improve transparency in the Brazilian legal system.
+
+### How to Run Locally
 
 ```bash
 # Setup
 uv venv && source .venv/bin/activate
 uv sync --dev
 
-# Run tests
-uv run pytest
+# Run the project test suite
+uv run pytest tests/
 
-# Run linter
+# Format and lint code
+uv run ruff format
 uv run ruff check --fix
+
+# Initialize local database
+causaganha db init
 
 # See all CLI commands
 causaganha --help
 ```
 
-For detailed developer guidance, see [CLAUDE.md](CLAUDE.md).
+### Contributing
+
+1. **Fork the repository.**
+2. **Create a branch** for your feature or bug fix.
+3. **Commit your changes**, keeping them focused and well-documented.
+4. **Run linters and tests** before submitting to ensure pipeline compatibility.
+5. **Open a Pull Request** with a descriptive title and detailed summary of your changes. Include context on what you are addressing (and link any related issues using `Refs <issue>`).
+
+For more detailed developer guidance on the codebase structure and architecture rules, please see [CLAUDE.md](CLAUDE.md).
 
 ## License
 
