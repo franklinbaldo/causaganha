@@ -176,6 +176,27 @@ jobs:
           fi
           echo "Pipeline successful - $UPLOADED ZIPs collected"
 
+      - name: Low coverage alert (check for < 73 ZIPs)
+        if: success() || failure()
+        run: |
+          UPLOADED="${{ steps.collect.outputs.uploaded }}"
+
+          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(hits\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+          fi
+
+          if [ -z "$UPLOADED" ]; then
+            UPLOADED=0
+          fi
+
+          if [ "$UPLOADED" -gt 0 ] && [ "$UPLOADED" -lt 73 ]; then
+            PCT=$(( UPLOADED * 100 / 91 ))
+            echo "Low coverage detected: $UPLOADED/91 ($PCT%)"
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=8490688452" \
+              -d "text=⚠️ causaganha: cobertura baixa! Apenas ${UPLOADED}/91 tribunais coletados (${PCT}%). Dashboard: https://franklinbaldo.github.io/causaganha/"
+          fi
+
       - name: Show backfill status
         if: always()
         run: |
