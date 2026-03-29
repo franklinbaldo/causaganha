@@ -157,7 +157,8 @@ def test_calculate_completed_items() -> None:
     ]
 
     # 3 unique tribunals in item, total=3 -> complete
-    res = calculate_completed_items(manifest, total_tribunals=3)
+    today = date(2026, 1, 15)
+    res = calculate_completed_items(manifest, total_tribunals=3, today=today)
 
     assert "djen-2026-01-01" in res
     item_data = res["djen-2026-01-01"]
@@ -176,6 +177,22 @@ def test_calculate_completed_items_incomplete() -> None:
     ]
 
     # 2 unique tribunals in item, total=10 -> incomplete (20% < 80%)
-    res = calculate_completed_items(manifest, total_tribunals=10)
+    today = date(2026, 1, 15)
+    res = calculate_completed_items(manifest, total_tribunals=10, today=today)
+
+    assert "djen-2026-01-01" not in res
+
+
+def test_calculate_completed_items_recent() -> None:
+    manifest = [
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJSP", "file_type": "zip"},
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJMG", "file_type": "zip"},
+        {"ia_item": "djen-2026-01-01", "tribunal": "TRE-AC", "file_type": "absent"},
+    ]
+
+    # Item is from Jan 1st, but 'today' is Jan 5th (only 4 days old).
+    # Even though it has enough tribunals (3/3), it shouldn't be considered complete yet.
+    today = date(2026, 1, 5)
+    res = calculate_completed_items(manifest, total_tribunals=3, today=today)
 
     assert "djen-2026-01-01" not in res

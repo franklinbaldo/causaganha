@@ -475,7 +475,7 @@ def load_completed_items() -> set[str]:
     return set()
 
 
-def calculate_completed_items(manifest: list[dict], total_tribunals: int) -> dict:
+def calculate_completed_items(manifest: list[dict], total_tribunals: int, today: date) -> dict:
     """Calculate completed items and their metadata from the manifest."""
     manifest_by_item = {}
     for m in manifest:
@@ -485,6 +485,10 @@ def calculate_completed_items(manifest: list[dict], total_tribunals: int) -> dic
 
     new_completed_items = {}
     for item_id, files in manifest_by_item.items():
+        item_date = get_item_date(item_id)
+        if item_date and (today - item_date).days <= 7:
+            continue
+
         if is_complete(files, total_tribunals):
             zips = [
                 f.get("tribunal")
@@ -1165,7 +1169,8 @@ def main() -> int:
 
     # 3b. Determine newly completed items
     total_tribunals = len(TRIBUNAIS)
-    new_completed_items = calculate_completed_items(manifest, total_tribunals)
+    today = datetime.now(tz=UTC).date()
+    new_completed_items = calculate_completed_items(manifest, total_tribunals, today)
 
     # Save completed items
     completed_items_path = output_dir / "completed-items.json"
