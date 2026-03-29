@@ -41,6 +41,7 @@ dependencies = [
     "click>=8.1",  # for djen_backup CLI
     "boto3>=1.35.0",
     "fpdf>=1.7.2",
+    "numpy<2.4.4",  # Temporary pin for PyPI missing Linux wheels in 2.4.4
 ]
 
 [project.optional-dependencies]

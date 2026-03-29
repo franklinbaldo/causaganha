@@ -1,4 +1,11 @@
-from scripts.generate_catalog import parse_filename
+from datetime import date
+
+from scripts.generate_catalog import (
+    calculate_completed_items,
+    is_complete,
+    needs_listing,
+    parse_filename,
+)
 
 
 def test_parse_filename_zip() -> None:
@@ -41,11 +48,6 @@ def test_parse_filename_parquet_legacy() -> None:
     assert res["tribunal"] == "TJSP"
     assert res["file_type"] == "parquet"
     assert res["table_name"] == "comunicacoes"
-
-
-from datetime import date
-
-from scripts.generate_catalog import is_complete, needs_listing
 
 
 def test_is_complete() -> None:
@@ -140,3 +142,40 @@ def test_needs_listing() -> None:
     )
     assert should_list
     assert reason == "not_complete"
+
+
+def test_calculate_completed_items() -> None:
+    manifest = [
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJSP", "file_type": "zip"},
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJMG", "file_type": "zip"},
+        {"ia_item": "djen-2026-01-01", "tribunal": "TRE-AC", "file_type": "absent"},
+        {
+            "ia_item": "djen-2026-01-01",
+            "tribunal": "ALL",
+            "file_type": "parquet",
+        },  # Should be ignored for tribunal list
+    ]
+
+    # 3 unique tribunals in item, total=3 -> complete
+    res = calculate_completed_items(manifest, total_tribunals=3)
+
+    assert "djen-2026-01-01" in res
+    item_data = res["djen-2026-01-01"]
+
+    assert item_data["tribunal_count"] == 2
+    assert item_data["absent_count"] == 1
+
+    assert item_data["tribunais_coletados"] == ["TJMG", "TJSP"]
+    assert item_data["tribunais_ausentes"] == ["TRE-AC"]
+
+
+def test_calculate_completed_items_incomplete() -> None:
+    manifest = [
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJSP", "file_type": "zip"},
+        {"ia_item": "djen-2026-01-01", "tribunal": "TJMG", "file_type": "zip"},
+    ]
+
+    # 2 unique tribunals in item, total=10 -> incomplete (20% < 80%)
+    res = calculate_completed_items(manifest, total_tribunals=10)
+
+    assert "djen-2026-01-01" not in res
