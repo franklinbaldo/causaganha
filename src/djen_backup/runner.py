@@ -333,7 +333,8 @@ async def run(config: RunConfig) -> int:
     deadline = time.monotonic() + config.deadline_minutes * 60
     state = load_state(config.state_file)
 
-    timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
+    # Use a 30s timeout for read/write/connect as requested.
+    timeout = httpx.Timeout(connect=30.0, read=30.0, write=30.0, pool=30.0)
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         # 1. Tribunal list
         all_tribunals = await get_tribunal_list(client, config.djen_proxy_url)
@@ -375,31 +376,33 @@ async def run(config: RunConfig) -> int:
 
         log.info("work_queue_built", total=len(work_queue))
 
-        # 3. Process — bounded worker pool via asyncio.Queue
+        # 3. Process — bounded concurrency with semaphore
         summary = Summary(total=len(work_queue))
         breaker = CircuitBreaker(threshold=5, recovery_timeout=60.0)
-        queue: asyncio.Queue[WorkItem] = asyncio.Queue()
-        for item in work_queue:
-            queue.put_nowait(item)
 
         # Use a temporary directory for ZIP downloads in this run
         tmp_dir = Path(tempfile.mkdtemp(prefix="djen-"))
 
-        async def _worker() -> None:
-            while not queue.empty():
-                try:
-                    item = queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-                await process_item(client, breaker, item, state, config, deadline, summary)
-                queue.task_done()
+        # Concurrency limit: maximum 10 simultaneous requests
+        sem = asyncio.Semaphore(10)
 
-        workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
+        async def _process_with_semaphore(item: WorkItem) -> None:
+            async with sem:
+                log.info(
+                    "process_item_start",
+                    date=item.date.isoformat(),
+                    tribunal=item.tribunal,
+                )
+                await process_item(client, breaker, item, state, config, deadline, summary)
+
+        start_time = time.monotonic()
         try:
-            await asyncio.gather(*workers)
+            await asyncio.gather(*(_process_with_semaphore(item) for item in work_queue))
         finally:
             # Clean up the temp directory
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        duration_sec = time.monotonic() - start_time
 
     # 4. Save state
     save_state(state, config.state_file)
@@ -414,7 +417,11 @@ async def run(config: RunConfig) -> int:
         skipped_circuit=summary.skipped_circuit,
         failed=summary.failed,
         success_rate=f"{summary.success_rate:.1%}",
+        duration_sec=round(duration_sec, 2),
     )
+
+    # Progress summary at end as requested
+    print(f"Collected {summary.uploaded}/91 ZIPs in {duration_sec:.1f} seconds")
 
     # 6. Exit code: 0 if nothing to do or ≥50% success, else 1
     if summary.success_rate >= SUCCESS_RATE_THRESHOLD:

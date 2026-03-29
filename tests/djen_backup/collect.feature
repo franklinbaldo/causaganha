@@ -27,3 +27,8 @@ Feature: Collect and upload
       | TJSP     |
     When I detect gaps for "2024-01-15"
     Then there should be no gaps
+
+  Scenario: Respects concurrency limit of 10 requests
+    Given a batch of 15 tribunals on "2024-06-01"
+    When I process the batch concurrently
+    Then no more than 10 simultaneous requests should be made
