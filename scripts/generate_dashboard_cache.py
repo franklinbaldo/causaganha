@@ -633,13 +633,42 @@ def generate_backfill_cache(
         """).fetchall()
 
         velocity_map = {t: v for t, v in velocity_rows}
+
+        # Per-tribunal zip vs absent counts
+        type_counts = con.execute("""
+            SELECT tribunal, file_type, COUNT(DISTINCT date) as cnt
+            FROM manifest
+            WHERE file_type IN ('zip', 'absent')
+            GROUP BY tribunal, file_type
+        """).fetchall()
+        zip_counts: dict[str, int] = {}
+        absent_counts: dict[str, int] = {}
+        for t, ft, cnt in type_counts:
+            if ft == "zip":
+                zip_counts[t] = cnt
+            elif ft == "absent":
+                absent_counts[t] = cnt
+
+        # Load start dates from tribunal_start_dates.json if available
+        start_dates_path = (
+            Path(__file__).parent.parent / "dashboard" / "public" / "tribunal_start_dates.json"
+        )
+        start_dates: dict[str, str | None] = {}
+        if start_dates_path.exists():
+            with start_dates_path.open() as f:
+                start_dates = json.load(f)
+
         tribunal_etas: dict[str, dict[str, Any]] = {}
 
         for tribunal in TRIBUNALS:
             coverage_list = tribunal_coverage.get(tribunal, [])
             unique_days_t = len(set(coverage_list))
+            zip_count = zip_counts.get(tribunal, 0)
+            absent_count = absent_counts.get(tribunal, 0)
+            collected = zip_count + absent_count
             missing_days = max(0, target_days - unique_days_t)
             velocity_14d = velocity_map.get(tribunal, 0)
+            completion_pct = round(100.0 * collected / target_days, 1) if target_days > 0 else 0.0
 
             eta_days = None
             if missing_days > 0 and velocity_14d > 0:
@@ -650,6 +679,10 @@ def generate_backfill_cache(
                 "missing_days": missing_days,
                 "velocity_14d": velocity_14d,
                 "eta_days": eta_days,
+                "completion_pct": completion_pct,
+                "zip_count": zip_count,
+                "absent_days_count": absent_count,
+                "genesis_date": start_dates.get(tribunal),
             }
 
         progress_by_year: dict[str, dict[str, Any]] = {}

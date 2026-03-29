@@ -119,6 +119,8 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
 
     <main id="main-content" class="max-w-7xl mx-auto space-y-6">
 
+      <DataSourceIndicator client:load />
+
       <IncidentBanner client:load incident={incident} />
 
       <TribunalView
@@ -133,8 +135,7 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
 
       <!-- Footer -->
-      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2 space-y-2">
-        <DataSourceIndicator client:load />
+      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
         <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
       </footer>
     </main>
