@@ -1,0 +1,262 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { ThemeToggle } from '../components/ThemeToggle';
+
+// Fetch the catalog
+const response = await fetch(`https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`);
+const catalog = await response.json();
+const data = catalog.completed_items || {};
+
+// Sort dates descending
+const sortedDates = Object.keys(data).sort((a, b) => b.localeCompare(a));
+const recent30Dates = sortedDates.slice(0, 30);
+
+// --- 1. Coverage Overview (30 days) ---
+let totalCoverage30 = 0;
+let bestDay = null;
+let worstDay = null;
+let bestCount = -1;
+let worstCount = 999;
+
+for (const date of recent30Dates) {
+  const item = data[date];
+  const count = item.tribunal_count || 0;
+  totalCoverage30 += count;
+
+  if (count > bestCount) {
+    bestCount = count;
+    bestDay = date;
+  }
+  if (count < worstCount) {
+    worstCount = count;
+    worstDay = date;
+  }
+}
+
+const avgCoverage30 = recent30Dates.length > 0 ? totalCoverage30 / recent30Dates.length : 0;
+const avgCoverage30Pct = (avgCoverage30 / 91) * 100;
+
+// --- 2. Court Reliability Rankings ---
+// We'll calculate over all dates that have tribunais_coletados / tribunais_ausentes
+const courtStats = {};
+
+for (const date of sortedDates) {
+  const item = data[date];
+  const coletados = item.tribunais_coletados || [];
+  const ausentes = item.tribunais_ausentes || [];
+
+  for (const c of coletados) {
+    if (!courtStats[c]) courtStats[c] = { collected: 0, absent: 0 };
+    courtStats[c].collected++;
+  }
+  for (const c of ausentes) {
+    if (!courtStats[c]) courtStats[c] = { collected: 0, absent: 0 };
+    courtStats[c].absent++;
+  }
+}
+
+const courtArray = Object.keys(courtStats).map(c => {
+  const total = courtStats[c].collected + courtStats[c].absent;
+  const rate = total > 0 ? courtStats[c].collected / total : 0;
+  return { court: c, rate, total, collected: courtStats[c].collected, absent: courtStats[c].absent };
+});
+
+// Filter out courts with very little data if needed, but here we just sort
+courtArray.sort((a, b) => b.rate - a.rate || b.total - a.total);
+
+const top5 = courtArray.slice(0, 5);
+// For bottom 5, we only want those that actually have failures, sorted by lowest rate
+const bottom5 = [...courtArray].sort((a, b) => a.rate - b.rate || b.total - a.total).slice(0, 5);
+
+
+// --- 3. Weekly Pattern ---
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const weekdayStats = {
+  0: { totalCount: 0, days: 0 },
+  1: { totalCount: 0, days: 0 },
+  2: { totalCount: 0, days: 0 },
+  3: { totalCount: 0, days: 0 },
+  4: { totalCount: 0, days: 0 },
+  5: { totalCount: 0, days: 0 },
+  6: { totalCount: 0, days: 0 },
+};
+
+for (const dateStr of sortedDates) {
+  const item = data[dateStr];
+  // dateStr is 'djen-YYYY-MM-DD'
+  const dateParts = dateStr.replace('djen-', '').split('-');
+  if (dateParts.length === 3) {
+    const d = new Date(Date.UTC(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])));
+    if (!isNaN(d.getTime())) {
+      const wDay = d.getUTCDay();
+      weekdayStats[wDay].totalCount += (item.tribunal_count || 0);
+      weekdayStats[wDay].days++;
+    }
+  }
+}
+
+const weeklyAverages = Object.keys(weekdayStats).map(dayIdx => {
+  const stats = weekdayStats[dayIdx];
+  const avg = stats.days > 0 ? stats.totalCount / stats.days : 0;
+  return {
+    dayIdx: parseInt(dayIdx),
+    name: dayNames[dayIdx],
+    avg,
+    avgPct: (avg / 91) * 100,
+    daysCount: stats.days
+  };
+});
+
+// Find lowest average day
+let lowestDay = null;
+let lowestAvg = 999;
+for (const w of weeklyAverages) {
+  if (w.daysCount > 0 && w.avg < lowestAvg) {
+    lowestAvg = w.avg;
+    lowestDay = w;
+  }
+}
+
+// Reorder for display: Monday (1) to Sunday (0)
+const displayOrder = [1, 2, 3, 4, 5, 6, 0];
+const displayWeekly = displayOrder.map(idx => weeklyAverages.find(w => w.dayIdx === idx));
+
+const base = import.meta.env.BASE_URL ?? '/causaganha/';
+---
+
+<Layout
+  title="Estatísticas - CausaGanha Dashboard"
+  description="Historical tribunal coverage analysis and reliability rankings."
+>
+  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
+
+    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href={base} class="p-2 bg-accent-muted rounded-xl hover:bg-accent/20 transition-colors" aria-label="Back to Dashboard">
+          <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </a>
+        <div>
+          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
+            Estatísticas de Coleta
+          </h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Historical coverage and reliability analysis
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <ThemeToggle client:load />
+      </div>
+    </header>
+
+    <main id="main-content" class="max-w-7xl mx-auto space-y-6">
+
+      {/* 1. Coverage Overview */}
+      <section class="card p-6">
+        <h2 class="text-lg font-bold text-black dark:text-white mb-4">Coverage Overview (Últimos 30 Dias)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Média de Coleta</span>
+            <div class="text-3xl font-black text-accent font-mono">{avgCoverage30Pct.toFixed(1)}%</div>
+            <span class="text-xs text-gray-500 mt-1">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</span>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Melhor Dia</span>
+            <div class="text-2xl font-bold text-success font-mono">{bestCount} / 91</div>
+            <span class="text-xs text-gray-500 mt-1">{bestDay ? bestDay.replace('djen-', '') : '--'}</span>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Pior Dia</span>
+            <div class="text-2xl font-bold text-danger font-mono">{worstCount === 999 ? 0 : worstCount} / 91</div>
+            <span class="text-xs text-gray-500 mt-1">{worstDay ? worstDay.replace('djen-', '') : '--'}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Court Reliability Rankings */}
+      <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="card p-6">
+          <h2 class="text-lg font-bold text-black dark:text-white mb-4">Top 5 Mais Confiáveis</h2>
+          {top5.length > 0 ? (
+            <ul class="space-y-3">
+              {top5.map((c, i) => (
+                <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
+                  <div class="flex items-center gap-3">
+                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-success/20 text-success text-xs font-bold">{i + 1}</span>
+                    <span class="font-semibold text-black dark:text-white">{c.court}</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-bold text-success">{(c.rate * 100).toFixed(1)}%</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-tighter">{c.collected} success / {c.absent} fail</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+             <div class="text-sm text-gray-500 text-center py-4">Sem dados suficientes</div>
+          )}
+        </div>
+
+        <div class="card p-6">
+          <h2 class="text-lg font-bold text-black dark:text-white mb-4">Top 5 Mais Falhas</h2>
+          {bottom5.length > 0 ? (
+            <ul class="space-y-3">
+              {bottom5.map((c, i) => (
+                <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
+                  <div class="flex items-center gap-3">
+                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-danger/20 text-danger text-xs font-bold">{i + 1}</span>
+                    <span class="font-semibold text-black dark:text-white">{c.court}</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-bold text-danger">{(c.rate * 100).toFixed(1)}%</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-tighter">{c.collected} success / {c.absent} fail</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+             <div class="text-sm text-gray-500 text-center py-4">Sem dados suficientes</div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. Weekly Pattern */}
+      <section class="card p-6">
+        <h2 class="text-lg font-bold text-black dark:text-white mb-4">Padrão Semanal</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Média de cobertura por dia da semana em todo o histórico.</p>
+
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-3">
+          {displayWeekly.map(w => {
+            if (!w) return null;
+            const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
+            return (
+              <div class={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-colors ${
+                isLowest
+                  ? 'bg-danger/10 border-danger/30 dark:border-danger/30'
+                  : 'bg-gray-50 dark:bg-slate-900 border-gray-100 dark:border-slate-800'
+              }`}>
+                <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider mb-2">{w.name.slice(0, 3)}</span>
+                <div class={`text-xl font-bold font-mono ${isLowest ? 'text-danger' : 'text-black dark:text-white'}`}>
+                  {w.avgPct.toFixed(0)}%
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1">
+                  {w.avg.toFixed(1)} / 91
+                </div>
+                {isLowest && (
+                  <div class="text-[9px] font-bold text-danger bg-danger/20 px-1.5 py-0.5 rounded mt-2 uppercase tracking-tighter">
+                    Lowest
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+    </main>
+  </div>
+</Layout>
