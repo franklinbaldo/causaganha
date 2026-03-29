@@ -81,6 +81,38 @@ function formatEta(days, pendingCount, healthyTribunals, totalTribunals) {
 
 const totalTribunalsInStats = tribunalKeys.length > 0 ? tribunalKeys.length : 91;
 const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTribunalsInStats);
+
+// Parse generated_at for display
+let generatedText = '';
+let isStale = false;
+
+if (dashboardData?.generated_at) {
+  const d = new Date(dashboardData.generated_at);
+  if (!isNaN(d.getTime())) {
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    isStale = diffHours > 24;
+
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const hours = String(d.getUTCHours()).padStart(2, '0');
+    const mins = String(d.getUTCMinutes()).padStart(2, '0');
+
+    let relative = '';
+    if (diffHours < 1) {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      relative = `${diffMins} minuto${diffMins !== 1 ? 's' : ''} atrás`;
+    } else if (diffHours < 24) {
+      relative = `${diffHours} hora${diffHours !== 1 ? 's' : ''} atrás`;
+    } else {
+      const diffDays = Math.floor(diffHours / 24);
+      relative = `${diffDays} dia${diffDays !== 1 ? 's' : ''} atrás`;
+    }
+
+    generatedText = `Dados atualizados: ${day}/${month} às ${hours}:${mins} UTC (${relative})`;
+  }
+}
 ---
 
 <Layout
@@ -108,10 +140,21 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
         </div>
       </div>
       <div class="flex items-center gap-3">
-        {lastUpdated && (
-          <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-            Updated {new Date(lastUpdated).toLocaleString('pt-BR')}
-          </span>
+        {generatedText && (
+          <div class="flex flex-col items-end gap-1 text-sm">
+            <div class="text-gray-500 dark:text-gray-400 font-mono text-xs hidden sm:block">
+              {generatedText}
+            </div>
+            {isStale && (
+              <div class="text-yellow-600 dark:text-yellow-400 font-medium text-xs flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-1 rounded hidden sm:flex">
+                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <path d="M12 9v4"/><path d="M12 17h.01"/>
+                </svg>
+                Atenção: dados podem estar desatualizados
+              </div>
+            )}
+          </div>
         )}
         <ThemeToggle client:load />
       </div>
