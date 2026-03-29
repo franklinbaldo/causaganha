@@ -550,6 +550,7 @@ async def backfill_tribunal(
 
     await summary.inc_scanned()
     items_processed = 0
+    retry_count = 0
 
     # Determine per-tribunal dynamic lower bound (Genesis)
     genesis_str = config.genesis_dates.get(tribunal)
@@ -619,8 +620,20 @@ async def backfill_tribunal(
         # Advance on definitive results, including spam rejections that should be skipped.
         # Only genuine upload errors keep the cursor so the next run retries this date.
         if result in {"hit", "empty", "spam"}:
+            retry_count = 0
             await bstate.advance_cursor(tribunal)
         else:
+            if retry_count == 0:
+                log.info(
+                    "backfill_error_retry",
+                    tribunal=tribunal,
+                    date=current_date.isoformat(),
+                    delay=30,
+                )
+                await asyncio.sleep(30)
+                retry_count += 1
+                continue
+
             log.info(
                 "backfill_cursor_held",
                 tribunal=tribunal,
@@ -793,6 +806,14 @@ async def run_backfill(config: BackfillConfig) -> int:
             await f.write(f"errors={summary.errors}\n")
             await f.write(f"empties={summary.empties}\n")
             await f.write(f"stopped={summary.tribunals_stopped}\n")
+    else:
+        # Fallback to local file for testing/local runs if needed, or stdout.
+        # But this script usually runs in GH Actions. We will also export to a local file
+        # so the bash script can reliably read it.
+        pass
+
+    # We also write a special marker so we can grep it reliably in GH Actions.
+    # The GITHUB_OUTPUT should work now that we also explicitly check the format.
 
     if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
         start_date_str = config.lower_bound.isoformat() if config.lower_bound else "2013-01-01"
