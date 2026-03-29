@@ -60,7 +60,7 @@ jobs:
   collect:
     name: Download & Upload ZIPs
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     environment: dev
 
     env:
@@ -150,7 +150,29 @@ jobs:
           echo "Running: $CMD"
           echo "Window: $START_DATE → ${END_DATE:-today} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
 
+          START_TIME=$(date +%s)
           $CMD
+          DURATION=$(($(date +%s) - START_TIME))
+          echo "Collection completed in $DURATION seconds"
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+
+      - name: Collection Summary
+        if: success() || failure()
+        run: |
+          UPLOADED="${{ steps.collect.outputs.uploaded }}"
+
+          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(hits\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+          fi
+
+          if [ -z "$UPLOADED" ]; then
+            UPLOADED=0
+          fi
+
+          DURATION="${{ steps.collect.outputs.duration }}"
+
+          echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: $DURATION seconds, ZIPs collected: $UPLOADED" >> $GITHUB_STEP_SUMMARY
 
       - name: Smoke test (check for zero ZIPs)
         if: success() || failure()
