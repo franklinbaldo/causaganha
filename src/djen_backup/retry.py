@@ -86,10 +86,12 @@ async def request_with_retry(
             # Just return the response and let the caller handle it.
             return resp
 
-        except httpx.TransportError as exc:
+        except (httpx.TransportError, httpx.TimeoutException) as exc:
             last_exc = exc
             if attempt < max_retries:
-                wait = float(2**attempt)
+                # Use a fixed 5s delay for timeout/transport errors if not using exponential backoff strictly
+                # But here we default to exponential if we just want 5s we can do max(5.0, float(2**attempt))
+                wait = max(5.0, float(2**attempt))
                 log.warning(
                     "http_transport_retry",
                     url=url,
