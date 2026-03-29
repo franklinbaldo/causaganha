@@ -1,5 +1,3 @@
-
-
 MAGIC_VAL_5 = 5
 
 """CausaGanha Data Pipeline - KISS Version.

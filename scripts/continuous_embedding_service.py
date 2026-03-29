@@ -1,5 +1,3 @@
-
-
 """Continuous embedding generation service for Cloud Run.
 
 This service runs 24/7 and continuously processes unembedded decisions.

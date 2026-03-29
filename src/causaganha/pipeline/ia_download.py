@@ -1,5 +1,3 @@
-
-
 """Internet Archive Parquet Downloader.
 
 Downloads parquet files from Internet Archive for reanalysis workflows.
@@ -409,8 +407,7 @@ class IAParquetDownloader:
 
         # Check if cache is expired
         file_age_days = (
-            datetime.now(UTC)
-            - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=UTC)
+            datetime.now(UTC) - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=UTC)
         ).days
 
         if file_age_days > self.config.cache_ttl_days:
@@ -440,8 +437,7 @@ class IAParquetDownloader:
                 deleted += 1
             else:
                 file_age_days = (
-                    datetime.now(UTC)
-                    - datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
+                    datetime.now(UTC) - datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
                 ).days
 
                 if file_age_days > older_than_days:

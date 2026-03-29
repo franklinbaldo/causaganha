@@ -1,5 +1,3 @@
-
-
 """Embedding storage using Ibis/DuckDB for local processing and Parquet export.
 
 This module handles:

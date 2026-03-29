@@ -1,5 +1,3 @@
-
-
 MAGIC_VAL_3 = 3
 
 """Internet Archive service for uploading documents.

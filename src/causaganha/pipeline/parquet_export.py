@@ -1,5 +1,3 @@
-
-
 """Parquet Data Lake Export Module.
 
 Exports analyzed judicial decisions from DuckDB to Parquet files

@@ -295,9 +295,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = (
-        {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
-    )
+    all_tribunals = {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
     if not all_tribunals:
         all_tribunals = set(TRIBUNAIS)
 

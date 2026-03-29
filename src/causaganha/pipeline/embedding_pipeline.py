@@ -1,5 +1,3 @@
-
-
 """Batch processing pipeline for generating and storing embeddings.
 
 This module provides high-throughput embedding generation with:

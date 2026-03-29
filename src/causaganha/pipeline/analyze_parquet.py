@@ -1,5 +1,3 @@
-
-
 """Parquet-Based Analysis Pipeline.
 
 Analyzes judicial decisions from parquet files (local or Internet Archive).

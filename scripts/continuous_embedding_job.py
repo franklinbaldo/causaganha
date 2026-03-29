@@ -1,5 +1,3 @@
-
-
 """Continuous embedding generation job for high-throughput 24/7 processing.
 
 This script processes as many unembedded decisions as possible within a time limit.

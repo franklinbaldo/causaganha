@@ -1,5 +1,3 @@
-
-
 MAGIC_VAL_10 = 10
 
 """Continuous embedding service for running on laptop/personal computer.
