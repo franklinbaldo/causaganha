@@ -486,8 +486,16 @@ def calculate_completed_items(manifest: list[dict], total_tribunals: int) -> dic
     new_completed_items = {}
     for item_id, files in manifest_by_item.items():
         if is_complete(files, total_tribunals):
-            zips = [f.get("tribunal") for f in files if f.get("file_type") == "zip" and f.get("tribunal")]
-            absents = [f.get("tribunal") for f in files if f.get("file_type") == "absent" and f.get("tribunal")]
+            zips = [
+                f.get("tribunal")
+                for f in files
+                if f.get("file_type") == "zip" and f.get("tribunal")
+            ]
+            absents = [
+                f.get("tribunal")
+                for f in files
+                if f.get("file_type") == "absent" and f.get("tribunal")
+            ]
 
             # Use sorted set to get unique sorted list of tribunals
             tribunais_coletados = sorted(set(zips))
