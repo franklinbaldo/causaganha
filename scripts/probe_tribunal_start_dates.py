@@ -1,5 +1,3 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 
 MAGIC_VAL_1990 = 1990
@@ -21,7 +19,7 @@ import json
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
 import httpx
@@ -60,9 +58,7 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
 
             # Additional check: confirm valid JSON and presence of 'url'
             data = response.json()
-            if data and data.get("url"):
-                return True
-            return False
+            return bool(data and data.get("url"))
         except httpx.HTTPStatusError as e:
             if e.response.status_code == HTTP_404_NOT_FOUND:
                 return False
@@ -104,7 +100,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     Phase 1: Exponential probe backwards from today (step=60, 120, 240, 480...)
     Phase 2: Binary search to find the exact right edge of the 60-day void.
     """
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     logger.info(f"[{tribunal}] Starting exponential probe...")
 
     # Verify if the tribunal has ANY data at all recently
@@ -193,7 +189,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     return hi_date.isoformat()
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--max-tribunals", type=int, default=0, help="Max tribunals to check (for testing)"

@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import base64
+
 
 """BDD steps for the collect and upload feature."""
 

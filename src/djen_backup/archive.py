@@ -6,7 +6,6 @@ import asyncio
 import base64
 import hashlib
 import time
-from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -16,6 +15,7 @@ from djen_backup.retry import request_with_retry
 
 
 if TYPE_CHECKING:
+    from datetime import date
     from pathlib import Path
 
     import httpx

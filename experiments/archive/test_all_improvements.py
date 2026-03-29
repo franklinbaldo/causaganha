@@ -8,9 +8,10 @@ This script demonstrates:
 5. Batch processing pipeline
 """
 
-import pandas as pd
 import asyncio
 from pathlib import Path
+
+import pandas as pd
 
 from causaganha.analysis.embedding_models import JINA_V4_1024
 from causaganha.analysis.embedding_service_v2 import EmbeddingService

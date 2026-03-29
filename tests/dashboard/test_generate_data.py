@@ -36,12 +36,12 @@ def test_generate_dashboard_data_includes_generated_at(tmp_path: Path) -> None:
 
         generate_data.generate_dashboard_data(db_path, output_path)
 
-    assert output_path.exists()  # noqa: S101
+    assert output_path.exists()
 
     data = json.loads(output_path.read_text())
-    assert "generated_at" in data  # noqa: S101
+    assert "generated_at" in data
 
     # Check if generated_at is a valid ISO format string ending in Z
     generated_at = data["generated_at"]
-    assert generated_at.endswith("Z")  # noqa: S101
-    assert "T" in generated_at  # noqa: S101
+    assert generated_at.endswith("Z")
+    assert "T" in generated_at

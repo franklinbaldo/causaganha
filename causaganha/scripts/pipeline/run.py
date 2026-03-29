@@ -1,6 +1,3 @@
-from datetime import timezone
-
-
 MAGIC_VAL_5 = 5
 
 """CausaGanha Data Pipeline - KISS Version.
@@ -25,7 +22,7 @@ import tempfile
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 
@@ -87,7 +84,7 @@ def get_next_date(repo_root: str) -> str:
         next_d = date.fromisoformat(cursor_date) - timedelta(days=1)
     else:
         # Start from yesterday
-        next_d = datetime.now(timezone.utc).date() - timedelta(days=1)
+        next_d = datetime.now(UTC).date() - timedelta(days=1)
 
     # Skip weekends
     while next_d.weekday() >= MAGIC_VAL_5:

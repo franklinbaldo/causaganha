@@ -4,7 +4,7 @@ from djen_backup.archive import get_ia_item_id as get_ia_item_id_archive
 from scripts.pipeline.ia_s3 import get_ia_item_id as get_ia_item_id_s3
 
 
-def test_get_ia_item_id():
+def test_get_ia_item_id() -> None:
     assert get_ia_item_id_s3("TJRO", "2025-03-19") == "djen-tjro-2025"
     assert get_ia_item_id_s3("TRE-AC", "2024-07-01") == "djen-tre-ac-2024"
     assert get_ia_item_id_s3("stf", "2023-01-01") == "djen-stf-2023"

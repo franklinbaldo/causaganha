@@ -1,5 +1,3 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 """Script to validate PJe API coverage across different Brazilian courts.
 
@@ -9,7 +7,7 @@ which ones are accessible via the API.
 
 import asyncio
 import sys
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +66,7 @@ async def check_court(client: PJeAPIClient, tribunal: str) -> dict[str, Any]:
     """Check if a specific court API is accessible."""
     try:
         # Try to fetch data from the last 7 days
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         start_date = today - timedelta(days=7)
 
         logger.info("Checking %s...", tribunal, tribunal=tribunal)

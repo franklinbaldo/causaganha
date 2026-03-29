@@ -11,8 +11,8 @@ to verify:
 5. Performance metrics (latency, cost estimation)
 """
 
-import math
 import asyncio
+import math
 import time
 from typing import Any
 
@@ -65,7 +65,6 @@ SAMPLE_TEXTS = {
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     """Calculate cosine similarity between two vectors."""
-
     dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
     magnitude1 = math.sqrt(sum(a * a for a in vec1))
     magnitude2 = math.sqrt(sum(b * b for b in vec2))
@@ -78,7 +77,6 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 
 def vector_stats(embedding: list[float]) -> dict[str, Any]:
     """Calculate statistics for an embedding vector."""
-
     magnitude = math.sqrt(sum(x * x for x in embedding))
     mean = sum(embedding) / len(embedding)
     variance = sum((x - mean) ** 2 for x in embedding) / len(embedding)

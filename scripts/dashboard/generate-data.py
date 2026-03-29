@@ -1,7 +1,7 @@
-from datetime import timezone
-from datetime import UTC, datetime, timezone
-from datetime import date
+from datetime import UTC, date, datetime
+
 from causaganha.config import TRIBUNAIS
+
 
 #!/usr/bin/env python3
 
@@ -16,8 +16,9 @@ MAGIC_VAL_30 = 30
 
 """Generate dashboard-data.json from DuckDB catalog."""
 
+import contextlib
 import json
-from datetime import UTC, datetime, timezone, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -29,10 +30,9 @@ def calculate_quality_scores(
     tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str
 ) -> dict:
     """Calculate data quality scores per tribunal based on completeness, recency, and consistency."""
-
     scores = {}
 
-    end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+    end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
     today_date = datetime.now(UTC).date()
     # Use today as end date if end_date_str is in the future
     end_date_obj = min(end_date_obj, today_date)
@@ -44,7 +44,7 @@ def calculate_quality_scores(
         start_date_str = tribunal_start_dates[tribunal]
         try:
             start_date_obj = (
-                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
             )
         except ValueError:
             continue
@@ -55,7 +55,7 @@ def calculate_quality_scores(
 
         sorted_dates = sorted(
             [
-                datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+                datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=UTC).date()
                 for d in set(coverage_dates)
             ]
         )
@@ -137,8 +137,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     try:
         backend = get_connection(str(db_path), read_only=True)
         con = backend.con
-    except Exception as e:
-        print(f"Warning: Could not connect to database {db_path}: {e}")
+    except Exception:
         con = None
 
     # Get stats from DB only if connected
@@ -163,8 +162,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 newest_date = str(result[1]) if result[1] else None
                 unique_days = result[2] or 0
                 total_items = result[3] or 0
-        except Exception as e:
-            print(f"Warning: Failed to query djen_state.coverage: {e}")
+        except Exception:
+            pass
 
     target_days = 764  # 2024-01-01 to 2026-02-03
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
@@ -173,10 +172,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     start_dates_path = output_path.parent / "tribunal_start_dates.json"
     tribunal_start_dates = {}
     if start_dates_path.exists():
-        try:
+        with contextlib.suppress(Exception):
             tribunal_start_dates = json.loads(start_dates_path.read_text())
-        except Exception:
-            pass
 
     daily_stats = []
     recent_activity = []
@@ -227,8 +224,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 GROUP BY tribunal
                 ORDER BY tribunal
             """).fetchall()
-        except Exception as e:
-            print(f"Warning: Failed to query detailed dashboard stats from DuckDB: {e}")
+        except Exception:
+            pass
 
     tribunal_coverage = {}
     for t, d in coverage_rows:
@@ -237,7 +234,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             tribunal_coverage[t] = []
         tribunal_coverage[t].append(date_str)
 
-    velocity_map = {t: v for t, v in velocity_rows}
+    velocity_map = dict(velocity_rows)
 
     # Read backfill state (cursors and streaks)
     backfill_state_path = Path("data/backfill-state.json")
@@ -251,8 +248,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     "stopped": info.get("stopped", False),
                     "empty_streak": info.get("empty_streak", 0),
                 }
-        except Exception as e:
-            print(f"Warning: Failed to load backfill state: {e}")
+        except Exception:
+            pass
 
     # Read backfill state from state.json (authoritative for both uploaded and absent)
     state_json_path = Path("data/state.json")
@@ -272,8 +269,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             tribunal_coverage[tcode] = []
                         if date_key not in tribunal_coverage[tcode]:
                             tribunal_coverage[tcode].append(date_key)
-        except Exception as e:
-            print(f"Warning: Failed to load progress from state.json: {e}")
+        except Exception:
+            pass
 
     # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
     all_dates = set()
@@ -292,28 +289,24 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
     tribunal_etas = {}
 
-    end_date_obj = date(2026, 2, 3)  # Based on target range end 2026-02-03
+    date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
     # Actually, we should count missing days within the date range from target_start to today, or just total target_days
 
     # The set of tribunals to report on: either from DB or from the canonical list
-    all_tribunals = (
-        set(t for t, _ in coverage_rows) if coverage_rows else set(backfill_cursors.keys())
-    )
+    all_tribunals = {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
     if not all_tribunals:
         all_tribunals = set(TRIBUNAIS)
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     # Load discovered start dates for dynamic calculation
     discovered_start_dates = {}
     genesis_path = output_path.parent / "tribunal_start_dates.json"
     if genesis_path.exists():
-        try:
+        with contextlib.suppress(Exception):
             discovered_start_dates = json.loads(genesis_path.read_text())
-        except Exception:
-            pass
 
     for tribunal in sorted(all_tribunals):
         coverage_list = tribunal_coverage.get(tribunal, [])
@@ -331,7 +324,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
         try:
             start_date_obj = (
-                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+                datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
             )
         except Exception:
             start_date_obj = date(2024, 1, 1)
@@ -410,10 +403,10 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     # we can use a generated mock latency if real one isn't present for demonstration.
                     if r.get("updatedAt"):
                         start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                            tzinfo=timezone.utc
+                            tzinfo=UTC
                         )
                         end = datetime.strptime(r["updatedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                            tzinfo=timezone.utc
+                            tzinfo=UTC
                         )
                         latency_ms = int((end - start).total_seconds() * 1000)
                     else:
@@ -431,8 +424,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
-        except Exception as e:
-            print(f"Warning: Failed to process run_stats.json for perf metrics: {e}")
+        except Exception:
+            pass
 
     metrics_path.write_text(json.dumps(perf_metrics, ensure_ascii=False, indent=2))
 

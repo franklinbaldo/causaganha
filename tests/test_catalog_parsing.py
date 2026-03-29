@@ -1,7 +1,7 @@
 from scripts.generate_catalog import parse_filename
 
 
-def test_parse_filename_zip():
+def test_parse_filename_zip() -> None:
     item_id = "djen-tjsp-2026"
     filename = "djen-2026-01-15-TJSP.zip"
     res = parse_filename(filename, item_id)
@@ -11,7 +11,7 @@ def test_parse_filename_zip():
     assert res["file_type"] == "zip"
 
 
-def test_parse_filename_absent():
+def test_parse_filename_absent() -> None:
     item_id = "djen-tre-ac-2026"
     filename = "djen-2026-01-15-TRE-AC.absent"
     res = parse_filename(filename, item_id)
@@ -21,7 +21,7 @@ def test_parse_filename_absent():
     assert res["file_type"] == "absent"
 
 
-def test_parse_filename_parquet():
+def test_parse_filename_parquet() -> None:
     item_id = "djen-tjsp-2026"
     filename = "TJSP-2026-01-15-comunicacoes.parquet"
     res = parse_filename(filename, item_id)
@@ -32,7 +32,7 @@ def test_parse_filename_parquet():
     assert res["table_name"] == "comunicacoes"
 
 
-def test_parse_filename_parquet_legacy():
+def test_parse_filename_parquet_legacy() -> None:
     item_id = "djen-2026-01-15"
     filename = "djen-2026-01-15-TJSP-comunicacoes.parquet"
     res = parse_filename(filename, item_id)
@@ -43,11 +43,12 @@ def test_parse_filename_parquet_legacy():
     assert res["table_name"] == "comunicacoes"
 
 
-from datetime import date, timedelta
+from datetime import date
+
 from scripts.generate_catalog import is_complete, needs_listing
 
 
-def test_is_complete():
+def test_is_complete() -> None:
     # Simulate total tribunals = 10
     total = 10
 
@@ -82,7 +83,7 @@ def test_is_complete():
     assert is_complete(files, 2)
 
 
-def test_needs_listing():
+def test_needs_listing() -> None:
     today = date(2026, 1, 10)
 
     # 1. No existing files -> True

@@ -1,13 +1,14 @@
-from datetime import timezone
-import pyarrow.parquet as pq
 import traceback
+
+import pyarrow.parquet as pq
+
 
 #!/usr/bin/env python3
 """Test Parquet export functionality."""
 
 import asyncio
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -21,7 +22,7 @@ from causaganha.storage.connection import get_connection
 async def test_export() -> None:
     """Test exporting data to Parquet."""
     con = get_connection()
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Initialize exporter
     config = ExportConfig(output_dir=Path("data/exports"))

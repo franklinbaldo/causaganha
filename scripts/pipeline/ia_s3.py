@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 HTTP_500_INTERNAL_SERVER_ERROR = 500
 
 """Shared Internet Archive S3-compatible upload utilities.

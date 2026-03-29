@@ -9,7 +9,7 @@ from causaganha.cli.commands.backfill import app
 runner = CliRunner()
 
 
-def test_status_no_state_file(tmp_path: Path):
+def test_status_no_state_file(tmp_path: Path) -> None:
     """Test status command when no state file exists."""
     state_file = tmp_path / "missing.json"
     result = runner.invoke(app, ["status", "--backfill-state-file", str(state_file)])
@@ -17,7 +17,7 @@ def test_status_no_state_file(tmp_path: Path):
     assert "No backfill state found" in result.stdout
 
 
-def test_status_with_progress(tmp_path: Path):
+def test_status_with_progress(tmp_path: Path) -> None:
     """Test status command with an existing state file."""
     state_file = tmp_path / "state.json"
     state_data = {
@@ -55,14 +55,14 @@ def test_status_with_progress(tmp_path: Path):
     assert "streak=  5" in result.stdout
 
 
-def test_reset_no_args():
+def test_reset_no_args() -> None:
     """Test reset command without any arguments fails."""
     result = runner.invoke(app, ["reset"])
     assert result.exit_code == 1
     assert "Error: provide --tribunal CODE or --all" in result.stderr
 
 
-def test_reset_specific_tribunal(tmp_path: Path):
+def test_reset_specific_tribunal(tmp_path: Path) -> None:
     """Test reset command for a specific tribunal."""
     state_file = tmp_path / "state.json"
     state_data = {
@@ -90,7 +90,7 @@ def test_reset_specific_tribunal(tmp_path: Path):
     assert saved_state["tribunals"]["TJSP"]["empty_streak"] == 0
 
 
-def test_reset_all_tribunals(tmp_path: Path):
+def test_reset_all_tribunals(tmp_path: Path) -> None:
     """Test reset command with --all resets only stopped tribunals."""
     state_file = tmp_path / "state.json"
     state_data = {
@@ -123,7 +123,7 @@ def test_reset_all_tribunals(tmp_path: Path):
     assert saved_state["tribunals"]["TJRS"]["stopped"] is False
 
 
-def test_reset_specific_tribunal_not_found(tmp_path: Path):
+def test_reset_specific_tribunal_not_found(tmp_path: Path) -> None:
     """Test reset command for a tribunal that doesn't exist."""
     state_file = tmp_path / "state.json"
     state_data = {

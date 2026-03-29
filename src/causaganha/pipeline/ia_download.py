@@ -1,5 +1,3 @@
-from datetime import timezone
-
 """Internet Archive Parquet Downloader.
 
 Downloads parquet files from Internet Archive for reanalysis workflows.
@@ -14,7 +12,7 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import internetarchive as ia
@@ -97,7 +95,7 @@ class IAParquetDownloader:
         """
         # Validate date format
         try:
-            datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)
         except ValueError as e:
             msg = f"Invalid date format. Expected YYYY-MM-DD: {e}"
             raise ValueError(msg) from e
@@ -179,8 +177,8 @@ class IAParquetDownloader:
             IOError: If any download fails and skip_missing=False
         """
         try:
-            start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            end = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC)
+            end = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=UTC)
         except ValueError as e:
             msg = f"Invalid date format. Expected YYYY-MM-DD: {e}"
             raise ValueError(
@@ -409,8 +407,7 @@ class IAParquetDownloader:
 
         # Check if cache is expired
         file_age_days = (
-            datetime.now(timezone.utc)
-            - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=timezone.utc)
+            datetime.now(UTC) - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=UTC)
         ).days
 
         if file_age_days > self.config.cache_ttl_days:
@@ -440,8 +437,7 @@ class IAParquetDownloader:
                 deleted += 1
             else:
                 file_age_days = (
-                    datetime.now(timezone.utc)
-                    - datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+                    datetime.now(UTC) - datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
                 ).days
 
                 if file_age_days > older_than_days:

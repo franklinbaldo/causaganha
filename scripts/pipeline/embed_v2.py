@@ -23,19 +23,20 @@ Usage:
     python scripts/pipeline/embed_v2.py --all --timeout-minutes 50
 """
 
-from pathlib import Path
-import google.generativeai as genai
-from causaganha.config import TRIBUNAIS
 import argparse
 import hashlib
 import os
 import sys
 import tempfile
 import time
+from pathlib import Path
 
+import google.generativeai as genai
 import httpx
 import ibis
 import structlog
+
+from causaganha.config import TRIBUNAIS
 
 
 logger = structlog.get_logger()

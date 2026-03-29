@@ -1,5 +1,3 @@
-from datetime import timezone
-
 """Export Orchestration Module.
 
 Coordinates the daily Parquet export pipeline with clear separation:
@@ -25,7 +23,7 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from .ia_upload import InternetArchiveUploader
 from .models import ExportResult, TribunalExportResult
@@ -91,7 +89,7 @@ class ExportOrchestrator:
             partition_date = PureOrchestrator.get_yesterday_date()
 
         logger.info("Starting daily export for %s", partition_date)
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Phase 1: PLANNING (pure)
         tribunals = await self.repo.get_tribunals_for_date(partition_date)
@@ -123,7 +121,7 @@ class ExportOrchestrator:
             )
 
         # Phase 3: AGGREGATION (pure)
-        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+        duration = (datetime.now(UTC) - start_time).total_seconds()
         result = PureOrchestrator.aggregate_results(
             plan.partition_date,
             tribunal_results,
@@ -298,8 +296,8 @@ class ExportOrchestrator:
         """
         logger.info("Starting backfill from %s to %s", start_date, end_date)
 
-        start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
-        end = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+        start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
+        end = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
 
         if start > end:
             msg = "start_date must be before end_date"

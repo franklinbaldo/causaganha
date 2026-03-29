@@ -1,5 +1,6 @@
 import json
 
+
 #!/usr/bin/env python3
 """Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794)."""
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import timezone
+
 
 """Pure orchestration logic for the export pipeline.
 
@@ -15,7 +15,7 @@ Orchestration happens in 3 phases:
 
 
 import logging
-from datetime import date, timedelta
+from datetime import UTC, timedelta
 
 from .models import ExportPlan, ExportResult, TribunalExportResult
 
@@ -137,5 +137,5 @@ class PureOrchestrator:
         Returns:
             Yesterday's date as string
         """
-        yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+        yesterday = datetime.now(UTC).date() - timedelta(days=1)
         return yesterday.isoformat()

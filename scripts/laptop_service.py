@@ -1,6 +1,3 @@
-from datetime import timezone
-
-
 MAGIC_VAL_10 = 10
 
 """Continuous embedding service for running on laptop/personal computer.
@@ -33,7 +30,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -304,7 +301,7 @@ def main() -> None:
         batch_size=batch_size,
         max_concurrency=max_concurrency,
         idle_sleep=idle_sleep,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         python_version=sys.version,
     )
 

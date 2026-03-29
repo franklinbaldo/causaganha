@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+
 #!/usr/bin/env python3
 
 MAGIC_VAL_3 = 3
@@ -16,12 +18,11 @@ Exit codes:
   1 — stalled or too many errors (triggers adjustment)
 """
 
-from pathlib import Path
-
 import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "franklinbaldo/causaganha")
