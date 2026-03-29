@@ -1,5 +1,3 @@
-from datetime import timezone
-
 #!/usr/bin/env python3
 
 MAGIC_VAL_5 = 5
@@ -26,17 +24,17 @@ Usage:
     python scripts/generate_catalog.py --output ./catalog/
 """
 
-import re
-import os
 import argparse
 import contextlib
 import json
+import os
+import re
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -169,7 +167,6 @@ def list_item_files(item_id: str) -> list[dict]:
 
 def _validate_date_str(date_str: str) -> bool:
     """Validate date string is a valid YYYY-MM-DD date."""
-
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
         return False
     try:
@@ -188,7 +185,6 @@ def _validate_date_str(date_str: str) -> bool:
 
 def _validate_tribunal_code(tribunal: str) -> bool:
     """Validate tribunal code format."""
-
     # Tribunal codes: 2-10 uppercase letters/numbers, may include dashes (e.g. TRE-AC)
     return bool(re.match(r"^[A-Z0-9][A-Z0-9-]{1,9}$", tribunal.upper()))
 
@@ -463,7 +459,12 @@ def load_completed_items() -> set[str]:
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == HTTP_200_OK:
                 data = json.loads(response.read().decode("utf-8"))
-                items = set(data.get("completed_items", []))
+                completed_items_data = data.get("completed_items", [])
+                if isinstance(completed_items_data, dict):
+                    items = set(completed_items_data.keys())
+                else:
+                    # Backward compatibility for old list format
+                    items = set(completed_items_data)
                 logger.info("loaded_completed_items", count=len(items))
                 return items
     except urllib.error.URLError as e:
@@ -570,7 +571,7 @@ def get_item_date(item_id: str) -> date | None:
     try:
         # djen-YYYY-MM-DD
         date_str = item_id.replace("djen-", "")[:10]
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
     except Exception:
         return None
 
@@ -1097,20 +1098,16 @@ def main() -> int:
         if args.start_date:
             if not _validate_date_str(args.start_date):
                 return 1
-            start_date = (
-                datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
-            )
+            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
         else:
             start_date = DJEN_START_DATE
 
         if args.end_date:
             if not _validate_date_str(args.end_date):
                 return 1
-            end_date = (
-                datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
-            )
+            end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=UTC).date()
         else:
-            end_date = datetime.now(timezone.utc).date() - timedelta(days=1)
+            end_date = datetime.now(UTC).date() - timedelta(days=1)
     except ValueError:
         return 1
 
@@ -1139,17 +1136,23 @@ def main() -> int:
             manifest_by_item.setdefault(item, []).append(m)
 
     # Calculate completed items
-    new_completed_items = set()
+    new_completed_items = {}
     total_tribunals = len(TRIBUNAIS)
     for item_id, files in manifest_by_item.items():
         if is_complete(files, total_tribunals):
-            new_completed_items.add(item_id)
+            # Count zips and absents for the completed item
+            zip_count = sum(1 for f in files if f.get("file_type") == "zip")
+            absent_count = sum(1 for f in files if f.get("file_type") == "absent")
+            new_completed_items[item_id] = {
+                "tribunal_count": zip_count,
+                "absent_count": absent_count,
+            }
 
     # Save completed items
     completed_items_path = output_dir / "completed-items.json"
     try:
         completed_items_path.write_text(
-            json.dumps({"completed_items": list(new_completed_items)}, indent=2)
+            json.dumps({"completed_items": new_completed_items}, indent=2)
         )
         logger.info(
             "completed_items_saved", count=len(new_completed_items), path=str(completed_items_path)
