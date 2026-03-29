@@ -1,21 +1,40 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { fetchAllData } from '../lib/fetchData';
+import { deriveData } from '../lib/fetchData';
 import { TribunalView } from '../components/TribunalView';
 import { SystemStatus } from '../components/SystemStatus';
 import { CommandPalette } from '../components/CommandPalette';
 import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
 import { IncidentBanner } from '../components/IncidentBanner';
+import fs from 'node:fs';
+import path from 'node:path';
 
-
-// Fetch data at build time for static rendering
-let data = null;
-try {
-  data = await fetchAllData();
-} catch (e) {
-  console.warn('Failed to fetch data at build time:', e);
+// Read cache files from filesystem at build time
+function readJson(relativePath) {
+  try {
+    const fullPath = path.resolve('./public', relativePath);
+    return JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+  } catch { return null; }
 }
+
+const dashboardData = readJson('dashboard-data.json');
+const tribunalStartDates = readJson('tribunal_start_dates.json');
+const tribunalQualityScores = readJson('tribunal_quality_scores.json');
+const perfMetrics = readJson('perf-metrics.json');
+const today = readJson('cache/today.json');
+const calendar = readJson('cache/calendar.json');
+const runs = readJson('cache/runs.json');
+const backfill = readJson('cache/backfill.json');
+
+const cacheData = {};
+if (today) cacheData.today = today;
+if (calendar) cacheData.calendar = calendar;
+if (runs) cacheData.runs = runs;
+if (backfill) cacheData.backfill = backfill;
+const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
+
+const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics);
 
 const backfillProgress = data?.backfillProgress;
 const lastUpdated = backfillProgress?.last_updated;

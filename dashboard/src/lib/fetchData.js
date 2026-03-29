@@ -99,24 +99,6 @@ async function safeFetch(url) {
   return null;
 }
 
-/**
- * Read a JSON file from the filesystem (build-time only).
- * Falls back to null if the file doesn't exist.
- */
-async function readLocalJson(relativePath) {
-  if (typeof window !== 'undefined') return null;
-  try {
-    const { readFileSync } = await import('node:fs');
-    const { resolve: resolvePath } = await import('node:path');
-    const { fileURLToPath } = await import('node:url');
-    // dashboard/public/ is the static assets dir
-    const publicDir = resolvePath(fileURLToPath(import.meta.url), '../../../public');
-    const content = readFileSync(resolvePath(publicDir, relativePath), 'utf-8');
-    return JSON.parse(content);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Fetch all data sources. Works both server-side and client-side.
@@ -126,15 +108,14 @@ async function readLocalJson(relativePath) {
 export async function fetchAllData() {
   const isBrowser = typeof window !== 'undefined';
 
-  // Static files
-  const fetchOrRead = isBrowser ? (path) => safeFetch(resolve(path)) : (path) => readLocalJson(path);
+  // Static files (always from local/GitHub Pages)
   const [stats, dashboardData, tribunalStartDates, tribunalQualityScores, perfMetrics] =
     await Promise.all([
-      fetchOrRead('run-stats.json'),
-      fetchOrRead('dashboard-data.json'),
-      fetchOrRead('tribunal_start_dates.json'),
-      fetchOrRead('tribunal_quality_scores.json'),
-      fetchOrRead('perf-metrics.json'),
+      safeFetch(resolve('run-stats.json')),
+      safeFetch(resolve('dashboard-data.json')),
+      safeFetch(resolve('tribunal_start_dates.json')),
+      safeFetch(resolve('tribunal_quality_scores.json')),
+      safeFetch(resolve('perf-metrics.json')),
     ]);
 
   // Cache files: browser fetches from IA (live), build-time reads from filesystem
@@ -147,12 +128,11 @@ export async function fetchAllData() {
       safeFetch(resolveIA('backfill.json')).then(d => d || safeFetch(resolve('cache/backfill.json'))),
     ]);
   } else {
-    // Build-time: read directly from filesystem (fetch with relative URLs doesn't work in Node)
     [today, calendar, runs, backfill] = await Promise.all([
-      readLocalJson('cache/today.json'),
-      readLocalJson('cache/calendar.json'),
-      readLocalJson('cache/runs.json'),
-      readLocalJson('cache/backfill.json'),
+      safeFetch(resolve('cache/today.json')),
+      safeFetch(resolve('cache/calendar.json')),
+      safeFetch(resolve('cache/runs.json')),
+      safeFetch(resolve('cache/backfill.json')),
     ]);
   }
 
