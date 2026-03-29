@@ -169,7 +169,10 @@ def when_process_batch_concurrently(context: dict[str, Any], mock_api: respx.Moc
     # but the logic queries the actual full list of tribunals when force_recheck=False and IA exists isn't there.
     # We must mock the route for ANY tribunal since get_tribunal_list might return 96 of them
     import re
-    caderno_pattern = re.compile(r"https://djen-proxy\.test/api/v1/caderno/[A-Za-z0-9-]+/" + date_str + r"/D")
+
+    caderno_pattern = re.compile(
+        r"https://djen-proxy\.test/api/v1/caderno/[A-Za-z0-9-]+/" + date_str + r"/D"
+    )
     mock_api.get(url=caderno_pattern).mock(side_effect=mock_caderno_route)
     mock_api.get("https://djen-proxy.test/download/mock.zip").respond(200, content=b"mockzip")
 
