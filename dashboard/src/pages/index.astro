@@ -7,6 +7,7 @@ import { SystemStatus } from '../components/SystemStatus';
 import { CommandPalette } from '../components/CommandPalette';
 import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
 import { IncidentBanner } from '../components/IncidentBanner';
+import { DataSourceIndicator } from '../components/DataSourceIndicator';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -131,8 +132,9 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
 
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
 
-      <!-- Footer — pure Astro HTML, zero JS -->
-      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
+      <!-- Footer -->
+      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2 space-y-2">
+        <DataSourceIndicator client:load />
         <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
       </footer>
     </main>
