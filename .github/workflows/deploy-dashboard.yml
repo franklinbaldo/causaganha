@@ -6,9 +6,7 @@ on:
     paths:
       - 'dashboard/**'
       - 'scripts/generate_dashboard_cache.py'
-  schedule:
-    # Refresh dashboard cache every 6 hours to keep data fresh
-    - cron: '30 */6 * * *'
+  # No schedule needed — update-catalog.yml triggers this after every successful collect
   workflow_dispatch:
 
 permissions:
