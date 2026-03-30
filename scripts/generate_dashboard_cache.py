@@ -51,6 +51,7 @@ CALENDAR_DAYS = 120
 GITHUB_REPO = "franklinbaldo/causaganha"
 OUTPUT_DIR = Path(__file__).parent.parent / "dashboard" / "public" / "cache"
 MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+MANIFEST_JSONL_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 BACKFILL_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php"
@@ -141,43 +142,62 @@ def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
 
 
 def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> bool:
-    """Load manifest.parquet into DuckDB, from local path or remote URL."""
-    source = manifest_path or MANIFEST_URL
-
+    """Load manifest into DuckDB, preferring jsonl from URL or parquet if specified."""
+    # If a specific path is passed, we assume it's parquet (as in original behavior)
     if manifest_path:
-        pass
-    else:
+        try:
+            con.execute(f"""
+                CREATE TABLE manifest AS
+                SELECT * FROM read_parquet('{manifest_path}')
+            """)
+            # Check schema
+            schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
+            if "date" not in schema:
+                raise Exception("Missing date column in custom manifest.")
+            return True
+        except Exception:
+            return False
+
+    # Otherwise try jsonl first
+    try:
+        con.execute(f"""
+            CREATE TABLE manifest AS
+            SELECT
+                CAST(date AS VARCHAR) as date,
+                CAST(tribunal AS VARCHAR) as tribunal,
+                'zip' as file_type,
+                NULL as table_name,
+                NULL as file_name,
+                'djen-' || CAST(date AS VARCHAR) as ia_item,
+                CAST(zip_url AS VARCHAR) as ia_url,
+                CAST(downloaded_at AS VARCHAR) as created_at
+            FROM read_json_auto('{MANIFEST_JSONL_URL}')
+        """)
+        # Verify it worked and has data
+        con.execute("SELECT COUNT(*) FROM manifest").fetchone()
+        return True
+    except Exception as e:
+        # jsonl failed, fallback to parquet
         pass
 
     try:
         con.execute(f"""
             CREATE TABLE manifest AS
-            SELECT * FROM read_parquet('{source}')
+            SELECT * FROM read_parquet('{MANIFEST_URL}')
         """)
 
         # Check if manifest has expected schema
         schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
         if "date" not in schema:
             con.execute("DROP TABLE manifest")
-            con.execute("""
-                CREATE TABLE manifest (
-                    date VARCHAR,
-                    tribunal VARCHAR,
-                    file_type VARCHAR,
-                    table_name VARCHAR,
-                    file_name VARCHAR,
-                    ia_item VARCHAR,
-                    ia_url VARCHAR,
-                    created_at VARCHAR
-                )
-            """)
-            result = True
+            raise Exception("Invalid schema")
         else:
             con.execute("SELECT COUNT(*) FROM manifest").fetchone()
-            result = True
+            return True
     except Exception:
         # Create empty fallback table
         try:
+            con.execute("DROP TABLE IF EXISTS manifest")
             con.execute("""
                 CREATE TABLE manifest (
                     date VARCHAR,
@@ -190,11 +210,9 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
                     created_at VARCHAR
                 )
             """)
-            result = True
+            return True
         except Exception:
             return False
-    else:
-        return result
 
 
 def load_backfill_needed(con: duckdb.DuckDBPyConnection, backfill_path: str | None) -> bool:
