@@ -354,7 +354,7 @@ class IAParquetDownloader:
 
                 if actual_md5 != expected_md5:
                     msg = f"Checksum mismatch: expected {expected_md5}, got {actual_md5}"
-                    raise OSError(  # noqa: TRY301
+                    raise OSError(
                         msg,
                     )
 
