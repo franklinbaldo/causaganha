@@ -22,13 +22,12 @@ from pathlib import Path
 
 import httpx
 
-from causaganha.config import TRIBUNAIS
+from causaganha.config import DJEN_PROXY_URL, TRIBUNAIS
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 OUTPUT_FILE = Path("dashboard/public/tribunal_start_dates.json")
 
 # Concurrency limits - Increased for faster discovery
@@ -40,7 +39,7 @@ sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_date: date) -> bool:
     """Check if a tribunal has data for a specific date via the DJEN proxy."""
-    url = f"{PROXY_URL}/api/v1/caderno/{tribunal}/{target_date.isoformat()}/D"
+    url = f"{DJEN_PROXY_URL}/api/v1/caderno/{tribunal}/{target_date.isoformat()}/D"
 
     async with sem:
         try:

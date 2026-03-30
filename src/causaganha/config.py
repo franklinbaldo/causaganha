@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any
 
@@ -125,6 +126,9 @@ TRIBUNAIS: list[str] = [
     "TRE-SP",
     "TRE-TO",
 ]
+
+# DJEN Proxy URL for accessing DJEN communications API
+DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "https://djen-proxy-mhgmawcn3a-rj.a.run.app")
 
 
 class Settings(BaseSettings):

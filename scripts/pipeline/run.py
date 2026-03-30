@@ -26,6 +26,12 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 
+# Ensure src is in path for causaganha imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+from causaganha.config import DJEN_PROXY_URL
+
+
 # ── Immutable Data Types ──────────────────────────────────────
 
 
@@ -64,7 +70,6 @@ class PipelineState:
 
 # ── Constants ─────────────────────────────────────────────────
 
-DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 STATE_FILE = Path("data/backfill-state.json")
 
 # ── Date Discovery ───────────────────────────────────────────
@@ -139,7 +144,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="CausaGanha Pipeline (KISS)")
     parser.add_argument("--job", default="all", choices=["all", "collect", "consolidate", "embed"])
     parser.add_argument("--date", default="")
-    parser.add_argument("--proxy-url", default=os.getenv("DJEN_PROXY_URL", DEFAULT_PROXY_URL))
+    parser.add_argument("--proxy-url", default=DJEN_PROXY_URL)
     args = parser.parse_args()
 
     repo_root = str(Path(__file__).parent.parent.parent)

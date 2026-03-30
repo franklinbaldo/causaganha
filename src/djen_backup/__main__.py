@@ -35,17 +35,12 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 
-# Stable Cloud Run URL for the DJEN proxy service.
-# Override via the DJEN_PROXY_URL environment variable if redeployed.
-DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
-
-
 def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
 def _resolve_proxy_url() -> str:
-    return os.environ.get("DJEN_PROXY_URL", "").strip() or DEFAULT_PROXY_URL
+    return os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
 
 def _resolve_ia_auth(*, dry_run: bool) -> str:

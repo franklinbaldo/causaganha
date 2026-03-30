@@ -96,7 +96,7 @@ def parse_structlog_summary(output: str) -> dict[str, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect DJEN data (via djen-backup)")
-    parser.add_argument("--proxy-url", default="https://djen-proxy-mhgmawcn3a-rj.a.run.app")
+    parser.add_argument("--proxy-url", default=os.environ.get("DJEN_PROXY_URL", "https://djen-proxy-mhgmawcn3a-rj.a.run.app"))
     parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
     parser.add_argument("--start-date", help="Start of date range (YYYY-MM-DD)")
     parser.add_argument("--end-date", help="End of date range (YYYY-MM-DD, inclusive)")
