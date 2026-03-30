@@ -42,3 +42,7 @@ gha-creds-*.json
 dashboard/public/dashboard-data.json
 dashboard/public/perf-metrics.json
 dashboard/public/tribunal_quality_scores.json
+
+# Generated/runtime files
+.pending_alert_backfill.json
+analysis_results.txt
