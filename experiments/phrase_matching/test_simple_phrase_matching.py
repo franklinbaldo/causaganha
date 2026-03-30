@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import os
 
 import duckdb
-import google.generativeai as genai
 import numpy as np
+from google import genai
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
@@ -28,14 +28,16 @@ from rich.table import Table
 console = Console()
 
 
+_genai_client = None
+
 def get_embedding(text: str) -> list[float]:
     """Get embedding."""
-    result = genai.embed_content(
+    result = _genai_client.models.embed_content(
         model="models/text-embedding-004",
-        content=text,
-        task_type="retrieval_query",
+        contents=[text],
+        config={"task_type": "RETRIEVAL_QUERY"},
     )
-    return result["embedding"]
+    return result.embeddings[0].values
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -72,7 +74,8 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    genai.configure(api_key=api_key)
+    global _genai_client
+    _genai_client = genai.Client(api_key=api_key)
 
     # Conectar DuckDB
     conn = duckdb.connect("data/causaganha.duckdb", read_only=True)

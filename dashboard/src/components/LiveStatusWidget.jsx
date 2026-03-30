@@ -9,6 +9,12 @@ export function LiveStatusWidget() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
   const [source, setSource] = useState('loading');
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -22,7 +28,7 @@ export function LiveStatusWidget() {
           setData(parsed);
           setError(false);
         }
-      } catch (_) {}
+      } catch { /* ignore parse errors */ }
     };
 
     // Try ntfy SSE first (real-time push)
@@ -38,13 +44,13 @@ export function LiveStatusWidget() {
             if (envelope.event === 'message' && envelope.message) {
               applyMessage(envelope.message);
             }
-          } catch (_) {}
+          } catch { /* ignore parse errors */ }
         };
         es.onerror = () => {
           es.close();
           startFallback();
         };
-      } catch (_) {
+      } catch {
         startFallback();
       }
     };
@@ -67,11 +73,11 @@ export function LiveStatusWidget() {
               return;
             }
           }
-        } catch (_) {}
+        } catch { /* ignore poll errors */ }
 
         // Last resort: IA static file
         try {
-          const resp = await fetch(IA_FALLBACK_URL + '?t=' + Date.now());
+          const resp = await fetch(IA_FALLBACK_URL + '?t=' + performance.now());
           if (resp.ok) {
             const json = await resp.json();
             if (isMounted) {
@@ -79,7 +85,7 @@ export function LiveStatusWidget() {
               setError(false);
             }
           }
-        } catch (_) {
+        } catch {
           if (isMounted) setError(true);
         }
       };
@@ -129,7 +135,7 @@ export function LiveStatusWidget() {
 
   const { last_updated, zips_uploaded, active_tribunals, status } = data;
   const lastUpdatedTime = new Date(last_updated);
-  const diffMinutes = (Date.now() - lastUpdatedTime) / 1000 / 60;
+  const diffMinutes = (now - lastUpdatedTime) / 1000 / 60;
   const isActuallyRunning = status === 'running' && diffMinutes <= 5;
 
   return (

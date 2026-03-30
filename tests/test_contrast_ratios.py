@@ -9,6 +9,8 @@ WCAG AA requires:
 - 3:1 for UI components and borders.
 """
 
+import pytest
+
 
 def hex_to_rgb(hex_color):
     """Convert hex color to RGB tuple."""
@@ -43,26 +45,30 @@ def contrast_ratio(color1, color2):
     return (lighter + 0.05) / (darker + 0.05)
 
 
-def test_contrast(name, foreground, background, required_ratio=4.5):
-    """Test if contrast ratio meets requirement."""
-    ratio = contrast_ratio(foreground, background)
-    return ratio >= required_ratio
-
-
 # Background colors
-bg_black = "#050505"
-bg_card = "#0f0f0f"
+BG_BLACK = "#050505"
+BG_CARD = "#0f0f0f"
 
-test_contrast("cyber-text on black", "#f0f0f0", bg_black, 4.5)
-test_contrast("cyber-text on card", "#f0f0f0", bg_card, 4.5)
-test_contrast("cyber-muted on black", "#b0b0b0", bg_black, 4.5)
-test_contrast("cyber-muted on card", "#b0b0b0", bg_card, 4.5)
-test_contrast("cyber-gray on black", "#7c7c7c", bg_black, 4.5)
-test_contrast("cyber-gray on card", "#7c7c7c", bg_card, 4.5)
 
-test_contrast("cyber-primary (green) on black", "#00ff41", bg_black, 4.5)
-test_contrast("cyber-secondary on black", "#00cc33", bg_black, 4.5)
-test_contrast("cyber-danger on black", "#ff3333", bg_black, 4.5)
-test_contrast("cyber-warning on black", "#ffaa00", bg_black, 4.5)
-
-test_contrast("cyber-border on card", "#5f5f5f", bg_card, 3.0)
+@pytest.mark.parametrize(
+    ("foreground", "background", "required_ratio"),
+    [
+        ("#f0f0f0", BG_BLACK, 4.5),
+        ("#f0f0f0", BG_CARD, 4.5),
+        ("#b0b0b0", BG_BLACK, 4.5),
+        ("#b0b0b0", BG_CARD, 4.5),
+        ("#7c7c7c", BG_BLACK, 4.5),
+        ("#7c7c7c", BG_CARD, 4.5),
+        ("#00ff41", BG_BLACK, 4.5),
+        ("#00cc33", BG_BLACK, 4.5),
+        ("#ff3333", BG_BLACK, 4.5),
+        ("#ffaa00", BG_BLACK, 4.5),
+        ("#5f5f5f", BG_CARD, 3.0),
+    ],
+)
+def test_contrast_meets_wcag(foreground, background, required_ratio):
+    """Test if contrast ratio meets WCAG requirement."""
+    ratio = contrast_ratio(foreground, background)
+    assert ratio >= required_ratio, (
+        f"Contrast {foreground} on {background}: {ratio:.2f} < {required_ratio}"
+    )
