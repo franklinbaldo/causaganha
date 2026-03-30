@@ -110,6 +110,24 @@ def run_ia_command(args: list[str], timeout: int = 300) -> str:
         return output
 
 
+def get_items_from_ia_state(state_file: Path | str = "data/ia-state.json") -> list[str]:
+    """Get list of item IDs modified in the current run from ia-state.json."""
+    path = Path(state_file)
+    if not path.exists():
+        logger.info("ia_state_not_found", path=str(path))
+        return []
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        entries = data.get("entries", {})
+        items = [f"djen-{date_str}" for date_str in entries]
+        logger.info("loaded_items_from_ia_state", count=len(items))
+        return items
+    except Exception as e:
+        logger.warning("failed_to_parse_ia_state", error=str(e))
+        return []
+
+
 def list_ia_items() -> list[str]:
     """List all djen-* items from Internet Archive.
 
@@ -1154,15 +1172,28 @@ def main() -> int:
     if start_date > end_date:
         return 1
 
-    # 1. List all IA items
-    items = list_ia_items()
-
-    # 2. Try to load existing manifest if in incremental mode
+    # 1. Load existing state if in incremental mode
     existing_manifest = None
     completed_items = None
+    items = []
+
     if not args.full:
         existing_manifest = load_existing_manifest()
         completed_items = load_completed_items()
+
+        if existing_manifest:
+            # Infer existing items from the manifest
+            existing_items = {m.get("ia_item") for m in existing_manifest if m.get("ia_item")}
+            # Add new items modified in the current run
+            new_items = set(get_items_from_ia_state())
+            # We must pass all known items to generate_manifest so it preserves
+            # the unchanged ones while processing the new/modified ones
+            items = list(existing_items | new_items)
+
+    # 2. Fallback to full varredura if no existing manifest or forced
+    if not items:
+        logger.info("fallback_to_full_list")
+        items = list_ia_items()
 
     # 3. Generate manifest
     manifest = generate_manifest(items, existing_manifest, completed_items)

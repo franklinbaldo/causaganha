@@ -1,11 +1,46 @@
+import json
+import tempfile
 from datetime import date
+from pathlib import Path
 
 from scripts.generate_catalog import (
     calculate_completed_items,
+    get_items_from_ia_state,
     is_complete,
     needs_listing,
     parse_filename,
 )
+
+
+def test_get_items_from_ia_state() -> None:
+    # 1. Missing file
+    res = get_items_from_ia_state("non_existent_file.json")
+    assert res == []
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        state_file = Path(tmpdir) / "ia-state.json"
+
+        # 2. Valid file with multiple entries
+        state_data = {
+            "version": 2,
+            "entries": {
+                "2026-01-01": {"TJSP": "uploaded"},
+                "2026-01-02": {"TJMG": "uploaded"},
+            },
+        }
+        state_file.write_text(json.dumps(state_data))
+        res = get_items_from_ia_state(state_file)
+        assert sorted(res) == ["djen-2026-01-01", "djen-2026-01-02"]
+
+        # 3. Invalid JSON file
+        state_file.write_text("invalid json")
+        res = get_items_from_ia_state(state_file)
+        assert res == []
+
+        # 4. Valid JSON but missing entries
+        state_file.write_text(json.dumps({"version": 2}))
+        res = get_items_from_ia_state(state_file)
+        assert res == []
 
 
 def test_parse_filename_zip() -> None:
