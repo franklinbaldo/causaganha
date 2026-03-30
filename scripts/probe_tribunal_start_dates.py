@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_1990 = 1990
+EARLIEST_TRIBUNAL_YEAR = 1990
 HTTP_429_TOO_MANY_REQUESTS = 429
 HTTP_404_NOT_FOUND = 404
 
@@ -59,14 +59,14 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             if e.response.status_code == HTTP_429_TOO_MANY_REQUESTS:
                 # Retry on 429 using exponential backoff inside the function
                 logger.warning(
-                    f"Rate limited (429) checking {tribunal} at {target_date}. Retrying in 10s..."
+                    "Rate limited (429) checking %s at %s. Retrying in 10s...", tribunal, target_date
                 )
                 await asyncio.sleep(10.0)
                 return await check_date_has_data(client, tribunal, target_date)
-            logger.warning(f"HTTP error checking {tribunal} at {target_date}: {e}")
+            logger.warning("HTTP error checking %s at %s: %s", tribunal, target_date, e)
             return False
         except Exception as e:
-            logger.warning(f"Error checking {tribunal} at {target_date}: {e}")
+            logger.warning("Error checking %s at %s: %s", tribunal, target_date, e)
             return False
 
 
@@ -95,7 +95,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     Phase 2: Binary search to find the exact right edge of the 60-day void.
     """
     today = datetime.now(UTC).date()
-    logger.info(f"[{tribunal}] Starting exponential probe...")
+    logger.info("[%s] Starting exponential probe...", tribunal)
 
     # Verify if the tribunal has ANY data at all recently
     res_today, res_today_30 = await asyncio.gather(
@@ -103,7 +103,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
         check_date_has_data(client, tribunal, today - timedelta(days=30)),
     )
     if not res_today and not res_today_30:
-        logger.warning(f"[{tribunal}] No recent data found. Is the tribunal active?")
+        logger.warning("[%s] No recent data found. Is the tribunal active?", tribunal)
         # It's possible the tribunal is completely offline or not in DJEN
         return None
 
@@ -117,8 +117,8 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
 
     while True:
         # Guard against going too far back (e.g. before 1990)
-        if current_date.year < MAGIC_VAL_1990:
-            logger.warning(f"[{tribunal}] Probe went too far back ({current_date}).")
+        if current_date.year < EARLIEST_TRIBUNAL_YEAR:
+            logger.warning("[%s] Probe went too far back (%s).", tribunal, current_date)
             return None
 
         is_void = await confirm_void(client, tribunal, current_date)
@@ -127,11 +127,11 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
             lo_date = current_date
             hi_date = prev_date
             logger.info(
-                f"[{tribunal}] Confirmed >= 60 day void at {lo_date}. Bracket found: [{lo_date}, {hi_date}]"
+                "[%s] Confirmed >= 60 day void at %s. Bracket found: [%s, %s]", tribunal, lo_date, lo_date, hi_date
             )
             break
 
-        logger.info(f"[{tribunal}] No void at {current_date}. Probing further back...")
+        logger.info("[%s] No void at %s. Probing further back...", tribunal, current_date)
         prev_date = current_date
 
         # Double the step (60, 120, 240, 480, 960...)
@@ -141,7 +141,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     if not lo_date:
         return None
 
-    logger.info(f"[{tribunal}] Phase 2: Binary search between {lo_date} and {hi_date}")
+    logger.info("[%s] Phase 2: Binary search between %s and %s", tribunal, lo_date, hi_date)
 
     # Phase 2: Binary search
     # We must use `confirm_void` as the predicate to maintain a monotonic signal.
@@ -151,7 +151,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
         mid_date = lo_date + timedelta(days=mid_days)
 
         logger.info(
-            f"[{tribunal}] Binary search checking {mid_date} (span: {(hi_date - lo_date).days} days)"
+            "[%s] Binary search checking %s (span: %s days)", tribunal, mid_date, (hi_date - lo_date).days
         )
         is_void = await confirm_void(client, tribunal, mid_date)
 
@@ -166,7 +166,7 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR `hi_date - 60` has data.
     # To find the EXACT start date, we scan forward starting from `hi_date - 60` up to `hi_date`.
     logger.info(
-        f"[{tribunal}] Void right edge found at {hi_date}. Scanning forward to find exact start date..."
+        "[%s] Void right edge found at %s. Scanning forward to find exact start date...", tribunal, hi_date
     )
 
     start_scan_date = hi_date - timedelta(days=60)
@@ -175,11 +175,11 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     for i in range(61):
         check_d = start_scan_date + timedelta(days=i)
         if await check_date_has_data(client, tribunal, check_d):
-            logger.info(f"[{tribunal}] Exact start date found: {check_d}")
+            logger.info("[%s] Exact start date found: %s", tribunal, check_d)
             return check_d.isoformat()
 
     # Fallback (should not be reached if confirm_void returned False)
-    logger.info(f"[{tribunal}] Fallback start date found: {hi_date}")
+    logger.info("[%s] Fallback start date found: %s", tribunal, hi_date)
     return hi_date.isoformat()
 
 
@@ -200,7 +200,7 @@ async def main() -> None:
         try:
             with Path(OUTPUT_FILE).open() as f:
                 results = json.load(f)
-            logger.info(f"Loaded {len(results)} existing results from {OUTPUT_FILE}")
+            logger.info("Loaded %s existing results from %s", len(results), OUTPUT_FILE)
         except json.JSONDecodeError:
             pass
 
@@ -212,7 +212,7 @@ async def main() -> None:
         for tribunal in tribunals_to_check:
             if tribunal in results:
                 logger.info(
-                    f"[{tribunal}] Already processed (start date: {results[tribunal]}), skipping."
+                    "[%s] Already processed (start date: %s), skipping.", tribunal, results[tribunal]
                 )
                 continue
 
@@ -227,7 +227,7 @@ async def main() -> None:
             with Path(OUTPUT_FILE).open("w") as f:
                 json.dump(results, f, indent=2)
 
-    logger.info(f"Finished processing. Results saved to {OUTPUT_FILE}")
+    logger.info("Finished processing. Results saved to %s", OUTPUT_FILE)
 
 
 if __name__ == "__main__":

@@ -9,13 +9,13 @@ from causaganha.config import TRIBUNAIS
 logger = logging.getLogger(__name__)
 
 HTTP_200_OK = 200
-MAGIC_VAL_60 = 60
-MAGIC_VAL_70 = 70
-MAGIC_VAL_80 = 80
-MAGIC_VAL_90 = 90
-MAGIC_VAL_7 = 7
-MAGIC_VAL_2 = 2
-MAGIC_VAL_30 = 30
+POOR_SCORE_THRESHOLD = 60
+ACCEPTABLE_SCORE_THRESHOLD = 70
+GOOD_SCORE_THRESHOLD = 80
+EXCELLENT_SCORE_THRESHOLD = 90
+MAX_GAP_DAYS = 7
+MIN_DISTINCT_DATES = 2
+MIN_DAYS_OLD_FOR_CATEGORY = 30
 
 """Generate dashboard-data.json from DuckDB catalog."""
 
@@ -75,7 +75,7 @@ def calculate_quality_scores(
             days_old = (end_date_obj - max_date).days
             if days_old <= 0:
                 recency = 100.0
-            elif days_old >= MAGIC_VAL_30:
+            elif days_old >= MIN_DAYS_OLD_FOR_CATEGORY:
                 recency = 0.0
             else:
                 # Linear interpolation
@@ -104,13 +104,13 @@ def calculate_quality_scores(
         score = (completeness * 0.4) + (recency * 0.3) + (consistency * 0.3)
 
         # Grade mapping
-        if score >= MAGIC_VAL_90:
+        if score >= EXCELLENT_SCORE_THRESHOLD:
             grade = "A"
-        elif score >= MAGIC_VAL_80:
+        elif score >= GOOD_SCORE_THRESHOLD:
             grade = "B"
-        elif score >= MAGIC_VAL_70:
+        elif score >= ACCEPTABLE_SCORE_THRESHOLD:
             grade = "C"
-        elif score >= MAGIC_VAL_60:
+        elif score >= POOR_SCORE_THRESHOLD:
             grade = "D"
         else:
             grade = "F"

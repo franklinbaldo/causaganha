@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_0_60 = 0.60
-MAGIC_VAL_0_80 = 0.80
+LOW_CONFIDENCE_THRESHOLD = 0.60
+HIGH_CONFIDENCE_THRESHOLD = 0.80
 
 """Classify decisions using pre-computed batch embeddings + k-NN (zero additional cost)."""
 
@@ -161,11 +161,11 @@ def main() -> None:
     console.print("\n[bold]Análise de Confiança:[/bold]\n")
 
     confidence_buckets = {
-        "Alta (≥80%)": sum(1 for r in results if r["confidence"] >= MAGIC_VAL_0_80),
+        "Alta (≥80%)": sum(1 for r in results if r["confidence"] >= HIGH_CONFIDENCE_THRESHOLD),
         "Média (60-80%)": sum(
-            1 for r in results if MAGIC_VAL_0_60 <= r["confidence"] < MAGIC_VAL_0_80
+            1 for r in results if LOW_CONFIDENCE_THRESHOLD <= r["confidence"] < HIGH_CONFIDENCE_THRESHOLD
         ),
-        "Baixa (<60%)": sum(1 for r in results if r["confidence"] < MAGIC_VAL_0_60),
+        "Baixa (<60%)": sum(1 for r in results if r["confidence"] < LOW_CONFIDENCE_THRESHOLD),
     }
 
     conf_table = Table()
@@ -183,8 +183,8 @@ def main() -> None:
     console.print("\n[bold]Amostras de Classificações:[/bold]\n")
 
     # Mostrar 3 de cada tipo de confiança
-    high_conf = [r for r in results if r["confidence"] >= MAGIC_VAL_0_80][:3]
-    low_conf = [r for r in results if r["confidence"] < MAGIC_VAL_0_60][:3]
+    high_conf = [r for r in results if r["confidence"] >= HIGH_CONFIDENCE_THRESHOLD][:3]
+    low_conf = [r for r in results if r["confidence"] < LOW_CONFIDENCE_THRESHOLD][:3]
 
     console.print("[cyan]Alta Confiança (≥80%):[/cyan]")
     for r in high_conf:

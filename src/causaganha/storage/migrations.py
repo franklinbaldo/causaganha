@@ -1,4 +1,4 @@
-MAGIC_VAL_2 = 2
+MIN_ARGV_LENGTH = 2
 
 """Database migrations for CausaGanha.
 
@@ -271,7 +271,7 @@ if __name__ == "__main__":
             run_migrations(con, dry_run=True)
 
         elif cmd == "rollback":
-            target = int(sys.argv[2]) if len(sys.argv) > MAGIC_VAL_2 else 0
+            target = int(sys.argv[2]) if len(sys.argv) > MIN_ARGV_LENGTH else 0
             rollback_migration(con, target)
 
         else:

@@ -1,4 +1,4 @@
-MAGIC_VAL_5 = 5
+SATURDAY_WEEKDAY = 5
 
 """CausaGanha Data Pipeline - KISS Version.
 
@@ -87,7 +87,7 @@ def get_next_date(repo_root: str) -> str:
         next_d = datetime.now(UTC).date() - timedelta(days=1)
 
     # Skip weekends
-    while next_d.weekday() >= MAGIC_VAL_5:
+    while next_d.weekday() >= SATURDAY_WEEKDAY:
         next_d -= timedelta(days=1)
 
     return next_d.isoformat()

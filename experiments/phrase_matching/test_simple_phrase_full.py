@@ -3,7 +3,7 @@ from collections import Counter
 
 #!/usr/bin/env python3
 
-MAGIC_VAL_70 = 70
+GOOD_ACCURACY_THRESHOLD = 70
 
 """Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 
@@ -171,7 +171,7 @@ def main() -> None:
     console.print("\n[bold]📊 Resultado Geral:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
     console.print(
-        f"  Acurácia: [{'green' if acuracia >= MAGIC_VAL_70 else 'red'}]{acuracia:.1f}%[/]\n"
+        f"  Acurácia: [{'green' if acuracia >= GOOD_ACCURACY_THRESHOLD else 'red'}]{acuracia:.1f}%[/]\n"
     )
 
     # Matriz de confusão
@@ -244,7 +244,7 @@ def main() -> None:
             f"  RAG k-NN: $0.000008 (embeddings + busca)\n"
             f"  LLM: $0.000420\n\n"
             f"[bold]Veredicto:[/bold] "
-            f"{'✅ Simples e eficaz!' if acuracia >= MAGIC_VAL_70 else '⚠️ Precisa melhorar para UNKNOWN/PARTIAL'}",
+            f"{'✅ Simples e eficaz!' if acuracia >= GOOD_ACCURACY_THRESHOLD else '⚠️ Precisa melhorar para UNKNOWN/PARTIAL'}",
             title="📊 Resultado Final",
         ),
     )

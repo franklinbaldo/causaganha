@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_50 = 50
+MIN_TEXT_LENGTH = 50
 HTTP_200_OK = 200
 
 """Generate embeddings for DJEN decisions (IA Parquet-based).
@@ -267,7 +267,7 @@ def generate_embeddings_for_date(
             texts = texts.filter(~texts.id.isin(existing_ids))
 
         # Filter valid texts (must have texto, length > 50)
-        texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > MAGIC_VAL_50))
+        texts = texts.filter(texts.texto.notnull() & (texts.texto.length() > MIN_TEXT_LENGTH))
 
         row_count = texts.count().execute()
         if row_count == 0:

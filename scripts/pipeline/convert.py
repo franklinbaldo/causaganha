@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_4 = 4
+MIN_ITEM_ID_PARTS = 4
 
 """Convert DJEN ZIP files to Parquet format.
 
@@ -294,7 +294,7 @@ def convert_data(target_date: str | None = None, max_items: int = 20) -> dict:
 
             # Upload Parquets to tribunal-year item
             parts = base_name.replace("djen-", "").split("-")
-            if len(parts) >= MAGIC_VAL_4:
+            if len(parts) >= MIN_ITEM_ID_PARTS:
                 date_str = "-".join(parts[:3])
                 tribunal = parts[3]
                 year = date_str[:4]

@@ -4,7 +4,7 @@ import anyio
 
 
 HTTP_300_MULTIPLE_CHOICES = 300
-MAGIC_VAL_2 = 2
+VERSION_EXPECTED = 2
 
 """Backfill engine — scan historical dates per tribunal with 60-empty-day stop rule.
 
@@ -214,7 +214,7 @@ class BackfillState:
     def from_dict(cls, data: dict[str, object]) -> BackfillState:
         """Create BackfillState from dictionary."""
         state = cls()
-        if data.get("version") != MAGIC_VAL_2:
+        if data.get("version") != VERSION_EXPECTED:
             return state
 
         tribunals = data.get("tribunals")

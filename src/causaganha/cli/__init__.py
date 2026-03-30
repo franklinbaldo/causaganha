@@ -1,8 +1,8 @@
 HTTP_404_NOT_FOUND = 404
-MAGIC_VAL_1024 = 1024
-MAGIC_VAL_100 = 100
+MAX_FILE_SIZE_BYTES = 1024
+MAX_CONTENT_SIZE_BYTES = 100
 HTTP_200_OK = 200
-MAGIC_VAL_80 = 80
+MAX_QUERY_LENGTH = 80
 
 """CLI package for CausaGanha."""
 
@@ -1022,7 +1022,7 @@ def list_catalog_views(
             typer.echo(f"{i}. {view['name']}")
             # Show first 80 chars of SQL
             sql_preview = (
-                view["sql"][:80] + "..." if len(view["sql"]) > MAGIC_VAL_80 else view["sql"]
+                view["sql"][:80] + "..." if len(view["sql"]) > MAX_QUERY_LENGTH else view["sql"]
             )
             typer.echo(f"   {sql_preview}\n")
 
@@ -1145,7 +1145,7 @@ def download_catalog(
                             content = response.content
 
                             # Basic validation: check file is not empty
-                            if len(content) < MAGIC_VAL_100:
+                            if len(content) < MAX_CONTENT_SIZE_BYTES:
                                 typer.echo(" (warning: file too small, may be corrupted)")
                                 continue
 
@@ -1157,7 +1157,7 @@ def download_catalog(
                                 continue
 
                             # Validate DuckDB files
-                            if filename.endswith(".duckdb") and len(content) < MAGIC_VAL_1024:
+                            if filename.endswith(".duckdb") and len(content) < MAX_FILE_SIZE_BYTES:
                                 typer.echo(" (warning: duckdb file too small)")
                                 continue
 

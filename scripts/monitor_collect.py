@@ -3,7 +3,7 @@ from __future__ import annotations
 
 #!/usr/bin/env python3
 
-MAGIC_VAL_3 = 3
+MAX_RECENT_RUNS = 3
 
 """Monitor the collect-zips workflow and report on progress.
 
@@ -144,7 +144,7 @@ def main() -> int:
 
     for r in runs[:3]:
         r["created_at"][:16]
-    if len(runs) > MAGIC_VAL_3:
+    if len(runs) > MAX_RECENT_RUNS:
         pass
 
     analysis = analyze_runs(runs)

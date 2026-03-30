@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_0_03928 = 0.03928
+WCAG_SRGB_LUMINANCE_THRESHOLD = 0.03928
 
 """Test contrast ratios for causaganha dashboard colors against WCAG AA standards.
 WCAG AA requires:
@@ -23,7 +23,7 @@ def relative_luminance(rgb):
     r, g, b = [x / 255.0 for x in rgb]
 
     def adjust(c):
-        if c <= MAGIC_VAL_0_03928:
+        if c <= WCAG_SRGB_LUMINANCE_THRESHOLD:
             return c / 12.92
         return ((c + 0.055) / 1.055) ** 2.4
 

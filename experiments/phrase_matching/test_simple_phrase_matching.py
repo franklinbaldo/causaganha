@@ -3,8 +3,8 @@ from collections import Counter
 
 #!/usr/bin/env python3
 
-MAGIC_VAL_13_3 = 13.3
-MAGIC_VAL_70 = 70
+BASELINE_ACCURACY_THRESHOLD = 13.3
+GOOD_ACCURACY_THRESHOLD = 70
 
 """Testa a ideia original: comparação direta com 2 frases-chave."""
 
@@ -157,7 +157,7 @@ def main() -> None:
     console.print("\n[bold]📊 Resultado:[/bold]")
     console.print(f"  Acertos: {correct}/{total}")
     console.print(
-        f"  Acurácia: [{'green' if acuracia >= MAGIC_VAL_70 else 'red'}]{acuracia:.1f}%[/]\n"
+        f"  Acurácia: [{'green' if acuracia >= GOOD_ACCURACY_THRESHOLD else 'red'}]{acuracia:.1f}%[/]\n"
     )
 
     # Mostrar matriz de confusão
@@ -220,7 +220,7 @@ def main() -> None:
             "[yellow]Frases Genéricas (múltiplas):[/yellow] 13.3% (teste anterior)\n"
             "[green]RAG k-NN (ground truth):[/green] 83.3% (validado)\n"
             "[cyan]LLM (Gemini Flash):[/cyan] ~85% (baseline)\n\n"
-            f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > MAGIC_VAL_13_3 else '❌ Não funcionou bem'}",
+            f"[bold]Veredicto:[/bold] {'✅ Melhor que frases múltiplas!' if acuracia > BASELINE_ACCURACY_THRESHOLD else '❌ Não funcionou bem'}",
             title="📊 Comparação",
         ),
     )

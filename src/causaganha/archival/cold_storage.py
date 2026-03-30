@@ -8,7 +8,7 @@ import boto3
 from causaganha.storage.connection import get_connection
 
 
-MAGIC_VAL_12 = 12
+DECEMBER_MONTH = 12
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +80,11 @@ class ColdStorageArchiver:
                         )
                     else:
                         logger.warning(
-                            f"No valid local parquet files found for {tribunal} {yr}-{mo:02d}"
+                            "No valid local parquet files found for %s %s-%02d", tribunal, yr, mo
                         )
 
-        except Exception as e:
-            logger.exception(f"Error checking archival eligible data: {e}")
+        except Exception:
+            logger.exception("Error checking archival eligible data")
 
         return eligible_data
 
@@ -95,7 +95,7 @@ class ColdStorageArchiver:
         tarball_name = f"tribunal_{tribunal}_{year}-{month:02d}.tar.gz"
         tarball_path = f"/tmp/{tarball_name}"
 
-        logger.info(f"Creating tarball {tarball_path} for {tribunal} {year}-{month:02d}")
+        logger.info("Creating tarball %s for %s %s-%02d", tarball_path, tribunal, year, month)
 
         # 1. Create tarball with actual files
         with tarfile.open(tarball_path, "w:gz") as tar:
@@ -103,11 +103,11 @@ class ColdStorageArchiver:
                 if os.path.exists(file_path):
                     tar.add(file_path, arcname=os.path.basename(file_path))
                 else:
-                    logger.warning(f"File not found during tar creation: {file_path}")
+                    logger.warning("File not found during tar creation: %s", file_path)
 
         # 2. Upload to S3 Glacier
         s3_key = f"cold/{year}/{tribunal}/{tarball_name}"
-        logger.info(f"Uploading to s3://{self.s3_bucket}/{s3_key} (Glacier)")
+        logger.info("Uploading to s3://%s/%s (Glacier)", self.s3_bucket, s3_key)
 
         # We DO NOT catch exceptions here. If S3 upload fails, we must crash
         # to prevent deleting the source files or purging DB records.
@@ -124,9 +124,9 @@ class ColdStorageArchiver:
             if os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                    logger.info(f"Deleted hot file: {file_path}")
-                except Exception as e:
-                    logger.exception(f"Failed to delete hot file {file_path}: {e}")
+                    logger.info("Deleted hot file: %s", file_path)
+                except Exception:
+                    logger.exception("Failed to delete hot file %s", file_path)
 
         # 5. Purge old data from database (Only happens if S3 upload succeeded)
         self._purge_hot_database_records(tribunal, year, month)
@@ -145,9 +145,9 @@ class ColdStorageArchiver:
             """,
                 [tribunal, year, month, s3_key],
             )
-            logger.info(f"Updated archival_log for {tribunal} {year}-{month:02d}")
-        except Exception as e:
-            logger.exception(f"Failed to update metadata: {e}")
+            logger.info("Updated archival_log for %s %s-%02d", tribunal, year, month)
+        except Exception:
+            logger.exception("Failed to update metadata")
             raise
 
     def _purge_hot_database_records(self, tribunal: str, year: int, month: int) -> None:
@@ -156,7 +156,7 @@ class ColdStorageArchiver:
             # First day of month
             start_date = date(year, month, 1)
             # Last day of month
-            if month == MAGIC_VAL_12:
+            if month == DECEMBER_MONTH:
                 end_date = date(year + 1, 1, 1) - timedelta(days=1)
             else:
                 end_date = date(year, month + 1, 1) - timedelta(days=1)
@@ -174,9 +174,9 @@ class ColdStorageArchiver:
                 """,
                 [tribunal, start_str, end_str],
             )
-            logger.info(f"Purged old intimations from hot DB for {tribunal} {year}-{month:02d}")
-        except Exception as e:
-            logger.exception(f"Failed to purge hot database records: {e}")
+            logger.info("Purged old intimations from hot DB for %s %s-%02d", tribunal, year, month)
+        except Exception:
+            logger.exception("Failed to purge hot database records")
             raise
 
     def trigger_restore(self, tribunal: str, year: int, month: int) -> bool:
@@ -192,12 +192,12 @@ class ColdStorageArchiver:
         ).fetchone()
 
         if not result:
-            logger.error(f"No archive found for {tribunal} {year}-{month:02d}")
+            logger.error("No archive found for %s %s-%02d", tribunal, year, month)
             return False
 
         s3_key = result[0]
 
-        logger.info(f"Triggering restore for s3://{self.s3_bucket}/{s3_key}")
+        logger.info("Triggering restore for s3://%s/%s", self.s3_bucket, s3_key)
 
         # Let boto3 exception bubble up if it fails
         self.s3_client.restore_object(

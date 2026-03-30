@@ -1,6 +1,6 @@
-MAGIC_VAL_2 = 2
-MAGIC_VAL_95 = 95
-MAGIC_VAL_10 = 10
+MAX_ACCEPTABLE_RATE_LIMITED = 2
+OPTIMAL_SUCCESS_RATE_THRESHOLD = 95
+MEDIUM_CONCURRENCY_THRESHOLD = 10
 
 """Experiment: Stress test Jina AI embeddings to find optimal rate limits.
 
@@ -146,7 +146,7 @@ async def find_optimal_rate() -> None:
             break
 
         # Wait between tests to avoid cumulative rate limiting
-        if concurrency >= MAGIC_VAL_10:
+        if concurrency >= MEDIUM_CONCURRENCY_THRESHOLD:
             wait_time = 5
             await asyncio.sleep(wait_time)
 
@@ -155,7 +155,7 @@ async def find_optimal_rate() -> None:
     # Find optimal concurrency (highest success rate with minimal rate limiting)
     optimal = None
     for result in results:
-        if result["success_rate"] >= MAGIC_VAL_95 and result["rate_limited"] <= MAGIC_VAL_2:
+        if result["success_rate"] >= OPTIMAL_SUCCESS_RATE_THRESHOLD and result["rate_limited"] <= MAX_ACCEPTABLE_RATE_LIMITED:
             if optimal is None or result["requests_per_second"] > optimal["requests_per_second"]:
                 optimal = result
 

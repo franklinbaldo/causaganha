@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_75_0 = 75.0
-MAGIC_VAL_90_0 = 90.0
+WARNING_FAILURE_RATE_PCT = 75.0
+CRITICAL_FAILURE_RATE_PCT = 90.0
 
 """Health check script for Parquet export system.
 
@@ -102,7 +102,7 @@ def main() -> int:
 
         success_rate = stats["success_rate"] or 0.0
 
-        if success_rate >= MAGIC_VAL_90_0:
+        if success_rate >= CRITICAL_FAILURE_RATE_PCT:
             # Check for problematic tribunals
             problematic = check_problematic_tribunals(threshold_pct=50.0)
             if problematic:
@@ -111,7 +111,7 @@ def main() -> int:
                 result = 1
             else:
                 result = 0
-        elif success_rate >= MAGIC_VAL_75_0:
+        elif success_rate >= WARNING_FAILURE_RATE_PCT:
             result = 1
         else:
             result = 2

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 
-MAGIC_VAL_31 = 31
-MAGIC_VAL_12 = 12
-MAGIC_VAL_9999 = 9999
-MAGIC_VAL_1000 = 1000
-MAGIC_VAL_3 = 3
+MAX_DAY_OF_MONTH = 31
+MAX_MONTH = 12
+MAX_YEAR = 9999
+MIN_YEAR = 1000
+DATE_PARTS_COUNT = 3
 
 """Immutable data models for the export pipeline.
 
@@ -38,14 +38,14 @@ class ExportPlan:
         # Validate date format (YYYY-MM-DD)
         try:
             parts = self.partition_date.split("-")
-            if len(parts) != MAGIC_VAL_3:
+            if len(parts) != DATE_PARTS_COUNT:
                 msg = "Invalid date format"
                 raise ValueError(msg)  # noqa: TRY301
             year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
             if not (
-                MAGIC_VAL_1000 <= year <= MAGIC_VAL_9999
-                and 1 <= month <= MAGIC_VAL_12
-                and 1 <= day <= MAGIC_VAL_31
+                MIN_YEAR <= year <= MAX_YEAR
+                and 1 <= month <= MAX_MONTH
+                and 1 <= day <= DATE_PARTS_COUNT1
             ):
                 msg = "Invalid date values"
                 raise ValueError(msg)  # noqa: TRY301

@@ -33,7 +33,8 @@ def run_cold_storage(
 
     for item in eligible_data:
         logger.info(
-            f"Found eligible data for {item['tribunal']} ({item['year']}-{item['month']:02d})"
+            "Found eligible data for %s (%s-%02d)",
+            item["tribunal"], item["year"], item["month"]
         )
         if not dry_run:
             archiver.archive_data(item["tribunal"], item["year"], item["month"], item["files"])
@@ -51,7 +52,7 @@ def restore_archived_data(
     ),
 ) -> None:
     """Trigger an S3 Glacier restore for an archived period."""
-    logger.info(f"Initiating restore for {tribunal} {year}-{month:02d}")
+    logger.info("Initiating restore for %s %s-%02d", tribunal, year, month)
     archiver = ColdStorageArchiver(s3_bucket=s3_bucket)
 
     success = archiver.trigger_restore(tribunal, year, month)
@@ -76,11 +77,11 @@ def generate_compliance_report(
         typer.echo("Compliance report generated successfully (PDF and HTML).")
 
         if email:
-            logger.info(f"Auto-emailing report to compliance officer at {email}")
+            logger.info("Auto-emailing report to compliance officer at %s", email)
             typer.echo(f"Emailed report to {email}")
 
-    except Exception as e:
-        logger.exception(f"Failed to generate report: {e}")
+    except Exception:
+        logger.exception("Failed to generate report")
         raise typer.Exit(code=1)
 
 

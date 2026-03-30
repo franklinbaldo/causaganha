@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-MAGIC_VAL_2 = 2
+VERSION_EXPECTED = 2
 
 """Persistent state cache backed by a JSON file.
 
@@ -116,7 +116,7 @@ class State:
     def from_dict(cls, data: dict[str, object]) -> State:
         """Create State from dictionary."""
         state = cls()
-        if data.get("version") != MAGIC_VAL_2:
+        if data.get("version") != VERSION_EXPECTED:
             return state
 
         entries = data.get("entries")

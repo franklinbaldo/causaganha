@@ -6,7 +6,7 @@ from fpdf import FPDF
 from causaganha.storage.connection import get_connection
 
 
-MAGIC_VAL_12 = 12
+DECEMBER_MONTH = 12
 
 
 class LGPDComplianceReport(FPDF):
@@ -91,7 +91,7 @@ def _get_access_logs(year: int, month: int) -> str:
     try:
         # Construct start and end dates
         start_date = f"{year}-{month:02d}-01"
-        end_date = f"{year + 1}-01-01" if month == MAGIC_VAL_12 else f"{year}-{month + 1:02d}-01"
+        end_date = f"{year + 1}-01-01" if month == DECEMBER_MONTH else f"{year}-{month + 1:02d}-01"
 
         # Query audit_log table
         query = """
