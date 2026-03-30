@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_0_1 = 0.1
+STALLED_PROGRESS_THRESHOLD = 0.1
 
 """Backfill health monitoring with Telegram alerting.
 
@@ -176,7 +176,7 @@ def check_backfill_progress(stale_hours: int = DEFAULT_STALE_HOURS) -> BackfillS
             age_hours = 999.0  # Assume stale if parsing fails
 
         is_stale = age_hours > stale_hours
-        is_stuck = progress_pct < MAGIC_VAL_0_1 and age_hours > stale_hours * 2
+        is_stuck = progress_pct < STALLED_PROGRESS_THRESHOLD and age_hours > stale_hours * 2
 
         # Determine level and message
         if is_stuck:

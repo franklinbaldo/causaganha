@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_2 = 2
+MIN_ARGV_LENGTH = 2
 HTTP_200_OK = 200
 
 """Convert DJEN ZIP files from Internet Archive to Parquet tables using DuckDB.
@@ -317,7 +317,7 @@ def process_item_safe(entry: str) -> tuple[str, bool, str]:
 
 
 def main() -> None:
-    if len(sys.argv) < MAGIC_VAL_2:
+    if len(sys.argv) < MIN_ARGV_LENGTH:
         sys.exit(1)
 
     batch_file = Path(sys.argv[1])

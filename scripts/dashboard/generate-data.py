@@ -82,7 +82,7 @@ def calculate_quality_scores(
                 recency = 100.0 * (1.0 - (days_old / 30.0))
 
         # 3. Consistency (30%)
-        if len(sorted_dates) < MAGIC_VAL_2:
+        if len(sorted_dates) < MIN_DISTINCT_DATES:
             consistency = 0.0 if expected_days > 1 else 100.0
         else:
             num_gaps = 0
@@ -91,7 +91,7 @@ def calculate_quality_scores(
                 gap_days = (sorted_dates[i + 1] - sorted_dates[i]).days - 1
                 if gap_days > 0:
                     # Penalize >7 day gaps heavily by counting them as multiple gaps
-                    if gap_days > MAGIC_VAL_7:
+                    if gap_days > MAX_GAP_DAYS:
                         num_gaps += 1 + (gap_days // 7)
                     else:
                         num_gaps += 1

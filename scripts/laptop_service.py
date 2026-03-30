@@ -1,4 +1,4 @@
-MAGIC_VAL_10 = 10
+MIN_ITERATION_SLEEP_SECONDS = 10
 
 """Continuous embedding service for running on laptop/personal computer.
 
@@ -274,7 +274,7 @@ async def continuous_loop(
 
         # Small sleep between iterations
         iteration_duration = time.time() - start_time
-        if iteration_duration < MAGIC_VAL_10:  # If iteration was very fast, add small delay
+        if iteration_duration < MIN_ITERATION_SLEEP_SECONDS:  # If iteration was very fast, add small delay
             await asyncio.sleep(5)
 
     logger.info(

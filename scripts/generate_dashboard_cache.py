@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_1024 = 1024
-MAGIC_VAL_5 = 5
-MAGIC_VAL_0_26 = 0.26
-MAGIC_VAL_0_51 = 0.51
-MAGIC_VAL_0_76 = 0.76
+FILE_SIZE_THRESHOLD_KB = 1024
+SATURDAY_WEEKDAY = 5
+QUALITY_THRESHOLD_POOR = 0.26
+QUALITY_THRESHOLD_ACCEPTABLE = 0.51
+QUALITY_THRESHOLD_GOOD = 0.76
 
 """Generate dashboard cache JSON files from the catalog manifest.
 
@@ -296,7 +296,7 @@ def generate_pipeline_metrics(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
             weekdays = sum(
                 1
                 for i in range((end - start).days + 1)
-                if (start + timedelta(days=i)).weekday() < MAGIC_VAL_5
+                if (start + timedelta(days=i)).weekday() < SATURDAY_WEEKDAY
             )
             backfill_pending = max(weekdays * len(TRIBUNALS) - backfill_done, 0)
 
@@ -507,11 +507,11 @@ def generate_calendar_cache(
     for entry in calendar_data.values():
         if max_size > 0 and entry["size"] > 0:
             ratio = entry["size"] / max_size
-            if ratio >= MAGIC_VAL_0_76:
+            if ratio >= QUALITY_THRESHOLD_GOOD:
                 entry["level"] = 4
-            elif ratio >= MAGIC_VAL_0_51:
+            elif ratio >= QUALITY_THRESHOLD_ACCEPTABLE:
                 entry["level"] = 3
-            elif ratio >= MAGIC_VAL_0_26:
+            elif ratio >= QUALITY_THRESHOLD_POOR:
                 entry["level"] = 2
             else:
                 entry["level"] = 1
@@ -702,7 +702,7 @@ def generate_backfill_cache(
             weekdays = sum(
                 1
                 for i in range((year_end - year_start).days + 1)
-                if (year_start + timedelta(days=i)).weekday() < MAGIC_VAL_5
+                if (year_start + timedelta(days=i)).weekday() < SATURDAY_WEEKDAY
             )
             expected = weekdays * num_tribunals
             pct = round(100.0 * combos_done / expected, 1) if expected > 0 else 0.0
@@ -837,7 +837,7 @@ def format_bytes(size: float) -> str:
     """Format bytes to human readable string."""
     size_f = float(size)
     for unit in ["B", "KB", "MB", "GB"]:
-        if size_f < MAGIC_VAL_1024:
+        if size_f < FILE_SIZE_THRESHOLD_KB:
             return f"{size_f:.1f} {unit}"
         size_f /= 1024
     return f"{size_f:.1f} TB"

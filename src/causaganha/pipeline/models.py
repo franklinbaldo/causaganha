@@ -45,7 +45,7 @@ class ExportPlan:
             if not (
                 MIN_YEAR <= year <= MAX_YEAR
                 and 1 <= month <= MAX_MONTH
-                and 1 <= day <= DATE_PARTS_COUNT1
+                and 1 <= day <= MAX_DAY_OF_MONTH
             ):
                 msg = "Invalid date values"
                 raise ValueError(msg)  # noqa: TRY301

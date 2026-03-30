@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-MAGIC_VAL_5 = 5
+SATURDAY_WEEKDAY = 5
 HTTP_200_OK = 200
-MAGIC_VAL_3 = 3
-MAGIC_VAL_4 = 4
-MAGIC_VAL_31 = 31
-MAGIC_VAL_12 = 12
-MAGIC_VAL_2030 = 2030
-MAGIC_VAL_2020 = 2020
+MIN_ITEM_ID_PARTS = 3
+MIN_ITEM_ID_PARTS_FOR_TRIBUNAL = 4
+MAX_DAY_OF_MONTH = 31
+MAX_MONTH = 12
+MAX_YEAR_CUTOFF = 2030
+MIN_YEAR_CUTOFF = 2020
 
 """Generate CausaGanha catalog for Internet Archive.
 
@@ -172,11 +172,11 @@ def _validate_date_str(date_str: str) -> bool:
     try:
         year, month, day = map(int, date_str.split("-"))
         # Basic sanity checks
-        if year < MAGIC_VAL_2020 or year > MAGIC_VAL_2030:
+        if year < MIN_YEAR_CUTOFF or year > MAX_YEAR_CUTOFF:
             return False
-        if month < 1 or month > MAGIC_VAL_12:
+        if month < 1 or month > MAX_MONTH:
             return False
-        result = not (day < 1 or day > MAGIC_VAL_31)
+        result = not (day < 1 or day > MAX_DAY_OF_MONTH)
     except ValueError:
         return False
     else:
@@ -383,7 +383,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
         # djen-2026-01-15-TJSP.zip -> date=2026-01-15, tribunal=TJSP
         try:
             split_parts = parts.split("-")
-            if len(split_parts) < MAGIC_VAL_4:
+            if len(split_parts) < MIN_ITEM_ID_PARTS_FOR_TRIBUNAL:
                 return None
             date_str = "-".join(split_parts[:3])
             tribunal = "-".join(split_parts[3:])
@@ -422,7 +422,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 table_idx = i
                 break
 
-        if table_name and table_idx >= MAGIC_VAL_3:
+        if table_name and table_idx >= MIN_ITEM_ID_PARTS:
             # Depending on if it's TJSP-YYYY-MM-DD or djen-YYYY-MM-DD-TJSP
             # Let's check the date format first. The date is usually 3 parts: YYYY-MM-DD
             if parts[0] == "djen":
@@ -728,7 +728,7 @@ def _is_tribunal_stopped(
     # Check last N days
     for days_back in range(1, absent_threshold + 1):
         check_date = target_date - timedelta(days=days_back)
-        if check_date.weekday() >= MAGIC_VAL_5:  # skip weekends
+        if check_date.weekday() >= SATURDAY_WEEKDAY:  # skip weekends
             continue
 
         check_date_str = check_date.strftime("%Y-%m-%d")
@@ -793,7 +793,7 @@ def generate_backfill_list(
     current = start_date
     while current <= end_date:
         # Skip weekends (courts don't publish on weekends)
-        if current.weekday() < MAGIC_VAL_5:  # Monday = 0, Friday = 4
+        if current.weekday() < SATURDAY_WEEKDAY:  # Monday = 0, Friday = 4
             date_str = current.strftime("%Y-%m-%d")
             for tribunal in TRIBUNAIS:
                 if (date_str, tribunal) not in collected:
