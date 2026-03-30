@@ -153,7 +153,8 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
             # Check schema
             schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
             if "date" not in schema:
-                raise Exception("Missing date column in custom manifest.")
+                msg = "Missing date column in custom manifest."
+                raise ValueError(msg)
             return True
         except Exception:
             return False
@@ -176,7 +177,7 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
         # Verify it worked and has data
         con.execute("SELECT COUNT(*) FROM manifest").fetchone()
         return True
-    except Exception as e:
+    except Exception:
         # jsonl failed, fallback to parquet
         pass
 
@@ -190,10 +191,10 @@ def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> 
         schema = [col[0] for col in con.execute("DESCRIBE manifest").fetchall()]
         if "date" not in schema:
             con.execute("DROP TABLE manifest")
-            raise Exception("Invalid schema")
-        else:
-            con.execute("SELECT COUNT(*) FROM manifest").fetchone()
-            return True
+            msg = "Invalid schema"
+            raise ValueError(msg)
+        con.execute("SELECT COUNT(*) FROM manifest").fetchone()
+        return True
     except Exception:
         # Create empty fallback table
         try:
