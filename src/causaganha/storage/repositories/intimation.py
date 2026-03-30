@@ -153,5 +153,3 @@ def get_lawyer_name(
     if result.empty:
         return None
     return result.iloc[0]["lawyer_name"]
-
-

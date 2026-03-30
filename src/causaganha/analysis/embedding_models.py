@@ -137,7 +137,6 @@ GOOGLE_MODELS = {
 ALL_MODELS = {**JINA_MODELS, **GOOGLE_MODELS}
 
 
-
 def get_default_model(provider: ProviderType) -> EmbeddingModel:
     """Get the default model for a provider.
 

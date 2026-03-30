@@ -58,6 +58,7 @@ def chunk_text_with_prefix(text: str, chunk_size: int = 500, overlap: int = 100)
 
 _genai_client = None
 
+
 def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list[float]:
     """Get embedding com task type específico."""
     result = _genai_client.models.embed_content(

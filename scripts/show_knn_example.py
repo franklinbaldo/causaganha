@@ -28,6 +28,7 @@ Considere termos como: procedente, improcedente, julgo, condeno, defiro, indefir
 
 _genai_client = None
 
+
 def get_embedding(text: str) -> list[float]:
     """Get embedding."""
     result = _genai_client.models.embed_content(

@@ -147,7 +147,6 @@ embeddings: Schema = ibis.schema(
 )
 
 
-
 # ── Field-name variants ─────────────────────────────────────────────────
 #
 # The DJEN API returns mixed naming conventions across different endpoints

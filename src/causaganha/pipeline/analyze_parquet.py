@@ -219,7 +219,6 @@ class ParquetAnalyzer:
             confidence_threshold=confidence_threshold,
         )
 
-
     def _filter_decisions(self, table: pa.Table) -> list[dict]:
         """Filter decisions that need analysis.
 

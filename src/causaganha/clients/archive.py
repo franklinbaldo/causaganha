@@ -151,7 +151,6 @@ class LocalArchiveService:
         }
 
 
-
 class InternetArchiveService:
     """Service for uploading documents to Internet Archive."""
 

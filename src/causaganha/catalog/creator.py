@@ -308,4 +308,3 @@ class CatalogCreator:
             """,
             "Statistics per tribunal",
         )
-
