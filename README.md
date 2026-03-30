@@ -1,6 +1,6 @@
 # CausaGanha
 
-![CI Status](https://github.com/franklinbaldo/causaganha/actions/workflows/pipeline.yml/badge.svg)
+![Collect ZIPs](https://github.com/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/badge.svg)
 ![Last Deploy](https://github.com/franklinbaldo/causaganha/actions/workflows/deploy-dashboard.yml/badge.svg)
 ![Alpha](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
 
@@ -240,7 +240,7 @@ erDiagram
 
 ## Data Pipeline
 
-All data processing is orchestrated by a single Python script (`scripts/pipeline/run.py`) triggered by a GitHub Actions workflow (`.github/workflows/pipeline.yml`) that runs every 20 minutes with conditional step execution:
+Data processing is orchestrated by three GitHub Actions workflows that form a chain: **Collect ZIPs** (`.github/workflows/collect-zips.yml`, every 20 min) → **Update Catalog** (`.github/workflows/update-catalog.yml`, on collect success) → **Deploy Dashboard** (`.github/workflows/deploy-dashboard.yml`, on catalog update):
 
 | Step | Frequency | Description |
 | :-- | :-------- | :---------- |
