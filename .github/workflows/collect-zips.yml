@@ -60,7 +60,7 @@ jobs:
   collect:
     name: Download & Upload ZIPs
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 19
     environment: dev
 
     env:

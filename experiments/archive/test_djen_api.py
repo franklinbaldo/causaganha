@@ -10,7 +10,7 @@ to verify:
 """
 
 import asyncio
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog

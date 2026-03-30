@@ -19,7 +19,7 @@ MAGIC_VAL_3 = 3
 import asyncio
 import os
 import shutil
-from datetime import UTC, date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 

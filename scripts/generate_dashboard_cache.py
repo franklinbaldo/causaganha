@@ -1027,7 +1027,7 @@ def main() -> None:
         path = OUTPUT_DIR / filename
         with path.open("w") as f:
             json.dump(data, f, separators=(",", ":"))
-        path.stat().st_size
+        _ = path.stat().st_size
 
     # Generate RSS feed
     rss_content = generate_rss_feed(today_data, runs_data, calendar_data)

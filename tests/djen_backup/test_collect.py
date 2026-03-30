@@ -122,11 +122,10 @@ def then_md5_matches(context: dict[str, Any]) -> None:
 
 import asyncio
 from datetime import date
-from unittest.mock import MagicMock, patch
 
 import httpx
 
-from djen_backup.runner import RunConfig, WorkItem, run
+from djen_backup.runner import RunConfig, run
 
 
 @given(parsers.parse('a batch of {count:d} tribunals on "{date_str}"'))

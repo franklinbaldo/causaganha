@@ -1,21 +1,16 @@
-#!/usr/bin/env python3
-
-MAGIC_VAL_1_5 = 1.5
-
 """Test parallel Parquet export with local ZIPs."""
 
 import json
-import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import ibis
+import pytest
 import structlog
 
 from scripts.pipeline.consolidate import (
-    TABLE_SCHEMAS,
     TABLES,
     _load_and_transform,
     extract_json_from_zip,
@@ -47,13 +42,12 @@ def _write_ndjson_from_zips(test_zip_dir: Path, ndjson_dir: Path) -> int:
     return total_records
 
 
-def test_parallel_export() -> int:
+def test_parallel_export():
     """Test parallel Parquet export with local test ZIPs."""
     test_zip_dir = Path("test_zips")
 
     if not test_zip_dir.exists():
-        logger.warning("test_zip_dir_not_found", path=str(test_zip_dir))
-        return 0
+        pytest.skip("test_zips directory not found")
 
     # Set up test database
     con = ibis.duckdb.connect()
@@ -65,8 +59,7 @@ def test_parallel_export() -> int:
         total_records = _write_ndjson_from_zips(test_zip_dir, ndjson_dir)
 
         if total_records == 0:
-            logger.warning("no_records_extracted")
-            return 0
+            pytest.skip("no records extracted from test ZIPs")
 
         _load_and_transform(con, ndjson_dir, item_id="test-item")
 
@@ -78,36 +71,28 @@ def test_parallel_export() -> int:
 
         # Helper function (same as in consolidate.py)
         def _export_and_upload_table(table_name: str, con, output_dir: Path, *, _dry_run: bool):
-            try:
-                t = con.table(table_name)
-                count = t.count().to_pandas()
-                if count == 0:
-                    return False, 0, 0
-
-                output_path = output_dir / f"{table_name}.parquet"
-                start = time.time()
-                con.raw_sql(
-                    f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-                )
-                elapsed = time.time() - start
-
-                output_path.stat().st_size / (1024 * 1024)
-                result = (True, 1, elapsed)
-            except Exception:
+            t = con.table(table_name)
+            count = t.count().to_pandas()
+            if count == 0:
                 return False, 0, 0
-            else:
-                return result
+
+            output_path = output_dir / f"{table_name}.parquet"
+            start = time.time()
+            con.raw_sql(
+                f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+            )
+            elapsed = time.time() - start
+            return True, 1, elapsed
 
         # Test SEQUENTIAL export first (baseline)
-        start_time = time.time()
-        total_exported = 0
+        seq_exported = 0
         for table_name in TABLES:
             success, _, _elapsed = _export_and_upload_table(
                 table_name, con, output_dir, _dry_run=True
             )
             if success:
-                total_exported += 1
-        seq_time = time.time() - start_time
+                seq_exported += 1
+        assert seq_exported > 0, "Sequential export should export at least one table"
 
         # Clean output dir for parallel test
         for f in output_dir.glob("*.parquet"):
@@ -122,21 +107,14 @@ def test_parallel_export() -> int:
                 )
                 for table_name in TABLES
             ]
-            total_exported = 0
+            par_exported = 0
             for future in futures:
                 success, _, _ = future.result()
                 if success:
-                    total_exported += 1
+                    par_exported += 1
         par_time = time.time() - start_time
 
-        # Results
-        speedup = seq_time / par_time
-        (seq_time - par_time) / seq_time * 100
-
-        if speedup >= MAGIC_VAL_1_5:
-            return 0
-        return 0
-
-
-if __name__ == "__main__":
-    sys.exit(test_parallel_export())
+        assert par_exported == seq_exported, (
+            f"Parallel export ({par_exported}) should match sequential ({seq_exported})"
+        )
+        assert par_time > 0, "Parallel export time should be positive"
