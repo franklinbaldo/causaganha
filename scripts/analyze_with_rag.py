@@ -14,8 +14,8 @@ import os
 from collections import Counter
 
 import duckdb
-import google.generativeai as genai
 import lancedb
+from google import genai
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
@@ -54,14 +54,16 @@ def chunk_text_with_prefix(text: str, chunk_size: int = 500, overlap: int = 100)
     return chunks
 
 
+_genai_client = None
+
 def get_embedding(text: str) -> list[float]:
     """Get embedding."""
-    result = genai.embed_content(
+    result = _genai_client.models.embed_content(
         model="models/text-embedding-004",
-        content=text,
-        task_type="retrieval_query",  # Query mode para busca
+        contents=[text],
+        config={"task_type": "RETRIEVAL_QUERY"},
     )
-    return result["embedding"]
+    return result.embeddings[0].values
 
 
 def classify_with_knn(
@@ -111,7 +113,8 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    genai.configure(api_key=api_key)
+    global _genai_client
+    _genai_client = genai.Client(api_key=api_key)
 
     # Conectar LanceDB
     db_path = Path("data/lancedb")

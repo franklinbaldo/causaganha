@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'preact/compat';
+import { useState, useEffect } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { CellTooltip } from './CellTooltip';
@@ -166,7 +166,6 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
 
   const isStopped = selectedEtaData.stopped || false;
   const cursorDate = selectedEtaData.cursor_date;
-  const emptyStreak = selectedEtaData.empty_streak || 0;
   const completionPct = selectedEtaData.completion_pct || 0;
   const genesisDate = selectedEtaData.genesis_date || tribunalStartDate;
 
@@ -335,7 +334,6 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, absentCoverage, q
   let globalAbsentDays = 0;
 
   tribunals.forEach(t => {
-    const etaData = etas[t] || {};
     const startDate = startDates?.[t];
     
     if (startDate) {
@@ -591,7 +589,6 @@ function VelocityTimeline({ metrics }) {
 function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
   const [hoveredCell, setHoveredCell] = useState(null);
   const [focusedCell, setFocusedCell] = useState(null);
-  const gridRef = useRef(null);
 
   useEffect(() => {
     const handleOutsideInteraction = () => setHoveredCell(null);

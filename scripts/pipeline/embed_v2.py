@@ -31,10 +31,10 @@ import tempfile
 import time
 from pathlib import Path
 
-import google.generativeai as genai
 import httpx
 import ibis
 import structlog
+from google import genai
 
 from causaganha.config import TRIBUNAIS
 
@@ -72,22 +72,17 @@ def get_embedding_client():
         return embed_texts
 
     if google_key:
-        try:
-            genai.configure(api_key=google_key)
+        client = genai.Client(api_key=google_key)
 
-            def embed_texts(texts: list[str]) -> list[list[float]]:
-                result = genai.embed_content(
-                    model="models/embedding-001",
-                    content=texts,
-                    task_type="retrieval_document",
-                )
-                return result["embedding"]
+        def embed_texts(texts: list[str]) -> list[list[float]]:
+            result = client.models.embed_content(
+                model="models/embedding-001",
+                contents=texts,
+                config={"task_type": "RETRIEVAL_DOCUMENT"},
+            )
+            return [e.values for e in result.embeddings]
 
-            func = embed_texts
-        except ImportError:
-            pass
-        else:
-            return func
+        return embed_texts
 
     return None
 

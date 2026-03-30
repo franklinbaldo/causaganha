@@ -26,7 +26,7 @@ export function NetworkStatusBanner() {
       setCountdown(e.detail.delay);
     };
 
-    const handleError = (e) => {
+    const handleError = () => {
       setStatus('error');
     };
 

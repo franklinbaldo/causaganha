@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import os
 
 import duckdb
-import google.generativeai as genai
 import lancedb
+from google import genai
 from rich.console import Console
 from rich.progress import track
 
@@ -56,14 +56,16 @@ def chunk_text_with_prefix(text: str, chunk_size: int = 500, overlap: int = 100)
     return chunks
 
 
-def get_embedding(text: str, task_type: str = "retrieval_document") -> list[float]:
+_genai_client = None
+
+def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list[float]:
     """Get embedding com task type específico."""
-    result = genai.embed_content(
+    result = _genai_client.models.embed_content(
         model="models/text-embedding-004",
-        content=text,
-        task_type=task_type,
+        contents=[text],
+        config={"task_type": task_type},
     )
-    return result["embedding"]
+    return result.embeddings[0].values
 
 
 def main() -> None:
@@ -76,7 +78,8 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    genai.configure(api_key=api_key)
+    global _genai_client
+    _genai_client = genai.Client(api_key=api_key)
 
     # Conectar DuckDB
     conn = duckdb.connect("data/causaganha.duckdb", read_only=True)

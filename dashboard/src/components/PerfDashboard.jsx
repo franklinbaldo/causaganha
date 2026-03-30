@@ -1,32 +1,33 @@
-import { useState, useEffect, useRef } from 'preact/compat';
+import { useEffect, useMemo, useRef } from 'preact/compat';
 import * as Plot from '@observablehq/plot';
 import { LiveStatusWidget } from './LiveStatusWidget';
 import { PipelineRunHistory } from './PipelineRunHistory';
 
 export function PerfDashboard({ perfMetrics, qualityScores }) {
-  if (!perfMetrics || !qualityScores) {
-    return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
-  }
-
   const chartRef = useRef(null);
   const pieRef = useRef(null);
-  const barRef = useRef(null);
 
-  const latencies = perfMetrics.causaganha_collect_latency_ms || [];
-  const successRate = perfMetrics.causaganha_upload_success_rate || 0;
-  const backlogDays = perfMetrics.causaganha_backlog_pending_days || 0;
-  const activeTribunals = perfMetrics.causaganha_active_tribunals || 0;
-  const slowestTribunals = perfMetrics.slowest_tribunals || [];
+  const latencies = useMemo(
+    () => (perfMetrics?.causaganha_collect_latency_ms || []),
+    [perfMetrics]
+  );
+  const successRate = perfMetrics?.causaganha_upload_success_rate || 0;
+  const backlogDays = perfMetrics?.causaganha_backlog_pending_days || 0;
+  const activeTribunals = perfMetrics?.causaganha_active_tribunals || 0;
+  const slowestTribunals = perfMetrics?.slowest_tribunals || [];
 
   // Grade Distribution
-  const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
-  Object.values(qualityScores).forEach(score => {
-    if (gradeCounts[score.grade] !== undefined) {
-      gradeCounts[score.grade]++;
+  const gradeData = useMemo(() => {
+    const gradeCounts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    if (qualityScores) {
+      Object.values(qualityScores).forEach(score => {
+        if (gradeCounts[score.grade] !== undefined) {
+          gradeCounts[score.grade]++;
+        }
+      });
     }
-  });
-
-  const gradeData = Object.entries(gradeCounts).map(([grade, count]) => ({ grade, count })).filter(d => d.count > 0);
+    return Object.entries(gradeCounts).map(([grade, count]) => ({ grade, count })).filter(d => d.count > 0);
+  }, [qualityScores]);
 
   useEffect(() => {
     if (chartRef.current && latencies.length > 0) {
@@ -68,6 +69,10 @@ export function PerfDashboard({ perfMetrics, qualityScores }) {
       pieRef.current.appendChild(pie);
     }
   }, [latencies, gradeData]);
+
+  if (!perfMetrics || !qualityScores) {
+    return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
+  }
 
   return (
     <div className="space-y-8">
