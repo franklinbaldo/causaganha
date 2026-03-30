@@ -85,6 +85,9 @@ ignore = [
     "T203",
 ]
 
+[lint.per-file-ignores]
+"vulture_whitelist.py" = ["B018", "F821"]
+
 [lint.mccabe]
 max-complexity = 10
 

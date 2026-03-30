@@ -74,7 +74,7 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    global _genai_client
+    global _genai_client  # noqa: PLW0603
     _genai_client = genai.Client(api_key=api_key)
 
     # Conectar DuckDB

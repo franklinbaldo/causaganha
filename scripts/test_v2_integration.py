@@ -5,7 +5,7 @@ MAGIC_VAL_1001 = 1001
 """Integration test script for V2 pipeline."""
 
 import asyncio
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
