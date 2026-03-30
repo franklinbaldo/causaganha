@@ -2,7 +2,7 @@
 import argparse
 import asyncio
 import sys
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import structlog

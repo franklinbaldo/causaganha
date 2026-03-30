@@ -22,7 +22,6 @@ ignore = [
     "ASYNC240",
     "B007",
     "B008",
-    "B018",
     "B904",
     "BLE001",
     "C901",
@@ -39,9 +38,7 @@ ignore = [
     "ERA001",
     "EXE001",
     "EXE005",
-    "F401",
     "F811",
-    "F821",
     "FBT003",
     "FIX002",
     "G004",
@@ -87,6 +84,9 @@ ignore = [
     "T201",
     "T203",
 ]
+
+[lint.per-file-ignores]
+"vulture_whitelist.py" = ["B018", "F821"]
 
 [lint.mccabe]
 max-complexity = 10

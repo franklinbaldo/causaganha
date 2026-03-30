@@ -70,7 +70,6 @@ jobs:
           uv run python scripts/generate_dashboard_cache.py
           echo "Cache files generated:"
           ls -la dashboard/public/cache/
-        continue-on-error: true  # Don't fail deploy if cache generation fails
         env:
           PIPELINE_RUN_STATS: /tmp/last-run.json
 
@@ -80,14 +79,13 @@ jobs:
         with:
           name: causaganha-db
           path: data/
-        continue-on-error: true  # Artifact may not exist on scheduled/manual runs
+        continue-on-error: true  # Artifact may not exist on manual/dispatch runs
 
       - name: Generate dashboard data (requires DuckDB artifact)
         if: steps.download-db.outcome == 'success'
         run: |
           pip install duckdb httpx
           python scripts/dashboard/generate-data.py
-        continue-on-error: true
 
       - name: Install dependencies
         run: npm ci

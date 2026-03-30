@@ -74,44 +74,6 @@ def store_intimations(
     return inserted
 
 
-def store_lawyer_associations(
-    con: Backend,
-    intimation_id: int,
-    lawyers: list[Any],
-) -> int:
-    """Store lawyer associations for an intimation."""
-    inserted = 0
-    for lawyer_data in lawyers:
-        advogado = lawyer_data.advogado
-
-        try:
-            con.con.execute(
-                """
-                INSERT INTO intimation_lawyers (
-                    intimation_id, oab_number, oab_state, lawyer_name
-                ) VALUES (
-                    ?, ?, ?, ?
-                )
-                ON CONFLICT DO NOTHING
-                """,
-                [
-                    intimation_id,
-                    advogado.numero_oab,
-                    advogado.uf_oab,
-                    advogado.nome,
-                ],
-            )
-            inserted += 1
-        except (duckdb.Error, KeyError, AttributeError) as e:
-            logger.warning(
-                "lawyer_association_failed",
-                intimation_id=intimation_id,
-                error=str(e),
-            )
-
-    return inserted
-
-
 def get_unanalyzed_intimations(
     con: Backend,
     limit: int = 100,
@@ -191,51 +153,3 @@ def get_lawyer_name(
     if result.empty:
         return None
     return result.iloc[0]["lawyer_name"]
-
-
-def get_unarchived_intimations(
-    con: Backend,
-    limit: int = 100,
-) -> list[dict[str, Any]]:
-    """Get intimations that have not been uploaded to IA.
-
-    Args:
-        con: Database connection.
-        limit: Max number of records to return.
-
-    Returns:
-        List of intimation records.
-    """
-    intimations = con.table("intimations")
-
-    result = (
-        intimations.filter(_.ia_url.isnull())
-        .filter(_.link.notnull())
-        .order_by(_.data_disponibilizacao.desc())
-        .limit(limit)
-    )
-
-    return result.to_pandas().to_dict("records")
-
-
-def mark_as_archived(
-    con: Backend,
-    intimation_id: int | str,
-    ia_url: str,
-) -> None:
-    """Mark intimation as archived with IA URL.
-
-    Args:
-        con: Database connection.
-        intimation_id: Intimation ID.
-        ia_url: Internet Archive URL.
-    """
-    con.con.execute(
-        """
-        UPDATE intimations
-        SET
-            ia_url = ?
-        WHERE id = ?
-        """,
-        [ia_url, intimation_id],
-    )

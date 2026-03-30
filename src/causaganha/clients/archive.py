@@ -17,9 +17,8 @@ MAGIC_VAL_3 = 3
 """
 
 import asyncio
-import os
 import shutil
-from datetime import UTC, date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -150,15 +149,6 @@ class LocalArchiveService:
             # Extra hint for local storage
             "tribunal_code": tribunal,
         }
-
-
-def create_archive_service() -> ArchiveService:
-    """Create the best available archive service based on environment configuration."""
-    access_key = os.getenv("IA_ACCESS_KEY")
-    secret_key = os.getenv("IA_SECRET_KEY")
-    if access_key and secret_key:
-        return InternetArchiveService()
-    return LocalArchiveService()
 
 
 class InternetArchiveService:

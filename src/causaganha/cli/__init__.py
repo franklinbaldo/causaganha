@@ -1,6 +1,3 @@
-from datetime import timezone
-
-
 HTTP_404_NOT_FOUND = 404
 MAGIC_VAL_1024 = 1024
 MAGIC_VAL_100 = 100
@@ -14,7 +11,7 @@ import csv
 import json
 import re
 import sys
-from datetime import UTC, date, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb

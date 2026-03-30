@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
         elif cmd == "rollback":
             target = int(sys.argv[2]) if len(sys.argv) > MAGIC_VAL_2 else 0
-            rolled = rollback_migration(con, target)
+            rollback_migration(con, target)
 
         else:
             pass

@@ -58,6 +58,7 @@ def chunk_text_with_prefix(text: str, chunk_size: int = 500, overlap: int = 100)
 
 _genai_client = None
 
+
 def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> list[float]:
     """Get embedding com task type específico."""
     result = _genai_client.models.embed_content(
@@ -78,7 +79,7 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    global _genai_client
+    global _genai_client  # noqa: PLW0603
     _genai_client = genai.Client(api_key=api_key)
 
     # Conectar DuckDB

@@ -19,7 +19,7 @@ import json
 import logging
 import os
 import sys
-from datetime import UTC, date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx

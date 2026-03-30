@@ -1,9 +1,7 @@
 """DuckDB catalog creator for remote Parquet access."""
 
-import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import duckdb
 
@@ -211,18 +209,6 @@ class CatalogCreator:
         self.validations = validation_results
         return validation_results
 
-    def validate_and_create(self) -> list[dict[str, Any]]:
-        """Validate and create catalog in one step.
-
-        Returns:
-            List of validation results
-        """
-        # Create catalog first
-        self.create()
-
-        # Then validate
-        return self.validate()
-
     def get_catalog_info(self) -> dict[str, Any]:
         """Get information about the catalog.
 
@@ -242,45 +228,6 @@ class CatalogCreator:
             "view_count": len(views),
             "views": views,
         }
-
-    def create_versioned_catalog(
-        self,
-        version: str,
-        _parquet_pattern: str,
-    ) -> str:
-        """Create a versioned catalog.
-
-        Args:
-            version: Version identifier (e.g., "2026-01", "latest")
-            parquet_pattern: Parquet file pattern for this version
-
-        Returns:
-            Path to created catalog
-        """
-        # Create versioned filename
-        base_name = Path(self.catalog_path).stem
-        extension = Path(self.catalog_path).suffix
-        versioned_name = f"{base_name}-{version}{extension}"
-        versioned_path = Path(self.catalog_path).parent / versioned_name
-
-        # Create catalog with version-specific pattern
-        versioned_creator = CatalogCreator(str(versioned_path))
-        versioned_creator.create()
-
-        return str(versioned_path)
-
-    @staticmethod
-    def validate_remote_url(url: str) -> bool:
-        """Validate that a URL is properly formed.
-
-        Args:
-            url: URL to validate
-
-        Returns:
-            True if URL is valid, False otherwise
-        """
-        result = urlparse(url)
-        return all([result.scheme in ["http", "https"], result.netloc])
 
     def add_standard_views(
         self,
@@ -361,14 +308,3 @@ class CatalogCreator:
             """,
             "Statistics per tribunal",
         )
-
-    def export_catalog_info(self, output_path: str) -> None:
-        """Export catalog information to a JSON file.
-
-        Args:
-            output_path: Path where JSON file will be written
-        """
-        info = self.get_catalog_info()
-
-        with Path(output_path).open("w") as f:
-            json.dump(info, f, indent=2)
