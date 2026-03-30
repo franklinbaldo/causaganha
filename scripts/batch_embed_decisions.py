@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """Process decisions using Google Batch API for embeddings (50% cost reduction)."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import json
 import os
 import time
+from pathlib import Path
 
 import duckdb
 from google import genai

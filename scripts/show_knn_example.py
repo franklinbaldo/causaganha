@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Mostra exemplo concreto de como k-NN funciona."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 
 import duckdb

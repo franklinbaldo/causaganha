@@ -8,12 +8,6 @@ MAGIC_VAL_70 = 70
 
 """Testa a ideia original: comparação direta com 2 frases-chave."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 
 import duckdb
