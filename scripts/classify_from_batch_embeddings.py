@@ -163,7 +163,9 @@ def main() -> None:
     confidence_buckets = {
         "Alta (≥80%)": sum(1 for r in results if r["confidence"] >= HIGH_CONFIDENCE_THRESHOLD),
         "Média (60-80%)": sum(
-            1 for r in results if LOW_CONFIDENCE_THRESHOLD <= r["confidence"] < HIGH_CONFIDENCE_THRESHOLD
+            1
+            for r in results
+            if LOW_CONFIDENCE_THRESHOLD <= r["confidence"] < HIGH_CONFIDENCE_THRESHOLD
         ),
         "Baixa (<60%)": sum(1 for r in results if r["confidence"] < LOW_CONFIDENCE_THRESHOLD),
     }

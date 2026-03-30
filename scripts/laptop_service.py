@@ -274,7 +274,9 @@ async def continuous_loop(
 
         # Small sleep between iterations
         iteration_duration = time.time() - start_time
-        if iteration_duration < MIN_ITERATION_SLEEP_SECONDS:  # If iteration was very fast, add small delay
+        if (
+            iteration_duration < MIN_ITERATION_SLEEP_SECONDS
+        ):  # If iteration was very fast, add small delay
             await asyncio.sleep(5)
 
     logger.info(

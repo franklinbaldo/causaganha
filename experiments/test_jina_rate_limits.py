@@ -155,7 +155,10 @@ async def find_optimal_rate() -> None:
     # Find optimal concurrency (highest success rate with minimal rate limiting)
     optimal = None
     for result in results:
-        if result["success_rate"] >= OPTIMAL_SUCCESS_RATE_THRESHOLD and result["rate_limited"] <= MAX_ACCEPTABLE_RATE_LIMITED:
+        if (
+            result["success_rate"] >= OPTIMAL_SUCCESS_RATE_THRESHOLD
+            and result["rate_limited"] <= MAX_ACCEPTABLE_RATE_LIMITED
+        ):
             if optimal is None or result["requests_per_second"] > optimal["requests_per_second"]:
                 optimal = result
 

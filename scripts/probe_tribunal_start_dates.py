@@ -59,7 +59,9 @@ async def check_date_has_data(client: httpx.AsyncClient, tribunal: str, target_d
             if e.response.status_code == HTTP_429_TOO_MANY_REQUESTS:
                 # Retry on 429 using exponential backoff inside the function
                 logger.warning(
-                    "Rate limited (429) checking %s at %s. Retrying in 10s...", tribunal, target_date
+                    "Rate limited (429) checking %s at %s. Retrying in 10s...",
+                    tribunal,
+                    target_date,
                 )
                 await asyncio.sleep(10.0)
                 return await check_date_has_data(client, tribunal, target_date)
@@ -127,7 +129,11 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
             lo_date = current_date
             hi_date = prev_date
             logger.info(
-                "[%s] Confirmed >= 60 day void at %s. Bracket found: [%s, %s]", tribunal, lo_date, lo_date, hi_date
+                "[%s] Confirmed >= 60 day void at %s. Bracket found: [%s, %s]",
+                tribunal,
+                lo_date,
+                lo_date,
+                hi_date,
             )
             break
 
@@ -151,7 +157,10 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
         mid_date = lo_date + timedelta(days=mid_days)
 
         logger.info(
-            "[%s] Binary search checking %s (span: %s days)", tribunal, mid_date, (hi_date - lo_date).days
+            "[%s] Binary search checking %s (span: %s days)",
+            tribunal,
+            mid_date,
+            (hi_date - lo_date).days,
         )
         is_void = await confirm_void(client, tribunal, mid_date)
 
@@ -166,7 +175,9 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
     # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR `hi_date - 60` has data.
     # To find the EXACT start date, we scan forward starting from `hi_date - 60` up to `hi_date`.
     logger.info(
-        "[%s] Void right edge found at %s. Scanning forward to find exact start date...", tribunal, hi_date
+        "[%s] Void right edge found at %s. Scanning forward to find exact start date...",
+        tribunal,
+        hi_date,
     )
 
     start_scan_date = hi_date - timedelta(days=60)
@@ -212,7 +223,9 @@ async def main() -> None:
         for tribunal in tribunals_to_check:
             if tribunal in results:
                 logger.info(
-                    "[%s] Already processed (start date: %s), skipping.", tribunal, results[tribunal]
+                    "[%s] Already processed (start date: %s), skipping.",
+                    tribunal,
+                    results[tribunal],
                 )
                 continue
 

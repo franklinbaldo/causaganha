@@ -33,8 +33,7 @@ def run_cold_storage(
 
     for item in eligible_data:
         logger.info(
-            "Found eligible data for %s (%s-%02d)",
-            item["tribunal"], item["year"], item["month"]
+            "Found eligible data for %s (%s-%02d)", item["tribunal"], item["year"], item["month"]
         )
         if not dry_run:
             archiver.archive_data(item["tribunal"], item["year"], item["month"], item["files"])
