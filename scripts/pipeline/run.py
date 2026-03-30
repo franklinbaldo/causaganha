@@ -1,48 +1,29 @@
-#!/usr/bin/env python3
-"""CausaGanha Data Pipeline - Single entry point.
+MAGIC_VAL_5 = 5
 
-Orchestrates pipeline steps sequentially:
-  collect -> consolidate -> embed -> catalog -> dashboard-cache
+"""CausaGanha Data Pipeline - KISS Version.
 
-GitHub Actions calls this script with minimal YAML. All pipeline
-logic lives here for easier debugging and local development.
-
-Design:
-  - Pure functions for all logic (planning, command building, state)
-  - Frozen dataclasses for immutable state
-  - Tuple concatenation for command building (no mutable lists in core logic)
-  - Impure boundary limited to execute_step / main
+Orchestrates pipeline steps sequentially, processing exactly ONE day per run.
+Gathers date from --date flag or finds the next unconsolidated date.
 
 Usage:
-    # Run all steps (default for scheduled runs)
+    # Process next date in backfill
     python scripts/pipeline/run.py
 
-    # Run specific step
-    python scripts/pipeline/run.py --job collect
-    python scripts/pipeline/run.py --job consolidate --date 2026-01-15
-
-    # Full pipeline with specific collect target
-    python scripts/pipeline/run.py --date 2026-01-15 --tribunal TJSP
+    # Process specific date
+    python scripts/pipeline/run.py --date 2026-01-15
 """
 
-from __future__ import annotations
-
 import argparse
-import contextlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
 
 
 # ── Immutable Data Types ──────────────────────────────────────
@@ -50,7 +31,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PipelineConfig:
-    """Pipeline configuration (immutable)."""
+    """Configuration for a pipeline run."""
 
     job: str
     date: str
@@ -58,20 +39,12 @@ class PipelineConfig:
     proxy_url: str
     scripts_dir: str
     repo_root: str
-    deadline_seconds: float = 4800  # 80m default (leaves buffer under 90m job)
-
-
-@dataclass(frozen=True)
-class StepPlan:
-    """A planned pipeline step with its command."""
-
-    name: str
-    cmd: tuple[str, ...]
+    deadline_seconds: float = 4800
 
 
 @dataclass(frozen=True)
 class StepResult:
-    """Result of executing a single step."""
+    """Result of a single pipeline step."""
 
     name: str
     success: bool
@@ -81,7 +54,7 @@ class StepResult:
 
 @dataclass(frozen=True)
 class PipelineState:
-    """Accumulated pipeline state (immutable)."""
+    """State of the overall pipeline run."""
 
     results: tuple[StepResult, ...] = ()
     files_added: bool = False
@@ -91,498 +64,146 @@ class PipelineState:
 
 # ── Constants ─────────────────────────────────────────────────
 
-DATA_STEPS: tuple[str, ...] = ("collect", "consolidate", "embed")
-
-ALL_STEPS: tuple[str, ...] = (*DATA_STEPS, "catalog", "dashboard")
-
 DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+STATE_FILE = Path("data/backfill-state.json")
 
-# Minimum seconds a step needs to be worth starting
-MIN_STEP_SECONDS = 30
+# ── Date Discovery ───────────────────────────────────────────
 
 
-# ── Pure Functions: Config ────────────────────────────────────
+def get_next_date(repo_root: str) -> str:
+    """Find the next date to process (walking backward from today)."""
+    state_path = Path(repo_root) / STATE_FILE
+    cursor_date = None
 
+    if state_path.exists():
+        state = json.loads(state_path.read_text())
+        cursor_date = state.get("cursor_date")
 
-def make_config(
-    *,
-    job: str,
-    date: str,
-    tribunal: str,
-    proxy_url: str,
-    scripts_dir: str,
-    repo_root: str,
-    deadline_seconds: float = 4800,
-) -> PipelineConfig:
-    """Build a validated PipelineConfig from raw inputs."""
-    return PipelineConfig(
-        job=job,
-        date=date.strip() if date else "",
-        tribunal=tribunal.strip() if tribunal else "",
-        proxy_url=proxy_url,
-        scripts_dir=scripts_dir,
-        repo_root=repo_root,
-        deadline_seconds=deadline_seconds,
-    )
+    if cursor_date:
+        # Move one day back from cursor
+        next_d = date.fromisoformat(cursor_date) - timedelta(days=1)
+    else:
+        # Start from yesterday
+        next_d = datetime.now(UTC).date() - timedelta(days=1)
 
+    # Skip weekends
+    while next_d.weekday() >= MAGIC_VAL_5:
+        next_d -= timedelta(days=1)
 
-# ── Pure Functions: Command Building ──────────────────────────
+    return next_d.isoformat()
 
 
-def build_collect_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Build the collect step command."""
-    base: tuple[str, ...] = (
-        "uv",
-        "run",
-        "python",
-        f"{config.scripts_dir}/collect.py",
-        "--proxy-url",
-        config.proxy_url,
-        "--max-items",
-        "10000",
-        "--workers",
-        "2",
-        "--deadline",
-        f"{deadline_s}s",
-    )
-    date_args: tuple[str, ...] = ("--date", config.date) if config.date else ()
-    tribunal_args: tuple[str, ...] = ("--tribunal", config.tribunal) if config.tribunal else ()
-    return base + date_args + tribunal_args
+def update_cursor(repo_root: str, processed_date: str) -> None:
+    """Update the cursor to the date just processed."""
+    state_path = Path(repo_root) / STATE_FILE
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state = {"cursor_date": processed_date, "updated_at": datetime.now(UTC).isoformat()}
+    state_path.write_text(json.dumps(state, indent=2))
 
 
-def build_consolidate_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Build the consolidate step command."""
-    base: tuple[str, ...] = (
-        "uv",
-        "run",
-        "python",
-        f"{config.scripts_dir}/consolidate.py",
-        "--deadline",
-        f"{deadline_s}s",
-        "--workers",
-        "2",
-    )
-    mode_args: tuple[str, ...] = (
-        ("--date", config.date) if config.date else ("--backfill", "--force")
-    )
-    return base + mode_args
+# ── Execution ────────────────────────────────────────────────
 
 
-def build_embed_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Build the embed step command."""
-    return (
-        "uv",
-        "run",
-        "python",
-        f"{config.scripts_dir}/embed.py",
-        "--deadline",
-        f"{deadline_s}s",
-        "--max-decisions",
-        "500",
-    )
-
-
-def build_catalog_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Build the catalog step command."""
-    _ = deadline_s  # catalog has no deadline flag
-    return (
-        "uv",
-        "run",
-        "python",
-        f"{config.repo_root}/scripts/generate_catalog.py",
-        "--upload",
-    )
-
-
-def build_dashboard_cmd(config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Build the dashboard-cache step command."""
-    _ = deadline_s  # dashboard has no deadline flag
-    return (
-        "uv",
-        "run",
-        "python",
-        f"{config.repo_root}/scripts/generate_dashboard_cache.py",
-    )
-
-
-# Immutable registry: step name -> command builder
-CMD_BUILDERS: Mapping[str, Callable[..., tuple[str, ...]]] = {
-    "collect": build_collect_cmd,
-    "consolidate": build_consolidate_cmd,
-    "embed": build_embed_cmd,
-    "catalog": build_catalog_cmd,
-    "dashboard": build_dashboard_cmd,
-}
-
-
-def build_step_cmd(step_name: str, config: PipelineConfig, *, deadline_s: int) -> tuple[str, ...]:
-    """Look up and invoke the command builder for a step."""
-    return CMD_BUILDERS[step_name](config, deadline_s=deadline_s)
-
-
-def remaining_seconds(state: PipelineState, config: PipelineConfig) -> int:
-    """Seconds left in the pipeline deadline."""
-    elapsed = time.time() - state.start_time
-    return max(0, int(config.deadline_seconds - elapsed))
-
-
-# ── Pure Functions: Planning ──────────────────────────────────
-
-
-def should_run(step: str, config: PipelineConfig, state: PipelineState) -> bool:
-    """Decide whether a pipeline step should run.
-
-    Data steps (collect, consolidate, embed) run when explicitly requested
-    or when job is 'all'.  Catalog and dashboard always run for 'all' and
-    additionally trigger when upstream data changes.
-    """
-    if config.job == step:
-        return True
-    if config.job != "all":
-        if step == "catalog":
-            return state.files_added
-        if step == "dashboard":
-            return state.catalog_updated
-        return False
-    return True
-
-
-# ── Pure Functions: Output Parsing ────────────────────────────
-
-
-def parse_step_outputs(text: str) -> dict[str, str]:
-    """Parse key=value pairs from step output text."""
-    lines: tuple[str, ...] = tuple(line.strip() for line in text.splitlines())
-    pairs: tuple[tuple[str, str, str], ...] = tuple(
-        line.partition("=") for line in lines if "=" in line
-    )
-    return {key: value for key, _, value in pairs}
-
-
-# ── Pure Functions: State Transitions ─────────────────────────
-
-
-def update_state(state: PipelineState, result: StepResult) -> PipelineState:
-    """Pure state transition: append result and update flags."""
-    return PipelineState(
-        results=(*state.results, result),
-        files_added=state.files_added or result.outputs.get("files_added") == "true",
-        catalog_updated=(state.catalog_updated or result.outputs.get("catalog_updated") == "true"),
-        start_time=state.start_time,
-    )
-
-
-# ── Pure Functions: Formatting ────────────────────────────────
-
-
-def format_step_header(name: str, cmd: tuple[str, ...]) -> str:
-    """Format the header printed before a step runs."""
-    sep = "=" * 60
-    return f"\n{sep}\n  STEP: {name}\n{sep}\n  cmd: {' '.join(cmd)}\n"
-
-
-def format_step_footer(name: str, *, success: bool, outputs: Mapping[str, str]) -> str:
-    """Format the footer printed after a step completes."""
-    status = "OK" if success else "FAILED"
-    header = f"\n  [{name}] {status}"
-    output_lines = tuple(f"    {k}={v}" for k, v in outputs.items())
-    return "\n".join((header, *output_lines))
-
-
-def format_pipeline_header(config: PipelineConfig) -> str:
-    """Format the message printed when the pipeline starts."""
-    lines: list[str] = [f"Pipeline starting  job={config.job}"]
-    if config.date:
-        lines.append(f"  date={config.date}")
-    if config.tribunal:
-        lines.append(f"  tribunal={config.tribunal}")
-    return "\n".join(lines)
-
-
-def format_pipeline_summary(state: PipelineState) -> str:
-    """Format the final pipeline summary."""
-    sep = "=" * 60
-    return (
-        f"\n{sep}\n"
-        f"  Pipeline complete\n"
-        f"{sep}\n"
-        f"  files_added:     {state.files_added}\n"
-        f"  catalog_updated: {state.catalog_updated}\n"
-    )
-
-
-def has_failures(state: PipelineState) -> bool:
-    """Check whether any step in the pipeline failed."""
-    return any(not r.success for r in state.results)
-
-
-def format_github_output(state: PipelineState) -> str:
-    """Format key=value pairs for $GITHUB_OUTPUT."""
-    return (
-        f"files_added={'true' if state.files_added else 'false'}\n"
-        f"catalog_updated={'true' if state.catalog_updated else 'false'}\n"
-    )
-
-
-def build_comprehensive_stats(config: PipelineConfig, state: PipelineState) -> dict:
-    """Build structured run stats from pipeline state for dashboard."""
-    now = datetime.now(UTC)
-
-    # Base structure
-    stats = {
-        "run_id": os.environ.get("GITHUB_RUN_ID", "local"),
-        "timestamp": now.isoformat(),
-        "duration_seconds": int(time.time() - state.start_time),
-        "status": "failed" if has_failures(state) else "success",
-        "current_date": now.strftime("%Y-%m-%d"),
-        "steps": {},
-        "backfill": {},
-        "tribunals": {},
-        "internet_archive": {},
-    }
-
-    # Helper to find step result
-    def get_result(name: str) -> StepResult | None:
-        for r in state.results:
-            if r.name == name:
-                return r
-        return None
-
-    collect = get_result("collect")
-    if collect:
-        out = collect.outputs
-        stats["steps"]["collect"] = {
-            "success": int(out.get("collect_success", 0)),
-            "failed": int(out.get("collect_failed", 0)),
-            "skipped": int(out.get("collect_skipped", 0)),
-            "tribunals_total": 96,  # Hardcoded for now, or derive from fetch
-            "zips_downloaded_mb": float(out.get("collect_downloaded_mb", 0)),
-            "duration_seconds": int(collect.duration_seconds),
-        }
-
-    consolidate = get_result("consolidate")
-    if consolidate:
-        out = consolidate.outputs
-        stats["steps"]["consolidate"] = {
-            "zips_processed": int(out.get("consolidate_zips", 0)),
-            "records_total": int(out.get("consolidate_records", 0)),
-            "parquets_generated": int(out.get("consolidate_parquets", 0)),
-            "uploaded_mb": float(out.get("consolidate_uploaded_mb", 0)),
-            "duration_seconds": int(consolidate.duration_seconds),
-        }
-
-    embed = get_result("embed")
-    if embed:
-        out = embed.outputs
-        stats["steps"]["embed"] = {
-            "texts_processed": int(out.get("embed_processed", 0)),
-            "embeddings_saved": int(out.get("embed_saved", 0)),
-            "failed": int(out.get("embed_failed", 0)),
-            "duration_seconds": int(embed.duration_seconds),
-        }
-
-    catalog = get_result("catalog")
-    if catalog:
-        out = catalog.outputs
-        stats["steps"]["catalog"] = {
-            "manifest_updated": out.get("catalog_updated") == "true",
-            "backfill_progress_pct": float(out.get("catalog_progress", 0)),
-            "total_days_archived": int(out.get("catalog_dates", 0)),
-            "total_days_target": 1826,  # 2021-2026
-            "duration_seconds": int(catalog.duration_seconds),
-        }
-
-        # Populate Backfill details if available from catalog output (future improvement: make catalog output this JSON)
-        # For now, we mock/estimate based on what we have or leave empty for the dashboard to handle gracefully
-        # Ideally, generate_catalog.py should write a detailed JSON that we merge here.
-        # Assuming catalog might output a backfill_stats.json in the future.
-
-    return stats
-
-
-def _format_step_metrics(outputs: Mapping[str, str]) -> str:
-    """Format step outputs as a compact metrics string for the summary table."""
-    parts = []
-    for k, v in outputs.items():
-        if k in ("files_added", "catalog_updated"):
-            continue
-        display_key = k.split("_", 1)[-1] if "_" in k else k
-        parts.append(f"{display_key}: **{v}**")
-    return ", ".join(parts) if parts else "---"
-
-
-def format_github_summary(job: str, state: PipelineState) -> str:
-    """Format rich markdown for $GITHUB_STEP_SUMMARY."""
-    lines = [
-        "## Pipeline Summary\n",
-        f"**Job**: `{job}` | **Files added**: {state.files_added} | **Catalog updated**: {state.catalog_updated}\n",
-        "### Step Results\n",
-        "| Step | Status | Metrics |",
-        "|------|--------|---------|",
-    ]
-    for result in state.results:
-        icon = "&#x2705;" if result.success else "&#x274C;"
-        metrics = _format_step_metrics(result.outputs)
-        lines.append(f"| {result.name} | {icon} | {metrics} |")
-    lines.append("")
-    if state.catalog_updated:
-        lines.append("[Catalog](https://archive.org/download/causaganha-catalog/catalog.duckdb)")
-    return "\n".join(lines) + "\n"
-
-
-def write_run_stats(config: PipelineConfig, state: PipelineState) -> None:
-    """Write comprehensive run stats to dashboard/public/run-stats.json."""
-    stats = build_comprehensive_stats(config, state)
-
-    # Write to dashboard public dir
-    dashboard_dir = Path(config.repo_root) / "dashboard" / "public"
-    try:
-        dashboard_dir.mkdir(parents=True, exist_ok=True)
-        stats_path = dashboard_dir / "run-stats.json"
-
-        with stats_path.open("w") as f:
-            json.dump(stats, f, indent=2)
-
-        sys.stdout.write(f"\nStats written to {stats_path}\n")
-    except Exception as e:
-        sys.stderr.write(f"\nFailed to write stats: {e}\n")
-
-
-# ── Impure Boundary: Execution ────────────────────────────────
-
-
-def run_step(plan: StepPlan, cwd: str) -> StepResult:
-    """Run a single pipeline step as a subprocess."""
-    fd, output_file = tempfile.mkstemp(
-        prefix=f"pipeline-{plan.name}-",
-        suffix=".txt",
-    )
+def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
+    """Execute a single pipeline step."""
+    fd, output_file = tempfile.mkstemp(prefix=f"pipeline-{name}-", suffix=".txt")
     os.close(fd)
 
-    step_env = {
-        **os.environ,
-        "GITHUB_OUTPUT": output_file,
-        "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}:{os.environ.get('PYTHONPATH', '')}",
-    }
-
-    sys.stdout.write(format_step_header(plan.name, plan.cmd))
-    sys.stdout.flush()
+    env = {**os.environ, "GITHUB_OUTPUT": output_file, "PYTHONPATH": f"{cwd}:{Path(cwd) / 'src'}"}
 
     start_time = time.time()
-    result = subprocess.run(list(plan.cmd), env=step_env, cwd=cwd)
+    result = subprocess.run(cmd, env=env, cwd=cwd, check=False)
     duration = time.time() - start_time
 
     output_path = Path(output_file)
-    try:
-        outputs = parse_step_outputs(output_path.read_text())
-    except FileNotFoundError:
-        outputs = {}
-    finally:
-        with contextlib.suppress(OSError):
-            output_path.unlink()
+    outputs = {}
+    if output_path.exists():
+        for line in output_path.read_text().splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                outputs[k.strip()] = v.strip()
+        output_path.unlink()
 
     success = result.returncode == 0
+    for k, v in outputs.items():
+        pass
 
-    sys.stdout.write(format_step_footer(plan.name, success=success, outputs=outputs))
-    sys.stdout.write("\n")
-    sys.stdout.flush()
-
-    return StepResult(name=plan.name, success=success, outputs=outputs, duration_seconds=duration)
+    return StepResult(name=name, success=success, outputs=outputs, duration_seconds=duration)
 
 
-def append_to_file(path: str, content: str) -> None:
-    """Append content to a file."""
-    with Path(path).open("a") as f:
-        f.write(content)
+# ── Main ─────────────────────────────────────────────────────
 
 
-def _parse_deadline(s: str) -> float:
-    """Parse '45m' or '2700s' to seconds."""
-    if s.endswith("m"):
-        return float(s[:-1]) * 60
-    if s.endswith("s"):
-        return float(s[:-1])
-    return float(s)
-
-
-# ── Entry Point ───────────────────────────────────────────────
-
-
-def main() -> int:
-    """Parse args, execute pipeline, write outputs (impure entry point)."""
-    parser = argparse.ArgumentParser(
-        description="CausaGanha Data Pipeline orchestrator",
-    )
-    parser.add_argument(
-        "--job",
-        default=os.getenv("INPUT_JOB", "all"),
-        choices=["all", "collect", "consolidate", "embed", "catalog", "dashboard"],
-        help="Which pipeline step to run (default: all)",
-    )
-    parser.add_argument(
-        "--date",
-        default=os.getenv("INPUT_DATE", ""),
-        help="Specific date YYYY-MM-DD (optional, for collect/consolidate)",
-    )
-    parser.add_argument(
-        "--tribunal",
-        default=os.getenv("INPUT_TRIBUNAL", ""),
-        help="Specific tribunal e.g. TJSP (optional, for collect)",
-    )
-    parser.add_argument(
-        "--proxy-url",
-        default=os.getenv("DJEN_PROXY_URL", DEFAULT_PROXY_URL),
-        help="DJEN proxy URL",
-    )
-    parser.add_argument(
-        "--deadline",
-        default="80m",
-        help="Pipeline deadline e.g. 45m, 2700s (default: 45m)",
-    )
+def main() -> None:
+    """Run the pipeline."""
+    parser = argparse.ArgumentParser(description="CausaGanha Pipeline (KISS)")
+    parser.add_argument("--job", default="all", choices=["all", "collect", "consolidate", "embed"])
+    parser.add_argument("--date", default="")
+    parser.add_argument("--proxy-url", default=os.getenv("DJEN_PROXY_URL", DEFAULT_PROXY_URL))
     args = parser.parse_args()
 
-    config = make_config(
-        job=args.job,
-        date=args.date,
-        tribunal=args.tribunal,
-        proxy_url=args.proxy_url,
-        scripts_dir=str(Path(__file__).parent),
-        repo_root=str(Path(__file__).parent.parent.parent),
-        deadline_seconds=_parse_deadline(args.deadline),
-    )
+    repo_root = str(Path(__file__).parent.parent.parent)
+    scripts_dir = str(Path(__file__).parent)
 
-    sys.stdout.write(format_pipeline_header(config) + "\n")
-    sys.stdout.flush()
+    target_date = args.date or get_next_date(repo_root)
 
     state = PipelineState()
 
-    for step in ALL_STEPS:
-        if not should_run(step, config, state):
-            continue
-        budget = remaining_seconds(state, config)
-        if budget < MIN_STEP_SECONDS:
-            sys.stdout.write(f"\n  Skipping {step}: only {budget}s left in deadline\n")
-            sys.stdout.flush()
-            break
-        plan = StepPlan(name=step, cmd=build_step_cmd(step, config, deadline_s=budget))
-        result = run_step(plan, config.repo_root)
-        state = update_state(state, result)
+    # 1. Collect
+    if args.job in ("all", "collect"):
+        cmd = [
+            "uv",
+            "run",
+            "python",
+            f"{scripts_dir}/collect.py",
+            "--date",
+            target_date,
+            "--proxy-url",
+            args.proxy_url,
+        ]
+        res = execute_step("collect", cmd, repo_root)
+        state = PipelineState(
+            results=(*state.results, res), files_added=res.outputs.get("files_added") == "true"
+        )
+        if not res.success:
+            sys.exit(1)
 
-        # Snapshot stats after catalog so dashboard can consume them
-        if step == "catalog":
-            write_run_stats(config, state)
+    # 2. Consolidate
+    if args.job in ("all", "consolidate"):
+        cmd = ["uv", "run", "python", f"{scripts_dir}/consolidate.py", "--date", target_date]
+        res = execute_step("consolidate", cmd, repo_root)
+        state = PipelineState(
+            results=(*state.results, res),
+            files_added=state.files_added or res.outputs.get("files_added") == "true",
+        )
+        if not res.success:
+            sys.exit(1)
 
-    sys.stdout.write(format_pipeline_summary(state))
-    sys.stdout.flush()
+    # 3. Embed
+    if args.job in ("all", "embed"):
+        cmd = ["uv", "run", "python", f"{scripts_dir}/embed.py", "--deadline", "10m"]
+        res = execute_step("embed", cmd, repo_root)
+        state = PipelineState(results=(*state.results, res), files_added=state.files_added)
+        if not res.success:
+            sys.exit(1)
 
-    if gh_output := os.getenv("GITHUB_OUTPUT"):
-        append_to_file(gh_output, format_github_output(state))
+    # 4. Catalog & Dashboard (only if files added or job is 'all')
+    if args.job == "all" or state.files_added:
+        execute_step(
+            "catalog",
+            ["uv", "run", "python", f"{repo_root}/scripts/generate_catalog.py", "--upload"],
+            repo_root,
+        )
+        execute_step(
+            "dashboard",
+            ["uv", "run", "python", f"{repo_root}/scripts/generate_dashboard_cache.py"],
+            repo_root,
+        )
 
-    if gh_summary := os.getenv("GITHUB_STEP_SUMMARY"):
-        append_to_file(gh_summary, format_github_summary(config.job, state))
-
-    return 1 if has_failures(state) else 0
+    # Update cursor if it was a backfill run
+    if not args.date and args.job == "all":
+        update_cursor(repo_root, target_date)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
