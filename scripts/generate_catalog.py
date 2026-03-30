@@ -164,19 +164,18 @@ async def fetch_item_files(
 
     for attempt in range(3):
         try:
-            async with sem:
-                async with session.get(url, timeout=30) as response:
-                    if response.status == HTTP_200_OK:
-                        data = await response.json()
-                        files = []
-                        for f in data.get("files", []):
-                            filename = f.get("name", "")
-                            if filename and filename.endswith((".zip", ".parquet", ".absent")):
-                                files.append({"name": filename, "item": item_id})
-                        return item_id, files
-                    if response.status == 404:
-                        logger.debug("no_files_for_item", item_id=item_id)
-                        return item_id, []
+            async with sem, session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == HTTP_200_OK:
+                    data = await response.json()
+                    files = []
+                    for f in data.get("files", []):
+                        filename = f.get("name", "")
+                        if filename and filename.endswith((".zip", ".parquet", ".absent")):
+                            files.append({"name": filename, "item": item_id})
+                    return item_id, files
+                if response.status == 404:
+                    logger.debug("no_files_for_item", item_id=item_id)
+                    return item_id, []
         except TimeoutError:
             if attempt == 2:
                 logger.warning("item_fetch_timeout", item=item_id)
