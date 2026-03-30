@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import structlog
 
-from causaganha.config import settings
+from causaganha.config import DJEN_PROXY_URL, settings
 from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
@@ -31,14 +31,11 @@ HTTP_200_OK = 200
 
 logger = structlog.get_logger()
 
-# Use the same proxy as the archive-zips workflow
-DEFAULT_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
-
 
 async def collect_metadata_for_court(
     tribunal: str,
     days_back: int = 1,
-    proxy_url: str = DEFAULT_PROXY_URL,
+    proxy_url: str = DJEN_PROXY_URL,
 ) -> dict[str, Any]:
     """Collect metadata from DJEN Proxy for a specific court.
 
