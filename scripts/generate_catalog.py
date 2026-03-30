@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import contextlib
 import json
 import os
@@ -33,10 +34,10 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import aiohttp
 import duckdb
 import structlog
 
@@ -151,35 +152,58 @@ def list_ia_items() -> list[str]:
     return valid_items
 
 
-def list_item_files(item_id: str) -> list[dict]:
-    """List all files in an IA item with metadata.
+async def fetch_item_files(
+    session: aiohttp.ClientSession, item_id: str, sem: asyncio.Semaphore
+) -> tuple[str, list[dict]]:
+    """Fetch item files from IA metadata API concurrently."""
+    url = f"https://archive.org/metadata/{item_id}"
 
-    Returns empty list on error - allows processing to continue with other items.
-    """
     if not item_id or not item_id.startswith("djen-"):
         logger.warning("invalid_item_id", item_id=item_id)
-        return []
+        return item_id, []
 
+    for attempt in range(3):
+        try:
+            async with sem, session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == HTTP_200_OK:
+                    data = await response.json()
+                    files = []
+                    for f in data.get("files", []):
+                        filename = f.get("name", "")
+                        if filename and filename.endswith((".zip", ".parquet", ".absent")):
+                            files.append({"name": filename, "item": item_id})
+                    return item_id, files
+                if response.status == 404:
+                    logger.debug("no_files_for_item", item_id=item_id)
+                    return item_id, []
+        except TimeoutError:
+            if attempt == 2:
+                logger.warning("item_fetch_timeout", item=item_id)
+        except Exception as e:
+            if attempt == 2:
+                logger.warning("item_fetch_error", item=item_id, error=str(e))
+
+        if attempt < 2:
+            await asyncio.sleep(2**attempt)  # exponential backoff
+
+    return item_id, []
+
+
+def list_item_files(item_id: str) -> list[dict]:
+    """Fallback synchronous list implementation if needed."""
+    # We shouldn't need this anymore as we use fetch_item_files, but keep for fallback
     output = run_ia_command(["list", item_id])
-
     if not output:
-        logger.debug("no_files_for_item", item_id=item_id)
         return []
-
     files = []
     for line in output.splitlines():
-        if not line.strip():
-            continue
         try:
-            # ia list output format varies, parse filename safely
             parts = line.strip().split()
             filename = parts[-1] if parts else ""
             if filename and filename.endswith((".zip", ".parquet", ".absent")):
                 files.append({"name": filename, "item": item_id})
         except Exception:
-            # Skip malformed lines
             continue
-
     return files
 
 
@@ -692,28 +716,30 @@ def generate_manifest(
     logger.info("items_to_list", count=len(items_to_list), total=len(items))
     completed_count = 0
 
-    # Parallelize file listing to speed up catalog generation
-    # Uses 16 workers to fetch file lists concurrently
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        future_to_item = {
-            executor.submit(list_item_files, item_id): item_id for item_id in items_to_list
-        }
+    async def fetch_all(items_to_fetch: list[str]) -> list[tuple[str, list[dict]]]:
+        sem = asyncio.Semaphore(10)
+        async with aiohttp.ClientSession() as session:
+            tasks = [fetch_item_files(session, item_id, sem) for item_id in items_to_fetch]
+            return await asyncio.gather(*tasks, return_exceptions=True)
 
-        for future in as_completed(future_to_item):
-            item_id = future_to_item[future]
-            try:
-                files = future.result()
-                for f in files:
-                    parsed = parse_filename(f["name"], item_id)
-                    if parsed:
-                        parsed["created_at"] = datetime.now(tz=UTC).isoformat()
-                        manifest.append(parsed)
-            except Exception as e:
-                logger.exception("manifest_item_failed", item=item_id, error=str(e))
+    results = asyncio.run(fetch_all(items_to_list))
 
+    for result in results:
+        if isinstance(result, Exception):
+            logger.exception("manifest_item_task_failed", error=str(result))
             completed_count += 1
-            if completed_count % 50 == 0:
-                logger.info("progress", current=completed_count, total=len(items_to_list))
+            continue
+
+        item_id, files = result
+        for f in files:
+            parsed = parse_filename(f["name"], item_id)
+            if parsed:
+                parsed["created_at"] = datetime.now(tz=UTC).isoformat()
+                manifest.append(parsed)
+
+        completed_count += 1
+        if completed_count % 50 == 0:
+            logger.info("progress", current=completed_count, total=len(items_to_list))
 
     logger.info("manifest_complete", files=len(manifest))
     return manifest
