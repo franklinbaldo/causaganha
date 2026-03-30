@@ -117,12 +117,39 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const [selectedTribunal, setSelectedTribunal] = useState("STF");
 
   // Prefer fresh client-side data, fall back to build-time props
-  const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
+  const rawCoverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
   const etas = allData?.tribunalEtas ?? initialEtas ?? {};
   const targetRange = allData?.targetRange ?? initialTargetRange ?? { start: "2024-01-01", end: "2026-02-03" };
   const startDates = allData?.tribunalStartDates ?? initialStartDates;
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
+
+  const manifest = allData?.manifest;
+
+  // Build coverage primarily from manifest, fallback to rawCoverage
+  const coverage = {};
+  for (const t of TRIBUNALS) {
+    if (manifest && manifest[t] && Object.keys(manifest[t]).length > 0) {
+      coverage[t] = Object.keys(manifest[t]);
+    } else {
+      coverage[t] = rawCoverage[t] || [];
+    }
+  }
+
+  // Calculate global freshness from manifest
+  let latestDownloadedAt = null;
+  if (manifest) {
+    for (const t of Object.keys(manifest)) {
+      for (const date of Object.keys(manifest[t])) {
+        const item = manifest[t][date];
+        if (item && item.downloaded_at) {
+          if (!latestDownloadedAt || item.downloaded_at > latestDownloadedAt) {
+            latestDownloadedAt = item.downloaded_at;
+          }
+        }
+      }
+    }
+  }
 
   const handleSelectTribunal = (t) => {
     setSelectedTribunal(t);
@@ -309,13 +336,20 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
         </div>
 
         {/* Main: Heatmap area */}
-        <div className="flex-1 overflow-x-auto custom-scrollbar pb-4">
+        <div className="flex-1 overflow-x-auto custom-scrollbar pb-4 relative">
+          {latestDownloadedAt && (
+            <div className="absolute top-0 right-0 z-10 text-[10px] text-gray-400 font-mono flex items-center gap-1.5 opacity-80" title="Based on manifest.jsonl">
+              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+              Freshness: {new Date(latestDownloadedAt).toLocaleString('pt-BR', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'})}
+            </div>
+          )}
           <Heatmap
             globalStartDateStr={targetRange.start}
             globalEndDateStr={targetRange.end}
             tribunalStartDateStr={tribunalStartDate}
             coverageSet={selectedCoverage}
             tribunalName={selectedTribunal}
+            manifestData={manifest?.[selectedTribunal]}
             velocityMetrics={{ 
               ...velocityMetrics, 
               absentSet: absentSet 
@@ -586,7 +620,7 @@ function VelocityTimeline({ metrics }) {
   );
 }
 
-function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
+function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, manifestData, velocityMetrics }) {
   const [hoveredCell, setHoveredCell] = useState(null);
   const [focusedCell, setFocusedCell] = useState(null);
 
@@ -675,6 +709,8 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
       setHoveredCell(null);
       return;
     }
+    const mItem = manifestData?.[dateStr];
+
     if (type === 'touch') {
       if (e && e.cancelable) e.preventDefault();
       const pos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -682,7 +718,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
         setHoveredCell(null);
       } else {
         setHoveredCell({
-          data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null },
+          data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: mItem?.downloaded_at || null, zipUrl: mItem?.zip_url || null, sizeMb: null },
           position: pos
         });
       }
@@ -694,7 +730,7 @@ function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, c
       return;
     }
     setHoveredCell({
-      data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null },
+      data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: mItem?.downloaded_at || null, zipUrl: mItem?.zip_url || null, sizeMb: null },
       position: pos
     });
   };
