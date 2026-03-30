@@ -7,6 +7,7 @@ MAGIC_VAL_0_80 = 0.80
 
 import json
 from collections import Counter
+from pathlib import Path
 
 import duckdb
 import lancedb

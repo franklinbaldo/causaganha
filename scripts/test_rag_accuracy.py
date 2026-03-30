@@ -3,6 +3,7 @@
 
 import os
 from collections import Counter
+from pathlib import Path
 
 import duckdb
 import lancedb

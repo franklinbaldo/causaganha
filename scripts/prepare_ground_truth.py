@@ -4,6 +4,8 @@ from collections import Counter
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 
+import sys
+
 import duckdb
 from rich.console import Console
 from rich.prompt import Confirm

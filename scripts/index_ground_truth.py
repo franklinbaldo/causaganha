@@ -7,6 +7,7 @@ from rich.table import Table
 """Indexar ground truth no LanceDB com chunks prefixados."""
 
 import os
+from pathlib import Path
 
 import duckdb
 import lancedb

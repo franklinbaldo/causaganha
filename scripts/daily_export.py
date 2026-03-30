@@ -15,7 +15,6 @@ Exit codes:
 import asyncio
 import sys
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import structlog
 
