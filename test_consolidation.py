@@ -4,14 +4,12 @@ MAGIC_VAL_1_5 = 1.5
 
 """Test parallel Parquet export with local ZIPs."""
 
+import json
 import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-
-
-sys.path.insert(0, "/c/Users/frank/workspace/causaganha")
 
 import ibis
 import structlog
@@ -19,25 +17,17 @@ import structlog
 from scripts.pipeline.consolidate import (
     TABLE_SCHEMAS,
     TABLES,
+    _load_and_transform,
     extract_json_from_zip,
     init_tables,
-    parse_records,
 )
 
 
 logger = structlog.get_logger()
 
 
-def test_parallel_export() -> int:
-    """Test parallel Parquet export with local test ZIPs."""
-    test_zip_dir = Path("/c/Users/frank/workspace/causaganha/test_zips")
-
-    # Set up test database
-    con = ibis.duckdb.connect()
-    init_tables(con)
-
-    # Load data from test ZIPs
-
+def _write_ndjson_from_zips(test_zip_dir: Path, ndjson_dir: Path) -> int:
+    """Extract JSON from ZIPs and write NDJSON files for _load_and_transform."""
     total_records = 0
     for zip_file in sorted(test_zip_dir.glob("*.zip")):
         tribunal = zip_file.name.split("-")[-1].replace(".zip", "")
@@ -48,12 +38,37 @@ def test_parallel_export() -> int:
 
         total_records += len(records)
 
-        # Parse and insert
-        tables = parse_records(records, tribunal, "test-item")
-        for table_name, rows in tables.items():
-            if rows:
-                data = ibis.memtable(rows, schema=TABLE_SCHEMAS[table_name])
-                con.insert(table_name, data)
+        ndjson_path = ndjson_dir / f"{tribunal}__{zip_file.stem}.ndjson"
+        with ndjson_path.open("w") as f:
+            for rec in records:
+                if isinstance(rec, dict):
+                    f.write(json.dumps(rec, default=str) + "\n")
+
+    return total_records
+
+
+def test_parallel_export() -> int:
+    """Test parallel Parquet export with local test ZIPs."""
+    test_zip_dir = Path("test_zips")
+
+    if not test_zip_dir.exists():
+        logger.warning("test_zip_dir_not_found", path=str(test_zip_dir))
+        return 0
+
+    # Set up test database
+    con = ibis.duckdb.connect()
+    init_tables(con)
+
+    # Extract ZIPs to NDJSON and load via _load_and_transform
+    with tempfile.TemporaryDirectory() as ndjson_tmpdir:
+        ndjson_dir = Path(ndjson_tmpdir)
+        total_records = _write_ndjson_from_zips(test_zip_dir, ndjson_dir)
+
+        if total_records == 0:
+            logger.warning("no_records_extracted")
+            return 0
+
+        _load_and_transform(con, ndjson_dir, item_id="test-item")
 
     # Now test the parallel export
 
