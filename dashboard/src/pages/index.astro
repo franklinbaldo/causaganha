@@ -8,6 +8,7 @@ import { CommandPalette } from '../components/CommandPalette';
 import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
 import { IncidentBanner } from '../components/IncidentBanner';
 import { DataSourceIndicator } from '../components/DataSourceIndicator';
+import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -140,6 +141,7 @@ if (dashboardData?.generated_at) {
         </div>
       </div>
       <div class="flex items-center gap-3">
+        <WorkflowStatusBadge client:load />
         <a href={import.meta.env.BASE_URL + 'stats'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors mr-2">
           Estatísticas
         </a>
