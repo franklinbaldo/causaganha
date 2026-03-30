@@ -2,6 +2,7 @@ __pycache__/
 **/__pycache__/
 *.pyc
 .env
+uv.lock
 
 # Data files
 data/*
