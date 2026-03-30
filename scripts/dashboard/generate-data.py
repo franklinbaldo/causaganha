@@ -1,9 +1,12 @@
+import logging
 from datetime import UTC, date, datetime
 
 from causaganha.config import TRIBUNAIS
 
 
 #!/usr/bin/env python3
+
+logger = logging.getLogger(__name__)
 
 HTTP_200_OK = 200
 MAGIC_VAL_60 = 60
@@ -137,7 +140,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     try:
         backend = get_connection(str(db_path), read_only=True)
         con = backend.con
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to get database connection: %s", e)
         con = None
 
     # Get stats from DB only if connected
@@ -162,8 +166,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 newest_date = str(result[1]) if result[1] else None
                 unique_days = result[2] or 0
                 total_items = result[3] or 0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to fetch coverage statistics from database: %s", e)
 
     target_days = 764  # 2024-01-01 to 2026-02-03
     progress_pct = round((unique_days / target_days * 100), 2) if unique_days > 0 else 0
@@ -224,8 +228,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 GROUP BY tribunal
                 ORDER BY tribunal
             """).fetchall()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to fetch coverage data from database: %s", e)
 
     tribunal_coverage = {}
     for t, d in coverage_rows:
@@ -248,8 +252,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     "stopped": info.get("stopped", False),
                     "empty_streak": info.get("empty_streak", 0),
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to read backfill state from %s: %s", backfill_state_path, e)
 
     # Read backfill state from state.json (authoritative for both uploaded and absent)
     state_json_path = Path("data/state.json")
@@ -269,8 +273,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             tribunal_coverage[tcode] = []
                         if date_key not in tribunal_coverage[tcode]:
                             tribunal_coverage[tcode].append(date_key)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to read tribunal state from %s: %s", state_json_path, e)
 
     # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
     all_dates = set()
@@ -424,8 +428,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to read performance metrics from %s: %s", run_stats_path, e)
 
     metrics_path.write_text(json.dumps(perf_metrics, ensure_ascii=False, indent=2))
 
