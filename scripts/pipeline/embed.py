@@ -19,9 +19,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
-import google.generativeai as genai
 import httpx
 import structlog
+from google import genai
 
 from causaganha.storage.connection import get_connection
 
@@ -56,15 +56,15 @@ def _jina_embed(api_key: str) -> Callable[[list[str]], list[list[float]]]:
 
 def _google_embed(api_key: str) -> Callable[[list[str]], list[list[float]]]:
 
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     def embed(texts: list[str]) -> list[list[float]]:
-        result = genai.embed_content(
+        result = client.models.embed_content(
             model="models/embedding-001",
-            content=texts,
-            task_type="retrieval_document",
+            contents=texts,
+            config={"task_type": "RETRIEVAL_DOCUMENT"},
         )
-        return result["embedding"]
+        return [e.values for e in result.embeddings]
 
     return embed
 
