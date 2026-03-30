@@ -63,7 +63,7 @@ export function CellTooltip({ cellData, position }) {
     <div
       ref={tooltipRef}
       role="tooltip"
-      className="fixed z-50 pointer-events-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-3 min-w-[200px] text-sm"
+      className="fixed z-50 pointer-events-auto bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-3 min-w-[200px] text-sm"
       style={style}
     >
       <div className="font-mono font-medium text-black dark:text-white mb-1">
@@ -83,6 +83,21 @@ export function CellTooltip({ cellData, position }) {
         <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
           <span className="opacity-70">Size:</span>{' '}
           <span className="font-mono">{cellData.sizeMb.toFixed(2)} MB</span>
+        </div>
+      )}
+      {cellData.zipUrl && (
+        <div className="mt-1 text-[10px] text-gray-500 truncate max-w-[180px]">
+          <a
+            href={cellData.zipUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:underline pointer-events-auto flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download ZIP
+          </a>
         </div>
       )}
     </div>
