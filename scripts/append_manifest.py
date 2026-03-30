@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 import structlog
 
+
 logger = structlog.get_logger()
 
 IA_CATALOG_ITEM = "causaganha-catalog"
@@ -33,7 +34,7 @@ def download_existing_manifest() -> list[dict]:
     except urllib.error.URLError as e:
         logger.info("no_existing_manifest_or_error", url=MANIFEST_JSONL_URL, error=str(e))
     except Exception as e:
-        logger.error("error_downloading_manifest", error=str(e))
+        logger.exception("error_downloading_manifest", error=str(e))
     return []
 
 
@@ -46,7 +47,7 @@ def get_new_uploads() -> list[dict]:
     try:
         data = json.loads(IA_STATE_PATH.read_text(encoding="utf-8"))
     except Exception as e:
-        logger.error("error_reading_ia_state", error=str(e))
+        logger.exception("error_reading_ia_state", error=str(e))
         return []
 
     entries = data.get("entries", {})
@@ -107,11 +108,10 @@ def upload_to_ia(file_path: Path) -> bool:
         if response.status_code in (200, 201):
             logger.info("upload_success", item=IA_CATALOG_ITEM, file=file_path.name)
             return True
-        else:
-            logger.error("upload_failed", status=response.status_code, text=response.text[:200])
-            return False
+        logger.error("upload_failed", status=response.status_code, text=response.text[:200])
+        return False
     except Exception as e:
-        logger.error("upload_exception", error=str(e))
+        logger.exception("upload_exception", error=str(e))
         return False
 
 
