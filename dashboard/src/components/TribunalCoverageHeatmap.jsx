@@ -5,6 +5,18 @@ export function TribunalCoverageHeatmap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Initialize period from URL query param if available, defaulting to '90d'
+  const [period, setPeriod] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlPeriod = params.get('period');
+      if (['30d', '90d', '1a'].includes(urlPeriod)) {
+        return urlPeriod;
+      }
+    }
+    return '90d';
+  });
+
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
@@ -35,10 +47,40 @@ export function TribunalCoverageHeatmap() {
     };
   }, []);
 
+  const handlePeriodChange = (newPeriod) => {
+    setPeriod(newPeriod);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location);
+      url.searchParams.set('period', newPeriod);
+      window.history.replaceState({}, '', url);
+    }
+  };
+
+  const renderHeader = (title) => (
+    <div className="flex justify-between items-center mb-4">
+      <h3 className="text-lg font-semibold text-black dark:text-white">{title}</h3>
+      <div className="flex space-x-2 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+        {['30d', '90d', '1a'].map(p => (
+          <button
+            key={p}
+            onClick={() => handlePeriodChange(p)}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              period === p
+                ? 'bg-white dark:bg-slate-600 shadow text-black dark:text-white font-medium'
+                : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="card p-6">
-        <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Recent Catalog Coverage (14 days)</h3>
+        {renderHeader(`Recent Catalog Coverage (${period})`)}
         <div className="text-center text-gray-500 py-8">Loading coverage data...</div>
       </div>
     );
@@ -47,15 +89,22 @@ export function TribunalCoverageHeatmap() {
   if (error) {
     return (
       <div className="card p-6">
-        <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Recent Catalog Coverage (14 days)</h3>
+        {renderHeader(`Recent Catalog Coverage (${period})`)}
         <div className="text-center text-danger py-8">Error: {error}</div>
       </div>
     );
   }
 
-  // Get last 14 days sorted descending by date
+  const daysMap = {
+    '30d': 30,
+    '90d': 90,
+    '1a': 365
+  };
+  const days = daysMap[period] || 90;
+
+  // Get last N days sorted descending by date
   const sortedDates = Object.keys(data).sort((a, b) => b.localeCompare(a));
-  const recent14 = sortedDates.slice(0, 14);
+  const recent = sortedDates.slice(0, days);
 
   const getCoverageColor = (pct) => {
     if (pct >= 80) return 'text-success bg-success'; // >80% Green
@@ -65,7 +114,7 @@ export function TribunalCoverageHeatmap() {
 
   return (
     <div className="card p-6">
-      <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Recent Catalog Coverage (14 days)</h3>
+      {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[600px]">
           <thead>
@@ -78,7 +127,7 @@ export function TribunalCoverageHeatmap() {
             </tr>
           </thead>
           <tbody className="text-sm">
-            {recent14.map(dateKey => {
+            {recent.map(dateKey => {
               const item = data[dateKey];
               const tribunalCount = item.tribunal_count || 0;
               const absentCount = item.absent_count || 0;
@@ -112,7 +161,7 @@ export function TribunalCoverageHeatmap() {
                 </tr>
               );
             })}
-            {recent14.length === 0 && (
+            {recent.length === 0 && (
               <tr>
                 <td colSpan="5" className="py-8 text-center text-gray-500">No data available in catalog.</td>
               </tr>
