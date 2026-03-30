@@ -7,12 +7,6 @@ MAGIC_VAL_70 = 70
 
 """Testa com 4 frases-chave: WIN, LOSS, UNKNOWN, PARTIAL."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 
 import duckdb

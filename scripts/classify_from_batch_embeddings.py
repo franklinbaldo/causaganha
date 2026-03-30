@@ -5,12 +5,6 @@ MAGIC_VAL_0_80 = 0.80
 
 """Classify decisions using pre-computed batch embeddings + k-NN (zero additional cost)."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import json
 from collections import Counter
 

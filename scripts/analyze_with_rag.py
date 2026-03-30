@@ -4,14 +4,9 @@ import json
 #!/usr/bin/env python3
 """Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794)."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 from collections import Counter
+from pathlib import Path
 
 import duckdb
 import lancedb

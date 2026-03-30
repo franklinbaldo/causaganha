@@ -7,12 +7,6 @@ MAGIC_VAL_70 = 70
 
 """Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 
 import duckdb

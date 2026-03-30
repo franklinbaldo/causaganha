@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Testar acurácia do RAG com k-NN usando ground truth."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 from collections import Counter
 

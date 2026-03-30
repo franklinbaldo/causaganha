@@ -6,12 +6,6 @@ from rich.table import Table
 #!/usr/bin/env python3
 """Indexar ground truth no LanceDB com chunks prefixados."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import os
 
 import duckdb

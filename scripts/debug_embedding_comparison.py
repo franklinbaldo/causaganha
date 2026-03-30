@@ -4,12 +4,6 @@ MAGIC_VAL_0_01 = 0.01
 
 """Debug detalhado do processo de comparação de embeddings."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import duckdb
 import numpy as np
 from rich.console import Console

@@ -4,12 +4,6 @@ from collections import Counter
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 
-import sys
-from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import duckdb
 from rich.console import Console
 from rich.prompt import Confirm
