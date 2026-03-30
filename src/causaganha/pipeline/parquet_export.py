@@ -32,7 +32,6 @@ class ExportConfig:
     output_dir: Path = Path("./exports")
     compression: str = "snappy"  # Fast compression, good ratio
     row_group_size: int = 10_000  # Rows per row group
-    schema_version: str = "v1"
 
     def __post_init__(self):
         """Ensure output directory exists."""

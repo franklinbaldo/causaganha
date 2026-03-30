@@ -147,19 +147,6 @@ embeddings: Schema = ibis.schema(
 )
 
 
-# ── Lookup table ─────────────────────────────────────────────────────────
-
-SCHEMAS: dict[str, Schema] = {
-    "comunicacao": comunicacao,
-    "destinatario": destinatario,
-    "destinatario_advogado": destinatario_advogado,
-    "advogado": advogado,
-    "tribunal": tribunal,
-    "caderno": caderno,
-    "textos": textos,
-    "embeddings": embeddings,
-}
-
 
 # ── Field-name variants ─────────────────────────────────────────────────
 #

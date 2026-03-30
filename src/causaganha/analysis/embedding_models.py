@@ -137,41 +137,6 @@ GOOGLE_MODELS = {
 ALL_MODELS = {**JINA_MODELS, **GOOGLE_MODELS}
 
 
-def get_model(provider: ProviderType, name: str, dimension: int) -> EmbeddingModel:
-    """Get an embedding model by provider, name, and dimension.
-
-    Args:
-        provider: Provider name ('jina' or 'google')
-        name: Model name
-        dimension: Embedding dimension
-
-    Returns:
-        EmbeddingModel instance
-
-    Raises:
-        ValueError: If model is not found
-    """
-    key = (name, dimension)
-
-    if provider == "jina":
-        model = JINA_MODELS.get(key)
-    elif provider == "google":
-        model = GOOGLE_MODELS.get(key)
-    else:
-        msg = f"Unknown provider: {provider}"
-        raise ValueError(msg)
-
-    if model is None:
-        msg = (
-            f"Model not found: {provider}/{name} with {dimension}D. "
-            f"Available models: {list(JINA_MODELS.keys() if provider == 'jina' else GOOGLE_MODELS.keys())}"
-        )
-        raise ValueError(
-            msg,
-        )
-
-    return model
-
 
 def get_default_model(provider: ProviderType) -> EmbeddingModel:
     """Get the default model for a provider.
