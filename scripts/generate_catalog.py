@@ -185,7 +185,7 @@ async def fetch_item_files(
                 logger.warning("item_fetch_error", item=item_id, error=str(e))
 
         if attempt < 2:
-            await asyncio.sleep(2 ** attempt)  # exponential backoff
+            await asyncio.sleep(2**attempt)  # exponential backoff
 
     return item_id, []
 
