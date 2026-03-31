@@ -996,7 +996,7 @@ def main() -> None:
             try:
                 urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
             except Exception:
-                logger.warning("backfill_parquet_unavailable", url=BACKFILL_URL)
+                print(f"Warning: backfill-needed.parquet unavailable: {BACKFILL_URL}")
                 tmp_bf = None
         backfill_path = str(tmp_bf) if tmp_bf is not None else None
     load_backfill_needed(con, backfill_path)
