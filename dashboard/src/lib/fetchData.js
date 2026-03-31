@@ -246,6 +246,10 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     return { ...base, tribunals };
   })();
 
+  const volume = effectiveBackfill?.volume || null;
+  const consolidateProgress = effectiveBackfill?.consolidate_progress || null;
+  const tribunalStats = effectiveBackfill?.tribunal_stats || null;
+
   return {
     stats,
     dashboardData,
@@ -263,5 +267,8 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     tribunalCoverage,
     tribunalEtas,
     targetRange,
+    volume,
+    consolidateProgress,
+    tribunalStats,
   };
 }

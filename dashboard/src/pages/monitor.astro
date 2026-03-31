@@ -183,6 +183,10 @@ if (generatedAtRaw) {
         initialTargetRange={data?.targetRange}
         initialStartDates={data?.tribunalStartDates}
         initialQualityScores={data?.tribunalQualityScores}
+        initialPipeline={data?.cacheData?.today?.pipeline}
+        initialProgressByYear={data?.progressByYear}
+        initialVolume={data?.volume}
+        initialTribunalStats={data?.tribunalStats}
       />
 
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />

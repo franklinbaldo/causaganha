@@ -111,7 +111,7 @@ const TRIBUNALS = [
   "TRE-AC", "TRE-AL", "TRE-AM", "TRE-AP", "TRE-BA", "TRE-CE", "TRE-DF", "TRE-ES", "TRE-GO", "TRE-MA", "TRE-MG", "TRE-MS", "TRE-MT", "TRE-PA", "TRE-PB", "TRE-PE", "TRE-PI", "TRE-PR", "TRE-RJ", "TRE-RN", "TRE-RO", "TRE-RR", "TRE-RS", "TRE-SC", "TRE-SE", "TRE-SP", "TRE-TO"
 ];
 
-export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
+export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialTribunalStats }) {
   const { data: allData } = useDataRefresh(null, null);
   const [viewMode, setViewMode] = useState("overview"); // "overview" | "detail"
   const [selectedTribunal, setSelectedTribunal] = useState("STF");
@@ -123,6 +123,9 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const targetRange = allData?.targetRange ?? initialTargetRange ?? { start: "2024-01-01", end: "2026-02-03" };
   const startDates = allData?.tribunalStartDates ?? initialStartDates;
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
+  const pipeline = allData?.cacheData?.today?.pipeline ?? initialPipeline;
+  const progressByYear = allData?.progressByYear ?? initialProgressByYear;
+  const volume = allData?.volume ?? initialVolume;
 
   const handleSelectTribunal = (t) => {
     setSelectedTribunal(t);
@@ -132,7 +135,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
 
   if (viewMode === "overview") {
     return (
-      <OverviewGrid 
+      <OverviewGrid
         tribunals={TRIBUNALS}
         coverage={coverage}
         absentCoverage={absentCoverage}
@@ -140,6 +143,9 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
         startDates={startDates}
         qualityScores={qualityScores}
         onSelect={handleSelectTribunal}
+        pipeline={pipeline}
+        progressByYear={progressByYear}
+        volume={volume}
       />
     );
   }
@@ -327,109 +333,118 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   );
 }
 
-function OverviewGrid({ tribunals, coverage, etas, startDates, absentCoverage, qualityScores, onSelect }) {
-  // Calculate Global Aggregates
-  let globalTotalDays = 0;
-  let globalCollectedDays = 0;
-  let globalAbsentDays = 0;
+function OverviewGrid({ tribunals, coverage, etas, startDates, absentCoverage, qualityScores, onSelect, pipeline, progressByYear, volume }) {
+  // Use pipeline data from backfill.json (source of truth) instead of manual calculation
+  const backfillDone = pipeline?.backfill_done || 0;
+  const backfillTotal = pipeline?.backfill_total || 1;
+  const totalZips = pipeline?.total_zips || 0;
+  const daysConsolidated = pipeline?.days_consolidated || 0;
+  const progressPct = pipeline?.progress_pct || 0;
 
-  tribunals.forEach(t => {
-    const startDate = startDates?.[t];
-    
-    if (startDate) {
-      const start = new Date(startDate + "T00:00:00Z");
-      const end = new Date("2026-02-03T00:00:00Z"); // Target end date
-      if (start <= end) {
-        const expected = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        globalTotalDays += expected;
-
-        const collected = coverage[t]?.length || 0;
-        const absent = absentCoverage?.[t]?.length || 0;
-        
-        globalCollectedDays += Math.min(expected, collected); 
-        globalAbsentDays += Math.min(expected - Math.min(expected, collected), absent);
-      }
-    }
-  });
-
-  const globalCollectedPct = globalTotalDays > 0 ? (globalCollectedDays / globalTotalDays) * 100 : 0;
-  const globalAbsentPct = globalTotalDays > 0 ? (globalAbsentDays / globalTotalDays) * 100 : 0;
-  const globalTotalPct = globalCollectedPct + globalAbsentPct;
+  const activeTribunals = Object.values(etas).filter(e => e.velocity_14d > 0).length;
+  const totalTracked = Object.keys(etas).length;
+  const totalGB = volume?.total_gb || 0;
 
   return (
     <div className="flex flex-col gap-6 pb-8">
       {/* Global Progress Banner */}
       <div className="card p-6 bg-slate-900 border-slate-800 text-white relative overflow-hidden">
-        {/* Subtle background gradient animation */}
         <div className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent opacity-50 animate-pulse-slow"></div>
-        
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold tracking-tight">Global Archiving Progress</h2>
+            <h2 className="text-xl font-bold tracking-tight">Progresso do Arquivo</h2>
             <p className="text-gray-400 text-sm font-medium uppercase tracking-widest font-mono">
-              {globalCollectedDays.toLocaleString()} of {globalTotalDays.toLocaleString()} ZIPs Synchronized
+              {backfillDone.toLocaleString()} / {backfillTotal.toLocaleString()} itens coletados
             </p>
           </div>
-          
+
           <div className="text-right flex flex-col items-end">
-            <span className="text-4xl font-black text-accent font-mono leading-none">{globalTotalPct.toFixed(1)}%</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold mt-1">Total Fleet Scanned</span>
+            <span className="text-4xl font-black text-accent font-mono leading-none">{progressPct.toFixed(1)}%</span>
+            <span className="text-[10px] text-gray-500 uppercase font-bold mt-1">Progresso Global</span>
           </div>
         </div>
 
         <div className="relative mt-6">
-          <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden p-1 shadow-inner flex gap-0.5">
+          <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden p-1 shadow-inner">
             <div
-              className="h-full bg-gradient-to-r from-accent to-accent-light rounded-l-sm transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-              style={{ width: `${globalCollectedPct}%` }}
-              title={`Sincronizado: ${globalCollectedDays} ZIPs`}
+              className="h-full bg-gradient-to-r from-accent to-accent-light rounded-sm transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+              style={{ width: `${Math.min(100, progressPct)}%` }}
+              title={`${backfillDone.toLocaleString()} itens coletados`}
             />
-            <div
-              className="h-full bg-gradient-to-r from-warning to-warning-hover rounded-r-sm transition-all duration-1000 ease-out opacity-80"
-              style={{ width: `${globalAbsentPct}%` }}
-              title={`Vazio Confirmado: ${globalAbsentDays} dias`}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-accent"></div>
-              <span className="text-accent">{globalCollectedPct.toFixed(1)}% Synchronized</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-right">
-              <span className="text-warning">{globalAbsentPct.toFixed(1)}% Confirmed Absent</span>
-              <div className="w-2 h-2 rounded-full bg-warning"></div>
-            </div>
           </div>
         </div>
-        
+
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-800">
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Healthy Tribunals</span>
-              <span className="text-lg font-bold font-mono text-success">
-                {Object.values(etas).filter(e => e.missing_days === 0 && e.completion_pct === 100).length} / 91
-              </span>
-           </div>
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Discovery Phase</span>
-              <span className="text-lg font-bold font-mono text-info">
-                {Object.keys(startDates || {}).length} / 91
-              </span>
-           </div>
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Active Scans</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ZIPs Coletados</span>
               <span className="text-lg font-bold font-mono text-accent">
-                {Object.values(etas).filter(e => e.cursor_date && !e.stopped).length}
+                {totalZips.toLocaleString()}
               </span>
            </div>
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Zips Missing</span>
-              <span className="text-lg font-bold font-mono text-danger">
-                {(globalTotalDays - globalCollectedDays).toLocaleString()}
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Volume Total</span>
+              <span className="text-lg font-bold font-mono text-info">
+                {totalGB.toFixed(1)} GB
+              </span>
+           </div>
+           <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Tribunais Ativos</span>
+              <span className="text-lg font-bold font-mono text-success">
+                {activeTribunals} / {totalTracked}
+              </span>
+           </div>
+           <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Dias Consolidados</span>
+              <span className="text-lg font-bold font-mono text-warning">
+                {daysConsolidated}
               </span>
            </div>
         </div>
       </div>
+
+      {/* Progress by Year */}
+      {progressByYear && Object.keys(progressByYear).length > 0 && (
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Progresso por Ano</h3>
+          <div className="space-y-4">
+            {Object.entries(progressByYear)
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([year, d]) => {
+                const pct = d.pct || 0;
+                return (
+                  <div key={year}>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="font-mono font-bold text-black dark:text-white">{year}</span>
+                      <span className={`font-mono font-bold text-sm ${
+                        pct >= 80 ? 'text-green-600 dark:text-green-400' :
+                        pct >= 30 ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-gray-500 dark:text-gray-400'
+                      }`}>{pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          pct >= 80 ? 'bg-green-500' :
+                          pct >= 30 ? 'bg-yellow-500' :
+                          pct > 0 ? 'bg-red-500' :
+                          'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                    <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                      <span>{d.zips || 0} zips</span>
+                      <span>{d.days_consolidated || 0} consolidados</span>
+                      <span>{d.unique_days || 0} / {d.weekdays || 0} dias</span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Tribunals Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
