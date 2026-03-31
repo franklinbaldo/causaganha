@@ -1,14 +1,5 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { ThemeToggle } from '../components/ThemeToggle';
-import { deriveData } from '../lib/fetchData';
-import { TribunalView } from '../components/TribunalView';
-import { SystemStatus } from '../components/SystemStatus';
-import { CommandPalette } from '../components/CommandPalette';
-import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
-import { IncidentBanner } from '../components/IncidentBanner';
-import { DataSourceIndicator } from '../components/DataSourceIndicator';
-import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -20,175 +11,375 @@ function readJson(relativePath) {
   } catch { return null; }
 }
 
-const dashboardData = readJson('dashboard-data.json');
-const tribunalStartDates = readJson('tribunal_start_dates.json');
-const tribunalQualityScores = readJson('tribunal_quality_scores.json');
-const perfMetrics = readJson('perf-metrics.json');
 const today = readJson('cache/today.json');
 const calendar = readJson('cache/calendar.json');
-const runs = readJson('cache/runs.json');
-const backfill = readJson('cache/backfill.json');
 
-const cacheData = {};
-if (today) cacheData.today = today;
-if (calendar) cacheData.calendar = calendar;
-if (runs) cacheData.runs = runs;
-if (backfill) cacheData.backfill = backfill;
-const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
+// Derive real stats from workflow data
+const pipeline = today?.pipeline || {};
+const tribunalStatus = today?.tribunal_status || {};
 
-const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics);
+const totalZips = pipeline.total_zips || 0;
+const datesCollected = pipeline.dates_collected || 0;
+const totalTribunals = Object.keys(tribunalStatus).length || 91;
+const activeTribunals = Object.values(tribunalStatus).filter(
+  (t) => t.status === 'ok'
+).length;
+const progressPct = pipeline.progress_pct || 0;
+const daysArchived = today?.days_archived || 0;
 
-const backfillProgress = data?.backfillProgress;
-const lastUpdated = backfillProgress?.last_updated;
+// Calendar stats
+const calendarDays = calendar?.days ? Object.keys(calendar.days).length : 0;
 
-const incident = data?.perfMetrics?.incident || null;
-const tribunal_coverage = data?.tribunalCoverage || {};
-const tribunal_etas = data?.tribunalEtas || {};
-
-// Count healthy tribunals
-let healthyTribunals = 0;
-let maxEta = 0;
-let pendingCount = 0;
-
-const tribunalKeys = Object.keys(tribunal_etas);
-if (tribunalKeys.length > 0) {
-  for (const t in tribunal_etas) {
-    const etaData = tribunal_etas[t];
-    const missing = etaData.missing_days || 0;
-    if (missing === 0) healthyTribunals++;
-
-    if (etaData.eta_days) {
-      if (etaData.eta_days > maxEta) {
-        maxEta = etaData.eta_days;
-      }
-    } else if (missing > 0) {
-      pendingCount++;
-    }
-  }
+// Format large numbers
+function formatNumber(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toLocaleString('pt-BR');
 }
 
-const targetRangeStart = data?.targetRange?.start || "2024-01-01";
-const targetRangeEnd = data?.targetRange?.end || "2026-02-03";
-
-function formatEta(days, pendingCount, healthyTribunals, totalTribunals) {
-  if (totalTribunals === 0) return "Pending";
-  if (healthyTribunals === totalTribunals) return "All Complete ✓";
-  if (pendingCount > 0 || days === 0) return "Pending"; // If not all complete, but maxEta is 0, it means no velocity data
-
-  if (days < 30) return `~${days} days`;
-  const months = Math.round(days / 30);
-  return `~${months} month${months > 1 ? 's' : ''}`;
-}
-
-const totalTribunalsInStats = tribunalKeys.length > 0 ? tribunalKeys.length : 91;
-const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTribunalsInStats);
-
-// Parse generated_at for display
-let generatedText = '';
-let isStale = false;
-
-if (dashboardData?.generated_at) {
-  const d = new Date(dashboardData.generated_at);
-  if (!isNaN(d.getTime())) {
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    isStale = diffHours > 24;
-
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const hours = String(d.getUTCHours()).padStart(2, '0');
-    const mins = String(d.getUTCMinutes()).padStart(2, '0');
-
-    let relative = '';
-    if (diffHours < 1) {
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      relative = `${diffMins} minuto${diffMins !== 1 ? 's' : ''} atrás`;
-    } else if (diffHours < 24) {
-      relative = `${diffHours} hora${diffHours !== 1 ? 's' : ''} atrás`;
-    } else {
-      const diffDays = Math.floor(diffHours / 24);
-      relative = `${diffDays} dia${diffDays !== 1 ? 's' : ''} atrás`;
-    }
-
-    generatedText = `Dados atualizados: ${day}/${month} às ${hours}:${mins} UTC (${relative})`;
-  }
-}
+const BASE = import.meta.env.BASE_URL;
 ---
 
 <Layout
-  title="CausaGanha Dashboard - Sistema de Monitoramento"
-  description="Dashboard de monitoramento do pipeline de coleta e análise de dados judiciais brasileiros. Elimine assimetria de informação no mercado jurídico."
+  title="CausaGanha - Transparencia no Mercado Juridico Brasileiro"
+  description="Coletamos e arquivamos dados publicos do Diario de Justica Eletronico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <!-- Header — pure Astro HTML, zero JS -->
-    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-accent-muted rounded-xl">
-          <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
-            <path d="M3 12A9 3 0 0 0 21 12"/>
-          </svg>
+  <style>
+    .gradient-bg {
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #1e3a8a 100%);
+    }
+    .hero-pattern {
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .floating { animation: floating 3s ease-in-out infinite; }
+    @keyframes floating {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+  </style>
+
+  <!-- Navigation -->
+  <nav class="fixed w-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm shadow-sm z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center">
+          <span class="text-2xl font-bold text-blue-800 dark:text-blue-400">Causa</span>
+          <span class="text-2xl font-bold text-amber-500">Ganha</span>
         </div>
-        <div>
-          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
-            CausaGanha
+        <div class="hidden md:flex items-center space-x-8">
+          <a href="#como-funciona" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Como Funciona</a>
+          <a href="#dados" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Dados</a>
+          <a href="#para-quem" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Para Quem</a>
+          <a href={BASE + 'monitor'} class="bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="gradient-bg hero-pattern min-h-screen flex items-center pt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <div class="grid lg:grid-cols-2 gap-12 items-center">
+        <div class="text-white">
+          <div class="inline-block px-4 py-2 bg-white/10 rounded-full text-sm mb-6">
+            Dados reais do Diario de Justica Eletronico Nacional
+          </div>
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
+            Transparencia no Mercado <span class="text-amber-500">Juridico</span> Brasileiro
           </h1>
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            {healthyTribunals} of 91 tribunais saudáveis | última coleta: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : '--:--'} | Global ETA: {globalEtaText}
+          <p class="text-xl text-blue-100 mb-8 leading-relaxed">
+            Coletamos e arquivamos dados publicos de <strong>{totalTribunals} tribunais</strong> brasileiros
+            diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <a href={BASE + 'monitor'} class="bg-amber-500 text-gray-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition text-center">
+              Ver Dashboard ao Vivo
+            </a>
+            <a href="#como-funciona" class="border-2 border-white text-white px-8 py-4 rounded-full font-medium text-lg hover:bg-white/10 transition text-center">
+              Saiba Mais
+            </a>
+          </div>
+        </div>
+        <div class="hidden lg:block">
+          <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 floating">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-gray-800 dark:text-white">Pipeline ao Vivo</h3>
+              <span class="text-xs text-gray-500 dark:text-gray-400">Atualizado a cada 20 min</span>
+            </div>
+            <div class="space-y-4">
+              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="ml-4 flex-1">
+                  <div class="font-semibold text-gray-800 dark:text-white">{activeTribunals} tribunais ativos hoje</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">de {totalTribunals} monitorados</div>
+                </div>
+              </div>
+              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
+                </div>
+                <div class="ml-4 flex-1">
+                  <div class="font-semibold text-gray-800 dark:text-white">{formatNumber(totalZips)} ZIPs coletados</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">armazenados no Internet Archive</div>
+                </div>
+              </div>
+              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  {progressPct}%
+                </div>
+                <div class="ml-4 flex-1">
+                  <div class="font-semibold text-gray-800 dark:text-white">Backfill em andamento</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section — REAL DATA from workflow -->
+  <section id="dados" class="py-16 bg-white dark:bg-slate-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Dados Reais do Pipeline</h2>
+        <p class="text-gray-500 dark:text-gray-400">Numeros atualizados automaticamente pelo workflow de coleta</p>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{formatNumber(totalZips)}</div>
+          <div class="text-gray-600 dark:text-gray-400">ZIPs Coletados</div>
+        </div>
+        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{totalTribunals}</div>
+          <div class="text-gray-600 dark:text-gray-400">Tribunais Monitorados</div>
+        </div>
+        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{datesCollected}</div>
+          <div class="text-gray-600 dark:text-gray-400">Dias Coletados</div>
+        </div>
+        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">100%</div>
+          <div class="text-gray-600 dark:text-gray-400">Dados Publicos</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it Works -->
+  <section id="como-funciona" class="py-20 bg-gray-50 dark:bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Como Funciona</h2>
+        <p class="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+          Pipeline automatizado coleta dados do DJEN a cada 20 minutos e arquiva permanentemente no Internet Archive
+        </p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">1. Coleta Automatica</h3>
+          <p class="text-gray-600 dark:text-gray-400">
+            A cada 20 minutos, o GitHub Actions coleta publicacoes do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.
+          </p>
+        </div>
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">2. Arquivo Permanente</h3>
+          <p class="text-gray-600 dark:text-gray-400">
+            Cada ZIP e enviado ao Internet Archive, garantindo acesso publico permanente. Ja temos {formatNumber(totalZips)} arquivos preservados.
+          </p>
+        </div>
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Catalogo Indexado</h3>
+          <p class="text-gray-600 dark:text-gray-400">
+            Um catalogo em Parquet e gerado automaticamente, permitindo consultas rapidas sobre {datesCollected} dias de dados coletados.
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <WorkflowStatusBadge client:load />
-        <a href={import.meta.env.BASE_URL + 'stats'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors mr-2">
-          Estatísticas
-        </a>
-        {generatedText && (
-          <div class="flex flex-col items-end gap-1 text-sm">
-            <div class="text-gray-500 dark:text-gray-400 font-mono text-xs hidden sm:block">
-              {generatedText}
-            </div>
-            {isStale && (
-              <div class="text-yellow-600 dark:text-yellow-400 font-medium text-xs flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-1 rounded hidden sm:flex">
-                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                  <path d="M12 9v4"/><path d="M12 17h.01"/>
-                </svg>
-                Atenção: dados podem estar desatualizados
-              </div>
-            )}
-          </div>
-        )}
-        <ThemeToggle client:load />
+    </div>
+  </section>
+
+  <!-- For Who Section -->
+  <section id="para-quem" class="py-20 bg-white dark:bg-slate-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Para Quem?</h2>
+        <p class="text-xl text-gray-600 dark:text-gray-400">Dados abertos para todo o ecossistema juridico</p>
       </div>
-    </header>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
+          <div class="text-4xl mb-4">&#129489;&#8205;&#9878;&#65039;</div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Pesquisadores</h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Acesse dados estruturados de publicacoes judiciais para pesquisas academicas e analises juridicas.
+          </p>
+          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
+            <li>&#10003; Dados em formato Parquet</li>
+            <li>&#10003; Consultavel via DuckDB</li>
+            <li>&#10003; Historico completo preservado</li>
+          </ul>
+        </div>
+        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
+          <div class="text-4xl mb-4">&#127970;</div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">LegalTechs</h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Use como base de dados para construir produtos e servicos no mercado juridico brasileiro.
+          </p>
+          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
+            <li>&#10003; API via Internet Archive</li>
+            <li>&#10003; Atualizacao continua</li>
+            <li>&#10003; Sem custos de licenciamento</li>
+          </ul>
+        </div>
+        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
+          <div class="text-4xl mb-4">&#9878;&#65039;</div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Jornalistas</h3>
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
+            Investigue e analise dados do judiciario brasileiro com transparencia total.
+          </p>
+          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
+            <li>&#10003; Dados publicos verificaveis</li>
+            <li>&#10003; Cobertura de {totalTribunals} tribunais</li>
+            <li>&#10003; Arquivo permanente no IA</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <main id="main-content" class="max-w-7xl mx-auto space-y-6">
+  <!-- Open Data + Support Section -->
+  <section class="py-20 bg-gray-50 dark:bg-slate-950">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <div class="inline-block px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium mb-4">
+          100% Aberto e Gratuito
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Dados Abertos Para Sempre</h2>
+        <p class="text-xl text-gray-600 dark:text-gray-400">
+          Transparencia no judiciario e um direito de todos.
+          <br>Os dados coletados pelo CausaGanha sao e sempre serao gratuitos e publicos.
+        </p>
+      </div>
 
-      <DataSourceIndicator client:load />
+      <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg mb-12">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 text-center">Infraestrutura</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="flex items-center">
+            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-gray-700 dark:text-gray-300">GitHub Actions para coleta automatica</span>
+          </div>
+          <div class="flex items-center">
+            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-gray-700 dark:text-gray-300">Internet Archive para armazenamento permanente</span>
+          </div>
+          <div class="flex items-center">
+            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-gray-700 dark:text-gray-300">DuckDB + Parquet para consultas rapidas</span>
+          </div>
+          <div class="flex items-center">
+            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-gray-700 dark:text-gray-300">Codigo 100% open source no GitHub</span>
+          </div>
+        </div>
+      </div>
 
-      <IncidentBanner client:load incident={incident} />
+      <div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-200 dark:border-amber-700 p-8 rounded-2xl text-center">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Apoie o Projeto</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-lg mx-auto">
+          O CausaGanha e mantido de forma independente. Contribua com uma estrela no GitHub
+          ou ajude a divulgar o projeto.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener"
+             class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-800 dark:hover:bg-gray-100 transition flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Estrela no GitHub
+          </a>
+          <a href={BASE + 'monitor'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
+            Ver Dashboard ao Vivo &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <TribunalView
-        client:load
-        initialCoverage={tribunal_coverage}
-        initialEtas={tribunal_etas}
-        initialTargetRange={data?.targetRange}
-        initialStartDates={data?.tribunalStartDates}
-        initialQualityScores={data?.tribunalQualityScores}
-      />
+  <!-- FAQ Section -->
+  <section class="py-20 bg-white dark:bg-slate-900">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-12">Perguntas Frequentes</h2>
+      <div class="space-y-6">
+        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">De onde vem os dados?</h3>
+          <p class="text-gray-600 dark:text-gray-400">Todos os dados sao extraidos do Diario de Justica Eletronico Nacional (DJEN), que e um registro publico de todas as comunicacoes judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
+        </div>
+        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Com que frequencia os dados sao atualizados?</h3>
+          <p class="text-gray-600 dark:text-gray-400">O pipeline roda a cada 20 minutos via GitHub Actions. Cada execucao coleta novas publicacoes e envia ao Internet Archive. O dashboard e atualizado automaticamente apos cada coleta.</p>
+        </div>
+        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Como posso acessar os dados?</h3>
+          <p class="text-gray-600 dark:text-gray-400">Os dados estao disponiveis no Internet Archive sob o identificador <code class="bg-gray-100 dark:bg-slate-800 px-1 rounded">djen-YYYY-MM-DD</code>. O catalogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
+        </div>
+        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">O projeto e open source?</h3>
+          <p class="text-gray-600 dark:text-gray-400">Sim! Todo o codigo esta disponivel no <a href="https://github.com/franklinbaldo/causaganha" class="text-blue-800 dark:text-blue-400 hover:underline" target="_blank" rel="noopener">GitHub</a>. Contribuicoes sao bem-vindas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
-
-      <!-- Footer -->
-      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
-        <p>Data sourced from DJEN across 91 tribunals. Stored on Internet Archive.</p>
-      </footer>
-    </main>
-
-    <CommandPalette client:load />
-    <NetworkStatusBanner client:load />
-  </div>
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-gray-400 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-3 gap-8">
+        <div>
+          <div class="flex items-center mb-4">
+            <span class="text-2xl font-bold text-white">Causa</span>
+            <span class="text-2xl font-bold text-amber-500">Ganha</span>
+          </div>
+          <p class="text-gray-400 mb-4">
+            Dados judiciais publicos arquivados permanentemente para transparencia e acesso universal.
+          </p>
+          <p class="text-sm">&copy; 2026 CausaGanha. Codigo aberto sob licenca MIT.</p>
+        </div>
+        <div>
+          <h4 class="text-white font-semibold mb-4">Links</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href={BASE + 'monitor'} class="hover:text-white transition">Dashboard</a></li>
+            <li><a href={BASE + 'stats'} class="hover:text-white transition">Estatisticas</a></li>
+            <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-semibold mb-4">Dados</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="hover:text-white transition">Internet Archive</a></li>
+            <li><a href="#como-funciona" class="hover:text-white transition">Como Funciona</a></li>
+            <li><a href="#para-quem" class="hover:text-white transition">Para Quem</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </footer>
 </Layout>
