@@ -16,7 +16,7 @@ import structlog
 logger = structlog.get_logger()
 
 IA_CATALOG_ITEM = "causaganha-catalog"
-MANIFEST_JSONL_URL = f"https://archive.org/download/{IA_CATALOG_ITEM}/manifest.jsonl"
+MANIFEST_JSONL_URL = "https://franklinbaldo.github.io/causaganha/manifest.jsonl"
 LOCAL_MANIFEST_PATH = Path("data/manifest.jsonl")
 IA_STATE_PATH = Path("data/ia-state.json")
 

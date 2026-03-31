@@ -60,6 +60,15 @@ jobs:
           echo "Appending to JSONL manifest..."
           uv run python scripts/append_manifest.py
 
+      - name: Commit manifest.jsonl to dashboard
+        run: |
+          cp data/manifest.jsonl dashboard/public/manifest.jsonl
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard/public/manifest.jsonl
+          git diff --staged --quiet || git commit -m "data: update manifest.jsonl [skip ci]"
+          git push
+
       - name: Generate and upload catalog
         run: |
           echo "Generating catalog from IA data..."
