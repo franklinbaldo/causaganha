@@ -62,6 +62,7 @@ jobs:
 
       - name: Commit manifest.jsonl to dashboard
         run: |
+          [ -f data/manifest.jsonl ] || { echo "No manifest.jsonl generated, skipping"; exit 0; }
           cp data/manifest.jsonl dashboard/public/manifest.jsonl
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
