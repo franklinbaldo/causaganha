@@ -988,8 +988,17 @@ def main() -> None:
         # If manifest was downloaded manually, also download backfill
 
         tmp_bf = Path(_tempfile.mkdtemp()) / "backfill-needed.parquet"
-        urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
-        backfill_path = str(tmp_bf)
+        # Try local file first, then IA (which may have CDN propagation delay)
+        local_bf = Path("catalog/backfill-needed.parquet")
+        if local_bf.exists():
+            tmp_bf = local_bf
+        else:
+            try:
+                urllib.request.urlretrieve(BACKFILL_URL, str(tmp_bf))
+            except Exception:
+                logger.warning("backfill_parquet_unavailable", url=BACKFILL_URL)
+                tmp_bf = None
+        backfill_path = str(tmp_bf) if tmp_bf is not None else None
     load_backfill_needed(con, backfill_path)
 
     manifest_populated = is_manifest_populated(con)
