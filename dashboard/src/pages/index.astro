@@ -27,6 +27,19 @@ const activeTribunals = Object.values(tribunalStatus).filter(
 const progressPct = pipeline.progress_pct || 0;
 const daysArchived = today?.days_archived || 0;
 
+// Backfill status
+const backfillTotal = pipeline.backfill_total || 0;
+const backfillDone = pipeline.backfill_done || 0;
+let isBackfill = false;
+if (today?.date) {
+  const dataDate = new Date(`${today.date}T00:00:00Z`);
+  const now = new Date();
+  const diffDays = Math.floor((now - dataDate) / (1000 * 60 * 60 * 24));
+  if (diffDays > 7) {
+    isBackfill = true;
+  }
+}
+
 // Calendar stats
 const calendarDays = calendar?.days ? Object.keys(calendar.days).length : 0;
 
@@ -152,6 +165,35 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Dados Reais do Pipeline</h2>
         <p class="text-gray-500 dark:text-gray-400">Numeros atualizados automaticamente pelo workflow de coleta</p>
       </div>
+
+      <!-- Backfill Progress Section -->
+      <div class="mb-12 bg-gray-50 dark:bg-slate-800 rounded-2xl p-8 border border-gray-100 dark:border-slate-700 relative overflow-hidden">
+        {isBackfill && (
+          <div class="absolute top-4 right-4 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-400 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+            <span class="animate-spin text-[10px]">🔄</span> Backfill em andamento — coletando histórico
+          </div>
+        )}
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+            Progresso do Arquivamento
+            <span class="text-3xl font-black text-amber-500 ml-2">{progressPct}%</span>
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 mt-2">do histórico preservado</span>
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 font-mono">
+            {formatNumber(backfillDone)} de {formatNumber(backfillTotal)} dias-tribunal coletados
+          </p>
+        </div>
+
+        <div class="h-6 w-full bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner p-1">
+          <div
+            class="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-1000 ease-out relative"
+            style={`width: ${Math.max(2, progressPct)}%`}
+          >
+            <div class="absolute inset-0 bg-white/20 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
         <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
           <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{formatNumber(totalZips)}</div>
