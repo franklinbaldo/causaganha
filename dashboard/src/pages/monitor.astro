@@ -39,7 +39,7 @@ const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics);
 
 const backfillProgress = data?.backfillProgress;
-const lastUpdated = backfillProgress?.last_updated;
+const lastUpdated = backfillProgress?.last_updated || today?.date;
 
 const incident = data?.perfMetrics?.incident || null;
 const tribunal_coverage = data?.tribunalCoverage || {};
@@ -87,8 +87,9 @@ const globalEtaText = formatEta(maxEta, pendingCount, healthyTribunals, totalTri
 let generatedText = '';
 let isStale = false;
 
-if (dashboardData?.generated_at) {
-  const d = new Date(dashboardData.generated_at);
+const generatedAtRaw = dashboardData?.generated_at || today?.date;
+if (generatedAtRaw) {
+  const d = new Date(generatedAtRaw);
   if (!isNaN(d.getTime())) {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();

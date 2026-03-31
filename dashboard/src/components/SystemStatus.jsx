@@ -53,6 +53,13 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
   const isSuccess = stats?.status === 'success';
   const health = cacheToday?.health;
   const filesToday = cacheToday?.files_today;
+  const dataDate = cacheToday?.date;
+  const isDataStale = (() => {
+    if (!dataDate) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    return dataDate !== today && dataDate !== yesterday;
+  })();
 
   return (
     <div className="card">
@@ -101,8 +108,11 @@ export function SystemStatus({ initialStats, initialCacheToday }) {
             )}
             {filesToday != null && (
               <div className="flex items-center gap-1.5">
-                <span>Today:</span>
-                <span className="font-mono font-medium tabular-nums text-black dark:text-white">{filesToday}/91</span>
+                <span>{isDataStale ? dataDate : 'Today'}:</span>
+                <span className={clsx("font-mono font-medium tabular-nums", isDataStale ? "text-warning" : "text-black dark:text-white")}>{filesToday}/91</span>
+                {isDataStale && (
+                  <span className="text-xs text-warning" title="Data collection appears stalled — no new data since this date">stale</span>
+                )}
               </div>
             )}
             {stats?.duration_seconds != null && (

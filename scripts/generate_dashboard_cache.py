@@ -1035,7 +1035,7 @@ def main() -> None:
     # Generate metadata
     meta = {
         "version": "3.1",
-        "generated_at": datetime.now(UTC).isoformat() + "Z",
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "source": data_source,
         "calendar_days": CALENDAR_DAYS,
         "manifest_available": manifest_populated,
