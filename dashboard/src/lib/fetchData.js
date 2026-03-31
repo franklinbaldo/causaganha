@@ -99,34 +99,6 @@ async function safeFetch(url) {
   return null;
 }
 
-export async function fetchManifest() {
-  try {
-    const res = await fetchWithRetry(`https://archive.org/download/causaganha-catalog/manifest.jsonl?t=${Date.now()}`);
-    if (res && res.ok) {
-      const text = await res.text();
-      const lines = text.split('\n').filter(Boolean);
-      const manifest = {};
-      lines.forEach(line => {
-        try {
-          const item = JSON.parse(line);
-          if (item.tribunal && item.date) {
-            if (!manifest[item.tribunal]) manifest[item.tribunal] = {};
-            manifest[item.tribunal][item.date] = {
-              zip_url: item.zip_url,
-              downloaded_at: item.downloaded_at
-            };
-          }
-        } catch (e) {
-          // Ignore invalid JSON lines
-        }
-      });
-      return manifest;
-    }
-  } catch (err) {
-    console.error(`Failed to fetch manifest:`, err);
-  }
-  return null;
-}
 
 /**
  * Fetch all data sources. Works both server-side and client-side.
@@ -147,14 +119,13 @@ export async function fetchAllData() {
     ]);
 
   // Cache files: browser fetches from IA (live), build-time reads from filesystem
-  let today, calendar, runs, backfill, manifest;
+  let today, calendar, runs, backfill;
   if (isBrowser) {
-    [today, calendar, runs, backfill, manifest] = await Promise.all([
+    [today, calendar, runs, backfill] = await Promise.all([
       safeFetch(resolveIA('today.json')).then(d => d || safeFetch(resolve('cache/today.json'))),
       safeFetch(resolveIA('calendar.json')).then(d => d || safeFetch(resolve('cache/calendar.json'))),
       safeFetch(resolveIA('runs.json')).then(d => d || safeFetch(resolve('cache/runs.json'))),
       safeFetch(resolveIA('backfill.json')).then(d => d || safeFetch(resolve('cache/backfill.json'))),
-      fetchManifest(),
     ]);
   } else {
     [today, calendar, runs, backfill] = await Promise.all([
@@ -163,7 +134,6 @@ export async function fetchAllData() {
       safeFetch(resolve('cache/runs.json')),
       safeFetch(resolve('cache/backfill.json')),
     ]);
-    manifest = null;
   }
 
   const cacheData = {};
@@ -175,7 +145,7 @@ export async function fetchAllData() {
   const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
   return deriveData(stats, dashboardData, cache, tribunalStartDates, tribunalQualityScores,
-    perfMetrics, manifest);
+    perfMetrics);
 }
 
 /**
@@ -211,7 +181,7 @@ export function startLivePolling(onUpdate, intervalMs = 3 * 60 * 1000) {
  * Derive all computed data from raw sources.
  * Extracted from Dashboard.jsx to be reusable.
  */
-export function deriveData(stats, dashboardData, cacheData, tribunalStartDates = null, tribunalQualityScores = null, perfMetrics = null, manifest = null) {
+export function deriveData(stats, dashboardData, cacheData, tribunalStartDates = null, tribunalQualityScores = null, perfMetrics = null) {
   const hasAnyData = !!(stats || dashboardData || cacheData);
 
   // Effective backfill data: merge dashboard-data.json with cache/backfill.json
@@ -283,7 +253,6 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     tribunalStartDates,
     tribunalQualityScores,
     perfMetrics,
-    manifest,
     hasAnyData,
     effectiveBackfill,
     backfillProgress,
