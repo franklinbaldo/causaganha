@@ -3,7 +3,7 @@ name: Generate Catalog
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Collect ZIPs"]
+    workflows: ["Collect ZIPs", "Collect Today"]
     types: [completed]
 
 permissions:

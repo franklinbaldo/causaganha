@@ -1,0 +1,134 @@
+# ============================================================================
+# COLLECT TODAY — Download today's DJEN ZIPs and upload to Internet Archive
+# ============================================================================
+#
+# Runs once daily. Each run:
+#   1. Restores state from previous runs
+#   2. Processes only the current date for all tribunals
+#   3. Saves state for next run
+# ============================================================================
+
+name: Collect Today
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: collect-today
+  cancel-in-progress: false
+
+jobs:
+  collect-today:
+    name: Download & Upload Today's ZIPs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+
+    env:
+      DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+
+      - name: Restore backfill state
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/backfill-state.json
+            data/ia-state.json
+          key: collect-state-v7-${{ github.run_id }}
+          restore-keys: |
+            collect-state-v7-
+
+      - name: Create data directory
+        run: mkdir -p data
+
+      - name: Validate CLI flags
+        run: |
+          echo "Validating CLI flags..."
+          HELP_OUTPUT=$(uv run python -m djen_backup --help)
+          FLAGS=("--workers" "--backfill-state-file" "--state-file" "--start-date" "--end-date")
+          for FLAG in "${FLAGS[@]}"; do
+            if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
+              echo "❌ Error: Required flag $FLAG is missing from djen_backup CLI!"
+              exit 1
+            fi
+          done
+          echo "✅ All required CLI flags are present in djen_backup CLI."
+
+      - name: Collect today
+        id: collect
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          echo "Running collection for today: $TODAY"
+
+          CMD="uv run python -m djen_backup"
+          CMD="$CMD --start-date $TODAY"
+          CMD="$CMD --end-date $TODAY"
+          CMD="$CMD --workers 20"
+          CMD="$CMD --state-file data/ia-state.json"
+          CMD="$CMD --backfill-state-file data/backfill-state.json"
+          # Skip absent markers to avoid IA spam detection
+          CMD="$CMD --skip-absent-markers"
+          CMD="$CMD --publish-live-status"
+
+          echo "Running: $CMD"
+
+          START_TIME=$(date +%s)
+          $CMD
+          DURATION=$(($(date +%s) - START_TIME))
+          echo "Collection completed in $DURATION seconds"
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+
+      - name: Collection Summary
+        if: success() || failure()
+        run: |
+          UPLOADED="${{ steps.collect.outputs.uploaded }}"
+
+          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(hits\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+          fi
+
+          if [ -z "$UPLOADED" ]; then
+            UPLOADED=0
+          fi
+
+          DURATION="${{ steps.collect.outputs.duration }}"
+
+          echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: $DURATION seconds, ZIPs collected: $UPLOADED" >> $GITHUB_STEP_SUMMARY
+
+      - name: Ensure state files exist for caching
+        if: always()
+        run: |
+          mkdir -p data
+          [ -f data/backfill-state.json ] || echo '{}' > data/backfill-state.json
+          [ -f data/ia-state.json ] || echo '{}' > data/ia-state.json
+          echo "State files:"
+          ls -lh data/
+
+      - name: Save backfill state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/backfill-state.json
+            data/ia-state.json
+          key: collect-state-v7-${{ github.run_id }}
