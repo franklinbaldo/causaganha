@@ -2,10 +2,15 @@
 import Layout from '../layouts/Layout.astro';
 import { ThemeToggle } from '../components/ThemeToggle';
 
-// Fetch the catalog
-const response = await fetch(`https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`);
-const catalog = await response.json();
-const data = catalog.completed_items || {};
+// Fetch the catalog (with fallback for build environments without network)
+let data = {};
+try {
+  const response = await fetch(`https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`);
+  const catalog = await response.json();
+  data = catalog.completed_items || {};
+} catch {
+  // Network unavailable at build time — page will render with empty data
+}
 
 // Sort dates descending
 const sortedDates = Object.keys(data).sort((a, b) => b.localeCompare(a));
