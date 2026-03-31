@@ -9,6 +9,7 @@ import { NetworkStatusBanner } from '../components/NetworkStatusBanner';
 import { IncidentBanner } from '../components/IncidentBanner';
 import { DataSourceIndicator } from '../components/DataSourceIndicator';
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge';
+import { AnnualCoverageMonitor } from '../components/AnnualCoverageMonitor';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -185,6 +186,8 @@ if (generatedAtRaw) {
       />
 
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />
+
+      <AnnualCoverageMonitor client:visible />
 
       <!-- Footer -->
       <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
