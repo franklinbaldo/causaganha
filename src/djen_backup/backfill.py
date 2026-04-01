@@ -683,29 +683,86 @@ async def _run_backfill_workers(
     summary: BackfillSummary,
     all_tribunals: list[str],
 ) -> None:
-    """Run workers to process tribunals."""
-    queue: asyncio.Queue[str] = asyncio.Queue()
+    """Run workers processing (date, tribunal) pairs, iterating by date first.
+
+    This ensures all tribunals get coverage for each date before moving to the
+    next date, instead of the old approach that exhausted one tribunal at a time
+    (starving tribunals later in the list).
+    """
+    # Build queue of (date, tribunal) pairs iterating DATE-first.
+    # For each date (from most recent backward), enqueue all active tribunals.
+    queue: asyncio.Queue[tuple[date, str]] = asyncio.Queue()
+
+    # Determine which tribunals are active (not stopped)
+    active_tribunals = []
     for t in all_tribunals:
-        queue.put_nowait(t)
+        prog = await bstate.get_or_init(t, config.start_date)
+        if prog.stopped:
+            log.info("backfill_skipped_stopped", tribunal=t)
+            await summary.inc_skipped_stopped()
+        else:
+            active_tribunals.append(t)
+
+    # Generate date range: from start_date backward to lower_bound
+    current = config.start_date
+    lower = config.lower_bound or date(2013, 1, 1)
+    dates_enqueued = 0
+    max_dates = 400  # cap to avoid huge queue; 400 dates × 96 tribunals = ~38k items
+
+    while current >= lower and dates_enqueued < max_dates:
+        for t in active_tribunals:
+            queue.put_nowait((current, t))
+        current -= timedelta(days=1)
+        dates_enqueued += 1
+
+    log.info(
+        "backfill_queue_built",
+        active_tribunals=len(active_tribunals),
+        dates=dates_enqueued,
+        total_pairs=queue.qsize(),
+    )
+
+    # Track per-tribunal scanned flag
+    scanned_tribunals: set[str] = set()
 
     async def _worker() -> None:
         while not queue.empty():
             if time.monotonic() > deadline - 30:
                 break
             try:
-                tribunal = queue.get_nowait()
+                d, tribunal = queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-            await backfill_tribunal(
-                client,
-                breaker,
-                tribunal,
-                config,
-                bstate,
-                ia_state,
-                deadline,
-                summary,
+
+            # Skip if tribunal got stopped during this run
+            prog = bstate.get_all_progress().get(tribunal)
+            if prog and prog.stopped:
+                queue.task_done()
+                continue
+
+            # Check genesis bound
+            genesis_str = config.genesis_dates.get(tribunal)
+            if genesis_str and genesis_str != "None":
+                genesis = date.fromisoformat(genesis_str)
+                if d < genesis:
+                    queue.task_done()
+                    continue
+
+            if tribunal not in scanned_tribunals:
+                scanned_tribunals.add(tribunal)
+                await summary.inc_scanned()
+
+            result = await backfill_process_date(
+                client, breaker, tribunal, d, config, bstate, ia_state, summary,
             )
+
+            # Update state tracking
+            if result in {"hit", "empty", "spam"}:
+                # Update cursor if this date is older than current cursor
+                if prog and d <= prog.cursor_date:
+                    await bstate.advance_cursor(tribunal)
+                    save_backfill_state(bstate, config.backfill_state_file)
+
             queue.task_done()
 
     async def _status_publisher() -> None:
