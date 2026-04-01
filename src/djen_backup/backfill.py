@@ -725,6 +725,10 @@ async def _run_backfill_workers(
     # Track per-tribunal scanned flag
     scanned_tribunals: set[str] = set()
 
+    # Rate limiter: IA allows ~1 upload/second. Use a semaphore so only
+    # 1 worker uploads at a time, with a 1s delay after each upload.
+    upload_sem = asyncio.Semaphore(1)
+
     async def _worker() -> None:
         while not queue.empty():
             if time.monotonic() > deadline - 30:
@@ -752,9 +756,13 @@ async def _run_backfill_workers(
                 scanned_tribunals.add(tribunal)
                 await summary.inc_scanned()
 
-            result = await backfill_process_date(
-                client, breaker, tribunal, d, config, bstate, ia_state, summary,
-            )
+            async with upload_sem:
+                result = await backfill_process_date(
+                    client, breaker, tribunal, d, config, bstate, ia_state, summary,
+                )
+                # IA rate limit: ~1 upload per second
+                if result == "hit":
+                    await asyncio.sleep(1.0)
 
             # Update state tracking
             if result in {"hit", "empty", "spam"}:
