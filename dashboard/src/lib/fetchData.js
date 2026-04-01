@@ -251,6 +251,28 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
   const consolidateProgress = effectiveBackfill?.consolidate_progress || null;
   const tribunalStats = effectiveBackfill?.tribunal_stats || null;
 
+  // Velocity and ETA metrics
+  const velocityMetrics = (() => {
+    const dailyStats = backfillProgress?.daily_stats || [];
+    const now = new Date();
+    const fmt = (d) => d.toISOString().split('T')[0];
+    const daysAgo = (n) => fmt(new Date(now.getTime() - n * 86400000));
+
+    const sevenDaysAgo = daysAgo(7);
+    const thirtyDaysAgo = daysAgo(30);
+
+    const last7 = dailyStats.filter(d => d.date >= sevenDaysAgo).reduce((s, d) => s + d.count, 0);
+    const last30 = dailyStats.filter(d => d.date >= thirtyDaysAgo).reduce((s, d) => s + d.count, 0);
+    const velocityPerDay = last30 / 30;
+
+    const pipelineData = cacheData?.today?.pipeline;
+    const remaining = (pipelineData?.backfill_total || 0) - (pipelineData?.backfill_done || 0);
+    const etaDays = velocityPerDay > 0 ? Math.ceil(remaining / velocityPerDay) : null;
+    const filesToday = cacheData?.today?.files_today || 0;
+
+    return { filesToday, last7, last30, velocityPerDay, etaDays, remaining };
+  })();
+
   return {
     stats,
     dashboardData,
@@ -271,5 +293,6 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     volume,
     consolidateProgress,
     tribunalStats,
+    velocityMetrics,
   };
 }

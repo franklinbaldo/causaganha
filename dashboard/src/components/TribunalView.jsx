@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
 
-export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume }) {
+export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialVelocityMetrics }) {
   const { data: allData } = useDataRefresh(null, null);
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -13,6 +13,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const pipeline = allData?.cacheData?.today?.pipeline ?? initialPipeline;
   const progressByYear = allData?.progressByYear ?? initialProgressByYear;
   const volume = allData?.volume ?? initialVolume;
+  const velocity = allData?.velocityMetrics ?? initialVelocityMetrics;
 
   return (
     <OverviewGrid
@@ -24,11 +25,20 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
       pipeline={pipeline}
       progressByYear={progressByYear}
       volume={volume}
+      velocity={velocity}
     />
   );
 }
 
-function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pipeline, progressByYear, volume }) {
+function formatEtaText(etaDays) {
+  if (etaDays === null || etaDays === undefined) return 'Pipeline parado';
+  if (etaDays < 30) return `~${etaDays} dias`;
+  if (etaDays < 365) return `~${Math.round(etaDays / 30)} meses`;
+  const years = (etaDays / 365).toFixed(1);
+  return `~${years} anos`;
+}
+
+function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pipeline, progressByYear, volume, velocity }) {
   const backfillDone = pipeline?.backfill_done || 0;
   const backfillTotal = pipeline?.backfill_total || 1;
   const totalZips = pipeline?.total_zips || 0;
@@ -99,6 +109,41 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
               </span>
            </div>
         </div>
+
+        {/* Velocity & ETA */}
+        {velocity && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-800">
+            <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Hoje</span>
+              <span className="text-lg font-bold font-mono text-accent">
+                {velocity.filesToday}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Ultimos 7d</span>
+              <span className="text-lg font-bold font-mono text-info">
+                {velocity.last7}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Ultimos 30d</span>
+              <span className="text-lg font-bold font-mono text-white">
+                {velocity.last30}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ETA Completo</span>
+              <span className={`text-lg font-bold font-mono ${
+                velocity.etaDays === null ? 'text-gray-500' :
+                velocity.etaDays < 365 ? 'text-success' :
+                velocity.etaDays < 1825 ? 'text-warning' :
+                'text-danger'
+              }`}>
+                {formatEtaText(velocity.etaDays)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Progress by Year */}
