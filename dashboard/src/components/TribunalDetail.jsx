@@ -13,6 +13,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const etas = allData?.tribunalEtas ?? initialEtas ?? {};
   const startDates = allData?.tribunalStartDates ?? initialStartDates ?? {};
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
+  const iaSnapshot = allData?.iaSnapshot;
 
   // Derive targetRange dynamically — no hardcoded dates
   const backfillTargetRange = allData?.targetRange ?? initialTargetRange;
@@ -28,11 +29,19 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const handleTribunalChange = (e) => {
     const newTribunal = e.target.value;
     setSelectedTribunal(newTribunal);
-    // Navigate to new URL
     window.location.href = `${baseUrl}monitor/${newTribunal.toLowerCase()}`;
   };
 
-  const selectedCoverage = new Set(coverage[selectedTribunal] || []);
+  // Build coverage from IA snapshot (real ZIPs on IA) — prefer over backfill data
+  const snapshotDates = new Set();
+  if (iaSnapshot?.items) {
+    for (const item of Object.values(iaSnapshot.items)) {
+      if (item.tribunal === selectedTribunal) {
+        item.dates.forEach(d => snapshotDates.add(d));
+      }
+    }
+  }
+  const selectedCoverage = snapshotDates.size > 0 ? snapshotDates : new Set(coverage[selectedTribunal] || []);
   const selectedEtaData = etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null };
   const tribunalStartDate = startDates[selectedTribunal] || selectedEtaData.genesis_date;
 
@@ -204,6 +213,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             tribunalStartDateStr={tribunalStartDate}
             coverageSet={selectedCoverage}
             tribunalName={selectedTribunal}
+            baseUrl={baseUrl}
             velocityMetrics={{
               ...velocityMetrics,
               absentSet: absentSet

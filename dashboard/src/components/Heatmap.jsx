@@ -168,7 +168,7 @@ export function VelocityTimeline({ metrics }) {
   );
 }
 
-export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, velocityMetrics }) {
+export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDateStr, coverageSet, tribunalName, baseUrl, velocityMetrics }) {
   const [hoveredCell, setHoveredCell] = useState(null);
   const [focusedCell, setFocusedCell] = useState(null);
 
@@ -270,9 +270,16 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
       return;
     }
     const pos = { x: e.clientX, y: e.clientY };
-    if (type === 'click' && hoveredCell?.data?.date === dateStr) {
-      setHoveredCell(null);
-      return;
+    if (type === 'click') {
+      const status = getCellStatus(dateStr);
+      if (status === 'collected' && baseUrl) {
+        window.location.href = `${baseUrl}monitor/${tribunalName.toLowerCase()}/${dateStr}`;
+        return;
+      }
+      if (hoveredCell?.data?.date === dateStr) {
+        setHoveredCell(null);
+        return;
+      }
     }
     setHoveredCell({
       data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null },
