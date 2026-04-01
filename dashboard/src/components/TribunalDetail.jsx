@@ -4,18 +4,18 @@ import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
 import { Heatmap, VelocityTimeline, calculateVelocityAndRegression } from './Heatmap';
 
-export function TribunalDetail({ tribunalCode }) {
+export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState(tribunalCode.toUpperCase());
 
-  const coverage = allData?.tribunalCoverage ?? {};
+  const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
-  const etas = allData?.tribunalEtas ?? {};
-  const startDates = allData?.tribunalStartDates ?? {};
-  const qualityScores = allData?.tribunalQualityScores ?? {};
+  const etas = allData?.tribunalEtas ?? initialEtas ?? {};
+  const startDates = allData?.tribunalStartDates ?? initialStartDates ?? {};
+  const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
 
   // Derive targetRange dynamically — no hardcoded dates
-  const backfillTargetRange = allData?.targetRange;
+  const backfillTargetRange = allData?.targetRange ?? initialTargetRange;
   const today = new Date().toISOString().split('T')[0];
   const targetRange = {
     start: backfillTargetRange?.start || "2024-01-01",
