@@ -198,7 +198,8 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
   const backfillProgress = effectiveBackfill?.backfill_progress;
   const tribunalCoverage = effectiveBackfill?.tribunal_coverage || {};
   const tribunalEtas = effectiveBackfill?.tribunal_etas || {};
-  const targetRange = effectiveBackfill?.target_range || { start: "2024-01-01", end: "2026-02-03", total_days: 764 };
+  const today = new Date().toISOString().split('T')[0];
+  const targetRange = effectiveBackfill?.target_range || { start: "2024-01-01", end: today };
 
   // Derive calendar heatmap data
   const calendarData = (() => {
