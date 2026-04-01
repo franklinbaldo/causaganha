@@ -29,6 +29,7 @@ const today = readJson('cache/today.json');
 const calendar = readJson('cache/calendar.json');
 const runs = readJson('cache/runs.json');
 const backfill = readJson('cache/backfill.json');
+const iaSnapshot = readJson('ia-snapshot.json');
 
 const cacheData = {};
 if (today) cacheData.today = today;
@@ -37,7 +38,7 @@ if (runs) cacheData.runs = runs;
 if (backfill) cacheData.backfill = backfill;
 const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
-const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics);
+const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics, iaSnapshot);
 
 const backfillProgress = data?.backfillProgress;
 const lastUpdated = backfillProgress?.last_updated || today?.date;
@@ -188,6 +189,7 @@ if (generatedAtRaw) {
         initialVolume={data?.volume}
         initialTribunalStats={data?.tribunalStats}
         initialVelocityMetrics={data?.velocityMetrics}
+        initialIaSnapshot={data?.iaSnapshot}
       />
 
       <SystemStatus client:visible initialStats={data?.stats} initialCacheToday={data?.cacheData?.today} />

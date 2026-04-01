@@ -119,20 +119,22 @@ export async function fetchAllData() {
     ]);
 
   // Cache files: browser fetches from IA (live), build-time reads from filesystem
-  let today, calendar, runs, backfill;
+  let today, calendar, runs, backfill, iaSnapshot;
   if (isBrowser) {
-    [today, calendar, runs, backfill] = await Promise.all([
+    [today, calendar, runs, backfill, iaSnapshot] = await Promise.all([
       safeFetch(resolveIA('today.json')).then(d => d || safeFetch(resolve('cache/today.json'))),
       safeFetch(resolveIA('calendar.json')).then(d => d || safeFetch(resolve('cache/calendar.json'))),
       safeFetch(resolveIA('runs.json')).then(d => d || safeFetch(resolve('cache/runs.json'))),
       safeFetch(resolveIA('backfill.json')).then(d => d || safeFetch(resolve('cache/backfill.json'))),
+      safeFetch(resolveIA('ia-snapshot.json')).then(d => d || safeFetch(resolve('ia-snapshot.json'))),
     ]);
   } else {
-    [today, calendar, runs, backfill] = await Promise.all([
+    [today, calendar, runs, backfill, iaSnapshot] = await Promise.all([
       safeFetch(resolve('cache/today.json')),
       safeFetch(resolve('cache/calendar.json')),
       safeFetch(resolve('cache/runs.json')),
       safeFetch(resolve('cache/backfill.json')),
+      safeFetch(resolve('ia-snapshot.json')),
     ]);
   }
 
@@ -145,7 +147,7 @@ export async function fetchAllData() {
   const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
   return deriveData(stats, dashboardData, cache, tribunalStartDates, tribunalQualityScores,
-    perfMetrics);
+    perfMetrics, iaSnapshot);
 }
 
 /**
@@ -181,7 +183,7 @@ export function startLivePolling(onUpdate, intervalMs = 3 * 60 * 1000) {
  * Derive all computed data from raw sources.
  * Extracted from Dashboard.jsx to be reusable.
  */
-export function deriveData(stats, dashboardData, cacheData, tribunalStartDates = null, tribunalQualityScores = null, perfMetrics = null) {
+export function deriveData(stats, dashboardData, cacheData, tribunalStartDates = null, tribunalQualityScores = null, perfMetrics = null, iaSnapshot = null) {
   const hasAnyData = !!(stats || dashboardData || cacheData);
 
   // Effective backfill data: merge dashboard-data.json with cache/backfill.json
@@ -294,5 +296,6 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     consolidateProgress,
     tribunalStats,
     velocityMetrics,
+    iaSnapshot,
   };
 }

@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
 
-export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialVelocityMetrics }) {
+export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialVelocityMetrics, initialIaSnapshot }) {
   const { data: allData } = useDataRefresh(null, null);
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -14,6 +14,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
   const progressByYear = allData?.progressByYear ?? initialProgressByYear;
   const volume = allData?.volume ?? initialVolume;
   const velocity = allData?.velocityMetrics ?? initialVelocityMetrics;
+  const iaSnapshot = allData?.iaSnapshot ?? initialIaSnapshot;
 
   return (
     <OverviewGrid
@@ -26,6 +27,7 @@ export function TribunalView({ initialCoverage, initialEtas, initialTargetRange,
       progressByYear={progressByYear}
       volume={volume}
       velocity={velocity}
+      iaSnapshot={iaSnapshot}
     />
   );
 }
@@ -38,16 +40,19 @@ function formatEtaText(etaDays) {
   return `~${years} anos`;
 }
 
-function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pipeline, progressByYear, volume, velocity }) {
-  const backfillDone = pipeline?.backfill_done || 0;
-  const backfillTotal = pipeline?.backfill_total || 1;
-  const totalZips = pipeline?.total_zips || 0;
+function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pipeline, progressByYear, volume, velocity, iaSnapshot }) {
+  // Prefer IA snapshot data (fresh, direct from IA) over pipeline/backfill data
+  const snap = iaSnapshot?.summary;
+  const totalZips = snap?.total_zips || pipeline?.total_zips || 0;
+  const totalGB = snap?.total_size_gb || volume?.total_gb || 0;
+  const tribunalsWithData = snap?.tribunals_with_data || 0;
+  const latestDate = snap?.latest_collection_date;
   const daysConsolidated = pipeline?.days_consolidated || 0;
-  const progressPct = pipeline?.progress_pct || 0;
+  const snapshotAge = iaSnapshot?.generated_at;
 
-  const activeTribunals = Object.values(etas).filter(e => e.velocity_14d > 0).length;
-  const totalTracked = Object.keys(etas).length;
-  const totalGB = volume?.total_gb || 0;
+  // Per-tribunal zip counts from snapshot
+  const snapshotItems = iaSnapshot?.items || {};
+  const snapshotByYear = iaSnapshot?.by_year || {};
 
   const BASE = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL || '/causaganha/') : '/causaganha/';
   const baseUrl = BASE.endsWith('/') ? BASE : BASE + '/';
@@ -62,92 +67,75 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-bold tracking-tight">Progresso do Arquivo</h2>
             <p className="text-gray-400 text-sm font-medium uppercase tracking-widest font-mono">
-              {backfillDone.toLocaleString()} / {backfillTotal.toLocaleString()} itens coletados
+              {totalZips.toLocaleString()} ZIPs no Internet Archive
             </p>
+            {latestDate && (
+              <p className="text-gray-500 text-xs font-mono mt-1">
+                Ultima coleta: {latestDate}
+                {snapshotAge && <span className="ml-2 text-gray-600">| Snapshot: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
+              </p>
+            )}
           </div>
 
           <div className="text-right flex flex-col items-end">
-            <span className="text-4xl font-black text-accent font-mono leading-none">{progressPct.toFixed(1)}%</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold mt-1">Progresso Global</span>
-          </div>
-        </div>
-
-        <div className="relative mt-6">
-          <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden p-1 shadow-inner">
-            <div
-              className="h-full bg-gradient-to-r from-accent to-accent-light rounded-sm transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-              style={{ width: `${Math.min(100, progressPct)}%` }}
-              title={`${backfillDone.toLocaleString()} itens coletados`}
-            />
+            <span className="text-4xl font-black text-accent font-mono leading-none">{tribunalsWithData}</span>
+            <span className="text-[10px] text-gray-500 uppercase font-bold mt-1">Tribunais com dados</span>
           </div>
         </div>
 
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-800">
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ZIPs Coletados</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ZIPs no IA</span>
               <span className="text-lg font-bold font-mono text-accent">
                 {totalZips.toLocaleString()}
               </span>
            </div>
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Volume Total</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Volume</span>
               <span className="text-lg font-bold font-mono text-info">
                 {totalGB.toFixed(1)} GB
               </span>
            </div>
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Tribunais Ativos</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Tribunais</span>
               <span className="text-lg font-bold font-mono text-success">
-                {activeTribunals} / {totalTracked}
+                {tribunalsWithData} / {snap?.tribunals_total || 96}
               </span>
            </div>
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Dias Consolidados</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Items no IA</span>
               <span className="text-lg font-bold font-mono text-warning">
-                {daysConsolidated}
+                {snap?.total_items || 0}
               </span>
            </div>
         </div>
 
-        {/* Velocity & ETA */}
-        {velocity && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-800">
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Hoje</span>
-              <span className="text-lg font-bold font-mono text-accent">
-                {velocity.filesToday}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Ultimos 7d</span>
-              <span className="text-lg font-bold font-mono text-info">
-                {velocity.last7}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Ultimos 30d</span>
-              <span className="text-lg font-bold font-mono text-white">
-                {velocity.last30}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ETA Completo</span>
-              <span className={`text-lg font-bold font-mono ${
-                velocity.etaDays === null ? 'text-gray-500' :
-                velocity.etaDays < 365 ? 'text-success' :
-                velocity.etaDays < 1825 ? 'text-warning' :
-                'text-danger'
-              }`}>
-                {formatEtaText(velocity.etaDays)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Progress by Year */}
-      {progressByYear && Object.keys(progressByYear).length > 0 && (
+      {/* Progress by Year — prefer snapshot data */}
+      {Object.keys(snapshotByYear).length > 0 ? (
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">ZIPs por Ano (Internet Archive)</h3>
+          <div className="space-y-4">
+            {Object.entries(snapshotByYear)
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([year, d]) => {
+                return (
+                  <div key={year}>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="font-mono font-bold text-black dark:text-white">{year}</span>
+                      <span className="font-mono font-bold text-sm text-accent">{d.zip_count.toLocaleString()} zips</span>
+                    </div>
+                    <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                      <span>{d.tribunals_with_data} / {d.tribunals_total} tribunais</span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      ) : progressByYear && Object.keys(progressByYear).length > 0 ? (
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Progresso por Ano</h3>
           <div className="space-y-4">
@@ -186,7 +174,7 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
               })}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Tribunals Grid — cards link to /monitor/{tribunal} */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
