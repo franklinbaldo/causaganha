@@ -36,12 +36,54 @@ if (today) cacheData.today = today;
 if (backfill) cacheData.backfill = backfill;
 const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
-const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, null);
+const iaSnapshot = readJson('ia-snapshot.json');
+const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
+
+// Snapshot stats for this tribunal
+let zipCount = 0;
+let latestDate = '';
+let earliestDate = '';
+if (iaSnapshot?.items) {
+  for (const item of Object.values(iaSnapshot.items)) {
+    if (item.tribunal === tribunalCode) {
+      zipCount += item.zip_count;
+      if (!latestDate || item.latest_date > latestDate) latestDate = item.latest_date;
+      if (!earliestDate || item.earliest_date < earliestDate) earliestDate = item.earliest_date;
+    }
+  }
+}
+
+const tribunalNames = {
+  STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justica', TST: 'Tribunal Superior do Trabalho',
+  TSE: 'Tribunal Superior Eleitoral', STM: 'Superior Tribunal Militar', CNJ: 'Conselho Nacional de Justica',
+};
+const fullName = tribunalNames[tribunalCode] || tribunalCode;
+const ogDesc = zipCount > 0
+  ? `${zipCount} publicacoes arquivadas de ${earliestDate} a ${latestDate}`
+  : `Publicacoes judiciais do ${tribunalCode} arquivadas no Internet Archive`;
+
+// Generate OG image SVG file at build time
+const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <rect x="40" y="40" width="1120" height="550" rx="20" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+  <text x="80" y="120" font-family="system-ui,sans-serif" font-size="24" fill="#94a3b8">CausaGanha</text>
+  <text x="80" y="200" font-family="system-ui,sans-serif" font-size="72" font-weight="bold" fill="#3b82f6">${tribunalCode}</text>
+  <text x="80" y="260" font-family="system-ui,sans-serif" font-size="28" fill="#cbd5e1">${fullName}</text>
+  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString()} publicacoes</text>
+  <text x="80" y="420" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">${earliestDate ? earliestDate + ' a ' + latestDate : 'Internet Archive'}</text>
+  <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados publicos do Diario de Justica Eletronico Nacional</text>
+  <text x="80" y="555" font-family="system-ui,sans-serif" font-size="18" fill="#334155">franklinbaldo.github.io/causaganha</text>
+</svg>`;
+const ogDir = path.resolve('./public/og');
+fs.mkdirSync(ogDir, { recursive: true });
+fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
+const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
 ---
 
 <Layout
-  title={`${tribunalCode} - CausaGanha Monitor`}
-  description={`Monitoramento de cobertura e backfill do tribunal ${tribunalCode} no Internet Archive.`}
+  title={`${tribunalCode} - Publicacoes - CausaGanha`}
+  description={ogDesc}
+  ogImage={ogImage}
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
     <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
