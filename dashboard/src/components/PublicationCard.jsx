@@ -1,22 +1,85 @@
 import { useState } from 'preact/compat';
 
-function copyToClipboard(text) {
-  navigator.clipboard?.writeText(text);
+/**
+ * Format a raw process number into the standard CNJ pattern.
+ * Input:  "7019279602020822001" or "70192796020208220001"
+ * Output: "7019279-60.2020.8.22.0001"
+ * Pattern: NNNNNNN-DD.AAAA.J.TR.OOOO
+ */
+function formatProcessNumber(raw) {
+  if (!raw) return null;
+  // Already formatted
+  if (raw.includes('-')) return raw;
+  // Remove non-digits
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 20) {
+    return `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+  }
+  return raw;
 }
 
-export function PublicationCard({ pub, seq, dateStr, page, compact = false }) {
+/**
+ * Parse publication text into structured paragraphs.
+ * Breaks before common markers like "Processo:", "Classe:", "INTIMACAO", etc.
+ */
+function parseText(text) {
+  if (!text) return [];
+  // Split on common legal document markers
+  const markers = /(?=(?:Processo\s*:|Classe\s*:|INTIMA[CÇ][AÃ]O|CITA[CÇ][AÃ]O|DESPACHO|DECIS[AÃ]O|SENTEN[CÇ]A|EDITAL|Designada\s+AUDI[EÊ]NCIA|DATA\s+E\s+HORA))/gi;
+  const parts = text.split(markers).map(p => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : [text];
+}
+
+function ShareIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+    </svg>
+  );
+}
+
+function ShareButton({ dateStr, page, seq, label }) {
   const [copied, setCopied] = useState(false);
 
-  const handleShare = (e) => {
+  const handleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     const base = window.location.pathname;
-    const hash = `${dateStr}/${page || 1}/${seq}`;
+    let hash = dateStr;
+    if (page) hash += `/${page}`;
+    if (seq) hash += `/${seq}`;
     const url = `${window.location.origin}${base}#${hash}`;
-    copyToClipboard(url);
+    navigator.clipboard?.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800"
+      title="Copiar link"
+    >
+      <ShareIcon />
+      {copied ? 'Copiado!' : (label || 'Link')}
+    </button>
+  );
+}
+
+function NavButton({ label, onClick, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="text-xs text-gray-400 hover:text-accent transition-colors disabled:opacity-30 disabled:cursor-default px-2 py-1"
+    >
+      {label}
+    </button>
+  );
+}
+
+export function PublicationCard({ pub, seq, dateStr, page, compact = false, totalSeq, onNavigate }) {
+  const processNumber = formatProcessNumber(pub.numero_processo);
 
   if (compact) {
     return (
@@ -24,8 +87,8 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false }) {
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <span className="text-[9px] text-gray-300 dark:text-gray-600 font-mono">{seq}</span>
-            {pub.numero_processo && (
-              <span className="font-mono text-sm text-accent font-medium">{pub.numero_processo}</span>
+            {processNumber && (
+              <span className="font-mono text-sm text-accent font-medium">{processNumber}</span>
             )}
             {pub.tipoComunicacao && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 text-gray-500">
@@ -33,9 +96,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false }) {
               </span>
             )}
           </div>
-          <button onClick={handleShare} className="text-[10px] text-gray-400 hover:text-accent transition-colors">
-            {copied ? 'Copiado!' : 'Link'}
-          </button>
+          <ShareButton dateStr={dateStr} page={page} seq={seq} />
         </div>
         {pub.nomeOrgao && (
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{pub.nomeOrgao}</div>
@@ -68,6 +129,8 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false }) {
   }
 
   // Full / featured view
+  const textParts = parseText(pub.texto);
+
   return (
     <div id={`pub-${seq}`} className="card p-6 border-2 border-accent bg-accent/5 dark:bg-accent/10">
       <div className="flex items-center justify-between mb-3">
@@ -82,23 +145,36 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false }) {
           )}
           <span className="text-xs text-gray-400 font-mono">{dateStr}</span>
         </div>
-        <button onClick={handleShare} className="text-[10px] text-gray-400 hover:text-accent transition-colors">
-          {copied ? 'Copiado!' : 'Compartilhar'}
-        </button>
+        <div className="flex items-center gap-1">
+          {onNavigate && (
+            <>
+              <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />
+              <NavButton label="Proxima" onClick={() => onNavigate(seq + 1)} disabled={totalSeq && seq >= totalSeq} />
+            </>
+          )}
+          <ShareButton dateStr={dateStr} page={page} seq={seq} label="Compartilhar" />
+        </div>
       </div>
-      {pub.numero_processo && (
-        <div className="font-mono text-accent font-bold mb-2">{pub.numero_processo}</div>
+
+      {processNumber && (
+        <div className="font-mono text-accent font-bold mb-2 text-lg">{processNumber}</div>
       )}
       {pub.nomeOrgao && (
         <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{pub.nomeOrgao}</div>
       )}
-      {pub.texto && (
-        <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line mb-3">
-          {pub.texto}
+
+      {textParts.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {textParts.map((part, i) => (
+            <p key={i} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+              {part}
+            </p>
+          ))}
         </div>
       )}
+
       {pub.destinatarios?.length > 0 && (
-        <div className="mb-2">
+        <div className="mb-3">
           <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Destinatarios</div>
           <div className="flex flex-wrap gap-1">
             {pub.destinatarios.map((d, j) => (

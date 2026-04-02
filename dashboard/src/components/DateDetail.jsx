@@ -17,7 +17,7 @@ function formatSize(bytes) {
   return `${n} B`;
 }
 
-function ShareButton({ dateStr }) {
+function DateShareButton({ dateStr }) {
   const [copied, setCopied] = useState(false);
   const handleClick = (e) => {
     e.preventDefault();
@@ -27,7 +27,10 @@ function ShareButton({ dateStr }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleClick} className="text-[10px] text-gray-400 hover:text-accent transition-colors">
+    <button onClick={handleClick} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800">
+      <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      </svg>
       {copied ? 'Copiado!' : 'Link'}
     </button>
   );
@@ -145,7 +148,35 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }) {
       {/* Featured publication (deep-link) */}
       {featuredPub && (
         <div>
-          <PublicationCard pub={featuredPub.pub} seq={featuredPub.seq} dateStr={dateStr} page={featuredPub.page} />
+          <PublicationCard
+            pub={featuredPub.pub}
+            seq={featuredPub.seq}
+            dateStr={dateStr}
+            page={featuredPub.page}
+            totalSeq={publications.length || totalPages * 1000}
+            onNavigate={(newSeq) => {
+              if (newSeq < 1) return;
+              const newPage = Math.ceil(newSeq / 1000);
+              const hash = `${dateStr}/${newPage}/${newSeq}`;
+              history.replaceState(null, '', `#${hash}`);
+              // Load the page if needed and update featured
+              (async () => {
+                let pubs = publications;
+                if (newPage !== featuredPub.page || pubs.length === 0) {
+                  const loaded = await loadPage(newPage);
+                  if (loaded) {
+                    pubs = loaded;
+                    setPublications(loaded);
+                    setCurrentPage(newPage);
+                  }
+                }
+                const idx = newSeq - ((newPage - 1) * 1000) - 1;
+                if (idx >= 0 && idx < pubs.length) {
+                  setFeaturedPub({ pub: pubs[idx], seq: newSeq, page: newPage });
+                }
+              })();
+            }}
+          />
           <button
             onClick={() => { setFeaturedPub(null); history.replaceState(null, '', `#${dateStr}`); }}
             className="mt-2 text-xs text-gray-400 hover:text-accent transition-colors"
@@ -161,7 +192,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }) {
           <h3 className="text-lg font-bold text-black dark:text-white font-mono">{dateStr}</h3>
           {zipSize && <span className="text-xs text-gray-400">{formatSize(zipSize)}</span>}
           {totalPages > 0 && <span className="text-xs text-gray-400">{totalPages} pag.</span>}
-          <ShareButton dateStr={dateStr} />
+          <DateShareButton dateStr={dateStr} />
         </div>
         <div className="flex gap-2">
           <a href={zipUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 rounded hover:text-black dark:hover:text-white transition-colors">ZIP</a>
