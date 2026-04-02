@@ -76,6 +76,11 @@ async def fetch_ia_existing(
 
 IA_S3_URL = "https://s3.us.archive.org/{item}/{filename}"
 
+# Module-level upload lock: IA rate-limits to ~1 upload/second per access key.
+# This lock serializes uploads across all workers; downloads from DJEN run in parallel.
+_upload_lock = asyncio.Lock()
+_UPLOAD_COOLDOWN_S = 2.0
+
 
 def get_ia_item_id(tribunal: str, d: date) -> str:
     """Canonical item naming strategy: djen-{tribunal}-{year}."""
@@ -139,13 +144,16 @@ async def upload_zip(
         tribunal=tribunal,
         size_mb=size_mb,
     )
-    resp = await request_with_retry(
-        client,
-        "PUT",
-        url,
-        content=content,
-        headers=headers,
-    )
+    async with _upload_lock:
+        resp = await request_with_retry(
+            client,
+            "PUT",
+            url,
+            content=content,
+            headers=headers,
+        )
+        # Respect IA rate limit: ~1 upload per second
+        await asyncio.sleep(_UPLOAD_COOLDOWN_S)
     elapsed = round(time.monotonic() - start_time, 1)
     body = resp.content or b""
     if resp.status_code == HTTP_OK:

@@ -725,9 +725,10 @@ async def _run_backfill_workers(
     # Track per-tribunal scanned flag
     scanned_tribunals: set[str] = set()
 
-    # Rate limiter: IA allows ~1 upload/second. Use a semaphore so only
-    # 1 worker uploads at a time, with a 1s delay after each upload.
-    upload_sem = asyncio.Semaphore(1)
+    # Rate limiter: IA allows ~1 upload/second. Shared lock ensures
+    # only 1 upload at a time, with a 2s cooldown after each.
+    # Downloads from DJEN happen in parallel (no lock needed).
+    upload_lock = asyncio.Lock()
 
     async def _worker() -> None:
         while not queue.empty():
@@ -756,13 +757,9 @@ async def _run_backfill_workers(
                 scanned_tribunals.add(tribunal)
                 await summary.inc_scanned()
 
-            async with upload_sem:
-                result = await backfill_process_date(
-                    client, breaker, tribunal, d, config, bstate, ia_state, summary,
-                )
-                # IA rate limit: ~1 upload per second; use 2s to stay safe
-                if result == "hit":
-                    await asyncio.sleep(2.0)
+            result = await backfill_process_date(
+                client, breaker, tribunal, d, config, bstate, ia_state, summary,
+            )
 
             # Update state tracking
             if result in {"hit", "empty", "spam"}:
