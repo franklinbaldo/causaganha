@@ -1,13 +1,33 @@
-import { useState } from 'preact/compat';
+import { useState, useEffect, useCallback } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
 import { Heatmap, VelocityTimeline, calculateVelocityAndRegression } from './Heatmap';
 import { DateDetail } from './DateDetail';
 
+function parseHash() {
+  if (typeof window === 'undefined') return { date: null, page: null, seq: null };
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return { date: null, page: null, seq: null };
+  const parts = hash.split('/');
+  return {
+    date: parts[0] || null,
+    page: parts[1] ? parseInt(parts[1]) : null,
+    seq: parts[2] ? parseInt(parts[2]) : null,
+  };
+}
+
 export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState(tribunalCode.toUpperCase());
+  const [hashState, setHashState] = useState(parseHash);
+
+  // Listen for hash changes (back/forward navigation)
+  useEffect(() => {
+    const onHashChange = () => setHashState(parseHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
@@ -16,17 +36,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
   const iaSnapshot = allData?.iaSnapshot;
 
-  // Determine which date to show: ?date= param or most recent from snapshot
-  const queryDate = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('date')
-    : null;
-
-  let latestDate = queryDate;
-  if (!latestDate && iaSnapshot?.items) {
+  // Date from hash, or most recent from snapshot
+  let activeDate = hashState.date;
+  if (!activeDate && iaSnapshot?.items) {
     for (const item of Object.values(iaSnapshot.items)) {
       if (item.tribunal === selectedTribunal) {
-        if (!latestDate || item.latest_date > latestDate) {
-          latestDate = item.latest_date;
+        if (!activeDate || item.latest_date > activeDate) {
+          activeDate = item.latest_date;
         }
       }
     }
@@ -239,9 +255,14 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         </div>
       </div>
 
-      {/* Latest publications */}
-      {latestDate && (
-        <DateDetail tribunalCode={tribunalCode} dateStr={latestDate} />
+      {/* Publications for active date */}
+      {activeDate && (
+        <DateDetail
+          tribunalCode={tribunalCode}
+          dateStr={activeDate}
+          initialPage={hashState.page}
+          initialSeq={hashState.seq}
+        />
       )}
     </div>
   );

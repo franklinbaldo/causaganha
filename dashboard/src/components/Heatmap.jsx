@@ -273,7 +273,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     if (type === 'click') {
       const status = getCellStatus(dateStr);
       if (status === 'collected' && baseUrl) {
-        window.location.href = `${baseUrl}monitor/${tribunalName.toLowerCase()}?date=${dateStr}`;
+        window.location.hash = dateStr;
         return;
       }
       if (hoveredCell?.data?.date === dateStr) {
