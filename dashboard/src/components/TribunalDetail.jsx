@@ -62,7 +62,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const handleTribunalChange = (e) => {
     const newTribunal = e.target.value;
     setSelectedTribunal(newTribunal);
-    window.location.href = `${baseUrl}monitor/${newTribunal.toLowerCase()}`;
+    window.location.href = `${baseUrl}publicacoes/${newTribunal.toLowerCase()}`;
   };
 
   // Build coverage from IA snapshot (real ZIPs on IA) — prefer over backfill data
@@ -128,7 +128,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between mb-2">
         <a
-          href={`${baseUrl}monitor`}
+          href={`${baseUrl}publicacoes`}
           className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors"
         >
           <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

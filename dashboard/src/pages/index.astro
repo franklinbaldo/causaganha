@@ -11,37 +11,21 @@ function readJson(relativePath) {
   } catch { return null; }
 }
 
+const iaSnapshot = readJson('ia-snapshot.json');
 const today = readJson('cache/today.json');
-const calendar = readJson('cache/calendar.json');
 
-// Derive real stats from workflow data
+// Use snapshot as source of truth
+const snap = iaSnapshot?.summary || {};
+const totalZips = snap.total_zips || 0;
+const totalTribunals = snap.tribunals_total || 96;
+const tribunalsWithData = snap.tribunals_with_data || 0;
+const totalGB = snap.total_size_gb || 0;
+const latestDate = snap.latest_collection_date || '';
+
+// Legacy pipeline data as fallback
 const pipeline = today?.pipeline || {};
-const tribunalStatus = today?.tribunal_status || {};
-
-const totalZips = pipeline.total_zips || 0;
 const datesCollected = pipeline.dates_collected || 0;
-const totalTribunals = Object.keys(tribunalStatus).length || 91;
-const activeTribunals = Object.values(tribunalStatus).filter(
-  (t) => t.status === 'ok'
-).length;
 const progressPct = pipeline.progress_pct || 0;
-const daysArchived = today?.days_archived || 0;
-
-// Backfill status
-const backfillTotal = pipeline.backfill_total || 0;
-const backfillDone = pipeline.backfill_done || 0;
-let isBackfill = false;
-if (today?.date) {
-  const dataDate = new Date(`${today.date}T00:00:00Z`);
-  const now = new Date();
-  const diffDays = Math.floor((now - dataDate) / (1000 * 60 * 60 * 24));
-  if (diffDays > 7) {
-    isBackfill = true;
-  }
-}
-
-// Calendar stats
-const calendarDays = calendar?.days ? Object.keys(calendar.days).length : 0;
 
 // Format large numbers
 function formatNumber(n) {
@@ -87,7 +71,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           <a href="#como-funciona" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Como Funciona</a>
           <a href="#dados" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Dados</a>
           <a href="#para-quem" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Para Quem</a>
-          <a href={BASE + 'monitor'} class="bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Dashboard</a>
+          <a href={BASE + 'publicacoes'} class="bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Publicacoes</a>
         </div>
       </div>
     </div>
@@ -109,8 +93,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
           </p>
           <div class="flex flex-col sm:flex-row gap-4">
-            <a href={BASE + 'monitor'} class="bg-amber-500 text-gray-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition text-center">
-              Ver Dashboard ao Vivo
+            <a href={BASE + 'publicacoes'} class="bg-amber-500 text-gray-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition text-center">
+              Ver Publicacoes
             </a>
             <a href="#como-funciona" class="border-2 border-white text-white px-8 py-4 rounded-full font-medium text-lg hover:bg-white/10 transition text-center">
               Saiba Mais
@@ -129,7 +113,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 </div>
                 <div class="ml-4 flex-1">
-                  <div class="font-semibold text-gray-800 dark:text-white">{activeTribunals} tribunais ativos hoje</div>
+                  <div class="font-semibold text-gray-800 dark:text-white">{tribunalsWithData} tribunais com dados</div>
                   <div class="text-sm text-gray-500 dark:text-gray-400">de {totalTribunals} monitorados</div>
                 </div>
               </div>
@@ -166,46 +150,18 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <p class="text-gray-500 dark:text-gray-400">Numeros atualizados automaticamente pelo workflow de coleta</p>
       </div>
 
-      <!-- Backfill Progress Section -->
-      <div class="mb-12 bg-gray-50 dark:bg-slate-800 rounded-2xl p-8 border border-gray-100 dark:border-slate-700 relative overflow-hidden">
-        {isBackfill && (
-          <div class="absolute top-4 right-4 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-400 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-            <span class="animate-spin text-[10px]">🔄</span> Backfill em andamento — coletando histórico
-          </div>
-        )}
-        <div class="mb-6">
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-            Progresso do Arquivamento
-            <span class="text-3xl font-black text-amber-500 ml-2">{progressPct}%</span>
-            <span class="text-sm font-normal text-gray-500 dark:text-gray-400 mt-2">do histórico preservado</span>
-          </h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 font-mono">
-            {formatNumber(backfillDone)} de {formatNumber(backfillTotal)} dias-tribunal coletados
-          </p>
-        </div>
-
-        <div class="h-6 w-full bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner p-1">
-          <div
-            class="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-1000 ease-out relative"
-            style={`width: ${Math.max(2, progressPct)}%`}
-          >
-            <div class="absolute inset-0 bg-white/20 w-full h-full animate-[pulse_2s_ease-in-out_infinite]"></div>
-          </div>
-        </div>
-      </div>
-
       <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
         <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
           <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{formatNumber(totalZips)}</div>
-          <div class="text-gray-600 dark:text-gray-400">ZIPs Coletados</div>
+          <div class="text-gray-600 dark:text-gray-400">ZIPs Arquivados</div>
         </div>
         <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{totalTribunals}</div>
-          <div class="text-gray-600 dark:text-gray-400">Tribunais Monitorados</div>
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{tribunalsWithData}</div>
+          <div class="text-gray-600 dark:text-gray-400">Tribunais com Dados</div>
         </div>
         <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{datesCollected}</div>
-          <div class="text-gray-600 dark:text-gray-400">Dias Coletados</div>
+          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{totalGB.toFixed(0)} GB</div>
+          <div class="text-gray-600 dark:text-gray-400">Volume Arquivado</div>
         </div>
         <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
           <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">100%</div>
@@ -255,7 +211,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Catalogo Indexado</h3>
           <p class="text-gray-600 dark:text-gray-400">
-            Um catalogo em Parquet e gerado automaticamente, permitindo consultas rapidas sobre {datesCollected} dias de dados coletados.
+            Um catalogo em Parquet e gerado automaticamente, permitindo consultas rapidas sobre os dados coletados.
           </p>
         </div>
       </div>
@@ -358,8 +314,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
             Estrela no GitHub
           </a>
-          <a href={BASE + 'monitor'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
-            Ver Dashboard ao Vivo &rarr;
+          <a href={BASE + 'publicacoes'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
+            Ver Publicacoes &rarr;
           </a>
         </div>
       </div>
@@ -408,7 +364,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div>
           <h4 class="text-white font-semibold mb-4">Links</h4>
           <ul class="space-y-2 text-sm">
-            <li><a href={BASE + 'monitor'} class="hover:text-white transition">Dashboard</a></li>
+            <li><a href={BASE + 'publicacoes'} class="hover:text-white transition">Publicacoes</a></li>
             <li><a href={BASE + 'stats'} class="hover:text-white transition">Estatisticas</a></li>
             <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a></li>
           </ul>

@@ -13,7 +13,9 @@ export default defineConfig({
     }),
   ],
   output: 'static',
+  trailingSlash: 'never',
   build: {
     assets: '_astro',
+    format: 'file',
   },
 });

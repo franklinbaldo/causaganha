@@ -212,7 +212,7 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
                 return (
                   <a
                     key={t}
-                    href={`${baseUrl}monitor/${t.toLowerCase()}`}
+                    href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
                     className="group card p-3 flex flex-col gap-1 hover:border-accent transition-all duration-200 no-underline"
                   >
                     <div className="flex items-center justify-between">
