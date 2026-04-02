@@ -798,6 +798,17 @@ async def _run_backfill_workers(
 
             queue.task_done()
 
+    async def _state_syncer() -> None:
+        """Periodically upload state to IA so progress survives timeouts."""
+        while True:
+            await asyncio.sleep(120)  # Every 2 minutes
+            if not config.dry_run:
+                save_backfill_state(bstate, config.backfill_state_file)
+                save_state(ia_state, config.state_file)
+                await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth)
+                await upload_state_to_ia(IA_STATE_FILENAME, ia_state.to_dict(), config.ia_auth)
+                log.info("state_checkpoint_saved")
+
     async def _status_publisher() -> None:
         if not config.publish_live_status:
             return
@@ -817,12 +828,16 @@ async def _run_backfill_workers(
             )
 
     workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
+    syncer_task = asyncio.create_task(_state_syncer())
     publisher_task = asyncio.create_task(_status_publisher())
 
     await asyncio.gather(*workers)
 
-    # Cancel the publisher once workers finish
+    # Cancel background tasks once workers finish
+    syncer_task.cancel()
     publisher_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await syncer_task
     with contextlib.suppress(asyncio.CancelledError):
         await publisher_task
 
