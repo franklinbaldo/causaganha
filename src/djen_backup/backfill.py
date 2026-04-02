@@ -499,7 +499,7 @@ async def backfill_process_date(
 
     Returns ``"hit"``, ``"empty"``, ``"spam"``, or ``"error"``.
     """
-    # Fast path: already on IA
+    # Fast path 1: check local state cache
     status = ia_state.get_status(d, tribunal)
     if status == "uploaded":
         await bstate.record_hit(tribunal, d)
@@ -511,6 +511,22 @@ async def backfill_process_date(
         if stopped:
             await summary.inc_stopped()
         return "empty"
+
+    # Fast path 2: check if ZIP already exists on IA (source of truth)
+    from djen_backup.archive import get_ia_item_id
+    item_id = get_ia_item_id(tribunal, d)
+    zip_filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
+    ia_check_url = f"https://archive.org/download/{item_id}/{zip_filename}"
+    try:
+        head_resp = await client.head(ia_check_url, follow_redirects=True, timeout=10)
+        if head_resp.status_code < 400:
+            log.info("backfill_already_on_ia", tribunal=tribunal, date=d.isoformat())
+            await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
+            await bstate.record_hit(tribunal, d)
+            await summary.inc_hit()
+            return "hit"
+    except (httpx.HTTPError, httpx.TimeoutException):
+        pass  # Can't confirm — proceed with normal flow
 
     # Circuit breaker guard
     if not await breaker.allow_request():
