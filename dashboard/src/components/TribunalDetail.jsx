@@ -9,20 +9,28 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState(tribunalCode.toUpperCase());
 
-  // Show DateDetail when ?date= query param is present
-  const selectedDate = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('date')
-    : null;
-  if (selectedDate) {
-    return <DateDetail tribunalCode={tribunalCode} dateStr={selectedDate} />;
-  }
-
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
   const etas = allData?.tribunalEtas ?? initialEtas ?? {};
   const startDates = allData?.tribunalStartDates ?? initialStartDates ?? {};
   const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
   const iaSnapshot = allData?.iaSnapshot;
+
+  // Determine which date to show: ?date= param or most recent from snapshot
+  const queryDate = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('date')
+    : null;
+
+  let latestDate = queryDate;
+  if (!latestDate && iaSnapshot?.items) {
+    for (const item of Object.values(iaSnapshot.items)) {
+      if (item.tribunal === selectedTribunal) {
+        if (!latestDate || item.latest_date > latestDate) {
+          latestDate = item.latest_date;
+        }
+      }
+    }
+  }
 
   // Derive targetRange dynamically — no hardcoded dates
   const backfillTargetRange = allData?.targetRange ?? initialTargetRange;
@@ -230,6 +238,11 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
           />
         </div>
       </div>
+
+      {/* Latest publications */}
+      {latestDate && (
+        <DateDetail tribunalCode={tribunalCode} dateStr={latestDate} />
+      )}
     </div>
   );
 }
