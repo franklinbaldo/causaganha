@@ -46,9 +46,21 @@ export function DateDetail({ tribunalCode, dateStr }) {
     return `${zipUrl}/${jsonName(pageNum)}`;
   }
 
+  async function cachedFetch(url) {
+    if (typeof caches !== 'undefined') {
+      const cache = await caches.open('causaganha-publications');
+      const cached = await cache.match(url);
+      if (cached) return cached;
+      const res = await fetch(url, { redirect: 'follow' });
+      if (res.ok) cache.put(url, res.clone());
+      return res;
+    }
+    return fetch(url, { redirect: 'follow' });
+  }
+
   async function loadPage(pageNum) {
     const url = jsonUrl(pageNum);
-    const res = await fetch(url, { redirect: 'follow' });
+    const res = await cachedFetch(url);
     if (!res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : (data.items || []);
