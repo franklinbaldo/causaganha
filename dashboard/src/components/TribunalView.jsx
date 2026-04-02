@@ -1,4 +1,3 @@
-import { useState } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
@@ -176,16 +175,23 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
         </div>
       ) : null}
 
-      {/* Tribunals Grid — cards link to /monitor/{tribunal} */}
+      {/* Tribunals Grid — data from IA snapshot */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {tribunals.map(t => {
-          const etaData = etas[t] || {};
-          const completionPct = etaData.completion_pct || 0;
-          const isStopped = etaData.stopped || false;
-          const cursorDate = etaData.cursor_date;
-          const missingDays = etaData.missing_days || 0;
-          const isComplete = missingDays === 0 && completionPct === 100;
-          const grade = qualityScores[t]?.grade;
+          // Aggregate snapshot data for this tribunal across all years
+          let totalZips = 0;
+          let latestDate = null;
+          let earliestDate = null;
+          if (snapshotItems) {
+            for (const item of Object.values(snapshotItems)) {
+              if (item.tribunal === t) {
+                totalZips += item.zip_count;
+                if (!latestDate || item.latest_date > latestDate) latestDate = item.latest_date;
+                if (!earliestDate || item.earliest_date < earliestDate) earliestDate = item.earliest_date;
+              }
+            }
+          }
+          const hasData = totalZips > 0;
 
           return (
             <a
@@ -193,63 +199,33 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
               href={`${baseUrl}monitor/${t.toLowerCase()}`}
               className="group card p-4 flex flex-col gap-3 cursor-pointer hover:border-accent transition-all duration-200 hover:shadow-lg relative overflow-hidden no-underline"
             >
-              {cursorDate && !isStopped && (
-                <div className="absolute top-0 right-0 p-2">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                  </span>
-                </div>
-              )}
-
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-accent transition-colors">{t}</h3>
-                {grade && (
-                  <span className={clsx(
-                    "text-[9px] font-bold px-1.5 py-0.5 rounded",
-                    grade === 'A' ? "bg-success/20 text-success" :
-                    grade === 'B' ? "bg-info/20 text-info" :
-                    grade === 'C' ? "bg-warning/20 text-warning" :
-                    "bg-danger/20 text-danger"
-                  )}>
-                    Grade {grade}
-                  </span>
-                )}
+                <span className={clsx(
+                  "text-xs font-bold font-mono",
+                  hasData ? "text-accent" : "text-gray-400 dark:text-gray-600"
+                )}>
+                  {totalZips > 0 ? totalZips.toLocaleString() : '—'}
+                </span>
               </div>
 
-              <div className="flex-1">
-                <div className="flex justify-between text-[11px] mb-1.5">
-                  <span className="text-gray-500 dark:text-gray-400 font-medium">Archiving Progress</span>
-                  <span className="font-mono font-bold text-black dark:text-white">{completionPct.toFixed(0)}%</span>
+              {hasData ? (
+                <>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                    {earliestDate} a {latestDate}
+                  </div>
+                  <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent rounded-full transition-all duration-700"
+                      style={{ width: `${Math.min(100, (totalZips / (snap?.total_zips || totalZips)) * 300)}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="text-[10px] text-gray-400 dark:text-gray-600">
+                  Sem dados no IA
                 </div>
-                <div className="h-2 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
-                  <div
-                    className={clsx(
-                      "h-full transition-all duration-1000 ease-out",
-                      isComplete ? "bg-success" : "bg-accent"
-                    )}
-                    style={{ width: `${Math.min(100, completionPct)}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center text-[10px] font-mono">
-                <div className="flex flex-col">
-                  <span className="text-gray-400 uppercase text-[8px] leading-3 tracking-tighter">Status</span>
-                  <span className={clsx(
-                    "font-bold",
-                    isComplete ? "text-success" :
-                    isStopped ? "text-danger" :
-                    cursorDate ? "text-accent" : "text-gray-500"
-                  )}>
-                    {isComplete ? "COMPLETE" : isStopped ? "STOPPED" : cursorDate ? "SCANNING" : "PENDING"}
-                  </span>
-                </div>
-                <div className="flex flex-col text-right">
-                  <span className="text-gray-400 uppercase text-[8px] leading-3 tracking-tighter">Missing</span>
-                  <span className="text-gray-600 dark:text-gray-300 font-bold">{missingDays}d</span>
-                </div>
-              </div>
+              )}
             </a>
           );
         })}
