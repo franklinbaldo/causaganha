@@ -87,22 +87,91 @@ async def get_caderno_url(
     return download_url
 
 
+DOWNLOAD_SEGMENTS = 4  # Number of parallel segments for large downloads
+SEGMENT_THRESHOLD = 5 * 1024 * 1024  # Only segment files > 5 MB
+
+
+async def _download_segment(
+    client: httpx.AsyncClient,
+    url: str,
+    start: int,
+    end: int,
+    index: int,
+) -> bytes:
+    """Download a byte range segment."""
+    headers = {"Range": f"bytes={start}-{end}"}
+    async with client.stream("GET", url, headers=headers) as resp:
+        resp.raise_for_status()
+        return await resp.aread()
+
+
 async def download_zip(
     client: httpx.AsyncClient,
     url: str,
 ) -> Path:
     """Download a ZIP file to a temporary file and return its path.
 
-    Uses streaming to handle large files efficiently and logs progress.
+    Uses parallel range requests for large files (>5MB) to speed up downloads.
     The caller is responsible for cleaning up the temp file.
     Raises :class:`DJENNotFoundError` for 404 or empty responses.
     """
-    # Create temp file first
+    # Probe file size with a small range request
+    probe = await client.get(url, headers={"Range": "bytes=0-0"})
+    if probe.status_code == HTTP_NOT_FOUND:
+        _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
+
+    content_range = probe.headers.get("content-range", "")
+    total_size = 0
+    if "/" in content_range:
+        try:
+            total_size = int(content_range.split("/")[1])
+        except (ValueError, IndexError):
+            pass
+
+    filename = url.split("?")[0].rsplit("/", maxsplit=1)[-1]
+
+    # Fallback to simple streaming if range requests not supported or file is small
+    if total_size < SEGMENT_THRESHOLD:
+        return await _download_simple(client, url, filename)
+
+    size_mb = round(total_size / 1024 / 1024, 1)
+    log.info("download_starting", file=filename, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
+
+    # Split into segments and download in parallel
+    segment_size = total_size // DOWNLOAD_SEGMENTS
+    tasks = []
+    for i in range(DOWNLOAD_SEGMENTS):
+        start = i * segment_size
+        end = total_size - 1 if i == DOWNLOAD_SEGMENTS - 1 else (i + 1) * segment_size - 1
+        tasks.append(_download_segment(client, url, start, end, i))
+
+    segments = await asyncio.gather(*tasks)
+
+    # Write all segments to temp file
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp_path = Path(tmp.name)
+    try:
+        for seg in segments:
+            tmp.write(seg)
+        tmp.close()
+    except Exception:
+        tmp.close()
+        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+        raise
+
+    log.info("download_complete", path=tmp.name, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
+    return tmp_path
+
+
+async def _download_simple(
+    client: httpx.AsyncClient,
+    url: str,
+    filename: str,
+) -> Path:
+    """Simple streaming download fallback for small files or no range support."""
     tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
     tmp_path = Path(tmp.name)
     total_bytes = 0
-    last_logged_mb = 0
-    progress_interval_mb = 10  # Log every 10MB
 
     try:
         async with client.stream("GET", url) as resp:
@@ -110,15 +179,11 @@ async def download_zip(
                 tmp.close()
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
-
             resp.raise_for_status()
 
-            # Get content length if available
             content_length = resp.headers.get("content-length")
             total_expected = int(content_length) if content_length else None
-
             if total_expected:
-                filename = url.rsplit("/", maxsplit=1)[-1]
                 log.info(
                     "download_starting",
                     file=filename,
@@ -129,35 +194,14 @@ async def download_zip(
                 tmp.write(chunk)
                 total_bytes += len(chunk)
 
-                # Log progress every N MB
-                current_mb = total_bytes // (1024 * 1024)
-                if current_mb >= last_logged_mb + progress_interval_mb:
-                    last_logged_mb = current_mb
-                    if total_expected:
-                        pct = round(100 * total_bytes / total_expected, 1)
-                        log.info(
-                            "download_progress",
-                            downloaded_mb=current_mb,
-                            total_mb=round(total_expected / 1024 / 1024, 1),
-                            percent=pct,
-                        )
-                    else:
-                        log.info("download_progress", downloaded_mb=current_mb)
-
         tmp.close()
-
         if total_bytes == 0:
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
             _raise_not_found(resp.status_code, "Empty ZIP response")
-
     except Exception:
         tmp.close()
         await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
         raise
 
-    log.info(
-        "download_complete",
-        path=tmp.name,
-        size_mb=round(total_bytes / 1024 / 1024, 1),
-    )
+    log.info("download_complete", path=tmp.name, size_mb=round(total_bytes / 1024 / 1024, 1))
     return tmp_path
