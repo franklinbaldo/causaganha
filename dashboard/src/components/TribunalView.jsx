@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
-import { TRIBUNAIS } from '../lib/tribunais.js';
+import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais.js';
 
 export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialVelocityMetrics, initialIaSnapshot }) {
   const { data: allData } = useDataRefresh(null, null);
@@ -175,61 +175,64 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
         </div>
       ) : null}
 
-      {/* Tribunals Grid — data from IA snapshot */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {tribunals.map(t => {
-          // Aggregate snapshot data for this tribunal across all years
-          let totalZips = 0;
-          let latestDate = null;
-          let earliestDate = null;
+      {/* Tribunals by branch */}
+      {TRIBUNAL_GROUPS.map(group => {
+        // Count group totals from snapshot
+        let groupZips = 0;
+        let groupWithData = 0;
+        group.tribunals.forEach(t => {
           if (snapshotItems) {
             for (const item of Object.values(snapshotItems)) {
-              if (item.tribunal === t) {
-                totalZips += item.zip_count;
-                if (!latestDate || item.latest_date > latestDate) latestDate = item.latest_date;
-                if (!earliestDate || item.earliest_date < earliestDate) earliestDate = item.earliest_date;
-              }
+              if (item.tribunal === t) groupZips += item.zip_count;
             }
           }
-          const hasData = totalZips > 0;
+          if (groupZips > 0) groupWithData++;
+        });
 
-          return (
-            <a
-              key={t}
-              href={`${baseUrl}monitor/${t.toLowerCase()}`}
-              className="group card p-4 flex flex-col gap-3 cursor-pointer hover:border-accent transition-all duration-200 hover:shadow-lg relative overflow-hidden no-underline"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-accent transition-colors">{t}</h3>
-                <span className={clsx(
-                  "text-xs font-bold font-mono",
-                  hasData ? "text-accent" : "text-gray-400 dark:text-gray-600"
-                )}>
-                  {totalZips > 0 ? totalZips.toLocaleString() : '—'}
-                </span>
-              </div>
+        return (
+          <div key={group.name} className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold text-black dark:text-white">{group.name}</h3>
+              <span className="text-xs text-gray-400 font-mono">{group.tribunals.length} tribunais</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {group.tribunals.map(t => {
+                let totalZips = 0;
+                let latestDate = null;
+                if (snapshotItems) {
+                  for (const item of Object.values(snapshotItems)) {
+                    if (item.tribunal === t) {
+                      totalZips += item.zip_count;
+                      if (!latestDate || item.latest_date > latestDate) latestDate = item.latest_date;
+                    }
+                  }
+                }
+                const hasData = totalZips > 0;
 
-              {hasData ? (
-                <>
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                    {earliestDate} a {latestDate}
-                  </div>
-                  <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-accent rounded-full transition-all duration-700"
-                      style={{ width: `${Math.min(100, (totalZips / (snap?.total_zips || totalZips)) * 300)}%` }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="text-[10px] text-gray-400 dark:text-gray-600">
-                  Sem dados no IA
-                </div>
-              )}
-            </a>
-          );
-        })}
-      </div>
+                return (
+                  <a
+                    key={t}
+                    href={`${baseUrl}monitor/${t.toLowerCase()}`}
+                    className="group card p-3 flex flex-col gap-1 hover:border-accent transition-all duration-200 no-underline"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-accent transition-colors">{t}</span>
+                      {hasData && (
+                        <span className="text-[10px] font-bold font-mono text-accent">{totalZips}</span>
+                      )}
+                    </div>
+                    {hasData ? (
+                      <span className="text-[9px] text-gray-400 font-mono">ate {latestDate}</span>
+                    ) : (
+                      <span className="text-[9px] text-gray-400 dark:text-gray-600">—</span>
+                    )}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
