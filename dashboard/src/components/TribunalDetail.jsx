@@ -3,9 +3,19 @@ import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
 import { Heatmap, VelocityTimeline, calculateVelocityAndRegression } from './Heatmap';
+import { DateDetail } from './DateDetail';
+
 export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState(tribunalCode.toUpperCase());
+
+  // Show DateDetail when ?date= query param is present
+  const selectedDate = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('date')
+    : null;
+  if (selectedDate) {
+    return <DateDetail tribunalCode={tribunalCode} dateStr={selectedDate} />;
+  }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
