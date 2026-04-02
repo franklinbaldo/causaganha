@@ -20,14 +20,22 @@ function parseHash() {
 export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores }) {
   const { data: allData } = useDataRefresh(null, null);
   const [selectedTribunal, setSelectedTribunal] = useState(tribunalCode.toUpperCase());
-  const [hashState, setHashState] = useState(parseHash);
+  const [hashState, setHashState] = useState({ date: null, page: null, seq: null });
+  const [hashReady, setHashReady] = useState(false);
 
-  // Listen for hash changes (back/forward navigation)
+  // Read hash on mount + listen for changes
   useEffect(() => {
+    setHashState(parseHash());
+    setHashReady(true);
     const onHashChange = () => setHashState(parseHash());
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  // Don't render content until hash is read (prevents flash of wrong date)
+  if (!hashReady) {
+    return <div className="text-gray-500 text-center py-8">Carregando...</div>;
+  }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
   const absentCoverage = allData?.tribunalAbsentCoverage ?? {};
