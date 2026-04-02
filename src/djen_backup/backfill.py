@@ -760,9 +760,9 @@ async def _run_backfill_workers(
                 result = await backfill_process_date(
                     client, breaker, tribunal, d, config, bstate, ia_state, summary,
                 )
-                # IA rate limit: ~1 upload per second
+                # IA rate limit: ~1 upload per second; use 2s to stay safe
                 if result == "hit":
-                    await asyncio.sleep(1.0)
+                    await asyncio.sleep(2.0)
 
             # Update state tracking
             if result in {"hit", "empty", "spam"}:
