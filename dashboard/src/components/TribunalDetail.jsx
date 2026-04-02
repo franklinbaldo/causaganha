@@ -124,8 +124,20 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
   const totalForBar = actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0);
 
+  const hasFeaturedPub = hashState.seq != null;
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Featured publication at the very top when deep-linked */}
+      {hasFeaturedPub && activeDate && (
+        <DateDetail
+          tribunalCode={tribunalCode}
+          dateStr={activeDate}
+          initialPage={hashState.page}
+          initialSeq={hashState.seq}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <a
           href={`${baseUrl}publicacoes`}
@@ -255,13 +267,12 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         </div>
       </div>
 
-      {/* Publications for active date */}
-      {activeDate && (
+      {/* Publications for active date (only when not showing featured pub above) */}
+      {activeDate && !hasFeaturedPub && (
         <DateDetail
           tribunalCode={tribunalCode}
           dateStr={activeDate}
           initialPage={hashState.page}
-          initialSeq={hashState.seq}
         />
       )}
     </div>
