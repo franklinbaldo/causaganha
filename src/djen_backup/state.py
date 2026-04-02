@@ -160,3 +160,70 @@ def save_state(state: State, path: Path | None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state.to_dict(), indent=2) + "\n", encoding="utf-8")
     log.info("state_cache_saved", path=str(path))
+
+
+# ---------------------------------------------------------------------------
+# IA-backed state persistence
+# ---------------------------------------------------------------------------
+
+IA_STATE_ITEM = "causaganha-dashboard"
+IA_STATE_FILENAME = "ia-state.json"
+IA_BACKFILL_STATE_FILENAME = "backfill-state.json"
+_IA_DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
+_IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
+
+
+async def download_state_from_ia(filename: str) -> dict | None:
+    """Download a state JSON from IA. Returns parsed dict or None."""
+    import httpx
+
+    url = _IA_DOWNLOAD_URL.format(filename)
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                log.info("state_downloaded_from_ia", filename=filename)
+                return data
+            log.info("state_not_found_on_ia", filename=filename, status=resp.status_code)
+    except Exception as exc:
+        log.warning("state_download_failed", filename=filename, error=str(exc))
+    return None
+
+
+async def upload_state_to_ia(filename: str, data: dict, auth: str) -> bool:
+    """Upload a state JSON to IA. Returns True on success."""
+    import httpx
+
+    url = _IA_S3_URL.format(filename)
+    content = json.dumps(data, indent=2).encode("utf-8")
+    headers = {
+        "Authorization": auth,
+        "Content-Type": "application/json",
+        "x-amz-auto-make-bucket": "1",
+        "x-archive-meta-mediatype": "data",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.put(url, content=content, headers=headers)
+            if resp.status_code < 400:
+                log.info("state_uploaded_to_ia", filename=filename)
+                return True
+            log.warning("state_upload_failed", filename=filename, status=resp.status_code)
+    except Exception as exc:
+        log.warning("state_upload_error", filename=filename, error=str(exc))
+    return False
+
+
+def merge_state(local: State, remote: State) -> State:
+    """Merge two State objects. Keeps all entries from both; local wins on conflict."""
+    merged = State()
+    # Start with remote entries
+    for date_key, tribunals in remote._entries.items():
+        merged._entries[date_key] = dict(tribunals)
+    # Overlay local entries (local wins)
+    for date_key, tribunals in local._entries.items():
+        if date_key not in merged._entries:
+            merged._entries[date_key] = {}
+        merged._entries[date_key].update(tribunals)
+    return merged

@@ -32,7 +32,17 @@ from djen_backup.archive import (
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.runner import validate_tribunal
-from djen_backup.state import ItemStatus, State, load_state, save_state
+from djen_backup.state import (
+    IA_BACKFILL_STATE_FILENAME,
+    IA_STATE_FILENAME,
+    ItemStatus,
+    State,
+    download_state_from_ia,
+    load_state,
+    merge_state,
+    save_state,
+    upload_state_to_ia,
+)
 from djen_backup.tribunais import get_tribunal_list
 
 
@@ -253,6 +263,24 @@ def save_backfill_state(state: BackfillState, path: Path | None) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state.to_dict(), indent=2) + "\n", encoding="utf-8")
+
+
+def merge_backfill_state(local: BackfillState, remote: BackfillState) -> BackfillState:
+    """Merge two BackfillStates. Keeps the more advanced cursor (older date) per tribunal."""
+    merged = BackfillState()
+    all_tribunals = set(local._tribunals) | set(remote._tribunals)
+    for t in all_tribunals:
+        local_prog = local._tribunals.get(t)
+        remote_prog = remote._tribunals.get(t)
+        if local_prog and remote_prog:
+            # Keep the one with the older cursor (more progress)
+            if local_prog.cursor_date <= remote_prog.cursor_date:
+                merged._tribunals[t] = local_prog
+            else:
+                merged._tribunals[t] = remote_prog
+        else:
+            merged._tribunals[t] = local_prog or remote_prog
+    return merged
 
 
 # ── Backfill config & summary ────────────────────────────────────────
@@ -802,10 +830,29 @@ async def _run_backfill_workers(
 async def run_backfill(config: BackfillConfig) -> int:
     """Execute the backfill pipeline.  Returns the process exit code."""
     deadline = time.monotonic() + config.deadline_minutes * 60
-    bstate = load_backfill_state(config.backfill_state_file)
-    ia_state = load_state(config.state_file)
 
-    # 0. Load discovered Genesis dates
+    # 0. Load local state, then try to fetch remote state from IA and merge
+    local_bstate = load_backfill_state(config.backfill_state_file)
+    local_ia_state = load_state(config.state_file)
+
+    remote_bstate_data = await download_state_from_ia(IA_BACKFILL_STATE_FILENAME)
+    remote_ia_state_data = await download_state_from_ia(IA_STATE_FILENAME)
+
+    if remote_bstate_data:
+        remote_bstate = BackfillState.from_dict(remote_bstate_data)
+        bstate = merge_backfill_state(local_bstate, remote_bstate)
+        log.info("backfill_state_merged", local=local_bstate.tribunal_count(), remote=remote_bstate.tribunal_count(), merged=bstate.tribunal_count())
+    else:
+        bstate = local_bstate
+
+    if remote_ia_state_data:
+        remote_ia_state = State.from_dict(remote_ia_state_data)
+        ia_state = merge_state(local_ia_state, remote_ia_state)
+        log.info("ia_state_merged", local=local_ia_state.date_count, remote=remote_ia_state.date_count, merged=ia_state.date_count)
+    else:
+        ia_state = local_ia_state
+
+    # 0b. Load discovered Genesis dates
     genesis_dates = {}
     genesis_path = Path("dashboard/public/tribunal_start_dates.json")
     if await anyio.Path(genesis_path).exists():
@@ -840,9 +887,13 @@ async def run_backfill(config: BackfillConfig) -> int:
             client, breaker, config, bstate, ia_state, deadline, summary, all_tribunals
         )
 
-    # 4. Save state
+    # 4. Save state locally and upload to IA
     save_backfill_state(bstate, config.backfill_state_file)
     save_state(ia_state, config.state_file)
+
+    if not config.dry_run:
+        await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth)
+        await upload_state_to_ia(IA_STATE_FILENAME, ia_state.to_dict(), config.ia_auth)
 
     # 5. Summary
     log.info(
