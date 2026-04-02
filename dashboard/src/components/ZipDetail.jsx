@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'preact/compat';
-import { fetchWithRetry } from '../lib/fetchData.js';
 
 function getItemId(tribunal, year) {
   return `djen-${tribunal.toLowerCase()}-${year}`;
@@ -38,7 +37,7 @@ export function ZipDetail({ tribunalCode, dateStr }) {
       try {
         // Fetch item metadata to get file info
         const metaUrl = `https://archive.org/metadata/${itemId}`;
-        const res = await fetchWithRetry(metaUrl, {}, 3);
+        const res = await fetch(metaUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -53,32 +52,23 @@ export function ZipDetail({ tribunalCode, dateStr }) {
         // Pattern: {TRIBUNAL}-D-{date}_1.json, _2.json, etc
         // We don't know how many, so we'll probe or use a different approach
 
-        // Alternative: fetch the ZIP as a directory listing
-        const listUrl = `${zipUrl}/`;
-        try {
-          const listRes = await fetchWithRetry(listUrl, {}, 2);
-          if (listRes.ok) {
-            const html = await listRes.text();
-            // Parse JSON filenames from the directory listing HTML
-            const jsonRegex = /href="([^"]+\.json)"/g;
-            const found = [];
-            let match;
-            while ((match = jsonRegex.exec(html)) !== null) {
-              found.push(match[1]);
+        // Probe for JSON files inside the ZIP.
+        // Convention: {TRIBUNAL}-D-{date}_N.json where N starts at 1.
+        // Probe in batch: try 1-10 in parallel, keep those that return 200.
+        const candidates = Array.from({ length: 20 }, (_, i) =>
+          `${tribunal}-D-${dateStr}_${i + 1}.json`
+        );
+        const probes = await Promise.all(
+          candidates.map(async (name) => {
+            try {
+              const res = await fetch(`${zipUrl}/${name}`, { method: 'HEAD', redirect: 'follow' });
+              return res.ok ? name : null;
+            } catch {
+              return null;
             }
-            if (found.length > 0) {
-              setJsonFiles(found.sort());
-            }
-          }
-        } catch {
-          // Directory listing not available — try probing common filenames
-          const probed = [];
-          for (let i = 1; i <= 20; i++) {
-            const jsonName = `${tribunal}-D-${dateStr}_${i}.json`;
-            probed.push(jsonName);
-          }
-          setJsonFiles(probed);
-        }
+          })
+        );
+        setJsonFiles(probes.filter(Boolean));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -101,14 +91,15 @@ export function ZipDetail({ tribunalCode, dateStr }) {
 
     try {
       const jsonUrl = `${zipUrl}/${jsonName}`;
-      const res = await fetchWithRetry(jsonUrl, {}, 3);
+      const res = await fetch(jsonUrl, { redirect: 'follow' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
       // Handle both formats: array or {items: [...]}
       const items = Array.isArray(data) ? data : (data.items || [data]);
       setPublications(items);
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch JSON:', err);
       setPublications([]);
     } finally {
       setLoadingPubs(false);
