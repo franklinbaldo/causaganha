@@ -183,7 +183,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
           {onNavigate && (
             <>
               <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />
-              <NavButton label="Proxima" onClick={() => onNavigate(seq + 1)} disabled={totalSeq != null && seq >= totalSeq} />
+              <NavButton label="Próxima" onClick={() => onNavigate(seq + 1)} disabled={totalSeq != null && seq >= totalSeq} />
             </>
           )}
           <ShareButton dateStr={dateStr} page={page} seq={seq} label="Compartilhar" />
@@ -209,7 +209,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
       {pub.destinatarios?.length > 0 && (
         <div className="mb-3">
-          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Destinatarios</div>
+          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Destinatários</div>
           <div className="flex flex-wrap gap-1">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
