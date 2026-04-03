@@ -29,17 +29,17 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="CausaGanha - Publicacoes"
-  description="Publicacoes judiciais brasileiras arquivadas no Internet Archive."
+  title="CausaGanha - Publicações"
+  description="Publicações judiciais brasileiras arquivadas no Internet Archive."
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
     <PageHeader title="CausaGanha">
       <DatabaseIcon slot="icon" class="w-5 h-5 text-accent" />
       <p slot="subtitle" class="text-sm text-gray-500 dark:text-gray-400">
-        {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | ultima coleta: ${latestDate}` : 'Carregando...'}
+        {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | última coleta: ${latestDate}` : 'Carregando...'}
       </p>
       <a slot="nav" href={BASE} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
-        Inicio
+        Início
       </a>
     </PageHeader>
 

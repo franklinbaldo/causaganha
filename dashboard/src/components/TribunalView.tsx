@@ -63,7 +63,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             </p>
             {latestDate && (
               <p className="text-gray-500 text-xs font-mono mt-1">
-                Ultima coleta: {latestDate}
+                Última coleta: {latestDate}
                 {snapshotAge && <span className="ml-2 text-gray-600">| Snapshot: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
               </p>
             )}

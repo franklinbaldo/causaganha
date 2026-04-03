@@ -3,20 +3,20 @@ import Layout from '../layouts/Layout.astro';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<Layout title="Pagina nao encontrada - CausaGanha">
+<Layout title="Página não encontrada - CausaGanha">
   <div class="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center p-4">
     <div class="text-center max-w-md">
       <div class="text-6xl font-black text-gray-200 dark:text-slate-800 mb-4">404</div>
-      <h1 class="text-xl font-semibold text-black dark:text-white mb-2">Pagina nao encontrada</h1>
+      <h1 class="text-xl font-semibold text-black dark:text-white mb-2">Página não encontrada</h1>
       <p class="text-gray-500 dark:text-gray-400 mb-6">
-        Este conteudo pode ainda nao ter sido coletado ou o snapshot ainda nao foi atualizado.
+        Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
       </p>
       <div class="flex gap-3 justify-center">
         <a href={BASE + 'monitor'} class="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors text-sm font-medium">
           Dashboard
         </a>
         <a href={BASE} class="px-4 py-2 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
-          Inicio
+          Início
         </a>
       </div>
     </div>
