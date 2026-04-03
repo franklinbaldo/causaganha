@@ -35,95 +35,101 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
 >
   <PageHeader
     title="Estatísticas de Coleta"
-    subtitle="Historical coverage and reliability analysis"
+    subtitle="Análise de cobertura histórica e confiabilidade"
     backHref={base}
-    backLabel="Back to Dashboard"
+    backLabel="Voltar para o Início"
   />
 
-  <main id="main-content" class="container">
+  <div class="container" style="margin-top: 2rem;">
 
     {/* 1. Coverage Overview */}
-    <article>
-      <h2>Coverage Overview (Últimos 30 Dias)</h2>
+    <article style="margin-bottom: 2rem;">
+      <header>
+        <strong>Resumo de Cobertura (Últimos 30 Dias)</strong>
+      </header>
       <div class="grid">
         <div style="text-align: center;">
-          <small>Média de Coleta</small>
-          <p class="text-accent"><strong>{avgCoverage30Pct.toFixed(1)}%</strong></p>
-          <small>{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
+          <div class="stat-value text-primary">{avgCoverage30Pct.toFixed(1)}%</div>
+          <p class="stat-label">Média de Coleta</p>
+          <small class="text-muted">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
         </div>
         <div style="text-align: center;">
-          <small>Melhor Dia</small>
-          <p class="text-success"><strong>{bestCount} / 91</strong></p>
-          <small>{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
+          <div class="stat-value text-success">{bestCount} / 91</div>
+          <p class="stat-label">Melhor Dia</p>
+          <small class="text-muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
         </div>
         <div style="text-align: center;">
-          <small>Pior Dia</small>
-          <p class="text-danger"><strong>{worstCount === 999 ? 0 : worstCount} / 91</strong></p>
-          <small>{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
+          <div class="stat-value text-danger">{worstCount === 999 ? 0 : worstCount} / 91</div>
+          <p class="stat-label">Pior Dia</p>
+          <small class="text-muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
         </div>
       </div>
     </article>
 
     {/* 2. Court Reliability Rankings */}
-    <div class="grid">
+    <div class="grid" style="margin-bottom: 2rem;">
       <article>
-        <h2>Top 5 Mais Confiáveis</h2>
+        <header><strong>Top 5 Mais Confiáveis</strong></header>
         {top5.length > 0 ? (
-          <table>
+          <table class="striped">
             <tbody>
               {top5.map((c, i) => (
                 <tr>
-                  <td><mark>{i + 1}</mark></td>
+                  <td><span class="badge" style="background: var(--pico-muted-border-color); color: var(--pico-color);">{i + 1}</span></td>
                   <td><strong>{c.court}</strong></td>
-                  <td class="text-success">{(c.rate * 100).toFixed(1)}%</td>
-                  <td><small>{c.collected} success / {c.absent} fail</small></td>
+                  <td class="text-success"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  <td class="text-muted"><small>{c.collected} success / {c.absent} fail</small></td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p style="text-align: center;">Sem dados suficientes</p>
+          <p style="text-align: center;" class="text-muted">Sem dados suficientes</p>
         )}
       </article>
 
       <article>
-        <h2>Top 5 Mais Falhas</h2>
+        <header><strong>Top 5 Mais Falhas</strong></header>
         {bottom5.length > 0 ? (
-          <table>
+          <table class="striped">
             <tbody>
               {bottom5.map((c, i) => (
                 <tr>
-                  <td><mark>{i + 1}</mark></td>
+                  <td><span class="badge" style="background: var(--pico-muted-border-color); color: var(--pico-color);">{i + 1}</span></td>
                   <td><strong>{c.court}</strong></td>
-                  <td class="text-danger">{(c.rate * 100).toFixed(1)}%</td>
-                  <td><small>{c.collected} success / {c.absent} fail</small></td>
+                  <td class="text-danger"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  <td class="text-muted"><small>{c.collected} success / {c.absent} fail</small></td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p style="text-align: center;">Sem dados suficientes</p>
+          <p style="text-align: center;" class="text-muted">Sem dados suficientes</p>
         )}
       </article>
     </div>
 
     {/* 3. Weekly Pattern */}
-    <article>
-      <h2>Padrão Semanal</h2>
-      <p>Média de cobertura por dia da semana em todo o histórico.</p>
+    <article style="margin-bottom: 4rem;">
+      <header>
+        <hgroup>
+          <h2>Padrão Semanal</h2>
+          <p>Média de cobertura por dia da semana em todo o histórico.</p>
+        </hgroup>
+      </header>
       <div class="grid">
         {displayWeekly.map(w => {
           if (!w) return null;
           const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
           return (
-            <div style="text-align: center;">
-              <small><strong>{w.name.slice(0, 3)}</strong></small>
-              <p class={isLowest ? 'text-danger' : ''}>
-                <strong>{w.avgPct.toFixed(0)}%</strong>
-              </p>
-              <small>{w.avg.toFixed(1)} / 91</small>
+            <div style="text-align: center; padding: 1rem; border-radius: var(--pico-border-radius); background: var(--pico-background-color);">
+              <small class="stat-label"><strong>{w.name.slice(0, 3)}</strong></small>
+              <div class={`stat-value ${isLowest ? 'text-danger' : 'text-primary'}`} style="font-size: 1.5rem; margin: 0.5rem 0;">
+                {w.avgPct.toFixed(0)}%
+              </div>
+              <small class="text-muted">{w.avg.toFixed(1)} / 91</small>
               {isLowest && (
-                <p><kbd class="text-danger">Lowest</kbd></p>
+                <div style="margin-top: 0.5rem;"><span class="badge badge-danger">Lowest</span></div>
               )}
             </div>
           );
@@ -131,5 +137,5 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       </div>
     </article>
 
-  </main>
+  </div>
 </Layout>

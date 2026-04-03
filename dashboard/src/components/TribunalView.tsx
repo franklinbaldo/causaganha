@@ -67,110 +67,88 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
     <div>
       {/* Global Progress Banner */}
       <article>
-        <div>
-          <div>
+        <header>
+          <hgroup>
             <h2>Progresso do Arquivo</h2>
             <p>
               {totalZips.toLocaleString()} ZIPs no Internet Archive
             </p>
-            {latestDate && (
-              <p>
-                Ultima coleta: {latestDate}
-                {snapshotAge && <span>| Instantaneo: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <span className="text-accent">{tribunalsWithData}</span>
-            <span>Tribunais com dados</span>
-          </div>
-        </div>
+          </hgroup>
+          {latestDate && (
+            <p className="text-muted" style={{ fontSize: '0.875rem' }}>
+              Última coleta: {latestDate}
+              {snapshotAge && <span> | Instantâneo: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
+            </p>
+          )}
+        </header>
 
         {/* Quick Stats Grid */}
         <div className="grid">
            <div>
-              <small>ZIPs no IA</small>
-              <span className="text-accent">
-                {totalZips.toLocaleString()}
-              </span>
+              <div className="stat-value text-primary">{totalZips.toLocaleString()}</div>
+              <p className="stat-label">ZIPs no IA</p>
            </div>
            <div>
-              <small>Volume</small>
-              <span>
-                {totalGB.toFixed(1)} GB
-              </span>
+              <div className="stat-value">{totalGB.toFixed(1)} GB</div>
+              <p className="stat-label">Volume</p>
            </div>
            <div>
-              <small>Tribunais</small>
-              <span className="text-success">
-                {tribunalsWithData} / {snap?.tribunals_total || 96}
-              </span>
+              <div className="stat-value text-success">{tribunalsWithData} <span style={{ fontSize: '1rem', color: 'var(--pico-muted-color)' }}>/ {snap?.tribunals_total || 96}</span></div>
+              <p className="stat-label">Tribunais</p>
            </div>
            <div>
-              <small>Itens no IA</small>
-              <span className="text-warning">
-                {snap?.total_items || 0}
-              </span>
+              <div className="stat-value text-warning">{snap?.total_items || 0}</div>
+              <p className="stat-label">Itens no IA</p>
            </div>
         </div>
-
       </article>
 
       {/* Progress by Year — prefer snapshot data */}
       {Object.keys(snapshotByYear).length> 0 ? (
         <article>
-          <h3>ZIPs por Ano (Internet Archive)</h3>
-          <div>
-            {Object.entries(snapshotByYear)
-              .sort(([a], [b]) => b.localeCompare(a))
-              .map(([year, d]) => {
-                return (
-                  <div key={year}>
-                    <div>
-                      <span>{year}</span>
-                      <span className="text-accent">{d.zip_count.toLocaleString()} ZIPs</span>
-                    </div>
-                    <div>
-                      <small>{d.tribunals_with_data} / {d.tribunals_total} tribunais</small>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+          <header>
+            <strong>ZIPs por Ano (Internet Archive)</strong>
+          </header>
+          <table className="striped">
+            <thead>
+              <tr>
+                <th>Ano</th>
+                <th>ZIPs</th>
+                <th>Tribunais com Dados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(snapshotByYear)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([year, d]) => (
+                  <tr key={year}>
+                    <td><strong>{year}</strong></td>
+                    <td className="text-primary">{(d as any).zip_count.toLocaleString()}</td>
+                    <td>{(d as any).tribunals_with_data} / {(d as any).tribunals_total}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </article>
       ) : progressByYear && Object.keys(progressByYear).length> 0 ? (
         <article>
-          <h3>Progresso por Ano</h3>
+          <header><strong>Progresso por Ano</strong></header>
           <div>
             {Object.entries(progressByYear)
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => {
-                const pct = d.pct || 0;
-                const progressStatus =
-                  pct>= 80 ? 'high coverage' :
-                  pct>= 30 ? 'partial coverage' :
-                  pct> 0 ? 'low coverage' :
-                  'no coverage';
+                const pct = (d as any).pct || 0;
                 return (
-                  <div key={year}>
-                    <div>
-                      <span>{year}</span>
-                      <span>{pct.toFixed(1)}% ({progressStatus})</span>
+                  <div key={year} style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <strong>{year}</strong>
+                      <span>{pct.toFixed(1)}%</span>
                     </div>
-                    <div
-                      role="progressbar" aria-valuenow={Math.round(Math.min(100, pct))}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`Progresso do ano ${year}: ${pct.toFixed(1)}%, ${progressStatus}.`}>
-                      <div
-                        style={{ width: `${Math.min(100, pct)}%` }}
-                      />
-                    </div>
-                    <div>
-                      <small>{d.zips || 0} ZIPs</small>
-                      <small>{d.days_consolidated || 0} consolidados</small>
-                      <small>{d.unique_days || 0} / {d.weekdays || 0} dias</small>
+                    <progress value={Math.round(Math.min(100, pct))} max="100"></progress>
+                    <div className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', gap: '1rem' }}>
+                      <span>{(d as any).zips || 0} ZIPs</span>
+                      <span>{(d as any).days_consolidated || 0} consolidados</span>
+                      <span>{(d as any).unique_days || 0} / {(d as any).weekdays || 0} dias</span>
                     </div>
                   </div>
                 );
@@ -180,11 +158,8 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
       ) : null}
 
       {/* Tribunals by branch */}
-      <div>
-        <label
-          htmlFor="tribunal-filter">
-          Filtrar tribunais
-        </label>
+      <div style={{ margin: '2rem 0' }}>
+        <label htmlFor="tribunal-filter">Filtrar tribunais</label>
         <input
           id="tribunal-filter" type="search"
           value={query}
@@ -202,22 +177,21 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
           Nenhum tribunal encontrado para "{query.trim()}". Tente buscar por outra sigla ou nome.
         </article>
       ) : filteredGroups.map(group => {
-        // Count group totals from snapshot
         return (
-          <div key={group.name}>
-            <div>
+          <section key={group.name} style={{ marginBottom: '2rem' }}>
+            <hgroup style={{ marginBottom: '1rem' }}>
               <h3>{group.name}</h3>
-              <small>{group.tribunals.length} tribunais</small>
-            </div>
-            <div className="grid">
+              <p>{group.tribunals.length} tribunais</p>
+            </hgroup>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
               {group.tribunals.map(t => {
                 let totalZips = 0;
                 let latestDate = null;
                 if (snapshotItems) {
                   for (const item of Object.values(snapshotItems)) {
-                    if (item.tribunal === t) {
-                      totalZips += item.zip_count;
-                      if (!latestDate || item.latest_date> latestDate) latestDate = item.latest_date;
+                    if ((item as any).tribunal === t) {
+                      totalZips += (item as any).zip_count;
+                      if (!latestDate || (item as any).latest_date> latestDate) latestDate = (item as any).latest_date;
                     }
                   }
                 }
@@ -225,25 +199,24 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
                 return (
                   <a
-                    key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}>
-                    <article>
-                      <div>
-                        <span>{t}</span>
+                    key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
+                    style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <article style={{ padding: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong>{t}</strong>
                         {hasData && (
-                          <span className="text-accent">{totalZips}</span>
+                          <span className="badge">{totalZips}</span>
                         )}
                       </div>
-                      {hasData ? (
-                        <small>ate {latestDate}</small>
-                      ) : (
-                        <small>—</small>
-                      )}
+                      <div className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                        {hasData ? `até ${latestDate}` : 'Sem dados'}
+                      </div>
                     </article>
                   </a>
                 );
               })}
             </div>
-          </div>
+          </section>
         );
       })}
     </div>
