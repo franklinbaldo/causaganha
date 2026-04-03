@@ -153,8 +153,6 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const absentCount = selectedEtaData.absent_days_count || 0;
   const missingCount = actualMissingDays;
   const syncedPct = totalForBar > 0 ? (syncedCount / totalForBar) * 100 : 0;
-  const absentPct = totalForBar > 0 ? (absentCount / totalForBar) * 100 : 0;
-  const missingPct = totalForBar > 0 ? (missingCount / totalForBar) * 100 : 0;
   const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
