@@ -1,7 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageHeader from '../../components/PageHeader.astro';
-import { ThemeToggle } from '../../components/ThemeToggle';
 import { PRGateExplainer } from '../../components/PRGateExplainer';
 ---
 
@@ -13,13 +12,10 @@ import { PRGateExplainer } from '../../components/PRGateExplainer';
     <PageHeader
       title="PR Readiness Gate"
       subtitle="Explain why a PR is or is not ready to merge"
-      backUrl="/causaganha/"
-    >
-      <ThemeToggle client:idle />
-    </PageHeader>
+    />
 
     <main class="max-w-7xl mx-auto space-y-6">
-      <PRGateExplainer client:idle />
+      <PRGateExplainer client:load />
     </main>
   </div>
 </Layout>

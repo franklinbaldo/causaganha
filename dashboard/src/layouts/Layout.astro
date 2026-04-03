@@ -11,12 +11,12 @@ interface Props {
 const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <ViewTransitions />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
@@ -37,8 +37,9 @@ const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
     <meta property="twitter:image" content={ogImageUrl} />
 
     <link rel="canonical" href={canonicalURL} />
-    <link rel="icon" type="image/svg+xml" href="/causaganha/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href={`${BASE}vite.svg`} />
     <title>{title}</title>
+    <ViewTransitions />
     <script is:inline>
       // Apply saved theme before paint to prevent flash
       if (localStorage.getItem('causaganha-theme') === 'dark') {

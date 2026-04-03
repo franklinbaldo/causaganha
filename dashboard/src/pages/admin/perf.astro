@@ -1,31 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageHeader from '../../components/PageHeader.astro';
-import { ThemeToggle } from '../../components/ThemeToggle';
 import { PerfDashboard } from '../../components/PerfDashboard';
 import { TribunalCoverageHeatmap } from '../../components/TribunalCoverageHeatmap';
+import { readJson } from '../../lib/readJson';
 
-let perfMetrics = null;
-let qualityScores = null;
-
-try {
-  // Use public paths in Astro context to read local files, but for build time we can use fetch/fs depending on build target
-  const fetchLocal = async (url) => {
-    // In dev mode, we can fetch from localhost. In build time, we might need a relative path depending on Astro's setup.
-    // Astro's static build will evaluate these at build time. To avoid fetching external URLs during build,
-    // we use Node fs directly for public files.
-    const fs = await import('node:fs/promises');
-    const path = await import('node:path');
-    const filePath = path.join(process.cwd(), 'public', url);
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content);
-  };
-
-  perfMetrics = await fetchLocal('perf-metrics.json').catch(() => null);
-  qualityScores = await fetchLocal('tribunal_quality_scores.json').catch(() => null);
-} catch (e) {
-  console.warn('Failed to load performance metrics at build time:', e);
-}
+const perfMetrics = readJson('perf-metrics.json');
+const qualityScores = readJson('tribunal_quality_scores.json');
 ---
 
 <Layout
@@ -36,10 +17,7 @@ try {
     <PageHeader
       title="Performance Monitoring"
       subtitle="System latency, upload success rates, and tribunal data quality scores"
-      backUrl="/causaganha/"
-    >
-      <ThemeToggle client:idle />
-    </PageHeader>
+    />
 
     <main class="max-w-7xl mx-auto space-y-6">
       <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
