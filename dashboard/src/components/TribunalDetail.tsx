@@ -149,6 +149,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const absentSet = new Set(absentList);
 
   const totalForBar = actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0);
+  const syncedCount = selectedCoverage.size;
+  const absentCount = selectedEtaData.absent_days_count || 0;
+  const missingCount = actualMissingDays;
+  const syncedPct = totalForBar > 0 ? (syncedCount / totalForBar) * 100 : 0;
+  const absentPct = totalForBar > 0 ? (absentCount / totalForBar) * 100 : 0;
+  const missingPct = totalForBar > 0 ? (missingCount / totalForBar) * 100 : 0;
+  const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
 
@@ -225,7 +232,14 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 <span className="text-gray-500 uppercase tracking-wider font-bold">Progresso de Arquivamento</span>
                 <span className="font-mono font-bold text-accent">{completionPct}%</span>
               </div>
-              <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
+              <div
+                className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner"
+                role="progressbar"
+                aria-valuenow={Math.round(syncedPct)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progresso de arquivamento do ${selectedTribunal}: ${syncedCount} sincronizados, ${absentCount} ausentes, ${missingCount} faltantes.`}
+              >
                 <div
                   className="h-full bg-gradient-to-r from-accent to-accent-light transition-all duration-700 ease-out"
                   style={{ width: totalForBar > 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
@@ -251,7 +265,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
             <div className="text-sm flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Status</span>
-              <span className={`font-medium ${statusColor}`}>{etaText}</span>
+              <span className={`font-medium ${statusColor}`}>{completionStatusText}: {etaText}</span>
             </div>
 
             <div className="text-sm flex justify-between">
