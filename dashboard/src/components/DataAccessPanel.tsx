@@ -61,7 +61,7 @@ export function DataAccessPanel({ tribunalCode, year, snapshotParquetFiles }: Da
       }
     }
     fetchFiles();
-  }, [itemId]);
+  }, [itemId, baseUrl, snapshotParquetFiles]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);

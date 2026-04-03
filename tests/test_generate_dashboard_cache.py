@@ -2,8 +2,8 @@ import json
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from unittest.mock import patch
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 script_path = Path("scripts/generate_dashboard_cache.py")

@@ -186,10 +186,12 @@ async def process_item(
             pq_size = 0
             with contextlib.suppress(ValueError, TypeError):
                 pq_size = int(f.get("size", 0))
-            parquet_files.append({
-                "name": name,
-                "size": pq_size,
-            })
+            parquet_files.append(
+                {
+                    "name": name,
+                    "size": pq_size,
+                }
+            )
 
     if not dates:
         return None

@@ -240,7 +240,9 @@ def upload_to_ia(
         # a custom collection (e.g. "causaganha") once created on archive.org.
         "x-archive-meta-collection": os.environ.get("IA_COLLECTION", "opensource"),
         "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN {tribunal_code} - {date_str}" if tribunal_code else f"DJEN Data - {date_str}",
+        "x-archive-meta-title": f"DJEN {tribunal_code} - {date_str}"
+        if tribunal_code
+        else f"DJEN Data - {date_str}",
         "x-archive-meta-description": (
             f"Diario de Justica Eletronico Nacional ({tribunal_code}) - "
             "Judicial communications from Brazilian courts. "
