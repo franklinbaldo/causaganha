@@ -199,6 +199,7 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
   })();
   const backfillProgress = effectiveBackfill?.backfill_progress;
   const tribunalCoverage = effectiveBackfill?.tribunal_coverage || {};
+  const tribunalAbsentCoverage = effectiveBackfill?.tribunal_absent_coverage || {};
   const tribunalEtas = effectiveBackfill?.tribunal_etas || {};
   const today = new Date().toISOString().split('T')[0];
   const targetRange = effectiveBackfill?.target_range || { start: "2024-01-01", end: today };
@@ -290,6 +291,7 @@ export function deriveData(stats, dashboardData, cacheData, tribunalStartDates =
     progressByYear,
     enrichedStats,
     tribunalCoverage,
+    tribunalAbsentCoverage,
     tribunalEtas,
     targetRange,
     volume,

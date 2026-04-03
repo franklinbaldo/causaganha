@@ -637,6 +637,20 @@ def generate_backfill_cache(
                 tribunal_coverage[t] = []
             tribunal_coverage[t].append(d)
 
+        # Absent-only coverage map (dates confirmed with no publication)
+        absent_coverage_rows = con.execute("""
+            SELECT tribunal, CAST(date AS VARCHAR) as date_str
+            FROM manifest
+            WHERE file_type = 'absent'
+            ORDER BY tribunal, date
+        """).fetchall()
+
+        tribunal_absent_coverage: dict[str, list[str]] = {}
+        for t, d in absent_coverage_rows:
+            if t not in tribunal_absent_coverage:
+                tribunal_absent_coverage[t] = []
+            tribunal_absent_coverage[t].append(d)
+
         # Velocity over last 14 days
         velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
         velocity_rows = con.execute(f"""
@@ -841,6 +855,7 @@ def generate_backfill_cache(
             },
             "tribunal_stats": tribunal_stats,
             "tribunal_coverage": {t: list(set(d)) for t, d in tribunal_coverage.items()},
+            "tribunal_absent_coverage": {t: list(set(d)) for t, d in tribunal_absent_coverage.items()},
             "tribunal_etas": tribunal_etas,
             "volume": {
                 "total_bytes": total_volume_bytes,
