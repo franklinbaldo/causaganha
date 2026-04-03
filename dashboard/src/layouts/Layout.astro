@@ -42,15 +42,13 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <ViewTransitions />
     <script is:inline>
       // Apply saved theme before paint to prevent flash
-      if (localStorage.getItem('causaganha-theme') === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.setAttribute('data-theme',
+        localStorage.getItem('causaganha-theme') === 'dark' ? 'dark' : 'light'
+      );
     </script>
   </head>
-  <body class="min-h-screen bg-white dark:bg-slate-950 text-black dark:text-white antialiased">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-white focus:text-black focus:top-0 focus:left-0 focus:border focus:shadow-lg">
+  <body>
+    <a href="#main-content" class="sr-only">
       Skip to main content
     </a>
     <slot />

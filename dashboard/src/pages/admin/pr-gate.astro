@@ -8,14 +8,12 @@ import { PRGateExplainer } from '../../components/PRGateExplainer';
   title="CausaGanha - PR Readiness Gate"
   description="Compact PR readiness gate explainer for CausaGanha."
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <PageHeader
-      title="PR Readiness Gate"
-      subtitle="Explain why a PR is or is not ready to merge"
-    />
+  <PageHeader
+    title="PR Readiness Gate"
+    subtitle="Explain why a PR is or is not ready to merge"
+  />
 
-    <main class="max-w-7xl mx-auto space-y-6">
-      <PRGateExplainer client:load />
-    </main>
-  </div>
+  <main class="container">
+    <PRGateExplainer client:load />
+  </main>
 </Layout>

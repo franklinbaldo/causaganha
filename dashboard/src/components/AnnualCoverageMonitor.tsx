@@ -56,9 +56,9 @@ export function AnnualCoverageMonitor() {
   });
 
   const expectedDays = getExpectedDays(year);
-  const complete = results.filter(r => r.percentage >= 90).length;
-  const partial = results.filter(r => r.percentage >= 50 && r.percentage < 90).length;
-  const low = results.filter(r => r.percentage > 0 && r.percentage < 50).length;
+  const complete = results.filter(r => r.percentage>= 90).length;
+  const partial = results.filter(r => r.percentage>= 50 && r.percentage < 90).length;
+  const low = results.filter(r => r.percentage> 0 && r.percentage < 50).length;
   const missing = results.filter(r => r.percentage === 0).length;
 
   const sortIcon = (field: string): string => {
@@ -67,34 +67,27 @@ export function AnnualCoverageMonitor() {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
-        <h3 className="text-lg font-semibold text-black dark:text-white">
+      <div>
+        <h3>
           Cobertura Anual no Internet Archive
         </h3>
-        <div className="flex items-center gap-3">
-          <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+        <div>
+          <div>
             {YEARS.map(y => (
               <button
-                key={y}
-                onClick={() => setYear(y)}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  year === y
-                    ? 'bg-white dark:bg-slate-600 shadow text-black dark:text-white font-medium'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}
-              >
+                key={y} onClick={() => setYear(y)}
+                className={year === y ? undefined : "secondary"}>
                 {y}
               </button>
             ))}
           </div>
           <button
-            onClick={() => fetchData(true)}
+           onClick={() => fetchData(true)}
             disabled={loading}
-            className="px-3 py-1 text-sm rounded-md bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors disabled:opacity-50"
-            title="Atualizar dados"
-          >
+            
+            title="Atualizar dados">
             Refresh
           </button>
         </div>
@@ -102,111 +95,98 @@ export function AnnualCoverageMonitor() {
 
       {/* Loading indicator */}
       {loading && (
-        <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        <div>
           Consultando Internet Archive...
         </div>
       )}
 
       {/* Summary cards */}
-      {results.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{complete}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{'>'}90%</div>
-          </div>
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{partial}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">50-89%</div>
-          </div>
-          <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{low}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{'<'}50%</div>
-          </div>
-          <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-gray-500 dark:text-gray-400">{missing}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Sem dados</div>
-          </div>
+      {results.length> 0 && (
+        <div className="grid">
+          <article>
+            <div>{complete}</div>
+            <small>{'>'}90%</small>
+          </article>
+          <article>
+            <div>{partial}</div>
+            <small>50-89%</small>
+          </article>
+          <article>
+            <div>{low}</div>
+            <small>{'<'}50%</small>
+          </article>
+          <article>
+            <div>{missing}</div>
+            <small>Sem dados</small>
+          </article>
         </div>
       )}
 
       {/* Expected days info */}
-      <div className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+      <div>
         Esperado: {expectedDays} dias ({year === currentYear ? 'dias decorridos ate hoje' : `ano ${isLeapYear(year) ? 'bissexto' : 'normal'}`})
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[600px]">
+      <div>
+        <table>
           <thead>
-            <tr className="border-b border-gray-200 dark:border-slate-800 text-sm text-gray-500 dark:text-gray-400">
+            <tr>
               <th
-                className="py-3 px-4 font-medium cursor-pointer hover:text-black dark:hover:text-white select-none"
-                onClick={() => handleSort('tribunal')}
-              >
+                
+               onClick={() => handleSort('tribunal')}>
                 Tribunal{sortIcon('tribunal')}
               </th>
               <th
-                className="py-3 px-4 font-medium text-right cursor-pointer hover:text-black dark:hover:text-white select-none"
-                onClick={() => handleSort('fileCount')}
-              >
+                onClick={() => handleSort('fileCount')}>
                 ZIPs{sortIcon('fileCount')}
               </th>
-              <th className="py-3 px-4 font-medium text-right">Esperado</th>
+              <th>Esperado</th>
               <th
-                className="py-3 px-4 font-medium text-right cursor-pointer hover:text-black dark:hover:text-white select-none"
-                onClick={() => handleSort('downloads')}
-              >
+                onClick={() => handleSort('downloads')}>
                 Downloads{sortIcon('downloads')}
               </th>
               <th
-                className="py-3 px-4 font-medium text-right cursor-pointer hover:text-black dark:hover:text-white select-none"
-                onClick={() => handleSort('percentage')}
-              >
+                onClick={() => handleSort('percentage')}>
                 Cobertura{sortIcon('percentage')}
               </th>
-              <th className="py-3 px-4 font-medium w-1/4">Progresso</th>
+              <th>Progresso</th>
             </tr>
           </thead>
-          <tbody className="text-sm">
+          <tbody>
             {sorted.map(r => {
               const colors = getCoverageColor(r.percentage);
               const itemId = `djen-${r.tribunal.toLowerCase()}-${year}`;
 
               return (
                 <tr
-                  key={r.tribunal}
-                  className="border-b border-gray-100 dark:border-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
-                >
-                  <td className="py-3 px-4 font-mono text-black dark:text-white">
+                  key={r.tribunal}>
+                  <td>
                     <a
-                      href={`https://archive.org/details/${itemId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline hover:text-blue-600 dark:hover:text-blue-400"
-                    >
+                      href={`https://archive.org/details/${itemId}`} target="_blank"
+                      rel="noopener noreferrer">
                       {r.tribunal}
                     </a>
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">
+                  <td>
                     {r.fileCount}
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-500">
+                  <td>
                     {r.expectedDays}
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-500">
-                    {r.downloads > 0 ? r.downloads.toLocaleString() : '-'}
+                  <td>
+                    {r.downloads> 0 ? r.downloads.toLocaleString() : '-'}
                   </td>
-                  <td className={`py-3 px-4 text-right font-semibold ${colors.text}`}>
+                  <td className={colors.text || undefined}>
                     {r.notFound ? 'N/A' : `${r.percentage.toFixed(1)}%`}
                     {r.error && !r.notFound && (
-                      <span className="ml-1 text-xs text-red-400" title={r.error}>!</span>
+                      <span  title={r.error}>!</span>
                     )}
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="w-full h-2 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <td>
+                    <div>
                       <div
-                        className={`h-full ${colors.bg} transition-all duration-300`}
-                        style={{ width: `${Math.min(100, r.percentage)}%` }}
+                        className={colors.bg || undefined} style={{ width: `${Math.min(100, r.percentage)}%` }}
                       />
                     </div>
                   </td>
@@ -215,7 +195,7 @@ export function AnnualCoverageMonitor() {
             })}
             {results.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-gray-500">
+                <td colSpan={6}>
                   Nenhum dado disponivel.
                 </td>
               </tr>

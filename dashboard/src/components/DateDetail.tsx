@@ -30,8 +30,8 @@ function getZipUrl(itemId: string, date: string, tribunal: string): string {
 function formatSize(bytes: string | number): string {
   const n = parseInt(String(bytes));
   if (isNaN(n)) return '';
-  if (n > 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  if (n > 1024) return `${(n / 1024).toFixed(0)} KB`;
+  if (n> 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n> 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${n} B`;
 }
 
@@ -58,8 +58,8 @@ function DateShareButton({ dateStr }: { dateStr: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleClick} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800">
-      <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <button onClick={handleClick}>
+      <svg  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
       </svg>
       {copied ? 'Copiado!' : 'Link'}
@@ -158,13 +158,13 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
           const pubs = await loadPage(targetPage);
           if (pubs) {
             const idx = initialSeq - ((targetPage - 1) * PUBS_PER_PAGE) - 1;
-            if (idx >= 0 && idx < pubs.length) {
+            if (idx>= 0 && idx < pubs.length) {
               setFeaturedPub({ pub: pubs[idx], seq: initialSeq, page: targetPage });
             }
             setPublications(pubs);
             setCurrentPage(targetPage);
           }
-        } else if (valid.length > 0) {
+        } else if (valid.length> 0) {
           const pubs = await loadPage(1);
           if (pubs) setPublications(pubs);
           setCurrentPage(1);
@@ -180,7 +180,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
 
   const handleLoadMore = async () => {
     const next = currentPage + 1;
-    if (next > totalPages) return;
+    if (next> totalPages) return;
     setLoadingMore(true);
     try {
       const pubs = await loadPage(next);
@@ -195,13 +195,12 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div>
       {/* Featured publication (deep-link) */}
       {featuredPub && (
         <div>
           <PublicationCard
-            pub={featuredPub.pub}
-            seq={featuredPub.seq}
+            pub={featuredPub.pub} seq={featuredPub.seq}
             dateStr={dateStr}
             page={featuredPub.page}
             totalSeq={publications.length || totalPages * PUBS_PER_PAGE}
@@ -222,58 +221,55 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
                   }
                 }
                 const idx = newSeq - ((newPage - 1) * PUBS_PER_PAGE) - 1;
-                if (idx >= 0 && idx < pubs.length) {
+                if (idx>= 0 && idx < pubs.length) {
                   setFeaturedPub({ pub: pubs[idx], seq: newSeq, page: newPage });
                 }
               })();
             }}
           />
           <button
-            onClick={() => { setFeaturedPub(null); history.replaceState(null, '', `#${dateStr}`); }}
-            className="mt-2 text-xs text-gray-400 hover:text-accent transition-colors"
-          >
+           onClick={() => { setFeaturedPub(null); history.replaceState(null, '', `#${dateStr}`); }}>
             Ver todas as publicacoes
           </button>
         </div>
       )}
 
       {/* Date header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="text-lg font-bold text-black dark:text-white font-mono">{dateStr}</h3>
-          {zipSize != null && <span className="text-xs text-gray-400">{formatSize(zipSize)}</span>}
-          {totalPages > 0 && <span className="text-xs text-gray-400">{totalPages} pag.</span>}
+      <div>
+        <div>
+          <h3>{dateStr}</h3>
+          {zipSize != null && <span>{formatSize(zipSize)}</span>}
+          {totalPages> 0 && <span>{totalPages} pag.</span>}
           {zipAddedDate && (
-            <span className="text-xs text-gray-400" title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
+            <span  title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
               Arquivado {formatRelativeTime(zipAddedDate)}
             </span>
           )}
           {zipMd5 && (
-            <span className="text-[9px] font-mono text-gray-300 dark:text-gray-600 cursor-help" title={`MD5: ${zipMd5}`}>
+            <span  title={`MD5: ${zipMd5}`}>
               MD5: {zipMd5.substring(0, 8)}...
             </span>
           )}
           <DateShareButton dateStr={dateStr} />
         </div>
-        <div className="flex gap-2">
-          <a href={zipUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 rounded hover:text-black dark:hover:text-white transition-colors">ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 rounded hover:text-black dark:hover:text-white transition-colors">IA</a>
+        <div>
+          <a href={zipUrl} target="_blank" rel="noopener noreferrer">ZIP</a>
+          <a href={`https://archive.org/details/${itemId}`} target="_blank" rel="noopener noreferrer">IA</a>
           {itemFileCount != null && (
-            <span className="px-2 py-1 text-[10px] text-gray-400">{itemFileCount} arquivos</span>
+            <span>{itemFileCount} arquivos</span>
           )}
         </div>
       </div>
 
-      {loading && <div className="card p-8 text-center text-gray-500">Carregando publicacoes...</div>}
-      {error && <div className="card p-6 text-red-500 text-sm">Erro: {error}</div>}
+      {loading && <article>Carregando publicacoes...</article>}
+      {error && <article>Erro: {error}</article>}
 
       {/* Publications list */}
-      {publications.length > 0 && !featuredPub && (
-        <div className="space-y-2">
+      {publications.length> 0 && !featuredPub && (
+        <div>
           {publications.map((pub, i) => (
             <PublicationCard
-              key={pub.id || i}
-              pub={pub}
+              key={pub.id || i} pub={pub}
               seq={i + 1}
               dateStr={dateStr}
               page={Math.floor(i / PUBS_PER_PAGE) + 1}
@@ -284,19 +280,19 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div className="text-center py-4">
-          <button onClick={handleLoadMore} disabled={loadingMore} className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors text-sm font-medium disabled:opacity-50">
+        <div>
+          <button onClick={handleLoadMore} disabled={loadingMore}>
             {loadingMore ? 'Carregando...' : `Pagina ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
       )}
 
-      {currentPage >= totalPages && publications.length > 0 && !loading && !featuredPub && (
-        <div className="text-center text-xs text-gray-400 pb-4">{publications.length.toLocaleString()} publicacoes</div>
+      {currentPage>= totalPages && publications.length> 0 && !loading && !featuredPub && (
+        <div>{publications.length.toLocaleString()} publicacoes</div>
       )}
 
       {!loading && publications.length === 0 && !error && (
-        <div className="card p-8 text-center text-gray-500">Nenhuma publicacao encontrada.</div>
+        <article>Nenhuma publicacao encontrada.</article>
       )}
     </div>
   );

@@ -52,11 +52,11 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
         }
       });
     }
-    return Object.entries(gradeCounts).map(([grade, count]) => ({ grade, count })).filter(d => d.count > 0);
+    return Object.entries(gradeCounts).map(([grade, count]) => ({ grade, count })).filter(d => d.count> 0);
   }, [qualityScores]);
 
   useEffect(() => {
-    if (chartRef.current && latencies.length > 0) {
+    if (chartRef.current && latencies.length> 0) {
       const data = latencies.map(d => ({
         date: new Date(d.date),
         latency: d.latency_ms / 60000 // Convert to minutes
@@ -76,7 +76,7 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
       chartRef.current.appendChild(chart);
     }
 
-    if (pieRef.current && gradeData.length > 0) {
+    if (pieRef.current && gradeData.length> 0) {
       // Basic pie representation using Plot.rect or similar, or just D3. Observable plot 0.6 has some support but let's use a simple bar for distribution since Plot doesn't do pie easily out of the box in this version
       const pie = Plot.plot({
         width: 400,
@@ -97,65 +97,65 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
   }, [latencies, gradeData]);
 
   if (!perfMetrics || !qualityScores) {
-    return <div className="p-8 text-center text-gray-500">Loading performance data...</div>;
+    return <div>Loading performance data...</div>;
   }
 
   return (
-    <div className="space-y-8">
-      <div className="w-full">
+    <div>
+      <div>
         <LiveStatusWidget />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card text-center p-6">
-          <div className="text-sm text-gray-500 mb-2">Upload Success Rate</div>
-          <div className={`text-4xl font-bold ${successRate >= 90 ? 'text-success' : 'text-danger'}`}>
+      <div className="grid">
+        <article>
+          <small>Upload Success Rate</small>
+          <div className={successRate >= 90 ? 'text-success' : 'text-danger'}>
             {successRate.toFixed(1)}%
           </div>
-        </div>
+        </article>
 
-        <div className="card text-center p-6">
-          <div className="text-sm text-gray-500 mb-2">Pending Backlog Days</div>
-          <div className="text-4xl font-bold text-accent">
+        <article>
+          <small>Pending Backlog Days</small>
+          <div className="text-accent">
             {backlogDays}
           </div>
-        </div>
+        </article>
 
-        <div className="card text-center p-6">
-          <div className="text-sm text-gray-500 mb-2">Active Tribunals</div>
-          <div className="text-4xl font-bold text-black dark:text-white">
+        <article>
+          <small>Active Tribunals</small>
+          <div>
             {activeTribunals}
           </div>
-        </div>
+        </article>
       </div>
 
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Collection Latency Trend (7 days)</h3>
-        <div ref={chartRef} className="w-full overflow-x-auto text-black dark:text-white" />
-        {latencies.length === 0 && <div className="text-gray-500">No latency data available.</div>}
-      </div>
+      <article>
+        <h3>Collection Latency Trend (7 days)</h3>
+        <div ref={chartRef} />
+        {latencies.length === 0 && <div>No latency data available.</div>}
+      </article>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Grade Distribution</h3>
-          <div ref={pieRef} className="w-full text-black dark:text-white" />
-        </div>
+      <div className="grid">
+        <article>
+          <h3>Grade Distribution</h3>
+          <div ref={pieRef} />
+        </article>
 
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Top 5 Slowest Tribunals</h3>
-          <ul className="space-y-4">
+        <article>
+          <h3>Top 5 Slowest Tribunals</h3>
+          <ul>
             {slowestTribunals.map((t, idx) => (
-              <li key={t.tribunal} className="flex justify-between items-center border-b border-gray-100 dark:border-slate-800 pb-2">
-                <span className="font-medium text-black dark:text-white">{idx + 1}. {t.tribunal}</span>
-                <span className="text-sm text-gray-500">{t.velocity_14d.toFixed(1)} velocity (14d)</span>
+              <li key={t.tribunal}>
+                <span>{idx + 1}. {t.tribunal}</span>
+                <span>{t.velocity_14d.toFixed(1)} velocity (14d)</span>
               </li>
             ))}
-            {slowestTribunals.length === 0 && <li className="text-gray-500">All tribunals are up to date!</li>}
+            {slowestTribunals.length === 0 && <li>All tribunals are up to date!</li>}
           </ul>
-        </div>
+        </article>
       </div>
 
-      <div className="w-full">
+      <div>
         <PipelineRunHistory />
       </div>
     </div>

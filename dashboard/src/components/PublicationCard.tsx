@@ -38,12 +38,12 @@ function parseText(text: string | undefined | null): string[] {
   // Split on common legal document markers
   const markers = /(?=(?:Processo\s*:|Classe\s*:|INTIMA[CÇ][AÃ]O|CITA[CÇ][AÃ]O|DESPACHO|DECIS[AÃ]O|SENTEN[CÇ]A|EDITAL|Designada\s+AUDI[EÊ]NCIA|DATA\s+E\s+HORA))/gi;
   const parts = text.split(markers).map(p => p.trim()).filter(Boolean);
-  return parts.length > 1 ? parts : [text];
+  return parts.length> 1 ? parts : [text];
 }
 
 function ShareIcon() {
   return (
-    <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
     </svg>
   );
@@ -74,10 +74,8 @@ function ShareButton({ dateStr, page, seq, label }: ShareButtonProps) {
 
   return (
     <button
-      onClick={handleClick}
-      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800"
-      title="Copiar link"
-    >
+      className="outline"
+      onClick={handleClick} title="Copiar link">
       <ShareIcon />
       {copied ? 'Copiado!' : (label || 'Link')}
     </button>
@@ -93,10 +91,8 @@ interface NavButtonProps {
 function NavButton({ label, onClick, disabled }: NavButtonProps) {
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      className="text-xs text-gray-400 hover:text-accent transition-colors disabled:opacity-30 disabled:cursor-default px-2 py-1"
-    >
+      className="secondary"
+      onClick={onClick} disabled={disabled}>
       {label}
     </button>
   );
@@ -117,48 +113,48 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
   if (compact) {
     return (
-      <div id={`pub-${seq}`} className="card p-4 transition-all duration-300">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <span className="text-[9px] text-gray-300 dark:text-gray-600 font-mono">{seq}</span>
+      <article id={`pub-${seq}`}>
+        <header>
+          <div>
+            <span>{seq}</span>
             {processNumber && (
-              <span className="font-mono text-sm text-accent font-medium">{processNumber}</span>
+              <span className="text-accent">{processNumber}</span>
             )}
             {pub.tipoComunicacao && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 text-gray-500">
+              <span>
                 {pub.tipoComunicacao}
               </span>
             )}
           </div>
           <ShareButton dateStr={dateStr} page={page} seq={seq} />
-        </div>
+        </header>
         {pub.nomeOrgao && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{pub.nomeOrgao}</div>
+          <small>{pub.nomeOrgao}</small>
         )}
         {pub.texto && (
-          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-            {pub.texto.length > 500 ? pub.texto.substring(0, 500) + '...' : pub.texto}
+          <p>
+            {pub.texto.length> 500 ? pub.texto.substring(0, 500) + '...' : pub.texto}
           </p>
         )}
-        {pub.destinatarios?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+        {pub.destinatarios?.length> 0 && (
+          <div>
             {pub.destinatarios.map((d, j) => (
-              <span key={j} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+              <span key={j}>
                 {d.nome}
               </span>
             ))}
           </div>
         )}
-        {pub.destinatarioadvogados?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+        {pub.destinatarioadvogados?.length> 0 && (
+          <div>
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
+              <span key={j}>
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
           </div>
         )}
-      </div>
+      </article>
     );
   }
 
@@ -166,71 +162,71 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
   const textParts = parseText(pub.texto);
 
   return (
-    <div id={`pub-${seq}`} className="card p-6 border-2 border-accent bg-accent/5 dark:bg-accent/10">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-2 py-1 rounded bg-accent text-white">
+    <article id={`pub-${seq}`}>
+      <header>
+        <div>
+          <span className="bg-accent">
             #{seq}
           </span>
           {pub.tipoComunicacao && (
-            <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400">
+            <span>
               {pub.tipoComunicacao}
             </span>
           )}
-          <span className="text-xs text-gray-400 font-mono">{dateStr}</span>
+          <small>{dateStr}</small>
         </div>
-        <div className="flex items-center gap-1">
+        <div>
           {onNavigate && (
             <>
               <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />
-              <NavButton label="Próxima" onClick={() => onNavigate(seq + 1)} disabled={totalSeq != null && seq >= totalSeq} />
+              <NavButton label="Próxima" onClick={() => onNavigate(seq + 1)} disabled={totalSeq != null && seq>= totalSeq} />
             </>
           )}
           <ShareButton dateStr={dateStr} page={page} seq={seq} label="Compartilhar" />
         </div>
-      </div>
+      </header>
 
       {processNumber && (
-        <div className="font-mono text-accent font-bold mb-2 text-lg">{processNumber}</div>
+        <div className="text-accent">{processNumber}</div>
       )}
       {pub.nomeOrgao && (
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{pub.nomeOrgao}</div>
+        <small>{pub.nomeOrgao}</small>
       )}
 
-      {textParts.length > 0 && (
-        <div className="space-y-3 mb-4">
+      {textParts.length> 0 && (
+        <div>
           {textParts.map((part, i) => (
-            <p key={i} className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+            <p key={i}>
               {part}
             </p>
           ))}
         </div>
       )}
 
-      {pub.destinatarios?.length > 0 && (
-        <div className="mb-3">
-          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Destinatários</div>
-          <div className="flex flex-wrap gap-1">
+      {pub.destinatarios?.length> 0 && (
+        <footer>
+          <strong>Destinatarios</strong>
+          <div>
             {pub.destinatarios.map((d, j) => (
-              <span key={j} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+              <span key={j}>
                 {d.nome}
               </span>
             ))}
           </div>
-        </div>
+        </footer>
       )}
-      {pub.destinatarioadvogados?.length > 0 && (
-        <div>
-          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Advogados</div>
-          <div className="flex flex-wrap gap-1">
+      {pub.destinatarioadvogados?.length> 0 && (
+        <footer>
+          <strong>Advogados</strong>
+          <div>
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} className="text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
+              <span key={j}>
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
           </div>
-        </div>
+        </footer>
       )}
-    </div>
+    </article>
   );
 }

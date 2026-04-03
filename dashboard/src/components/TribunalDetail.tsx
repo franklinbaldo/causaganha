@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'preact/compat';
-import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais';
 import { toDateString } from '../lib/dateUtils';
@@ -52,7 +51,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
   // Don't render content until hash is read (prevents flash of wrong date)
   if (!hashReady) {
-    return <div className="text-gray-500 text-center py-8">Carregando...</div>;
+    return <div>Carregando...</div>;
   }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -67,7 +66,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   if (!activeDate && iaSnapshot?.items) {
     for (const item of Object.values(iaSnapshot.items)) {
       if (item.tribunal === selectedTribunal) {
-        if (!activeDate || item.latest_date > activeDate) {
+        if (!activeDate || item.latest_date> activeDate) {
           activeDate = item.latest_date;
         }
       }
@@ -101,7 +100,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
       }
     }
   }
-  const selectedCoverage = snapshotDates.size > 0 ? snapshotDates : new Set(coverage[selectedTribunal] || []);
+  const selectedCoverage = snapshotDates.size> 0 ? snapshotDates : new Set(coverage[selectedTribunal] || []);
   const selectedEtaData = etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null };
   const tribunalStartDate = startDates[selectedTribunal] || selectedEtaData.genesis_date;
 
@@ -127,23 +126,23 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const velocityMetrics = calculateVelocityAndRegression(selectedCoverage, targetRange.end, tribunalStartDate);
 
   let dynamicEtaDays = selectedEtaData.eta_days;
-  if (velocityMetrics && velocityMetrics.currentVelocity > 0 && actualMissingDays > 0) {
+  if (velocityMetrics && velocityMetrics.currentVelocity> 0 && actualMissingDays> 0) {
     dynamicEtaDays = Math.ceil(actualMissingDays / (velocityMetrics.currentVelocity / 7));
   }
 
   let etaText = "Pendente";
-  if (actualMissingDays === 0 && expectedDays > 0) {
-    etaText = "Concluído";
+  if (actualMissingDays === 0 && expectedDays> 0) {
+    etaText = "Concluido";
   } else if (dynamicEtaDays) {
     if (dynamicEtaDays < 30) {
       etaText = `~${dynamicEtaDays} dias`;
     } else {
       const months = Math.round(dynamicEtaDays / 30);
-      etaText = `~${months} ${months > 1 ? 'meses' : 'mês'}`;
+      etaText = `~${months} ${months> 1 ? 'meses' : 'mes'}`;
     }
   }
 
-  const isComplete = actualMissingDays === 0 && expectedDays > 0;
+  const isComplete = actualMissingDays === 0 && expectedDays> 0;
   const statusColor = isComplete ? "text-success" : "text-warning";
 
   const absentList = absentCoverage[selectedTribunal] || [];
@@ -153,136 +152,123 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const syncedCount = selectedCoverage.size;
   const absentCount = selectedEtaData.absent_days_count || 0;
   const missingCount = actualMissingDays;
-  const syncedPct = totalForBar > 0 ? (syncedCount / totalForBar) * 100 : 0;
+  const syncedPct = totalForBar> 0 ? (syncedCount / totalForBar) * 100 : 0;
   const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div>
       {/* Featured publication at the very top when deep-linked */}
       {hasFeaturedPub && activeDate && (
         <DateDetail
-          tribunalCode={tribunalCode}
-          dateStr={activeDate}
+          tribunalCode={tribunalCode} dateStr={activeDate}
           initialPage={hashState.page}
           initialSeq={hashState.seq}
         />
       )}
 
-      <div className="flex items-center justify-between mb-2">
+      <div>
         <a
-          href={`${baseUrl}publicacoes`}
-          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors"
-        >
-          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          href={`${baseUrl}publicacoes`}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Voltar
         </a>
       </div>
 
-      <div className="card p-4 flex flex-col lg:flex-row gap-6">
+      <article>
         {/* Sidebar */}
-        <div className="w-full lg:w-64 flex flex-col gap-4 flex-shrink-0">
+        <div>
           <div>
-            <label htmlFor="tribunal-select" className="block text-sm font-medium text-black dark:text-white mb-2">
+            <label htmlFor="tribunal-select">
               Tribunal
             </label>
             <select
-              id="tribunal-select"
-              value={selectedTribunal}
-              onChange={handleTribunalChange}
-              className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-black dark:text-white focus:outline-none focus:border-accent"
-            >
+              id="tribunal-select" value={selectedTribunal}
+              onChange={handleTribunalChange}>
               {TRIBUNAIS.map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800 relative">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
+          <div>
+            <div>
+              <h3>{selectedTribunal}</h3>
               {qualityScores[selectedTribunal] && (
-                <div
-                  className={clsx(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded cursor-help",
-                    qualityScores[selectedTribunal].grade === 'A' ? "bg-success text-white" :
-                    qualityScores[selectedTribunal].grade === 'B' ? "bg-info text-white" :
-                    qualityScores[selectedTribunal].grade === 'C' ? "bg-warning text-white" :
-                    qualityScores[selectedTribunal].grade === 'D' ? "bg-danger text-white" :
-                    "bg-gray-500 text-white"
-                  )}
-                  title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}
-                >
+                <span
+                  className={
+                    qualityScores[selectedTribunal].grade === 'A' ? "badge badge-success" :
+                    qualityScores[selectedTribunal].grade === 'B' ? "badge badge-accent" :
+                    qualityScores[selectedTribunal].grade === 'C' ? "badge badge-warning" :
+                    qualityScores[selectedTribunal].grade === 'D' ? "badge badge-danger" :
+                    "badge"
+                  }
+                  title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecencia: ${qualityScores[selectedTribunal].recency}%\nConsistencia: ${qualityScores[selectedTribunal].consistency}%`}>
                   Nota {qualityScores[selectedTribunal].grade}
-                </div>
+                </span>
               )}
             </div>
 
-            <div className="text-sm flex justify-between mt-2">
-              <span className="text-gray-600 dark:text-gray-300">Data inicial</span>
-              <span className="font-mono text-black dark:text-white">{genesisDate || "Desconhecida"}</span>
+            <div>
+              <small>Data inicial</small>
+              <span>{genesisDate || "Desconhecida"}</span>
             </div>
 
-            <div className="mt-2 mb-4">
-              <div className="flex justify-between text-[11px] mb-1.5">
-                <span className="text-gray-500 uppercase tracking-wider font-bold">Progresso de Arquivamento</span>
-                <span className="font-mono font-bold text-accent">{completionPct}%</span>
+            <div>
+              <div>
+                <small>Progresso de Arquivamento</small>
+                <span className="text-accent">{completionPct}%</span>
               </div>
               <div
-                className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner"
-                role="progressbar"
-                aria-valuenow={Math.round(syncedPct)}
+                role="progressbar" aria-valuenow={Math.round(syncedPct)}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={`Progresso de arquivamento do ${selectedTribunal}: ${syncedCount} sincronizados, ${absentCount} ausentes, ${missingCount} faltantes.`}
-              >
+                aria-label={`Progresso de arquivamento do ${selectedTribunal}: ${syncedCount} sincronizados, ${absentCount} ausentes, ${missingCount} faltantes.`}>
                 <div
-                  className="h-full bg-gradient-to-r from-accent to-accent-light transition-all duration-700 ease-out"
-                  style={{ width: totalForBar > 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
+                  style={{ width: totalForBar> 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
                   title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
                 />
                 <div
-                  className="h-full bg-warning opacity-70 transition-all duration-700 ease-out"
-                  style={{ width: totalForBar > 0 ? `${((selectedEtaData.absent_days_count || 0) / totalForBar) * 100}%` : '0%' }}
-                  title={`Ausência confirmada: ${selectedEtaData.absent_days_count || 0} dias`}
+                  className="bg-warning-muted" style={{ width: totalForBar> 0 ? `${((selectedEtaData.absent_days_count || 0) / totalForBar) * 100}%` : '0%' }}
+                  title={`Ausencia confirmada: ${selectedEtaData.absent_days_count || 0} dias`}
                 />
               </div>
-              <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
-                <div className="flex items-center gap-1.5 grayscale opacity-70">
-                  <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  <span>{totalForBar > 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% sincronizado</span>
+              <div>
+                <div>
+                  <div className="bg-accent-muted"></div>
+                  <small>{totalForBar> 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% sincronizado</small>
                 </div>
-                <div className="flex items-center gap-1.5 text-right grayscale opacity-70">
-                  <span>{totalForBar > 0 ? (((selectedEtaData.absent_days_count || 0) / totalForBar) * 100).toFixed(1) : '0.0'}% ausência</span>
-                  <div className="w-2 h-2 rounded-full bg-warning"></div>
+                <div>
+                  <small>{totalForBar> 0 ? (((selectedEtaData.absent_days_count || 0) / totalForBar) * 100).toFixed(1) : '0.0'}% ausencia</small>
+                  <div className="bg-warning-muted"></div>
                 </div>
               </div>
             </div>
 
-            <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Status</span>
-              <span className={`font-medium ${statusColor}`}>{completionStatusText}: {etaText}</span>
+            <div>
+              <small>Status</small>
+              <span className={statusColor}>{completionStatusText}: {etaText}</span>
             </div>
 
-            <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Dias faltantes</span>
-              <span className="font-mono text-black dark:text-white">{actualMissingDays} dias</span>
+            <div>
+              <small>Dias faltantes</small>
+              <span>{actualMissingDays} dias</span>
             </div>
 
             {cursorDate && !isStopped && (
-              <div className="text-sm flex justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Cursor de varredura</span>
-                <span className="font-mono text-xs font-semibold text-accent animate-pulse">{cursorDate}</span>
+              <div>
+                <small>Cursor de varredura</small>
+                <span className="text-accent">{cursorDate}</span>
               </div>
             )}
 
             {isStopped && (
-              <div className="mt-1">
-                <span className="badge badge-danger text-[10px] w-full justify-center">
-                  Pipeline interrompido (60 dias sem publicações)
+              <div>
+                <span className="badge badge-danger">
+                  Pipeline interrompido (60 dias sem publicacoes)
                 </span>
               </div>
             )}
@@ -292,21 +278,17 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               // Derive year from active date or fall back to current year
               const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
               return (
-                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700 space-y-2">
+                <div>
                   <a
-                    href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-gray-500 hover:text-accent dark:text-gray-400 dark:hover:text-accent transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
+                    rel="noopener noreferrer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                     Ver no Internet Archive
                   </a>
                   <DataAccessPanel
-                    tribunalCode={selectedTribunal}
-                    year={iaYear}
+                    tribunalCode={selectedTribunal} year={iaYear}
                   />
                 </div>
               );
@@ -315,10 +297,9 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         </div>
 
         {/* Main: Heatmap area */}
-        <div className="flex-1 overflow-x-auto custom-scrollbar pb-4">
+        <div>
           <Heatmap
-            globalStartDateStr={targetRange.start}
-            globalEndDateStr={targetRange.end}
+            globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
             tribunalStartDateStr={tribunalStartDate}
             coverageSet={selectedCoverage}
             tribunalName={selectedTribunal}
@@ -329,13 +310,12 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             }}
           />
         </div>
-      </div>
+      </article>
 
       {/* Publications for active date (only when not showing featured pub above) */}
       {activeDate && !hasFeaturedPub && (
         <DateDetail
-          tribunalCode={tribunalCode}
-          dateStr={activeDate}
+          tribunalCode={tribunalCode} dateStr={activeDate}
           initialPage={hashState.page}
         />
       )}

@@ -36,6 +36,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <style>
     .gradient-bg {
       background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #1e3a8a 100%);
+      color: #fff;
     }
     .hero-pattern {
       background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -45,396 +46,231 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
     }
-    .stat-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-    }
-    .nav-focus {
-      outline: none;
-    }
-    .nav-focus:focus-visible {
-      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.35);
-      border-radius: 0.5rem;
-    }
+    .gradient-bg a { color: #fff; }
+    .gradient-bg h1 { color: #fff; }
+    .gradient-bg p { color: rgba(219, 234, 254, 0.9); }
+    .hero-badge { display: inline-block; padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); border-radius: 9999px; font-size: 0.875rem; margin-bottom: 1.5rem; }
+    .amber { color: #f59e0b; }
+    .stat-card { text-align: center; transition: transform 0.3s, box-shadow 0.3s; }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .stat-big { font-size: 2.5rem; font-weight: 800; color: var(--pico-primary); }
   </style>
 
   <!-- Navigation -->
-  <nav class="fixed w-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm shadow-sm z-50">
-    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <div class="flex items-center">
-          <span class="text-2xl font-bold text-blue-800 dark:text-blue-400">Causa</span>
-          <span class="text-2xl font-bold text-amber-500">Ganha</span>
-        </div>
-        <div class="hidden md:flex items-center space-x-8">
-          <a href="#como-funciona" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Como Funciona</a>
-          <a href="#dados" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Dados</a>
-          <a href="#para-quem" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Para Quem</a>
-          <a href={BASE + 'publicacoes'} class="nav-focus bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Publicações</a>
-        </div>
-        <button
-          id="mobile-nav-trigger"
-          type="button"
-          class="md:hidden nav-focus inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition"
-          aria-expanded="false"
-          aria-controls="mobile-nav-panel"
-          aria-label="Abrir menu de navegação"
-        >
-          <span class="sr-only">Abrir menu</span>
-          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-      </div>
-      <div
-        id="mobile-nav-panel"
-        class="md:hidden absolute top-16 left-0 right-0 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-lg hidden"
-        hidden
-      >
-        <div class="flex flex-col gap-1 p-4">
-          <a href="#como-funciona" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Como Funciona</a>
-          <a href="#dados" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Dados</a>
-          <a href="#para-quem" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Para Quem</a>
-          <a href={BASE + 'publicacoes'} class="nav-focus mt-2 inline-flex w-fit items-center rounded-full bg-blue-800 px-6 py-2 text-white hover:bg-blue-900 transition">Publicações</a>
-        </div>
-      </div>
-    </div>
+  <nav class="container">
+    <ul>
+      <li><strong><span style="color: var(--pico-primary);">Causa</span><span class="amber">Ganha</span></strong></li>
+    </ul>
+    <ul>
+      <li><a href="#como-funciona">Como Funciona</a></li>
+      <li><a href="#dados">Dados</a></li>
+      <li><a href="#para-quem">Para Quem</a></li>
+      <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
+    </ul>
   </nav>
 
   <!-- Hero Section -->
-  <section class="gradient-bg hero-pattern min-h-screen flex items-center pt-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-      <div class="grid lg:grid-cols-2 gap-12 items-center">
-        <div class="text-white">
-          <div class="inline-block px-4 py-2 bg-white/10 rounded-full text-sm mb-6">
+  <header class="gradient-bg hero-pattern" style="padding: 4rem 0;">
+    <div class="container">
+      <div class="grid">
+        <div>
+          <div class="hero-badge">
             Dados reais do Diário de Justiça Eletrônico Nacional
           </div>
-          <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
-            Transparência no Mercado <span class="text-amber-500">Jurídico</span> Brasileiro
+          <h1>
+            Transparência no Mercado <span class="amber">Jurídico</span> Brasileiro
           </h1>
-          <p class="text-xl text-blue-100 mb-8 leading-relaxed">
+          <p>
             Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
             diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
           </p>
-          <div class="flex flex-col sm:flex-row gap-4">
-            <a href={BASE + 'publicacoes'} class="bg-amber-500 text-gray-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition text-center">
+          <div class="grid">
+            <a href={BASE + 'publicacoes'} role="button">
               Ver Publicações
             </a>
-            <a href="#como-funciona" class="border-2 border-white text-white px-8 py-4 rounded-full font-medium text-lg hover:bg-white/10 transition text-center">
+            <a href="#como-funciona" role="button" class="outline">
               Saiba Mais
             </a>
           </div>
         </div>
-        <div class="hidden lg:block">
-          <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 floating">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-gray-800 dark:text-white">Pipeline ao Vivo</h3>
-              <span class="text-xs text-gray-500 dark:text-gray-400">Atualizado a cada 20 min</span>
-            </div>
-            <div class="space-y-4">
-              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
-                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
-                  <CheckIcon class="w-5 h-5" />
-                </div>
-                <div class="ml-4 flex-1">
-                  <div class="font-semibold text-gray-800 dark:text-white">{tribunalsWithData} tribunais com dados</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">de {totalTribunals} monitorados</div>
-                </div>
-              </div>
-              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
-                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                  <DownloadIcon class="w-5 h-5" />
-                </div>
-                <div class="ml-4 flex-1">
-                  <div class="font-semibold text-gray-800 dark:text-white">{formatNumber(totalZips)} ZIPs coletados</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">armazenados no Internet Archive</div>
-                </div>
-              </div>
-              <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
-                <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                  {progressPct}%
-                </div>
-                <div class="ml-4 flex-1">
-                  <div class="font-semibold text-gray-800 dark:text-white">Backfill em andamento</div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</div>
-                </div>
-              </div>
-            </div>
+        <article class="floating">
+          <header>
+            <strong>Pipeline ao Vivo</strong>
+            <small>Atualizado a cada 20 min</small>
+          </header>
+          <div>
+            <p>
+              <CheckIcon /> <strong>{tribunalsWithData} tribunais com dados</strong><br/>
+              <small>de {totalTribunals} monitorados</small>
+            </p>
+            <p>
+              <DownloadIcon /> <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
+              <small>armazenados no Internet Archive</small>
+            </p>
+            <p>
+              <strong>{progressPct}%</strong> Backfill em andamento<br/>
+              <small>{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
+            </p>
           </div>
-        </div>
+        </article>
       </div>
     </div>
-  </section>
+  </header>
 
-  <!-- Stats Section — REAL DATA from workflow -->
-  <section id="dados" class="py-16 bg-white dark:bg-slate-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Dados Reais do Pipeline</h2>
-        <p class="text-gray-500 dark:text-gray-400">Números atualizados automaticamente pelo workflow de coleta</p>
-      </div>
+  <!-- Stats Section -->
+  <section id="dados">
+    <div class="container">
+      <hgroup style="text-align: center;">
+        <h2>Dados Reais do Pipeline</h2>
+        <p>Números atualizados automaticamente pelo workflow de coleta</p>
+      </hgroup>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{formatNumber(totalZips)}</div>
-          <div class="text-gray-600 dark:text-gray-400">ZIPs Arquivados</div>
-        </div>
-        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{tribunalsWithData}</div>
-          <div class="text-gray-600 dark:text-gray-400">Tribunais com Dados</div>
-        </div>
-        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">{totalGB.toFixed(0)} GB</div>
-          <div class="text-gray-600 dark:text-gray-400">Volume Arquivado</div>
-        </div>
-        <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
-          <div class="text-4xl md:text-5xl font-extrabold text-blue-800 dark:text-blue-400 mb-2">100%</div>
-          <div class="text-gray-600 dark:text-gray-400">Dados Públicos</div>
-        </div>
+      <div class="grid">
+        <article class="stat-card">
+          <div class="stat-big">{formatNumber(totalZips)}</div>
+          <p>ZIPs Arquivados</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-big">{tribunalsWithData}</div>
+          <p>Tribunais com Dados</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-big">{totalGB.toFixed(0)} GB</div>
+          <p>Volume Arquivado</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-big">100%</div>
+          <p>Dados Públicos</p>
+        </article>
       </div>
     </div>
   </section>
 
   <!-- How it Works -->
-  <section id="como-funciona" class="py-20 bg-gray-50 dark:bg-slate-950">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Como Funciona</h2>
-        <p class="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-          Pipeline automatizado coleta dados do DJEN a cada 20 minutos e arquiva permanentemente no Internet Archive
-        </p>
-      </div>
-      <div class="grid md:grid-cols-3 gap-8">
-        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
-          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <DownloadIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">1. Coleta Automática</h3>
-          <p class="text-gray-600 dark:text-gray-400">
-            A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.
-          </p>
-        </div>
-        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
-          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <ArchiveIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">2. Arquivo Permanente</h3>
-          <p class="text-gray-600 dark:text-gray-400">
-            Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.
-          </p>
-        </div>
-        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
-          <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <ChartIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Catálogo Indexado</h3>
-          <p class="text-gray-600 dark:text-gray-400">
-            Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.
-          </p>
-        </div>
+  <section id="como-funciona">
+    <div class="container">
+      <hgroup style="text-align: center;">
+        <h2>Como Funciona</h2>
+        <p>Pipeline automatizado coleta dados do DJEN a cada 20 minutos e arquiva permanentemente no Internet Archive</p>
+      </hgroup>
+      <div class="grid">
+        <article>
+          <header><DownloadIcon /></header>
+          <h3>1. Coleta Automática</h3>
+          <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
+        </article>
+        <article>
+          <header><ArchiveIcon /></header>
+          <h3>2. Arquivo Permanente</h3>
+          <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
+        </article>
+        <article>
+          <header><ChartIcon /></header>
+          <h3>3. Catálogo Indexado</h3>
+          <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
+        </article>
       </div>
     </div>
   </section>
 
   <!-- For Who Section -->
-  <section id="para-quem" class="py-20 bg-white dark:bg-slate-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Para Quem?</h2>
-        <p class="text-xl text-gray-600 dark:text-gray-400">Dados abertos para todo o ecossistema jurídico</p>
-      </div>
-      <div class="grid md:grid-cols-3 gap-8">
-        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
-          <div class="text-4xl mb-4">&#129489;&#8205;&#9878;&#65039;</div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Pesquisadores</h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.
-          </p>
-          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
-            <li>&#10003; Dados em formato Parquet</li>
-            <li>&#10003; Consultável via DuckDB</li>
-            <li>&#10003; Histórico completo preservado</li>
+  <section id="para-quem">
+    <div class="container">
+      <hgroup style="text-align: center;">
+        <h2>Para Quem?</h2>
+        <p>Dados abertos para todo o ecossistema jurídico</p>
+      </hgroup>
+      <div class="grid">
+        <article>
+          <h3>&#129489;&#8205;&#9878;&#65039; Pesquisadores</h3>
+          <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
+          <ul>
+            <li>Dados em formato Parquet</li>
+            <li>Consultável via DuckDB</li>
+            <li>Histórico completo preservado</li>
           </ul>
-        </div>
-        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
-          <div class="text-4xl mb-4">&#127970;</div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">LegalTechs</h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.
-          </p>
-          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
-            <li>&#10003; API via Internet Archive</li>
-            <li>&#10003; Atualização contínua</li>
-            <li>&#10003; Sem custos de licenciamento</li>
+        </article>
+        <article>
+          <h3>&#127970; LegalTechs</h3>
+          <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
+          <ul>
+            <li>API via Internet Archive</li>
+            <li>Atualização contínua</li>
+            <li>Sem custos de licenciamento</li>
           </ul>
-        </div>
-        <div class="border-2 border-gray-200 dark:border-slate-700 p-8 rounded-2xl hover:border-blue-800 dark:hover:border-blue-400 transition">
-          <div class="text-4xl mb-4">&#9878;&#65039;</div>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Jornalistas</h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
-            Investigue e analise dados do judiciário brasileiro com transparência total.
-          </p>
-          <ul class="text-sm text-gray-500 dark:text-gray-400 space-y-2">
-            <li>&#10003; Dados públicos verificáveis</li>
-            <li>&#10003; Cobertura de {totalTribunals} tribunais</li>
-            <li>&#10003; Arquivo permanente no IA</li>
+        </article>
+        <article>
+          <h3>&#9878;&#65039; Jornalistas</h3>
+          <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
+          <ul>
+            <li>Dados públicos verificáveis</li>
+            <li>Cobertura de {totalTribunals} tribunais</li>
+            <li>Arquivo permanente no IA</li>
           </ul>
-        </div>
+        </article>
       </div>
     </div>
   </section>
 
   <!-- Open Data + Support Section -->
-  <section class="py-20 bg-gray-50 dark:bg-slate-950">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
-        <div class="inline-block px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium mb-4">
-          100% Aberto e Gratuito
-        </div>
-        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Dados Abertos Para Sempre</h2>
-        <p class="text-xl text-gray-600 dark:text-gray-400">
+  <section>
+    <div class="container">
+      <hgroup style="text-align: center;">
+        <p><kbd>100% Aberto e Gratuito</kbd></p>
+        <h2>Dados Abertos Para Sempre</h2>
+        <p>
           Transparência no judiciário é um direito de todos.
-          <br>Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
+          <br/>Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
         </p>
-      </div>
+      </hgroup>
 
-      <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg mb-12">
-        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 text-center">Infraestrutura</h3>
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="flex items-center">
-            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
-            <span class="text-gray-700 dark:text-gray-300">GitHub Actions para coleta automática</span>
-          </div>
-          <div class="flex items-center">
-            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
-            <span class="text-gray-700 dark:text-gray-300">Internet Archive para armazenamento permanente</span>
-          </div>
-          <div class="flex items-center">
-            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
-            <span class="text-gray-700 dark:text-gray-300">DuckDB + Parquet para consultas rápidas</span>
-          </div>
-          <div class="flex items-center">
-            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
-            <span class="text-gray-700 dark:text-gray-300">Código 100% open source no GitHub</span>
-          </div>
+      <article>
+        <h3>Infraestrutura</h3>
+        <div class="grid">
+          <p><CheckCircleIcon /> GitHub Actions para coleta automática</p>
+          <p><CheckCircleIcon /> Internet Archive para armazenamento permanente</p>
+          <p><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</p>
+          <p><CheckCircleIcon /> Código 100% open source no GitHub</p>
         </div>
-      </div>
+      </article>
 
-      <div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-200 dark:border-amber-700 p-8 rounded-2xl text-center">
-        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Apoie o Projeto</h3>
-        <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-lg mx-auto">
-          O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub
-          ou ajude a divulgar o projeto.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener"
-             class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-800 dark:hover:bg-gray-100 transition flex items-center">
-            <GitHubIcon class="w-5 h-5 mr-2" />
-            Estrela no GitHub
+      <article style="text-align: center;">
+        <h3>Apoie o Projeto</h3>
+        <p>O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar o projeto.</p>
+        <div class="grid">
+          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" role="button">
+            <GitHubIcon /> Estrela no GitHub
           </a>
-          <a href={BASE + 'publicacoes'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
+          <a href={BASE + 'publicacoes'} role="button" class="secondary">
             Ver Publicações &rarr;
           </a>
         </div>
-      </div>
+      </article>
     </div>
   </section>
 
   <!-- FAQ Section -->
-  <section class="py-20 bg-white dark:bg-slate-900">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-12">Perguntas Frequentes</h2>
-      <div class="space-y-6">
-        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">De onde vêm os dados?</h3>
-          <p class="text-gray-600 dark:text-gray-400">Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
-        </div>
-        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Com que frequência os dados são atualizados?</h3>
-          <p class="text-gray-600 dark:text-gray-400">O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
-        </div>
-        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Como posso acessar os dados?</h3>
-          <p class="text-gray-600 dark:text-gray-400">Os dados estão disponíveis no Internet Archive sob o identificador <code class="bg-gray-100 dark:bg-slate-800 px-1 rounded">djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
-        </div>
-        <div class="border-b border-gray-200 dark:border-slate-700 pb-6">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">O projeto é open source?</h3>
-          <p class="text-gray-600 dark:text-gray-400">Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" class="text-blue-800 dark:text-blue-400 hover:underline" target="_blank" rel="noopener">GitHub</a>. Contribuições são bem-vindas.</p>
-        </div>
-      </div>
+  <section>
+    <div class="container">
+      <h2 style="text-align: center;">Perguntas Frequentes</h2>
+      <details>
+        <summary>De onde vêm os dados?</summary>
+        <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
+      </details>
+      <details>
+        <summary>Com que frequência os dados são atualizados?</summary>
+        <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
+      </details>
+      <details>
+        <summary>Como posso acessar os dados?</summary>
+        <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
+      </details>
+      <details>
+        <summary>O projeto é open source?</summary>
+        <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a>. Contribuições são bem-vindas.</p>
+      </details>
     </div>
   </section>
 
   <Footer />
-
-  <script is:inline>
-    const trigger = document.getElementById('mobile-nav-trigger');
-    const panel = document.getElementById('mobile-nav-panel');
-
-    if (trigger && panel) {
-      const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-      const closeMenu = () => {
-        trigger.setAttribute('aria-expanded', 'false');
-        panel.hidden = true;
-        panel.classList.add('hidden');
-      };
-
-      const openMenu = () => {
-        trigger.setAttribute('aria-expanded', 'true');
-        panel.hidden = false;
-        panel.classList.remove('hidden');
-      };
-
-      trigger.addEventListener('click', () => {
-        if (trigger.getAttribute('aria-expanded') === 'true') {
-          closeMenu();
-          return;
-        }
-        openMenu();
-      });
-
-      panel.addEventListener('click', (event) => {
-        if (event.target instanceof HTMLElement && event.target.closest('a')) {
-          closeMenu();
-        }
-      });
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && trigger.getAttribute('aria-expanded') === 'true') {
-          closeMenu();
-          trigger.focus();
-        }
-      });
-
-      document.addEventListener('click', (event) => {
-        if (!(event.target instanceof Node)) return;
-        if (!panel.contains(event.target) && !trigger.contains(event.target)) {
-          closeMenu();
-        }
-      });
-
-      panel.addEventListener('keydown', (event) => {
-        if (event.key !== 'Tab') return;
-        const focusable = panel.querySelectorAll(focusableSelector);
-        if (!focusable.length) return;
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        const active = document.activeElement;
-
-        if (event.shiftKey && active === first) {
-          event.preventDefault();
-          trigger.focus();
-          return;
-        }
-
-        if (!event.shiftKey && active === last) {
-          event.preventDefault();
-          closeMenu();
-          trigger.focus();
-        }
-      });
-    }
-  </script>
 </Layout>

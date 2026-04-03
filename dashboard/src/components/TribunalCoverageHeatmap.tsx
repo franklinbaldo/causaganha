@@ -59,19 +59,13 @@ export function TribunalCoverageHeatmap() {
   };
 
   const renderHeader = (title: string) => (
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="text-lg font-semibold text-black dark:text-white">{title}</h3>
-      <div className="flex space-x-2 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+    <div>
+      <h3>{title}</h3>
+      <div>
         {['30d', '90d', '1a'].map(p => (
           <button
-            key={p}
-            onClick={() => handlePeriodChange(p)}
-            className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              period === p
-                ? 'bg-white dark:bg-slate-600 shadow text-black dark:text-white font-medium'
-                : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
-            }`}
-          >
+            key={p} onClick={() => handlePeriodChange(p)}
+            className={period === p ? undefined : "secondary"}>
             {p}
           </button>
         ))}
@@ -81,19 +75,19 @@ export function TribunalCoverageHeatmap() {
 
   if (loading) {
     return (
-      <div className="card p-6">
+      <article>
         {renderHeader(`Recent Catalog Coverage (${period})`)}
-        <div className="text-center text-gray-500 py-8">Loading coverage data...</div>
-      </div>
+        <div>Loading coverage data...</div>
+      </article>
     );
   }
 
   if (error) {
     return (
-      <div className="card p-6">
+      <article>
         {renderHeader(`Recent Catalog Coverage (${period})`)}
-        <div className="text-center text-danger py-8">Error: {error}</div>
-      </div>
+        <div className="text-danger">Error: {error}</div>
+      </article>
     );
   }
 
@@ -109,20 +103,20 @@ export function TribunalCoverageHeatmap() {
   const recent = sortedDates.slice(0, days);
 
   return (
-    <div className="card p-6">
+    <article>
       {renderHeader(`Recent Catalog Coverage (${period})`)}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[600px]">
+      <div>
+        <table>
           <thead>
-            <tr className="border-b border-gray-200 dark:border-slate-800 text-sm text-gray-500 dark:text-gray-400">
-              <th className="py-3 px-4 font-medium">Date</th>
-              <th className="py-3 px-4 font-medium text-right">ZIPs Collected</th>
-              <th className="py-3 px-4 font-medium text-right">Absent</th>
-              <th className="py-3 px-4 font-medium text-right">Coverage %</th>
-              <th className="py-3 px-4 font-medium w-1/3">Visual Bar</th>
+            <tr>
+              <th>Date</th>
+              <th>ZIPs Collected</th>
+              <th>Absent</th>
+              <th>Coverage %</th>
+              <th>Visual Bar</th>
             </tr>
           </thead>
-          <tbody className="text-sm">
+          <tbody>
             {recent.map(dateKey => {
               const item = data![dateKey];
               const tribunalCount = item.tribunal_count || 0;
@@ -138,18 +132,17 @@ export function TribunalCoverageHeatmap() {
               const bgClass = colorClasses.split(' ')[1];
 
               return (
-                <tr key={dateKey} className="border-b border-gray-100 dark:border-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="py-3 px-4 text-black dark:text-white font-mono">{displayDate}</td>
-                  <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{tribunalCount}</td>
-                  <td className="py-3 px-4 text-right text-gray-500">{absentCount}</td>
-                  <td className={`py-3 px-4 text-right font-semibold ${total === 0 ? 'text-gray-400' : textClass}`}>
+                <tr key={dateKey}>
+                  <td>{displayDate}</td>
+                  <td>{tribunalCount}</td>
+                  <td>{absentCount}</td>
+                  <td className={total === 0 ? undefined : textClass}>
                     {pct.toFixed(1)}%
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="w-full h-2 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  <td>
+                    <div>
                       <div
-                        className={`h-full ${total === 0 ? 'bg-gray-300 dark:bg-gray-600' : bgClass}`}
-                        style={{ width: `${Math.min(100, pct)}%` }}
+                        className={total === 0 ? undefined : bgClass} style={{ width: `${Math.min(100, pct)}%` }}
                         title={`${pct.toFixed(1)}% Coverage`}
                       />
                     </div>
@@ -159,12 +152,12 @@ export function TribunalCoverageHeatmap() {
             })}
             {recent.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-gray-500">No data available in catalog.</td>
+                <td colSpan={5}>No data available in catalog.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-    </div>
+    </article>
   );
 }
