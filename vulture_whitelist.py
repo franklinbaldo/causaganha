@@ -39,6 +39,12 @@ exc_type
 exc_val
 exc_tb
 
+# Signal handler parameter (required by signal.signal protocol)
+frame
+
+# Download segment parameter (used by caller)
+index
+
 # CLI commands (registered via @app.command() decorator)
 collect
 analyze
