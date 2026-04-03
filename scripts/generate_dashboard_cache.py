@@ -855,7 +855,9 @@ def generate_backfill_cache(
             },
             "tribunal_stats": tribunal_stats,
             "tribunal_coverage": {t: list(set(d)) for t, d in tribunal_coverage.items()},
-            "tribunal_absent_coverage": {t: list(set(d)) for t, d in tribunal_absent_coverage.items()},
+            "tribunal_absent_coverage": {
+                t: list(set(d)) for t, d in tribunal_absent_coverage.items()
+            },
             "tribunal_etas": tribunal_etas,
             "volume": {
                 "total_bytes": total_volume_bytes,
