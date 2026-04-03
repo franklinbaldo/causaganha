@@ -1,0 +1,32 @@
+---
+import ArrowLeftIcon from './icons/ArrowLeftIcon.astro';
+import DatabaseIcon from './icons/DatabaseIcon.astro';
+interface Props {
+  title: string;
+  subtitle?: string;
+  backUrl?: string;
+}
+
+const { title, subtitle, backUrl } = Astro.props;
+---
+
+<header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    {backUrl ? (
+      <a href={backUrl} class="p-2 bg-accent-muted rounded-xl hover:bg-accent hover:text-white transition-colors dark:hover:bg-accent/20 dark:hover:text-accent" aria-label="Back">
+        <ArrowLeftIcon />
+      </a>
+    ) : (
+      <div class="p-2 bg-accent-muted rounded-xl">
+        <DatabaseIcon />
+      </div>
+    )}
+    <div>
+      <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight" set:html={title} />
+      {subtitle && <p class="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>}
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <slot />
+  </div>
+</header>

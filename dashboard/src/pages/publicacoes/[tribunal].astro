@@ -1,11 +1,16 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+
+
+
+import { readJson } from '../../lib/readJson';
+
+import PageHeader from '../../components/PageHeader.astro';
+
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { TribunalDetail } from '../../components/TribunalDetail';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { deriveData } from '../../lib/fetchData';
-import fs from 'node:fs';
-import path from 'node:path';
 
 export function getStaticPaths() {
   return TRIBUNAIS.map(t => ({
@@ -18,12 +23,7 @@ const { tribunalCode } = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 // Read data at build time (same pattern as monitor/index.astro)
-function readJson(relativePath) {
-  try {
-    const fullPath = path.resolve('./public', relativePath);
-    return JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-  } catch { return null; }
-}
+
 
 const dashboardData = readJson('dashboard-data.json');
 const tribunalStartDates = readJson('tribunal_start_dates.json');
@@ -86,32 +86,18 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
   ogImage={ogImage}
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-accent-muted rounded-xl">
-          <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
-            <path d="M3 12A9 3 0 0 0 21 12"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
-            CausaGanha <span class="text-gray-400">/ {tribunalCode}</span>
-          </h1>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <a href={BASE + 'publicacoes'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
-          Publicacoes
-        </a>
-        <ThemeToggle client:load />
-      </div>
-    </header>
+    <PageHeader
+      title={`CausaGanha <span class="text-gray-400">/ ${tribunalCode}</span>`}
+    >
+      <a href={BASE + 'publicacoes'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
+        Publicacoes
+      </a>
+      <ThemeToggle client:idle />
+    </PageHeader>
 
     <main class="max-w-7xl mx-auto">
       <TribunalDetail
-        client:load
+        client:idle
         tribunalCode={tribunalCode}
         initialCoverage={data?.tribunalCoverage}
         initialEtas={data?.tribunalEtas}
