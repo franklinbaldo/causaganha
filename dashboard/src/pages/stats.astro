@@ -33,121 +33,103 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
   title="Estatísticas - CausaGanha Dashboard"
   description="Historical tribunal coverage analysis and reliability rankings."
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
+  <PageHeader
+    title="Estatísticas de Coleta"
+    subtitle="Historical coverage and reliability analysis"
+    backHref={base}
+    backLabel="Back to Dashboard"
+  />
 
-    <PageHeader
-      title="Estatísticas de Coleta"
-      subtitle="Historical coverage and reliability analysis"
-      backHref={base}
-      backLabel="Back to Dashboard"
-    />
+  <main id="main-content" class="container">
 
-    <main id="main-content" class="max-w-7xl mx-auto space-y-6">
-
-      {/* 1. Coverage Overview */}
-      <section class="card p-6">
-        <h2 class="text-lg font-bold text-black dark:text-white mb-4">Coverage Overview (Últimos 30 Dias)</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
-            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Média de Coleta</span>
-            <div class="text-3xl font-black text-accent font-mono">{avgCoverage30Pct.toFixed(1)}%</div>
-            <span class="text-xs text-gray-500 mt-1">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</span>
-          </div>
-
-          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
-            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Melhor Dia</span>
-            <div class="text-2xl font-bold text-success font-mono">{bestCount} / 91</div>
-            <span class="text-xs text-gray-500 mt-1">{bestDay ? bestDay.replace('djen-', '') : '--'}</span>
-          </div>
-
-          <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
-            <span class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-2">Pior Dia</span>
-            <div class="text-2xl font-bold text-danger font-mono">{worstCount === 999 ? 0 : worstCount} / 91</div>
-            <span class="text-xs text-gray-500 mt-1">{worstDay ? worstDay.replace('djen-', '') : '--'}</span>
-          </div>
+    {/* 1. Coverage Overview */}
+    <article>
+      <h2>Coverage Overview (Últimos 30 Dias)</h2>
+      <div class="grid">
+        <div style="text-align: center;">
+          <small>Média de Coleta</small>
+          <p class="text-accent"><strong>{avgCoverage30Pct.toFixed(1)}%</strong></p>
+          <small>{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
         </div>
-      </section>
+        <div style="text-align: center;">
+          <small>Melhor Dia</small>
+          <p class="text-success"><strong>{bestCount} / 91</strong></p>
+          <small>{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
+        </div>
+        <div style="text-align: center;">
+          <small>Pior Dia</small>
+          <p class="text-danger"><strong>{worstCount === 999 ? 0 : worstCount} / 91</strong></p>
+          <small>{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
+        </div>
+      </div>
+    </article>
 
-      {/* 2. Court Reliability Rankings */}
-      <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="card p-6">
-          <h2 class="text-lg font-bold text-black dark:text-white mb-4">Top 5 Mais Confiáveis</h2>
-          {top5.length > 0 ? (
-            <ul class="space-y-3">
+    {/* 2. Court Reliability Rankings */}
+    <div class="grid">
+      <article>
+        <h2>Top 5 Mais Confiáveis</h2>
+        {top5.length > 0 ? (
+          <table>
+            <tbody>
               {top5.map((c, i) => (
-                <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
-                  <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-success/20 text-success text-xs font-bold">{i + 1}</span>
-                    <span class="font-semibold text-black dark:text-white">{c.court}</span>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-sm font-bold text-success">{(c.rate * 100).toFixed(1)}%</div>
-                    <div class="text-[10px] text-gray-500 uppercase tracking-tighter">{c.collected} success / {c.absent} fail</div>
-                  </div>
-                </li>
+                <tr>
+                  <td><mark>{i + 1}</mark></td>
+                  <td><strong>{c.court}</strong></td>
+                  <td class="text-success">{(c.rate * 100).toFixed(1)}%</td>
+                  <td><small>{c.collected} success / {c.absent} fail</small></td>
+                </tr>
               ))}
-            </ul>
-          ) : (
-             <div class="text-sm text-gray-500 text-center py-4">Sem dados suficientes</div>
-          )}
-        </div>
+            </tbody>
+          </table>
+        ) : (
+          <p style="text-align: center;">Sem dados suficientes</p>
+        )}
+      </article>
 
-        <div class="card p-6">
-          <h2 class="text-lg font-bold text-black dark:text-white mb-4">Top 5 Mais Falhas</h2>
-          {bottom5.length > 0 ? (
-            <ul class="space-y-3">
+      <article>
+        <h2>Top 5 Mais Falhas</h2>
+        {bottom5.length > 0 ? (
+          <table>
+            <tbody>
               {bottom5.map((c, i) => (
-                <li class="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
-                  <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-danger/20 text-danger text-xs font-bold">{i + 1}</span>
-                    <span class="font-semibold text-black dark:text-white">{c.court}</span>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-sm font-bold text-danger">{(c.rate * 100).toFixed(1)}%</div>
-                    <div class="text-[10px] text-gray-500 uppercase tracking-tighter">{c.collected} success / {c.absent} fail</div>
-                  </div>
-                </li>
+                <tr>
+                  <td><mark>{i + 1}</mark></td>
+                  <td><strong>{c.court}</strong></td>
+                  <td class="text-danger">{(c.rate * 100).toFixed(1)}%</td>
+                  <td><small>{c.collected} success / {c.absent} fail</small></td>
+                </tr>
               ))}
-            </ul>
-          ) : (
-             <div class="text-sm text-gray-500 text-center py-4">Sem dados suficientes</div>
-          )}
-        </div>
-      </section>
+            </tbody>
+          </table>
+        ) : (
+          <p style="text-align: center;">Sem dados suficientes</p>
+        )}
+      </article>
+    </div>
 
-      {/* 3. Weekly Pattern */}
-      <section class="card p-6">
-        <h2 class="text-lg font-bold text-black dark:text-white mb-4">Padrão Semanal</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Média de cobertura por dia da semana em todo o histórico.</p>
+    {/* 3. Weekly Pattern */}
+    <article>
+      <h2>Padrão Semanal</h2>
+      <p>Média de cobertura por dia da semana em todo o histórico.</p>
+      <div class="grid">
+        {displayWeekly.map(w => {
+          if (!w) return null;
+          const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
+          return (
+            <div style="text-align: center;">
+              <small><strong>{w.name.slice(0, 3)}</strong></small>
+              <p class={isLowest ? 'text-danger' : ''}>
+                <strong>{w.avgPct.toFixed(0)}%</strong>
+              </p>
+              <small>{w.avg.toFixed(1)} / 91</small>
+              {isLowest && (
+                <p><kbd class="text-danger">Lowest</kbd></p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </article>
 
-        <div class="grid grid-cols-2 md:grid-cols-7 gap-3">
-          {displayWeekly.map(w => {
-            if (!w) return null;
-            const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
-            return (
-              <div class={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-colors ${
-                isLowest
-                  ? 'bg-danger/10 border-danger/30 dark:border-danger/30'
-                  : 'bg-gray-50 dark:bg-slate-900 border-gray-100 dark:border-slate-800'
-              }`}>
-                <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider mb-2">{w.name.slice(0, 3)}</span>
-                <div class={`text-xl font-bold font-mono ${isLowest ? 'text-danger' : 'text-black dark:text-white'}`}>
-                  {w.avgPct.toFixed(0)}%
-                </div>
-                <div class="text-[10px] text-gray-500 mt-1">
-                  {w.avg.toFixed(1)} / 91
-                </div>
-                {isLowest && (
-                  <div class="text-[9px] font-bold text-danger bg-danger/20 px-1.5 py-0.5 rounded mt-2 uppercase tracking-tighter">
-                    Lowest
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-    </main>
-  </div>
+  </main>
 </Layout>

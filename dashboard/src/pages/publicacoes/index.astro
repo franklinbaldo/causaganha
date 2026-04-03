@@ -33,39 +33,35 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   title="CausaGanha - Publicações"
   description="Publicações judiciais brasileiras arquivadas no Internet Archive."
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <PageHeader title="CausaGanha">
-      <DatabaseIcon slot="icon" class="w-5 h-5 text-accent" />
-      <p slot="subtitle" class="text-sm text-gray-500 dark:text-gray-400">
-        {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | última coleta: ${latestDate}` : 'Carregando...'}
-      </p>
-      <a slot="nav" href={BASE} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
-        Início
-      </a>
-    </PageHeader>
+  <PageHeader title="CausaGanha">
+    <DatabaseIcon slot="icon" />
+    <p slot="subtitle">
+      {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | última coleta: ${latestDate}` : 'Carregando...'}
+    </p>
+    <a slot="nav" href={BASE}>Início</a>
+  </PageHeader>
 
-    <main id="main-content" class="max-w-7xl mx-auto space-y-6">
-      <IASearchBar client:idle />
+  <main id="main-content" class="container">
+    <IASearchBar client:idle />
 
-      <TribunalView
-        client:idle
-        initialCoverage={data?.tribunalCoverage}
-        initialEtas={data?.tribunalEtas}
-        initialTargetRange={data?.targetRange}
-        initialStartDates={data?.tribunalStartDates}
-        initialQualityScores={data?.tribunalQualityScores}
-        initialPipeline={data?.cacheData?.today?.pipeline}
-        initialProgressByYear={data?.progressByYear}
-        initialVolume={data?.volume}
-        initialVelocityMetrics={data?.velocityMetrics}
-        initialIaSnapshot={data?.iaSnapshot}
-      />
+    <TribunalView
+      client:idle
+      initialCoverage={data?.tribunalCoverage}
+      initialEtas={data?.tribunalEtas}
+      initialTargetRange={data?.targetRange}
+      initialStartDates={data?.tribunalStartDates}
+      initialQualityScores={data?.tribunalQualityScores}
+      initialPipeline={data?.cacheData?.today?.pipeline}
+      initialProgressByYear={data?.progressByYear}
+      initialVolume={data?.volume}
+      initialVelocityMetrics={data?.velocityMetrics}
+      initialIaSnapshot={data?.iaSnapshot}
+    />
 
-      <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
-        <p>Dados do DJEN arquivados no Internet Archive.
-          {snapshotTime && <span class="ml-1">Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
-        </p>
-      </footer>
-    </main>
-  </div>
+    <footer style="text-align: center;">
+      <small>Dados do DJEN arquivados no Internet Archive.
+        {snapshotTime && <span> Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
+      </small>
+    </footer>
+  </main>
 </Layout>

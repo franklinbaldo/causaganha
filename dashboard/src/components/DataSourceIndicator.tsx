@@ -41,8 +41,8 @@ export function DataSourceIndicator() {
   };
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono ${colors[info.status]}`}>
-      <span className={`w-2 h-2 rounded-full ${info.status === 'live' ? 'bg-green-500 animate-pulse' : info.status === 'error' ? 'bg-red-500' : 'bg-gray-400'}`} />
+    <div className={`${colors[info.status]}`}>
+      <span className={`${info.status === 'live' ? 'bg-green-500 animate-pulse' : info.status === 'error' ? 'bg-red-500' : 'bg-gray-400'}`} />
       {info.status === 'loading' && 'Connecting...'}
       {info.status === 'live' && `Live via ${info.source} (${info.generated?.slice(0, 16)})`}
       {info.status === 'fallback' && `Static fallback (${info.source})`}

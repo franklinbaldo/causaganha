@@ -78,24 +78,20 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
   description={ogDesc}
   ogImage={ogImage}
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" title="">
-      <Fragment slot="title">CausaGanha <span class="text-gray-400">/ {tribunalCode}</span></Fragment>
-      <a slot="nav" href={BASE + 'publicacoes'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
-        Publicações
-      </a>
-    </PageHeader>
+  <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" title="">
+    <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
+    <a slot="nav" href={BASE + 'publicacoes'}>Publicações</a>
+  </PageHeader>
 
-    <main class="max-w-7xl mx-auto">
-      <TribunalDetail
-        client:idle
-        tribunalCode={tribunalCode}
-        initialCoverage={data?.tribunalCoverage}
-        initialEtas={data?.tribunalEtas}
-        initialTargetRange={data?.targetRange}
-        initialStartDates={data?.tribunalStartDates}
-        initialQualityScores={data?.tribunalQualityScores}
-      />
-    </main>
-  </div>
+  <main class="container">
+    <TribunalDetail
+      client:idle
+      tribunalCode={tribunalCode}
+      initialCoverage={data?.tribunalCoverage}
+      initialEtas={data?.tribunalEtas}
+      initialTargetRange={data?.targetRange}
+      initialStartDates={data?.tribunalStartDates}
+      initialQualityScores={data?.tribunalQualityScores}
+    />
+  </main>
 </Layout>

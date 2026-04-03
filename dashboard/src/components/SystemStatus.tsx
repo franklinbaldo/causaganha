@@ -71,88 +71,86 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
   })();
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between">
+    <article>
+      <div>
         {/* Left: status & stats */}
-        <div className="flex items-center gap-8 flex-wrap">
-          <div className="flex items-center gap-3" role="status" aria-live="polite">
+        <div>
+          <div role="status" aria-live="polite">
             {stats ? (
               isSuccess ? (
-                <div className="p-2 rounded-lg bg-success-muted">
-                  <CheckCircleIcon className="w-4 h-4 text-success" aria-hidden="true" />
+                <div className="bg-success-muted">
+                  <CheckCircleIcon className="text-success" aria-hidden="true" />
                 </div>
               ) : (
-                <div className="p-2 rounded-lg bg-danger-muted">
-                  <XCircleIcon className="w-4 h-4 text-danger" aria-hidden="true" />
+                <div className="bg-danger-muted">
+                  <XCircleIcon className="text-danger" aria-hidden="true" />
                 </div>
               )
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-800 animate-pulse" />
+              <div />
             )}
             <div>
-              <div className="text-sm font-medium text-black dark:text-white">
+              <div>
                 {stats ? (isSuccess ? 'Pipeline Operational' : 'Pipeline Issue') : 'Loading...'}
               </div>
               {stats?.timestamp && (
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <small>
                   Last run: {new Date(stats.timestamp).toLocaleString()}
-                </div>
+                </small>
               )}
-              <span className="sr-only">
+              <span>
                 {stats ? (isSuccess ? 'System operational' : 'System fault detected') : 'Loading system status'}
               </span>
             </div>
           </div>
 
           {/* Stat pills */}
-          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+          <div>
             {health != null && (
-              <div className="flex items-center gap-1.5">
-                <ActivityIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              <div>
+                <ActivityIcon aria-hidden="true" />
                 <span>Health:</span>
-                <span className={clsx("font-mono font-medium tabular-nums", health >= 70 ? "text-success" : "text-danger")}>
+                <span className={clsx(health >= 70 ? "text-success" : "text-danger")}>
                   {health}%
                 </span>
               </div>
             )}
             {filesToday != null && (
-              <div className="flex items-center gap-1.5">
+              <div>
                 <span>{isDataStale ? dataDate : 'Today'}:</span>
-                <span className={clsx("font-mono font-medium tabular-nums", isDataStale ? "text-warning" : "text-black dark:text-white")}>{filesToday}/91</span>
+                <span className={clsx(isDataStale && "text-warning")}>{filesToday}/91</span>
                 {isDataStale && (
-                  <span className="text-xs text-warning" title="Data collection appears stalled — no new data since this date">stale</span>
+                  <span className="text-warning" title="Data collection appears stalled — no new data since this date">stale</span>
                 )}
               </div>
             )}
             {stats?.duration_seconds != null && (
-              <div className="hidden sm:flex items-center gap-1.5">
-                <ClockIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="font-mono tabular-nums">{stats.duration_seconds}s</span>
+              <div>
+                <ClockIcon aria-hidden="true" />
+                <span>{stats.duration_seconds}s</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Right: countdown & actions */}
-        <div className="flex items-center gap-4">
+        <div>
           {stats?.timestamp && (
-            <div className="hidden sm:block text-right">
-              <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">Next run</div>
-              <div className="text-lg font-mono font-semibold tabular-nums text-accent">{countdown}</div>
+            <div>
+              <small>Next run</small>
+              <div className="text-accent">{countdown}</div>
             </div>
           )}
 
           {stats?.steps && (
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800 transition-colors"
               aria-expanded={showDetails}
-              aria-label="Toggle run details"
-            >
+              aria-label="Toggle run details">
               {showDetails ? (
-                <ChevronUpIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                <ChevronUpIcon aria-hidden="true" />
               ) : (
-                <ChevronDownIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                <ChevronDownIcon aria-hidden="true" />
               )}
             </button>
           )}
@@ -160,39 +158,36 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
       </div>
 
       {/* Expandable details */}
-      {stats?.steps && (
-        <div className={clsx(
-          "transition-all duration-300 overflow-hidden",
-          showDetails ? "max-h-[1000px] mt-5 opacity-100" : "max-h-0 opacity-0"
-        )}>
-          <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
-            <h3 className="text-sm font-medium text-black dark:text-white mb-3">Pipeline Steps</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {stats?.steps && showDetails && (
+        <div>
+          <div>
+            <h3>Pipeline Steps</h3>
+            <div>
               {Object.entries(stats.steps).map(([stepName, stepData]) => {
                 const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true;
 
                 return (
-                  <div key={stepName} className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-black dark:text-white capitalize">
+                  <div key={stepName}>
+                    <div>
+                      <span>
                         {stepName.replace(/_/g, ' ')}
                       </span>
-                      <span className={clsx("badge gap-1", isOk ? "badge-success" : "badge-danger")}>
+                      <span className={clsx("badge", isOk ? "badge-success" : "badge-danger")}>
                         {isOk ? (
-                          <CheckCircleIcon className="w-3 h-3" aria-hidden="true" />
+                          <CheckCircleIcon aria-hidden="true" />
                         ) : (
-                          <XCircleIcon className="w-3 h-3" aria-hidden="true" />
+                          <XCircleIcon aria-hidden="true" />
                         )}
                         <span>{isOk ? 'OK' : 'Issue'}</span>
                       </span>
                     </div>
-                    <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                    <div>
                       {Object.entries(stepData).map(([k, v]) => {
                         if (k === 'success') return null;
                         return (
-                          <div key={k} className="flex justify-between">
-                            <span className="capitalize">{k.replace(/_/g, ' ')}</span>
-                            <span className="font-mono tabular-nums text-black dark:text-white">{v}</span>
+                          <div key={k}>
+                            <span>{k.replace(/_/g, ' ')}</span>
+                            <span>{v}</span>
                           </div>
                         );
                       })}
@@ -206,25 +201,22 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
       )}
 
       {/* IA Task Status */}
-      {cacheToday?.ia_tasks?.pending_count > 0 && (
-        <div className="mt-3 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
-          <ClockIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+      {cacheToday?.ia_tasks?.pending_count> 0 && (
+        <div>
+          <ClockIcon aria-hidden="true" />
           <span>{cacheToday.ia_tasks.pending_count} tarefa(s) de processamento pendente(s) no Internet Archive</span>
         </div>
       )}
 
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-        <span>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</span>
+      <footer>
+        <small>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</small>
         <a
-          href="https://github.com/franklinbaldo/causaganha/actions"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 hover:text-accent transition-colors"
-        >
-          View Actions <ExternalLinkIcon className="w-3 h-3" aria-hidden="true" />
+          href="https://github.com/franklinbaldo/causaganha/actions" target="_blank"
+          rel="noopener noreferrer">
+          View Actions <ExternalLinkIcon aria-hidden="true" />
         </a>
-      </div>
-    </div>
+      </footer>
+    </article>
   );
 }

@@ -18,7 +18,7 @@
     "astro": "^5.18.1",
     "clsx": "^2.1.1",
     "preact": "^10.28.3",
-    "bulma": "^1.0.4"
+    "@picocss/pico": "^2"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",

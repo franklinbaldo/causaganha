@@ -22,7 +22,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
 
   let trendColor = "text-gray-500 dark:text-gray-400";
   let trendText = "Stable";
-  if (currentVelocity > historicalAvgVelocity * 1.2) {
+  if (currentVelocity> historicalAvgVelocity * 1.2) {
     trendColor = "text-success";
     trendText = "Accelerating";
   } else if (currentVelocity < historicalAvgVelocity * 0.7) {
@@ -31,44 +31,40 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
   }
 
   return (
-    <div className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4" aria-label="Velocity Timeline">
-      <div className="flex justify-between items-end mb-3">
+    <div  aria-label="Velocity Timeline">
+      <div>
         <div>
-          <h4 className="text-sm font-medium text-black dark:text-white">Velocity Timeline</h4>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Last 12 weeks collection rate</p>
+          <h4>Velocity Timeline</h4>
+          <p>Last 12 weeks collection rate</p>
         </div>
         <div className="text-right">
-          <div className="text-sm font-mono text-black dark:text-white">{currentVelocity.toFixed(1)} docs/wk avg</div>
-          <div className={`text-xs ${trendColor}`}>
-            {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs avg ({trendText})
+          <div>{currentVelocity.toFixed(1)} docs/wk avg</div>
+          <div className={`${trendColor}`}>
+            {trend> 0 ? '+' : ''}{trend.toFixed(0)}% vs avg ({trendText})
           </div>
         </div>
       </div>
 
-      <div className="flex items-end gap-1 h-16 w-full mt-2" role="list">
+      <div  role="list">
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
           return (
             <div
-              key={`w-${idx}`}
-              className="group relative flex-1 flex flex-col justify-end h-full"
-              role="listitem"
-            >
+              key={`w-${idx}`} className="group"
+              role="listitem">
               <div
-                className={`w-full rounded-t-sm opacity-80 group-hover:opacity-100 transition-opacity ${getBarColor(week.collected)}`}
-                style={{ height: `${heightPct}%` }}
-              ></div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max bg-slate-900 text-white text-xs rounded py-1 px-2 shadow-lg">
-                <div className="font-mono text-center">{week.collected} days collected</div>
-                <div className="text-[10px] text-gray-300 text-center opacity-80 mt-0.5">Week {12 - week.weekOffset}</div>
+                className={`${getBarColor(week.collected)}`} style={{ height: `${heightPct}%` }}></div>
+              <div className="-translate-x-1/2">
+                <div className="text-center">{week.collected} days collected</div>
+                <div className="text-center">Week {12 - week.weekOffset}</div>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="flex justify-between text-[10px] text-gray-400 mt-1 uppercase font-mono tracking-wider">
+      <div>
         <span>12 wks ago</span>
         <span>Current</span>
       </div>
@@ -119,8 +115,8 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   const start = new Date(globalStartDateStr + "T00:00:00Z");
   const end = new Date(globalEndDateStr + "T00:00:00Z");
 
-  if (start > end) {
-    return <div className="text-gray-600 dark:text-gray-300 p-4">Invalid date range.</div>;
+  if (start> end) {
+    return <div>Invalid date range.</div>;
   }
 
   const years: { year: number; days: string[]; start: Date }[] = [];
@@ -141,7 +137,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
       curr.setUTCDate(curr.getUTCDate() + 1);
     }
 
-    if (yearDays.length > 0) {
+    if (yearDays.length> 0) {
       years.push({ year: yr, days: yearDays, start: actualStart });
     }
   }
@@ -242,22 +238,22 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   };
 
   return (
-    <div className="flex flex-col gap-8 min-w-max pb-8">
+    <div>
       {years.map(({ year, days: yDays, start: yrStart }) => {
         const startDayOfWeek = yrStart.getUTCDay();
         const paddedDays: (string | null)[] = Array(startDayOfWeek).fill(null).concat(yDays);
         const yrWeeks: (string | null)[][] = [];
         for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
         return (
-          <div key={year} className="flex flex-col gap-2">
-            <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest font-mono">Year {year}</h4>
-            <div className="flex gap-1 outline-none" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-              <div className="flex flex-col gap-1 flex-shrink-0 text-[10px] text-gray-500 dark:text-gray-400 font-mono pt-1 mr-2 justify-between h-[104px]" aria-hidden="true">
-                <div className="h-3"></div><div className="h-3 leading-3">Mon</div><div className="h-3"></div><div className="h-3 leading-3">Wed</div><div className="h-3"></div><div className="h-3 leading-3">Fri</div><div className="h-3"></div>
+          <div key={year}>
+            <h4>Year {year}</h4>
+            <div className="outline-none" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+              <div  aria-hidden="true">
+                <div></div><div>Mon</div><div></div><div>Wed</div><div></div><div>Fri</div><div></div>
               </div>
               {yrWeeks.map((week, weekIndex) => (
-                <div key={`w-${year}-${weekIndex}`} className="flex flex-col gap-1 flex-shrink-0" role="row">
-                  <div className="h-3 mb-1 text-[9px] text-gray-400 overflow-visible whitespace-nowrap font-mono uppercase tracking-tighter">
+                <div key={`w-${year}-${weekIndex}`} role="row">
+                  <div>
                     {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('en-US', { month: 'short' }) : ''}
                   </div>
                   {week.map((day, dayIndex) => (
@@ -269,12 +265,12 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
           </div>
         );
       })}
-      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+      <div>
         <span>{coveredDays} / {totalDays} days collected</span>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-danger opacity-80"></div><span>Missing</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-warning opacity-80"></div><span>Absent</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-success opacity-80"></div><span>Collected</span></div>
+        <div>
+          <div><div className="bg-danger"></div><span>Missing</span></div>
+          <div><div className="bg-warning"></div><span>Absent</span></div>
+          <div><div className="bg-success"></div><span>Collected</span></div>
         </div>
       </div>
       <VelocityTimeline metrics={velocityMetrics} />

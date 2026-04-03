@@ -13,15 +13,13 @@ const qualityScores = readJson('tribunal_quality_scores.json');
   title="CausaGanha - Performance Dashboard"
   description="System health and performance metrics for the CausaGanha backfill pipeline."
 >
-  <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <PageHeader
-      title="Performance Monitoring"
-      subtitle="System latency, upload success rates, and tribunal data quality scores"
-    />
+  <PageHeader
+    title="Performance Monitoring"
+    subtitle="System latency, upload success rates, and tribunal data quality scores"
+  />
 
-    <main class="max-w-7xl mx-auto space-y-6">
-      <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
-      <TribunalCoverageHeatmap client:idle />
-    </main>
-  </div>
+  <main class="container">
+    <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
+    <TribunalCoverageHeatmap client:idle />
+  </main>
 </Layout>

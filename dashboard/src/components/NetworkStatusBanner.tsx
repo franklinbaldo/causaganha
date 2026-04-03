@@ -17,7 +17,7 @@ export function NetworkStatusBanner() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    if (status === 'retrying' && retryInfo && countdown > 0) {
+    if (status === 'retrying' && retryInfo && countdown> 0) {
       timer = setTimeout(() => setCountdown(c => c - 1000), 1000);
     }
     return () => clearTimeout(timer);
@@ -72,41 +72,37 @@ export function NetworkStatusBanner() {
 
   return (
     <div
-      className={clsx(
-        "fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all animate-fade-in",
+      className={clsx( "fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all animate-fade-in",
         status === 'error' ? "bg-danger text-white" : "bg-warning-light text-black"
       )}
       role="alert"
-      aria-live="assertive"
-    >
-      <div className="flex items-center gap-3">
+      aria-live="assertive">
+      <div>
         {status === 'slow' && (
           <div>
-            <p className="font-semibold text-sm">Slow Network Detected</p>
-            <p className="text-xs opacity-80">Loading might take longer than usual. Using cached data if available.</p>
+            <p>Slow Network Detected</p>
+            <p>Loading might take longer than usual. Using cached data if available.</p>
           </div>
         )}
 
         {status === 'retrying' && retryInfo && (
           <div>
-            <p className="font-semibold text-sm">Connection Issue</p>
-            <p className="text-xs opacity-80">
+            <p>Connection Issue</p>
+            <p>
               Retrying (attempt {retryInfo.attempt}/{retryInfo.maxRetries}) in {Math.ceil(countdown / 1000)}s...
             </p>
           </div>
         )}
 
         {status === 'error' && (
-          <div className="flex-1 flex items-center justify-between gap-4">
+          <div>
             <div>
-              <p className="font-semibold text-sm">Network Failed</p>
-              <p className="text-xs opacity-90">Could not connect to server. Showing cached offline data.</p>
+              <p>Network Failed</p>
+              <p>Could not connect to server. Showing cached offline data.</p>
             </div>
             <button
-              onClick={handleManualRetry}
-              className="px-3 py-1.5 bg-white text-danger text-xs font-bold rounded hover:bg-gray-100 transition-colors"
-              aria-label="Retry network connection now"
-            >
+              onClick={handleManualRetry} className="text-danger"
+              aria-label="Retry network connection now">
               Retry
             </button>
           </div>

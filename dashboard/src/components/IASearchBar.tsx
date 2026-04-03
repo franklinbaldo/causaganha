@@ -12,9 +12,9 @@ interface SearchResult {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes > 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes > 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes > 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes> 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes> 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes> 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${bytes} B`;
 }
 
@@ -97,61 +97,54 @@ export function IASearchBar() {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4">
-      <div className="flex gap-2 mb-3">
+    <div>
+      <div>
         <input
-          type="text"
-          value={query}
+          type="search" value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
-          className="flex-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-black dark:text-white placeholder-gray-400 focus:outline-none focus:border-accent"
         />
         <button
-          onClick={handleSearch}
-          disabled={loading || !query.trim()}
-          className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-50"
-        >
+          onClick={handleSearch} disabled={loading || !query.trim()}>
           {loading ? 'Buscando...' : 'Buscar'}
         </button>
       </div>
 
       {loading && (
-        <div className="text-sm text-gray-500 py-4 text-center">Consultando Internet Archive...</div>
+        <p aria-busy="true">Consultando Internet Archive...</p>
       )}
 
       {!loading && searched && results.length === 0 && (
-        <div className="text-sm text-gray-500 py-4 text-center">Nenhum resultado encontrado.</div>
+        <p>Nenhum resultado encontrado.</p>
       )}
 
-      {results.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+      {results.length> 0 && (
+        <div>
+          <table>
             <thead>
-              <tr className="border-b border-gray-200 dark:border-slate-800 text-gray-500 dark:text-gray-400">
-                <th className="py-2 px-3 font-medium">Tribunal</th>
-                <th className="py-2 px-3 font-medium text-right">Ano</th>
-                <th className="py-2 px-3 font-medium text-right">Arquivos</th>
-                <th className="py-2 px-3 font-medium text-right">Tamanho</th>
-                <th className="py-2 px-3 font-medium text-right">Downloads</th>
-                <th className="py-2 px-3 font-medium"></th>
+              <tr>
+                <th>Tribunal</th>
+                <th>Ano</th>
+                <th>Arquivos</th>
+                <th>Tamanho</th>
+                <th>Downloads</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {results.map(r => (
-                <tr key={r.identifier} className="border-b border-gray-100 dark:border-slate-800/50 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="py-2 px-3 font-mono text-black dark:text-white">{r.tribunal}</td>
-                  <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">{r.year}</td>
-                  <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">{r.files_count}</td>
-                  <td className="py-2 px-3 text-right text-gray-500">{formatBytes(r.item_size)}</td>
-                  <td className="py-2 px-3 text-right text-gray-500">{r.downloads > 0 ? r.downloads.toLocaleString() : '-'}</td>
-                  <td className="py-2 px-3 text-right">
+                <tr key={r.identifier}>
+                  <td>{r.tribunal}</td>
+                  <td>{r.year}</td>
+                  <td>{r.files_count}</td>
+                  <td>{formatBytes(r.item_size)}</td>
+                  <td>{r.downloads> 0 ? r.downloads.toLocaleString() : '-'}</td>
+                  <td>
                     <a
-                      href={`https://archive.org/details/${r.identifier}`}
-                      target="_blank"
+                      href={`https://archive.org/details/${r.identifier}`} target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline"
-                    >
+                      className="text-accent">
                       Ver no IA
                     </a>
                   </td>
@@ -159,7 +152,7 @@ export function IASearchBar() {
               ))}
             </tbody>
           </table>
-          <div className="text-xs text-gray-400 mt-2 text-right">{results.length} resultados</div>
+          <small>{results.length} resultados</small>
         </div>
       )}
     </div>

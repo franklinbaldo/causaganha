@@ -37,12 +37,12 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
     let top = position.y + padding;
 
     // Check right edge
-    if (left + rect.width > window.innerWidth - padding) {
+    if (left + rect.width> window.innerWidth - padding) {
       left = position.x - rect.width - padding;
     }
 
     // Check bottom edge
-    if (top + rect.height > window.innerHeight - padding) {
+    if (top + rect.height> window.innerHeight - padding) {
       top = position.y - rect.height - padding;
     }
 
@@ -61,12 +61,10 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
 
   const tooltipContent = (
     <div
-      ref={tooltipRef}
-      role="tooltip"
-      className="fixed z-50 pointer-events-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-3 min-w-[200px] text-sm"
-      style={style}
-    >
-      <div className="font-mono font-medium text-black dark:text-white mb-1">
+      ref={tooltipRef} role="tooltip"
+      
+      style={style}>
+      <div>
         {cellData.date}
       </div>
       <div className={clsx("font-medium", statusClass)}>
@@ -74,15 +72,15 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
       </div>
 
       {cellData.uploadedAt && (
-        <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
-          <span className="opacity-70">Uploaded:</span>{' '}
-          <span className="font-mono">{new Date(cellData.uploadedAt).toLocaleString()}</span>
+        <div>
+          <span>Uploaded:</span>{' '}
+          <span>{new Date(cellData.uploadedAt).toLocaleString()}</span>
         </div>
       )}
       {cellData.sizeMb && (
-        <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-          <span className="opacity-70">Size:</span>{' '}
-          <span className="font-mono">{cellData.sizeMb.toFixed(2)} MB</span>
+        <div>
+          <span>Size:</span>{' '}
+          <span>{cellData.sizeMb.toFixed(2)} MB</span>
         </div>
       )}
     </div>
