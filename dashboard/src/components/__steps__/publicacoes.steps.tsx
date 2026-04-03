@@ -115,7 +115,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see "150" next to STF', () => {
-      expect(screen.getByText('150')).toBeTruthy();
+      // Find the STF card link and verify the ZIP count is inside the same card
+      const stfElements = screen.getAllByText('STF');
+      const stfCard = stfElements
+        .map(el => el.closest('a'))
+        .find(a => a !== null);
+      expect(stfCard).toBeTruthy();
+      expect(stfCard!.textContent).toContain('150');
     });
   });
 });

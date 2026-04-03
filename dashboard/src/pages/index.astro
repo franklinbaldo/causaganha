@@ -8,6 +8,7 @@ import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
 import ChartIcon from '../components/icons/ChartIcon.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import { readJson } from '../lib/readJson';
+import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson('ia-snapshot.json');
 const today = readJson('cache/today.json');
@@ -24,13 +25,6 @@ const latestDate = snap.latest_collection_date || '';
 const pipeline = today?.pipeline || {};
 const datesCollected = pipeline.dates_collected || 0;
 const progressPct = pipeline.progress_pct || 0;
-
-// Format large numbers
-function formatNumber(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-  return n.toLocaleString('pt-BR');
-}
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---

@@ -43,7 +43,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Show loading state before hash is ready', ({ Given, When, Then }) => {
+  Scenario('Render tribunal content after mount', ({ Given, When, Then }) => {
     Given('tribunal code is "STJ"', () => {
       props = makeProps('STJ');
     });
@@ -52,11 +52,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       render(<TribunalDetail {...props} />);
     });
 
-    Then('I should see "Carregando..."', () => {
-      // After effects run, the component either shows content or loading state.
-      // We verify the component rendered without crashing.
+    Then('I should see the tribunal name in the detail view', () => {
+      // After effects run, hashReady becomes true and the component renders
+      // the full detail view with the tribunal name displayed.
       const content = document.body.textContent;
-      expect(content.length).toBeGreaterThan(0);
+      expect(content).toContain('STJ');
     });
   });
 

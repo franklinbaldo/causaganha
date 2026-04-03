@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
+import { processCoverageOverview, processCourtReliability, processWeeklyPattern } from '../lib/stats-processing';
 
 // Fetch the catalog (with fallback for build environments without network)
 let data = {};
@@ -12,115 +13,14 @@ try {
   // Network unavailable at build time — page will render with empty data
 }
 
-// Sort dates descending
-const sortedDates = Object.keys(data).sort((a, b) => b.localeCompare(a));
-const recent30Dates = sortedDates.slice(0, 30);
-
 // --- 1. Coverage Overview (30 days) ---
-let totalCoverage30 = 0;
-let bestDay = null;
-let worstDay = null;
-let bestCount = -1;
-let worstCount = 999;
-
-for (const date of recent30Dates) {
-  const item = data[date];
-  const count = item.tribunal_count || 0;
-  totalCoverage30 += count;
-
-  if (count > bestCount) {
-    bestCount = count;
-    bestDay = date;
-  }
-  if (count < worstCount) {
-    worstCount = count;
-    worstDay = date;
-  }
-}
-
-const avgCoverage30 = recent30Dates.length > 0 ? totalCoverage30 / recent30Dates.length : 0;
-const avgCoverage30Pct = (avgCoverage30 / 91) * 100;
+const { avgPct: avgCoverage30Pct, avgCoverage: avgCoverage30, bestDay, bestCount, worstDay, worstCount } = processCoverageOverview(data, 30);
 
 // --- 2. Court Reliability Rankings ---
-// We'll calculate over all dates that have tribunais_coletados / tribunais_ausentes
-const courtStats = {};
-
-for (const date of sortedDates) {
-  const item = data[date];
-  const coletados = item.tribunais_coletados || [];
-  const ausentes = item.tribunais_ausentes || [];
-
-  for (const c of coletados) {
-    if (!courtStats[c]) courtStats[c] = { collected: 0, absent: 0 };
-    courtStats[c].collected++;
-  }
-  for (const c of ausentes) {
-    if (!courtStats[c]) courtStats[c] = { collected: 0, absent: 0 };
-    courtStats[c].absent++;
-  }
-}
-
-const courtArray = Object.keys(courtStats).map(c => {
-  const total = courtStats[c].collected + courtStats[c].absent;
-  const rate = total > 0 ? courtStats[c].collected / total : 0;
-  return { court: c, rate, total, collected: courtStats[c].collected, absent: courtStats[c].absent };
-});
-
-// Filter out courts with very little data if needed, but here we just sort
-courtArray.sort((a, b) => b.rate - a.rate || b.total - a.total);
-
-const top5 = courtArray.slice(0, 5);
-// For bottom 5, we only want those that actually have failures, sorted by lowest rate
-const bottom5 = [...courtArray].sort((a, b) => a.rate - b.rate || b.total - a.total).slice(0, 5);
-
+const { top5, bottom5 } = processCourtReliability(data);
 
 // --- 3. Weekly Pattern ---
-const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const weekdayStats = {
-  0: { totalCount: 0, days: 0 },
-  1: { totalCount: 0, days: 0 },
-  2: { totalCount: 0, days: 0 },
-  3: { totalCount: 0, days: 0 },
-  4: { totalCount: 0, days: 0 },
-  5: { totalCount: 0, days: 0 },
-  6: { totalCount: 0, days: 0 },
-};
-
-for (const dateStr of sortedDates) {
-  const item = data[dateStr];
-  // dateStr is 'djen-YYYY-MM-DD'
-  const dateParts = dateStr.replace('djen-', '').split('-');
-  if (dateParts.length === 3) {
-    const d = new Date(Date.UTC(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])));
-    if (!isNaN(d.getTime())) {
-      const wDay = d.getUTCDay();
-      weekdayStats[wDay].totalCount += (item.tribunal_count || 0);
-      weekdayStats[wDay].days++;
-    }
-  }
-}
-
-const weeklyAverages = Object.keys(weekdayStats).map(dayIdx => {
-  const stats = weekdayStats[dayIdx];
-  const avg = stats.days > 0 ? stats.totalCount / stats.days : 0;
-  return {
-    dayIdx: parseInt(dayIdx),
-    name: dayNames[dayIdx],
-    avg,
-    avgPct: (avg / 91) * 100,
-    daysCount: stats.days
-  };
-});
-
-// Find lowest average day
-let lowestDay = null;
-let lowestAvg = 999;
-for (const w of weeklyAverages) {
-  if (w.daysCount > 0 && w.avg < lowestAvg) {
-    lowestAvg = w.avg;
-    lowestDay = w;
-  }
-}
+const { weeklyAverages, lowestDay } = processWeeklyPattern(data);
 
 // Reorder for display: Monday (1) to Sunday (0)
 const displayOrder = [1, 2, 3, 4, 5, 6, 0];
