@@ -86,8 +86,9 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
   const handleTribunalChange = (e: Event) => {
     const newTribunal = (e.target as HTMLSelectElement).value;
+    if (!TRIBUNAIS.includes(newTribunal)) return;
     setSelectedTribunal(newTribunal);
-    window.location.href = `${baseUrl}publicacoes/${newTribunal.toLowerCase()}`;
+    window.location.href = `${baseUrl}publicacoes/${encodeURIComponent(newTribunal.toLowerCase())}`;
   };
 
   // Build coverage from IA snapshot (real ZIPs on IA) — prefer over backfill data
