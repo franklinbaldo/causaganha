@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'preact/hooks';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAL_GROUPS } from '../lib/tribunais';
 
@@ -34,6 +35,8 @@ interface OverviewGridProps {
 }
 
 function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: OverviewGridProps) {
+  const [query, setQuery] = useState('');
+
   // Prefer IA snapshot data (fresh, direct from IA) over pipeline/backfill data
   const snap = iaSnapshot?.summary;
   const totalZips = snap?.total_zips || pipeline?.total_zips || 0;
@@ -48,6 +51,18 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
   const BASE = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL || '/causaganha/') : '/causaganha/';
   const baseUrl = BASE.endsWith('/') ? BASE : BASE + '/';
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredGroups = useMemo(() => {
+    return TRIBUNAL_GROUPS
+      .map(group => ({
+        ...group,
+        tribunals: group.tribunals.filter(tribunal => {
+          if (!normalizedQuery) return true;
+          return tribunal.toLowerCase().includes(normalizedQuery);
+        }),
+      }))
+      .filter(group => group.tribunals.length > 0);
+  }, [normalizedQuery]);
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -64,7 +79,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             {latestDate && (
               <p className="text-gray-500 text-xs font-mono mt-1">
                 Última coleta: {latestDate}
-                {snapshotAge && <span className="ml-2 text-gray-600">| Snapshot: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
+                {snapshotAge && <span className="ml-2 text-gray-600">| Instantâneo: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
               </p>
             )}
           </div>
@@ -96,7 +111,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
               </span>
            </div>
            <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Items no IA</span>
+              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Itens no IA</span>
               <span className="text-lg font-bold font-mono text-warning">
                 {snap?.total_items || 0}
               </span>
@@ -117,7 +132,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <div key={year}>
                     <div className="flex justify-between items-baseline mb-1">
                       <span className="font-mono font-bold text-black dark:text-white">{year}</span>
-                      <span className="font-mono font-bold text-sm text-accent">{d.zip_count.toLocaleString()} zips</span>
+                      <span className="font-mono font-bold text-sm text-accent">{d.zip_count.toLocaleString()} ZIPs</span>
                     </div>
                     <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                       <span>{d.tribunals_with_data} / {d.tribunals_total} tribunais</span>
@@ -169,7 +184,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                       />
                     </div>
                     <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                      <span>{d.zips || 0} zips</span>
+                      <span>{d.zips || 0} ZIPs</span>
                       <span>{d.days_consolidated || 0} consolidados</span>
                       <span>{d.unique_days || 0} / {d.weekdays || 0} dias</span>
                     </div>
@@ -181,7 +196,32 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
       ) : null}
 
       {/* Tribunals by branch */}
-      {TRIBUNAL_GROUPS.map(group => {
+      <div className="space-y-2">
+        <label
+          htmlFor="tribunal-filter"
+          className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+        >
+          Filtrar tribunais
+        </label>
+        <input
+          id="tribunal-filter"
+          type="search"
+          value={query}
+          onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setQuery('');
+          }}
+          placeholder="Busque por sigla ou nome (ex.: tjsp, trf1, stj)"
+          className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-accent"
+          aria-label="Filtrar tribunais por sigla ou nome"
+        />
+      </div>
+
+      {filteredGroups.length === 0 ? (
+        <div className="card p-4 text-sm text-gray-600 dark:text-gray-300">
+          Nenhum tribunal encontrado para “{query.trim()}”. Tente buscar por outra sigla ou nome.
+        </div>
+      ) : filteredGroups.map(group => {
         // Count group totals from snapshot
         return (
           <div key={group.name} className="space-y-3">
@@ -216,7 +256,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                       )}
                     </div>
                     {hasData ? (
-                      <span className="text-[9px] text-gray-400 font-mono">ate {latestDate}</span>
+                      <span className="text-[9px] text-gray-400 font-mono">até {latestDate}</span>
                     ) : (
                       <span className="text-[9px] text-gray-400 dark:text-gray-600">—</span>
                     )}

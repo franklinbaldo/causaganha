@@ -130,15 +130,15 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
     dynamicEtaDays = Math.ceil(actualMissingDays / (velocityMetrics.currentVelocity / 7));
   }
 
-  let etaText = "Pending";
+  let etaText = "Pendente";
   if (actualMissingDays === 0 && expectedDays > 0) {
-    etaText = "Complete";
+    etaText = "Concluído";
   } else if (dynamicEtaDays) {
     if (dynamicEtaDays < 30) {
-      etaText = `~${dynamicEtaDays} days`;
+      etaText = `~${dynamicEtaDays} dias`;
     } else {
       const months = Math.round(dynamicEtaDays / 30);
-      etaText = `~${months} month${months > 1 ? 's' : ''}`;
+      etaText = `~${months} ${months > 1 ? 'meses' : 'mês'}`;
     }
   }
 
@@ -215,22 +215,22 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                     qualityScores[selectedTribunal].grade === 'D' ? "bg-danger text-white" :
                     "bg-gray-500 text-white"
                   )}
-                  title={`Completeness: ${qualityScores[selectedTribunal].completeness}%\nRecency: ${qualityScores[selectedTribunal].recency}%\nConsistency: ${qualityScores[selectedTribunal].consistency}%`}
+                  title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}
                 >
-                  Grade {qualityScores[selectedTribunal].grade}
+                  Nota {qualityScores[selectedTribunal].grade}
                 </div>
               )}
             </div>
 
             <div className="text-sm flex justify-between mt-2">
-              <span className="text-gray-600 dark:text-gray-300">Genesis</span>
-              <span className="font-mono text-black dark:text-white">{genesisDate || "Unknown"}</span>
+              <span className="text-gray-600 dark:text-gray-300">Data inicial</span>
+              <span className="font-mono text-black dark:text-white">{genesisDate || "Desconhecida"}</span>
             </div>
 
             <div className="mt-2 mb-4">
               <div className="flex justify-between text-[11px] mb-1.5">
-                <span className="text-gray-500 uppercase tracking-wider font-bold">Archiving Progress</span>
-                <span className="font-mono font-bold text-accent">{completionPct}% ({completionStatusText})</span>
+                <span className="text-gray-500 uppercase tracking-wider font-bold">Progresso de Arquivamento</span>
+                <span className="font-mono font-bold text-accent">{completionPct}%</span>
               </div>
               <div
                 className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner"
@@ -242,32 +242,23 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               >
                 <div
                   className="h-full bg-gradient-to-r from-accent to-accent-light transition-all duration-700 ease-out"
-                  style={{ width: `${syncedPct}%` }}
-                  title={`Sincronizado: ${syncedCount} ZIPs`}
+                  style={{ width: totalForBar > 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
+                  title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
                 />
                 <div
                   className="h-full bg-warning opacity-70 transition-all duration-700 ease-out"
-                  style={{ width: `${absentPct}%` }}
-                  title={`Ausente confirmado: ${absentCount} dias`}
-                />
-                <div
-                  className="h-full bg-gray-300 dark:bg-slate-600 transition-all duration-700 ease-out"
-                  style={{ width: `${missingPct}%` }}
-                  title={`Faltante: ${missingCount} dias`}
+                  style={{ width: totalForBar > 0 ? `${((selectedEtaData.absent_days_count || 0) / totalForBar) * 100}%` : '0%' }}
+                  title={`Ausência confirmada: ${selectedEtaData.absent_days_count || 0} dias`}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-2 text-[9px] font-bold uppercase tracking-tight">
-                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                  <div className="w-2 h-2 rounded-full bg-accent" aria-hidden="true"></div>
-                  <span>Synced {syncedPct.toFixed(1)}% ({syncedCount})</span>
+              <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
+                <div className="flex items-center gap-1.5 grayscale opacity-70">
+                  <div className="w-2 h-2 rounded-full bg-accent"></div>
+                  <span>{totalForBar > 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% sincronizado</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 justify-center">
-                  <div className="w-2 h-2 rounded-full bg-warning" aria-hidden="true"></div>
-                  <span>Absent {absentPct.toFixed(1)}% ({absentCount})</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 justify-end">
-                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-slate-600" aria-hidden="true"></div>
-                  <span>Missing {missingPct.toFixed(1)}% ({missingCount})</span>
+                <div className="flex items-center gap-1.5 text-right grayscale opacity-70">
+                  <span>{totalForBar > 0 ? (((selectedEtaData.absent_days_count || 0) / totalForBar) * 100).toFixed(1) : '0.0'}% ausência</span>
+                  <div className="w-2 h-2 rounded-full bg-warning"></div>
                 </div>
               </div>
             </div>
@@ -278,13 +269,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             </div>
 
             <div className="text-sm flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Missing</span>
-              <span className="font-mono text-black dark:text-white">{actualMissingDays} days</span>
+              <span className="text-gray-600 dark:text-gray-300">Dias faltantes</span>
+              <span className="font-mono text-black dark:text-white">{actualMissingDays} dias</span>
             </div>
 
             {cursorDate && !isStopped && (
               <div className="text-sm flex justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Scanning cursor</span>
+                <span className="text-gray-600 dark:text-gray-300">Cursor de varredura</span>
                 <span className="font-mono text-xs font-semibold text-accent animate-pulse">{cursorDate}</span>
               </div>
             )}
@@ -292,7 +283,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             {isStopped && (
               <div className="mt-1">
                 <span className="badge badge-danger text-[10px] w-full justify-center">
-                  Stopped (60d Empty Streak)
+                  Pipeline interrompido (60 dias sem publicações)
                 </span>
               </div>
             )}
