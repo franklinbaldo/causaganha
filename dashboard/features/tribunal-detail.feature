@@ -7,10 +7,10 @@ Feature: Tribunal Detail
     Then I should see a tribunal selector
     And "STF" should be selected
 
-  Scenario: Show loading state before hash is ready
+  Scenario: Render tribunal content after mount
     Given tribunal code is "STJ"
     When the component mounts before hash is parsed
-    Then I should see "Carregando..."
+    Then I should see the tribunal name in the detail view
 
   Scenario: Tribunal selector contains all tribunals
     Given tribunal code is "STF"
