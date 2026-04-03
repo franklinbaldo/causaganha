@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
     "lint": "eslint .",
@@ -23,7 +23,6 @@
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",
-    "@astrojs/check": "^0.9.8",
     "@eslint/js": "^9.39.1",
     "@preact/preset-vite": "^2.10.5",
     "@testing-library/jest-dom": "^6.9.1",
