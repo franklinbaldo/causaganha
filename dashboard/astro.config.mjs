@@ -15,6 +15,9 @@ export default defineConfig({
   ],
   output: 'static',
   trailingSlash: 'never',
+  prefetch: {
+    defaultStrategy: 'hover',
+  },
   build: {
     assets: '_astro',
     format: 'file',

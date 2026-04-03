@@ -1,20 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import DatabaseCircleIcon from '../components/icons/DatabaseCircleIcon.astro';
-
-import { readJson } from '../lib/readJson';
-
-import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
-import DatabaseCloudIcon from '../components/icons/DatabaseCloudIcon.astro';
-import NetworkIcon from '../components/icons/NetworkIcon.astro';
-import CubeIcon from '../components/icons/CubeIcon.astro';
-import CheckIcon from '../components/icons/CheckIcon.astro';
-import GitHubIcon from '../components/icons/GitHubIcon.astro';
-
 import Footer from '../components/Footer.astro';
-
-// Read cache files from filesystem at build time
-
+import CheckIcon from '../components/icons/CheckIcon.astro';
+import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
+import DownloadIcon from '../components/icons/DownloadIcon.astro';
+import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
+import ChartIcon from '../components/icons/ChartIcon.astro';
+import GitHubIcon from '../components/icons/GitHubIcon.astro';
+import { readJson } from '../lib/readJson';
 
 const iaSnapshot = readJson('ia-snapshot.json');
 const today = readJson('cache/today.json');
@@ -115,7 +108,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             <div class="space-y-4">
               <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
                 <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
-                  <CheckCircleIcon />
+                  <CheckIcon class="w-5 h-5" />
                 </div>
                 <div class="ml-4 flex-1">
                   <div class="font-semibold text-gray-800 dark:text-white">{tribunalsWithData} tribunais com dados</div>
@@ -124,7 +117,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
               </div>
               <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
                 <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                  <DatabaseCircleIcon />
+                  <DownloadIcon class="w-5 h-5" />
                 </div>
                 <div class="ml-4 flex-1">
                   <div class="font-semibold text-gray-800 dark:text-white">{formatNumber(totalZips)} ZIPs coletados</div>
@@ -188,7 +181,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <div class="grid md:grid-cols-3 gap-8">
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <DatabaseCloudIcon />
+            <DownloadIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">1. Coleta Automatica</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -197,7 +190,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <NetworkIcon />
+            <ArchiveIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">2. Arquivo Permanente</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -206,7 +199,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <CubeIcon />
+            <ChartIcon class="w-8 h-8 text-blue-800 dark:text-blue-400" />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Catalogo Indexado</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -283,19 +276,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 text-center">Infraestrutura</h3>
         <div class="grid md:grid-cols-2 gap-4">
           <div class="flex items-center">
-            <CheckIcon />
+            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
             <span class="text-gray-700 dark:text-gray-300">GitHub Actions para coleta automatica</span>
           </div>
           <div class="flex items-center">
-            <CheckIcon />
+            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
             <span class="text-gray-700 dark:text-gray-300">Internet Archive para armazenamento permanente</span>
           </div>
           <div class="flex items-center">
-            <CheckIcon />
+            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
             <span class="text-gray-700 dark:text-gray-300">DuckDB + Parquet para consultas rapidas</span>
           </div>
           <div class="flex items-center">
-            <CheckIcon />
+            <CheckCircleIcon class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" />
             <span class="text-gray-700 dark:text-gray-300">Codigo 100% open source no GitHub</span>
           </div>
         </div>
@@ -310,7 +303,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener"
              class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-800 dark:hover:bg-gray-100 transition flex items-center">
-            <GitHubIcon />
+            <GitHubIcon class="w-5 h-5 mr-2" />
             Estrela no GitHub
           </a>
           <a href={BASE + 'publicacoes'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
@@ -346,6 +339,5 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 
-  <!-- Footer -->
   <Footer />
 </Layout>

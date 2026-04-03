@@ -1,6 +1,11 @@
 ---
+interface Props {
+  class?: string;
+}
+
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
+
 <footer class="bg-gray-900 text-gray-400 py-12">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid md:grid-cols-3 gap-8">
@@ -12,7 +17,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <p class="text-gray-400 mb-4">
           Dados judiciais publicos arquivados permanentemente para transparencia e acesso universal.
         </p>
-        <p class="text-sm">&copy; 2026 CausaGanha. Codigo aberto sob licenca MIT.</p>
+        <p class="text-sm">&copy; {new Date().getFullYear()} CausaGanha. Codigo aberto sob licenca MIT.</p>
       </div>
       <div>
         <h4 class="text-white font-semibold mb-4">Links</h4>
