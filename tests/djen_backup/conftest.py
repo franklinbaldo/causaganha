@@ -31,6 +31,8 @@ FAKE_AUTH = "LOW test-access:test-secret"
 def mock_api() -> respx.MockRouter:
     """A ``respx`` mock router activated for the test."""
     with respx.mock(assert_all_called=False) as router:
+        # Default: IA HEAD check returns 404 (item not on IA yet)
+        router.head(url__startswith="https://archive.org/download/").respond(404)
         yield router
 
 
