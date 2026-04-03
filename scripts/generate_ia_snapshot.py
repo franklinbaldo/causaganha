@@ -1,6 +1,6 @@
 """Generate a snapshot of all CausaGanha items on Internet Archive.
 
-Queries IA metadata for each tribunal×year item, extracts ZIP file
+Queries IA metadata for each tribunal x year item, extracts ZIP file
 lists, and writes a single ia-snapshot.json consumed by the dashboard.
 
 Usage:
@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import re
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+
 
 # Tribunal list — mirrors src/djen_backup/tribunais.py
 TRIBUNAIS = [
@@ -153,7 +154,7 @@ async def process_item(
     tribunal: str,
     year: int,
 ) -> dict | None:
-    """Fetch and parse one tribunal×year item."""
+    """Fetch and parse one tribunal x year item."""
     item_id = get_item_id(tribunal, year)
     async with sem:
         data = await fetch_item(client, item_id)
@@ -170,10 +171,8 @@ async def process_item(
         date_str = extract_date_from_zip(name)
         if date_str:
             dates.append(date_str)
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 total_size += int(f.get("size", 0))
-            except (ValueError, TypeError):
-                pass
 
     if not dates:
         return None
@@ -228,7 +227,7 @@ async def generate_snapshot(years: list[int]) -> dict:
         }
 
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "years": years,
         "items": items,
         "summary": {
@@ -245,7 +244,7 @@ async def generate_snapshot(years: list[int]) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate IA snapshot for CausaGanha monitor")
-    current_year = datetime.now().year
+    current_year = datetime.now(tz=UTC).year
     parser.add_argument(
         "--years",
         default=",".join(str(y) for y in range(current_year - 2, current_year + 1)),
@@ -260,7 +259,7 @@ def main():
 
     years = [int(y.strip()) for y in args.years.split(",")]
     print(
-        f"Scanning {len(TRIBUNAIS)} tribunals × {len(years)} years = {len(TRIBUNAIS) * len(years)} items..."
+        f"Scanning {len(TRIBUNAIS)} tribunals x {len(years)} years = {len(TRIBUNAIS) * len(years)} items..."
     )
 
     snapshot = asyncio.run(generate_snapshot(years))
