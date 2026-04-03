@@ -69,34 +69,34 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             )}
           </div>
 
-          <div className="text-right flex flex-col items-end">
+          <div className="text-right flex flex-col items-end gap-1">
             <span className="text-4xl font-black text-accent font-mono leading-none">{tribunalsWithData}</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold mt-1">Tribunais com dados</span>
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wide">Tribunais com dados</span>
           </div>
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-800">
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">ZIPs no IA</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-6 pt-5 border-t border-slate-800">
+           <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-tighter">ZIPs no IA</span>
               <span className="text-lg font-bold font-mono text-accent">
                 {totalZips.toLocaleString()}
               </span>
            </div>
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Volume</span>
+           <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-tighter">Volume</span>
               <span className="text-lg font-bold font-mono text-info">
                 {totalGB.toFixed(1)} GB
               </span>
            </div>
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Tribunais</span>
+           <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-tighter">Tribunais</span>
               <span className="text-lg font-bold font-mono text-success">
                 {tribunalsWithData} / {snap?.tribunals_total || 96}
               </span>
            </div>
-           <div className="flex flex-col">
-              <span className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">Items no IA</span>
+           <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-tighter">Items no IA</span>
               <span className="text-lg font-bold font-mono text-warning">
                 {snap?.total_items || 0}
               </span>
@@ -119,7 +119,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                       <span className="font-mono font-bold text-black dark:text-white">{year}</span>
                       <span className="font-mono font-bold text-sm text-accent">{d.zip_count.toLocaleString()} zips</span>
                     </div>
-                    <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                    <div className="flex gap-5 mt-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400 font-mono">
                       <span>{d.tribunals_with_data} / {d.tribunals_total} tribunais</span>
                     </div>
                   </div>
@@ -156,7 +156,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                         style={{ width: `${Math.min(100, pct)}%` }}
                       />
                     </div>
-                    <div className="flex gap-4 mt-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+                    <div className="flex gap-5 mt-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400 font-mono">
                       <span>{d.zips || 0} zips</span>
                       <span>{d.days_consolidated || 0} consolidados</span>
                       <span>{d.unique_days || 0} / {d.weekdays || 0} dias</span>
@@ -195,18 +195,18 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <a
                     key={t}
                     href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
-                    className="group card p-3 flex flex-col gap-1 hover:border-accent transition-all duration-200 no-underline"
+                    className="group card p-4 flex flex-col gap-1.5 hover:border-accent transition-all duration-200 no-underline"
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-accent transition-colors">{t}</span>
                       {hasData && (
-                        <span className="text-[10px] font-bold font-mono text-accent">{totalZips}</span>
+                        <span className="text-xs font-bold font-mono text-accent">{totalZips}</span>
                       )}
                     </div>
                     {hasData ? (
-                      <span className="text-[9px] text-gray-400 font-mono">ate {latestDate}</span>
+                      <span className="text-xs text-gray-400 font-mono">ate {latestDate}</span>
                     ) : (
-                      <span className="text-[9px] text-gray-400 dark:text-gray-600">—</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
                     )}
                   </a>
                 );

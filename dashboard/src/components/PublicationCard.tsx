@@ -118,14 +118,14 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
   if (compact) {
     return (
       <div id={`pub-${seq}`} className="card p-4 transition-all duration-300">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <span className="text-[9px] text-gray-300 dark:text-gray-600 font-mono">{seq}</span>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex-1 min-w-0 flex items-center gap-2.5">
+            <span className="text-xs text-gray-300 dark:text-gray-600 font-mono">{seq}</span>
             {processNumber && (
               <span className="font-mono text-sm text-accent font-medium">{processNumber}</span>
             )}
             {pub.tipoComunicacao && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 text-gray-500">
+              <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 dark:bg-slate-800 text-gray-500 leading-none">
                 {pub.tipoComunicacao}
               </span>
             )}
@@ -141,18 +141,18 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
           </p>
         )}
         {pub.destinatarios?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
             {pub.destinatarios.map((d, j) => (
-              <span key={j} className="text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+              <span key={j} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded leading-none">
                 {d.nome}
               </span>
             ))}
           </div>
         )}
         {pub.destinatarioadvogados?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
+              <span key={j} className="text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-1 rounded leading-none">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
@@ -209,8 +209,8 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
       {pub.destinatarios?.length > 0 && (
         <div className="mb-3">
-          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Destinatarios</div>
-          <div className="flex flex-wrap gap-1">
+          <div className="text-xs text-gray-500 uppercase font-bold mb-1.5">Destinatarios</div>
+          <div className="flex flex-wrap gap-1.5">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                 {d.nome}
@@ -221,8 +221,8 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       )}
       {pub.destinatarioadvogados?.length > 0 && (
         <div>
-          <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">Advogados</div>
-          <div className="flex flex-wrap gap-1">
+          <div className="text-xs text-gray-500 uppercase font-bold mb-1.5">Advogados</div>
+          <div className="flex flex-wrap gap-1.5">
             {pub.destinatarioadvogados.map((da, j) => (
               <span key={j} className="text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}

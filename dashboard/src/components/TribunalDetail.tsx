@@ -195,13 +195,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             </select>
           </div>
 
-          <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800 relative">
+          <div className="flex flex-col gap-3 p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-slate-800 relative">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-black dark:text-white">{selectedTribunal}</h3>
               {qualityScores[selectedTribunal] && (
                 <div
                   className={clsx(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded cursor-help",
+                    "text-xs font-bold px-2 py-0.5 rounded cursor-help",
                     qualityScores[selectedTribunal].grade === 'A' ? "bg-success text-white" :
                     qualityScores[selectedTribunal].grade === 'B' ? "bg-info text-white" :
                     qualityScores[selectedTribunal].grade === 'C' ? "bg-warning text-white" :
@@ -215,13 +215,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               )}
             </div>
 
-            <div className="text-sm flex justify-between mt-2">
+            <div className="text-sm flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Genesis</span>
               <span className="font-mono text-black dark:text-white">{genesisDate || "Unknown"}</span>
             </div>
 
-            <div className="mt-2 mb-4">
-              <div className="flex justify-between text-[11px] mb-1.5">
+            <div className="mb-3">
+              <div className="flex justify-between text-xs leading-5 mb-2">
                 <span className="text-gray-500 uppercase tracking-wider font-bold">Archiving Progress</span>
                 <span className="font-mono font-bold text-accent">{completionPct}%</span>
               </div>
@@ -237,7 +237,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                   title={`Vazio Confirmado: ${selectedEtaData.absent_days_count || 0} dias`}
                 />
               </div>
-              <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
+              <div className="flex justify-between gap-3 mt-2 text-xs font-bold uppercase tracking-tight leading-relaxed">
                 <div className="flex items-center gap-1.5 grayscale opacity-70">
                   <div className="w-2 h-2 rounded-full bg-accent"></div>
                   <span>{totalForBar > 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% Sync</span>
@@ -268,7 +268,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
             {isStopped && (
               <div className="mt-1">
-                <span className="badge badge-danger text-[10px] w-full justify-center">
+                <span className="badge badge-danger text-xs py-1 w-full justify-center">
                   Stopped (60d Empty Streak)
                 </span>
               </div>
