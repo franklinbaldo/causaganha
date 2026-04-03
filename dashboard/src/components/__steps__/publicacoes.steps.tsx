@@ -92,12 +92,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(screen.getByText('Tribunais Superiores')).toBeTruthy();
     });
 
-    And('I should see "Justica Federal"', () => {
-      expect(screen.getByText('Justica Federal')).toBeTruthy();
+    And('I should see "Justiça Federal"', () => {
+      expect(screen.getByText('Justiça Federal')).toBeTruthy();
     });
 
-    And('I should see "Justica Estadual"', () => {
-      expect(screen.getByText('Justica Estadual')).toBeTruthy();
+    And('I should see "Justiça Estadual"', () => {
+      expect(screen.getByText('Justiça Estadual')).toBeTruthy();
     });
   });
 

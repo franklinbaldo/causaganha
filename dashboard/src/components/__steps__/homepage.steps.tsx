@@ -81,16 +81,16 @@ describeFeature(feature, ({ Scenario }) => {
       rendered.sections = HOW_IT_WORKS_CARDS.map(c => c.title);
     });
 
-    Then('I should see "Coleta Automatica"', () => {
-      expect(rendered.sections).toContain('1. Coleta Automatica');
+    Then('I should see "Coleta Automática"', () => {
+      expect(rendered.sections).toContain('1. Coleta Automática');
     });
 
     And('I should see "Arquivo Permanente"', () => {
       expect(rendered.sections).toContain('2. Arquivo Permanente');
     });
 
-    And('I should see "Catalogo Indexado"', () => {
-      expect(rendered.sections).toContain('3. Catalogo Indexado');
+    And('I should see "Catálogo Indexado"', () => {
+      expect(rendered.sections).toContain('3. Catálogo Indexado');
     });
   });
 

@@ -5,9 +5,9 @@
  */
 
 export const HOW_IT_WORKS_CARDS = [
-  { title: '1. Coleta Automatica', key: 'coleta' },
+  { title: '1. Coleta Automática', key: 'coleta' },
   { title: '2. Arquivo Permanente', key: 'arquivo' },
-  { title: '3. Catalogo Indexado', key: 'catalogo' },
+  { title: '3. Catálogo Indexado', key: 'catalogo' },
 ] as const;
 
 export const AUDIENCE_CARDS = [

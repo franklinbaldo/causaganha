@@ -47,13 +47,13 @@ if (iaSnapshot?.items) {
 }
 
 const tribunalNames = {
-  STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justica', TST: 'Tribunal Superior do Trabalho',
-  TSE: 'Tribunal Superior Eleitoral', STM: 'Superior Tribunal Militar', CNJ: 'Conselho Nacional de Justica',
+  STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justiça', TST: 'Tribunal Superior do Trabalho',
+  TSE: 'Tribunal Superior Eleitoral', STM: 'Superior Tribunal Militar', CNJ: 'Conselho Nacional de Justiça',
 };
 const fullName = tribunalNames[tribunalCode] || tribunalCode;
 const ogDesc = zipCount > 0
-  ? `${zipCount} publicacoes arquivadas de ${earliestDate} a ${latestDate}`
-  : `Publicacoes judiciais do ${tribunalCode} arquivadas no Internet Archive`;
+  ? `${zipCount} publicações arquivadas de ${earliestDate} a ${latestDate}`
+  : `Publicações judiciais do ${tribunalCode} arquivadas no Internet Archive`;
 
 // Generate OG image SVG file at build time
 const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
@@ -62,9 +62,9 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   <text x="80" y="120" font-family="system-ui,sans-serif" font-size="24" fill="#94a3b8">CausaGanha</text>
   <text x="80" y="200" font-family="system-ui,sans-serif" font-size="72" font-weight="bold" fill="#3b82f6">${tribunalCode}</text>
   <text x="80" y="260" font-family="system-ui,sans-serif" font-size="28" fill="#cbd5e1">${fullName}</text>
-  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString()} publicacoes</text>
+  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString()} publicações</text>
   <text x="80" y="420" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">${earliestDate ? earliestDate + ' a ' + latestDate : 'Internet Archive'}</text>
-  <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados publicos do Diario de Justica Eletronico Nacional</text>
+  <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados públicos do Diário de Justiça Eletrônico Nacional</text>
   <text x="80" y="555" font-family="system-ui,sans-serif" font-size="18" fill="#334155">franklinbaldo.github.io/causaganha</text>
 </svg>`;
 const ogDir = path.resolve('./public/og');
@@ -74,15 +74,15 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
 ---
 
 <Layout
-  title={`${tribunalCode} - Publicacoes - CausaGanha`}
+  title={`${tribunalCode} - Publicações - CausaGanha`}
   description={ogDesc}
   ogImage={ogImage}
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicacoes" title="">
+    <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" title="">
       <Fragment slot="title">CausaGanha <span class="text-gray-400">/ {tribunalCode}</span></Fragment>
       <a slot="nav" href={BASE + 'publicacoes'} class="text-sm font-medium text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
-        Publicacoes
+        Publicações
       </a>
     </PageHeader>
 

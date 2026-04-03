@@ -14,11 +14,11 @@ export const TRIBUNAL_GROUPS: TribunalGroup[] = [
     tribunals: ["STF", "STJ", "TST", "TSE", "STM", "CNJ"],
   },
   {
-    name: "Justica Federal",
+    name: "Justiça Federal",
     tribunals: ["CJF", "PJeCor", "SEEU", "TRF1", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6"],
   },
   {
-    name: "Justica Estadual",
+    name: "Justiça Estadual",
     tribunals: [
       "TJAC", "TJAL", "TJAM", "TJAP", "TJBA", "TJCE", "TJDFT", "TJES", "TJGO",
       "TJMA", "TJMG", "TJMS", "TJMT", "TJPA", "TJPB", "TJPE", "TJPI", "TJPR",
@@ -26,11 +26,11 @@ export const TRIBUNAL_GROUPS: TribunalGroup[] = [
     ],
   },
   {
-    name: "Justica Militar Estadual",
+    name: "Justiça Militar Estadual",
     tribunals: ["TJMMG", "TJMRS", "TJMSP"],
   },
   {
-    name: "Justica do Trabalho",
+    name: "Justiça do Trabalho",
     tribunals: [
       "TRT1", "TRT2", "TRT3", "TRT4", "TRT5", "TRT6", "TRT7", "TRT8", "TRT9",
       "TRT10", "TRT11", "TRT12", "TRT13", "TRT14", "TRT15", "TRT16", "TRT17",
@@ -38,7 +38,7 @@ export const TRIBUNAL_GROUPS: TribunalGroup[] = [
     ],
   },
   {
-    name: "Justica Eleitoral",
+    name: "Justiça Eleitoral",
     tribunals: [
       "TRE-AC", "TRE-AL", "TRE-AM", "TRE-AP", "TRE-BA", "TRE-CE", "TRE-DF",
       "TRE-ES", "TRE-GO", "TRE-MA", "TRE-MG", "TRE-MS", "TRE-MT", "TRE-PA",

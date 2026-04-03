@@ -18,8 +18,8 @@ Feature: Publications Overview
   Scenario: Show group headings for tribunal branches
     When the publications overview loads with default data
     Then I should see "Tribunais Superiores"
-    And I should see "Justica Federal"
-    And I should see "Justica Estadual"
+    And I should see "Justiça Federal"
+    And I should see "Justiça Estadual"
 
   Scenario: Show ZIP counts per tribunal
     Given STF has 150 ZIPs in the snapshot

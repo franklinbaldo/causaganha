@@ -19,8 +19,8 @@ describeFeature(feature, ({ Scenario }) => {
       expect(templateContent).toContain('>404</');
     });
 
-    And('I should see "Pagina nao encontrada"', () => {
-      expect(templateContent).toContain('Pagina nao encontrada');
+    And('I should see "Página não encontrada"', () => {
+      expect(templateContent).toContain('Página não encontrada');
     });
   });
 
@@ -34,9 +34,9 @@ describeFeature(feature, ({ Scenario }) => {
       expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Dashboard[\s\S]*?<\/a>/);
     });
 
-    And('I should see an "Inicio" link', () => {
-      // Verify there's an <a> tag containing "Inicio"
-      expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Inicio[\s\S]*?<\/a>/);
+    And('I should see an "Início" link', () => {
+      // Verify there's an <a> tag containing "Início"
+      expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Início[\s\S]*?<\/a>/);
     });
   });
 });
