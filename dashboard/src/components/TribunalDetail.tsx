@@ -149,6 +149,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const absentSet = new Set(absentList);
 
   const totalForBar = actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0);
+  const syncedCount = selectedCoverage.size;
+  const absentCount = selectedEtaData.absent_days_count || 0;
+  const missingCount = actualMissingDays;
+  const syncedPct = totalForBar > 0 ? (syncedCount / totalForBar) * 100 : 0;
+  const absentPct = totalForBar > 0 ? (absentCount / totalForBar) * 100 : 0;
+  const missingPct = totalForBar > 0 ? (missingCount / totalForBar) * 100 : 0;
+  const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
 
@@ -223,35 +230,51 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
             <div className="mt-2 mb-4">
               <div className="flex justify-between text-[11px] mb-1.5">
                 <span className="text-gray-500 uppercase tracking-wider font-bold">Archiving Progress</span>
-                <span className="font-mono font-bold text-accent">{completionPct}%</span>
+                <span className="font-mono font-bold text-accent">{completionPct}% ({completionStatusText})</span>
               </div>
-              <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
+              <div
+                className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner"
+                role="progressbar"
+                aria-valuenow={Math.round(syncedPct)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progresso de arquivamento do ${selectedTribunal}: ${syncedCount} sincronizados, ${absentCount} ausentes, ${missingCount} faltantes.`}
+              >
                 <div
                   className="h-full bg-gradient-to-r from-accent to-accent-light transition-all duration-700 ease-out"
-                  style={{ width: totalForBar > 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
-                  title={`Sincronizado: ${selectedCoverage.size} ZIPs`}
+                  style={{ width: `${syncedPct}%` }}
+                  title={`Sincronizado: ${syncedCount} ZIPs`}
                 />
                 <div
                   className="h-full bg-warning opacity-70 transition-all duration-700 ease-out"
-                  style={{ width: totalForBar > 0 ? `${((selectedEtaData.absent_days_count || 0) / totalForBar) * 100}%` : '0%' }}
-                  title={`Vazio Confirmado: ${selectedEtaData.absent_days_count || 0} dias`}
+                  style={{ width: `${absentPct}%` }}
+                  title={`Ausente confirmado: ${absentCount} dias`}
+                />
+                <div
+                  className="h-full bg-gray-300 dark:bg-slate-600 transition-all duration-700 ease-out"
+                  style={{ width: `${missingPct}%` }}
+                  title={`Faltante: ${missingCount} dias`}
                 />
               </div>
-              <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-tighter">
-                <div className="flex items-center gap-1.5 grayscale opacity-70">
-                  <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  <span>{totalForBar > 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% Sync</span>
+              <div className="grid grid-cols-3 gap-2 mt-2 text-[9px] font-bold uppercase tracking-tight">
+                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                  <div className="w-2 h-2 rounded-full bg-accent" aria-hidden="true"></div>
+                  <span>Synced {syncedPct.toFixed(1)}% ({syncedCount})</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-right grayscale opacity-70">
-                  <span>{totalForBar > 0 ? (((selectedEtaData.absent_days_count || 0) / totalForBar) * 100).toFixed(1) : '0.0'}% Absent</span>
-                  <div className="w-2 h-2 rounded-full bg-warning"></div>
+                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 justify-center">
+                  <div className="w-2 h-2 rounded-full bg-warning" aria-hidden="true"></div>
+                  <span>Absent {absentPct.toFixed(1)}% ({absentCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 justify-end">
+                  <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-slate-600" aria-hidden="true"></div>
+                  <span>Missing {missingPct.toFixed(1)}% ({missingCount})</span>
                 </div>
               </div>
             </div>
 
             <div className="text-sm flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Status</span>
-              <span className={`font-medium ${statusColor}`}>{etaText}</span>
+              <span className={`font-medium ${statusColor}`}>{completionStatusText}: {etaText}</span>
             </div>
 
             <div className="text-sm flex justify-between">

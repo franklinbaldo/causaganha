@@ -135,6 +135,11 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => {
                 const pct = d.pct || 0;
+                const progressStatus =
+                  pct >= 80 ? 'high coverage' :
+                  pct >= 30 ? 'partial coverage' :
+                  pct > 0 ? 'low coverage' :
+                  'no coverage';
                 return (
                   <div key={year}>
                     <div className="flex justify-between items-baseline mb-1">
@@ -143,9 +148,16 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                         pct >= 80 ? 'text-green-600 dark:text-green-400' :
                         pct >= 30 ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-gray-500 dark:text-gray-400'
-                      }`}>{pct.toFixed(1)}%</span>
+                      }`}>{pct.toFixed(1)}% ({progressStatus})</span>
                     </div>
-                    <div className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-3 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={Math.round(Math.min(100, pct))}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`Progresso do ano ${year}: ${pct.toFixed(1)}%, ${progressStatus}.`}
+                    >
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           pct >= 80 ? 'bg-green-500' :
