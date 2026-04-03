@@ -49,21 +49,53 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       transform: translateY(-5px);
       box-shadow: 0 20px 40px rgba(0,0,0,0.15);
     }
+    .nav-focus {
+      outline: none;
+    }
+    .nav-focus:focus-visible {
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.35);
+      border-radius: 0.5rem;
+    }
   </style>
 
   <!-- Navigation -->
   <nav class="fixed w-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm shadow-sm z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center h-16">
         <div class="flex items-center">
           <span class="text-2xl font-bold text-blue-800 dark:text-blue-400">Causa</span>
           <span class="text-2xl font-bold text-amber-500">Ganha</span>
         </div>
         <div class="hidden md:flex items-center space-x-8">
-          <a href="#como-funciona" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Como Funciona</a>
-          <a href="#dados" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Dados</a>
-          <a href="#para-quem" class="text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Para Quem</a>
-          <a href={BASE + 'publicacoes'} class="bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Publicações</a>
+          <a href="#como-funciona" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Como Funciona</a>
+          <a href="#dados" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Dados</a>
+          <a href="#para-quem" class="nav-focus text-gray-600 dark:text-gray-300 hover:text-blue-800 dark:hover:text-white transition">Para Quem</a>
+          <a href={BASE + 'publicacoes'} class="nav-focus bg-blue-800 text-white px-6 py-2 rounded-full hover:bg-blue-900 transition">Publicações</a>
+        </div>
+        <button
+          id="mobile-nav-trigger"
+          type="button"
+          class="md:hidden nav-focus inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition"
+          aria-expanded="false"
+          aria-controls="mobile-nav-panel"
+          aria-label="Abrir menu de navegação"
+        >
+          <span class="sr-only">Abrir menu</span>
+          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+      </div>
+      <div
+        id="mobile-nav-panel"
+        class="md:hidden absolute top-16 left-0 right-0 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-lg hidden"
+        hidden
+      >
+        <div class="flex flex-col gap-1 p-4">
+          <a href="#como-funciona" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Como Funciona</a>
+          <a href="#dados" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Dados</a>
+          <a href="#para-quem" class="nav-focus rounded-md px-3 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition">Para Quem</a>
+          <a href={BASE + 'publicacoes'} class="nav-focus mt-2 inline-flex w-fit items-center rounded-full bg-blue-800 px-6 py-2 text-white hover:bg-blue-900 transition">Publicações</a>
         </div>
       </div>
     </div>
@@ -334,4 +366,75 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <Footer />
+
+  <script is:inline>
+    const trigger = document.getElementById('mobile-nav-trigger');
+    const panel = document.getElementById('mobile-nav-panel');
+
+    if (trigger && panel) {
+      const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+      const closeMenu = () => {
+        trigger.setAttribute('aria-expanded', 'false');
+        panel.hidden = true;
+        panel.classList.add('hidden');
+      };
+
+      const openMenu = () => {
+        trigger.setAttribute('aria-expanded', 'true');
+        panel.hidden = false;
+        panel.classList.remove('hidden');
+      };
+
+      trigger.addEventListener('click', () => {
+        if (trigger.getAttribute('aria-expanded') === 'true') {
+          closeMenu();
+          return;
+        }
+        openMenu();
+      });
+
+      panel.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('a')) {
+          closeMenu();
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && trigger.getAttribute('aria-expanded') === 'true') {
+          closeMenu();
+          trigger.focus();
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Node)) return;
+        if (!panel.contains(event.target) && !trigger.contains(event.target)) {
+          closeMenu();
+        }
+      });
+
+      panel.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab') return;
+        const focusable = panel.querySelectorAll(focusableSelector);
+        if (!focusable.length) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+
+        if (event.shiftKey && active === first) {
+          event.preventDefault();
+          trigger.focus();
+          return;
+        }
+
+        if (!event.shiftKey && active === last) {
+          event.preventDefault();
+          closeMenu();
+          trigger.focus();
+        }
+      });
+    }
+  </script>
 </Layout>
