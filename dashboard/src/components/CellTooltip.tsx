@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/compat';
 import { createPortal } from 'preact/compat';
-import clsx from 'clsx';
 
 interface CellData {
   date: string;
@@ -18,10 +17,10 @@ const STATUS_MAP: Record<string, { text: string; className: string }> = {
   collected: { text: '\u2705 Collected & Uploaded', className: 'text-success' },
   missing: { text: '\u274C Missing', className: 'text-danger' },
   partial: { text: '\u26A0\uFE0F Partial', className: 'text-warning' },
-  outside: { text: 'Outside active range', className: 'text-gray-500 dark:text-gray-400 italic' },
+  outside: { text: 'Outside active range', className: '' },
 };
 
-const DEFAULT_STATUS = { text: '', className: 'text-gray-600 dark:text-gray-300' };
+const DEFAULT_STATUS = { text: '', className: '' };
 
 export function CellTooltip({ cellData, position }: CellTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -67,7 +66,7 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
       <div>
         {cellData.date}
       </div>
-      <div className={clsx("font-medium", statusClass)}>
+      <div className={statusClass || undefined}>
         {statusText}
       </div>
 

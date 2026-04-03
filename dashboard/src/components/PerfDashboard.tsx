@@ -97,7 +97,7 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
   }, [latencies, gradeData]);
 
   if (!perfMetrics || !qualityScores) {
-    return <div className="text-center">Loading performance data...</div>;
+    return <div>Loading performance data...</div>;
   }
 
   return (
@@ -106,27 +106,27 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
         <LiveStatusWidget />
       </div>
 
-      <div className="grid grid-cols-1">
-        <div className="card text-center">
-          <div>Upload Success Rate</div>
-          <div className={`${successRate>= 90 ? 'text-success' : 'text-danger'}`}>
+      <div className="grid">
+        <article>
+          <small>Upload Success Rate</small>
+          <div className={successRate >= 90 ? 'text-success' : 'text-danger'}>
             {successRate.toFixed(1)}%
           </div>
-        </div>
+        </article>
 
-        <div className="card text-center">
-          <div>Pending Backlog Days</div>
+        <article>
+          <small>Pending Backlog Days</small>
           <div className="text-accent">
             {backlogDays}
           </div>
-        </div>
+        </article>
 
-        <div className="card text-center">
-          <div>Active Tribunals</div>
+        <article>
+          <small>Active Tribunals</small>
           <div>
             {activeTribunals}
           </div>
-        </div>
+        </article>
       </div>
 
       <div className="card">

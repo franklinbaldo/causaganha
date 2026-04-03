@@ -65,11 +65,7 @@ export function TribunalCoverageHeatmap() {
         {['30d', '90d', '1a'].map(p => (
           <button
             key={p} onClick={() => handlePeriodChange(p)}
-            className={`${
-              period === p
-                ? 'bg-white dark:bg-slate-600 shadow text-black dark:text-white font-medium'
-                : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
-            }`}>
+            className={period === p ? undefined : "secondary"}>
             {p}
           </button>
         ))}
@@ -79,19 +75,19 @@ export function TribunalCoverageHeatmap() {
 
   if (loading) {
     return (
-      <div className="card">
+      <article>
         {renderHeader(`Recent Catalog Coverage (${period})`)}
-        <div className="text-center">Loading coverage data...</div>
-      </div>
+        <div>Loading coverage data...</div>
+      </article>
     );
   }
 
   if (error) {
     return (
-      <div className="card">
+      <article>
         {renderHeader(`Recent Catalog Coverage (${period})`)}
-        <div className="text-center text-danger">Error: {error}</div>
-      </div>
+        <div className="text-danger">Error: {error}</div>
+      </article>
     );
   }
 
@@ -107,16 +103,16 @@ export function TribunalCoverageHeatmap() {
   const recent = sortedDates.slice(0, days);
 
   return (
-    <div className="card">
+    <article>
       {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div>
-        <table className="text-left">
+        <table>
           <thead>
             <tr>
               <th>Date</th>
-              <th className="text-right">ZIPs Collected</th>
-              <th className="text-right">Absent</th>
-              <th className="text-right">Coverage %</th>
+              <th>ZIPs Collected</th>
+              <th>Absent</th>
+              <th>Coverage %</th>
               <th>Visual Bar</th>
             </tr>
           </thead>
@@ -138,15 +134,15 @@ export function TribunalCoverageHeatmap() {
               return (
                 <tr key={dateKey}>
                   <td>{displayDate}</td>
-                  <td className="text-right">{tribunalCount}</td>
-                  <td className="text-right">{absentCount}</td>
-                  <td className={`text-right${total === 0 ? 'text-gray-400' : textClass}`}>
+                  <td>{tribunalCount}</td>
+                  <td>{absentCount}</td>
+                  <td className={total === 0 ? undefined : textClass}>
                     {pct.toFixed(1)}%
                   </td>
                   <td>
                     <div>
                       <div
-                        className={`${total === 0 ? 'bg-gray-300 dark:bg-gray-600' : bgClass}`} style={{ width: `${Math.min(100, pct)}%` }}
+                        className={total === 0 ? undefined : bgClass} style={{ width: `${Math.min(100, pct)}%` }}
                         title={`${pct.toFixed(1)}% Coverage`}
                       />
                     </div>
@@ -156,12 +152,12 @@ export function TribunalCoverageHeatmap() {
             })}
             {recent.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-center">No data available in catalog.</td>
+                <td colSpan={5}>No data available in catalog.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-    </div>
+    </article>
   );
 }

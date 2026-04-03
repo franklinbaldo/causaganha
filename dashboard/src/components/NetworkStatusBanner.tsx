@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'preact/compat';
-import clsx from 'clsx';
 import { fetchAllData } from '../lib/fetchData';
 
 type NetworkStatus = 'idle' | 'slow' | 'retrying' | 'error';
@@ -71,43 +70,39 @@ export function NetworkStatusBanner() {
   };
 
   return (
-    <div
-      className={clsx( "fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all animate-fade-in",
-        status === 'error' ? "bg-danger text-white" : "bg-warning-light text-black"
-      )}
+    <aside
       role="alert"
       aria-live="assertive">
-      <div>
-        {status === 'slow' && (
-          <div>
-            <p>Slow Network Detected</p>
-            <p>Loading might take longer than usual. Using cached data if available.</p>
-          </div>
-        )}
+      {status === 'slow' && (
+        <div>
+          <strong>Slow Network Detected</strong>
+          <small>Loading might take longer than usual. Using cached data if available.</small>
+        </div>
+      )}
 
-        {status === 'retrying' && retryInfo && (
-          <div>
-            <p>Connection Issue</p>
-            <p>
-              Retrying (attempt {retryInfo.attempt}/{retryInfo.maxRetries}) in {Math.ceil(countdown / 1000)}s...
-            </p>
-          </div>
-        )}
+      {status === 'retrying' && retryInfo && (
+        <div>
+          <strong>Connection Issue</strong>
+          <small>
+            Retrying (attempt {retryInfo.attempt}/{retryInfo.maxRetries}) in {Math.ceil(countdown / 1000)}s...
+          </small>
+        </div>
+      )}
 
-        {status === 'error' && (
+      {status === 'error' && (
+        <div>
           <div>
-            <div>
-              <p>Network Failed</p>
-              <p>Could not connect to server. Showing cached offline data.</p>
-            </div>
-            <button
-              onClick={handleManualRetry} className="text-danger"
-              aria-label="Retry network connection now">
-              Retry
-            </button>
+            <strong>Network Failed</strong>
+            <small>Could not connect to server. Showing cached offline data.</small>
           </div>
-        )}
-      </div>
-    </div>
+          <button
+            className="outline"
+            onClick={handleManualRetry}
+            aria-label="Retry network connection now">
+            Retry
+          </button>
+        </div>
+      )}
+    </aside>
   );
 }

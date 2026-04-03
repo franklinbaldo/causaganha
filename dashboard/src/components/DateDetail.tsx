@@ -261,8 +261,8 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
         </div>
       </div>
 
-      {loading && <div className="card text-center">Carregando publicacoes...</div>}
-      {error && <div className="card">Erro: {error}</div>}
+      {loading && <article>Carregando publicacoes...</article>}
+      {error && <article>Erro: {error}</article>}
 
       {/* Publications list */}
       {publications.length> 0 && !featuredPub && (
@@ -280,19 +280,19 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div className="text-center">
-          <button onClick={handleLoadMore} disabled={loadingMore} className="bg-accent">
+        <div>
+          <button onClick={handleLoadMore} disabled={loadingMore}>
             {loadingMore ? 'Carregando...' : `Pagina ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
       )}
 
       {currentPage>= totalPages && publications.length> 0 && !loading && !featuredPub && (
-        <div className="text-center">{publications.length.toLocaleString()} publicacoes</div>
+        <div>{publications.length.toLocaleString()} publicacoes</div>
       )}
 
       {!loading && publications.length === 0 && !error && (
-        <div className="card text-center">Nenhuma publicacao encontrada.</div>
+        <article>Nenhuma publicacao encontrada.</article>
       )}
     </div>
   );

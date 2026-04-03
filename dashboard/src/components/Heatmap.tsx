@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'preact/compat';
 import { JSX } from 'preact';
-import clsx from 'clsx';
 import { CellTooltip } from './CellTooltip';
 import { CellStatus, CELL_STATUS_COLORS, getBarColor } from '../lib/colorUtils';
 import { toDateString } from '../lib/dateUtils';
@@ -20,7 +19,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
   const { weeklyData, historicalAvgVelocity, currentVelocity, trend } = metrics;
   const maxCollected = Math.max(7, ...weeklyData.map((w: VelocityWeek) => w.collected));
 
-  let trendColor = "text-gray-500 dark:text-gray-400";
+  let trendColor = "";
   let trendText = "Stable";
   if (currentVelocity> historicalAvgVelocity * 1.2) {
     trendColor = "text-success";
@@ -37,9 +36,9 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
           <h4>Velocity Timeline</h4>
           <p>Last 12 weeks collection rate</p>
         </div>
-        <div className="text-right">
+        <div>
           <div>{currentVelocity.toFixed(1)} docs/wk avg</div>
-          <div className={`${trendColor}`}>
+          <div className={trendColor || undefined}>
             {trend> 0 ? '+' : ''}{trend.toFixed(0)}% vs avg ({trendText})
           </div>
         </div>
@@ -51,13 +50,13 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
 
           return (
             <div
-              key={`w-${idx}`} className="group"
+              key={`w-${idx}`}
               role="listitem">
               <div
-                className={`${getBarColor(week.collected)}`} style={{ height: `${heightPct}%` }}></div>
-              <div className="-translate-x-1/2">
-                <div className="text-center">{week.collected} days collected</div>
-                <div className="text-center">Week {12 - week.weekOffset}</div>
+                className={getBarColor(week.collected)} style={{ height: `${heightPct}%` }}></div>
+              <div>
+                <div>{week.collected} days collected</div>
+                <div>Week {12 - week.weekOffset}</div>
               </div>
             </div>
           );
@@ -160,8 +159,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     const status = getCellStatus(dateStr);
     const base = CELL_STATUS_COLORS[status];
     const isFocused = focusedCell === dateStr;
-    const focusClasses = isFocused ? "heatmap-focused" : "";
-    return clsx(base, focusClasses);
+    return isFocused ? `${base} heatmap-focused` : base;
   };
 
   const getAriaLabel = (dateStr: string | null): string => {
@@ -247,7 +245,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         return (
           <div key={year}>
             <h4>Year {year}</h4>
-            <div className="outline-none" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+            <div role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
               <div  aria-hidden="true">
                 <div></div><div>Mon</div><div></div><div>Wed</div><div></div><div>Fri</div><div></div>
               </div>
@@ -257,7 +255,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                     {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('en-US', { month: 'short' }) : ''}
                   </div>
                   {week.map((day, dayIndex) => (
-                    <div key={day || `empty-${year}-${weekIndex}-${dayIndex}`} id={day ? `cell-${day}` : undefined} role="gridcell" className={clsx("w-3 h-3 rounded-sm transition-colors duration-200 opacity-80 hover:opacity-100", day ? "cursor-pointer" : "cursor-default", getCellColor(day))} aria-label={getAriaLabel(day)} aria-selected={focusedCell === day} onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')} onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')} onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')} onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')} onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }} />
+                    <div key={day || `empty-${year}-${weekIndex}-${dayIndex}`} id={day ? `cell-${day}` : undefined} role="gridcell" className={getCellColor(day) || undefined} aria-label={getAriaLabel(day)} aria-selected={focusedCell === day} onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')} onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')} onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')} onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')} onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }} />
                   ))}
                 </div>
               ))}

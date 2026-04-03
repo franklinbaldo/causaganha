@@ -90,38 +90,39 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
   }
 
   return (
-    <div>
-      <div>
+    <article>
+      <header>
         <h4>Acesso aos Dados</h4>
         <button
-         onClick={() => setExpanded(false)}>
+          className="outline"
+          onClick={() => setExpanded(false)}>
           Fechar
         </button>
-      </div>
+      </header>
 
       {/* DuckDB catalog query */}
-      <div>
+      <section>
         <div>
           <span>Consulta via Catalogo (DuckDB)</span>
           <button
-           onClick={() => copyToClipboard(catalogQuery, 'catalog')}
-            className="text-accent">
+            className="outline"
+            onClick={() => copyToClipboard(catalogQuery, 'catalog')}>
             {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
           </button>
         </div>
         <pre>
           {catalogQuery}
         </pre>
-      </div>
+      </section>
 
       {/* Parquet files */}
-      {loading && <div>Carregando arquivos...</div>}
+      {loading && <p aria-busy="true">Carregando arquivos...</p>}
 
       {parquetFiles.length> 0 && (
-        <div>
-          <span>
+        <section>
+          <strong>
             Arquivos Parquet ({parquetFiles.length})
-          </span>
+          </strong>
           <div>
             {parquetFiles.map(f => (
               <div key={f.name}>
@@ -132,27 +133,27 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
                     className="text-accent">
                     {f.name}
                   </a>
-                  <span>{formatSize(f.size)}</span>
+                  <small>{formatSize(f.size)}</small>
                 </div>
                 <div>
                   <code>
                     {duckdbQuery(f.name).substring(0, 80)}...
                   </code>
                   <button
-                   onClick={() => copyToClipboard(duckdbQuery(f.name), f.name)}
-                    className="text-accent">
+                    className="outline"
+                    onClick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
                     {copied === f.name ? 'Copiado!' : 'SQL'}
                   </button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {!loading && parquetFiles.length === 0 && (
-        <div>Nenhum arquivo Parquet encontrado neste item.</div>
+        <p>Nenhum arquivo Parquet encontrado neste item.</p>
       )}
-    </div>
+    </article>
   );
 }

@@ -132,10 +132,9 @@ export function LiveStatusWidget() {
 
   if (!data) {
     return (
-      <div className="card">
-        <div></div>
-        <span>Loading pipeline status...</span>
-      </div>
+      <article>
+        <span aria-busy="true">Loading pipeline status...</span>
+      </article>
     );
   }
 
@@ -145,40 +144,34 @@ export function LiveStatusWidget() {
   const isActuallyRunning = status === 'running' && diffMinutes <= 5;
 
   return (
-    <div className="card">
-      <div>
+    <article>
+      <header>
         {isActuallyRunning ? (
-          <div>
-            <span className="bg-success"></span>
-            <span className="bg-success"></span>
-          </div>
-        ) : (
-          <div className={`${status === 'completed' ? 'bg-info' : 'bg-gray-400'}`}></div>
-        )}
-        <div>
+          <span className="cg-pulse"></span>
+        ) : null}
+        <hgroup>
           <h2>
             Pipeline {isActuallyRunning ? 'Running' : (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown')}
             {source === 'ntfy-sse' && (
-              <span>● live</span>
+              <span> ● live</span>
             )}
           </h2>
-          <p>
+          <small>
             Updated {lastUpdatedTime.toLocaleTimeString()}
-          </p>
-        </div>
-      </div>
+          </small>
+        </hgroup>
+      </header>
 
       <div>
-        <div className="text-center">
-          <p>ZIPs Uploaded</p>
-          <p>{zips_uploaded ?? '—'}</p>
+        <div>
+          <small>ZIPs Uploaded</small>
+          <strong>{zips_uploaded ?? '—'}</strong>
         </div>
-        <div></div>
-        <div className="text-center">
-          <p>Active Tribunals</p>
-          <p>{active_tribunals ?? '—'}</p>
+        <div>
+          <small>Active Tribunals</small>
+          <strong>{active_tribunals ?? '—'}</strong>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

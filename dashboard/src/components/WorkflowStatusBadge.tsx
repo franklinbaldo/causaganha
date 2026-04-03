@@ -17,15 +17,12 @@ export function WorkflowStatusBadge() {
   }
 
   return (
-    <div  role="status" aria-label="Workflow in progress">
-      <span>
-        <span></span>
-        <span></span>
-      </span>
+    <mark role="status" aria-label="Workflow in progress">
+      <span className="cg-pulse"></span>
       <span>Coletando agora...</span>
-      <span>
+      <small>
         {formatElapsed(status.elapsedMs)}
-      </span>
-    </div>
+      </small>
+    </mark>
   );
 }
