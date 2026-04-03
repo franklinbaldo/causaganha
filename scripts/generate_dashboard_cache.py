@@ -59,6 +59,7 @@ IA_SEARCH_URL = (
     "&fl[]=identifier&fl[]=item_size"
     "&rows=10000&output=json"
 )
+IA_STATE_URL = "https://archive.org/download/causaganha-dashboard/ia-state.json"
 
 TRIBUNALS = [
     "STF",
@@ -125,6 +126,38 @@ TRIBUNALS = [
     "TJSP",
     "TJTO",
 ]
+
+
+def load_absent_coverage_from_ia_state(
+    state_path: Path = Path("data/ia-state.json"),
+) -> dict[str, list[str]]:
+    """Load absent coverage from ia-state.json (local file or IA download URL)."""
+    state_data: dict[str, Any] | None = None
+
+    if state_path.exists():
+        with contextlib.suppress(OSError, json.JSONDecodeError):
+            state_data = json.loads(state_path.read_text(encoding="utf-8"))
+
+    if state_data is None:
+        state_data = fetch_json(IA_STATE_URL)
+
+    if not state_data:
+        return {}
+
+    entries = state_data.get("entries")
+    if not isinstance(entries, dict):
+        return {}
+
+    absent_coverage: dict[str, list[str]] = {}
+    for date_key, tribunals in entries.items():
+        if not isinstance(date_key, str) or not isinstance(tribunals, dict):
+            continue
+        for tribunal_code, status in tribunals.items():
+            if status != "absent" or not isinstance(tribunal_code, str):
+                continue
+            absent_coverage.setdefault(tribunal_code, []).append(date_key)
+
+    return absent_coverage
 
 
 def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
@@ -637,19 +670,29 @@ def generate_backfill_cache(
                 tribunal_coverage[t] = []
             tribunal_coverage[t].append(d)
 
-        # Absent-only coverage map (dates confirmed with no publication)
-        absent_coverage_rows = con.execute("""
-            SELECT tribunal, CAST(date AS VARCHAR) as date_str
-            FROM manifest
-            WHERE file_type = 'absent'
-            ORDER BY tribunal, date
-        """).fetchall()
+        # Absent-only coverage map:
+        # - Primary source: ia-state.json (authoritative when marker uploads are disabled)
+        # - Legacy fallback: manifest .absent markers only when ia-state is unavailable
+        tribunal_absent_coverage = load_absent_coverage_from_ia_state()
+        if not tribunal_absent_coverage:
+            absent_coverage_rows = con.execute("""
+                SELECT tribunal, CAST(date AS VARCHAR) as date_str
+                FROM manifest
+                WHERE file_type = 'absent'
+                ORDER BY tribunal, date
+            """).fetchall()
+            for t, d in absent_coverage_rows:
+                if t not in tribunal_absent_coverage:
+                    tribunal_absent_coverage[t] = []
+                tribunal_absent_coverage[t].append(d)
 
-        tribunal_absent_coverage: dict[str, list[str]] = {}
-        for t, d in absent_coverage_rows:
-            if t not in tribunal_absent_coverage:
-                tribunal_absent_coverage[t] = []
-            tribunal_absent_coverage[t].append(d)
+        # Done coverage = any collected artifact (zip/parquet) + absent state entries
+        tribunal_done_coverage: dict[str, list[str]] = {}
+        for tribunal_code, dates in tribunal_coverage.items():
+            tribunal_done_coverage[tribunal_code] = list(dates)
+        for tribunal_code, dates in tribunal_absent_coverage.items():
+            tribunal_done_coverage.setdefault(tribunal_code, []).extend(dates)
+        tribunal_coverage_sets = {t: set(dates) for t, dates in tribunal_coverage.items()}
 
         # Velocity over last 14 days
         velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
@@ -679,6 +722,8 @@ def generate_backfill_cache(
                 zip_counts[t] = cnt
             elif ft == "absent":
                 absent_counts[t] = cnt
+        for tribunal_code, dates in tribunal_absent_coverage.items():
+            absent_counts[tribunal_code] = len(set(dates))
 
         # Load start dates from tribunal_start_dates.json if available
         start_dates_path = (
@@ -692,7 +737,7 @@ def generate_backfill_cache(
         tribunal_etas: dict[str, dict[str, Any]] = {}
 
         for tribunal in TRIBUNALS:
-            coverage_list = tribunal_coverage.get(tribunal, [])
+            coverage_list = tribunal_done_coverage.get(tribunal, [])
             unique_days_t = len(set(coverage_list))
             zip_count = zip_counts.get(tribunal, 0)
             absent_count = absent_counts.get(tribunal, 0)
@@ -776,7 +821,15 @@ def generate_backfill_cache(
             GROUP BY date
             ORDER BY date
         """).fetchall()
-        daily_stats = [{"date": row[0], "count": row[1]} for row in daily_rows]
+        daily_map = {str(row[0]): row[1] for row in daily_rows}
+        for tribunal_code, dates in tribunal_absent_coverage.items():
+            for date_str in set(dates):
+                if date_str not in daily_map:
+                    daily_map[date_str] = 0
+                # Only increment if this tribunal/date is not already counted via manifest
+                if date_str not in tribunal_coverage_sets.get(tribunal_code, set()):
+                    daily_map[date_str] += 1
+        daily_stats = [{"date": day, "count": count} for day, count in sorted(daily_map.items())]
 
         # Recent activity: last 14 days (for TimelineGraph)
         cutoff = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
@@ -794,16 +847,39 @@ def generate_backfill_cache(
             GROUP BY tribunal
             ORDER BY days_with_data DESC
         """).fetchall()
-        tribunal_stats = [
-            {
+        tribunal_stats_map = {
+            row[0]: {
                 "tribunal": row[0],
                 "days_with_data": row[1],
                 "days_absent": row[2],
                 "days_total": row[3],
-                "data_rate_pct": round(100.0 * row[1] / row[3], 1) if row[3] > 0 else 0.0,
             }
             for row in tribunal_rows
-        ]
+        }
+        for tribunal_code, dates in tribunal_absent_coverage.items():
+            entry = tribunal_stats_map.setdefault(
+                tribunal_code,
+                {
+                    "tribunal": tribunal_code,
+                    "days_with_data": 0,
+                    "days_absent": 0,
+                    "days_total": 0,
+                },
+            )
+            absent_days = len(set(dates))
+            entry["days_absent"] = absent_days
+            entry["days_total"] = entry["days_with_data"] + absent_days
+        tribunal_stats = []
+        for row in tribunal_stats_map.values():
+            days_total = row["days_total"]
+            tribunal_stats.append(
+                {
+                    **row,
+                    "data_rate_pct": round(100.0 * row["days_with_data"] / days_total, 1)
+                    if days_total > 0
+                    else 0.0,
+                }
+            )
 
         # Calculate total archived volume from item sizes
         total_volume_bytes = sum((sizes or {}).values())
