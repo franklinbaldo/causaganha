@@ -40,13 +40,16 @@ export function IASearchBar() {
     try {
       // Build IA search query — search by tribunal code or date
       let iaQuery = '';
+      let dateFilter: string | null = null;
       if (/^\d{4}$/.test(q)) {
         // Year search
         iaQuery = `identifier:djen-*-${q}`;
       } else if (/^\d{4}-\d{2}/.test(q)) {
-        // Date or year-month search — search all years and filter client-side
+        // Date or year-month search — query the year, then filter client-side
         const year = q.substring(0, 4);
         iaQuery = `identifier:djen-*-${year}`;
+        // Use the original query as a date prefix filter (YYYY-MM or YYYY-MM-DD)
+        dateFilter = query.trim();
       } else {
         // Tribunal code search
         iaQuery = `identifier:djen-${q.toLowerCase()}-*`;
@@ -60,7 +63,7 @@ export function IASearchBar() {
       const data = await res.json();
       const docs = data?.response?.docs || [];
 
-      const parsed: SearchResult[] = docs
+      let parsed: SearchResult[] = docs
         .map((doc: any) => {
           const info = parseTribunalFromId(doc.identifier);
           if (!info) return null;
@@ -75,6 +78,11 @@ export function IASearchBar() {
           };
         })
         .filter(Boolean) as SearchResult[];
+
+      // For month/date queries, filter to items whose date field matches the prefix
+      if (dateFilter) {
+        parsed = parsed.filter(r => r.date?.startsWith(dateFilter!));
+      }
 
       setResults(parsed);
     } catch {
