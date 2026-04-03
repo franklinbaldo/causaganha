@@ -129,19 +129,19 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
         </article>
       </div>
 
-      <div className="card">
+      <article>
         <h3>Collection Latency Trend (7 days)</h3>
         <div ref={chartRef} />
         {latencies.length === 0 && <div>No latency data available.</div>}
-      </div>
+      </article>
 
-      <div className="grid grid-cols-1">
-        <div className="card">
+      <div className="grid">
+        <article>
           <h3>Grade Distribution</h3>
           <div ref={pieRef} />
-        </div>
+        </article>
 
-        <div className="card">
+        <article>
           <h3>Top 5 Slowest Tribunals</h3>
           <ul>
             {slowestTribunals.map((t, idx) => (
@@ -152,7 +152,7 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
             ))}
             {slowestTribunals.length === 0 && <li>All tribunals are up to date!</li>}
           </ul>
-        </div>
+        </article>
       </div>
 
       <div>

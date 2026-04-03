@@ -78,11 +78,7 @@ export function AnnualCoverageMonitor() {
             {YEARS.map(y => (
               <button
                 key={y} onClick={() => setYear(y)}
-                className={`${
-                  year === y
-                    ? 'bg-white dark:bg-slate-600 shadow text-black dark:text-white font-medium'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}>
+                className={year === y ? undefined : "secondary"}>
                 {y}
               </button>
             ))}
@@ -106,23 +102,23 @@ export function AnnualCoverageMonitor() {
 
       {/* Summary cards */}
       {results.length> 0 && (
-        <div className="grid grid-cols-2">
-          <div className="text-center">
+        <div className="grid">
+          <article>
             <div>{complete}</div>
-            <div>{'>'}90%</div>
-          </div>
-          <div className="text-center">
+            <small>{'>'}90%</small>
+          </article>
+          <article>
             <div>{partial}</div>
-            <div>50-89%</div>
-          </div>
-          <div className="text-center">
+            <small>50-89%</small>
+          </article>
+          <article>
             <div>{low}</div>
-            <div>{'<'}50%</div>
-          </div>
-          <div className="text-center">
+            <small>{'<'}50%</small>
+          </article>
+          <article>
             <div>{missing}</div>
-            <div>Sem dados</div>
-          </div>
+            <small>Sem dados</small>
+          </article>
         </div>
       )}
 
@@ -133,7 +129,7 @@ export function AnnualCoverageMonitor() {
 
       {/* Table */}
       <div>
-        <table className="text-left">
+        <table>
           <thead>
             <tr>
               <th
@@ -142,16 +138,16 @@ export function AnnualCoverageMonitor() {
                 Tribunal{sortIcon('tribunal')}
               </th>
               <th
-                className="text-right" onClick={() => handleSort('fileCount')}>
+                onClick={() => handleSort('fileCount')}>
                 ZIPs{sortIcon('fileCount')}
               </th>
-              <th className="text-right">Esperado</th>
+              <th>Esperado</th>
               <th
-                className="text-right" onClick={() => handleSort('downloads')}>
+                onClick={() => handleSort('downloads')}>
                 Downloads{sortIcon('downloads')}
               </th>
               <th
-                className="text-right" onClick={() => handleSort('percentage')}>
+                onClick={() => handleSort('percentage')}>
                 Cobertura{sortIcon('percentage')}
               </th>
               <th>Progresso</th>
@@ -172,16 +168,16 @@ export function AnnualCoverageMonitor() {
                       {r.tribunal}
                     </a>
                   </td>
-                  <td className="text-right">
+                  <td>
                     {r.fileCount}
                   </td>
-                  <td className="text-right">
+                  <td>
                     {r.expectedDays}
                   </td>
-                  <td className="text-right">
+                  <td>
                     {r.downloads> 0 ? r.downloads.toLocaleString() : '-'}
                   </td>
-                  <td className={`text-right${colors.text}`}>
+                  <td className={colors.text || undefined}>
                     {r.notFound ? 'N/A' : `${r.percentage.toFixed(1)}%`}
                     {r.error && !r.notFound && (
                       <span  title={r.error}>!</span>
@@ -190,7 +186,7 @@ export function AnnualCoverageMonitor() {
                   <td>
                     <div>
                       <div
-                        className={`${colors.bg}`} style={{ width: `${Math.min(100, r.percentage)}%` }}
+                        className={colors.bg || undefined} style={{ width: `${Math.min(100, r.percentage)}%` }}
                       />
                     </div>
                   </td>
@@ -199,7 +195,7 @@ export function AnnualCoverageMonitor() {
             })}
             {results.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="text-center">
+                <td colSpan={6}>
                   Nenhum dado disponivel.
                 </td>
               </tr>

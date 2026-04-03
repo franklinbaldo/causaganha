@@ -57,7 +57,7 @@ export function PipelineRunHistory() {
   };
 
   return (
-    <div className="card">
+    <article>
       <h3>Pipeline Run History (Collect ZIPs)</h3>
 
       {loading && <div>Loading run history...</div>}
@@ -66,12 +66,12 @@ export function PipelineRunHistory() {
 
       {!loading && !error && (
         <div>
-          <table className="text-left">
+          <table>
             <thead>
               <tr>
                 <th>Run Date</th>
                 <th>Duration (min)</th>
-                <th className="text-center">Status</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -85,20 +85,20 @@ export function PipelineRunHistory() {
                   <td>
                     {calculateDuration(run.created_at, run.updated_at)}
                   </td>
-                  <td className="text-center">
+                  <td>
                     {getStatusIcon(run.status, run.conclusion)}
                   </td>
                 </tr>
               ))}
               {runs.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="text-center">No runs found.</td>
+                  <td colSpan={3}>No runs found.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </article>
   );
 }

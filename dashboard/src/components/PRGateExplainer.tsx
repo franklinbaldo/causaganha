@@ -121,7 +121,7 @@ export function PRGateExplainer() {
   };
 
   return (
-    <div className="card">
+    <article>
       <h2>PR Readiness Gate Explainer</h2>
       <form onSubmit={fetchPRStatus}>
         <input
@@ -129,12 +129,12 @@ export function PRGateExplainer() {
           value={prNumber}
           onChange={(e: JSX.TargetedEvent<HTMLInputElement>) => setPrNumber(e.currentTarget.value)}
         />
-        <button type="submit" className="bg-accent" disabled={loading || !prNumber}>
+        <button type="submit" disabled={loading || !prNumber}>
           {loading ? 'Checking...' : 'Check PR'}
         </button>
       </form>
 
-      {error && <div className="bg-danger/10 text-danger">{error}</div>}
+      {error && <div className="text-danger">{error}</div>}
 
       {prData && (
         <div>
@@ -145,7 +145,7 @@ export function PRGateExplainer() {
                     <div>
                         <div>
                              <h3>PR #{prData.prInfo.number}: {prData.prInfo.title}</h3>
-                             <span className={`${summary.color}`}>
+                             <span className={summary.color}>
                                 {summary.status}
                              </span>
                         </div>
@@ -164,14 +164,14 @@ export function PRGateExplainer() {
              })()}
           </div>
 
-          <div className="grid grid-cols-1">
+          <div className="grid">
              <div>
                 <h4>Completed Checks</h4>
                 <ul>
                     {prData.checkRuns.filter(c => c.status === 'completed').map(c => (
                         <li key={c.id}>
                             <span  title={c.name}>{c.name}</span>
-                            <span className={`${c.conclusion === 'success' ? 'text-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? 'text-gray-500' : 'text-danger')}`}>
+                            <span className={c.conclusion === 'success' ? 'text-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'text-danger')}>
                                 {c.conclusion === 'success' ? '✓' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? '-' : '✗')} {c.conclusion}
                             </span>
                         </li>
@@ -195,6 +195,6 @@ export function PRGateExplainer() {
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }
