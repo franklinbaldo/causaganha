@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 // Fetch the catalog (with fallback for build environments without network)
@@ -135,26 +136,13 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
 
-    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href={base} class="p-2 bg-accent-muted rounded-xl hover:bg-accent/20 transition-colors" aria-label="Back to Dashboard">
-          <svg class="w-5 h-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m15 18-6-6 6-6"/>
-          </svg>
-        </a>
-        <div>
-          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
-            Estatísticas de Coleta
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            Historical coverage and reliability analysis
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <ThemeToggle client:load />
-      </div>
-    </header>
+    <PageHeader
+      title="Estatísticas de Coleta"
+      subtitle="Historical coverage and reliability analysis"
+      backUrl={base}
+    >
+      <ThemeToggle client:idle />
+    </PageHeader>
 
     <main id="main-content" class="max-w-7xl mx-auto space-y-6">
 

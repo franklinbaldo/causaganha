@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PerfDashboard } from '../../components/PerfDashboard';
 import { TribunalCoverageHeatmap } from '../../components/TribunalCoverageHeatmap';
@@ -32,31 +33,17 @@ try {
   description="System health and performance metrics for the CausaGanha backfill pipeline."
 >
   <div class="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-    <header class="max-w-7xl mx-auto mb-8 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/causaganha/" class="p-2 bg-accent-muted rounded-xl hover:bg-accent hover:text-white transition-colors">
-          <svg class="w-5 h-5 text-accent hover:text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-        </a>
-        <div>
-          <h1 class="text-xl font-semibold text-black dark:text-white tracking-tight">
-            Performance Monitoring
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            System latency, upload success rates, and tribunal data quality scores
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <ThemeToggle client:load />
-      </div>
-    </header>
+    <PageHeader
+      title="Performance Monitoring"
+      subtitle="System latency, upload success rates, and tribunal data quality scores"
+      backUrl="/causaganha/"
+    >
+      <ThemeToggle client:idle />
+    </PageHeader>
 
     <main class="max-w-7xl mx-auto space-y-6">
-      <PerfDashboard client:load perfMetrics={perfMetrics} qualityScores={qualityScores} />
-      <TribunalCoverageHeatmap client:load />
+      <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
+      <TribunalCoverageHeatmap client:idle />
     </main>
   </div>
 </Layout>

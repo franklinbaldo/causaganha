@@ -1,15 +1,20 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import fs from 'node:fs';
-import path from 'node:path';
+import DatabaseCircleIcon from '../components/icons/DatabaseCircleIcon.astro';
+
+import { readJson } from '../lib/readJson';
+
+import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
+import DatabaseCloudIcon from '../components/icons/DatabaseCloudIcon.astro';
+import NetworkIcon from '../components/icons/NetworkIcon.astro';
+import CubeIcon from '../components/icons/CubeIcon.astro';
+import CheckIcon from '../components/icons/CheckIcon.astro';
+import GitHubIcon from '../components/icons/GitHubIcon.astro';
+
+import Footer from '../components/Footer.astro';
 
 // Read cache files from filesystem at build time
-function readJson(relativePath) {
-  try {
-    const fullPath = path.resolve('./public', relativePath);
-    return JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-  } catch { return null; }
-}
+
 
 const iaSnapshot = readJson('ia-snapshot.json');
 const today = readJson('cache/today.json');
@@ -110,7 +115,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             <div class="space-y-4">
               <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
                 <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <CheckCircleIcon />
                 </div>
                 <div class="ml-4 flex-1">
                   <div class="font-semibold text-gray-800 dark:text-white">{tribunalsWithData} tribunais com dados</div>
@@ -119,7 +124,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
               </div>
               <div class="flex items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
                 <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
+                  <DatabaseCircleIcon />
                 </div>
                 <div class="ml-4 flex-1">
                   <div class="font-semibold text-gray-800 dark:text-white">{formatNumber(totalZips)} ZIPs coletados</div>
@@ -183,9 +188,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <div class="grid md:grid-cols-3 gap-8">
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
-            </svg>
+            <DatabaseCloudIcon />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">1. Coleta Automatica</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -194,9 +197,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
+            <NetworkIcon />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">2. Arquivo Permanente</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -205,9 +206,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
         <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
           <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-6">
-            <svg class="w-8 h-8 text-blue-800 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
+            <CubeIcon />
           </div>
           <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">3. Catalogo Indexado</h3>
           <p class="text-gray-600 dark:text-gray-400">
@@ -284,19 +283,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 text-center">Infraestrutura</h3>
         <div class="grid md:grid-cols-2 gap-4">
           <div class="flex items-center">
-            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <CheckIcon />
             <span class="text-gray-700 dark:text-gray-300">GitHub Actions para coleta automatica</span>
           </div>
           <div class="flex items-center">
-            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <CheckIcon />
             <span class="text-gray-700 dark:text-gray-300">Internet Archive para armazenamento permanente</span>
           </div>
           <div class="flex items-center">
-            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <CheckIcon />
             <span class="text-gray-700 dark:text-gray-300">DuckDB + Parquet para consultas rapidas</span>
           </div>
           <div class="flex items-center">
-            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <CheckIcon />
             <span class="text-gray-700 dark:text-gray-300">Codigo 100% open source no GitHub</span>
           </div>
         </div>
@@ -311,7 +310,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener"
              class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-800 dark:hover:bg-gray-100 transition flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <GitHubIcon />
             Estrela no GitHub
           </a>
           <a href={BASE + 'publicacoes'} class="text-blue-800 dark:text-blue-400 hover:underline transition flex items-center font-medium">
@@ -348,36 +347,5 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- Footer -->
-  <footer class="bg-gray-900 text-gray-400 py-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid md:grid-cols-3 gap-8">
-        <div>
-          <div class="flex items-center mb-4">
-            <span class="text-2xl font-bold text-white">Causa</span>
-            <span class="text-2xl font-bold text-amber-500">Ganha</span>
-          </div>
-          <p class="text-gray-400 mb-4">
-            Dados judiciais publicos arquivados permanentemente para transparencia e acesso universal.
-          </p>
-          <p class="text-sm">&copy; 2026 CausaGanha. Codigo aberto sob licenca MIT.</p>
-        </div>
-        <div>
-          <h4 class="text-white font-semibold mb-4">Links</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href={BASE + 'publicacoes'} class="hover:text-white transition">Publicacoes</a></li>
-            <li><a href={BASE + 'stats'} class="hover:text-white transition">Estatisticas</a></li>
-            <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="text-white font-semibold mb-4">Dados</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="hover:text-white transition">Internet Archive</a></li>
-            <li><a href="#como-funciona" class="hover:text-white transition">Como Funciona</a></li>
-            <li><a href="#para-quem" class="hover:text-white transition">Para Quem</a></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </footer>
+  <Footer />
 </Layout>
