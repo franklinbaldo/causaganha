@@ -514,6 +514,7 @@ async def backfill_process_date(
 
     # Fast path 2: check if ZIP already exists on IA (source of truth)
     from djen_backup.archive import get_ia_item_id
+
     item_id = get_ia_item_id(tribunal, d)
     zip_filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
     ia_check_url = f"https://archive.org/download/{item_id}/{zip_filename}"
@@ -802,7 +803,14 @@ async def _run_backfill_workers(
                 await summary.inc_scanned()
 
             result = await backfill_process_date(
-                client, breaker, tribunal, d, config, bstate, ia_state, summary,
+                client,
+                breaker,
+                tribunal,
+                d,
+                config,
+                bstate,
+                ia_state,
+                summary,
             )
 
             # Update state tracking
@@ -821,7 +829,9 @@ async def _run_backfill_workers(
             if not config.dry_run:
                 save_backfill_state(bstate, config.backfill_state_file)
                 save_state(ia_state, config.state_file)
-                await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth)
+                await upload_state_to_ia(
+                    IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth
+                )
                 await upload_state_to_ia(IA_STATE_FILENAME, ia_state.to_dict(), config.ia_auth)
                 log.info("state_checkpoint_saved")
 
@@ -872,14 +882,24 @@ async def run_backfill(config: BackfillConfig) -> int:
     if remote_bstate_data:
         remote_bstate = BackfillState.from_dict(remote_bstate_data)
         bstate = merge_backfill_state(local_bstate, remote_bstate)
-        log.info("backfill_state_merged", local=local_bstate.tribunal_count(), remote=remote_bstate.tribunal_count(), merged=bstate.tribunal_count())
+        log.info(
+            "backfill_state_merged",
+            local=local_bstate.tribunal_count(),
+            remote=remote_bstate.tribunal_count(),
+            merged=bstate.tribunal_count(),
+        )
     else:
         bstate = local_bstate
 
     if remote_ia_state_data:
         remote_ia_state = State.from_dict(remote_ia_state_data)
         ia_state = merge_state(local_ia_state, remote_ia_state)
-        log.info("ia_state_merged", local=local_ia_state.date_count, remote=remote_ia_state.date_count, merged=ia_state.date_count)
+        log.info(
+            "ia_state_merged",
+            local=local_ia_state.date_count,
+            remote=remote_ia_state.date_count,
+            merged=ia_state.date_count,
+        )
     else:
         ia_state = local_ia_state
 
