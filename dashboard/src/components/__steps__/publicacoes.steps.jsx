@@ -16,7 +16,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     props = {
       initialCoverage: {},
       initialEtas: {},
-      initialTargetRange: { start: '2024-01-01', end: '2024-12-31' },
       initialStartDates: {},
       initialQualityScores: {},
       initialPipeline: null,

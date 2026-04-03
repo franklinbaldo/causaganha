@@ -16,7 +16,6 @@ export function useWorkflowStatus(pollInterval = 60000) {
   useEffect(() => {
     let isMounted = true;
     let timerId = null;
-    let elapsedTimerId = null;
 
     const fetchStatus = async () => {
       try {
