@@ -160,11 +160,11 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   };
 
   const getCellColor = (dateStr: string | null): string => {
-    if (!dateStr) return "bg-transparent";
+    if (!dateStr) return "";
     const status = getCellStatus(dateStr);
     const base = CELL_STATUS_COLORS[status];
     const isFocused = focusedCell === dateStr;
-    const focusClasses = isFocused ? "ring-2 ring-accent ring-offset-1 dark:ring-offset-slate-950 z-10 scale-110" : "";
+    const focusClasses = isFocused ? "heatmap-focused" : "";
     return clsx(base, focusClasses);
   };
 

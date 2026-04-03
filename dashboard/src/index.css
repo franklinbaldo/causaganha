@@ -131,3 +131,50 @@ body {
   background: rgba(59, 130, 246, 0.14);
   color: #2563eb;
 }
+
+/* Heatmap cell status colors */
+.heatmap-outside {
+  background: #f8fafc;
+  opacity: 0.3;
+}
+.heatmap-outside:hover {
+  background: var(--color-border);
+}
+.dark .heatmap-outside {
+  background: #1e293b;
+}
+
+.heatmap-collected {
+  background: #10b981;
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
+}
+.heatmap-collected:hover {
+  background: #059669;
+}
+
+.heatmap-absent {
+  background: #f59e0b;
+  opacity: 0.8;
+}
+.heatmap-absent:hover {
+  background: #d97706;
+}
+
+.heatmap-missing {
+  background: #ef4444;
+}
+.heatmap-missing:hover {
+  background: #dc2626;
+}
+
+.heatmap-focused {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+  z-index: 10;
+  transform: scale(1.1);
+}
+
+/* Velocity bar colors */
+.bar-success { background: #10b981; }
+.bar-warning { background: #f59e0b; }
+.bar-danger { background: #ef4444; }
