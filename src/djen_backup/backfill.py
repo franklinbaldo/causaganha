@@ -773,7 +773,7 @@ async def _run_backfill_workers(
     # Rate limiter: IA allows ~1 upload/second. Shared lock ensures
     # only 1 upload at a time, with a 2s cooldown after each.
     # Downloads from DJEN happen in parallel (no lock needed).
-    upload_lock = asyncio.Lock()
+    asyncio.Lock()
 
     async def _worker() -> None:
         while not queue.empty():

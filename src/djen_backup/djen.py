@@ -9,6 +9,7 @@ HTTP_500_INTERNAL_SERVER_ERROR = 500
 
 
 import asyncio
+import contextlib
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -123,12 +124,10 @@ async def download_zip(
     content_range = probe.headers.get("content-range", "")
     total_size = 0
     if "/" in content_range:
-        try:
+        with contextlib.suppress(ValueError, IndexError):
             total_size = int(content_range.split("/")[1])
-        except (ValueError, IndexError):
-            pass
 
-    filename = url.split("?")[0].rsplit("/", maxsplit=1)[-1]
+    filename = url.split("?", maxsplit=1)[0].rsplit("/", maxsplit=1)[-1]
 
     # Fallback to simple streaming if range requests not supported or file is small
     if total_size < SEGMENT_THRESHOLD:
