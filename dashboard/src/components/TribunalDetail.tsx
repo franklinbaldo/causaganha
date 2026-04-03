@@ -6,6 +6,7 @@ import { toDateString } from '../lib/dateUtils';
 import { Heatmap, VelocityTimeline } from './Heatmap';
 import { calculateVelocityAndRegression } from '../lib/velocityCalc';
 import { DateDetail } from './DateDetail';
+import { DataAccessPanel } from './DataAccessPanel';
 
 interface HashState {
   date: string | null;
@@ -153,8 +154,6 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const absentCount = selectedEtaData.absent_days_count || 0;
   const missingCount = actualMissingDays;
   const syncedPct = totalForBar > 0 ? (syncedCount / totalForBar) * 100 : 0;
-  const absentPct = totalForBar > 0 ? (absentCount / totalForBar) * 100 : 0;
-  const missingPct = totalForBar > 0 ? (missingCount / totalForBar) * 100 : 0;
   const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
@@ -287,6 +286,31 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 </span>
               </div>
             )}
+
+            {/* IA item link */}
+            {(() => {
+              // Derive year from active date or fall back to current year
+              const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
+              return (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700 space-y-2">
+                  <a
+                    href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-gray-500 hover:text-accent dark:text-gray-400 dark:hover:text-accent transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Ver no Internet Archive
+                  </a>
+                  <DataAccessPanel
+                    tribunalCode={selectedTribunal}
+                    year={iaYear}
+                  />
+                </div>
+              );
+            })()}
           </div>
         </div>
 

@@ -397,6 +397,34 @@ def query_tribunal_details(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str
         return {}
 
 
+def fetch_ia_pending_tasks() -> dict[str, Any]:
+    """Query the IA Tasks API for pending derivation tasks on recent items.
+
+    Returns a dict with pending_count and a list of items with pending tasks.
+    The IA Tasks API is free and requires no authentication for public items.
+    """
+    year = datetime.now(UTC).year
+    # Check a few recent items for pending tasks
+    pending_items = []
+    total_pending = 0
+    # Sample a few tribunals to keep API calls low
+    sample_tribunals = ["TJSP", "TJRJ", "TJMG", "TRF1", "TRT2"]
+    for tribunal in sample_tribunals:
+        item_id = f"djen-{tribunal.lower()}-{year}"
+        url = f"https://archive.org/services/tasks.php?identifier={item_id}&catalog=1&history=0"
+        data = fetch_json(url, timeout=10)
+        if data and data.get("value", {}).get("catalog"):
+            tasks = data["value"]["catalog"]
+            if tasks:
+                total_pending += len(tasks)
+                pending_items.append({"item": item_id, "tasks": len(tasks)})
+    return {
+        "pending_count": total_pending,
+        "pending_items": pending_items,
+        "checked_at": datetime.now(UTC).isoformat(),
+    }
+
+
 def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) -> dict[str, Any]:
     """Generate today's metrics and tribunal status from manifest.
     Fallback to IA metadata API is removed because items are no longer daily.
@@ -474,12 +502,18 @@ def generate_today_cache(con: duckdb.DuckDBPyConnection, sizes: dict[str, int]) 
     zip_count = sum(1 for t in tribunal_status.values() if t["status"] == "ok")
     size_today = sizes.get(date_used, 0)  # Fallback to 0
 
+    # Check IA derivation task status (best-effort, don't fail on error)
+    ia_tasks = {}
+    with contextlib.suppress(Exception):
+        ia_tasks = fetch_ia_pending_tasks()
+
     return {
         "date": date_used,
         "files_today": zip_count,
         "size_today": size_today,
         "tribunal_status": tribunal_status,
         "manifest_available": manifest_populated,
+        "ia_tasks": ia_tasks,
     }
 
 

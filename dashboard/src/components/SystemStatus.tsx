@@ -205,6 +205,14 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
         </div>
       )}
 
+      {/* IA Task Status */}
+      {cacheToday?.ia_tasks?.pending_count > 0 && (
+        <div className="mt-3 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+          <ClockIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+          <span>{cacheToday.ia_tasks.pending_count} tarefa(s) de processamento pendente(s) no Internet Archive</span>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
         <span>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</span>
