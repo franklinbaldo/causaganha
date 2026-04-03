@@ -60,7 +60,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
       <footer class="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 pb-2">
         <p>Dados do DJEN arquivados no Internet Archive.
-          {snapshotTime && <span class="ml-1">Snapshot: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
+          {snapshotTime && <span class="ml-1">Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
         </p>
       </footer>
     </main>
