@@ -1,52 +1,31 @@
-import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
-import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais.js';
+import { TRIBUNAL_GROUPS } from '../lib/tribunais.js';
 
-export function TribunalView({ initialCoverage, initialEtas, initialTargetRange, initialStartDates, initialQualityScores, initialPipeline, initialProgressByYear, initialVolume, initialVelocityMetrics, initialIaSnapshot }) {
+export function TribunalView({ initialPipeline, initialProgressByYear, initialVolume, initialIaSnapshot }) {
   const { data: allData } = useDataRefresh(null, null);
 
-  const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
-  const etas = allData?.tribunalEtas ?? initialEtas ?? {};
-  const startDates = allData?.tribunalStartDates ?? initialStartDates;
-  const qualityScores = allData?.tribunalQualityScores ?? initialQualityScores ?? {};
   const pipeline = allData?.cacheData?.today?.pipeline ?? initialPipeline;
   const progressByYear = allData?.progressByYear ?? initialProgressByYear;
   const volume = allData?.volume ?? initialVolume;
-  const velocity = allData?.velocityMetrics ?? initialVelocityMetrics;
   const iaSnapshot = allData?.iaSnapshot ?? initialIaSnapshot;
 
   return (
     <OverviewGrid
-      tribunals={TRIBUNAIS}
-      coverage={coverage}
-      etas={etas}
-      startDates={startDates}
-      qualityScores={qualityScores}
       pipeline={pipeline}
       progressByYear={progressByYear}
       volume={volume}
-      velocity={velocity}
       iaSnapshot={iaSnapshot}
     />
   );
 }
 
-function formatEtaText(etaDays) {
-  if (etaDays === null || etaDays === undefined) return 'Pipeline parado';
-  if (etaDays < 30) return `~${etaDays} dias`;
-  if (etaDays < 365) return `~${Math.round(etaDays / 30)} meses`;
-  const years = (etaDays / 365).toFixed(1);
-  return `~${years} anos`;
-}
-
-function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pipeline, progressByYear, volume, velocity, iaSnapshot }) {
+function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }) {
   // Prefer IA snapshot data (fresh, direct from IA) over pipeline/backfill data
   const snap = iaSnapshot?.summary;
   const totalZips = snap?.total_zips || pipeline?.total_zips || 0;
   const totalGB = snap?.total_size_gb || volume?.total_gb || 0;
   const tribunalsWithData = snap?.tribunals_with_data || 0;
   const latestDate = snap?.latest_collection_date;
-  const daysConsolidated = pipeline?.days_consolidated || 0;
   const snapshotAge = iaSnapshot?.generated_at;
 
   // Per-tribunal zip counts from snapshot
@@ -178,17 +157,6 @@ function OverviewGrid({ tribunals, coverage, etas, startDates, qualityScores, pi
       {/* Tribunals by branch */}
       {TRIBUNAL_GROUPS.map(group => {
         // Count group totals from snapshot
-        let groupZips = 0;
-        let groupWithData = 0;
-        group.tribunals.forEach(t => {
-          if (snapshotItems) {
-            for (const item of Object.values(snapshotItems)) {
-              if (item.tribunal === t) groupZips += item.zip_count;
-            }
-          }
-          if (groupZips > 0) groupWithData++;
-        });
-
         return (
           <div key={group.name} className="space-y-3">
             <div className="flex items-baseline justify-between">

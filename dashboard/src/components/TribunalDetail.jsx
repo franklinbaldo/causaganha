@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'preact/compat';
+import { useState, useEffect } from 'preact/compat';
 import clsx from 'clsx';
 import { useDataRefresh } from '../lib/useDataRefresh';
 import { TRIBUNAIS } from '../lib/tribunais.js';
-import { Heatmap, VelocityTimeline, calculateVelocityAndRegression } from './Heatmap';
+import { Heatmap, VelocityTimeline } from './Heatmap';
+import { calculateVelocityAndRegression } from '../lib/velocityCalc';
 import { DateDetail } from './DateDetail';
 
 function parseHash() {
