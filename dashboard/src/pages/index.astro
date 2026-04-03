@@ -34,115 +34,101 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
 >
   <style>
-    .gradient-bg {
-      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #1e3a8a 100%);
-      color: #fff;
-    }
-    .hero-pattern {
-      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    }
-    .floating { animation: floating 3s ease-in-out infinite; }
-    @keyframes floating {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    .gradient-bg a { color: #fff; }
-    .gradient-bg h1 { color: #fff; }
-    .gradient-bg p { color: rgba(219, 234, 254, 0.9); }
-    .hero-badge { display: inline-block; padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); border-radius: 9999px; font-size: 0.875rem; margin-bottom: 1.5rem; }
     .amber { color: #f59e0b; }
-    .stat-card { text-align: center; transition: transform 0.3s, box-shadow 0.3s; }
-    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-    .stat-big { font-size: 2.5rem; font-weight: 800; color: var(--pico-primary); }
+    .hero-section {
+      padding: 4rem 0;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+      margin-bottom: 3rem;
+    }
   </style>
 
   <!-- Navigation -->
-  <nav class="container">
+  <nav class="container" style="padding-top: 1rem;">
     <ul>
-      <li><strong><span style="color: var(--pico-primary);">Causa</span><span class="amber">Ganha</span></strong></li>
+      <li><strong><span class="text-primary">Causa</span><span class="amber">Ganha</span></strong></li>
     </ul>
     <ul>
       <li><a href="#como-funciona">Como Funciona</a></li>
-      <li><a href="#dados">Dados</a></li>
-      <li><a href="#para-quem">Para Quem</a></li>
+      <li><a href="#dados" class="contrast">Dados</a></li>
+      <li><a href="#para-quem" class="contrast">Para Quem</a></li>
       <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
     </ul>
   </nav>
 
   <!-- Hero Section -->
-  <header class="gradient-bg hero-pattern" style="padding: 4rem 0;">
+  <header class="hero-section">
     <div class="container">
       <div class="grid">
-        <div>
-          <div class="hero-badge">
-            Dados reais do Diário de Justiça Eletrônico Nacional
-          </div>
-          <h1>
-            Transparência no Mercado <span class="amber">Jurídico</span> Brasileiro
-          </h1>
-          <p>
-            Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
-            diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
-          </p>
+        <div style="align-self: center;">
+          <hgroup>
+            <h1>
+              Transparência no Mercado <span class="amber">Jurídico</span> Brasileiro
+            </h1>
+            <p>
+              Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
+              diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
+            </p>
+          </hgroup>
           <div class="grid">
             <a href={BASE + 'publicacoes'} role="button">
               Ver Publicações
             </a>
-            <a href="#como-funciona" role="button" class="outline">
+            <a href="#como-funciona" role="button" class="secondary outline">
               Saiba Mais
             </a>
           </div>
         </div>
-        <article class="floating">
-          <header>
-            <strong>Pipeline ao Vivo</strong>
-            <small>Atualizado a cada 20 min</small>
-          </header>
-          <div>
-            <p>
-              <CheckIcon /> <strong>{tribunalsWithData} tribunais com dados</strong><br/>
-              <small>de {totalTribunals} monitorados</small>
-            </p>
-            <p>
-              <DownloadIcon /> <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
-              <small>armazenados no Internet Archive</small>
-            </p>
-            <p>
-              <strong>{progressPct}%</strong> Backfill em andamento<br/>
-              <small>{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
-            </p>
-          </div>
-        </article>
+        <div>
+          <article>
+            <header>
+              <strong>Pipeline ao Vivo</strong>
+              <small style="float: right;" class="text-muted">Atualizado a cada 20 min</small>
+            </header>
+            <ul style="list-style-type: none; padding: 0; margin-bottom: 0;">
+              <li style="margin-bottom: 1rem;">
+                <strong class="text-primary">{tribunalsWithData} tribunais com dados</strong><br/>
+                <small class="text-muted">de {totalTribunals} monitorados</small>
+              </li>
+              <li style="margin-bottom: 1rem;">
+                <strong class="text-primary">{formatNumber(totalZips)} ZIPs coletados</strong><br/>
+                <small class="text-muted">armazenados no Internet Archive</small>
+              </li>
+              <li>
+                <strong>{progressPct}%</strong> Backfill em andamento<br/>
+                <progress value={progressPct} max="100"></progress>
+                <small class="text-muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
+              </li>
+            </ul>
+          </article>
+        </div>
       </div>
     </div>
   </header>
 
   <!-- Stats Section -->
-  <section id="dados">
-    <div class="container">
-      <hgroup style="text-align: center;">
-        <h2>Dados Reais do Pipeline</h2>
-        <p>Números atualizados automaticamente pelo workflow de coleta</p>
-      </hgroup>
+  <section id="dados" class="container" style="margin-bottom: 4rem;">
+    <hgroup style="text-align: center; margin-bottom: 2rem;">
+      <h2>Dados Reais do Pipeline</h2>
+      <p>Números atualizados automaticamente pelo workflow de coleta</p>
+    </hgroup>
 
-      <div class="grid">
-        <article class="stat-card">
-          <div class="stat-big">{formatNumber(totalZips)}</div>
-          <p>ZIPs Arquivados</p>
-        </article>
-        <article class="stat-card">
-          <div class="stat-big">{tribunalsWithData}</div>
-          <p>Tribunais com Dados</p>
-        </article>
-        <article class="stat-card">
-          <div class="stat-big">{totalGB.toFixed(0)} GB</div>
-          <p>Volume Arquivado</p>
-        </article>
-        <article class="stat-card">
-          <div class="stat-big">100%</div>
-          <p>Dados Públicos</p>
-        </article>
-      </div>
+    <div class="grid">
+      <article style="text-align: center;">
+        <div class="stat-value">{formatNumber(totalZips)}</div>
+        <p class="stat-label">ZIPs Arquivados</p>
+      </article>
+      <article style="text-align: center;">
+        <div class="stat-value">{tribunalsWithData}</div>
+        <p class="stat-label">Tribunais com Dados</p>
+      </article>
+      <article style="text-align: center;">
+        <div class="stat-value">{totalGB.toFixed(0)} GB</div>
+        <p class="stat-label">Volume Arquivado</p>
+      </article>
+      <article style="text-align: center;">
+        <div class="stat-value">100%</div>
+        <p class="stat-label">Dados Públicos</p>
+      </article>
     </div>
   </section>
 

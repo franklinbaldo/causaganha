@@ -20,9 +20,15 @@ def test_generate_dashboard_data_includes_generated_at(tmp_path: Path) -> None:
     db_path = tmp_path / "causaganha.duckdb"
     output_path = tmp_path / "dashboard-data.json"
 
-    with patch("generate_data.get_connection") as mock_get_conn:
+    with (
+        patch("generate_data.get_connection") as mock_get_conn,
+        patch("generate_data.fetch_progress_json") as mock_fetch_progress,
+    ):
         mock_conn = MagicMock()
         mock_get_conn.return_value.con = mock_conn
+
+        # Mock fetch_progress_json
+        mock_fetch_progress.return_value = {}
 
         # Mock fetchone for stats
         mock_conn.execute.return_value.fetchone.return_value = (

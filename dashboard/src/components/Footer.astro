@@ -6,30 +6,30 @@ interface Props {
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<footer data-theme="dark">
+<footer style="margin-top: 4rem; padding: 4rem 0; border-top: 1px solid var(--pico-muted-border-color); background-color: var(--pico-background-color);">
   <div class="container">
     <div class="grid">
       <div>
         <hgroup>
-          <h4><strong>Causa</strong><span style="color: #f59e0b;">Ganha</span></h4>
-          <p>Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
+          <h4><strong><span class="text-primary">Causa</span><span style="color: #f59e0b;">Ganha</span></strong></h4>
+          <p class="text-muted" style="font-size: 0.875rem;">Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
         </hgroup>
-        <small>&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</small>
+        <small class="text-muted">&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</small>
       </div>
       <div>
         <h4>Links</h4>
-        <ul>
-          <li><a href={BASE + 'publicacoes'}>Publicações</a></li>
-          <li><a href={BASE + 'stats'}>Estatísticas</a></li>
-          <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a></li>
+        <ul style="list-style: none; padding-left: 0;">
+          <li><a href={BASE + 'publicacoes'} class="secondary">Publicações</a></li>
+          <li><a href={BASE + 'stats'} class="secondary">Estatísticas</a></li>
+          <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="secondary">GitHub</a></li>
         </ul>
       </div>
       <div>
         <h4>Dados</h4>
-        <ul>
-          <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener">Internet Archive</a></li>
-          <li><a href="#como-funciona">Como Funciona</a></li>
-          <li><a href="#para-quem">Para Quem</a></li>
+        <ul style="list-style: none; padding-left: 0;">
+          <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="secondary">Internet Archive</a></li>
+          <li><a href={BASE + '#como-funciona'} class="secondary">Como Funciona</a></li>
+          <li><a href={BASE + '#para-quem'} class="secondary">Para Quem</a></li>
         </ul>
       </div>
     </div>

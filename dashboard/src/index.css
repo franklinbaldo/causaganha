@@ -60,76 +60,51 @@
 
 .cg-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-/* Card (used by components that haven't migrated to <article>) */
-.card {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  transition: box-shadow 150ms ease;
-}
-
-.card-hover:hover {
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
-}
-
+/* Stat elements used within articles/components */
 .stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 700;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  color: var(--color-content);
+  color: var(--pico-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-content-secondary);
+  color: var(--pico-muted-color);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
 }
 
-/* Badges */
+/* Base utility for secondary text */
+.text-muted { color: var(--pico-muted-color); }
+.text-primary { color: var(--pico-primary); }
+.text-success { color: #10b981; }
+.text-warning { color: #f59e0b; }
+.text-danger { color: #ef4444; }
+
+/* Keep specific functional styles like text-accent for transition, but alias it to primary */
+.text-accent { color: var(--pico-primary); }
+
+/* Badge (Pico-aligned) */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
+  padding: 0.125rem 0.625rem;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   border-radius: 9999px;
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
 }
 
-.badge-success { background: rgba(16, 185, 129, 0.14); color: #059669; }
-.badge-warning { background: rgba(245, 158, 11, 0.14); color: #d97706; }
-.badge-danger { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
-.badge-accent { background: rgba(59, 130, 246, 0.14); color: #2563eb; }
-
-/* Semantic color utilities */
-.cg-text-success { color: #059669; }
-.cg-text-warning { color: #d97706; }
-.cg-text-danger { color: #dc2626; }
-.cg-text-muted { color: var(--color-content-tertiary); }
-.cg-bg-success { background-color: #10b981; }
-.cg-bg-warning { background-color: #f59e0b; }
-.cg-bg-danger { background-color: #ef4444; }
-.cg-bg-muted { background-color: var(--color-surface-overlay); }
-
-/* Legacy semantic colors (used by components) */
-.text-accent { color: #2563eb; }
-.text-success { color: #059669; }
-.text-danger { color: #dc2626; }
-.text-warning { color: #d97706; }
-.text-info { color: #0ea5e9; }
-.bg-accent { background-color: rgba(59, 130, 246, 0.14); }
-.bg-accent-muted { background-color: rgba(59, 130, 246, 0.08); }
-.bg-accent-light { background-color: rgba(59, 130, 246, 0.2); }
-.bg-success-muted { background-color: rgba(16, 185, 129, 0.14); }
-.bg-danger-muted { background-color: rgba(239, 68, 68, 0.14); }
-.bg-warning-muted { background-color: rgba(245, 158, 11, 0.14); }
-.border-l-danger { border-left: 3px solid #dc2626; }
+.badge-success { background: #10b981; color: #fff; }
+.badge-warning { background: #f59e0b; color: #fff; }
+.badge-danger { background: #ef4444; color: #fff; }
 
 /* Heatmap cell status colors */
 .heatmap-outside { background: #f8fafc; opacity: 0.3; }

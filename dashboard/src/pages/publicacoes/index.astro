@@ -35,33 +35,27 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 >
   <PageHeader title="CausaGanha">
     <DatabaseIcon slot="icon" />
-    <p slot="subtitle">
+    <p slot="subtitle" class="text-muted">
       {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | última coleta: ${latestDate}` : 'Carregando...'}
     </p>
-    <a slot="nav" href={BASE}>Início</a>
+    <a slot="nav" href={BASE} class="secondary">Início</a>
   </PageHeader>
 
-  <main id="main-content" class="container">
+  <div class="container" style="margin-top: 2rem;">
     <IASearchBar client:idle />
 
     <TribunalView
       client:idle
-      initialCoverage={data?.tribunalCoverage}
-      initialEtas={data?.tribunalEtas}
-      initialTargetRange={data?.targetRange}
-      initialStartDates={data?.tribunalStartDates}
-      initialQualityScores={data?.tribunalQualityScores}
       initialPipeline={data?.cacheData?.today?.pipeline}
       initialProgressByYear={data?.progressByYear}
       initialVolume={data?.volume}
-      initialVelocityMetrics={data?.velocityMetrics}
       initialIaSnapshot={data?.iaSnapshot}
     />
 
-    <footer style="text-align: center;">
-      <small>Dados do DJEN arquivados no Internet Archive.
+    <footer style="text-align: center; margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--pico-muted-border-color);">
+      <small class="text-muted">Dados do DJEN arquivados no Internet Archive.
         {snapshotTime && <span> Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
       </small>
     </footer>
-  </main>
+  </div>
 </Layout>
