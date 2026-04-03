@@ -49,6 +49,8 @@ export function AnnualCoverageMonitor() {
       cmp = a.percentage - b.percentage;
     } else if (sortBy === 'fileCount') {
       cmp = a.fileCount - b.fileCount;
+    } else if (sortBy === 'downloads') {
+      cmp = (a.downloads || 0) - (b.downloads || 0);
     }
     return sortDir === 'asc' ? cmp : -cmp;
   });
@@ -152,11 +154,17 @@ export function AnnualCoverageMonitor() {
               <th className="py-3 px-4 font-medium text-right">Esperado</th>
               <th
                 className="py-3 px-4 font-medium text-right cursor-pointer hover:text-black dark:hover:text-white select-none"
+                onClick={() => handleSort('downloads')}
+              >
+                Downloads{sortIcon('downloads')}
+              </th>
+              <th
+                className="py-3 px-4 font-medium text-right cursor-pointer hover:text-black dark:hover:text-white select-none"
                 onClick={() => handleSort('percentage')}
               >
                 Cobertura{sortIcon('percentage')}
               </th>
-              <th className="py-3 px-4 font-medium w-1/3">Progresso</th>
+              <th className="py-3 px-4 font-medium w-1/4">Progresso</th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -185,6 +193,9 @@ export function AnnualCoverageMonitor() {
                   <td className="py-3 px-4 text-right text-gray-500">
                     {r.expectedDays}
                   </td>
+                  <td className="py-3 px-4 text-right text-gray-500">
+                    {r.downloads > 0 ? r.downloads.toLocaleString() : '-'}
+                  </td>
                   <td className={`py-3 px-4 text-right font-semibold ${colors.text}`}>
                     {r.notFound ? 'N/A' : `${r.percentage.toFixed(1)}%`}
                     {r.error && !r.notFound && (
@@ -204,7 +215,7 @@ export function AnnualCoverageMonitor() {
             })}
             {results.length === 0 && !loading && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-gray-500">
+                <td colSpan={6} className="py-8 text-center text-gray-500">
                   Nenhum dado disponivel.
                 </td>
               </tr>

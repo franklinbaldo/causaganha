@@ -165,17 +165,42 @@ async def process_item(
     files = data.get("files", [])
     dates = []
     total_size = 0
+    file_details = {}
+    parquet_files = []
 
     for f in files:
         name = f.get("name", "")
         date_str = extract_date_from_zip(name)
         if date_str:
             dates.append(date_str)
+            size = 0
             with contextlib.suppress(ValueError, TypeError):
-                total_size += int(f.get("size", 0))
+                size = int(f.get("size", 0))
+                total_size += size
+            file_details[date_str] = {
+                "size": size,
+                "md5": f.get("md5"),
+                "addeddate": f.get("addeddate") or f.get("mtime"),
+            }
+        elif name.endswith(".parquet"):
+            pq_size = 0
+            with contextlib.suppress(ValueError, TypeError):
+                pq_size = int(f.get("size", 0))
+            parquet_files.append({
+                "name": name,
+                "size": pq_size,
+            })
 
     if not dates:
         return None
+
+    # Extract item-level metadata
+    item_created = None
+    item_downloads = None
+    metadata = data.get("metadata", {})
+    item_created = metadata.get("addeddate")
+    with contextlib.suppress(ValueError, TypeError):
+        item_downloads = int(metadata.get("downloads", 0))
 
     dates.sort()
     return {
@@ -186,6 +211,10 @@ async def process_item(
         "dates": dates,
         "latest_date": dates[-1],
         "earliest_date": dates[0],
+        "file_details": file_details,
+        "parquet_files": parquet_files,
+        "item_created": item_created,
+        "downloads": item_downloads,
     }
 
 

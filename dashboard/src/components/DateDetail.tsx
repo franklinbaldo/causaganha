@@ -35,6 +35,19 @@ function formatSize(bytes: string | number): string {
   return `${n} B`;
 }
 
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return `${diffMins}min atras`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h atras`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}d atras`;
+  return date.toLocaleDateString('pt-BR');
+}
+
 function DateShareButton({ dateStr }: { dateStr: string }) {
   const [copied, setCopied] = useState(false);
   const handleClick = (e: MouseEvent) => {
@@ -78,6 +91,9 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
   const [currentPage, setCurrentPage] = useState<number>(initialPage || 1);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [zipSize, setZipSize] = useState<number | null>(null);
+  const [zipAddedDate, setZipAddedDate] = useState<string | null>(null);
+  const [zipMd5, setZipMd5] = useState<string | null>(null);
+  const [itemFileCount, setItemFileCount] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +121,22 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       setError(null);
       setFeaturedPub(null);
       try {
-        // ZIP size
+        // ZIP metadata from IA
         const metaRes = await fetch(`https://archive.org/metadata/${itemId}`);
         if (metaRes.ok) {
           const meta = await metaRes.json();
-          const zf = (meta.files || []).find((f: any) => f.name === `djen-${dateStr}-${tribunal}.zip`);
+          const files = meta.files || [];
+          const zipName = `djen-${dateStr}-${tribunal}.zip`;
+          const zf = files.find((f: any) => f.name === zipName);
           if (zf?.size) setZipSize(parseInt(zf.size));
+          if (zf?.mtime || zf?.addeddate) {
+            const ts = zf.addeddate || new Date(parseInt(zf.mtime) * 1000).toISOString();
+            setZipAddedDate(ts);
+          }
+          if (zf?.md5) setZipMd5(zf.md5);
+          // Count non-system data files in the item
+          const dataFiles = files.filter((f: any) => !f.name.startsWith('__') && !f.name.endsWith('.xml') && !f.name.endsWith('.sqlite') && f.source !== 'metadata');
+          setItemFileCount(dataFiles.length);
         }
 
         // Probe pages
@@ -213,15 +239,28 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
 
       {/* Date header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h3 className="text-lg font-bold text-black dark:text-white font-mono">{dateStr}</h3>
-          {zipSize && <span className="text-xs text-gray-400">{formatSize(zipSize)}</span>}
+          {zipSize != null && <span className="text-xs text-gray-400">{formatSize(zipSize)}</span>}
           {totalPages > 0 && <span className="text-xs text-gray-400">{totalPages} pag.</span>}
+          {zipAddedDate && (
+            <span className="text-xs text-gray-400" title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
+              Arquivado {formatRelativeTime(zipAddedDate)}
+            </span>
+          )}
+          {zipMd5 && (
+            <span className="text-[9px] font-mono text-gray-300 dark:text-gray-600 cursor-help" title={`MD5: ${zipMd5}`}>
+              MD5: {zipMd5.substring(0, 8)}...
+            </span>
+          )}
           <DateShareButton dateStr={dateStr} />
         </div>
         <div className="flex gap-2">
           <a href={zipUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 rounded hover:text-black dark:hover:text-white transition-colors">ZIP</a>
           <a href={`https://archive.org/details/${itemId}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 rounded hover:text-black dark:hover:text-white transition-colors">IA</a>
+          {itemFileCount != null && (
+            <span className="px-2 py-1 text-[10px] text-gray-400">{itemFileCount} arquivos</span>
+          )}
         </div>
       </div>
 

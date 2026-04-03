@@ -225,19 +225,35 @@ def upload_to_ia(
     url = f"{_IA_S3_URL}/{item_id}/{filename}"
     content_md5 = compute_md5(file_path)
 
+    # Extract tribunal code from item_id for enriched metadata
+    tribunal_code = ""
+    parts = item_id.split("-")
+    if len(parts) >= 3 and parts[0] == "djen":
+        # Handle "djen-tjsp-2026" and "djen-tre-ac-2026"
+        tribunal_code = "-".join(parts[1:-1]).upper()
+
     headers: dict[str, str] = {
         "Content-MD5": content_md5,
         "x-archive-auto-make-bucket": "1",
         "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
+        # Collection: defaults to "opensource". Set IA_COLLECTION env var to use
+        # a custom collection (e.g. "causaganha") once created on archive.org.
+        "x-archive-meta-collection": os.environ.get("IA_COLLECTION", "opensource"),
         "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {date_str}",
+        "x-archive-meta-title": f"DJEN {tribunal_code} - {date_str}" if tribunal_code else f"DJEN Data - {date_str}",
         "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
+            f"Diario de Justica Eletronico Nacional ({tribunal_code}) - "
+            "Judicial communications from Brazilian courts. "
+            "Public domain data archived by CausaGanha. "
+            "Query with DuckDB: SELECT * FROM read_parquet('https://archive.org/download/"
+            f"{item_id}/comunicacoes.parquet')"
         ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "x-archive-meta-subject": f"brazilian-law;djen;legal;judiciary;open-data;{tribunal_code.lower()};causaganha",
         "x-archive-meta-creator": "CausaGanha",
         "x-archive-meta-date": date_str,
+        "x-archive-meta-language": "por",
+        "x-archive-meta-licenseurl": "https://creativecommons.org/publicdomain/mark/1.0/",
+        "x-archive-meta-source": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/djen/",
     }
 
     # Apply caller-supplied overrides (e.g. consolidate uses different title)
