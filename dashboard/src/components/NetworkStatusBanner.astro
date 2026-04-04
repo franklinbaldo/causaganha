@@ -1,0 +1,138 @@
+---
+---
+<aside
+  id="network-status-banner"
+  role="alert"
+  aria-live="assertive"
+  style="display: none;">
+
+  <div id="ns-slow" style="display: none;">
+    <strong>Rede Lenta Detectada</strong>
+    <small>O carregamento pode demorar mais que o normal. Usando dados em cache, se disponíveis.</small>
+  </div>
+
+  <div id="ns-retry" style="display: none;">
+    <strong>Problema de Conexão</strong>
+    <small id="ns-retry-text"></small>
+  </div>
+
+  <div id="ns-error" style="display: none;">
+    <div>
+      <strong>Falha na Rede</strong>
+      <small>Não foi possível conectar ao servidor. Mostrando dados offline em cache.</small>
+    </div>
+    <button
+      id="ns-retry-btn"
+      class="outline"
+      aria-label="Tentar reconectar rede agora">
+      Tentar Novamente
+    </button>
+  </div>
+</aside>
+
+<script>
+  function setupNetworkStatus() {
+    const banner = document.getElementById('network-status-banner');
+    const elSlow = document.getElementById('ns-slow');
+    const elRetry = document.getElementById('ns-retry');
+    const elRetryText = document.getElementById('ns-retry-text');
+    const elError = document.getElementById('ns-error');
+    const retryBtn = document.getElementById('ns-retry-btn');
+
+    if (!banner || !elSlow || !elRetry || !elError || !elRetryText) return;
+
+    let status = 'idle';
+    let countdownInterval: number | null = null;
+    let countdown = 0;
+
+    function hideAll() {
+      elSlow!.style.display = 'none';
+      elRetry!.style.display = 'none';
+      elError!.style.display = 'none';
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+    }
+
+    function updateView() {
+      if (status === 'idle') {
+        banner!.style.display = 'none';
+        hideAll();
+      } else {
+        banner!.style.display = 'block';
+        hideAll();
+        if (status === 'slow') elSlow!.style.display = 'block';
+        if (status === 'retrying') elRetry!.style.display = 'block';
+        if (status === 'error') elError!.style.display = 'block';
+      }
+    }
+
+    const handleSlow = () => {
+      if (status !== 'error' && status !== 'retrying') {
+        status = 'slow';
+        updateView();
+      }
+    };
+
+    const handleRetry = (e: any) => {
+      const detail = e.detail;
+      status = 'retrying';
+      countdown = detail.delay;
+
+      const updateText = () => {
+        elRetryText!.textContent = `Tentando novamente (tentativa ${detail.attempt}/${detail.maxRetries}) em ${Math.ceil(countdown / 1000)}s...`;
+      };
+
+      updateText();
+      updateView();
+
+      countdownInterval = window.setInterval(() => {
+        countdown -= 1000;
+        if (countdown <= 0) {
+           clearInterval(countdownInterval!);
+           countdownInterval = null;
+        } else {
+           updateText();
+        }
+      }, 1000);
+    };
+
+    const handleError = () => {
+      status = 'error';
+      updateView();
+    };
+
+    const handleSuccess = () => {
+      status = 'idle';
+      updateView();
+    };
+
+    window.addEventListener('cg-network-slow', handleSlow);
+    window.addEventListener('cg-network-retry', handleRetry);
+    window.addEventListener('cg-network-error', handleError);
+    window.addEventListener('cg-network-success', handleSuccess);
+
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        handleSuccess(); // Hide banner immediately
+        // Force refetch by dispatching an event that fetchData uses, or import fetchAllData dynamically
+        import('../lib/fetchData').then(({ fetchAllData }) => {
+          fetchAllData().catch(console.error);
+        });
+      });
+    }
+
+    // Cleanup
+    document.addEventListener('astro:before-swap', () => {
+      window.removeEventListener('cg-network-slow', handleSlow);
+      window.removeEventListener('cg-network-retry', handleRetry);
+      window.removeEventListener('cg-network-error', handleError);
+      window.removeEventListener('cg-network-success', handleSuccess);
+      if (countdownInterval) clearInterval(countdownInterval);
+    }, { once: true });
+  }
+
+  setupNetworkStatus();
+  document.addEventListener('astro:after-swap', setupNetworkStatus);
+</script>
