@@ -407,3 +407,113 @@ table td, table th {
 table tr:last-child td {
   border-bottom: none;
 }
+
+/* ═══════════════════════════════════════════
+   Utility Classes (Flex & Spacing)
+   ═══════════════════════════════════════════ */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-between { justify-content: space-between; }
+.flex-center { justify-content: center; }
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.items-start { align-items: flex-start; }
+
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+
+.m-0 { margin: 0; }
+.mb-xs { margin-bottom: var(--space-xs); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.mb-lg { margin-bottom: var(--space-lg); }
+.mt-xs { margin-top: var(--space-xs); }
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mt-lg { margin-top: var(--space-lg); }
+
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+.pb-sm { padding-bottom: var(--space-sm); }
+.pt-sm { padding-top: var(--space-sm); }
+.pt-md { padding-top: var(--space-md); }
+
+.border-bottom { border-bottom: 1px solid var(--color-border-muted); }
+.border-top { border-top: 1px solid var(--color-border-muted); }
+
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.text-right { text-align: right; }
+.text-sm { font-size: var(--font-size-sm); }
+.text-xs { font-size: var(--font-size-xs); }
+.text-md { font-size: var(--font-size-md); }
+.text-lg { font-size: var(--font-size-lg); }
+.leading-relaxed { line-height: 1.6; }
+
+/* ═══════════════════════════════════════════
+   Heatmap Responsive Cells
+   ═══════════════════════════════════════════ */
+.heatmap-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .heatmap-cell {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Additional utility classes for layouts requested in patch_system_status.py and patch_date_detail.py */
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.w-4 {
+  width: 1rem;
+}
+.h-4 {
+  height: 1rem;
+}
+.block {
+  display: block;
+}
+.capitalize {
+  text-transform: capitalize;
+}
+.border-t {
+  border-top: 1px solid var(--color-border-muted);
+}
+.grid {
+  display: grid;
+}
+.grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.rounded {
+  border-radius: var(--border-radius);
+}
+.pt-md {
+  padding-top: var(--space-md);
+}
+.pt-lg {
+  padding-top: var(--space-lg);
+}
+.pb-md {
+  padding-bottom: var(--space-md);
+}
+.bg-muted {
+  background-color: var(--color-bg-muted);
+}
+.text-strong {
+  font-weight: bold;
+}

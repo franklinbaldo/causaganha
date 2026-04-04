@@ -69,10 +69,10 @@ function ShareButton({ dateStr, page, seq, label }: ShareButtonProps) {
 
   return (
     <button
-      className="outline secondary"
+      className="outline secondary flex items-center gap-xs text-xs"
       onClick={handleClick}
       title="Copiar link"
-      style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+      style={{ padding: '0.4rem 0.75rem' }}
     >
       <ShareIcon />
       {copied ? 'Copiado!' : (label || 'Link')}
@@ -89,10 +89,10 @@ interface NavButtonProps {
 function NavButton({ label, onClick, disabled }: NavButtonProps) {
   return (
     <button
-      className="secondary outline"
+      className="secondary outline text-xs"
       onClick={onClick}
       disabled={disabled}
-      style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}
+      style={{ padding: '0.4rem 0.75rem' }}
     >
       {label}
     </button>
@@ -114,12 +114,12 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
   if (compact) {
     return (
-      <article id={`pub-${seq}`} style={{ padding: 'var(--space-md)' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)' }}>#{seq}</span>
+      <article id={`pub-${seq}`} className="p-md">
+        <header className="flex flex-between items-center border-bottom pb-sm mb-sm">
+          <div className="flex items-center gap-sm flex-wrap">
+            <span className="font-mono text-xs text-muted">#{seq}</span>
             {processNumber && (
-              <span className="text-accent" style={{ fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{processNumber}</span>
+              <span className="text-accent text-sm font-semibold">{processNumber}</span>
             )}
             {pub.tipoComunicacao && (
               <span className="badge">{pub.tipoComunicacao}</span>
@@ -128,24 +128,24 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
           <ShareButton dateStr={dateStr} page={page} seq={seq} />
         </header>
         {pub.nomeOrgao && (
-          <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)', display: 'block', marginBottom: 'var(--space-sm)' }}>{pub.nomeOrgao}</small>
+          <small className="text-muted text-xs mb-sm" style={{ display: 'block' }}>{pub.nomeOrgao}</small>
         )}
         {pub.texto && (
-          <p style={{ fontSize: 'var(--font-size-sm)', lineHeight: '1.6', color: 'var(--color-content-secondary)' }}>
+          <p className="text-sm leading-relaxed text-secondary">
             {pub.texto.length > 500 ? pub.texto.substring(0, 500) + '...' : pub.texto}
           </p>
         )}
         {pub.destinatarios?.length > 0 && (
-          <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+          <div className="flex gap-xs flex-wrap">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="badge">{d.nome}</span>
             ))}
           </div>
         )}
         {pub.destinatarioadvogados?.length > 0 && (
-          <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap', marginTop: 'var(--space-xs)' }}>
+          <div className="flex gap-xs flex-wrap mt-xs">
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)' }}>
+              <span key={j} className="text-xs text-muted">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
@@ -159,16 +159,16 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
   const textParts = parseText(pub.texto);
 
   return (
-    <article id={`pub-${seq}`} style={{ padding: 'var(--space-lg)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--color-content-tertiary)' }}>#{seq}</span>
+    <article id={`pub-${seq}`} className="p-lg">
+      <header className="flex flex-between items-center border-bottom pb-sm mb-md flex-wrap gap-sm">
+        <div className="flex items-center gap-sm flex-wrap">
+          <span className="font-mono text-xs font-semibold text-muted">#{seq}</span>
           {pub.tipoComunicacao && (
             <span className="badge">{pub.tipoComunicacao}</span>
           )}
-          <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>{dateStr}</small>
+          <small className="text-muted text-xs">{dateStr}</small>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+        <div className="flex gap-xs items-center" role="group" aria-label="Ações da publicação">
           {onNavigate && (
             <>
               <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />
@@ -180,16 +180,16 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       </header>
 
       {processNumber && (
-        <div className="text-accent" style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', fontFamily: "'JetBrains Mono', monospace", marginBottom: 'var(--space-sm)' }}>{processNumber}</div>
+        <div className="text-accent text-md font-semibold font-mono mb-sm">{processNumber}</div>
       )}
       {pub.nomeOrgao && (
-        <small style={{ display: 'block', color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--space-md)' }}>{pub.nomeOrgao}</small>
+        <small className="text-muted text-xs mb-md" style={{ display: 'block' }}>{pub.nomeOrgao}</small>
       )}
 
       {textParts.length > 0 && (
-        <div style={{ borderTop: '1px solid var(--color-border-muted)', paddingTop: 'var(--space-md)' }}>
+        <div className="border-top pt-md">
           {textParts.map((part, i) => (
-            <p key={i} style={{ fontSize: 'var(--font-size-sm)', lineHeight: '1.7', color: 'var(--color-content-secondary)' }}>
+            <p key={i} className="text-sm text-secondary" style={{ lineHeight: '1.7' }}>
               {part}
             </p>
           ))}
@@ -197,9 +197,9 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       )}
 
       {pub.destinatarios?.length > 0 && (
-        <footer style={{ borderTop: '1px solid var(--color-border-muted)', paddingTop: 'var(--space-md)', marginTop: 'var(--space-sm)' }}>
-          <strong style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-content-tertiary)', display: 'block', marginBottom: 'var(--space-xs)' }}>Destinatários</strong>
-          <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+        <footer className="border-top pt-md mt-sm">
+          <strong className="text-xs text-muted mb-xs" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block' }}>Destinatários</strong>
+          <div className="flex gap-xs flex-wrap">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="badge">{d.nome}</span>
             ))}
@@ -207,11 +207,11 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
         </footer>
       )}
       {pub.destinatarioadvogados?.length > 0 && (
-        <footer style={{ borderTop: '1px solid var(--color-border-muted)', paddingTop: 'var(--space-md)', marginTop: 'var(--space-sm)' }}>
-          <strong style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-content-tertiary)', display: 'block', marginBottom: 'var(--space-xs)' }}>Advogados</strong>
-          <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+        <footer className="border-top pt-md mt-sm">
+          <strong className="text-xs text-muted mb-xs" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block' }}>Advogados</strong>
+          <div className="flex gap-xs flex-wrap">
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-content-secondary)' }}>
+              <span key={j} className="text-sm text-secondary">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}

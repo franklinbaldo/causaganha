@@ -52,7 +52,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   // Don't render content until hash is read (prevents flash of wrong date)
   // Disable hash loading barrier when running under test/ssg, otherwise the page will be completely blank
   if (!hashReady && typeof window !== 'undefined') {
-    return <div>Carregando...</div>;
+    return <div aria-busy="true">Carregando...</div>;
   }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -194,9 +194,9 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               ))}
             </select>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <h3 style={{ margin: 0 }}>{selectedTribunal}</h3>
+            <div className="mb-md">
+              <div className="flex flex-between items-center mb-xs">
+                <h3 className="m-0">{selectedTribunal}</h3>
                 {qualityScores[selectedTribunal] && (
                   <span
                     className={
@@ -213,13 +213,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               </div>
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="mb-sm">
               <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Data inicial</small>
               <strong>{genesisDate || "Desconhecida"}</strong>
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+            <div className="mb-sm">
+              <div className="flex flex-between" style={{ marginBottom: '0.25rem' }}>
                 <small className="text-muted" style={{ textTransform: 'uppercase' }}>Progresso</small>
                 <strong className="text-primary">{completionPct}%</strong>
               </div>
@@ -227,33 +227,33 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 value={Math.round(syncedPct)}
                 max="100"
                 title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
-                style={{ marginBottom: '0.5rem' }}>
+                className="mb-xs">
               </progress>
-              <div className="text-muted" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+              <div className="text-muted text-xs flex flex-between">
                 <span>{selectedCoverage.size} sincronizados</span>
                 <span>{absentCount} ausentes</span>
               </div>
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="mb-sm">
               <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Status</small>
               <strong className={statusColor}>{completionStatusText}: {etaText}</strong>
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="mb-sm">
               <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Dias faltantes</small>
               <strong>{actualMissingDays} dias</strong>
             </div>
 
             {cursorDate && !isStopped && (
-              <div style={{ marginBottom: '1rem' }}>
+              <div className="mb-sm">
                 <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Cursor de varredura</small>
                 <strong className="text-primary">{cursorDate}</strong>
               </div>
             )}
 
             {isStopped && (
-              <div style={{ marginBottom: '1rem' }}>
+              <div className="mb-sm">
                 <span className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '0.5rem' }}>
                   Pipeline interrompido (60 dias sem publicações)
                 </span>
@@ -265,12 +265,11 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               // Derive year from active date or fall back to current year
               const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
               return (
-                <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--pico-muted-border-color)' }}>
+                <div className="mt-md pt-md border-top">
                   <a
                     href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
                     rel="noopener noreferrer"
-                    className="secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    className="secondary flex items-center gap-xs mb-sm">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>

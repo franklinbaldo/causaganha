@@ -235,23 +235,23 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {/* Date header */}
-      <article style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0 }}>{dateStr}</h3>
+      <article className="p-md mb-lg">
+        <header className="flex flex-between flex-wrap gap-sm">
+          <div className="flex flex-center flex-wrap gap-md">
+            <h3 className="m-0">{dateStr}</h3>
             {zipSize != null && <span className="badge badge-accent">{formatSize(zipSize)}</span>}
             {totalPages> 0 && <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{totalPages} pág.</span>}
             {itemFileCount != null && (
               <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{itemFileCount} arquivos</span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+          <div className="flex gap-xs">
             <DateShareButton dateStr={dateStr} />
-            <a href={zipUrl} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Baixar ZIP</a>
-            <a href={`https://archive.org/details/${itemId}`} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Ver no IA</a>
+            <a href={zipUrl} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" className="text-xs">Baixar ZIP</a>
+            <a href={`https://archive.org/details/${itemId}`} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" className="text-xs">Ver no IA</a>
           </div>
         </header>
-        <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', marginTop: 'var(--space-sm)' }}>
+        <div className="flex gap-md text-xs text-tertiary mt-sm">
           {zipAddedDate && (
             <span title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
               Arquivado {formatRelativeTime(zipAddedDate)}
@@ -265,7 +265,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
         </div>
       </article>
 
-      {loading && <article>Carregando publicações...</article>}
+      {loading && <article aria-busy="true">Carregando publicações...</article>}
       {error && <article className="text-danger">Erro: {error}</article>}
 
       {/* Publications list */}
@@ -284,15 +284,15 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
+        <div className="text-center mt-xl">
           <button onClick={handleLoadMore} disabled={loadingMore} className="secondary">
-            {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
+            {loadingMore ? <span aria-busy="true">Carregando...</span> : `Página ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
       )}
 
       {currentPage>= totalPages && publications.length> 0 && !loading && !featuredPub && (
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)', color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+        <div className="text-center mt-xl text-tertiary text-sm">
           {publications.length.toLocaleString()} publicações
         </div>
       )}

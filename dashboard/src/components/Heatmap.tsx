@@ -30,20 +30,20 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
 
   return (
     <div aria-label="Velocity Timeline">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+      <div className="flex flex-between items-start flex-wrap gap-sm mb-sm">
         <div>
-          <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocidade de Coleta</h4>
-          <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>Taxa de coleta das últimas 12 semanas</p>
+          <h4 className="m-0 text-lg">Velocidade de Coleta</h4>
+          <p className="text-muted m-0 text-sm">Taxa de coleta das últimas 12 semanas</p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} dias/sem (média)</div>
-          <div className={trendColor} style={{ fontSize: '0.875rem' }}>
+        <div className="text-right">
+          <div className="font-bold">{currentVelocity.toFixed(1)} dias/sem (média)</div>
+          <div className={`${trendColor} text-sm`}>
             {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
           </div>
         </div>
       </div>
 
-      <div role="list" style={{ display: 'flex', gap: '4px', height: '100px', alignItems: 'flex-end', marginTop: '2rem' }}>
+      <div role="list" className="flex items-end mt-md" style={{ gap: '4px', height: '100px' }}>
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
@@ -51,7 +51,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
             <div
               key={`w-${idx}`}
               role="listitem"
-              style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end', group: 'hover' }}
+              className="flex items-end" style={{ flex: 1, position: 'relative', height: '100%' }}
               title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}>
               <div
                 className={getBarColor(week.collected)} style={{ width: '100%', height: `${heightPct}%`, borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'opacity 0.2s' }}></div>
@@ -60,7 +60,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         })}
       </div>
 
-      <div className="text-muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+      <div className="text-muted flex flex-between text-xs mt-xs">
         <span>12 semanas atrás</span>
         <span>Atual</span>
       </div>
@@ -233,7 +233,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="flex flex-col gap-lg">
       {years.map(({ year, days: yDays, start: yrStart }) => {
         const startDayOfWeek = yrStart.getUTCDay();
         const paddedDays: (string | null)[] = Array(startDayOfWeek).fill(null).concat(yDays);
@@ -241,9 +241,9 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
         return (
           <div key={year}>
-            <h4 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>{year}</h4>
-            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '1rem' }} role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-              <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem', fontSize: '0.75rem', color: 'var(--pico-muted-color)' }}>
+            <h4 className="mb-sm text-lg">{year}</h4>
+            <div className="flex pb-sm" style={{ gap: '4px', overflowX: 'auto' }} role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+              <div aria-hidden="true" className="flex flex-col text-xs" style={{ gap: '4px', marginTop: '20px', paddingRight: '0.5rem', color: 'var(--pico-muted-color)' }}>
                 <div style={{ height: '14px' }}></div>
                 <div style={{ height: '14px', lineHeight: '14px' }}>Seg</div>
                 <div style={{ height: '14px' }}></div>
@@ -253,8 +253,8 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                 <div style={{ height: '14px' }}></div>
               </div>
               {yrWeeks.map((week, weekIndex) => (
-                <div key={`w-${year}-${weekIndex}`} role="row" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ height: '16px', fontSize: '0.75rem', color: 'var(--pico-muted-color)', marginBottom: '4px' }}>
+                <div key={`w-${year}-${weekIndex}`} role="row" className="flex flex-col" style={{ gap: '4px' }}>
+                  <div className="text-xs mb-xs" style={{ height: '16px', color: 'var(--pico-muted-color)' }}>
                     {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
                   </div>
                   {week.map((day, dayIndex) => (
@@ -262,11 +262,8 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                       key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
                       id={day ? `cell-${day}` : undefined}
                       role="gridcell"
-                      className={getCellColor(day) || undefined}
+                      className={`${getCellColor(day) || ''} heatmap-cell`}
                       style={{
-                        width: '14px',
-                        height: '14px',
-                        borderRadius: '2px',
                         cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
                         backgroundColor: !day ? 'transparent' : undefined // Fallback for null days
                       }}
@@ -286,29 +283,29 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         );
       })}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--pico-muted-border-color)', fontSize: '0.875rem' }}>
+      <div className="flex flex-between items-center flex-wrap gap-sm mt-sm pt-sm border-top text-sm">
         <span className="text-muted">
           <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="flex items-center gap-sm">
           <span className="text-muted" style={{ marginRight: '0.5rem' }}>Legenda:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+          <div className="flex items-center gap-xs">
+            <div className="heatmap-missing heatmap-cell"></div>
             <span>Faltante</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+          <div className="flex items-center gap-xs">
+            <div className="heatmap-absent heatmap-cell"></div>
             <span>Ausente</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+          <div className="flex items-center gap-xs">
+            <div className="heatmap-collected heatmap-cell"></div>
             <span>Coletado</span>
           </div>
         </div>
       </div>
 
       {velocityMetrics && velocityMetrics.hasEnoughHistory && (
-        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid var(--pico-muted-border-color)' }}>
+        <div className="mt-md pt-md border-top">
           <VelocityTimeline metrics={velocityMetrics} />
         </div>
       )}

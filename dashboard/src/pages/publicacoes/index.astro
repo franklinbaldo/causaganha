@@ -36,7 +36,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <Header variant="page" title="CausaGanha">
     <DatabaseIcon slot="icon" />
     <p slot="subtitle" class="text-muted" style="font-size: var(--font-size-sm); margin: 0;">
-      {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
+      {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : <span aria-busy="true">Carregando...</span>}
     </p>
     <a slot="nav" href={BASE} style="font-size: var(--font-size-sm);">Início</a>
   </Header>

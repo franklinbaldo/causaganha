@@ -72,10 +72,10 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
 
   return (
     <article>
-      <div>
+      <div className="flex flex-between flex-wrap gap-md">
         {/* Left: status & stats */}
-        <div>
-          <div role="status" aria-live="polite">
+        <div className="flex gap-lg flex-wrap">
+          <div role="status" aria-live="polite" className="flex gap-md">
             {stats ? (
               isSuccess ? (
                 <div className="bg-success-muted">
@@ -90,7 +90,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
               <div />
             )}
             <div>
-              <div>
+              <div className="text-strong">
                 {stats ? (isSuccess ? 'Pipeline Operational' : 'Pipeline Issue') : 'Loading...'}
               </div>
               {stats?.timestamp && (
@@ -98,17 +98,17 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
                   Last run: {new Date(stats.timestamp).toLocaleString()}
                 </small>
               )}
-              <span>
+              <span className="text-sm text-tertiary block">
                 {stats ? (isSuccess ? 'System operational' : 'System fault detected') : 'Loading system status'}
               </span>
             </div>
           </div>
 
           {/* Stat pills */}
-          <div>
+          <div className="flex gap-md flex-wrap items-center">
             {health != null && (
-              <div>
-                <ActivityIcon aria-hidden="true" />
+              <div className="flex gap-xs text-sm items-center">
+                <ActivityIcon aria-hidden="true" className="w-4 h-4" />
                 <span>Health:</span>
                 <span className={clsx(health >= 70 ? "text-success" : "text-danger")}>
                   {health}%
@@ -116,7 +116,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
               </div>
             )}
             {filesToday != null && (
-              <div>
+              <div className="flex gap-xs text-sm items-center">
                 <span>{isDataStale ? dataDate : 'Today'}:</span>
                 <span className={clsx(isDataStale && "text-warning")}>{filesToday}/91</span>
                 {isDataStale && (
@@ -125,8 +125,8 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
               </div>
             )}
             {stats?.duration_seconds != null && (
-              <div>
-                <ClockIcon aria-hidden="true" />
+              <div className="flex gap-xs text-sm items-center">
+                <ClockIcon aria-hidden="true" className="w-4 h-4" />
                 <span>{stats.duration_seconds}s</span>
               </div>
             )}
@@ -134,10 +134,10 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
         </div>
 
         {/* Right: countdown & actions */}
-        <div>
+        <div className="flex gap-md items-center">
           {stats?.timestamp && (
-            <div>
-              <small>Next run</small>
+            <div className="text-right">
+              <small className="text-tertiary block">Next run</small>
               <div className="text-accent">{countdown}</div>
             </div>
           )}
@@ -159,17 +159,17 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
 
       {/* Expandable details */}
       {stats?.steps && showDetails && (
-        <div>
+        <div className="mt-lg pt-lg border-t">
           <div>
             <h3>Pipeline Steps</h3>
-            <div>
+            <div className="flex gap-sm flex-col">
               {Object.entries(stats.steps).map(([stepName, stepData]) => {
                 const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true;
 
                 return (
-                  <div key={stepName}>
-                    <div>
-                      <span>
+                  <div key={stepName} className="p-md bg-muted rounded">
+                    <div className="flex flex-between mb-sm">
+                      <span className="text-strong capitalize">
                         {stepName.replace(/_/g, ' ')}
                       </span>
                       <span className={clsx("badge", isOk ? "badge-success" : "badge-danger")}>
@@ -181,12 +181,12 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
                         <span>{isOk ? 'OK' : 'Issue'}</span>
                       </span>
                     </div>
-                    <div>
+                    <div className="grid grid-cols-2 gap-xs text-sm text-tertiary">
                       {Object.entries(stepData).map(([k, v]) => {
                         if (k === 'success') return null;
                         return (
-                          <div key={k}>
-                            <span>{k.replace(/_/g, ' ')}</span>
+                          <div key={k} className="flex flex-between">
+                            <span className="capitalize">{k.replace(/_/g, ' ')}</span>
                             <span>{v}</span>
                           </div>
                         );
@@ -202,19 +202,19 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
 
       {/* IA Task Status */}
       {cacheToday?.ia_tasks?.pending_count> 0 && (
-        <div>
-          <ClockIcon aria-hidden="true" />
+        <div className="mt-md p-sm bg-warning-muted text-warning flex gap-sm items-center rounded">
+          <ClockIcon aria-hidden="true" className="w-4 h-4" />
           <span>{cacheToday.ia_tasks.pending_count} tarefa(s) de processamento pendente(s) no Internet Archive</span>
         </div>
       )}
 
       {/* Footer */}
-      <footer>
+      <footer className="mt-xl pt-md border-t flex flex-between flex-wrap gap-md text-sm text-tertiary">
         <small>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</small>
         <a
           href="https://github.com/franklinbaldo/causaganha/actions" target="_blank"
-          rel="noopener noreferrer">
-          View Actions <ExternalLinkIcon aria-hidden="true" />
+          rel="noopener noreferrer" className="flex gap-xs items-center">
+          View Actions <ExternalLinkIcon aria-hidden="true" className="w-4 h-4" />
         </a>
       </footer>
     </article>
