@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-MIN_TEXT_LENGTH = 50
-HTTP_200_OK = 200
-
 """Generate embeddings for DJEN decisions (IA Parquet-based).
 
 This script generates vector embeddings for judicial decisions stored in
@@ -40,6 +37,9 @@ from causaganha.config import TRIBUNAIS
 
 
 logger = structlog.get_logger()
+
+MIN_TEXT_LENGTH = 50
+HTTP_200_OK = 200
 
 # Embedding configuration
 BATCH_SIZE = 100

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 
-HTTP_500_INTERNAL_SERVER_ERROR = 500
-
 """Shared Internet Archive S3-compatible upload utilities.
 
 This is the canonical module for uploading files to Internet Archive
@@ -27,6 +25,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 
 logger = structlog.get_logger()
 
+HTTP_500_INTERNAL_SERVER_ERROR = 500
 _IA_S3_URL = "https://s3.us.archive.org"
 
 

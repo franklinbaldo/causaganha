@@ -4,9 +4,7 @@ from typing import Any
 
 import structlog
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis import create_analyzer
 from causaganha.analysis.strategy import AnalysisStrategy
 from causaganha.storage.connection import get_connection
 from causaganha.storage.repositories.analysis import store_analysis
@@ -17,29 +15,6 @@ from causaganha.storage.repositories.intimation import (
 
 
 logger = structlog.get_logger()
-
-
-async def _initialize_analyzer(
-    strategy: AnalysisStrategy,
-    confidence_threshold: float,
-) -> Any:
-    """Initialize the appropriate analyzer based on strategy."""
-    if strategy == AnalysisStrategy.LLM:
-        logger.info("using_llm_only_strategy")
-        return DecisionAnalyzer()
-
-    if strategy == AnalysisStrategy.RAG:
-        logger.info("using_rag_only_strategy")
-        return await RAGAnalyzer.create()
-
-    # HYBRID or AUTO
-    logger.info(
-        "using_hybrid_strategy",
-        confidence_threshold=confidence_threshold,
-    )
-    rag_analyzer = await RAGAnalyzer.create()
-    llm_analyzer = DecisionAnalyzer()
-    return HybridAnalyzer(rag_analyzer, llm_analyzer, confidence_threshold)
 
 
 async def _process_batch_results(
@@ -108,7 +83,7 @@ async def analyze_pending_decisions(
     )
 
     con = get_connection()
-    analyzer = await _initialize_analyzer(strategy, confidence_threshold)
+    analyzer = await create_analyzer(strategy, confidence_threshold)
 
     total_analyzed = 0
     total_failed = 0
