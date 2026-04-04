@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/compat';
+import { useState, useEffect, useCallback } from 'preact/compat';
 import { PublicationCard } from './PublicationCard';
 
 const PUBS_PER_PAGE = 1000;
@@ -104,16 +104,16 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
   const itemId = getItemId(tribunal, parseInt(year));
   const zipUrl = getZipUrl(itemId, dateStr, tribunal);
 
-  function jsonUrl(pageNum: number): string {
+  const jsonUrl = useCallback((pageNum: number): string => {
     return `${zipUrl}/${tribunal}-D-${dateStr}_${pageNum}.json`;
-  }
+  }, [zipUrl, tribunal, dateStr]);
 
-  async function loadPage(pageNum: number): Promise<Publication[] | null> {
+  const loadPage = useCallback(async (pageNum: number): Promise<Publication[] | null> => {
     const res = await cachedFetch(jsonUrl(pageNum));
     if (!res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : (data.items || []);
-  }
+  }, [jsonUrl]);
 
   useEffect(() => {
     async function init() {
@@ -176,7 +176,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       }
     }
     init();
-  }, [itemId, dateStr, tribunal]);
+  }, [itemId, dateStr, tribunal, initialPage, initialSeq, jsonUrl, loadPage]);
 
   const handleLoadMore = async () => {
     const next = currentPage + 1;
