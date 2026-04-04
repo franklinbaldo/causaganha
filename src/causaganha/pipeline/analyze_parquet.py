@@ -29,9 +29,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
-from causaganha.analysis.hybrid_analyzer import HybridAnalyzer
-from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis import create_analyzer
 from causaganha.analysis.strategy import AnalysisStrategy
 from causaganha.pipeline.ia_download import IAParquetDownloader
 from causaganha.storage.connection import get_connection
@@ -148,7 +146,7 @@ class ParquetAnalyzer:
         )
 
         # Initialize analyzer
-        analyzer = await self._initialize_analyzer(strategy, confidence_threshold)
+        analyzer = await create_analyzer(strategy, confidence_threshold)
 
         # Process decisions in batches
         results = await self._process_decisions(
@@ -260,29 +258,6 @@ class ParquetAnalyzer:
                 decisions.append(row)
 
         return decisions
-
-    async def _initialize_analyzer(
-        self,
-        strategy: AnalysisStrategy,
-        confidence_threshold: float,
-    ) -> Any:
-        """Initialize the appropriate analyzer based on strategy."""
-        if strategy == AnalysisStrategy.LLM:
-            logger.info("using_llm_only_strategy")
-            return DecisionAnalyzer()
-
-        if strategy == AnalysisStrategy.RAG:
-            logger.info("using_rag_only_strategy")
-            return await RAGAnalyzer.create()
-
-        # HYBRID or AUTO
-        logger.info(
-            "using_hybrid_strategy",
-            confidence_threshold=confidence_threshold,
-        )
-        rag_analyzer = await RAGAnalyzer.create()
-        llm_analyzer = DecisionAnalyzer()
-        return HybridAnalyzer(rag_analyzer, llm_analyzer, confidence_threshold)
 
     async def _process_decisions(
         self,

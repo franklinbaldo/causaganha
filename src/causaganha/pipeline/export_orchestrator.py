@@ -26,8 +26,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from .ia_upload import InternetArchiveUploader
-from .models import ExportResult, TribunalExportResult
-from .orchestration import PureOrchestrator
+from .models import ExportPlan, ExportResult, TribunalExportResult
 from .parquet_export import ParquetExporter
 from .repositories import ExportRepository
 
@@ -60,6 +59,101 @@ class ExportOrchestrator:
         self.uploader = ia_uploader
         logger.info("ExportOrchestrator initialized")
 
+    @staticmethod
+    def plan_export(
+        partition_date: str,
+        tribunals: tuple[str, ...],
+        *,
+        cleanup_files: bool = True,
+    ) -> ExportPlan:
+        """Pure: Build export plan from inputs.
+
+        Args:
+            partition_date: Date in YYYY-MM-DD format
+            tribunals: Tuple of tribunal codes to export
+            cleanup_files: Whether to delete local files after upload
+
+        Returns:
+            ExportPlan object (immutable)
+
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        plan = ExportPlan(
+            partition_date=partition_date,
+            tribunals=tribunals,
+            cleanup_files=cleanup_files,
+        )
+        plan.validate()  # Raises ValueError if invalid
+        logger.debug("Planned export for %s tribunals on %s", len(tribunals), partition_date)
+        return plan
+
+    @staticmethod
+    def aggregate_results(
+        partition_date: str,
+        tribunal_results: tuple[TribunalExportResult, ...],
+        duration_seconds: float,
+    ) -> ExportResult:
+        """Pure: Aggregate tribunal results into final export result.
+
+        Args:
+            partition_date: Date in YYYY-MM-DD format
+            tribunal_results: Tuple of all tribunal export results
+            duration_seconds: Total execution time in seconds
+
+        Returns:
+            ExportResult with aggregated statistics
+
+        Raises:
+            ValueError: If results are inconsistent
+        """
+        result = ExportResult(
+            partition_date=partition_date,
+            total_tribunals=len(tribunal_results),
+            tribunal_results=tribunal_results,
+            duration_seconds=duration_seconds,
+        )
+        result.validate()
+
+        logger.info(
+            "Aggregated results for %s: %s successful, %s failed, %s skipped (%s rows, %.2f MB)",
+            partition_date,
+            result.successful,
+            result.failed,
+            result.skipped,
+            result.total_rows,
+            result.total_size_mb,
+        )
+        return result
+
+    @staticmethod
+    def should_purge_data(
+        results: ExportResult,
+        _cleanup_interval_days: int = 180,
+    ) -> bool:
+        """Pure: Decide if cleanup should run based on results.
+
+        Args:
+            results: Export results
+            _cleanup_interval_days: Only purge if at least this many days of data exist
+
+        Returns:
+            True if any exports succeeded and cleanup should run
+        """
+        should_cleanup = results.successful > 0
+        logger.debug("Should purge old data: %s", should_cleanup)
+        return should_cleanup
+
+    @staticmethod
+    def get_yesterday_date() -> str:
+        """Pure: Get yesterday's date in YYYY-MM-DD format.
+
+        Returns:
+            Yesterday's date as string
+        """
+        yesterday = datetime.now(UTC).date() - timedelta(days=1)
+        return yesterday.isoformat()
+
     async def run_daily_export(
         self,
         partition_date: str | None = None,
@@ -86,7 +180,7 @@ class ExportOrchestrator:
         """
         # Phase 0: Use yesterday if no date specified
         if partition_date is None:
-            partition_date = PureOrchestrator.get_yesterday_date()
+            partition_date = self.get_yesterday_date()
 
         logger.info("Starting daily export for %s", partition_date)
         start_time = datetime.now(UTC)
@@ -98,7 +192,7 @@ class ExportOrchestrator:
             msg = f"No data found for date {partition_date}"
             raise ValueError(msg)
 
-        plan = PureOrchestrator.plan_export(partition_date, tribunals, cleanup_files)
+        plan = self.plan_export(partition_date, tribunals, cleanup_files=cleanup_files)
         logger.info(
             "Planned export for %s tribunals on %s",
             len(plan.tribunals),
@@ -112,24 +206,21 @@ class ExportOrchestrator:
             tribunal_result = await self._execute_tribunal_export(
                 plan.partition_date,
                 tribunal,
-                plan.cleanup_files,
+                cleanup_files=plan.cleanup_files,
             )
-            # Use pure function to update immutable tuple
-            tribunal_results = PureOrchestrator.add_tribunal_result(
-                tribunal_results,
-                tribunal_result,
-            )
+            tribunal_result.validate()
+            tribunal_results = (*tribunal_results, tribunal_result)
 
         # Phase 3: AGGREGATION (pure)
         duration = (datetime.now(UTC) - start_time).total_seconds()
-        result = PureOrchestrator.aggregate_results(
+        result = self.aggregate_results(
             plan.partition_date,
             tribunal_results,
             duration,
         )
 
         # Phase 4: CLEANUP (impure) - Purge old data if exports succeeded
-        if PureOrchestrator.should_purge_data(result):
+        if self.should_purge_data(result):
             await self.repo.purge_old_data(partition_date)
 
         return result

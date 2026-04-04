@@ -108,8 +108,8 @@ class EmbeddingService:
             service = await EmbeddingService.create()
 
             # Specific provider with custom model
-            from causaganha.analysis.embedding_models import JINA_V4_768
-            service = await EmbeddingService.create(provider="jina", model=JINA_V4_768)
+        from causaganha.analysis.embedding_models import JINA_V4_1024
+        service = await EmbeddingService.create(provider="jina", model=JINA_V4_1024)
         """
         if provider == "auto":
             # Auto-select provider

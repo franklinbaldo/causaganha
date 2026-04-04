@@ -1,5 +1,3 @@
-HTTP_200_OK = 200
-
 """Internet Archive Upload Module.
 
 .. deprecated::
@@ -42,6 +40,8 @@ from tenacity import (
 
 
 logger = logging.getLogger(__name__)
+
+HTTP_200_OK = 200
 
 
 @dataclass
