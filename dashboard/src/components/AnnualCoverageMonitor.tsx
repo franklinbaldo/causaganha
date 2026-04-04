@@ -129,8 +129,9 @@ export function AnnualCoverageMonitor() {
 
       {/* Table */}
       <div>
-        <table>
-          <thead>
+        <div className="table-responsive">
+          <table>
+            <thead>
             <tr>
               <th
                 
@@ -200,8 +201,9 @@ export function AnnualCoverageMonitor() {
                 </td>
               </tr>
             )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -160,15 +160,15 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
   return (
     <article id={`pub-${seq}`} style={{ padding: 'var(--space-lg)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+      <header className="flex-between flex-wrap gap-sm border-bottom pb-sm mb-md align-center">
+        <div className="flex align-center flex-wrap gap-sm">
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--color-content-tertiary)' }}>#{seq}</span>
           {pub.tipoComunicacao && (
             <span className="badge">{pub.tipoComunicacao}</span>
           )}
           <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>{dateStr}</small>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+        <div role="group" aria-label="Ações de navegação" style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
           {onNavigate && (
             <>
               <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />

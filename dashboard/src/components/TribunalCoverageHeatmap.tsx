@@ -106,8 +106,9 @@ export function TribunalCoverageHeatmap() {
     <article>
       {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div>
-        <table>
-          <thead>
+        <div className="table-responsive">
+          <table>
+            <thead>
             <tr>
               <th>Date</th>
               <th>ZIPs Collected</th>
@@ -155,8 +156,9 @@ export function TribunalCoverageHeatmap() {
                 <td colSpan={5}>No data available in catalog.</td>
               </tr>
             )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
     </article>
   );

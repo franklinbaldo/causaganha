@@ -245,7 +245,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
               <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{itemFileCount} arquivos</span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+          <div role="group" aria-label="Ações do arquivo" style={{ display: 'flex', gap: 'var(--space-xs)' }}>
             <DateShareButton dateStr={dateStr} />
             <a href={zipUrl} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Baixar ZIP</a>
             <a href={`https://archive.org/details/${itemId}`} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Ver no IA</a>
@@ -265,8 +265,8 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
         </div>
       </article>
 
-      {loading && <article>Carregando publicações...</article>}
-      {error && <article className="text-danger">Erro: {error}</article>}
+      {loading && <article aria-busy="true" className="text-center text-muted">Carregando publicações...</article>}
+      {error && <article className="text-danger text-center">Erro: {error}</article>}
 
       {/* Publications list */}
       {publications.length> 0 && !featuredPub && (
@@ -284,8 +284,8 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
-          <button onClick={handleLoadMore} disabled={loadingMore} className="secondary">
+        <div className="text-center mt-xl">
+          <button onClick={handleLoadMore} disabled={loadingMore} className="secondary" aria-busy={loadingMore}>
             {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
@@ -298,7 +298,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {!loading && publications.length === 0 && !error && (
-        <article>Nenhuma publicação encontrada.</article>
+        <article className="text-center text-muted">Nenhuma publicação encontrada.</article>
       )}
     </div>
   );

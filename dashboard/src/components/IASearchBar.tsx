@@ -121,8 +121,9 @@ export function IASearchBar() {
 
       {results.length> 0 && (
         <div>
-          <table>
-            <thead>
+          <div className="table-responsive">
+            <table>
+              <thead>
               <tr>
                 <th>Tribunal</th>
                 <th>Ano</th>
@@ -150,8 +151,9 @@ export function IASearchBar() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
           <small>{results.length} resultados</small>
         </div>
       )}
