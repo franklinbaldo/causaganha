@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
+import Header from '../components/Header.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { processCoverageOverview, processCourtReliability, processWeeklyPattern } from '../lib/stats-processing';
 
 let data = {};
@@ -94,7 +95,8 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
     }
   </style>
 
-  <PageHeader
+  <Header
+    variant="page"
     title="Estatísticas de Coleta"
     subtitle="Análise de cobertura histórica e confiabilidade"
     backHref={base}
@@ -102,6 +104,10 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
   />
 
   <div class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: base },
+      { label: 'Estatísticas' }
+    ]} />
 
     <!-- Coverage Overview -->
     <article style="margin-bottom: var(--space-xl);">

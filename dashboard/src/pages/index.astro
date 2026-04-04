@@ -6,7 +6,7 @@ import DownloadIcon from '../components/icons/DownloadIcon.astro';
 import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
 import ChartIcon from '../components/icons/ChartIcon.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
-import { ThemeToggle } from '../components/ThemeToggle';
+import Header from '../components/Header.astro';
 import { readJson } from '../lib/readJson';
 import { formatNumber } from '../lib/homepage-content';
 
@@ -143,18 +143,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </style>
 
   <!-- Navigation -->
-  <nav class="container" style="padding-top: var(--space-md); padding-bottom: var(--space-xs);">
-    <ul>
-      <li><strong style="font-weight: 800; font-size: var(--font-size-md); letter-spacing: -0.02em;">CausaGanha</strong></li>
-    </ul>
-    <ul>
-      <li><a href="#como-funciona">Como Funciona</a></li>
-      <li><a href="#dados">Dados</a></li>
-      <li><a href="#para-quem">Para Quem</a></li>
-      <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
-      <li><ThemeToggle client:load /></li>
-    </ul>
-  </nav>
+  <Header variant="home" />
 
   <!-- Hero -->
   <header class="hero">

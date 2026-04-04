@@ -1,0 +1,71 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<Layout
+  title="Sobre o Projeto - CausaGanha"
+  description="Entenda a metodologia, as fontes de dados e a licença do projeto CausaGanha."
+>
+  <Header variant="page" title="Sobre o Projeto" backHref={BASE} backLabel="Início">
+    <a slot="nav" href={BASE + 'publicacoes'}>Publicações</a>
+  </Header>
+
+  <main class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Sobre o Projeto' }
+    ]} />
+
+    <section style="margin-top: var(--space-xl); margin-bottom: var(--space-2xl);">
+      <article>
+        <h2>O Projeto</h2>
+        <p>
+          O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
+        </p>
+      </article>
+
+      <article style="margin-top: var(--space-xl);">
+        <h2>Metodologia</h2>
+        <p>
+          O sistema opera através de um pipeline automatizado que utiliza o GitHub Actions. A cada 20 minutos, robôs consultam as plataformas oficiais para capturar novos dados. Esses dados são validados, formatados e em seguida enviados para o Internet Archive, assegurando que o histórico de publicações nunca se perca, mesmo que os sistemas de origem fiquem indisponíveis.
+        </p>
+      </article>
+
+      <article style="margin-top: var(--space-xl);">
+        <h2>Fontes de Dados</h2>
+        <p>
+          Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
+        </p>
+        <p>
+          Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
+        </p>
+      </article>
+
+      <article style="margin-top: var(--space-xl);">
+        <h2>Acesso aos Dados</h2>
+        <p>
+          Todos os dados coletados são disponibilizados de maneira estruturada:
+        </p>
+        <ul>
+          <li><strong>Zips Originais:</strong> Arquivados no Internet Archive (prefixo <code>djen-YYYY-MM-DD</code>).</li>
+          <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
+          <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
+        </ul>
+      </article>
+
+      <article style="margin-top: var(--space-xl);">
+        <h2>Licença</h2>
+        <p>
+          O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os dados armazenados são de domínio público. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <Footer />
+</Layout>

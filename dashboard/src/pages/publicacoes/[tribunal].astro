@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
+import Header from '../../components/Header.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import { TribunalDetail } from '../../components/TribunalDetail';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { deriveData } from '../../lib/fetchData';
@@ -78,12 +79,18 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
   description={ogDesc}
   ogImage={ogImage}
 >
-  <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" title="">
+  <Header variant="page" backHref={BASE + 'publicacoes'} backLabel="Publicações" title="">
     <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
     <a slot="nav" href={BASE + 'publicacoes'}>Publicações</a>
-  </PageHeader>
+  </Header>
 
   <main class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Publicações', href: BASE + 'publicacoes' },
+      { label: tribunalCode }
+    ]} />
+
     <TribunalDetail
       client:idle
       tribunalCode={tribunalCode}

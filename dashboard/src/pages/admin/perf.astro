@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
+import Header from '../../components/Header.astro';
 import { PerfDashboard } from '../../components/PerfDashboard';
 import { TribunalCoverageHeatmap } from '../../components/TribunalCoverageHeatmap';
 import { readJson } from '../../lib/readJson';
@@ -13,7 +13,8 @@ const qualityScores = readJson('tribunal_quality_scores.json');
   title="CausaGanha - Performance Dashboard"
   description="System health and performance metrics for the CausaGanha backfill pipeline."
 >
-  <PageHeader
+  <Header
+    variant="page"
     title="Performance Monitoring"
     subtitle="System latency, upload success rates, and tribunal data quality scores"
   />

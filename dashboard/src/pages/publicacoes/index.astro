@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
+import Header from '../../components/Header.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
 import { deriveData } from '../../lib/fetchData';
 import { TribunalView } from '../../components/TribunalView';
@@ -32,15 +33,20 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   title="CausaGanha — Publicações"
   description="Publicações judiciais brasileiras arquivadas no Internet Archive."
 >
-  <PageHeader title="CausaGanha">
+  <Header variant="page" title="CausaGanha">
     <DatabaseIcon slot="icon" />
     <p slot="subtitle" class="text-muted" style="font-size: var(--font-size-sm); margin: 0;">
       {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
     </p>
     <a slot="nav" href={BASE} style="font-size: var(--font-size-sm);">Início</a>
-  </PageHeader>
+  </Header>
 
   <div class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Publicações' }
+    ]} />
+
     <IASearchBar client:idle />
 
     <TribunalView

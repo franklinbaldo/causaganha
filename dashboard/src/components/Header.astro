@@ -1,0 +1,112 @@
+---
+import { ThemeToggle } from './ThemeToggle';
+
+interface Props {
+  variant: 'home' | 'page';
+  title?: string;
+  subtitle?: string;
+  backHref?: string;
+  backLabel?: string;
+}
+
+const {
+  variant,
+  title,
+  subtitle,
+  backHref = import.meta.env.BASE_URL,
+  backLabel = 'Back',
+} = Astro.props;
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const hasIconSlot = Astro.slots.has('icon');
+---
+
+<style>
+  /* Base Header Styles */
+  .header-base {
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-xs);
+  }
+
+  /* Page Variant Specific */
+  .header-page {
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--color-border-muted);
+    margin-bottom: var(--space-lg);
+  }
+  .header-page nav ul {
+    margin: 0;
+  }
+  .header-page hgroup h1 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: 0;
+  }
+  .header-page hgroup p {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-tertiary);
+    margin: 0;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-content-tertiary);
+  }
+  .back-link:hover {
+    color: var(--color-content);
+  }
+
+  /* Shared Brand */
+  .brand-strong {
+    font-weight: 800;
+    font-size: var(--font-size-md);
+    letter-spacing: -0.02em;
+    color: var(--color-content);
+    text-decoration: none;
+  }
+</style>
+
+{variant === 'home' ? (
+  <nav class="container header-base">
+    <ul>
+      <li><a href={BASE} class="brand-strong">CausaGanha</a></li>
+    </ul>
+    <ul>
+      <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+      <li><a href={BASE + '#dados'}>Dados</a></li>
+      <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+      <li><a href={BASE + 'sobre'}>Sobre</a></li>
+      <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
+      <li><ThemeToggle client:load /></li>
+    </ul>
+  </nav>
+) : (
+  <header class="container header-page">
+    <nav>
+      <ul>
+        <li>
+          {hasIconSlot ? (
+            <slot name="icon" />
+          ) : (
+            <a href={backHref} aria-label={backLabel} class="back-link">
+              <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </a>
+          )}
+        </li>
+        <li>
+          <hgroup>
+            <h1><slot name="title">{title}</slot></h1>
+            {subtitle && <p>{subtitle}</p>}
+            <slot name="subtitle" />
+          </hgroup>
+        </li>
+      </ul>
+      <ul>
+        <li><slot name="nav" /></li>
+        <li><a href={BASE + 'sobre'}>Sobre</a></li>
+        <li><ThemeToggle client:load /></li>
+      </ul>
+    </nav>
+  </header>
+)}
