@@ -63,6 +63,32 @@ const hasIconSlot = Astro.slots.has('icon');
     color: var(--color-content);
     text-decoration: none;
   }
+
+  /* Mobile Nav */
+  .mobile-nav {
+    display: none;
+  }
+  .desktop-nav {
+    display: flex;
+  }
+  @media (max-width: 768px) {
+    .mobile-nav {
+      display: block;
+    }
+    .desktop-nav {
+      display: none;
+    }
+    .mobile-nav summary {
+      padding: 0.5rem;
+    }
+    .mobile-nav summary::after {
+      display: none;
+    }
+    .mobile-nav ul[dir="rtl"] {
+      right: 0;
+      left: auto;
+    }
+  }
 </style>
 
 {variant === 'home' ? (
@@ -70,13 +96,34 @@ const hasIconSlot = Astro.slots.has('icon');
     <ul>
       <li><a href={BASE} class="brand-strong">CausaGanha</a></li>
     </ul>
-    <ul>
+    <ul class="desktop-nav">
       <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
       <li><a href={BASE + '#dados'}>Dados</a></li>
       <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
       <li><a href={BASE + 'sobre'}>Sobre</a></li>
       <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
       <li><ThemeToggle client:load /></li>
+    </ul>
+    <ul class="mobile-nav">
+      <li><ThemeToggle client:load /></li>
+      <li>
+        <details class="dropdown">
+          <summary aria-label="Menu">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </summary>
+          <ul dir="rtl">
+            <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+            <li><a href={BASE + '#dados'}>Dados</a></li>
+            <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+            <li><a href={BASE + 'sobre'}>Sobre</a></li>
+            <li><a href={BASE + 'publicacoes'}>Publicações</a></li>
+          </ul>
+        </details>
+      </li>
     </ul>
   </nav>
 ) : (
@@ -103,9 +150,25 @@ const hasIconSlot = Astro.slots.has('icon');
         </li>
       </ul>
       <ul>
-        <li><slot name="nav" /></li>
-        <li><a href={BASE + 'sobre'}>Sobre</a></li>
-        <li><ThemeToggle client:load /></li>
+        <li class="desktop-nav"><slot name="nav" /></li>
+        <li class="desktop-nav"><a href={BASE + 'sobre'}>Sobre</a></li>
+        <li class="desktop-nav"><ThemeToggle client:load /></li>
+        <li class="mobile-nav"><ThemeToggle client:load /></li>
+        <li class="mobile-nav">
+          <details class="dropdown">
+            <summary aria-label="Menu">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </summary>
+            <ul dir="rtl">
+              <li><slot name="nav" /></li>
+              <li><a href={BASE + 'sobre'}>Sobre</a></li>
+            </ul>
+          </details>
+        </li>
       </ul>
     </nav>
   </header>

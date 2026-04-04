@@ -29,7 +29,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
   }
 
   return (
-    <div aria-label="Velocity Timeline">
+    <div aria-label="Velocidade de Coleta nas Últimas 12 Semanas">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
         <div>
           <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocidade de Coleta</h4>
@@ -52,7 +52,8 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
               key={`w-${idx}`}
               role="listitem"
               style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end', group: 'hover' }}
-              title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}>
+              title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}
+              aria-label={`${week.collected} dias coletados na semana ${12 - week.weekOffset}`}>
               <div
                 className={getBarColor(week.collected)} style={{ width: '100%', height: `${heightPct}%`, borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'opacity 0.2s' }}></div>
             </div>
@@ -156,7 +157,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     const status = getCellStatus(dateStr);
     const base = CELL_STATUS_COLORS[status];
     const isFocused = focusedCell === dateStr;
-    return isFocused ? `${base} heatmap-focused` : base;
+    return isFocused ? `${base} heatmap-focused heatmap-cell` : `${base} heatmap-cell`;
   };
 
   const getAriaLabel = (dateStr: string | null): string => {
@@ -262,10 +263,8 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                       key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
                       id={day ? `cell-${day}` : undefined}
                       role="gridcell"
-                      className={getCellColor(day) || undefined}
+                      className={getCellColor(day) || "heatmap-cell-empty"}
                       style={{
-                        width: '14px',
-                        height: '14px',
                         borderRadius: '2px',
                         cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
                         backgroundColor: !day ? 'transparent' : undefined // Fallback for null days

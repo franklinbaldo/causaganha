@@ -34,18 +34,21 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       gap: var(--space-md);
       text-align: center;
     }
-    .coverage-grid .stat-item {
+    .coverage-grid figure {
+      margin: 0;
       padding: var(--space-md) 0;
+    }
+    .coverage-grid figcaption {
+      font-size: var(--font-size-xs);
+      font-weight: 500;
+      color: var(--color-content-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.5rem;
     }
     .coverage-grid small {
       display: block;
       margin-top: var(--space-xs);
-    }
-
-    .ranking-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-md);
     }
 
     table td {
@@ -70,13 +73,11 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       gap: var(--space-sm);
       text-align: center;
     }
-    .day-card {
+    .weekly-grid article {
       padding: var(--space-md) var(--space-sm);
-      border-radius: var(--pico-border-radius);
-      background: var(--color-surface);
-      border: 1px solid var(--color-border-muted);
+      margin-bottom: 0;
     }
-    .day-card .stat-value {
+    .weekly-grid .stat-value {
       font-size: var(--font-size-xl);
       margin: var(--space-xs) 0;
     }
@@ -90,7 +91,6 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
 
     @media (max-width: 768px) {
       .coverage-grid { grid-template-columns: 1fr; }
-      .ranking-grid { grid-template-columns: 1fr; }
       .weekly-grid { grid-template-columns: repeat(4, 1fr); }
     }
   </style>
@@ -110,34 +110,34 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
     ]} />
 
     <!-- Coverage Overview -->
-    <article style="margin-bottom: var(--space-xl);">
-      <header style="border-bottom: 1px solid var(--color-border-muted); padding-bottom: var(--space-sm);">
+    <article class="mb-xl">
+      <header class="pb-sm border-bottom">
         <strong>Resumo de Cobertura</strong>
         <small class="text-muted" style="float: right;">Últimos 30 dias</small>
       </header>
-      <div class="coverage-grid" style="margin-top: var(--space-md);">
-        <div class="stat-item">
+      <div class="coverage-grid pt-md">
+        <figure>
           <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small style="font-size: 0.5em; font-weight: 500;">%</small></div>
-          <p class="stat-label">Média de Coleta</p>
+          <figcaption>Média de Coleta</figcaption>
           <small class="text-muted">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
-        </div>
-        <div class="stat-item">
+        </figure>
+        <figure>
           <div class="stat-value text-success">{bestCount}<small style="font-size: 0.5em; font-weight: 400; color: var(--color-content-tertiary);"> / 91</small></div>
-          <p class="stat-label">Melhor Dia</p>
+          <figcaption>Melhor Dia</figcaption>
           <small class="text-muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
-        </div>
-        <div class="stat-item">
+        </figure>
+        <figure>
           <div class="stat-value text-danger">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.5em; font-weight: 400; color: var(--color-content-tertiary);"> / 91</small></div>
-          <p class="stat-label">Pior Dia</p>
+          <figcaption>Pior Dia</figcaption>
           <small class="text-muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
-        </div>
+        </figure>
       </div>
     </article>
 
     <!-- Court Rankings -->
-    <div class="ranking-grid" style="margin-bottom: var(--space-xl);">
+    <div class="grid mb-xl">
       <article>
-        <header style="border-bottom: 1px solid var(--color-border-muted); padding-bottom: var(--space-sm);">
+        <header class="pb-sm border-bottom">
           <strong>Top 5 Mais Confiáveis</strong>
         </header>
         {top5.length > 0 ? (
@@ -147,18 +147,18 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
                 <tr>
                   <td><span class="rank-num">{i + 1}</span></td>
                   <td><strong>{c.court}</strong></td>
-                  <td class="text-success" style="text-align: right;"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  <td class="text-success text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p style="text-align: center;" class="text-muted">Sem dados suficientes</p>
+          <p class="text-center text-muted">Sem dados suficientes</p>
         )}
       </article>
 
       <article>
-        <header style="border-bottom: 1px solid var(--color-border-muted); padding-bottom: var(--space-sm);">
+        <header class="pb-sm border-bottom">
           <strong>Top 5 Mais Falhas</strong>
         </header>
         {bottom5.length > 0 ? (
@@ -168,23 +168,23 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
                 <tr>
                   <td><span class="rank-num">{i + 1}</span></td>
                   <td><strong>{c.court}</strong></td>
-                  <td class="text-danger" style="text-align: right;"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  <td class="text-danger text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p style="text-align: center;" class="text-muted">Sem dados suficientes</p>
+          <p class="text-center text-muted">Sem dados suficientes</p>
         )}
       </article>
     </div>
 
     <!-- Weekly Pattern -->
     <article style="margin-bottom: var(--space-2xl);">
-      <header style="border-bottom: 1px solid var(--color-border-muted); padding-bottom: var(--space-sm); margin-bottom: var(--space-md);">
+      <header class="pb-sm border-bottom mb-md">
         <hgroup>
-          <h3 style="margin-bottom: 0;">Padrão Semanal</h3>
-          <p style="margin: 0; font-size: var(--font-size-sm);">Média de cobertura por dia da semana</p>
+          <h3 class="mb-0">Padrão Semanal</h3>
+          <p class="mb-0" style="font-size: var(--font-size-sm);">Média de cobertura por dia da semana</p>
         </hgroup>
       </header>
       <div class="weekly-grid">
@@ -192,7 +192,7 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
           if (!w) return null;
           const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
           return (
-            <div class="day-card">
+            <article>
               <span class="day-name">{w.name.slice(0, 3)}</span>
               <div class={`stat-value ${isLowest ? 'text-danger' : ''}`}>
                 {w.avgPct.toFixed(0)}%
@@ -201,7 +201,7 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
               {isLowest && (
                 <div style="margin-top: var(--space-xs);"><span class="badge badge-danger">Menor</span></div>
               )}
-            </div>
+            </article>
           );
         })}
       </div>
