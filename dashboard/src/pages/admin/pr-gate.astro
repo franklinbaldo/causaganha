@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
+import Header from '../../components/Header.astro';
 import { PRGateExplainer } from '../../components/PRGateExplainer';
 ---
 
@@ -8,7 +8,8 @@ import { PRGateExplainer } from '../../components/PRGateExplainer';
   title="CausaGanha - PR Readiness Gate"
   description="Compact PR readiness gate explainer for CausaGanha."
 >
-  <PageHeader
+  <Header
+    variant="page"
     title="PR Readiness Gate"
     subtitle="Explain why a PR is or is not ready to merge"
   />
