@@ -10,9 +10,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   title="Sobre o Projeto - CausaGanha"
   description="Entenda a metodologia, as fontes de dados e a licença do projeto CausaGanha."
 >
-  <Header variant="page" title="Sobre o Projeto" backHref={BASE} backLabel="Início">
-    <a slot="nav" href={BASE + 'publicacoes'}>Publicações</a>
-  </Header>
+  <Header variant="page" title="Sobre o Projeto" backHref={BASE} backLabel="Início" />
 
   <main class="container">
     <Breadcrumbs crumbs={[

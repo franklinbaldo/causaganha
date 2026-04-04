@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CausaGanha - Encontre o Advogado Certo para Sua Causa</title>
-    <meta name="description" content="Descubra os melhores advogados do Brasil baseado em resultados reais de processos judiciais. Ratings transparentes. Decisoes inteligentes.">
-    <meta name="keywords" content="advogado, rating advogado, encontrar advogado, melhor advogado, processo judicial, juridico, brasil">
+    <meta name="description" content="Descubra os melhores advogados do Brasil baseado em resultados reais de processos judiciais. Ratings transparentes. Decisões inteligentes.">
+    <meta name="keywords" content="advogado, rating advogado, encontrar advogado, melhor advogado, processo judicial, jurídico, brasil">
 
     <!-- Open Graph -->
     <meta property="og:title" content="CausaGanha - Encontre o Advogado Certo">
@@ -19,8 +19,7 @@
     <meta name="twitter:title" content="CausaGanha - Encontre o Advogado Certo">
     <meta name="twitter:description" content="Ratings de advogados baseados em resultados reais de processos judiciais.">
 
-    <!-- Google Analytics 4 -->
-    <!-- Replace G-XXXXXXXXXX with your actual GA4 Measurement ID -->
+    <!-- Google Analytics 4 — uncomment and replace with your actual GA4 Measurement ID
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -28,6 +27,7 @@
         gtag('js', new Date());
         gtag('config', 'G-XXXXXXXXXX');
     </script>
+    -->
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -84,7 +84,24 @@
                     <a href="#como-funciona" class="text-gray-600 hover:text-primary transition">Como Funciona</a>
                     <a href="#para-quem" class="text-gray-600 hover:text-primary transition">Para Quem</a>
                     <a href="#pricing" class="text-gray-600 hover:text-primary transition">Apoie</a>
+                    <a href="https://franklinbaldo.github.io/causaganha/publicacoes" class="text-gray-600 hover:text-primary transition">Dashboard</a>
                     <a href="#waitlist" class="bg-primary text-white px-6 py-2 rounded-full hover:bg-blue-800 transition">Lista de Espera</a>
+                </div>
+                <!-- Mobile hamburger -->
+                <button id="mobile-menu-btn" class="md:hidden p-2 text-gray-600 hover:text-primary transition" aria-label="Abrir menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+            <!-- Mobile menu -->
+            <div id="mobile-menu" class="hidden md:hidden pb-4 border-t border-gray-100">
+                <div class="flex flex-col space-y-3 pt-4">
+                    <a href="#como-funciona" class="text-gray-600 hover:text-primary transition px-2">Como Funciona</a>
+                    <a href="#para-quem" class="text-gray-600 hover:text-primary transition px-2">Para Quem</a>
+                    <a href="#pricing" class="text-gray-600 hover:text-primary transition px-2">Apoie</a>
+                    <a href="https://franklinbaldo.github.io/causaganha/publicacoes" class="text-gray-600 hover:text-primary transition px-2">Dashboard</a>
+                    <a href="#waitlist" class="bg-primary text-white px-6 py-2 rounded-full hover:bg-blue-800 transition text-center">Lista de Espera</a>
                 </div>
             </div>
         </div>
@@ -96,13 +113,13 @@
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div class="text-white">
                     <div class="inline-block px-4 py-2 bg-white/10 rounded-full text-sm mb-6">
-                        Baseado em dados reais do Poder Judiciario
+                        Baseado em dados reais do Poder Judiciário
                     </div>
                     <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
                         Encontre o Advogado <span class="text-accent">Certo</span> para Sua Causa
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 leading-relaxed">
-                        Elimine a incerteza. Descubra os advogados com melhores resultados em casos similares ao seu, baseado em <strong>milhoes de decisoes judiciais reais</strong>.
+                        Elimine a incerteza. Descubra os advogados com melhores resultados em casos similares ao seu, baseado em <strong>milhões de decisões judiciais reais</strong>.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
                         <a href="#waitlist" class="bg-accent text-gray-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-yellow-400 transition text-center">
@@ -166,11 +183,11 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
                 <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
                     <div class="text-4xl md:text-5xl font-extrabold text-primary mb-2">10M+</div>
-                    <div class="text-gray-600">Decisoes Analisadas</div>
+                    <div class="text-gray-600">Decisões Analisadas</div>
                 </div>
                 <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
                     <div class="text-4xl md:text-5xl font-extrabold text-primary mb-2">500K+</div>
-                    <div class="text-gray-600">Advogados Ranqueados</div>
+                    <div class="text-gray-600">Advogados Avaliados</div>
                 </div>
                 <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
                     <div class="text-4xl md:text-5xl font-extrabold text-primary mb-2">27</div>
@@ -178,7 +195,7 @@
                 </div>
                 <div class="stat-card text-center p-6 rounded-xl transition-all duration-300">
                     <div class="text-4xl md:text-5xl font-extrabold text-primary mb-2">100%</div>
-                    <div class="text-gray-600">Dados Publicos</div>
+                    <div class="text-gray-600">Dados Públicos</div>
                 </div>
             </div>
         </div>
@@ -190,7 +207,7 @@
             <div class="text-center mb-16">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Como Funciona</h2>
                 <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-                    Usamos dados publicos do Diario de Justica Eletronico Nacional (DJEN) para calcular ratings objetivos de desempenho
+                    Usamos dados públicos do Diário de Justiça Eletrônico Nacional (DJEN) para calcular ratings objetivos de desempenho
                 </p>
             </div>
             <div class="grid md:grid-cols-3 gap-8">
@@ -202,7 +219,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">1. Coletamos Dados</h3>
                     <p class="text-gray-600">
-                        Extraimos milhoes de intimacoes e decisoes dos Diarios de Justica de todos os tribunais do Brasil diariamente.
+                        Extraímos milhões de intimações e decisões dos Diários de Justiça de todos os tribunais do Brasil diariamente.
                     </p>
                 </div>
                 <div class="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
@@ -213,7 +230,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">2. Analisamos Resultados</h3>
                     <p class="text-gray-600">
-                        Classificamos cada comunicacao para determinar vitorias, derrotas e outros desfechos, associando ao advogado responsavel.
+                        Classificamos cada comunicação para determinar vitórias, derrotas e outros desfechos, associando ao advogado responsável.
                     </p>
                 </div>
                 <div class="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition">
@@ -224,7 +241,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">3. Geramos Ratings</h3>
                     <p class="text-gray-600">
-                        Utilizamos o algoritmo OpenSkill para gerar ratings justos que consideram a dificuldade de cada caso e o historico do advogado.
+                        Utilizamos o algoritmo OpenSkill para gerar ratings justos que consideram a dificuldade de cada caso e o histórico do advogado.
                     </p>
                 </div>
             </div>
@@ -236,36 +253,36 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Para Quem?</h2>
-                <p class="text-xl text-gray-600">Transparencia para todos os lados do ecossistema juridico</p>
+                <p class="text-xl text-gray-600">Transparência para todos os lados do ecossistema jurídico</p>
             </div>
             <div class="grid md:grid-cols-3 gap-8">
                 <div class="border-2 border-gray-200 p-8 rounded-2xl hover:border-primary transition">
                     <div class="text-4xl mb-4">&#129489;&#8205;&#9878;&#65039;</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-3">Pessoas Fisicas</h3>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Pessoas Físicas</h3>
                     <p class="text-gray-600 mb-4">
-                        Encontre o advogado certo para seu caso com base em resultados comprovados, nao apenas marketing.
+                        Encontre o advogado certo para seu caso com base em resultados comprovados, não apenas marketing.
                     </p>
                     <ul class="text-sm text-gray-500 space-y-2">
                         <li>&#10003; Compare advogados objetivamente</li>
-                        <li>&#10003; Veja historico de casos similares</li>
-                        <li>&#10003; Tome decisoes informadas</li>
+                        <li>&#10003; Veja histórico de casos similares</li>
+                        <li>&#10003; Tome decisões informadas</li>
                     </ul>
                 </div>
                 <div class="border-2 border-gray-200 p-8 rounded-2xl hover:border-primary transition">
                     <div class="text-4xl mb-4">&#127970;</div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Empresas</h3>
                     <p class="text-gray-600 mb-4">
-                        Gerencie seu portfolio de escritorios de advocacia com dados concretos sobre performance.
+                        Gerencie seu portfólio de escritórios de advocacia com dados concretos sobre performance.
                     </p>
                     <ul class="text-sm text-gray-500 space-y-2">
-                        <li>&#10003; Due diligence automatizada</li>
+                        <li>&#10003; <em>Due diligence</em> automatizada</li>
                         <li>&#10003; Monitoramento de performance</li>
-                        <li>&#10003; Reducao de custos juridicos</li>
+                        <li>&#10003; Redução de custos jurídicos</li>
                     </ul>
                 </div>
                 <div class="border-2 border-gray-200 p-8 rounded-2xl hover:border-primary transition">
                     <div class="text-4xl mb-4">&#9878;&#65039;</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-3">Escritorios de Advocacia</h3>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Escritórios de Advocacia</h3>
                     <p class="text-gray-600 mb-4">
                         Destaque-se no mercado com seus resultados reais e atraia clientes qualificados.
                     </p>
@@ -284,18 +301,18 @@
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
                 <div class="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium mb-4">
-                    100% Gratuito
+                    100% Gratuito e Aberto
                 </div>
-                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Gratis Para Sempre</h2>
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Grátis Para Sempre</h2>
                 <p class="text-xl text-gray-600">
-                    Acreditamos que transparencia no mercado juridico deve ser acessivel a todos.
-                    <br>O CausaGanha e e sempre sera gratuito.
+                    Acreditamos que transparência no mercado jurídico deve ser acessível a todos.
+                    <br>O CausaGanha é e sempre será gratuito.
                 </p>
             </div>
 
             <!-- What's Included -->
             <div class="bg-white p-8 rounded-2xl shadow-lg mb-12">
-                <h3 class="text-xl font-bold text-gray-900 mb-6 text-center">Tudo Incluido, Sem Limites</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-6 text-center">Tudo Incluído, Sem Limites</h3>
                 <div class="grid md:grid-cols-2 gap-4">
                     <div class="flex items-center">
                         <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -307,11 +324,11 @@
                     </div>
                     <div class="flex items-center">
                         <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        <span>Historico de processos</span>
+                        <span>Histórico de processos</span>
                     </div>
                     <div class="flex items-center">
                         <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        <span>Comparacao entre advogados</span>
+                        <span>Comparação entre advogados</span>
                     </div>
                     <div class="flex items-center">
                         <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -319,7 +336,7 @@
                     </div>
                     <div class="flex items-center">
                         <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        <span>Sem cadastro obrigatorio</span>
+                        <span>Sem cadastro obrigatório</span>
                     </div>
                 </div>
             </div>
@@ -327,10 +344,10 @@
             <!-- Support Us -->
             <div class="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 p-8 rounded-2xl text-center">
                 <div class="text-4xl mb-4">&#9749;</div>
-                <h3 class="text-xl font-bold text-gray-900 mb-3">Gostou? Pague um Cafe!</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Gostou? Pague um Café!</h3>
                 <p class="text-gray-600 mb-6 max-w-lg mx-auto">
-                    O CausaGanha e mantido de forma independente. Se o servico te ajudou,
-                    considere apoiar o projeto com uma contribuicao voluntaria via PIX.
+                    O CausaGanha é mantido de forma independente. Se o serviço te ajudou,
+                    considere apoiar o projeto com uma contribuição voluntária via PIX.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                     <button onclick="showPixModal()" class="bg-amber-500 text-white px-8 py-3 rounded-full font-bold hover:bg-amber-600 transition flex items-center">
@@ -376,6 +393,18 @@
     </div>
 
     <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+            var menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('#mobile-menu a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.getElementById('mobile-menu').classList.add('hidden');
+            });
+        });
+
         function showPixModal() {
             document.getElementById('pix-modal').classList.remove('hidden');
         }
@@ -403,7 +432,7 @@
                 Entre na Lista de Espera
             </h2>
             <p class="text-xl text-blue-100 mb-8">
-                Seja um dos primeiros a ter acesso ao CausaGanha. Vagas limitadas para a versao beta.
+                Seja um dos primeiros a ter acesso ao CausaGanha. Vagas limitadas para a versão beta.
             </p>
             <form id="waitlist-form" class="max-w-md mx-auto">
                 <div class="flex flex-col sm:flex-row gap-4">
@@ -422,12 +451,12 @@
                     </button>
                 </div>
                 <p class="text-sm text-blue-200 mt-4">
-                    Sem spam. Avisaremos quando sua vaga estiver disponivel.
+                    Sem spam. Avisaremos quando sua vaga estiver disponível.
                 </p>
             </form>
             <div id="waitlist-success" class="hidden mt-8 p-6 bg-white/10 rounded-xl">
                 <div class="text-2xl mb-2">&#127881;</div>
-                <h3 class="text-xl font-bold text-white">Voce esta na lista!</h3>
+                <h3 class="text-xl font-bold text-white">Você está na lista!</h3>
                 <p class="text-blue-100">Entraremos em contato em breve.</p>
             </div>
         </div>
@@ -439,20 +468,20 @@
             <h2 class="text-3xl font-bold text-gray-900 text-center mb-12">Perguntas Frequentes</h2>
             <div class="space-y-6">
                 <div class="border-b border-gray-200 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">De onde vem os dados?</h3>
-                    <p class="text-gray-600">Todos os dados sao extraidos do Diario de Justica Eletronico Nacional (DJEN), que e um registro publico de todas as comunicacoes judiciais do Brasil. Nao usamos dados privados ou sigilosos.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">De onde vêm os dados?</h3>
+                    <p class="text-gray-600">Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Não usamos dados privados ou sigilosos.</p>
                 </div>
                 <div class="border-b border-gray-200 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Como o rating e calculado?</h3>
-                    <p class="text-gray-600">Usamos o algoritmo OpenSkill, similar ao sistema Elo do xadrez. O rating considera vitorias, derrotas, e a dificuldade de cada caso baseado no historico da parte contraria e do juiz.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Como o rating é calculado?</h3>
+                    <p class="text-gray-600">Usamos o algoritmo OpenSkill, similar ao sistema Elo do xadrez. O rating considera vitórias, derrotas, e a dificuldade de cada caso baseado no histórico da parte contrária e do juiz.</p>
                 </div>
                 <div class="border-b border-gray-200 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Posso contestar meu rating?</h3>
-                    <p class="text-gray-600">Sim! Advogados podem criar uma conta gratuita para verificar seu perfil e contestar erros de classificacao. Nosso sistema esta em constante aperfeicoamento.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Posso contestar o meu rating?</h3>
+                    <p class="text-gray-600">Sim! Advogados podem criar uma conta gratuita para verificar seu perfil e contestar erros de classificação. Nosso sistema está em constante aperfeiçoamento.</p>
                 </div>
                 <div class="border-b border-gray-200 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">O servico e legal?</h3>
-                    <p class="text-gray-600">Absolutamente. Trabalhamos apenas com dados publicos conforme a Lei de Acesso a Informacao (Lei 12.527/2011) e a LGPD. A OAB foi consultada sobre a legalidade do servico.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">O serviço é legal?</h3>
+                    <p class="text-gray-600">Absolutamente. Trabalhamos apenas com dados públicos conforme a Lei de Acesso à Informação (Lei 12.527/2011) e a LGPD. A OAB foi consultada sobre a legalidade do serviço.</p>
                 </div>
             </div>
         </div>
@@ -468,7 +497,7 @@
                         <span class="text-2xl font-bold text-accent">Ganha</span>
                     </div>
                     <p class="text-gray-400 mb-4">
-                        Transformando dados judiciais publicos em inteligencia para melhores decisoes juridicas.
+                        Transformando dados judiciais públicos em inteligência para melhores decisões jurídicas.
                     </p>
                     <p class="text-sm">
                         &copy; 2026 CausaGanha. Todos os direitos reservados.
@@ -478,18 +507,16 @@
                     <h4 class="text-white font-semibold mb-4">Produto</h4>
                     <ul class="space-y-2 text-sm">
                         <li><a href="#como-funciona" class="hover:text-white transition">Como Funciona</a></li>
-                        <li><a href="#pricing" class="hover:text-white transition">Precos</a></li>
-                        <li><a href="#" class="hover:text-white transition">API</a></li>
+                        <li><a href="#pricing" class="hover:text-white transition">Preços</a></li>
+                        <li><a href="https://franklinbaldo.github.io/causaganha/publicacoes" class="hover:text-white transition">Dashboard</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="text-white font-semibold mb-4">Empresa</h4>
+                    <h4 class="text-white font-semibold mb-4">Projeto</h4>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="#" class="hover:text-white transition">Sobre</a></li>
-                        <li><a href="#" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="https://franklinbaldo.github.io/causaganha/sobre" class="hover:text-white transition">Sobre</a></li>
+                        <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a></li>
                         <li><a href="mailto:contato@causaganha.com.br" class="hover:text-white transition">Contato</a></li>
-                        <li><a href="#" class="hover:text-white transition">Termos de Uso</a></li>
-                        <li><a href="#" class="hover:text-white transition">Privacidade</a></li>
                     </ul>
                 </div>
             </div>
