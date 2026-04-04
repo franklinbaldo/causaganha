@@ -241,7 +241,14 @@ async def generate_snapshot(years: list[int]) -> dict:
     # Compute summary
     total_zips = sum(item["zip_count"] for item in items.values())
     total_size = sum(item["total_size_bytes"] for item in items.values())
+    total_parquets = sum(len(item.get("parquet_files", [])) for item in items.values())
+    total_parquet_size = sum(
+        pq["size"] for item in items.values() for pq in item.get("parquet_files", [])
+    )
     tribunals_with_data = len({item["tribunal"] for item in items.values()})
+    consolidated_items = sum(
+        1 for item in items.values() if item.get("parquet_files")
+    )
     all_dates = [d for item in items.values() for d in item["dates"]]
     latest_date = max(all_dates) if all_dates else None
 
@@ -268,6 +275,9 @@ async def generate_snapshot(years: list[int]) -> dict:
             "tribunals_with_data": tribunals_with_data,
             "tribunals_total": len(TRIBUNAIS),
             "latest_collection_date": latest_date,
+            "total_parquets": total_parquets,
+            "total_parquet_size_gb": round(total_parquet_size / (1024**3), 2),
+            "consolidated_items": consolidated_items,
         },
         "by_year": by_year,
     }

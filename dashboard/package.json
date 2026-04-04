@@ -14,11 +14,12 @@
   },
   "dependencies": {
     "@astrojs/preact": "^4.1.3",
+    "@duckdb/duckdb-wasm": "^1.33.1-dev20.0",
     "@observablehq/plot": "^0.6.0",
+    "@picocss/pico": "^2",
     "astro": "^5.18.1",
     "clsx": "^2.1.1",
-    "preact": "^10.28.3",
-    "@picocss/pico": "^2"
+    "preact": "^10.28.3"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",

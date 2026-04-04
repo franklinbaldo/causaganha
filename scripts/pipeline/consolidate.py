@@ -732,6 +732,58 @@ def _build_processos(raw: ibis.Table, item_id: str) -> ibis.Table:
     )
 
 
+def _build_classificacoes(raw: ibis.Table, _item_id: str) -> ibis.Table:
+    """Build classificacoes table — keyword-based outcome classification.
+
+    Uses text patterns to classify judicial communications into outcome
+    categories (procedente, improcedente, parcialmente procedente, etc.).
+    This provides a baseline; LLM-based analysis can refine later.
+    """
+    txt = _safe(raw.texto)
+    txt_lower = txt.lower()
+    texto_id = djen_uuid5(txt)
+
+    # Only classify non-empty texts
+    has_text = txt != ""
+
+    # Keyword-based outcome detection
+    # Order matters: check "parcialmente procedente" before "procedente"
+    outcome = ibis.cases(
+        (txt_lower.contains("parcialmente procedente"), "PARTIAL"),
+        (txt_lower.contains("improcedente"), "LOSS"),
+        (txt_lower.contains("procedente"), "WIN"),
+        (txt_lower.contains("acordo") | txt_lower.contains("transação"), "SETTLEMENT"),
+        else_="UNKNOWN",
+    )
+
+    # Decision type detection
+    decision_type = ibis.cases(
+        (txt_lower.contains("acórdão") | txt_lower.contains("acordão"), "acórdão"),
+        (txt_lower.contains("sentença"), "sentença"),
+        (txt_lower.contains("decisão interlocutória"), "decisão interlocutória"),
+        else_="outro",
+    )
+
+    # Low confidence for keyword-based classification
+    confidence = ibis.literal(0.3).cast("float64")
+
+    return (
+        raw.filter(has_text)
+        .filter(outcome != "UNKNOWN")
+        .select(
+            texto_id=texto_id,
+            metodo=ibis.literal("keyword_v1"),
+            outcome=outcome,
+            decision_type=decision_type,
+            winner_advogado_id=ibis.null().cast("string"),
+            loser_advogado_id=ibis.null().cast("string"),
+            confidence=confidence,
+            classified_at=ibis.now(),
+        )
+        .distinct(on=["texto_id"])
+    )
+
+
 # Ordered list: tables with FK dependencies come after their parents.
 _TABLE_BUILDERS: tuple[tuple[str, Any], ...] = (
     ("comunicacoes", _build_comunicacoes),
@@ -743,6 +795,7 @@ _TABLE_BUILDERS: tuple[tuple[str, Any], ...] = (
     ("advogado_nomes", _build_advogado_nomes),
     ("representacoes", _build_representacoes),
     ("processos", _build_processos),
+    ("classificacoes", _build_classificacoes),
 )
 
 
@@ -751,7 +804,7 @@ def _load_and_transform(
     ndjson_dir: Path,
     item_id: str,
 ) -> dict[str, int]:
-    """Load raw per-tribunal NDJSON into DuckDB, produce all 9 tables via Ibis.
+    """Load raw per-tribunal NDJSON into DuckDB, produce all 10 tables via Ibis.
 
     The only raw SQL is ``read_json_auto`` (DuckDB-specific loader).  Everything
     else — UUIDs, name normalization, unnesting, deduplication — is expressed
