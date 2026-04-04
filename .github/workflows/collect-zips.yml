@@ -200,9 +200,11 @@ jobs:
               exit 1
             else
               echo "WARNING: Zero ZIPs collected, but no errors. Might just be caught up."
+              exit 0
             fi
           else
             echo "Pipeline successful - $UPLOADED ZIPs collected"
+            exit 0
           fi
 
       - name: Low coverage alert (check for < 73 ZIPs)
