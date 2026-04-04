@@ -246,9 +246,7 @@ async def generate_snapshot(years: list[int]) -> dict:
         pq["size"] for item in items.values() for pq in item.get("parquet_files", [])
     )
     tribunals_with_data = len({item["tribunal"] for item in items.values()})
-    consolidated_items = sum(
-        1 for item in items.values() if item.get("parquet_files")
-    )
+    consolidated_items = sum(1 for item in items.values() if item.get("parquet_files"))
     all_dates = [d for item in items.values() for d in item["dates"]]
     latest_date = max(all_dates) if all_dates else None
 

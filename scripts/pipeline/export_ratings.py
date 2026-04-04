@@ -22,6 +22,7 @@ import structlog
 
 from scripts.pipeline.ia_s3 import get_ia_s3_auth, upload_to_ia
 
+
 logger = structlog.get_logger()
 
 CATALOG_ITEM = "causaganha-catalog"
@@ -68,9 +69,7 @@ def export_ratings(
                     continue
 
                 output_path = tmp_path / f"{table}.parquet"
-                con.execute(
-                    f"COPY {table} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-                )
+                con.execute(f"COPY {table} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
                 size_mb = output_path.stat().st_size / (1024 * 1024)
                 logger.info(
                     "parquet_created",
@@ -80,9 +79,7 @@ def export_ratings(
                 )
 
                 if not dry_run and ia_auth:
-                    success = upload_to_ia(
-                        client, CATALOG_ITEM, output_path, "ratings"
-                    )
+                    success = upload_to_ia(client, CATALOG_ITEM, output_path, "ratings")
                     if success:
                         logger.info("uploaded", table=table)
                     else:
