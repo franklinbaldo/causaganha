@@ -17,6 +17,7 @@ concurrency:
 jobs:
   catalog:
     name: Generate & Upload Catalog
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: dev
@@ -44,6 +45,7 @@ jobs:
           ls -lh data/
 
       - name: Append to JSONL manifest
+        id: append
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
@@ -51,27 +53,20 @@ jobs:
           echo "Appending to JSONL manifest..."
           uv run python scripts/append_manifest.py
 
-      - name: Commit manifest.jsonl to dashboard
-        run: |
-          [ -f data/manifest.jsonl ] || { echo "No manifest.jsonl generated, skipping"; exit 0; }
-          cp data/manifest.jsonl dashboard/public/manifest.jsonl
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dashboard/public/manifest.jsonl
-          git diff --staged --quiet || git commit -m "data: update manifest.jsonl [skip ci]"
-          git push
-
       - name: Generate and upload catalog
+        if: steps.append.outputs.has_new_uploads == 'true'
         run: |
           echo "Generating catalog from IA data..."
           uv run python scripts/generate_catalog.py --upload
           echo "Catalog updated."
 
       - name: Generate and upload dashboard cache to IA
+        if: steps.append.outputs.has_new_uploads == 'true'
         run: |
           uv run python scripts/generate_dashboard_cache.py --upload --manifest catalog/manifest.parquet
 
       - name: Trigger dashboard deploy
+        if: steps.append.outputs.has_new_uploads == 'true'
         uses: actions/github-script@v7
         with:
           script: |

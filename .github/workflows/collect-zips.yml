@@ -155,7 +155,7 @@ jobs:
           ERRORS="${{ steps.collect.outputs.errors }}"
 
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(new\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
 
           if [ -z "$UPLOADED" ]; then
@@ -173,7 +173,7 @@ jobs:
           UPLOADED="${{ steps.collect.outputs.uploaded }}"
 
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(new\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
 
           if [ -z "$UPLOADED" ]; then
@@ -181,7 +181,7 @@ jobs:
           fi
 
           if [ -z "$ERRORS" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            ERRORS=$(grep -oP '(?<=❌ Errors \| )\d+' "$GITHUB_STEP_SUMMARY" || echo "")
+            ERRORS=$(grep -oP '❌ Errors \|\s*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
 
           if [ -z "$ERRORS" ]; then
@@ -211,7 +211,7 @@ jobs:
           UPLOADED="${{ steps.collect.outputs.uploaded }}"
 
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '(?<=✅ Uploaded \(new\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
+            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
 
           if [ -z "$UPLOADED" ]; then
