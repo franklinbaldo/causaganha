@@ -21,7 +21,6 @@ const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
 
 const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
 
-// Snapshot-based header info
 const snap = iaSnapshot?.summary;
 const latestDate = snap?.latest_collection_date;
 const snapshotTime = iaSnapshot?.generated_at;
@@ -30,18 +29,18 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="CausaGanha - Publicações"
+  title="CausaGanha — Publicações"
   description="Publicações judiciais brasileiras arquivadas no Internet Archive."
 >
   <PageHeader title="CausaGanha">
     <DatabaseIcon slot="icon" />
-    <p slot="subtitle" class="text-muted">
-      {snap ? `${snap.total_zips.toLocaleString()} ZIPs | ${snap.tribunals_with_data} tribunais | última coleta: ${latestDate}` : 'Carregando...'}
+    <p slot="subtitle" class="text-muted" style="font-size: var(--font-size-sm); margin: 0;">
+      {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
     </p>
-    <a slot="nav" href={BASE} class="secondary">Início</a>
+    <a slot="nav" href={BASE} style="font-size: var(--font-size-sm);">Início</a>
   </PageHeader>
 
-  <div class="container" style="margin-top: 2rem;">
+  <div class="container">
     <IASearchBar client:idle />
 
     <TribunalView
@@ -52,7 +51,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       initialIaSnapshot={data?.iaSnapshot}
     />
 
-    <footer style="text-align: center; margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--pico-muted-border-color);">
+    <footer style="text-align: center; margin-top: var(--space-2xl); padding: var(--space-lg) 0; border-top: 1px solid var(--color-border-muted);">
       <small class="text-muted">Dados do DJEN arquivados no Internet Archive.
         {snapshotTime && <span> Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
       </small>

@@ -36,7 +36,6 @@ interface OverviewGridProps {
 function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: OverviewGridProps) {
   const [query, setQuery] = useState('');
 
-  // Prefer IA snapshot data (fresh, direct from IA) over pipeline/backfill data
   const snap = iaSnapshot?.summary;
   const totalZips = snap?.total_zips || pipeline?.total_zips || 0;
   const totalGB = snap?.total_size_gb || volume?.total_gb || 0;
@@ -44,7 +43,6 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
   const latestDate = snap?.latest_collection_date;
   const snapshotAge = iaSnapshot?.generated_at;
 
-  // Per-tribunal zip counts from snapshot
   const snapshotItems = iaSnapshot?.items || {};
   const snapshotByYear = iaSnapshot?.by_year || {};
 
@@ -60,87 +58,98 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
           return tribunal.toLowerCase().includes(normalizedQuery);
         }),
       }))
-      .filter(group => group.tribunals.length> 0);
+      .filter(group => group.tribunals.length > 0);
   }, [normalizedQuery]);
 
   return (
     <div>
-      {/* Global Progress Banner */}
-      <article>
-        <header>
-          <hgroup>
-            <h2>Progresso do Arquivo</h2>
-            <p>
-              {totalZips.toLocaleString()} ZIPs no Internet Archive
-            </p>
-          </hgroup>
-          {latestDate && (
-            <p className="text-muted" style={{ fontSize: '0.875rem' }}>
-              Última coleta: {latestDate}
-              {snapshotAge && <span> | Instantâneo: {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
-            </p>
-          )}
+      {/* Archive Progress */}
+      <article style={{ marginBottom: 'var(--space-xl)' }}>
+        <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+            <h2 style={{ margin: 0, fontSize: 'var(--font-size-2xl)' }}>Progresso do Arquivo</h2>
+            {latestDate && (
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)' }}>
+                Última coleta: {latestDate}
+                {snapshotAge && <span> · {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
+              </span>
+            )}
+          </div>
         </header>
 
-        {/* Quick Stats Grid */}
-        <div className="grid">
-           <article style={{ margin: 0 }}>
-              <div className="stat-value text-primary">{totalZips.toLocaleString()}</div>
-              <p className="stat-label">ZIPs no IA</p>
-           </article>
-           <article style={{ margin: 0 }}>
-              <div className="stat-value">{totalGB.toFixed(1)} GB</div>
-              <p className="stat-label">Volume</p>
-           </article>
-           <article style={{ margin: 0 }}>
-              <div className="stat-value text-success">{tribunalsWithData} <span style={{ fontSize: '1rem', color: 'var(--pico-muted-color)' }}>/ {snap?.tribunals_total || 96}</span></div>
-              <p className="stat-label">Tribunais</p>
-           </article>
-           <article style={{ margin: 0 }}>
-              <div className="stat-value text-warning">{snap?.total_items || 0}</div>
-              <p className="stat-label">Itens no IA</p>
-           </article>
+        {/* Quick Stats */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 'var(--space-md)',
+          textAlign: 'center',
+          padding: 'var(--space-md) 0'
+        }}>
+          <div>
+            <div className="stat-value">{totalZips.toLocaleString()}</div>
+            <p className="stat-label">ZIPs no IA</p>
+          </div>
+          <div>
+            <div className="stat-value">{totalGB.toFixed(1)}<small style={{ fontSize: '0.4em', fontWeight: '500', marginLeft: '0.15em' }}>GB</small></div>
+            <p className="stat-label">Volume</p>
+          </div>
+          <div>
+            <div className="stat-value text-success">{tribunalsWithData}<small style={{ fontSize: '0.4em', fontWeight: '400', color: 'var(--color-content-tertiary)', marginLeft: '0.15em' }}>/ {snap?.tribunals_total || 96}</small></div>
+            <p className="stat-label">Tribunais</p>
+          </div>
+          <div>
+            <div className="stat-value">{snap?.total_items || 0}</div>
+            <p className="stat-label">Itens no IA</p>
+          </div>
         </div>
       </article>
 
-      {/* Progress by Year — prefer snapshot data */}
+      {/* Progress by Year */}
       {Object.keys(snapshotByYear).length > 0 ? (
-        <article>
-          <header>
-            <strong>ZIPs por Ano (Internet Archive)</strong>
+        <article style={{ marginBottom: 'var(--space-xl)' }}>
+          <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+            <strong>ZIPs por Ano</strong>
+            <small style={{ float: 'right', color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>Internet Archive</small>
           </header>
-          <div className="grid" style={{ gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-sm)' }}>
             {Object.entries(snapshotByYear)
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => (
-                <div key={year} style={{ padding: '1rem', border: '1px solid var(--pico-muted-border-color)', borderRadius: 'var(--pico-border-radius)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <strong>{year}</strong>
-                    <span className="text-primary" style={{ fontWeight: 'bold' }}>{(d as any).zip_count.toLocaleString()} ZIPs</span>
+                <div key={year} style={{
+                  padding: 'var(--space-md)',
+                  border: '1px solid var(--color-border-muted)',
+                  borderRadius: 'var(--pico-border-radius)',
+                  background: 'var(--color-surface)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-xs)' }}>
+                    <strong style={{ fontSize: 'var(--font-size-sm)' }}>{year}</strong>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-sm)', fontWeight: '700' }}>{(d as any).zip_count.toLocaleString()}</span>
                   </div>
-                  <div className="text-muted" style={{ fontSize: '0.875rem' }}>
-                    Tribunais: {(d as any).tribunals_with_data} / {(d as any).tribunals_total}
-                  </div>
+                  <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>
+                    {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
+                  </small>
                 </div>
               ))}
           </div>
         </article>
       ) : progressByYear && Object.keys(progressByYear).length > 0 ? (
-        <article>
-          <header><strong>Progresso por Ano</strong></header>
+        <article style={{ marginBottom: 'var(--space-xl)' }}>
+          <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+            <strong>Progresso por Ano</strong>
+          </header>
           <div>
             {Object.entries(progressByYear)
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => {
                 const pct = (d as any).pct || 0;
                 return (
-                  <div key={year} style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <strong>{year}</strong>
-                      <span>{pct.toFixed(1)}%</span>
+                  <div key={year} style={{ marginBottom: 'var(--space-md)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
+                      <strong style={{ fontSize: 'var(--font-size-sm)' }}>{year}</strong>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{pct.toFixed(1)}%</span>
                     </div>
                     <progress value={Math.round(Math.min(100, pct))} max="100"></progress>
-                    <div className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', gap: '1rem' }}>
+                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xs)' }}>
                       <span>{(d as any).zips || 0} ZIPs</span>
                       <span>{(d as any).days_consolidated || 0} consolidados</span>
                       <span>{(d as any).unique_days || 0} / {(d as any).weekdays || 0} dias</span>
@@ -152,9 +161,11 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         </article>
       ) : null}
 
-      {/* Tribunals by branch */}
-      <div style={{ margin: '2rem 0' }}>
-        <label htmlFor="tribunal-filter">Filtrar tribunais</label>
+      {/* Tribunal Filter */}
+      <div style={{ margin: 'var(--space-lg) 0 var(--space-md)' }}>
+        <label htmlFor="tribunal-filter" style={{ fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--color-content-secondary)' }}>
+          Filtrar tribunais
+        </label>
         <input
           id="tribunal-filter" type="search"
           value={query}
@@ -168,18 +179,19 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         />
       </div>
 
+      {/* Tribunal Groups */}
       {filteredGroups.length === 0 ? (
-        <article>
+        <article style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--color-content-tertiary)' }}>
           Nenhum tribunal encontrado para "{query.trim()}". Tente buscar por outra sigla ou nome.
         </article>
       ) : filteredGroups.map(group => {
         return (
-          <section key={group.name} style={{ marginBottom: '2rem' }}>
-            <hgroup style={{ marginBottom: '1rem' }}>
-              <h3>{group.name}</h3>
-              <p>{group.tribunals.length} tribunais</p>
-            </hgroup>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+          <section key={group.name} style={{ marginBottom: 'var(--space-xl)' }}>
+            <div style={{ marginBottom: 'var(--space-md)', borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)' }}>
+              <h3 style={{ fontSize: 'var(--font-size-lg)', marginBottom: '0.25rem' }}>{group.name}</h3>
+              <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>{group.tribunals.length} tribunais</small>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-sm)' }}>
               {group.tribunals.map(t => {
                 let totalZips = 0;
                 let latestDate = null;
@@ -187,24 +199,24 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   for (const item of Object.values(snapshotItems)) {
                     if ((item as any).tribunal === t) {
                       totalZips += (item as any).zip_count;
-                      if (!latestDate || (item as any).latest_date> latestDate) latestDate = (item as any).latest_date;
+                      if (!latestDate || (item as any).latest_date > latestDate) latestDate = (item as any).latest_date;
                     }
                   }
                 }
-                const hasData = totalZips> 0;
+                const hasData = totalZips > 0;
 
                 return (
                   <a
                     key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
                     style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <article style={{ padding: '1rem', marginBottom: '1rem' }}>
+                    <article style={{ padding: 'var(--space-md)', marginBottom: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong>{t}</strong>
+                        <strong style={{ fontSize: 'var(--font-size-sm)' }}>{t}</strong>
                         {hasData && (
                           <span className="badge">{totalZips}</span>
                         )}
                       </div>
-                      <div className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', marginTop: 'var(--space-xs)' }}>
                         {hasData ? `até ${latestDate}` : 'Sem dados'}
                       </div>
                     </article>

@@ -1,75 +1,172 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Footer from '../components/Footer.astro';
-import CheckIcon from '../components/icons/CheckIcon.astro';
 import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
 import DownloadIcon from '../components/icons/DownloadIcon.astro';
 import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
 import ChartIcon from '../components/icons/ChartIcon.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { readJson } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
+import { formatNumber } from '../lib/homepage-content';
 
 const iaSnapshot = readJson('ia-snapshot.json');
 const today = readJson('cache/today.json');
 
-// Use snapshot as source of truth
 const snap = iaSnapshot?.summary || {};
 const totalZips = snap.total_zips || 0;
 const totalTribunals = snap.tribunals_total || 96;
 const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
-const latestDate = snap.latest_collection_date || '';
 
-// Legacy pipeline data as fallback
 const pipeline = today?.pipeline || {};
-const datesCollected = pipeline.dates_collected || 0;
 const progressPct = pipeline.progress_pct || 0;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="CausaGanha - Transparência no Mercado Jurídico Brasileiro"
+  title="CausaGanha — Transparência no Mercado Jurídico Brasileiro"
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
 >
   <style>
-    .amber { color: #f59e0b; }
-    .hero-section {
-      padding: 4rem 0;
-      border-bottom: 1px solid var(--pico-muted-border-color);
-      margin-bottom: 3rem;
+    .hero {
+      padding: var(--space-3xl) 0 var(--space-2xl);
+    }
+    .hero h1 {
+      font-size: var(--font-size-4xl);
+      max-width: 18ch;
+      margin-bottom: var(--space-md);
+    }
+    .hero .lead {
+      max-width: 52ch;
+      margin-bottom: var(--space-lg);
+    }
+    .hero-actions {
+      display: flex;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+    }
+    .hero-actions a[role="button"] {
+      padding: 0.75rem 2rem;
+    }
+
+    .live-card {
+      margin-top: var(--space-lg);
+    }
+    .live-card ul {
+      list-style-type: none;
+      padding: 0;
+      margin-bottom: 0;
+    }
+    .live-card li {
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--color-border-muted);
+    }
+    .live-card li:last-child {
+      border-bottom: none;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-md);
+      text-align: center;
+      padding: var(--space-lg) 0;
+      border-top: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .stats-grid .stat-item {
+      padding: var(--space-md) 0;
+    }
+
+    .how-grid article {
+      padding: var(--space-lg);
+    }
+    .how-grid article header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
+      padding: 0;
+      border: none;
+      background: none;
+    }
+    .how-grid .step-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      color: var(--color-content-tertiary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .audience-grid article {
+      padding: var(--space-lg);
+    }
+    .audience-grid h3 {
+      font-size: var(--font-size-lg);
+      margin-bottom: var(--space-sm);
+    }
+    .audience-grid ul {
+      padding-left: 1.25rem;
+    }
+    .audience-grid li {
+      font-size: var(--font-size-sm);
+      color: var(--color-content-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .infra-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-sm);
+    }
+    .infra-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: var(--font-size-sm);
+      color: var(--color-content-secondary);
+    }
+
+    .faq-section {
+      max-width: 42rem;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: var(--font-size-3xl); }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .infra-grid { grid-template-columns: 1fr; }
     }
   </style>
 
   <!-- Navigation -->
-  <nav class="container" style="padding-top: 1rem;">
+  <nav class="container" style="padding-top: var(--space-md); padding-bottom: var(--space-xs);">
     <ul>
-      <li><strong><span class="text-primary">Causa</span><span class="amber">Ganha</span></strong></li>
+      <li><strong style="font-weight: 800; font-size: var(--font-size-md); letter-spacing: -0.02em;">CausaGanha</strong></li>
     </ul>
     <ul>
       <li><a href="#como-funciona">Como Funciona</a></li>
-      <li><a href="#dados" class="contrast">Dados</a></li>
-      <li><a href="#para-quem" class="contrast">Para Quem</a></li>
+      <li><a href="#dados">Dados</a></li>
+      <li><a href="#para-quem">Para Quem</a></li>
       <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
+      <li><ThemeToggle client:load /></li>
     </ul>
   </nav>
 
-  <!-- Hero Section -->
-  <header class="hero-section">
+  <!-- Hero -->
+  <header class="hero">
     <div class="container">
       <div class="grid">
         <div style="align-self: center;">
-          <hgroup>
-            <h1>
-              Transparência no Mercado <span class="amber">Jurídico</span> Brasileiro
-            </h1>
-            <p>
-              Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
-              diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
-            </p>
-          </hgroup>
-          <div class="grid">
+          <h1>Transparência no Mercado Jurídico Brasileiro</h1>
+          <p class="lead">
+            Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
+            diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
+          </p>
+          <div class="hero-actions">
             <a href={BASE + 'publicacoes'} role="button">
               Ver Publicações
             </a>
@@ -79,22 +176,27 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </div>
         </div>
         <div>
-          <article>
-            <header>
-              <strong>Pipeline ao Vivo</strong>
-              <small style="float: right;" class="text-muted">Atualizado a cada 20 min</small>
+          <article class="live-card">
+            <header style="padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-border-muted);">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <strong>Pipeline ao Vivo</strong>
+                <small class="text-muted" style="font-size: var(--font-size-xs);">Atualizado a cada 20 min</small>
+              </div>
             </header>
-            <ul style="list-style-type: none; padding: 0; margin-bottom: 0;">
-              <li style="margin-bottom: 1rem;">
-                <strong class="text-primary">{tribunalsWithData} tribunais com dados</strong><br/>
+            <ul>
+              <li>
+                <strong>{tribunalsWithData} tribunais com dados</strong><br/>
                 <small class="text-muted">de {totalTribunals} monitorados</small>
               </li>
-              <li style="margin-bottom: 1rem;">
-                <strong class="text-primary">{formatNumber(totalZips)} ZIPs coletados</strong><br/>
+              <li>
+                <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
                 <small class="text-muted">armazenados no Internet Archive</small>
               </li>
               <li>
-                <strong>{progressPct}%</strong> Backfill em andamento<br/>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+                  <strong>Backfill</strong>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: var(--font-size-sm); font-weight: 600;">{progressPct}%</span>
+                </div>
                 <progress value={progressPct} max="100"></progress>
                 <small class="text-muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
               </li>
@@ -105,70 +207,76 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </header>
 
-  <!-- Stats Section -->
-  <section id="dados" class="container" style="margin-bottom: 4rem;">
-    <hgroup style="text-align: center; margin-bottom: 2rem;">
+  <!-- Stats -->
+  <section id="dados" class="container section-gap-lg">
+    <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
       <h2>Dados Reais do Pipeline</h2>
       <p>Números atualizados automaticamente pelo workflow de coleta</p>
     </hgroup>
 
-    <div class="grid">
-      <article style="text-align: center;">
+    <div class="stats-grid">
+      <div class="stat-item">
         <div class="stat-value">{formatNumber(totalZips)}</div>
         <p class="stat-label">ZIPs Arquivados</p>
-      </article>
-      <article style="text-align: center;">
+      </div>
+      <div class="stat-item">
         <div class="stat-value">{tribunalsWithData}</div>
         <p class="stat-label">Tribunais com Dados</p>
-      </article>
-      <article style="text-align: center;">
-        <div class="stat-value">{totalGB.toFixed(0)} GB</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
         <p class="stat-label">Volume Arquivado</p>
-      </article>
-      <article style="text-align: center;">
-        <div class="stat-value">100%</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
         <p class="stat-label">Dados Públicos</p>
-      </article>
+      </div>
     </div>
   </section>
 
   <!-- How it Works -->
-  <section id="como-funciona">
+  <section id="como-funciona" class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center;">
+      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
         <h2>Como Funciona</h2>
-        <p>Pipeline automatizado coleta dados do DJEN a cada 20 minutos e arquiva permanentemente no Internet Archive</p>
+        <p>Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
       </hgroup>
-      <div class="grid">
+      <div class="grid how-grid">
         <article>
-          <header><DownloadIcon /></header>
-          <h3>1. Coleta Automática</h3>
+          <header>
+            <span class="step-number">Passo 01</span>
+          </header>
+          <h3>Coleta Automática</h3>
           <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
         </article>
         <article>
-          <header><ArchiveIcon /></header>
-          <h3>2. Arquivo Permanente</h3>
+          <header>
+            <span class="step-number">Passo 02</span>
+          </header>
+          <h3>Arquivo Permanente</h3>
           <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
         </article>
         <article>
-          <header><ChartIcon /></header>
-          <h3>3. Catálogo Indexado</h3>
+          <header>
+            <span class="step-number">Passo 03</span>
+          </header>
+          <h3>Catálogo Indexado</h3>
           <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- For Who Section -->
-  <section id="para-quem">
+  <!-- Audience -->
+  <section id="para-quem" class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center;">
+      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
         <h2>Para Quem?</h2>
         <p>Dados abertos para todo o ecossistema jurídico</p>
       </hgroup>
-      <div class="grid">
+      <div class="grid audience-grid">
         <article>
-          <h3>&#129489;&#8205;&#9878;&#65039; Pesquisadores</h3>
+          <h3>Pesquisadores</h3>
           <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
           <ul>
             <li>Dados em formato Parquet</li>
@@ -177,7 +285,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </ul>
         </article>
         <article>
-          <h3>&#127970; LegalTechs</h3>
+          <h3>LegalTechs</h3>
           <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
           <ul>
             <li>API via Internet Archive</li>
@@ -186,7 +294,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </ul>
         </article>
         <article>
-          <h3>&#9878;&#65039; Jornalistas</h3>
+          <h3>Jornalistas</h3>
           <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
           <ul>
             <li>Dados públicos verificáveis</li>
@@ -198,63 +306,65 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 
-  <!-- Open Data + Support Section -->
-  <section>
+  <!-- Open Data -->
+  <section class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center;">
-        <p><kbd>100% Aberto e Gratuito</kbd></p>
+      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
+        <p style="margin-bottom: var(--space-xs);"><kbd style="font-size: var(--font-size-xs); letter-spacing: 0.08em; text-transform: uppercase;">100% Aberto e Gratuito</kbd></p>
         <h2>Dados Abertos Para Sempre</h2>
-        <p>
+        <p style="max-width: 42ch; margin-left: auto; margin-right: auto;">
           Transparência no judiciário é um direito de todos.
-          <br/>Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
+          Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
         </p>
       </hgroup>
 
-      <article>
-        <h3>Infraestrutura</h3>
-        <div class="grid">
-          <p><CheckCircleIcon /> GitHub Actions para coleta automática</p>
-          <p><CheckCircleIcon /> Internet Archive para armazenamento permanente</p>
-          <p><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</p>
-          <p><CheckCircleIcon /> Código 100% open source no GitHub</p>
+      <article style="margin-bottom: var(--space-lg);">
+        <h4 style="margin-bottom: var(--space-md);">Infraestrutura</h4>
+        <div class="infra-grid">
+          <p class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</p>
+          <p class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</p>
+          <p class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</p>
+          <p class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</p>
         </div>
       </article>
 
-      <article style="text-align: center;">
-        <h3>Apoie o Projeto</h3>
-        <p>O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar o projeto.</p>
-        <div class="grid">
+      <article style="text-align: center; padding: var(--space-xl);">
+        <h4 style="margin-bottom: var(--space-xs);">Apoie o Projeto</h4>
+        <p style="max-width: 38ch; margin-left: auto; margin-right: auto;">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
+        <div style="display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap;">
           <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" role="button">
             <GitHubIcon /> Estrela no GitHub
           </a>
-          <a href={BASE + 'publicacoes'} role="button" class="secondary">
-            Ver Publicações &rarr;
+          <a href={BASE + 'publicacoes'} role="button" class="secondary outline">
+            Ver Publicações
           </a>
         </div>
       </article>
     </div>
   </section>
 
-  <!-- FAQ Section -->
-  <section>
+  <!-- FAQ -->
+  <section class="section-gap-lg">
     <div class="container">
-      <h2 style="text-align: center;">Perguntas Frequentes</h2>
-      <details>
-        <summary>De onde vêm os dados?</summary>
-        <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
-      </details>
-      <details>
-        <summary>Com que frequência os dados são atualizados?</summary>
-        <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
-      </details>
-      <details>
-        <summary>Como posso acessar os dados?</summary>
-        <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
-      </details>
-      <details>
-        <summary>O projeto é open source?</summary>
-        <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a>. Contribuições são bem-vindas.</p>
-      </details>
+      <div class="faq-section">
+        <h2 style="text-align: center; margin-bottom: var(--space-xl);">Perguntas Frequentes</h2>
+        <details>
+          <summary>De onde vêm os dados?</summary>
+          <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
+        </details>
+        <details>
+          <summary>Com que frequência os dados são atualizados?</summary>
+          <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
+        </details>
+        <details>
+          <summary>Como posso acessar os dados?</summary>
+          <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
+        </details>
+        <details>
+          <summary>O projeto é open source?</summary>
+          <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a>. Contribuições são bem-vindas.</p>
+        </details>
+      </div>
     </div>
   </section>
 
