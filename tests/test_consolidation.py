@@ -111,8 +111,14 @@ def test_all_tables_populated_from_synthetic_data():
 def test_classificacoes_schema_correct():
     """Verify classificacoes table has the correct schema columns."""
     expected_cols = {
-        "texto_id", "metodo", "outcome", "decision_type",
-        "winner_advogado_id", "loser_advogado_id", "confidence", "classified_at",
+        "texto_id",
+        "metodo",
+        "outcome",
+        "decision_type",
+        "winner_advogado_id",
+        "loser_advogado_id",
+        "confidence",
+        "classified_at",
     }
     schema = TABLE_SCHEMAS["classificacoes"]
     actual_cols = set(schema.names)
@@ -149,7 +155,7 @@ def test_parquet_export_roundtrip():
         ndjson_dir = Path(tmpdir) / "ndjson"
         ndjson_dir.mkdir()
         _create_synthetic_ndjson(ndjson_dir)
-        counts = _load_and_transform(con, ndjson_dir, item_id="djen-2026-04-01")
+        _load_and_transform(con, ndjson_dir, item_id="djen-2026-04-01")
 
         output_dir = Path(tmpdir) / "parquet"
         output_dir.mkdir()
@@ -162,9 +168,7 @@ def test_parquet_export_roundtrip():
                 continue
 
             output_path = output_dir / f"{table_name}.parquet"
-            con.raw_sql(
-                f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-            )
+            con.raw_sql(f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
             assert output_path.exists(), f"{table_name}.parquet should exist"
             assert output_path.stat().st_size > 0, f"{table_name}.parquet should not be empty"
 
