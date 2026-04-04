@@ -112,6 +112,7 @@ async def _download_segment(
         headers=headers,
         max_retries=3,
         retry_djen_400=True,
+        retry_404=True,
     )
 
     if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
@@ -140,6 +141,7 @@ async def download_zip(
         headers={"Range": "bytes=0-0"},
         max_retries=3,
         retry_djen_400=True,
+        retry_404=True,
     )
 
     if probe.status_code == HTTP_NOT_FOUND:
@@ -205,6 +207,7 @@ async def _download_simple(
             url,
             max_retries=3,
             retry_djen_400=True,
+            retry_404=True,
         )
 
         if resp.status_code == HTTP_NOT_FOUND:

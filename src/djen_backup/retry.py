@@ -24,6 +24,7 @@ async def request_with_retry(
     *,
     max_retries: int = 7,
     retry_djen_400: bool = False,
+    retry_404: bool = False,
     content: bytes | None = None,
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
@@ -75,6 +76,19 @@ async def request_with_retry(
                 if attempt < max_retries:
                     log.warning(
                         "djen_400_retry",
+                        url=url,
+                        attempt=attempt + 1,
+                        wait_s=wait,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+
+            # Treat 404 as retriable when explicitly opted-in (e.g. for proxy endpoints that flake)
+            elif retry_404 and resp.status_code == 404:
+                wait = _backoff(attempt, resp)
+                if attempt < max_retries:
+                    log.warning(
+                        "http_404_retry",
                         url=url,
                         attempt=attempt + 1,
                         wait_s=wait,

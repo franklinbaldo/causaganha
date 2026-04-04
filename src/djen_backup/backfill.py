@@ -174,6 +174,7 @@ class BackfillState:
                 prog.cursor_date = target_cursor
                 prog.stopped = False
                 prog.empty_streak = 0
+                prog.stop_boundary = None
                 return True
             return False
 
@@ -184,6 +185,7 @@ class BackfillState:
                 prog = self._tribunals[tribunal]
                 prog.stopped = False
                 prog.empty_streak = 0
+                prog.stop_boundary = None
                 return True
             return False
 
@@ -564,6 +566,17 @@ async def backfill_process_date(
         zip_url = await get_caderno_url(client, config.djen_proxy_url, tribunal, d)
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
+        if exc.reason != "Not Found":
+            # 404s on the download proxy endpoint or 0-byte responses are errors, not authoritative empties
+            log.warning(
+                "backfill_download_error_djen",
+                tribunal=tribunal,
+                date=d.isoformat(),
+                reason=exc.reason,
+            )
+            await bstate.record_error(tribunal)
+            await summary.inc_error()
+            return "error"
         return await _process_djen_not_found(
             client, breaker, d, tribunal, config, bstate, ia_state, summary, exc
         )
@@ -955,6 +968,14 @@ async def run_backfill(config: BackfillConfig) -> int:
         if config.tribunal:
             validate_tribunal(config.tribunal)
             all_tribunals = [config.tribunal]
+
+        # 1b. Unstick tribunals that were incorrectly stopped due to the proxy 404 bug.
+        for t in ["TJRO"]:
+            if t in all_tribunals:
+                prog = bstate.get_all_progress().get(t)
+                if prog and prog.stopped:
+                    log.info("backfill_unsticking_tribunal", tribunal=t)
+                    await bstate.reset_tribunal(t)
 
         # 2. Advance stopped tribunal cursors
         await _advance_stopped_cursors(bstate, all_tribunals, config.start_date)
