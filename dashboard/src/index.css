@@ -504,6 +504,49 @@ progress::-webkit-progress-value {
 }
 
 /* ═══════════════════════════════════════════
+   Touch Targets
+   ═══════════════════════════════════════════ */
+
+.touch-target-24 {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══════════════════════════════════════════
+   Reader Mode Entity Highlights
+   ═══════════════════════════════════════════ */
+
+.reader-mode .reader-text mark {
+  background-color: transparent;
+  font-weight: 600;
+  padding: 0 0.2rem;
+  border-radius: 0.2rem;
+}
+
+.reader-mode .reader-text mark.entity-party {
+  background-color: rgba(5, 150, 105, 0.15); /* text-success tinted */
+  color: var(--color-content);
+}
+
+.reader-mode .reader-text mark.entity-lawyer {
+  background-color: rgba(217, 119, 6, 0.15); /* text-warning tinted */
+  color: var(--color-content);
+}
+
+[data-theme="dark"] .reader-mode .reader-text mark.entity-party {
+  background-color: rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="dark"] .reader-mode .reader-text mark.entity-lawyer {
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+/* ═══════════════════════════════════════════
    Table Refinements
    ═══════════════════════════════════════════ */
 
