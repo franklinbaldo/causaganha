@@ -12,11 +12,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     padding: var(--space-2xl) 0 var(--space-xl);
     border-top: 1px solid var(--color-border-muted);
   }
-  .footer-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: var(--space-xl);
-  }
   .footer-brand p {
     font-size: var(--font-size-sm);
     color: var(--color-content-tertiary);
@@ -58,17 +53,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     color: var(--color-content);
     margin-bottom: var(--space-sm);
   }
-  @media (max-width: 768px) {
-    .footer-grid {
-      grid-template-columns: 1fr;
-      gap: var(--space-lg);
-    }
-  }
 </style>
 
 <footer>
   <div class="container">
-    <div class="footer-grid">
+    <div class="grid">
       <div class="footer-brand">
         <p class="wordmark">CausaGanha</p>
         <p>Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>

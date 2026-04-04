@@ -64,10 +64,10 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
   return (
     <div>
       {/* Archive Progress */}
-      <article style={{ marginBottom: 'var(--space-xl)' }}>
-        <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
-            <h2 style={{ margin: 0, fontSize: 'var(--font-size-2xl)' }}>Progresso do Arquivo</h2>
+      <article className="mb-xl">
+        <header className="pb-sm border-bottom mb-md">
+          <div className="flex-between gap-xs" style={{ flexWrap: 'wrap' }}>
+            <h2 className="mb-0" style={{ fontSize: 'var(--font-size-2xl)' }}>Progresso do Arquivo</h2>
             {latestDate && (
               <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)' }}>
                 Última coleta: {latestDate}
@@ -106,8 +106,8 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
       {/* Progress by Year */}
       {Object.keys(snapshotByYear).length > 0 ? (
-        <article style={{ marginBottom: 'var(--space-xl)' }}>
-          <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+        <article className="mb-xl">
+          <header className="pb-sm border-bottom mb-md">
             <strong>ZIPs por Ano</strong>
             <small style={{ float: 'right', color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>Internet Archive</small>
           </header>
@@ -121,7 +121,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   borderRadius: 'var(--pico-border-radius)',
                   background: 'var(--color-surface)'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-xs)' }}>
+                  <div className="flex-between mb-xs">
                     <strong style={{ fontSize: 'var(--font-size-sm)' }}>{year}</strong>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-sm)', fontWeight: '700' }}>{(d as any).zip_count.toLocaleString()}</span>
                   </div>
@@ -133,8 +133,8 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
           </div>
         </article>
       ) : progressByYear && Object.keys(progressByYear).length > 0 ? (
-        <article style={{ marginBottom: 'var(--space-xl)' }}>
-          <header style={{ borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+        <article className="mb-xl">
+          <header className="pb-sm border-bottom mb-md">
             <strong>Progresso por Ano</strong>
           </header>
           <div>
@@ -143,12 +143,12 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
               .map(([year, d]) => {
                 const pct = (d as any).pct || 0;
                 return (
-                  <div key={year} style={{ marginBottom: 'var(--space-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-xs)' }}>
+                  <div key={year} className="mb-md">
+                    <div className="flex-between mb-xs">
                       <strong style={{ fontSize: 'var(--font-size-sm)' }}>{year}</strong>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{pct.toFixed(1)}%</span>
                     </div>
-                    <progress value={Math.round(Math.min(100, pct))} max="100"></progress>
+                    <progress value={Math.round(Math.min(100, pct))} max="100" aria-label={`Progresso de coleta para o ano ${year}`}></progress>
                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xs)' }}>
                       <span>{(d as any).zips || 0} ZIPs</span>
                       <span>{(d as any).days_consolidated || 0} consolidados</span>
@@ -181,13 +181,13 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
       {/* Tribunal Groups */}
       {filteredGroups.length === 0 ? (
-        <article style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--color-content-tertiary)' }}>
+        <article className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--color-content-tertiary)' }}>
           Nenhum tribunal encontrado para "{query.trim()}". Tente buscar por outra sigla ou nome.
         </article>
       ) : filteredGroups.map(group => {
         return (
-          <section key={group.name} style={{ marginBottom: 'var(--space-xl)' }}>
-            <div style={{ marginBottom: 'var(--space-md)', borderBottom: '1px solid var(--color-border-muted)', paddingBottom: 'var(--space-sm)' }}>
+          <section key={group.name} className="mb-xl">
+            <div className="mb-md pb-sm border-bottom">
               <h3 style={{ fontSize: 'var(--font-size-lg)', marginBottom: '0.25rem' }}>{group.name}</h3>
               <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>{group.tribunals.length} tribunais</small>
             </div>
@@ -209,8 +209,8 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <a
                     key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
                     style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <article style={{ padding: 'var(--space-md)', marginBottom: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <article className="mb-0" style={{ padding: 'var(--space-md)' }}>
+                      <div className="flex-between" style={{ alignItems: 'center' }}>
                         <strong style={{ fontSize: 'var(--font-size-sm)' }}>{t}</strong>
                         {hasData && (
                           <span className="badge">{totalZips}</span>

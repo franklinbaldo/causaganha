@@ -330,11 +330,44 @@ details p {
 .bar-danger { background: #dc2626; }
 
 /* ═══════════════════════════════════════════
+   Heatmap Cells - Touch Targets
+   ═══════════════════════════════════════════ */
+
+.heatmap-cell, .heatmap-cell-empty {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 768px) {
+  .heatmap-cell, .heatmap-cell-empty {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ═══════════════════════════════════════════
    Layout Utilities
    ═══════════════════════════════════════════ */
 
 .section-gap { margin-bottom: var(--space-2xl); }
 .section-gap-lg { margin-bottom: var(--space-3xl); }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.flex-between { display: flex; justify-content: space-between; align-items: baseline; }
+.flex-center { display: flex; justify-content: center; align-items: center; }
+.gap-xs { gap: var(--space-xs); }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-xs { margin-bottom: var(--space-xs); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.mb-lg { margin-bottom: var(--space-lg); }
+.mb-xl { margin-bottom: var(--space-xl); }
+.border-bottom { border-bottom: 1px solid var(--color-border-muted); }
+.pb-sm { padding-bottom: var(--space-sm); }
+.pt-md { padding-top: var(--space-md); }
 
 /* ═══════════════════════════════════════════
    Animations

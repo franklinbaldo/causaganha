@@ -1,6 +1,5 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Footer from '../components/Footer.astro';
 import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
 import DownloadIcon from '../components/icons/DownloadIcon.astro';
 import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
@@ -28,6 +27,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <Layout
   title="CausaGanha — Transparência no Mercado Jurídico Brasileiro"
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
+  fullWidth={true}
 >
   <style>
     .hero {
@@ -76,8 +76,17 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       border-top: 1px solid var(--color-border);
       border-bottom: 1px solid var(--color-border);
     }
-    .stats-grid .stat-item {
+    .stats-grid figure {
+      margin: 0;
       padding: var(--space-md) 0;
+    }
+    .stats-grid figcaption {
+      font-size: var(--font-size-xs);
+      font-weight: 500;
+      color: var(--color-content-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.5rem;
     }
 
     .how-grid article {
@@ -120,7 +129,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .infra-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: var(--space-sm);
+      gap: var(--space-md);
+      text-align: left;
     }
     .infra-item {
       display: flex;
@@ -128,6 +138,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       gap: var(--space-xs);
       font-size: var(--font-size-sm);
       color: var(--color-content-secondary);
+    }
+    .infra-item svg {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
     }
 
     .faq-section {
@@ -166,8 +181,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
         <div>
           <article class="live-card">
-            <header style="padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-border-muted);">
-              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <header class="pb-sm border-bottom">
+              <div class="flex-between">
                 <strong>Pipeline ao Vivo</strong>
                 <small class="text-muted" style="font-size: var(--font-size-xs);">Atualizado a cada 20 min</small>
               </div>
@@ -182,11 +197,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
                 <small class="text-muted">armazenados no Internet Archive</small>
               </li>
               <li>
-                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+                <div class="flex-between mb-xs">
                   <strong>Backfill</strong>
                   <span style="font-family: 'JetBrains Mono', monospace; font-size: var(--font-size-sm); font-weight: 600;">{progressPct}%</span>
                 </div>
-                <progress value={progressPct} max="100"></progress>
+                <progress value={progressPct} max="100" aria-label="Progresso do Backfill"></progress>
                 <small class="text-muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
               </li>
             </ul>
@@ -198,35 +213,35 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   <!-- Stats -->
   <section id="dados" class="container section-gap-lg">
-    <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
+    <hgroup class="text-center mb-xl">
       <h2>Dados Reais do Pipeline</h2>
       <p>Números atualizados automaticamente pelo workflow de coleta</p>
     </hgroup>
 
     <div class="stats-grid">
-      <div class="stat-item">
+      <figure>
         <div class="stat-value">{formatNumber(totalZips)}</div>
-        <p class="stat-label">ZIPs Arquivados</p>
-      </div>
-      <div class="stat-item">
+        <figcaption>ZIPs Arquivados</figcaption>
+      </figure>
+      <figure>
         <div class="stat-value">{tribunalsWithData}</div>
-        <p class="stat-label">Tribunais com Dados</p>
-      </div>
-      <div class="stat-item">
+        <figcaption>Tribunais com Dados</figcaption>
+      </figure>
+      <figure>
         <div class="stat-value">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
-        <p class="stat-label">Volume Arquivado</p>
-      </div>
-      <div class="stat-item">
+        <figcaption>Volume Arquivado</figcaption>
+      </figure>
+      <figure>
         <div class="stat-value">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
-        <p class="stat-label">Dados Públicos</p>
-      </div>
+        <figcaption>Dados Públicos</figcaption>
+      </figure>
     </div>
   </section>
 
   <!-- How it Works -->
   <section id="como-funciona" class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
+      <hgroup class="text-center mb-xl">
         <h2>Como Funciona</h2>
         <p>Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
       </hgroup>
@@ -259,7 +274,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- Audience -->
   <section id="para-quem" class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
+      <hgroup class="text-center mb-xl">
         <h2>Para Quem?</h2>
         <p>Dados abertos para todo o ecossistema jurídico</p>
       </hgroup>
@@ -298,8 +313,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- Open Data -->
   <section class="section-gap-lg">
     <div class="container">
-      <hgroup style="text-align: center; margin-bottom: var(--space-xl);">
-        <p style="margin-bottom: var(--space-xs);"><kbd style="font-size: var(--font-size-xs); letter-spacing: 0.08em; text-transform: uppercase;">100% Aberto e Gratuito</kbd></p>
+      <hgroup class="text-center mb-xl">
+        <p class="mb-xs"><kbd style="font-size: var(--font-size-xs); letter-spacing: 0.08em; text-transform: uppercase;">100% Aberto e Gratuito</kbd></p>
         <h2>Dados Abertos Para Sempre</h2>
         <p style="max-width: 42ch; margin-left: auto; margin-right: auto;">
           Transparência no judiciário é um direito de todos.
@@ -307,20 +322,20 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </p>
       </hgroup>
 
-      <article style="margin-bottom: var(--space-lg);">
-        <h4 style="margin-bottom: var(--space-md);">Infraestrutura</h4>
-        <div class="infra-grid">
-          <p class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</p>
-          <p class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</p>
-          <p class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</p>
-          <p class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</p>
-        </div>
+      <article class="mb-lg">
+        <h4 class="mb-md text-center">Infraestrutura</h4>
+        <ul class="infra-grid" style="list-style: none; padding-left: 0; margin-bottom: 0;">
+          <li class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</li>
+          <li class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</li>
+          <li class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</li>
+          <li class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</li>
+        </ul>
       </article>
 
-      <article style="text-align: center; padding: var(--space-xl);">
-        <h4 style="margin-bottom: var(--space-xs);">Apoie o Projeto</h4>
+      <article class="text-center" style="padding: var(--space-xl);">
+        <h4 class="mb-xs">Apoie o Projeto</h4>
         <p style="max-width: 38ch; margin-left: auto; margin-right: auto;">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
-        <div style="display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap;">
+        <div class="flex-center gap-sm" style="flex-wrap: wrap;">
           <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" role="button">
             <GitHubIcon /> Estrela no GitHub
           </a>
@@ -336,7 +351,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <section class="section-gap-lg">
     <div class="container">
       <div class="faq-section">
-        <h2 style="text-align: center; margin-bottom: var(--space-xl);">Perguntas Frequentes</h2>
+        <h2 class="text-center mb-xl">Perguntas Frequentes</h2>
         <details>
           <summary>De onde vêm os dados?</summary>
           <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
@@ -356,6 +371,4 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       </div>
     </div>
   </section>
-
-  <Footer />
 </Layout>

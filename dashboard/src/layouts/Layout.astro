@@ -1,14 +1,16 @@
 ---
 import '../index.css';
 import { ViewTransitions } from 'astro:transitions';
+import Footer from '../components/Footer.astro';
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  fullWidth?: boolean;
 }
 
-const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage } = Astro.props;
+const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage, fullWidth = false } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -51,8 +53,9 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <a href="#main-content" class="sr-only">
       Skip to main content
     </a>
-    <main id="main-content">
+    <main id="main-content" class={fullWidth ? '' : 'container'}>
       <slot />
     </main>
+    <Footer />
   </body>
 </html>
