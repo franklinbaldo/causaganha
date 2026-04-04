@@ -311,6 +311,7 @@ class BackfillSummary:
     """Summary of backfill execution statistics."""
 
     hits: int = 0
+    cache_hits: int = 0
     empties: int = 0
     errors: int = 0  # DJEN source errors (download failed, proxy down)
     ia_errors: int = 0  # IA upload errors (our infra broken — fail loudly)
@@ -323,6 +324,11 @@ class BackfillSummary:
         """Increment the hit counter."""
         async with self._lock:
             self.hits += 1
+
+    async def inc_cache_hit(self) -> None:
+        """Increment the cache hit counter."""
+        async with self._lock:
+            self.cache_hits += 1
 
     async def inc_empty(self) -> None:
         """Increment the empties counter."""
@@ -503,7 +509,7 @@ async def backfill_process_date(
     status = ia_state.get_status(d, tribunal)
     if status == "uploaded":
         await bstate.record_hit(tribunal, d)
-        await summary.inc_hit()
+        await summary.inc_cache_hit()
         return "hit"
     if status == "absent":
         stopped = await bstate.record_empty(tribunal)
@@ -524,7 +530,7 @@ async def backfill_process_date(
             log.info("backfill_already_on_ia", tribunal=tribunal, date=d.isoformat())
             await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
             await bstate.record_hit(tribunal, d)
-            await summary.inc_hit()
+            await summary.inc_cache_hit()
             return "hit"
     except (httpx.HTTPError, httpx.TimeoutException):
         pass  # Can't confirm — proceed with normal flow
@@ -953,6 +959,7 @@ async def run_backfill(config: BackfillConfig) -> int:
         tribunals_stopped=summary.tribunals_stopped,
         tribunals_skipped_stopped=summary.tribunals_skipped_stopped,
         hits=summary.hits,
+        cache_hits=summary.cache_hits,
         empties=summary.empties,
         errors=summary.errors,
         ia_errors=summary.ia_errors,
@@ -962,6 +969,7 @@ async def run_backfill(config: BackfillConfig) -> int:
     if gh_output := os.getenv("GITHUB_OUTPUT"):
         async with await anyio.open_file(gh_output, "a") as f:
             await f.write(f"uploaded={summary.hits}\n")
+            await f.write(f"cache_hits={summary.cache_hits}\n")
             await f.write(f"errors={summary.errors}\n")
             await f.write(f"empties={summary.empties}\n")
             await f.write(f"stopped={summary.tribunals_stopped}\n")
@@ -981,7 +989,8 @@ async def run_backfill(config: BackfillConfig) -> int:
             await f.write("## Results (success = uploaded > 0)\n")
             await f.write("| Metric | Value |\n")
             await f.write("|--------|-------|\n")
-            await f.write(f"| ✅ Uploaded (hits) | **{summary.hits}** |\n")
+            await f.write(f"| ✅ Uploaded (new) | **{summary.hits}** |\n")
+            await f.write(f"| ♻️ Cache hits | {summary.cache_hits} |\n")
             await f.write(f"| ❌ Errors | {summary.errors} |\n")
             await f.write(f"| ⬜ Empties | {summary.empties} |\n")
             await f.write(f"| ⏹ Stopped | {summary.tribunals_stopped} |\n")

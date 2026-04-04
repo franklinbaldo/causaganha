@@ -1,0 +1,870 @@
+{
+  "version": 2,
+  "updated_at": "2026-04-04T10:26:47.284769+00:00",
+  "tribunals": {
+    "TRE-PB": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.980255+00:00",
+      "last_result": "empty"
+    },
+    "TJPA": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:28.909146+00:00",
+      "last_result": "error"
+    },
+    "TJCE": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:17.580627+00:00",
+      "last_result": "error"
+    },
+    "TRE-MG": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.687029+00:00",
+      "last_result": "empty"
+    },
+    "TJPB": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:29.811574+00:00",
+      "last_result": "error"
+    },
+    "TSE": {
+      "cursor_date": "2026-02-24",
+      "empty_streak": 38,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:12.249391+00:00",
+      "last_result": "error"
+    },
+    "TRE-RR": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.507238+00:00",
+      "last_result": "empty"
+    },
+    "TRF4": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:47.346748+00:00",
+      "last_result": "empty"
+    },
+    "TJES": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:20.638766+00:00",
+      "last_result": "error"
+    },
+    "TRT22": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:00.037729+00:00",
+      "last_result": "error"
+    },
+    "TRT19": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:55.739162+00:00",
+      "last_result": "error"
+    },
+    "SEEU": {
+      "cursor_date": "2026-02-20",
+      "empty_streak": 42,
+      "stopped": false,
+      "stop_boundary": "2026-02-07",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:12.108515+00:00",
+      "last_result": "empty"
+    },
+    "TRE-MT": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.899161+00:00",
+      "last_result": "empty"
+    },
+    "TRT8": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.107256+00:00",
+      "last_result": "error"
+    },
+    "TJRN": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:36.902120+00:00",
+      "last_result": "error"
+    },
+    "TRT21": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:59.892414+00:00",
+      "last_result": "error"
+    },
+    "TRT12": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:47.482384+00:00",
+      "last_result": "empty"
+    },
+    "TRF6": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.871924+00:00",
+      "last_result": "empty"
+    },
+    "TJMT": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:29.085325+00:00",
+      "last_result": "error"
+    },
+    "STM": {
+      "cursor_date": "2025-10-15",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.110104+00:00",
+      "last_result": "empty"
+    },
+    "TJAC": {
+      "cursor_date": "2025-11-25",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.110114+00:00",
+      "last_result": "empty"
+    },
+    "TRE-MA": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.664150+00:00",
+      "last_result": "empty"
+    },
+    "TRT18": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:55.878048+00:00",
+      "last_result": "error"
+    },
+    "TRT15": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:51.740181+00:00",
+      "last_result": "error"
+    },
+    "TRF2": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.168927+00:00",
+      "last_result": "empty"
+    },
+    "TRE-TO": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.834682+00:00",
+      "last_result": "empty"
+    },
+    "TRF3": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.553419+00:00",
+      "last_result": "empty"
+    },
+    "TJAP": {
+      "cursor_date": "2025-04-25",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:16.632718+00:00",
+      "last_result": "error"
+    },
+    "TRE-PE": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.094471+00:00",
+      "last_result": "empty"
+    },
+    "CJF": {
+      "cursor_date": "2025-10-20",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.107290+00:00",
+      "last_result": "empty"
+    },
+    "TRF5": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.572517+00:00",
+      "last_result": "empty"
+    },
+    "TRE-GO": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.572951+00:00",
+      "last_result": "empty"
+    },
+    "TJMA": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:21.760042+00:00",
+      "last_result": "error"
+    },
+    "TRE-PR": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.233260+00:00",
+      "last_result": "empty"
+    },
+    "CNJ": {
+      "cursor_date": "2026-02-21",
+      "empty_streak": 41,
+      "stopped": false,
+      "stop_boundary": "2026-02-06",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:12.107303+00:00",
+      "last_result": "empty"
+    },
+    "TRT7": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:09.700281+00:00",
+      "last_result": "error"
+    },
+    "TRE-AM": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:45.225235+00:00",
+      "last_result": "error"
+    },
+    "TRT14": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:51.328091+00:00",
+      "last_result": "error"
+    },
+    "TRE-BA": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.285871+00:00",
+      "last_result": "empty"
+    },
+    "TJAM": {
+      "cursor_date": "2025-06-10",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:16.205432+00:00",
+      "last_result": "error"
+    },
+    "TJPE": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:32.800821+00:00",
+      "last_result": "error"
+    },
+    "TJPI": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:32.939709+00:00",
+      "last_result": "error"
+    },
+    "TRE-DF": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.404778+00:00",
+      "last_result": "empty"
+    },
+    "PJeCor": {
+      "cursor_date": "2025-12-29",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.108499+00:00",
+      "last_result": "empty"
+    },
+    "TRT1": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:47.200628+00:00",
+      "last_result": "empty"
+    },
+    "TJPR": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:33.220103+00:00",
+      "last_result": "error"
+    },
+    "TRE-ES": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.517444+00:00",
+      "last_result": "empty"
+    },
+    "TRF1": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.315112+00:00",
+      "last_result": "empty"
+    },
+    "TRT20": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:59.621424+00:00",
+      "last_result": "error"
+    },
+    "TRT13": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:51.183765+00:00",
+      "last_result": "error"
+    },
+    "TRT16": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:51.598399+00:00",
+      "last_result": "error"
+    },
+    "TRE-RS": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.538207+00:00",
+      "last_result": "empty"
+    },
+    "TRT11": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:47.454197+00:00",
+      "last_result": "empty"
+    },
+    "TRE-SE": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.783932+00:00",
+      "last_result": "empty"
+    },
+    "TRT17": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:55.463705+00:00",
+      "last_result": "error"
+    },
+    "TJMG": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:24.491021+00:00",
+      "last_result": "error"
+    },
+    "TJMRS": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:24.762134+00:00",
+      "last_result": "error"
+    },
+    "STF": {
+      "cursor_date": "2026-02-20",
+      "empty_streak": 42,
+      "stopped": false,
+      "stop_boundary": "2026-02-06",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:12.109300+00:00",
+      "last_result": "empty"
+    },
+    "TJSE": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:41.263049+00:00",
+      "last_result": "error"
+    },
+    "TRE-RJ": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.263712+00:00",
+      "last_result": "empty"
+    },
+    "TRT5": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:08.388804+00:00",
+      "last_result": "error"
+    },
+    "TJMSP": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:28.631598+00:00",
+      "last_result": "error"
+    },
+    "TRT4": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:07.956208+00:00",
+      "last_result": "error"
+    },
+    "TRT2": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:05.681288+00:00",
+      "last_result": "error"
+    },
+    "TJTO": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:41.687787+00:00",
+      "last_result": "error"
+    },
+    "TRE-CE": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.368519+00:00",
+      "last_result": "empty"
+    },
+    "TRE-AP": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:45.639188+00:00",
+      "last_result": "error"
+    },
+    "TJBA": {
+      "cursor_date": "2025-12-02",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:16.484617+00:00",
+      "last_result": "error"
+    },
+    "TRT9": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.399471+00:00",
+      "last_result": "error"
+    },
+    "TJDFT": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:20.347406+00:00",
+      "last_result": "error"
+    },
+    "TRE-RN": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.406087+00:00",
+      "last_result": "empty"
+    },
+    "TRT3": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:04.181577+00:00",
+      "last_result": "error"
+    },
+    "TJAL": {
+      "cursor_date": "2024-09-26",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.110122+00:00",
+      "last_result": "empty"
+    },
+    "TRE-MS": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.810268+00:00",
+      "last_result": "empty"
+    },
+    "TRT6": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:08.101403+00:00",
+      "last_result": "error"
+    },
+    "TRT24": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:03.910179+00:00",
+      "last_result": "error"
+    },
+    "TRT23": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:03.765348+00:00",
+      "last_result": "error"
+    },
+    "TST": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 0,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:13.642202+00:00",
+      "last_result": "error"
+    },
+    "TRE-PI": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.189183+00:00",
+      "last_result": "empty"
+    },
+    "TRE-SC": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.716429+00:00",
+      "last_result": "empty"
+    },
+    "TJRR": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:37.447763+00:00",
+      "last_result": "error"
+    },
+    "TJMMG": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:24.904834+00:00",
+      "last_result": "error"
+    },
+    "TRE-SP": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.798491+00:00",
+      "last_result": "empty"
+    },
+    "TJRS": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:37.723574+00:00",
+      "last_result": "error"
+    },
+    "TRT10": {
+      "cursor_date": "2025-12-31",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:25:46.964151+00:00",
+      "last_result": "empty"
+    },
+    "STJ": {
+      "cursor_date": "2025-02-24",
+      "empty_streak": 2,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:12.110090+00:00",
+      "last_result": "empty"
+    },
+    "TJGO": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:20.782639+00:00",
+      "last_result": "error"
+    },
+    "TRE-AC": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-17",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:44.676676+00:00",
+      "last_result": "error"
+    },
+    "TJRJ": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:33.791772+00:00",
+      "last_result": "error"
+    },
+    "TJSC": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:40.991092+00:00",
+      "last_result": "error"
+    },
+    "TJMS": {
+      "cursor_date": "2025-12-30",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:25.877508+00:00",
+      "last_result": "error"
+    },
+    "TJSP": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:41.548354+00:00",
+      "last_result": "error"
+    },
+    "TJRO": {
+      "cursor_date": "2026-01-01",
+      "empty_streak": 1,
+      "stopped": false,
+      "stop_boundary": null,
+      "last_hit_date": "2026-02-23",
+      "last_checked_at": "2026-04-04T10:26:37.174988+00:00",
+      "last_result": "error"
+    },
+    "TRE-RO": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:45.477468+00:00",
+      "last_result": "empty"
+    },
+    "TRE-PA": {
+      "cursor_date": "2026-02-26",
+      "empty_streak": 36,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:25:44.953383+00:00",
+      "last_result": "empty"
+    },
+    "TRE-AL": {
+      "cursor_date": "2026-02-27",
+      "empty_streak": 35,
+      "stopped": false,
+      "stop_boundary": "2026-02-18",
+      "last_hit_date": null,
+      "last_checked_at": "2026-04-04T10:26:45.366958+00:00",
+      "last_result": "error"
+    }
+  }
+}
