@@ -245,15 +245,26 @@ def status(backfill_state_file: Path) -> None:
     default=False,
     help="Reset all stopped tribunals.",
 )
+@click.option(
+    "--set-cursor",
+    type=str,
+    default=None,
+    help="Set cursor to a specific date (YYYY-MM-DD). Implies reset.",
+)
 def reset(
     backfill_state_file: Path,
     tribunal: str | None,
     *,
     reset_all: bool,
+    set_cursor: str | None,
 ) -> None:
     """Reset stopped tribunal(s) for re-scanning."""
     if not tribunal and not reset_all:
         click.echo("Error: provide --tribunal CODE or --all", err=True)
+        sys.exit(1)
+
+    if set_cursor and reset_all:
+        click.echo("Error: --set-cursor cannot be used with --all", err=True)
         sys.exit(1)
 
     bstate = load_backfill_state(backfill_state_file)
@@ -261,12 +272,23 @@ def reset(
 
     async def _reset() -> int:
         count = 0
+        target_cursor = None
+        if set_cursor:
+            target_cursor = date.fromisoformat(set_cursor)
+
         if tribunal:
-            if await bstate.reset_tribunal(tribunal):
-                click.echo(f"Reset {tribunal}")
-                count = 1
+            if target_cursor:
+                if await bstate.set_cursor(tribunal, target_cursor):
+                    click.echo(f"Reset {tribunal} and set cursor to {target_cursor.isoformat()}")
+                    count = 1
+                else:
+                    click.echo(f"Tribunal {tribunal} not found in state.", err=True)
             else:
-                click.echo(f"Tribunal {tribunal} not found in state.", err=True)
+                if await bstate.reset_tribunal(tribunal):
+                    click.echo(f"Reset {tribunal}")
+                    count = 1
+                else:
+                    click.echo(f"Tribunal {tribunal} not found in state.", err=True)
         else:
             for code, prog in progress.items():
                 if prog.stopped:

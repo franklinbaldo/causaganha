@@ -12,4 +12,4 @@ Feature: Absent marking
     Given DJEN proxy returns an empty URL for "TJAP" on "2024-02-10"
     And Internet Archive accepts uploads
     When I process the item "TJAP" on "2024-02-10"
-    Then the state should mark "TJAP" on "2024-02-10" as "absent"
+    Then the state should not mark "TJAP" on "2024-02-10" as "absent"

@@ -166,6 +166,17 @@ class BackfillState:
             prog = self._tribunals[tribunal]
             prog.cursor_date -= timedelta(days=1)
 
+    async def set_cursor(self, tribunal: str, target_cursor: date) -> bool:
+        """Set the cursor to a specific date and reset streak."""
+        async with self._lock:
+            if tribunal in self._tribunals:
+                prog = self._tribunals[tribunal]
+                prog.cursor_date = target_cursor
+                prog.stopped = False
+                prog.empty_streak = 0
+                return True
+            return False
+
     async def reset_tribunal(self, tribunal: str) -> bool:
         """Reset a stopped tribunal.  Returns ``True`` if it was found."""
         async with self._lock:
