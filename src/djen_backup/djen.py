@@ -79,11 +79,13 @@ async def get_caderno_url(
     try:
         data: dict[str, object] = resp.json()
     except ValueError as exc:
-        raise httpx.HTTPError("Invalid JSON response from DJEN proxy") from exc
+        msg = "Invalid JSON response from DJEN proxy"
+        raise httpx.HTTPError(msg) from exc
 
     download_url = data.get("url")
     if not isinstance(download_url, str) or not download_url:
-        raise httpx.HTTPError("Missing download URL in DJEN response")
+        msg = "Missing download URL in DJEN response"
+        raise httpx.HTTPError(msg)
 
     return download_url
 
