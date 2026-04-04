@@ -51,7 +51,7 @@ CALENDAR_DAYS = 120
 GITHUB_REPO = "franklinbaldo/causaganha"
 OUTPUT_DIR = Path(__file__).parent.parent / "dashboard" / "public" / "cache"
 MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
-MANIFEST_JSONL_URL = "https://franklinbaldo.github.io/causaganha/manifest.jsonl"
+MANIFEST_JSONL_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 BACKFILL_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
 IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php"
