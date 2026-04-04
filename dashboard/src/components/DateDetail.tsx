@@ -40,11 +40,11 @@ function formatRelativeTime(dateStr: string): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `${diffMins}min atras`;
+  if (diffMins < 60) return `${diffMins} min atrás`;
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h atras`;
+  if (diffHours < 24) return `${diffHours}h atrás`;
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d atras`;
+  if (diffDays < 30) return `${diffDays}d atrás`;
   return date.toLocaleDateString('pt-BR');
 }
 
@@ -58,8 +58,8 @@ function DateShareButton({ dateStr }: { dateStr: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleClick}>
-      <svg  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <button onClick={handleClick} className="secondary outline" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+      <svg  xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
       </svg>
       {copied ? 'Copiado!' : 'Link'}
@@ -229,40 +229,44 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
           />
           <button
            onClick={() => { setFeaturedPub(null); history.replaceState(null, '', `#${dateStr}`); }}>
-            Ver todas as publicacoes
+            Ver todas as publicações
           </button>
         </div>
       )}
 
       {/* Date header */}
-      <div>
-        <div>
-          <h3>{dateStr}</h3>
-          {zipSize != null && <span>{formatSize(zipSize)}</span>}
-          {totalPages> 0 && <span>{totalPages} pag.</span>}
+      <article style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>{dateStr}</h3>
+            {zipSize != null && <span className="badge badge-accent">{formatSize(zipSize)}</span>}
+            {totalPages> 0 && <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{totalPages} pág.</span>}
+            {itemFileCount != null && (
+              <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{itemFileCount} arquivos</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+            <DateShareButton dateStr={dateStr} />
+            <a href={zipUrl} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Baixar ZIP</a>
+            <a href={`https://archive.org/details/${itemId}`} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Ver no IA</a>
+          </div>
+        </header>
+        <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', marginTop: 'var(--space-sm)' }}>
           {zipAddedDate && (
-            <span  title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
+            <span title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
               Arquivado {formatRelativeTime(zipAddedDate)}
             </span>
           )}
           {zipMd5 && (
-            <span  title={`MD5: ${zipMd5}`}>
+            <span title={`MD5: ${zipMd5}`}>
               MD5: {zipMd5.substring(0, 8)}...
             </span>
           )}
-          <DateShareButton dateStr={dateStr} />
         </div>
-        <div>
-          <a href={zipUrl} target="_blank" rel="noopener noreferrer">ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} target="_blank" rel="noopener noreferrer">IA</a>
-          {itemFileCount != null && (
-            <span>{itemFileCount} arquivos</span>
-          )}
-        </div>
-      </div>
+      </article>
 
-      {loading && <article>Carregando publicacoes...</article>}
-      {error && <article>Erro: {error}</article>}
+      {loading && <article>Carregando publicações...</article>}
+      {error && <article className="text-danger">Erro: {error}</article>}
 
       {/* Publications list */}
       {publications.length> 0 && !featuredPub && (
@@ -280,19 +284,21 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div>
-          <button onClick={handleLoadMore} disabled={loadingMore}>
-            {loadingMore ? 'Carregando...' : `Pagina ${currentPage + 1} de ${totalPages}`}
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
+          <button onClick={handleLoadMore} disabled={loadingMore} className="secondary">
+            {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
       )}
 
       {currentPage>= totalPages && publications.length> 0 && !loading && !featuredPub && (
-        <div>{publications.length.toLocaleString()} publicacoes</div>
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)', color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+          {publications.length.toLocaleString()} publicações
+        </div>
       )}
 
       {!loading && publications.length === 0 && !error && (
-        <article>Nenhuma publicacao encontrada.</article>
+        <article>Nenhuma publicação encontrada.</article>
       )}
     </div>
   );

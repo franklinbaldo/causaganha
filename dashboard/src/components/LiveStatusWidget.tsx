@@ -125,7 +125,7 @@ export function LiveStatusWidget() {
   if (error) {
     return (
       <article>
-        <span>Live pipeline status currently unavailable.</span>
+        <span>Status ao vivo indisponível.</span>
       </article>
     );
   }
@@ -133,7 +133,7 @@ export function LiveStatusWidget() {
   if (!data) {
     return (
       <article>
-        <span aria-busy="true">Loading pipeline status...</span>
+        <span aria-busy="true">Carregando status do pipeline...</span>
       </article>
     );
   }
@@ -143,6 +143,12 @@ export function LiveStatusWidget() {
   const diffMinutes = (now - lastUpdatedTime.getTime()) / 1000 / 60;
   const isActuallyRunning = status === 'running' && diffMinutes <= 5;
 
+  let translatedStatus = 'Desconhecido';
+  if (isActuallyRunning) translatedStatus = 'em Execução';
+  else if (status === 'running') translatedStatus = 'em Execução';
+  else if (status === 'idle') translatedStatus = 'Ocioso';
+  else if (status) translatedStatus = status;
+
   return (
     <article>
       <header>
@@ -151,24 +157,24 @@ export function LiveStatusWidget() {
         ) : null}
         <hgroup>
           <h2>
-            Pipeline {isActuallyRunning ? 'Running' : (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown')}
+            Pipeline {translatedStatus}
             {source === 'ntfy-sse' && (
               <span> ● live</span>
             )}
           </h2>
           <small>
-            Updated {lastUpdatedTime.toLocaleTimeString()}
+            Atualizado às {lastUpdatedTime.toLocaleTimeString()}
           </small>
         </hgroup>
       </header>
 
       <div>
         <div>
-          <small>ZIPs Uploaded</small>
+          <small>ZIPs Enviados</small>
           <strong>{zips_uploaded ?? '—'}</strong>
         </div>
         <div>
-          <small>Active Tribunals</small>
+          <small>Tribunais Ativos</small>
           <strong>{active_tribunals ?? '—'}</strong>
         </div>
       </div>

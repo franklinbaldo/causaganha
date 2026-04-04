@@ -133,7 +133,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
 
   let etaText = "Pendente";
   if (actualMissingDays === 0 && expectedDays> 0) {
-    etaText = "Concluido";
+    etaText = "Concluído";
   } else if (dynamicEtaDays) {
     if (dynamicEtaDays < 30) {
       etaText = `~${dynamicEtaDays} dias`;
@@ -152,7 +152,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const totalForBar = actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0);
   const absentCount = selectedEtaData.absent_days_count || 0;
   const syncedPct = totalForBar> 0 ? (selectedCoverage.size / totalForBar) * 100 : 0;
-  const completionStatusText = isComplete ? "Completed" : "In progress";
+  const completionStatusText = isComplete ? "Concluído" : "Em andamento";
 
   const hasFeaturedPub = hashState.seq != null;
 
