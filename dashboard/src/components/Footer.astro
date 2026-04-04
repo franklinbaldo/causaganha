@@ -53,6 +53,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     color: var(--color-content);
     margin-bottom: var(--space-sm);
   }
+  @media (max-width: 768px) {
+    footer .grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-xl);
+    }
+  }
 </style>
 
 <footer>

@@ -80,7 +80,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         {/* Quick Stats */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
           gap: 'var(--space-md)',
           textAlign: 'center',
           padding: 'var(--space-md) 0'
