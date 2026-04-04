@@ -152,6 +152,7 @@ jobs:
         if: success() || failure()
         run: |
           UPLOADED="${{ steps.collect.outputs.uploaded }}"
+          ERRORS="${{ steps.collect.outputs.errors }}"
 
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
             UPLOADED=$(grep -oP '(?<=✅ Uploaded \(new\) \| \*\*)\d+(?=\*\*)' "$GITHUB_STEP_SUMMARY" || echo "")
@@ -179,16 +180,30 @@ jobs:
             UPLOADED=0
           fi
 
-          echo "ZIPs uploaded in this run: $UPLOADED"
-          if [ "$UPLOADED" -eq 0 ]; then
-            echo "CRITICAL: Zero ZIPs collected today - pipeline may be broken"
-            # TODO: Add TELEGRAM_BOT_TOKEN to repository secrets
-            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-              -d "chat_id=8490688452" \
-              -d "text=⚠️ causaganha: Collect ZIPs FALHOU! Verificar: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            exit 1
+          if [ -z "$ERRORS" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            ERRORS=$(grep -oP '(?<=❌ Errors \| )\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
-          echo "Pipeline successful - $UPLOADED ZIPs collected"
+
+          if [ -z "$ERRORS" ]; then
+            ERRORS=0
+          fi
+
+          echo "ZIPs uploaded in this run: $UPLOADED"
+          echo "Errors encountered in this run: $ERRORS"
+          if [ "$UPLOADED" -eq 0 ]; then
+            if [ "$ERRORS" -gt 0 ]; then
+              echo "CRITICAL: Zero ZIPs collected AND errors encountered - pipeline broken"
+              # TODO: Add TELEGRAM_BOT_TOKEN to repository secrets
+              curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+                -d "chat_id=8490688452" \
+                -d "text=⚠️ causaganha: Collect ZIPs FALHOU! Verificar: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              exit 1
+            else
+              echo "WARNING: Zero ZIPs collected, but no errors. Might just be caught up."
+            fi
+          else
+            echo "Pipeline successful - $UPLOADED ZIPs collected"
+          fi
 
       - name: Low coverage alert (check for < 73 ZIPs)
         if: success() || failure()
