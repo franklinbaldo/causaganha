@@ -17,6 +17,7 @@ from causaganha.analysis.strategy import AnalysisStrategy
 
 logger = structlog.get_logger()
 
+
 async def create_analyzer(
     strategy: AnalysisStrategy,
     confidence_threshold: float,

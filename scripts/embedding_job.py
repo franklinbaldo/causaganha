@@ -38,6 +38,7 @@ from causaganha.storage.embedding_storage import EmbeddingStorage, _get_table_na
 
 logger = structlog.get_logger()
 
+
 def get_decisions_to_process(mode: str, limit: int | None = None, days_back: int = 1) -> list[int]:
     """Get decisions that need embeddings.
 
@@ -120,6 +121,7 @@ def get_decisions_to_process(mode: str, limit: int | None = None, days_back: int
 
     return decision_ids
 
+
 def load_decision_text(intimation_id: int) -> str:
     """Load decision text from database.
 
@@ -148,6 +150,7 @@ def load_decision_text(intimation_id: int) -> str:
             error=str(e),
         )
         return ""
+
 
 def create_progress_callback(total: int, start_time: float) -> Callable[[BatchStats], None]:
     """Create a progress callback that logs processing status.
@@ -183,6 +186,7 @@ def create_progress_callback(total: int, start_time: float) -> Callable[[BatchSt
         )
 
     return progress
+
 
 def save_statistics(stats: BatchStats, args: argparse.Namespace) -> None:
     """Save job statistics to JSON file.
@@ -222,6 +226,7 @@ def save_statistics(stats: BatchStats, args: argparse.Namespace) -> None:
 
     logger.info("statistics_saved", file=str(stats_file))
 
+
 async def process_batch_with_stats(
     intimation_ids: list[int],
     max_concurrency: int,
@@ -260,6 +265,7 @@ async def process_batch_with_stats(
                 cache_hit_rate=f"{stats.cache_hit_rate:.1%}",
                 throughput=f"{stats.throughput:.1f} dec/s",
             )
+
         progress_callback = log_progress
         progress_interval = 100
 
@@ -276,6 +282,7 @@ async def process_batch_with_stats(
         progress_callback=progress_callback,
         progress_interval=progress_interval,
     )
+
 
 async def main_async(args: argparse.Namespace) -> None:
     """Main async entry point.
@@ -336,6 +343,7 @@ async def main_async(args: argparse.Namespace) -> None:
         throughput=round(stats.throughput, 2),
     )
 
+
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -382,6 +390,7 @@ def main() -> None:
 
     # Run async main
     asyncio.run(main_async(args))
+
 
 if __name__ == "__main__":
     main()
