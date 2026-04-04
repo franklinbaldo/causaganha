@@ -1,0 +1,162 @@
+# ============================================================================
+# CONSOLIDATE PARQUET — Convert daily DJEN ZIPs into structured Parquet tables
+# ============================================================================
+#
+# Runs after Collect ZIPs or Collect Today succeeds. Downloads all ZIPs for
+# complete days, consolidates into 10 Parquet tables (comunicacoes, advogados,
+# classificacoes, etc.), and uploads to Internet Archive.
+#
+# Also runs daily at 07:00 UTC to catch any missed consolidations.
+# ============================================================================
+
+name: Consolidate Parquet
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_run:
+    workflows: ["Collect ZIPs", "Collect Today"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Specific date to consolidate (YYYY-MM-DD). Leave empty for backfill mode.'
+        required: false
+      dry_run:
+        description: 'Dry run — skip uploading to Internet Archive'
+        required: false
+        default: false
+        type: boolean
+      force:
+        description: 'Consolidate even if day is incomplete'
+        required: false
+        default: false
+        type: boolean
+      deadline_minutes:
+        description: 'Deadline in minutes'
+        required: false
+        default: '12'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: consolidate-parquet
+  cancel-in-progress: false
+
+jobs:
+  consolidate:
+    name: Consolidate ZIPs → Parquet
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+
+      - name: Download checkpoint state
+        run: |
+          mkdir -p data
+          curl -sSfL -o data/consolidate-checkpoint.json \
+            "https://archive.org/download/causaganha-dashboard/consolidate-checkpoint.json" \
+            || echo '{"current_date":null,"processed_zips":[],"completed_dates":[]}' > data/consolidate-checkpoint.json
+          echo "Checkpoint state:"
+          cat data/consolidate-checkpoint.json | python3 -m json.tool 2>/dev/null || cat data/consolidate-checkpoint.json
+
+      - name: Run consolidation
+        id: consolidate
+        run: |
+          DATE="${{ github.event.inputs.date || '' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          FORCE="${{ github.event.inputs.force || 'false' }}"
+          DEADLINE="${{ github.event.inputs.deadline_minutes || '12' }}"
+
+          CMD="uv run python scripts/pipeline/consolidate.py"
+
+          if [ -n "$DATE" ]; then
+            CMD="$CMD --date $DATE"
+          else
+            CMD="$CMD --backfill"
+          fi
+
+          CMD="$CMD --deadline ${DEADLINE}m"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+
+          if [ "$FORCE" = "true" ]; then
+            CMD="$CMD --force"
+          fi
+
+          echo "Running: $CMD"
+          $CMD
+
+      - name: Consolidation Summary
+        if: always()
+        run: |
+          echo "## Consolidation Summary" >> $GITHUB_STEP_SUMMARY
+          PARQUETS="${{ steps.consolidate.outputs.consolidate_parquets || '0' }}"
+          ZIPS="${{ steps.consolidate.outputs.consolidate_zips || '0' }}"
+          UPLOADED_MB="${{ steps.consolidate.outputs.consolidate_uploaded_mb || '0' }}"
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ZIPs processed | $ZIPS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Parquets created | $PARQUETS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Uploaded | ${UPLOADED_MB} MB |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Export lawyer ratings to Parquet
+        if: steps.consolidate.outputs.files_added == 'true'
+        run: |
+          if [ -f catalog/catalog.duckdb ]; then
+            echo "Exporting lawyer ratings..."
+            uv run python scripts/pipeline/export_ratings.py
+          else
+            echo "No catalog DB found — skipping ratings export"
+          fi
+
+      - name: Upload checkpoint state to IA
+        if: always()
+        run: |
+          if [ -f data/consolidate-checkpoint.json ]; then
+            uv run python -c "
+          import httpx, os
+          from scripts.pipeline.ia_s3 import get_ia_s3_auth, upload_to_ia
+          auth = get_ia_s3_auth()
+          if auth:
+              headers = {'Authorization': auth}
+              with httpx.Client(timeout=60, headers=headers) as client:
+                  from pathlib import Path
+                  upload_to_ia(client, 'causaganha-dashboard', Path('data/consolidate-checkpoint.json'), 'checkpoint')
+                  print('Checkpoint uploaded to IA')
+          else:
+              print('No IA credentials — skipping checkpoint upload')
+          "
+          fi
+
+      - name: Trigger catalog regeneration
+        if: steps.consolidate.outputs.files_added == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'generate-catalog.yml',
+              ref: 'main'
+            });
