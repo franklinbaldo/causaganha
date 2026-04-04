@@ -91,7 +91,7 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
 
     @media (max-width: 768px) {
       .coverage-grid { grid-template-columns: 1fr; }
-      .weekly-grid { grid-template-columns: repeat(4, 1fr); }
+      .weekly-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 
@@ -141,17 +141,19 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
           <strong>Top 5 Mais Confiáveis</strong>
         </header>
         {top5.length > 0 ? (
-          <table>
-            <tbody>
-              {top5.map((c, i) => (
-                <tr>
-                  <td><span class="rank-num">{i + 1}</span></td>
-                  <td><strong>{c.court}</strong></td>
-                  <td class="text-success text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style="overflow-x: auto;">
+            <table>
+              <tbody>
+                {top5.map((c, i) => (
+                  <tr>
+                    <td><span class="rank-num">{i + 1}</span></td>
+                    <td><strong>{c.court}</strong></td>
+                    <td class="text-success text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p class="text-center text-muted">Sem dados suficientes</p>
         )}
@@ -162,17 +164,19 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
           <strong>Top 5 Mais Falhas</strong>
         </header>
         {bottom5.length > 0 ? (
-          <table>
-            <tbody>
-              {bottom5.map((c, i) => (
-                <tr>
-                  <td><span class="rank-num">{i + 1}</span></td>
-                  <td><strong>{c.court}</strong></td>
-                  <td class="text-danger text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style="overflow-x: auto;">
+            <table>
+              <tbody>
+                {bottom5.map((c, i) => (
+                  <tr>
+                    <td><span class="rank-num">{i + 1}</span></td>
+                    <td><strong>{c.court}</strong></td>
+                    <td class="text-danger text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p class="text-center text-muted">Sem dados suficientes</p>
         )}

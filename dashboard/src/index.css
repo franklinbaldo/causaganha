@@ -340,8 +340,8 @@ details p {
 
 @media (max-width: 768px) {
   .heatmap-cell, .heatmap-cell-empty {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
   }
 }
 
