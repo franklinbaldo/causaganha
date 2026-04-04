@@ -10,6 +10,8 @@ from pytest_bdd import given, parsers, scenario
 if TYPE_CHECKING:
     import respx
 
+    from djen_backup.state import State
+
 
 # ── Scenarios ────────────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ def given_djen_empty_url(
 # ── Then ─────────────────────────────────────────────────────────────
 
 from datetime import date
+
 from pytest_bdd import then
 
 

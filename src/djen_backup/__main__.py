@@ -283,12 +283,11 @@ def reset(
                     count = 1
                 else:
                     click.echo(f"Tribunal {tribunal} not found in state.", err=True)
+            elif await bstate.reset_tribunal(tribunal):
+                click.echo(f"Reset {tribunal}")
+                count = 1
             else:
-                if await bstate.reset_tribunal(tribunal):
-                    click.echo(f"Reset {tribunal}")
-                    count = 1
-                else:
-                    click.echo(f"Tribunal {tribunal} not found in state.", err=True)
+                click.echo(f"Tribunal {tribunal} not found in state.", err=True)
         else:
             for code, prog in progress.items():
                 if prog.stopped:
