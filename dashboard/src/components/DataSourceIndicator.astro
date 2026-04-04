@@ -1,0 +1,33 @@
+---
+---
+<small id="datasource-indicator" role="status">
+  Connecting...
+</small>
+
+<script>
+  function setupDataSourceIndicator() {
+    const indicator = document.getElementById('datasource-indicator');
+    if (!indicator) return;
+
+    const IA_URL = 'https://archive.org/download/causaganha-dashboard/meta.json';
+
+    async function probe() {
+      try {
+        const res = await fetch(IA_URL);
+        if (res.ok) {
+          const data = await res.json();
+          indicator!.innerHTML = `<span class="cg-pulse"></span> Live via Internet Archive (${data.generated_at?.slice(0, 16)})`;
+        } else {
+          indicator!.innerHTML = `Static fallback (IA HTTP ${res.status})`;
+        }
+      } catch (err: any) {
+        indicator!.innerHTML = `Offline: ${err.message || String(err)}`;
+      }
+    }
+
+    probe();
+  }
+
+  setupDataSourceIndicator();
+  document.addEventListener('astro:after-swap', setupDataSourceIndicator);
+</script>

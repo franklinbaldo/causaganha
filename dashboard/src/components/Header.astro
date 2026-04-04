@@ -1,5 +1,5 @@
 ---
-import { ThemeToggle } from './ThemeToggle';
+import ThemeToggle from './ThemeToggle.astro';
 
 interface Props {
   variant: 'home' | 'page';
@@ -140,10 +140,10 @@ const navLinks = [
           </a>
         </li>
       ))}
-      <li><ThemeToggle client:load /></li>
+      <li><ThemeToggle /></li>
     </ul>
     <ul class="mobile-nav">
-      <li><ThemeToggle client:load /></li>
+      <li><ThemeToggle /></li>
       <li>
         <details class="dropdown" data-nav-dropdown>
           <summary aria-label="Menu">
@@ -200,10 +200,10 @@ const navLinks = [
             </a>
           </li>
         ))}
-        <li><ThemeToggle client:load /></li>
+        <li><ThemeToggle /></li>
       </ul>
       <ul class="mobile-nav">
-        <li><ThemeToggle client:load /></li>
+        <li><ThemeToggle /></li>
         <li>
           <details class="dropdown" data-nav-dropdown>
             <summary aria-label="Menu">

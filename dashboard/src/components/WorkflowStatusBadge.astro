@@ -1,0 +1,81 @@
+---
+---
+<mark id="workflow-status-badge" role="status" aria-label="Workflow in progress" style="display: none;">
+  <span class="cg-pulse"></span>
+  <span>Coletando agora...</span>
+  <small id="workflow-status-time">00:00</small>
+</mark>
+
+<script>
+  function setupWorkflowStatus() {
+    const badge = document.getElementById('workflow-status-badge');
+    const timeDisplay = document.getElementById('workflow-status-time');
+    if (!badge || !timeDisplay) return;
+
+    const WORKFLOW_ID = 'collect-zips.yml';
+    const REPO = 'franklinbaldo/causaganha';
+    const API_URL = `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW_ID}/runs?status=in_progress`;
+
+    let startedAt: number | null = null;
+    let pollIntervalId: number | null = null;
+    let elapsedTimerId: number | null = null;
+
+    function formatElapsed(ms: number): string {
+      if (!ms || ms < 0) return '00:00';
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateTime() {
+      if (startedAt) {
+        timeDisplay!.textContent = formatElapsed(Date.now() - startedAt);
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error(`API error`);
+        const data = await response.json();
+
+        if (data.total_count > 0 && data.workflow_runs && data.workflow_runs.length > 0) {
+          const run = data.workflow_runs[0];
+          startedAt = new Date(run.run_started_at).getTime();
+          badge!.style.display = 'inline-flex';
+          updateTime();
+
+          if (!elapsedTimerId) {
+            elapsedTimerId = window.setInterval(updateTime, 1000);
+          }
+        } else {
+          badge!.style.display = 'none';
+          startedAt = null;
+          if (elapsedTimerId) {
+            clearInterval(elapsedTimerId);
+            elapsedTimerId = null;
+          }
+        }
+      } catch (err) {
+        badge!.style.display = 'none';
+        if (elapsedTimerId) {
+          clearInterval(elapsedTimerId);
+          elapsedTimerId = null;
+        }
+      }
+    }
+
+    fetchStatus();
+    pollIntervalId = window.setInterval(fetchStatus, 60000);
+
+    // Cleanup
+    document.addEventListener('astro:before-swap', () => {
+      if (pollIntervalId) clearInterval(pollIntervalId);
+      if (elapsedTimerId) clearInterval(elapsedTimerId);
+    }, { once: true });
+  }
+
+  setupWorkflowStatus();
+  document.addEventListener('astro:after-swap', setupWorkflowStatus);
+</script>
