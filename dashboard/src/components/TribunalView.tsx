@@ -84,53 +84,48 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
         {/* Quick Stats Grid */}
         <div className="grid">
-           <div>
+           <article style={{ margin: 0 }}>
               <div className="stat-value text-primary">{totalZips.toLocaleString()}</div>
               <p className="stat-label">ZIPs no IA</p>
-           </div>
-           <div>
+           </article>
+           <article style={{ margin: 0 }}>
               <div className="stat-value">{totalGB.toFixed(1)} GB</div>
               <p className="stat-label">Volume</p>
-           </div>
-           <div>
+           </article>
+           <article style={{ margin: 0 }}>
               <div className="stat-value text-success">{tribunalsWithData} <span style={{ fontSize: '1rem', color: 'var(--pico-muted-color)' }}>/ {snap?.tribunals_total || 96}</span></div>
               <p className="stat-label">Tribunais</p>
-           </div>
-           <div>
+           </article>
+           <article style={{ margin: 0 }}>
               <div className="stat-value text-warning">{snap?.total_items || 0}</div>
               <p className="stat-label">Itens no IA</p>
-           </div>
+           </article>
         </div>
       </article>
 
       {/* Progress by Year — prefer snapshot data */}
-      {Object.keys(snapshotByYear).length> 0 ? (
+      {Object.keys(snapshotByYear).length > 0 ? (
         <article>
           <header>
             <strong>ZIPs por Ano (Internet Archive)</strong>
           </header>
-          <table className="striped">
-            <thead>
-              <tr>
-                <th>Ano</th>
-                <th>ZIPs</th>
-                <th>Tribunais com Dados</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(snapshotByYear)
-                .sort(([a], [b]) => b.localeCompare(a))
-                .map(([year, d]) => (
-                  <tr key={year}>
-                    <td><strong>{year}</strong></td>
-                    <td className="text-primary">{(d as any).zip_count.toLocaleString()}</td>
-                    <td>{(d as any).tribunals_with_data} / {(d as any).tribunals_total}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          <div className="grid" style={{ gap: '1rem' }}>
+            {Object.entries(snapshotByYear)
+              .sort(([a], [b]) => b.localeCompare(a))
+              .map(([year, d]) => (
+                <div key={year} style={{ padding: '1rem', border: '1px solid var(--pico-muted-border-color)', borderRadius: 'var(--pico-border-radius)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <strong>{year}</strong>
+                    <span className="text-primary" style={{ fontWeight: 'bold' }}>{(d as any).zip_count.toLocaleString()} ZIPs</span>
+                  </div>
+                  <div className="text-muted" style={{ fontSize: '0.875rem' }}>
+                    Tribunais: {(d as any).tribunals_with_data} / {(d as any).tribunals_total}
+                  </div>
+                </div>
+              ))}
+          </div>
         </article>
-      ) : progressByYear && Object.keys(progressByYear).length> 0 ? (
+      ) : progressByYear && Object.keys(progressByYear).length > 0 ? (
         <article>
           <header><strong>Progresso por Ano</strong></header>
           <div>
@@ -169,6 +164,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
           }}
           placeholder="Busque por sigla ou nome (ex.: tjsp, trf1, stj)"
           aria-label="Filtrar tribunais por sigla ou nome"
+          style={{ marginBottom: 0 }}
         />
       </div>
 
