@@ -32,11 +32,11 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
     <div aria-label="Velocity Timeline">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
         <div>
-          <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocity Timeline</h4>
+          <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocidade de Coleta</h4>
           <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>Taxa de coleta das últimas 12 semanas</p>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} docs/sem (média)</div>
+          <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} dias/sem (média)</div>
           <div className={trendColor} style={{ fontSize: '0.875rem' }}>
             {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
           </div>

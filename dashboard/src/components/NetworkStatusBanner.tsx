@@ -75,16 +75,16 @@ export function NetworkStatusBanner() {
       aria-live="assertive">
       {status === 'slow' && (
         <div>
-          <strong>Slow Network Detected</strong>
-          <small>Loading might take longer than usual. Using cached data if available.</small>
+          <strong>Rede Lenta Detectada</strong>
+          <small>O carregamento pode demorar mais que o normal. Usando dados em cache, se disponíveis.</small>
         </div>
       )}
 
       {status === 'retrying' && retryInfo && (
         <div>
-          <strong>Connection Issue</strong>
+          <strong>Problema de Conexão</strong>
           <small>
-            Retrying (attempt {retryInfo.attempt}/{retryInfo.maxRetries}) in {Math.ceil(countdown / 1000)}s...
+            Tentando novamente (tentativa {retryInfo.attempt}/{retryInfo.maxRetries}) em {Math.ceil(countdown / 1000)}s...
           </small>
         </div>
       )}
@@ -92,14 +92,14 @@ export function NetworkStatusBanner() {
       {status === 'error' && (
         <div>
           <div>
-            <strong>Network Failed</strong>
-            <small>Could not connect to server. Showing cached offline data.</small>
+            <strong>Falha na Rede</strong>
+            <small>Não foi possível conectar ao servidor. Mostrando dados offline em cache.</small>
           </div>
           <button
             className="outline"
             onClick={handleManualRetry}
-            aria-label="Retry network connection now">
-            Retry
+            aria-label="Tentar reconectar rede agora">
+            Tentar Novamente
           </button>
         </div>
       )}
