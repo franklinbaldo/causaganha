@@ -66,6 +66,7 @@ def given_djen_empty_url(
 from datetime import date
 from pytest_bdd import then
 
+
 @then(
     parsers.parse('the state should not mark "{tribunal}" on "{date_str}" as "absent"'),
 )
@@ -76,6 +77,9 @@ def then_state_not_absent(
 ) -> None:
     state: State = context["state"]
     d = date.fromisoformat(date_str)
-    assert state.get_status(d, tribunal) != "absent", f"Expected {tribunal} {date_str} to not be absent"
+    assert state.get_status(d, tribunal) != "absent", (
+        f"Expected {tribunal} {date_str} to not be absent"
+    )
+
 
 # (Removed then_absent_uploaded and then_absent_json as they are no longer in the feature)
