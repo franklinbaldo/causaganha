@@ -52,7 +52,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   // Don't render content until hash is read (prevents flash of wrong date)
   // Disable hash loading barrier when running under test/ssg, otherwise the page will be completely blank
   if (!hashReady && typeof window !== 'undefined') {
-    return <div>Carregando...</div>;
+    return <article aria-busy="true" className="text-center text-muted pt-md pb-sm">Carregando...</article>;
   }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};

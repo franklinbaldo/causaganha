@@ -30,20 +30,20 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
 
   return (
     <div aria-label="Velocidade de Coleta nas Últimas 12 Semanas">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+      <div className="flex-between flex-wrap gap-sm mb-md align-baseline">
         <div>
-          <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocidade de Coleta</h4>
-          <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>Taxa de coleta das últimas 12 semanas</p>
+          <h4 className="mb-0">Velocidade de Coleta</h4>
+          <p className="text-muted mb-0" style={{ fontSize: 'var(--font-size-sm)' }}>Taxa de coleta das últimas 12 semanas</p>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className="text-right">
           <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} dias/sem (média)</div>
-          <div className={trendColor} style={{ fontSize: '0.875rem' }}>
+          <div className={trendColor} style={{ fontSize: 'var(--font-size-sm)' }}>
             {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
           </div>
         </div>
       </div>
 
-      <div role="list" style={{ display: 'flex', gap: '4px', height: '100px', alignItems: 'flex-end', marginTop: '2rem' }}>
+      <div role="list" className="flex align-end mt-lg" style={{ gap: '4px', height: '100px' }}>
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
@@ -51,7 +51,8 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
             <div
               key={`w-${idx}`}
               role="listitem"
-              style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end', group: 'hover' }}
+              className="flex align-end"
+              style={{ flex: 1, position: 'relative', height: '100%', group: 'hover' }}
               title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}
               aria-label={`${week.collected} dias coletados na semana ${12 - week.weekOffset}`}>
               <div
@@ -61,7 +62,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         })}
       </div>
 
-      <div className="text-muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+      <div className="flex-between text-muted mt-xs" style={{ fontSize: 'var(--font-size-xs)' }}>
         <span>12 semanas atrás</span>
         <span>Atual</span>
       </div>
@@ -285,21 +286,21 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         );
       })}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--pico-muted-border-color)', fontSize: '0.875rem' }}>
+      <div className="flex-between flex-wrap gap-sm mt-md pt-sm border-top" style={{ fontSize: 'var(--font-size-sm)' }}>
         <span className="text-muted">
           <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span className="text-muted" style={{ marginRight: '0.5rem' }}>Legenda:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="flex align-center flex-wrap gap-md">
+          <span className="text-muted">Legenda:</span>
+          <div className="flex align-center gap-xs">
             <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Faltante</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="flex align-center gap-xs">
             <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Ausente</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="flex align-center gap-xs">
             <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Coletado</span>
           </div>

@@ -66,8 +66,9 @@ export function PipelineRunHistory() {
 
       {!loading && !error && (
         <div>
-          <table>
-            <thead>
+          <div className="table-responsive">
+            <table>
+              <thead>
               <tr>
                 <th>Run Date</th>
                 <th>Duration (min)</th>
@@ -95,8 +96,9 @@ export function PipelineRunHistory() {
                   <td colSpan={3}>No runs found.</td>
                 </tr>
               )}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </article>

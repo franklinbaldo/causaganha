@@ -115,12 +115,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             {Object.entries(snapshotByYear)
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => (
-                <div key={year} style={{
-                  padding: 'var(--space-md)',
-                  border: '1px solid var(--color-border-muted)',
-                  borderRadius: 'var(--pico-border-radius)',
-                  background: 'var(--color-surface)'
-                }}>
+                <article key={year} className="mb-0" style={{ padding: 'var(--space-md)' }}>
                   <div className="flex-between mb-xs">
                     <strong style={{ fontSize: 'var(--font-size-sm)' }}>{year}</strong>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--font-size-sm)', fontWeight: '700' }}>{(d as any).zip_count.toLocaleString()}</span>
@@ -128,7 +123,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <small style={{ color: 'var(--color-content-tertiary)', fontSize: 'var(--font-size-xs)' }}>
                     {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
                   </small>
-                </div>
+                </article>
               ))}
           </div>
         </article>
