@@ -16,7 +16,6 @@ import structlog
 logger = structlog.get_logger()
 
 IA_CATALOG_ITEM = "causaganha-catalog"
-MANIFEST_JSONL_URL = "https://franklinbaldo.github.io/causaganha/manifest.jsonl"
 FALLBACK_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 LOCAL_MANIFEST_PATH = Path("data/manifest.jsonl")
 IA_STATE_PATH = Path("data/ia-state.json")
@@ -24,7 +23,7 @@ IA_STATE_PATH = Path("data/ia-state.json")
 
 def download_existing_manifest() -> list[dict]:
     """Download existing manifest.jsonl from IA."""
-    for url in [MANIFEST_JSONL_URL, FALLBACK_MANIFEST_URL]:
+    for url in [FALLBACK_MANIFEST_URL]:
         try:
             logger.info("attempting_to_download_manifest", url=url)
             req = urllib.request.Request(url)
@@ -117,6 +116,10 @@ def main() -> int:
 
     new_rows = get_new_uploads()
     logger.info("new_rows_from_state", count=len(new_rows))
+
+    if os_env := os.environ.get("GITHUB_OUTPUT"):
+        with Path(os_env).open("a", encoding="utf-8") as out:
+            out.write(f"has_new_uploads={'true' if new_rows else 'false'}\n")
 
     if not new_rows:
         logger.info("no_new_rows_to_append")
