@@ -6,30 +6,88 @@ interface Props {
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<footer style="margin-top: 4rem; padding: 4rem 0; border-top: 1px solid var(--pico-muted-border-color); background-color: var(--pico-background-color);">
+<style>
+  footer {
+    margin-top: var(--space-3xl);
+    padding: var(--space-2xl) 0 var(--space-xl);
+    border-top: 1px solid var(--color-border-muted);
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: var(--space-xl);
+  }
+  .footer-brand p {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-tertiary);
+    max-width: 36ch;
+    line-height: 1.6;
+  }
+  .footer-brand small {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+  }
+  h4 {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-content-tertiary);
+    margin-bottom: var(--space-sm);
+  }
+  .footer-links {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+  .footer-links li {
+    margin-bottom: 0.5rem;
+  }
+  .footer-links a {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-secondary);
+    text-decoration: none;
+  }
+  .footer-links a:hover {
+    color: var(--color-content);
+  }
+  .wordmark {
+    font-weight: 800;
+    font-size: var(--font-size-md);
+    letter-spacing: -0.02em;
+    color: var(--color-content);
+    margin-bottom: var(--space-sm);
+  }
+  @media (max-width: 768px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-lg);
+    }
+  }
+</style>
+
+<footer>
   <div class="container">
-    <div class="grid">
-      <div>
-        <hgroup>
-          <h4><strong><span class="text-primary">Causa</span><span style="color: #f59e0b;">Ganha</span></strong></h4>
-          <p class="text-muted" style="font-size: 0.875rem;">Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
-        </hgroup>
-        <small class="text-muted">&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</small>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <p class="wordmark">CausaGanha</p>
+        <p>Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
+        <small>&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</small>
       </div>
       <div>
-        <h4>Links</h4>
-        <ul style="list-style: none; padding-left: 0;">
-          <li><a href={BASE + 'publicacoes'} class="secondary">Publicações</a></li>
-          <li><a href={BASE + 'stats'} class="secondary">Estatísticas</a></li>
-          <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="secondary">GitHub</a></li>
+        <h4>Navegação</h4>
+        <ul class="footer-links">
+          <li><a href={BASE + 'publicacoes'}>Publicações</a></li>
+          <li><a href={BASE + 'stats'}>Estatísticas</a></li>
+          <li><a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a></li>
         </ul>
       </div>
       <div>
         <h4>Dados</h4>
-        <ul style="list-style: none; padding-left: 0;">
-          <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="secondary">Internet Archive</a></li>
-          <li><a href={BASE + '#como-funciona'} class="secondary">Como Funciona</a></li>
-          <li><a href={BASE + '#para-quem'} class="secondary">Para Quem</a></li>
+        <ul class="footer-links">
+          <li><a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener">Internet Archive</a></li>
+          <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+          <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
         </ul>
       </div>
     </div>

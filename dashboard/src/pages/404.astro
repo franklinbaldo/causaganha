@@ -3,16 +3,49 @@ import Layout from '../layouts/Layout.astro';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<Layout title="Página não encontrada - CausaGanha">
-  <main class="container" style="text-align: center; padding-top: 4rem;">
-    <h1 style="font-size: 6rem; opacity: 0.2; margin-bottom: 0;">404</h1>
-    <h2>Página não encontrada</h2>
-    <p>
-      Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
-    </p>
-    <div class="grid">
-      <a href={BASE + 'publicacoes'} role="button">Dashboard</a>
-      <a href={BASE} role="button" class="secondary">Início</a>
+<Layout title="Página não encontrada — CausaGanha">
+  <style>
+    .error-page {
+      text-align: center;
+      padding: var(--space-3xl) 0;
+      max-width: 32rem;
+      margin: 0 auto;
+    }
+    .error-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8rem;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 1;
+      color: var(--color-border);
+      margin-bottom: var(--space-md);
+    }
+    .error-page h2 {
+      font-size: var(--font-size-2xl);
+      margin-bottom: var(--space-sm);
+    }
+    .error-page p {
+      color: var(--color-content-tertiary);
+      margin-bottom: var(--space-xl);
+    }
+    .error-actions {
+      display: flex;
+      gap: var(--space-sm);
+      justify-content: center;
+    }
+  </style>
+
+  <main class="container">
+    <div class="error-page">
+      <div class="error-code">404</div>
+      <h2>Página não encontrada</h2>
+      <p>
+        Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
+      </p>
+      <div class="error-actions">
+        <a href={BASE + 'publicacoes'} role="button">Dashboard</a>
+        <a href={BASE} role="button" class="secondary outline">Início</a>
+      </div>
     </div>
   </main>
 </Layout>
