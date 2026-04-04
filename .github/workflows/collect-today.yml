@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: collect-today
@@ -46,16 +45,6 @@ jobs:
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - name: Restore backfill state
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            data/backfill-state.json
-            data/ia-state.json
-          key: collect-state-v7-${{ github.run_id }}
-          restore-keys: |
-            collect-state-v7-
 
       - name: Create data directory
         run: mkdir -p data
@@ -115,20 +104,3 @@ jobs:
           echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
           echo "Duration: $DURATION seconds, ZIPs collected: $UPLOADED" >> $GITHUB_STEP_SUMMARY
 
-      - name: Ensure state files exist for caching
-        if: always()
-        run: |
-          mkdir -p data
-          [ -f data/backfill-state.json ] || echo '{}' > data/backfill-state.json
-          [ -f data/ia-state.json ] || echo '{}' > data/ia-state.json
-          echo "State files:"
-          ls -lh data/
-
-      - name: Save backfill state
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            data/backfill-state.json
-            data/ia-state.json
-          key: collect-state-v7-${{ github.run_id }}

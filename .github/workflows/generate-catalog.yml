@@ -33,23 +33,13 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Restore backfill state
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            data/backfill-state.json
-            data/ia-state.json
-          key: collect-state-v7-${{ github.event.workflow_run.id }}
-          restore-keys: |
-            collect-state-v7-
-
-      - name: Create data directory
-        run: mkdir -p data
-
-      - name: Ensure state files exist for caching
+      - name: Download state from Internet Archive
         run: |
-          [ -f data/backfill-state.json ] || echo '{}' > data/backfill-state.json
-          [ -f data/ia-state.json ] || echo '{}' > data/ia-state.json
+          mkdir -p data
+          curl -sSfL -o data/ia-state.json \
+            "https://archive.org/download/causaganha-dashboard/ia-state.json" || echo '{}' > data/ia-state.json
+          curl -sSfL -o data/backfill-state.json \
+            "https://archive.org/download/causaganha-dashboard/backfill-state.json" || echo '{}' > data/backfill-state.json
           echo "State files:"
           ls -lh data/
 

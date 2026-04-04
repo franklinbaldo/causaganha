@@ -38,10 +38,6 @@ on:
       end_date:
         description: 'Newest date to process (YYYY-MM-DD, default: today)'
         required: false
-      cache_version:
-        description: 'Cache version (bump to reset state)'
-        required: false
-        default: 'v7'
       reset_stopped:
         description: 'Reset stopped tribunals (use sparingly!)'
         required: false
@@ -50,7 +46,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: collect-zips
@@ -79,16 +74,6 @@ jobs:
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - name: Restore backfill state
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            data/backfill-state.json
-            data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v7' }}-${{ github.run_id }}
-          restore-keys: |
-            collect-state-${{ github.event.inputs.cache_version || 'v7' }}-
 
       - name: Create data directory
         run: mkdir -p data
@@ -227,21 +212,4 @@ jobs:
           uv run causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Ensure state files exist for caching
-        if: always()
-        run: |
-          mkdir -p data
-          [ -f data/backfill-state.json ] || echo '{}' > data/backfill-state.json
-          [ -f data/ia-state.json ] || echo '{}' > data/ia-state.json
-          echo "State files:"
-          ls -lh data/
-
-      - name: Save backfill state
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            data/backfill-state.json
-            data/ia-state.json
-          key: collect-state-${{ github.event.inputs.cache_version || 'v7' }}-${{ github.run_id }}
 
