@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'preact/compat';
-import { JSX } from 'preact';
 import { CellTooltip } from './CellTooltip';
 import { CellStatus, CELL_STATUS_COLORS, getBarColor } from '../lib/colorUtils';
 import { toDateString } from '../lib/dateUtils';
@@ -19,53 +18,51 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
   const { weeklyData, historicalAvgVelocity, currentVelocity, trend } = metrics;
   const maxCollected = Math.max(7, ...weeklyData.map((w: VelocityWeek) => w.collected));
 
-  let trendColor = "";
-  let trendText = "Stable";
-  if (currentVelocity> historicalAvgVelocity * 1.2) {
+  let trendColor = "text-muted";
+  let trendText = "Estável";
+  if (currentVelocity > historicalAvgVelocity * 1.2) {
     trendColor = "text-success";
-    trendText = "Accelerating";
+    trendText = "Acelerando";
   } else if (currentVelocity < historicalAvgVelocity * 0.7) {
     trendColor = "text-danger";
-    trendText = "Declining";
+    trendText = "Em declínio";
   }
 
   return (
-    <div  aria-label="Velocity Timeline">
-      <div>
+    <div aria-label="Velocity Timeline">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
         <div>
-          <h4>Velocity Timeline</h4>
-          <p>Last 12 weeks collection rate</p>
+          <h4 style={{ margin: 0, fontSize: '1.25rem' }}>Velocity Timeline</h4>
+          <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>Taxa de coleta das últimas 12 semanas</p>
         </div>
-        <div>
-          <div>{currentVelocity.toFixed(1)} docs/wk avg</div>
-          <div className={trendColor || undefined}>
-            {trend> 0 ? '+' : ''}{trend.toFixed(0)}% vs avg ({trendText})
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} docs/sem (média)</div>
+          <div className={trendColor} style={{ fontSize: '0.875rem' }}>
+            {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
           </div>
         </div>
       </div>
 
-      <div  role="list">
+      <div role="list" style={{ display: 'flex', gap: '4px', height: '100px', alignItems: 'flex-end', marginTop: '2rem' }}>
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
           return (
             <div
               key={`w-${idx}`}
-              role="listitem">
+              role="listitem"
+              style={{ flex: 1, position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end', group: 'hover' }}
+              title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}>
               <div
-                className={getBarColor(week.collected)} style={{ height: `${heightPct}%` }}></div>
-              <div>
-                <div>{week.collected} days collected</div>
-                <div>Week {12 - week.weekOffset}</div>
-              </div>
+                className={getBarColor(week.collected)} style={{ width: '100%', height: `${heightPct}%`, borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'opacity 0.2s' }}></div>
             </div>
           );
         })}
       </div>
 
-      <div>
-        <span>12 wks ago</span>
-        <span>Current</span>
+      <div className="text-muted" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+        <span>12 semanas atrás</span>
+        <span>Atual</span>
       </div>
     </div>
   );
@@ -208,7 +205,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     });
   };
 
-  const handleGridKeyDown = (e: JSX.TargetedKeyboardEvent<HTMLDivElement>) => {
+  const handleGridKeyDown = (e: any) => {
     if (!allDays.length) return;
     let currentIndex = focusedCell ? allDays.indexOf(focusedCell) : allDays.length - 1;
     if (currentIndex === -1) currentIndex = allDays.length - 1;
@@ -236,7 +233,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {years.map(({ year, days: yDays, start: yrStart }) => {
         const startDayOfWeek = yrStart.getUTCDay();
         const paddedDays: (string | null)[] = Array(startDayOfWeek).fill(null).concat(yDays);
@@ -244,18 +241,43 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
         return (
           <div key={year}>
-            <h4>Year {year}</h4>
-            <div role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-              <div  aria-hidden="true">
-                <div></div><div>Mon</div><div></div><div>Wed</div><div></div><div>Fri</div><div></div>
+            <h4 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>{year}</h4>
+            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '1rem' }} role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+              <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem', fontSize: '0.75rem', color: 'var(--pico-muted-color)' }}>
+                <div style={{ height: '14px' }}></div>
+                <div style={{ height: '14px', lineHeight: '14px' }}>Seg</div>
+                <div style={{ height: '14px' }}></div>
+                <div style={{ height: '14px', lineHeight: '14px' }}>Qua</div>
+                <div style={{ height: '14px' }}></div>
+                <div style={{ height: '14px', lineHeight: '14px' }}>Sex</div>
+                <div style={{ height: '14px' }}></div>
               </div>
               {yrWeeks.map((week, weekIndex) => (
-                <div key={`w-${year}-${weekIndex}`} role="row">
-                  <div>
-                    {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('en-US', { month: 'short' }) : ''}
+                <div key={`w-${year}-${weekIndex}`} role="row" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ height: '16px', fontSize: '0.75rem', color: 'var(--pico-muted-color)', marginBottom: '4px' }}>
+                    {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
                   </div>
                   {week.map((day, dayIndex) => (
-                    <div key={day || `empty-${year}-${weekIndex}-${dayIndex}`} id={day ? `cell-${day}` : undefined} role="gridcell" className={getCellColor(day) || undefined} aria-label={getAriaLabel(day)} aria-selected={focusedCell === day} onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')} onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')} onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')} onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')} onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }} />
+                    <div
+                      key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
+                      id={day ? `cell-${day}` : undefined}
+                      role="gridcell"
+                      className={getCellColor(day) || undefined}
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '2px',
+                        cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
+                        backgroundColor: !day ? 'transparent' : undefined // Fallback for null days
+                      }}
+                      aria-label={getAriaLabel(day)}
+                      aria-selected={focusedCell === day}
+                      onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')}
+                      onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')}
+                      onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')}
+                      onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')}
+                      onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }}
+                    />
                   ))}
                 </div>
               ))}
@@ -263,15 +285,34 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
           </div>
         );
       })}
-      <div>
-        <span>{coveredDays} / {totalDays} days collected</span>
-        <div>
-          <div><div className="bg-danger"></div><span>Missing</span></div>
-          <div><div className="bg-warning"></div><span>Absent</span></div>
-          <div><div className="bg-success"></div><span>Collected</span></div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--pico-muted-border-color)', fontSize: '0.875rem' }}>
+        <span className="text-muted">
+          <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span className="text-muted" style={{ marginRight: '0.5rem' }}>Legenda:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+            <span>Faltante</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+            <span>Ausente</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+            <span>Coletado</span>
+          </div>
         </div>
       </div>
-      <VelocityTimeline metrics={velocityMetrics} />
+
+      {velocityMetrics && velocityMetrics.hasEnoughHistory && (
+        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid var(--pico-muted-border-color)' }}>
+          <VelocityTimeline metrics={velocityMetrics} />
+        </div>
+      )}
+
       {hoveredCell && <CellTooltip cellData={hoveredCell.data} position={hoveredCell.position} />}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/compat';
 import { useDataRefresh } from '../lib/useDataRefresh';
-import { TRIBUNAIS } from '../lib/tribunais';
+import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais';
 import { toDateString } from '../lib/dateUtils';
 import { Heatmap, VelocityTimeline } from './Heatmap';
 import { calculateVelocityAndRegression } from '../lib/velocityCalc';
@@ -50,7 +50,8 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   }, []);
 
   // Don't render content until hash is read (prevents flash of wrong date)
-  if (!hashReady) {
+  // Disable hash loading barrier when running under test/ssg, otherwise the page will be completely blank
+  if (!hashReady && typeof window !== 'undefined') {
     return <div>Carregando...</div>;
   }
 
@@ -149,10 +150,8 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   const absentSet = new Set(absentList);
 
   const totalForBar = actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0);
-  const syncedCount = selectedCoverage.size;
   const absentCount = selectedEtaData.absent_days_count || 0;
-  const missingCount = actualMissingDays;
-  const syncedPct = totalForBar> 0 ? (syncedCount / totalForBar) * 100 : 0;
+  const syncedPct = totalForBar> 0 ? (selectedCoverage.size / totalForBar) * 100 : 0;
   const completionStatusText = isComplete ? "Completed" : "In progress";
 
   const hasFeaturedPub = hashState.seq != null;
@@ -168,107 +167,95 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         />
       )}
 
-      <div>
-        <a
-          href={`${baseUrl}publicacoes`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Voltar
-        </a>
-      </div>
+      <nav aria-label="breadcrumb">
+        <ul>
+          <li><a href={`${baseUrl}`}>CausaGanha</a></li>
+          <li><a href={`${baseUrl}publicacoes`}>Publicações</a></li>
+          <li>{selectedTribunal}</li>
+        </ul>
+      </nav>
 
-      <article>
+      <div className="grid">
         {/* Sidebar */}
-        <div>
-          <div>
+        <aside>
+          <article>
             <label htmlFor="tribunal-select">
               Tribunal
             </label>
             <select
               id="tribunal-select" value={selectedTribunal}
               onChange={handleTribunalChange}>
-              {TRIBUNAIS.map(t => (
-                <option key={t} value={t}>{t}</option>
+              {TRIBUNAL_GROUPS.map(group => (
+                <optgroup key={group.name} label={group.name}>
+                  {group.tribunals.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
-          </div>
 
-          <div>
-            <div>
-              <h3>{selectedTribunal}</h3>
-              {qualityScores[selectedTribunal] && (
-                <span
-                  className={
-                    qualityScores[selectedTribunal].grade === 'A' ? "badge badge-success" :
-                    qualityScores[selectedTribunal].grade === 'B' ? "badge badge-accent" :
-                    qualityScores[selectedTribunal].grade === 'C' ? "badge badge-warning" :
-                    qualityScores[selectedTribunal].grade === 'D' ? "badge badge-danger" :
-                    "badge"
-                  }
-                  title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecencia: ${qualityScores[selectedTribunal].recency}%\nConsistencia: ${qualityScores[selectedTribunal].consistency}%`}>
-                  Nota {qualityScores[selectedTribunal].grade}
-                </span>
-              )}
-            </div>
-
-            <div>
-              <small>Data inicial</small>
-              <span>{genesisDate || "Desconhecida"}</span>
-            </div>
-
-            <div>
-              <div>
-                <small>Progresso de Arquivamento</small>
-                <span className="text-accent">{completionPct}%</span>
-              </div>
-              <div
-                role="progressbar" aria-valuenow={Math.round(syncedPct)}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Progresso de arquivamento do ${selectedTribunal}: ${syncedCount} sincronizados, ${absentCount} ausentes, ${missingCount} faltantes.`}>
-                <div
-                  style={{ width: totalForBar> 0 ? `${(selectedCoverage.size / totalForBar) * 100}%` : '0%' }}
-                  title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
-                />
-                <div
-                  className="bg-warning-muted" style={{ width: totalForBar> 0 ? `${((selectedEtaData.absent_days_count || 0) / totalForBar) * 100}%` : '0%' }}
-                  title={`Ausencia confirmada: ${selectedEtaData.absent_days_count || 0} dias`}
-                />
-              </div>
-              <div>
-                <div>
-                  <div className="bg-accent-muted"></div>
-                  <small>{totalForBar> 0 ? ((selectedCoverage.size / totalForBar) * 100).toFixed(1) : '0.0'}% sincronizado</small>
-                </div>
-                <div>
-                  <small>{totalForBar> 0 ? (((selectedEtaData.absent_days_count || 0) / totalForBar) * 100).toFixed(1) : '0.0'}% ausencia</small>
-                  <div className="bg-warning-muted"></div>
-                </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <h3 style={{ margin: 0 }}>{selectedTribunal}</h3>
+                {qualityScores[selectedTribunal] && (
+                  <span
+                    className={
+                      qualityScores[selectedTribunal].grade === 'A' ? "badge badge-success" :
+                      qualityScores[selectedTribunal].grade === 'B' ? "badge badge-accent" :
+                      qualityScores[selectedTribunal].grade === 'C' ? "badge badge-warning" :
+                      qualityScores[selectedTribunal].grade === 'D' ? "badge badge-danger" :
+                      "badge"
+                    }
+                    title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}>
+                    Nota {qualityScores[selectedTribunal].grade}
+                  </span>
+                )}
               </div>
             </div>
 
-            <div>
-              <small>Status</small>
-              <span className={statusColor}>{completionStatusText}: {etaText}</span>
+            <div style={{ marginBottom: '1rem' }}>
+              <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Data inicial</small>
+              <strong>{genesisDate || "Desconhecida"}</strong>
             </div>
 
-            <div>
-              <small>Dias faltantes</small>
-              <span>{actualMissingDays} dias</span>
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                <small className="text-muted" style={{ textTransform: 'uppercase' }}>Progresso</small>
+                <strong className="text-primary">{completionPct}%</strong>
+              </div>
+              <progress
+                value={Math.round(syncedPct)}
+                max="100"
+                title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
+                style={{ marginBottom: '0.5rem' }}>
+              </progress>
+              <div className="text-muted" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{selectedCoverage.size} sincronizados</span>
+                <span>{absentCount} ausentes</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Status</small>
+              <strong className={statusColor}>{completionStatusText}: {etaText}</strong>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Dias faltantes</small>
+              <strong>{actualMissingDays} dias</strong>
             </div>
 
             {cursorDate && !isStopped && (
-              <div>
-                <small>Cursor de varredura</small>
-                <span className="text-accent">{cursorDate}</span>
+              <div style={{ marginBottom: '1rem' }}>
+                <small className="text-muted" style={{ display: 'block', textTransform: 'uppercase' }}>Cursor de varredura</small>
+                <strong className="text-primary">{cursorDate}</strong>
               </div>
             )}
 
             {isStopped && (
-              <div>
-                <span className="badge badge-danger">
-                  Pipeline interrompido (60 dias sem publicacoes)
+              <div style={{ marginBottom: '1rem' }}>
+                <span className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '0.5rem' }}>
+                  Pipeline interrompido (60 dias sem publicações)
                 </span>
               </div>
             )}
@@ -278,11 +265,13 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               // Derive year from active date or fall back to current year
               const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
               return (
-                <div>
+                <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--pico-muted-border-color)' }}>
                   <a
                     href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
-                    rel="noopener noreferrer">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    rel="noopener noreferrer"
+                    className="secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                     Ver no Internet Archive
@@ -293,24 +282,26 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 </div>
               );
             })()}
-          </div>
-        </div>
+          </article>
+        </aside>
 
         {/* Main: Heatmap area */}
-        <div>
-          <Heatmap
-            globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
-            tribunalStartDateStr={tribunalStartDate}
-            coverageSet={selectedCoverage}
-            tribunalName={selectedTribunal}
-            baseUrl={baseUrl}
-            velocityMetrics={{
-              ...velocityMetrics,
-              absentSet: absentSet
-            }}
-          />
-        </div>
-      </article>
+        <main>
+          <article>
+            <Heatmap
+              globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
+              tribunalStartDateStr={tribunalStartDate}
+              coverageSet={selectedCoverage}
+              tribunalName={selectedTribunal}
+              baseUrl={baseUrl}
+              velocityMetrics={{
+                ...velocityMetrics,
+                absentSet: absentSet
+              }}
+            />
+          </article>
+        </main>
+      </div>
 
       {/* Publications for active date (only when not showing featured pub above) */}
       {activeDate && !hasFeaturedPub && (
