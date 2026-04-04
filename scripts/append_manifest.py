@@ -56,25 +56,15 @@ def get_new_uploads() -> list[dict]:
 
     for date_str, item_data in entries.items():
         if isinstance(item_data, dict):
-            # item_data might be a dict containing 'status' and 'files'
-            files_dict = item_data.get("files", {})
-
-            for filename in files_dict:
-                if filename.endswith(".zip"):
-                    # Best effort parsing tribunal:
-                    if filename.startswith("djen-"):
-                        parts = filename.replace("djen-", "").replace(".zip", "").split("-")
-                        if len(parts) >= 4:
-                            tribunal = "-".join(parts[3:]).upper()
-                        else:
-                            tribunal = "UNKNOWN"
-                    else:
-                        tribunal = filename.split("-")[0].upper()
-
+            for tribunal, status in item_data.items():
+                if status == "uploaded":
+                    year = date_str[:4]
+                    filename = f"djen-{date_str}-{tribunal.upper()}.zip"
+                    item_id = f"djen-{tribunal.lower()}-{year}"
                     row = {
                         "date": date_str,
-                        "tribunal": tribunal,
-                        "zip_url": f"https://archive.org/download/djen-{date_str}/{filename}",
+                        "tribunal": tribunal.upper(),
+                        "zip_url": f"https://archive.org/download/{item_id}/{filename}",
                         "downloaded_at": now_str,
                     }
                     new_rows.append(row)
