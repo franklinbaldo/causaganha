@@ -17,24 +17,28 @@ logger = structlog.get_logger()
 
 IA_CATALOG_ITEM = "causaganha-catalog"
 MANIFEST_JSONL_URL = "https://franklinbaldo.github.io/causaganha/manifest.jsonl"
+FALLBACK_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 LOCAL_MANIFEST_PATH = Path("data/manifest.jsonl")
 IA_STATE_PATH = Path("data/ia-state.json")
 
 
 def download_existing_manifest() -> list[dict]:
     """Download existing manifest.jsonl from IA."""
-    try:
-        req = urllib.request.Request(MANIFEST_JSONL_URL)
-        with urllib.request.urlopen(req, timeout=30) as response:
-            if response.status == 200:
-                content = response.read().decode("utf-8").strip()
-                if not content:
-                    return []
-                return [json.loads(line) for line in content.splitlines() if line.strip()]
-    except urllib.error.URLError as e:
-        logger.info("no_existing_manifest_or_error", url=MANIFEST_JSONL_URL, error=str(e))
-    except Exception as e:
-        logger.exception("error_downloading_manifest", error=str(e))
+    for url in [MANIFEST_JSONL_URL, FALLBACK_MANIFEST_URL]:
+        try:
+            logger.info("attempting_to_download_manifest", url=url)
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.status == 200:
+                    content = response.read().decode("utf-8").strip()
+                    if not content:
+                        return []
+                    return [json.loads(line) for line in content.splitlines() if line.strip()]
+        except urllib.error.URLError as e:
+            logger.info("no_existing_manifest_or_error", url=url, error=str(e))
+        except Exception as e:
+            logger.exception("error_downloading_manifest", url=url, error=str(e))
+
     return []
 
 
