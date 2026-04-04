@@ -305,6 +305,16 @@ async def process_item(
         zip_url = await get_caderno_url(client, config.djen_proxy_url, item.tribunal, item.date)
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
+        if exc.reason != "Not Found":
+            # Proxy 404 on download or empty ZIPs should be treated as errors, not absent markers
+            log.warning(
+                "djen_download_error_proxy",
+                date=item.date.isoformat(),
+                tribunal=item.tribunal,
+                reason=exc.reason,
+            )
+            await summary.inc_failed()
+            return
         await _handle_djen_not_found_item(client, breaker, item, config, state, summary, exc)
         return
     except httpx.HTTPError as exc:
