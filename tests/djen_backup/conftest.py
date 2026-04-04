@@ -27,6 +27,24 @@ FAKE_AUTH = "LOW test-access:test-secret"
 # ── Fixtures ────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _fast_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace asyncio.sleep with a near-instant version.
+
+    Preserves tiny sleeps (<=0.05s) used for concurrency simulation,
+    but eliminates upload cooldowns and retry backoffs.
+    """
+    _real_sleep = asyncio.sleep
+
+    async def _instant_sleep(delay: float, *args: object, **kwargs: object) -> None:
+        if delay <= 0.05:
+            await _real_sleep(delay)
+        else:
+            await _real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", _instant_sleep)
+
+
 @pytest.fixture
 def mock_api() -> respx.MockRouter:
     """A ``respx`` mock router activated for the test."""

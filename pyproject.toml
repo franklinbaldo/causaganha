@@ -77,6 +77,6 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --strict-markers"
+addopts = "--strict-markers"
 
 # Ruff config is in ruff.toml (takes precedence over pyproject.toml)
