@@ -786,6 +786,7 @@ async def _run_backfill_workers(
 
     # Track per-tribunal scanned flag
     scanned_tribunals: set[str] = set()
+    paused_tribunals: set[str] = set()
 
     # Rate limiter: IA allows ~1 upload/second. Shared lock ensures
     # only 1 upload at a time, with a 2s cooldown after each.
@@ -800,6 +801,12 @@ async def _run_backfill_workers(
                 d, tribunal = queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+            # Skip if tribunal encountered an error earlier in this run to avoid error storms
+            # and leaving gaps in the backfill sequence.
+            if tribunal in paused_tribunals:
+                queue.task_done()
+                continue
 
             # Skip if tribunal got stopped during this run
             prog = bstate.get_all_progress().get(tribunal)
@@ -836,6 +843,16 @@ async def _run_backfill_workers(
                 if prog and d <= prog.cursor_date:
                     await bstate.advance_cursor(tribunal)
                     save_backfill_state(bstate, config.backfill_state_file)
+            else:
+                # result is "error" - pause this tribunal so we don't try older dates
+                # and leave gaps, since the queue is date-first
+                paused_tribunals.add(tribunal)
+                log.info(
+                    "backfill_tribunal_paused",
+                    tribunal=tribunal,
+                    date=d.isoformat(),
+                    reason="error_encountered",
+                )
 
             queue.task_done()
 

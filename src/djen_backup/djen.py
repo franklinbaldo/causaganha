@@ -99,11 +99,26 @@ async def _download_segment(
     end: int,
     index: int,
 ) -> bytes:
-    """Download a byte range segment."""
+    """Download a byte range segment with retries."""
     headers = {"Range": f"bytes={start}-{end}"}
-    async with client.stream("GET", url, headers=headers) as resp:
-        resp.raise_for_status()
-        return await resp.aread()
+
+    # We use request_with_retry since it's fully compatible with returning a loaded response
+    # for a byte segment, rather than manually implementing a streaming retry loop
+    # for each segment which can be complex.
+    resp = await request_with_retry(
+        client,
+        "GET",
+        url,
+        headers=headers,
+        max_retries=3,
+        retry_djen_400=True,
+    )
+
+    if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+        msg = f"Server error on segment: {resp.status_code}"
+        raise httpx.HTTPError(msg)
+    resp.raise_for_status()
+    return resp.content
 
 
 async def download_zip(
@@ -117,7 +132,16 @@ async def download_zip(
     Raises :class:`DJENNotFoundError` for 404 or empty responses.
     """
     # Probe file size with a small range request
-    probe = await client.get(url, headers={"Range": "bytes=0-0"})
+    # Use request_with_retry to handle proxy flakiness during the probe
+    probe = await request_with_retry(
+        client,
+        "GET",
+        url,
+        headers={"Range": "bytes=0-0"},
+        max_retries=3,
+        retry_djen_400=True,
+    )
+
     if probe.status_code == HTTP_NOT_FOUND:
         _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
 
@@ -173,25 +197,40 @@ async def _download_simple(
     total_bytes = 0
 
     try:
-        async with client.stream("GET", url) as resp:
-            if resp.status_code == HTTP_NOT_FOUND:
-                tmp.close()
-                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-                _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
-            resp.raise_for_status()
+        # Use request_with_retry to fetch the entire file into memory with retries.
+        # This fallback is only used for files < 5MB, so in-memory loading is acceptable.
+        resp = await request_with_retry(
+            client,
+            "GET",
+            url,
+            max_retries=3,
+            retry_djen_400=True,
+        )
 
-            content_length = resp.headers.get("content-length")
-            total_expected = int(content_length) if content_length else None
-            if total_expected:
-                log.info(
-                    "download_starting",
-                    file=filename,
-                    size_mb=round(total_expected / 1024 / 1024, 1),
-                )
+        if resp.status_code == HTTP_NOT_FOUND:
+            tmp.close()
+            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+            _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
 
-            async for chunk in resp.aiter_bytes(chunk_size=65536):
-                tmp.write(chunk)
-                total_bytes += len(chunk)
+        if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+            tmp.close()
+            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+            msg = f"Server error on download: {resp.status_code}"
+            raise httpx.HTTPError(msg)
+
+        resp.raise_for_status()
+
+        content_length = resp.headers.get("content-length")
+        total_expected = int(content_length) if content_length else None
+        if total_expected:
+            log.info(
+                "download_starting",
+                file=filename,
+                size_mb=round(total_expected / 1024 / 1024, 1),
+            )
+
+        tmp.write(resp.content)
+        total_bytes = len(resp.content)
 
         tmp.close()
         if total_bytes == 0:
