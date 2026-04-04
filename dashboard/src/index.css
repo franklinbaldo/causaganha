@@ -165,6 +165,42 @@ a, button, [role="button"], details, summary {
 }
 
 /* ═══════════════════════════════════════════
+   Utility Classes
+   ═══════════════════════════════════════════ */
+.p-0 { padding: 0 !important; }
+.p-xs { padding: var(--space-xs); }
+.p-sm { padding: var(--space-sm); }
+.p-md { padding: var(--space-md); }
+.p-lg { padding: var(--space-lg); }
+
+.px-xs { padding-left: var(--space-xs); padding-right: var(--space-xs); }
+.px-sm { padding-left: var(--space-sm); padding-right: var(--space-sm); }
+.px-md { padding-left: var(--space-md); padding-right: var(--space-md); }
+
+.py-xs { padding-top: var(--space-xs); padding-bottom: var(--space-xs); }
+.py-sm { padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+.py-md { padding-top: var(--space-md); padding-bottom: var(--space-md); }
+
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-md { font-size: var(--font-size-md); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+.tracking-wide { letter-spacing: 0.08em; }
+.uppercase { text-transform: uppercase; }
+
+.d-block { display: block; }
+.d-inline-flex { display: inline-flex; }
+
+/* ═══════════════════════════════════════════
    Stat Elements
    ═══════════════════════════════════════════ */
 
@@ -440,6 +476,31 @@ progress::-webkit-progress-bar {
 progress::-webkit-progress-value {
   background: var(--pico-primary);
   border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════
+   Empty States
+   ═══════════════════════════════════════════ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  color: var(--color-content-tertiary);
+  background: var(--color-surface-overlay);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--pico-border-radius);
+  gap: var(--space-sm);
+}
+
+.empty-state svg {
+  width: 2rem;
+  height: 2rem;
+  opacity: 0.6;
+  margin-bottom: var(--space-xs);
 }
 
 /* ═══════════════════════════════════════════

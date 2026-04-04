@@ -33,11 +33,11 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
       <div className="flex-between flex-wrap gap-sm mb-md align-baseline">
         <div>
           <h4 className="mb-0">Velocidade de Coleta</h4>
-          <p className="text-muted mb-0" style={{ fontSize: 'var(--font-size-sm)' }}>Taxa de coleta das últimas 12 semanas</p>
+          <p className="text-muted mb-0 text-sm">Taxa de coleta das últimas 12 semanas</p>
         </div>
         <div className="text-right">
-          <div style={{ fontWeight: 'bold' }}>{currentVelocity.toFixed(1)} dias/sem (média)</div>
-          <div className={trendColor} style={{ fontSize: 'var(--font-size-sm)' }}>
+          <div className="font-bold">{currentVelocity.toFixed(1)} dias/sem (média)</div>
+          <div className={`${trendColor} text-sm`}>
             {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
           </div>
         </div>
@@ -62,7 +62,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         })}
       </div>
 
-      <div className="flex-between text-muted mt-xs" style={{ fontSize: 'var(--font-size-xs)' }}>
+      <div className="flex-between text-muted mt-xs text-xs">
         <span>12 semanas atrás</span>
         <span>Atual</span>
       </div>
@@ -235,7 +235,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="flex" style={{ flexDirection: 'column', gap: 'var(--space-xl)' }}>
       {years.map(({ year, days: yDays, start: yrStart }) => {
         const startDayOfWeek = yrStart.getUTCDay();
         const paddedDays: (string | null)[] = Array(startDayOfWeek).fill(null).concat(yDays);
@@ -243,50 +243,52 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
         return (
           <div key={year}>
-            <h4 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>{year}</h4>
-            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '1rem' }} role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-              <div aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem', fontSize: '0.75rem', color: 'var(--pico-muted-color)' }}>
-                <div style={{ height: '14px' }}></div>
-                <div style={{ height: '14px', lineHeight: '14px' }}>Seg</div>
-                <div style={{ height: '14px' }}></div>
-                <div style={{ height: '14px', lineHeight: '14px' }}>Qua</div>
-                <div style={{ height: '14px' }}></div>
-                <div style={{ height: '14px', lineHeight: '14px' }}>Sex</div>
-                <div style={{ height: '14px' }}></div>
-              </div>
-              {yrWeeks.map((week, weekIndex) => (
-                <div key={`w-${year}-${weekIndex}`} role="row" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ height: '16px', fontSize: '0.75rem', color: 'var(--pico-muted-color)', marginBottom: '4px' }}>
-                    {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
-                  </div>
-                  {week.map((day, dayIndex) => (
-                    <div
-                      key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
-                      id={day ? `cell-${day}` : undefined}
-                      role="gridcell"
-                      className={getCellColor(day) || "heatmap-cell-empty"}
-                      style={{
-                        borderRadius: '2px',
-                        cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
-                        backgroundColor: !day ? 'transparent' : undefined // Fallback for null days
-                      }}
-                      aria-label={getAriaLabel(day)}
-                      aria-selected={focusedCell === day}
-                      onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')}
-                      onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')}
-                      onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')}
-                      onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')}
-                      onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }}
-                    />
-                  ))}
+            <h4 className="mb-sm text-lg">{year}</h4>
+            <div className="table-responsive pb-sm" style={{ border: 'none' }}>
+              <div className="flex gap-xs" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+                <div aria-hidden="true" className="flex text-xs text-muted" style={{ flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem' }}>
+                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
+                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Seg</div>
+                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
+                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Qua</div>
+                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
+                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Sex</div>
+                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
                 </div>
-              ))}
+                {yrWeeks.map((week, weekIndex) => (
+                  <div key={`w-${year}-${weekIndex}`} role="row" className="flex" style={{ flexDirection: 'column', gap: '4px' }}>
+                    <div className="text-xs text-muted mb-xs" style={{ height: '16px' }}>
+                      {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
+                    </div>
+                    {week.map((day, dayIndex) => (
+                      <div
+                        key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
+                        id={day ? `cell-${day}` : undefined}
+                        role="gridcell"
+                        className={getCellColor(day) || "heatmap-cell-empty"}
+                        style={{
+                          borderRadius: '2px',
+                          cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
+                          backgroundColor: !day ? 'transparent' : undefined // Fallback for null days
+                        }}
+                        aria-label={getAriaLabel(day)}
+                        aria-selected={focusedCell === day}
+                        onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')}
+                        onMouseMove={(e: any) => handleCellInteraction(e, day, 'move')}
+                        onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')}
+                        onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')}
+                        onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
       })}
 
-      <div className="flex-between flex-wrap gap-sm mt-md pt-sm border-top" style={{ fontSize: 'var(--font-size-sm)' }}>
+      <div className="flex-between flex-wrap gap-sm mt-md pt-sm border-top text-sm">
         <span className="text-muted">
           <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
         </span>
@@ -308,7 +310,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
       </div>
 
       {velocityMetrics && velocityMetrics.hasEnoughHistory && (
-        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid var(--pico-muted-border-color)' }}>
+        <div className="border-top pt-lg mt-lg">
           <VelocityTimeline metrics={velocityMetrics} />
         </div>
       )}
