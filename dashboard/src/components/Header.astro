@@ -19,6 +19,19 @@ const {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const hasIconSlot = Astro.slots.has('icon');
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+function isActive(href: string): boolean {
+  const normalized = href.replace(/\/$/, '') || '/';
+  if (normalized === BASE.replace(/\/$/, '')) return currentPath === normalized;
+  return currentPath.startsWith(normalized);
+}
+
+const navLinks = [
+  { href: BASE + 'publicacoes', label: 'Publicações' },
+  { href: BASE + 'stats', label: 'Estatísticas' },
+  { href: BASE + 'sobre', label: 'Sobre' },
+];
 ---
 
 <style>
@@ -64,6 +77,14 @@ const hasIconSlot = Astro.slots.has('icon');
     text-decoration: none;
   }
 
+  /* Active link indicator */
+  .nav-active {
+    font-weight: 600;
+    color: var(--color-content) !important;
+    border-bottom: 2px solid var(--pico-primary);
+    padding-bottom: 2px;
+  }
+
   /* Mobile Nav */
   .mobile-nav {
     display: none;
@@ -93,6 +114,11 @@ const hasIconSlot = Astro.slots.has('icon');
       padding: 0.75rem 1rem;
       display: block;
     }
+    .mobile-nav ul[dir="rtl"] .nav-active {
+      border-bottom: none;
+      background: var(--color-surface-overlay);
+      border-radius: var(--pico-border-radius);
+    }
   }
 </style>
 
@@ -105,14 +131,19 @@ const hasIconSlot = Astro.slots.has('icon');
       <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
       <li><a href={BASE + '#dados'}>Dados</a></li>
       <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-      <li><a href={BASE + 'sobre'}>Sobre</a></li>
-      <li><a href={BASE + 'publicacoes'} role="button">Publicações</a></li>
+      {navLinks.map(link => (
+        <li>
+          <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
+            {link.label}
+          </a>
+        </li>
+      ))}
       <li><ThemeToggle client:load /></li>
     </ul>
     <ul class="mobile-nav">
       <li><ThemeToggle client:load /></li>
       <li>
-        <details class="dropdown">
+        <details class="dropdown" data-nav-dropdown>
           <summary aria-label="Menu">
             <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
               <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -124,8 +155,13 @@ const hasIconSlot = Astro.slots.has('icon');
             <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
             <li><a href={BASE + '#dados'}>Dados</a></li>
             <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-            <li><a href={BASE + 'sobre'}>Sobre</a></li>
-            <li><a href={BASE + 'publicacoes'}>Publicações</a></li>
+            {navLinks.map(link => (
+              <li>
+                <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
           </ul>
         </details>
       </li>
@@ -154,13 +190,20 @@ const hasIconSlot = Astro.slots.has('icon');
           </hgroup>
         </li>
       </ul>
-      <ul>
-        <li class="desktop-nav"><slot name="nav" /></li>
-        <li class="desktop-nav"><a href={BASE + 'sobre'}>Sobre</a></li>
-        <li class="desktop-nav"><ThemeToggle client:load /></li>
-        <li class="mobile-nav"><ThemeToggle client:load /></li>
-        <li class="mobile-nav">
-          <details class="dropdown">
+      <ul class="desktop-nav">
+        {navLinks.map(link => (
+          <li>
+            <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
+              {link.label}
+            </a>
+          </li>
+        ))}
+        <li><ThemeToggle client:load /></li>
+      </ul>
+      <ul class="mobile-nav">
+        <li><ThemeToggle client:load /></li>
+        <li>
+          <details class="dropdown" data-nav-dropdown>
             <summary aria-label="Menu">
               <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -169,8 +212,14 @@ const hasIconSlot = Astro.slots.has('icon');
               </svg>
             </summary>
             <ul dir="rtl">
-              <li><slot name="nav" /></li>
-              <li><a href={BASE + 'sobre'}>Sobre</a></li>
+              <li><a href={BASE}>Início</a></li>
+              {navLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </details>
         </li>
@@ -178,3 +227,12 @@ const hasIconSlot = Astro.slots.has('icon');
     </nav>
   </header>
 )}
+
+<!-- Close mobile dropdown on outside click -->
+<script is:inline>
+  document.addEventListener('click', function(e) {
+    document.querySelectorAll('[data-nav-dropdown]').forEach(function(d) {
+      if (!d.contains(e.target)) d.removeAttribute('open');
+    });
+  });
+</script>
