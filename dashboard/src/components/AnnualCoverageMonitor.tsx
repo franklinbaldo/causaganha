@@ -78,7 +78,7 @@ export function AnnualCoverageMonitor() {
             {YEARS.map(y => (
               <button
                 key={y} onClick={() => setYear(y)}
-                className={year === y ? undefined : "secondary"}>
+                className={year === y ? "btn" : "btn btn-secondary"}>
                 {y}
               </button>
             ))}
@@ -103,22 +103,22 @@ export function AnnualCoverageMonitor() {
       {/* Summary cards */}
       {results.length> 0 && (
         <div className="grid">
-          <article>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <div>{complete}</div>
             <small>{'>'}90%</small>
-          </article>
-          <article>
+          </div></div>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <div>{partial}</div>
             <small>50-89%</small>
-          </article>
-          <article>
+          </div></div>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <div>{low}</div>
             <small>{'<'}50%</small>
-          </article>
-          <article>
+          </div></div>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <div>{missing}</div>
             <small>Sem dados</small>
-          </article>
+          </div></div>
         </div>
       )}
 
@@ -129,8 +129,8 @@ export function AnnualCoverageMonitor() {
 
       {/* Table */}
       <div>
-        <div className="table-responsive">
-          <table>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
             <tr>
               <th

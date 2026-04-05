@@ -45,7 +45,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <script is:inline>
       // Apply saved theme before paint to prevent flash
       document.documentElement.setAttribute('data-theme',
-        localStorage.getItem('causaganha-theme') === 'dark' ? 'dark' : 'light'
+        localStorage.getItem('causaganha-theme') === 'dark' ? 'causaganhadark' : 'causaganha'
       );
     </script>
   </head>
@@ -53,7 +53,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <a href="#main-content" class="sr-only">
       Skip to main content
     </a>
-    <main id="main-content" class={fullWidth ? '' : 'container'}>
+    <main id="main-content" class={fullWidth ? '' : 'container mx-auto px-4'}>
       <slot />
     </main>
     <Footer />

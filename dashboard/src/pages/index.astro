@@ -30,43 +30,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   fullWidth={true}
 >
   <style>
-    .hero {
-      padding: var(--space-3xl) 0 var(--space-2xl);
-    }
-    .hero h1 {
-      font-size: var(--font-size-4xl);
-      max-width: 18ch;
-      margin-bottom: var(--space-md);
-    }
-    .hero .lead {
-      max-width: 52ch;
-      margin-bottom: var(--space-lg);
-    }
-    .hero-actions {
-      display: flex;
-      gap: var(--space-sm);
-      flex-wrap: wrap;
-    }
-    .hero-actions a[role="button"] {
-      padding: 0.75rem 2rem;
-    }
-
-    .live-card {
-      margin-top: var(--space-lg);
-    }
-    .live-card ul {
-      list-style-type: none;
-      padding: 0;
-      margin-bottom: 0;
-    }
-    .live-card li {
-      padding: var(--space-sm) 0;
-      border-bottom: 1px solid var(--color-border-muted);
-    }
-    .live-card li:last-child {
-      border-bottom: none;
-    }
-
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -83,47 +46,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .stats-grid figcaption {
       font-size: var(--font-size-xs);
       font-weight: 500;
-      color: var(--color-content-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-top: 0.5rem;
-    }
-
-    .how-grid article {
-      padding: var(--space-lg);
-    }
-    .how-grid article header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      margin-bottom: var(--space-sm);
-      padding: 0;
-      border: none;
-      background: none;
-    }
-    .how-grid .step-number {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: var(--font-size-xs);
-      font-weight: 600;
-      color: var(--color-content-tertiary);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .audience-grid article {
-      padding: var(--space-lg);
-    }
-    .audience-grid h3 {
-      font-size: var(--font-size-lg);
-      margin-bottom: var(--space-sm);
-    }
-    .audience-grid ul {
-      padding-left: 1.25rem;
-    }
-    .audience-grid li {
-      font-size: var(--font-size-sm);
-      color: var(--color-content-secondary);
-      margin-bottom: 0.5rem;
+      opacity: 0.5;
     }
 
     .infra-grid {
@@ -137,7 +63,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       align-items: center;
       gap: var(--space-xs);
       font-size: var(--font-size-sm);
-      color: var(--color-content-secondary);
+      opacity: 0.7;
     }
     .infra-item svg {
       width: 24px;
@@ -145,13 +71,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       flex-shrink: 0;
     }
 
-    .faq-section {
-      max-width: 42rem;
-      margin: 0 auto;
-    }
-
     @media (max-width: 768px) {
-      .hero h1 { font-size: var(--font-size-3xl); }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .infra-grid { grid-template-columns: 1fr; }
     }
@@ -161,62 +81,62 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <Header variant="home" />
 
   <!-- Hero -->
-  <header class="hero">
-    <div class="container">
-      <div class="grid">
-        <div style="align-self: center;">
-          <h1>Transparência no Mercado Jurídico Brasileiro</h1>
-          <p class="lead">
+  <div class="hero min-h-[60vh] bg-base-100">
+    <div class="hero-content w-full max-w-6xl">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+        <div class="flex flex-col justify-center">
+          <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-[18ch]">Transparência no Mercado Jurídico Brasileiro</h1>
+          <p class="text-lg opacity-70 mt-4 max-w-[52ch]">
             Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
             diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
           </p>
-          <div class="hero-actions">
-            <a href={BASE + 'publicacoes'} role="button">
+          <div class="flex gap-4 mt-6 flex-wrap">
+            <a href={BASE + 'publicacoes'} class="btn btn-primary">
               Ver Publicações
             </a>
-            <a href="#como-funciona" role="button" class="secondary outline">
+            <a href="#como-funciona" class="btn btn-outline btn-secondary">
               Saiba Mais
             </a>
           </div>
         </div>
         <div>
-          <article class="live-card">
-            <header class="pb-sm border-bottom">
-              <div class="flex-between">
+          <div class="card bg-base-100 shadow-sm border border-base-300">
+            <div class="card-body">
+              <div class="flex justify-between items-baseline border-b border-base-300 pb-3">
                 <strong>Pipeline ao Vivo</strong>
-                <small class="text-muted" style="font-size: var(--font-size-xs);">Atualizado a cada 20 min</small>
+                <small class="text-xs opacity-50">Atualizado a cada 20 min</small>
               </div>
-            </header>
-            <ul>
-              <li>
-                <strong>{tribunalsWithData} tribunais com dados</strong><br/>
-                <small class="text-muted">de {totalTribunals} monitorados</small>
-              </li>
-              <li>
-                <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
-                <small class="text-muted">armazenados no Internet Archive</small>
-              </li>
-              <li>
-                <div class="flex-between mb-xs">
-                  <strong>Backfill</strong>
-                  <span style="font-family: 'JetBrains Mono', monospace; font-size: var(--font-size-sm); font-weight: 600;">{progressPct}%</span>
-                </div>
-                <progress value={progressPct} max="100" aria-label="Progresso do Backfill"></progress>
-                <small class="text-muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
-              </li>
-            </ul>
-          </article>
+              <ul class="space-y-0 divide-y divide-base-200">
+                <li class="py-4">
+                  <strong>{tribunalsWithData} tribunais com dados</strong><br/>
+                  <small class="opacity-50">de {totalTribunals} monitorados</small>
+                </li>
+                <li class="py-4">
+                  <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
+                  <small class="opacity-50">armazenados no Internet Archive</small>
+                </li>
+                <li class="py-4">
+                  <div class="flex justify-between items-baseline mb-1">
+                    <strong>Backfill</strong>
+                    <span class="font-mono text-sm font-semibold">{progressPct}%</span>
+                  </div>
+                  <progress class="progress progress-primary w-full" value={progressPct} max="100"></progress>
+                  <small class="opacity-50">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </header>
+  </div>
 
   <!-- Stats -->
-  <section id="dados" class="container section-gap-lg">
-    <hgroup class="text-center mb-xl">
-      <h2>Dados Reais do Pipeline</h2>
-      <p>Números atualizados automaticamente pelo workflow de coleta</p>
-    </hgroup>
+  <section id="dados" class="container mx-auto px-4 mb-16">
+    <div class="text-center mb-10">
+      <h2 class="text-3xl font-bold">Dados Reais do Pipeline</h2>
+      <p class="opacity-60">Números atualizados automaticamente pelo workflow de coleta</p>
+    </div>
 
     <div class="stats-grid">
       <figure>
@@ -239,135 +159,159 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- How it Works -->
-  <section id="como-funciona" class="section-gap-lg">
-    <div class="container">
-      <hgroup class="text-center mb-xl">
-        <h2>Como Funciona</h2>
-        <p>Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
-      </hgroup>
-      <div class="grid how-grid">
-        <article>
-          <header>
-            <span class="step-number">Passo 01</span>
-          </header>
-          <h3>Coleta Automática</h3>
-          <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
-        </article>
-        <article>
-          <header>
-            <span class="step-number">Passo 02</span>
-          </header>
-          <h3>Arquivo Permanente</h3>
-          <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
-        </article>
-        <article>
-          <header>
-            <span class="step-number">Passo 03</span>
-          </header>
-          <h3>Catálogo Indexado</h3>
-          <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
-        </article>
+  <section id="como-funciona" class="mb-16">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold">Como Funciona</h2>
+        <p class="opacity-60">Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 01</span>
+            <h3 class="card-title">Coleta Automática</h3>
+            <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 02</span>
+            <h3 class="card-title">Arquivo Permanente</h3>
+            <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 03</span>
+            <h3 class="card-title">Catálogo Indexado</h3>
+            <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- Audience -->
-  <section id="para-quem" class="section-gap-lg">
-    <div class="container">
-      <hgroup class="text-center mb-xl">
-        <h2>Para Quem?</h2>
-        <p>Dados abertos para todo o ecossistema jurídico</p>
-      </hgroup>
-      <div class="grid audience-grid">
-        <article>
-          <h3>Pesquisadores</h3>
-          <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
-          <ul>
-            <li>Dados em formato Parquet</li>
-            <li>Consultável via DuckDB</li>
-            <li>Histórico completo preservado</li>
-          </ul>
-        </article>
-        <article>
-          <h3>LegalTechs</h3>
-          <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
-          <ul>
-            <li>API via Internet Archive</li>
-            <li>Atualização contínua</li>
-            <li>Sem custos de licenciamento</li>
-          </ul>
-        </article>
-        <article>
-          <h3>Jornalistas</h3>
-          <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
-          <ul>
-            <li>Dados públicos verificáveis</li>
-            <li>Cobertura de {totalTribunals} tribunais</li>
-            <li>Arquivo permanente no IA</li>
-          </ul>
-        </article>
+  <section id="para-quem" class="mb-16">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold">Para Quem?</h2>
+        <p class="opacity-60">Dados abertos para todo o ecossistema jurídico</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <h3 class="card-title">Pesquisadores</h3>
+            <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
+            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+              <li>Dados em formato Parquet</li>
+              <li>Consultável via DuckDB</li>
+              <li>Histórico completo preservado</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <h3 class="card-title">LegalTechs</h3>
+            <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
+            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+              <li>API via Internet Archive</li>
+              <li>Atualização contínua</li>
+              <li>Sem custos de licenciamento</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <h3 class="card-title">Jornalistas</h3>
+            <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
+            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+              <li>Dados públicos verificáveis</li>
+              <li>Cobertura de {totalTribunals} tribunais</li>
+              <li>Arquivo permanente no IA</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- Open Data -->
-  <section class="section-gap-lg">
-    <div class="container">
-      <hgroup class="text-center mb-xl">
-        <p class="mb-xs"><kbd style="font-size: var(--font-size-xs); letter-spacing: 0.08em; text-transform: uppercase;">100% Aberto e Gratuito</kbd></p>
-        <h2>Dados Abertos Para Sempre</h2>
-        <p style="max-width: 42ch; margin-left: auto; margin-right: auto;">
+  <section class="mb-16">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-10">
+        <p class="mb-2"><kbd class="kbd kbd-sm text-xs tracking-widest uppercase">100% Aberto e Gratuito</kbd></p>
+        <h2 class="text-3xl font-bold">Dados Abertos Para Sempre</h2>
+        <p class="max-w-[42ch] mx-auto opacity-60">
           Transparência no judiciário é um direito de todos.
           Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
         </p>
-      </hgroup>
+      </div>
 
-      <article class="mb-lg">
-        <h4 class="mb-md text-center">Infraestrutura</h4>
-        <ul class="infra-grid" style="list-style: none; padding-left: 0; margin-bottom: 0;">
-          <li class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</li>
-          <li class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</li>
-          <li class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</li>
-          <li class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</li>
-        </ul>
-      </article>
-
-      <article class="text-center" style="padding: var(--space-xl);">
-        <h4 class="mb-xs">Apoie o Projeto</h4>
-        <p style="max-width: 38ch; margin-left: auto; margin-right: auto;">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
-        <div class="flex-center gap-sm" style="flex-wrap: wrap;">
-          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" role="button">
-            <GitHubIcon /> Estrela no GitHub
-          </a>
-          <a href={BASE + 'publicacoes'} role="button" class="secondary outline">
-            Ver Publicações
-          </a>
+      <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
+        <div class="card-body">
+          <h4 class="text-center font-semibold mb-4">Infraestrutura</h4>
+          <ul class="infra-grid" style="list-style: none; padding-left: 0; margin-bottom: 0;">
+            <li class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</li>
+            <li class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</li>
+            <li class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</li>
+            <li class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</li>
+          </ul>
         </div>
-      </article>
+      </div>
+
+      <div class="card bg-base-100 shadow-sm border border-base-300 text-center">
+        <div class="card-body py-10">
+          <h4 class="font-semibold mb-1">Apoie o Projeto</h4>
+          <p class="max-w-[38ch] mx-auto opacity-60">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
+          <div class="flex justify-center gap-4 flex-wrap mt-4">
+            <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-primary">
+              <GitHubIcon /> Estrela no GitHub
+            </a>
+            <a href={BASE + 'publicacoes'} class="btn btn-outline btn-secondary">
+              Ver Publicações
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- FAQ -->
-  <section class="section-gap-lg">
-    <div class="container">
-      <div class="faq-section">
-        <h2 class="text-center mb-xl">Perguntas Frequentes</h2>
-        <details>
-          <summary>De onde vêm os dados?</summary>
-          <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
-        </details>
-        <details>
-          <summary>Com que frequência os dados são atualizados?</summary>
-          <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
-        </details>
-        <details>
-          <summary>Como posso acessar os dados?</summary>
-          <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
-        </details>
-        <details>
-          <summary>O projeto é open source?</summary>
-          <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener">GitHub</a>. Contribuições são bem-vindas.</p>
-        </details>
+  <section class="mb-16">
+    <div class="container mx-auto px-4">
+      <div class="max-w-2xl mx-auto">
+        <h2 class="text-center text-3xl font-bold mb-10">Perguntas Frequentes</h2>
+        <div class="space-y-2">
+          <div class="collapse collapse-plus border border-base-300 bg-base-100">
+            <input type="radio" name="faq" checked />
+            <div class="collapse-title font-semibold">De onde vêm os dados?</div>
+            <div class="collapse-content text-base-content/70">
+              <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
+            </div>
+          </div>
+          <div class="collapse collapse-plus border border-base-300 bg-base-100">
+            <input type="radio" name="faq" />
+            <div class="collapse-title font-semibold">Com que frequência os dados são atualizados?</div>
+            <div class="collapse-content text-base-content/70">
+              <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
+            </div>
+          </div>
+          <div class="collapse collapse-plus border border-base-300 bg-base-100">
+            <input type="radio" name="faq" />
+            <div class="collapse-title font-semibold">Como posso acessar os dados?</div>
+            <div class="collapse-content text-base-content/70">
+              <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
+            </div>
+          </div>
+          <div class="collapse collapse-plus border border-base-300 bg-base-100">
+            <input type="radio" name="faq" />
+            <div class="collapse-title font-semibold">O projeto é open source?</div>
+            <div class="collapse-content text-base-content/70">
+              <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="link">GitHub</a>. Contribuições são bem-vindas.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>

@@ -15,7 +15,7 @@ interface CellTooltipProps {
 
 const STATUS_MAP: Record<string, { text: string; className: string }> = {
   collected: { text: '\u2705 Collected & Uploaded', className: 'text-success' },
-  missing: { text: '\u274C Missing', className: 'text-danger' },
+  missing: { text: '\u274C Missing', className: 'text-error' },
   partial: { text: '\u26A0\uFE0F Partial', className: 'text-warning' },
   outside: { text: 'Outside active range', className: '' },
 };

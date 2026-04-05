@@ -71,7 +71,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
   })();
 
   return (
-    <article>
+    <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       <div>
         {/* Left: status & stats */}
         <div>
@@ -83,7 +83,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
                 </div>
               ) : (
                 <div className="bg-danger-muted">
-                  <XCircleIcon className="text-danger" aria-hidden="true" />
+                  <XCircleIcon className="text-error" aria-hidden="true" />
                 </div>
               )
             ) : (
@@ -110,7 +110,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
               <div>
                 <ActivityIcon aria-hidden="true" />
                 <span>Health:</span>
-                <span className={clsx(health >= 70 ? "text-success" : "text-danger")}>
+                <span className={clsx(health >= 70 ? "text-success" : "text-error")}>
                   {health}%
                 </span>
               </div>
@@ -172,7 +172,7 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
                       <span>
                         {stepName.replace(/_/g, ' ')}
                       </span>
-                      <span className={clsx("badge", isOk ? "badge-success" : "badge-danger")}>
+                      <span className={clsx("badge", isOk ? "badge-success" : "badge-error")}>
                         {isOk ? (
                           <CheckCircleIcon aria-hidden="true" />
                         ) : (
@@ -217,6 +217,6 @@ export function SystemStatus({ initialStats, initialCacheToday }: SystemStatusPr
           View Actions <ExternalLinkIcon aria-hidden="true" />
         </a>
       </footer>
-    </article>
+    </div></div>
   );
 }

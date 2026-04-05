@@ -107,41 +107,41 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
       </div>
 
       <div className="grid">
-        <article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
           <small>Upload Success Rate</small>
-          <div className={successRate >= 90 ? 'text-success' : 'text-danger'}>
+          <div className={successRate >= 90 ? 'text-success' : 'text-error'}>
             {successRate.toFixed(1)}%
           </div>
-        </article>
+        </div></div>
 
-        <article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
           <small>Pending Backlog Days</small>
           <div className="text-accent">
             {backlogDays}
           </div>
-        </article>
+        </div></div>
 
-        <article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
           <small>Active Tribunals</small>
           <div>
             {activeTribunals}
           </div>
-        </article>
+        </div></div>
       </div>
 
-      <article>
+      <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
         <h3>Collection Latency Trend (7 days)</h3>
         <div ref={chartRef} />
         {latencies.length === 0 && <div>No latency data available.</div>}
-      </article>
+      </div></div>
 
       <div className="grid">
-        <article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
           <h3>Grade Distribution</h3>
           <div ref={pieRef} />
-        </article>
+        </div></div>
 
-        <article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
           <h3>Top 5 Slowest Tribunals</h3>
           <ul>
             {slowestTribunals.map((t, idx) => (
@@ -152,7 +152,7 @@ export function PerfDashboard({ perfMetrics, qualityScores }: Props) {
             ))}
             {slowestTribunals.length === 0 && <li>All tribunals are up to date!</li>}
           </ul>
-        </article>
+        </div></div>
       </div>
 
       <div>

@@ -36,205 +36,103 @@ const navLinks = [
 ];
 ---
 
-<style>
-  /* Base Header Styles */
-  .header-base {
-    padding-top: var(--space-md);
-    padding-bottom: var(--space-xs);
-  }
-
-  /* Page Variant Specific */
-  .header-page {
-    padding-bottom: var(--space-lg);
-    border-bottom: 1px solid var(--color-border-muted);
-    margin-bottom: var(--space-lg);
-  }
-  .header-page nav ul {
-    margin: 0;
-  }
-  .header-page hgroup h1 {
-    font-size: var(--font-size-2xl);
-    margin-bottom: 0;
-  }
-  .header-page hgroup p {
-    font-size: var(--font-size-sm);
-    color: var(--color-content-tertiary);
-    margin: 0;
-  }
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    color: var(--color-content-tertiary);
-  }
-  .back-link:hover {
-    color: var(--color-content);
-  }
-
-  /* Shared Brand */
-  .brand-strong {
-    font-weight: 800;
-    font-size: var(--font-size-md);
-    letter-spacing: -0.02em;
-    color: var(--color-content);
-    text-decoration: none;
-  }
-
-  /* Active link indicator */
-  .nav-active {
-    font-weight: 600;
-    color: var(--color-content) !important;
-    border-bottom: 2px solid var(--pico-primary);
-    padding-bottom: 2px;
-  }
-
-  /* Mobile Nav */
-  .mobile-nav {
-    display: none;
-  }
-  .desktop-nav {
-    display: flex;
-  }
-  @media (max-width: 768px) {
-    .mobile-nav {
-      display: block;
-    }
-    .desktop-nav {
-      display: none;
-    }
-    .mobile-nav summary {
-      padding: 0.5rem;
-    }
-    .mobile-nav summary::after {
-      display: none;
-    }
-    .mobile-nav ul[dir="rtl"] {
-      right: 0;
-      left: auto;
-      min-width: 200px;
-    }
-    .mobile-nav ul[dir="rtl"] a {
-      padding: 0.75rem 1rem;
-      display: block;
-    }
-    .mobile-nav ul[dir="rtl"] .nav-active {
-      border-bottom: none;
-      background: var(--color-surface-overlay);
-      border-radius: var(--pico-border-radius);
-    }
-  }
-</style>
-
 {variant === 'home' ? (
-  <nav class="container header-base">
-    <ul>
-      <li><a href={BASE} class="brand-strong">CausaGanha</a></li>
-    </ul>
-    <ul class="desktop-nav">
-      <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-      <li><a href={BASE + '#dados'}>Dados</a></li>
-      <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-      {navLinks.map(link => (
-        <li>
-          <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
-            {link.label}
+  <div class="navbar bg-base-100 container mx-auto">
+    <div class="navbar-start">
+      <a href={BASE} class="btn btn-ghost text-lg font-extrabold tracking-tight">CausaGanha</a>
+    </div>
+    <div class="navbar-center hidden md:flex">
+      <ul class="menu menu-horizontal gap-1">
+        <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+        <li><a href={BASE + '#dados'}>Dados</a></li>
+        <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+        {navLinks.map(link => (
+          <li>
+            <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+              {link.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <div class="navbar-end gap-2">
+      <ThemeToggle />
+      <div class="dropdown dropdown-end md:hidden">
+        <div tabindex="0" role="button" class="btn btn-ghost btn-square">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </div>
+        <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow-lg">
+          <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+          <li><a href={BASE + '#dados'}>Dados</a></li>
+          <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+          {navLinks.map(link => (
+            <li>
+              <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </div>
+) : (
+  <header class="container mx-auto px-4 border-b border-base-300 pb-6 mb-6">
+    <div class="navbar bg-base-100 px-0">
+      <div class="navbar-start">
+        {hasIconSlot ? (
+          <slot name="icon" />
+        ) : (
+          <a href={backHref} aria-label={backLabel} class="btn btn-ghost btn-sm">
+            <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
           </a>
-        </li>
-      ))}
-      <li><ThemeToggle /></li>
-    </ul>
-    <ul class="mobile-nav">
-      <li><ThemeToggle /></li>
-      <li>
-        <details class="dropdown" data-nav-dropdown>
-          <summary aria-label="Menu">
+        )}
+        <div>
+          <h1 class="text-2xl font-bold"><slot name="title">{title}</slot></h1>
+          {subtitle && <p class="text-sm text-base-content/50">{subtitle}</p>}
+          <slot name="subtitle" />
+        </div>
+      </div>
+      <div class="navbar-end hidden md:flex">
+        <ul class="menu menu-horizontal gap-1">
+          {navLinks.map(link => (
+            <li>
+              <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <ThemeToggle />
+      </div>
+      <div class="navbar-end md:hidden gap-2">
+        <ThemeToggle />
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-ghost btn-square">
             <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
-          </summary>
-          <ul dir="rtl">
-            <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-            <li><a href={BASE + '#dados'}>Dados</a></li>
-            <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+          </div>
+          <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow-lg">
+            <li><a href={BASE}>Início</a></li>
             {navLinks.map(link => (
               <li>
-                <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
+                <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                   {link.label}
                 </a>
               </li>
             ))}
           </ul>
-        </details>
-      </li>
-    </ul>
-  </nav>
-) : (
-  <header class="container header-page">
-    <nav>
-      <ul>
-        <li>
-          {hasIconSlot ? (
-            <slot name="icon" />
-          ) : (
-            <a href={backHref} aria-label={backLabel} class="back-link">
-              <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m15 18-6-6 6-6"/>
-              </svg>
-            </a>
-          )}
-        </li>
-        <li>
-          <hgroup>
-            <h1><slot name="title">{title}</slot></h1>
-            {subtitle && <p>{subtitle}</p>}
-            <slot name="subtitle" />
-          </hgroup>
-        </li>
-      </ul>
-      <ul class="desktop-nav">
-        {navLinks.map(link => (
-          <li>
-            <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
-              {link.label}
-            </a>
-          </li>
-        ))}
-        <li><ThemeToggle /></li>
-      </ul>
-      <ul class="mobile-nav">
-        <li><ThemeToggle /></li>
-        <li>
-          <details class="dropdown" data-nav-dropdown>
-            <summary aria-label="Menu">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
-            </summary>
-            <ul dir="rtl">
-              <li><a href={BASE}>Início</a></li>
-              {navLinks.map(link => (
-                <li>
-                  <a href={link.href} class={isActive(link.href) ? 'nav-active' : ''}>
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </details>
-        </li>
-      </ul>
-    </nav>
+        </div>
+      </div>
+    </div>
   </header>
 )}
-
-<!-- Close mobile dropdown on outside click -->
-<script is:inline>
-  document.addEventListener('click', function(e) {
-    document.querySelectorAll('[data-nav-dropdown]').forEach(function(d) {
-      if (!d.contains(e.target)) d.removeAttribute('open');
-    });
-  });
-</script>

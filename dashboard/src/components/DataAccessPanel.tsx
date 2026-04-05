@@ -79,7 +79,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
   if (!expanded) {
     return (
       <button
-       className="secondary"
+       className="btn btn-secondary"
        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
        onClick={() => setExpanded(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
@@ -92,11 +92,11 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
   }
 
   return (
-    <article>
+    <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       <header>
         <h4>Acesso aos Dados</h4>
         <button
-          className="outline"
+          className="btn btn-outline"
           onClick={() => setExpanded(false)}>
           Fechar
         </button>
@@ -107,7 +107,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
         <div>
           <span>Consulta via Catalogo (DuckDB)</span>
           <button
-            className="outline"
+            className="btn btn-outline"
             onClick={() => copyToClipboard(catalogQuery, 'catalog')}>
             {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
           </button>
@@ -142,7 +142,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
                     {duckdbQuery(f.name).substring(0, 80)}...
                   </code>
                   <button
-                    className="outline"
+                    className="btn btn-outline"
                     onClick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
                     {copied === f.name ? 'Copiado!' : 'SQL'}
                   </button>
@@ -156,6 +156,6 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`;
       {!loading && parquetFiles.length === 0 && (
         <p>Nenhum arquivo Parquet encontrado neste item.</p>
       )}
-    </article>
+    </div></div>
   );
 }

@@ -23,57 +23,21 @@ const breadcrumbList = {
 };
 ---
 
-<nav aria-label="Breadcrumb" class="breadcrumbs">
-  <ol>
+<div class="breadcrumbs text-sm mb-4">
+  <ul>
     {crumbs.map((crumb, index) => {
       const isLast = index === crumbs.length - 1;
       return (
         <li>
           {isLast || !crumb.href ? (
-            <span aria-current={isLast ? "page" : undefined}>{crumb.label}</span>
+            <span class={isLast ? 'font-medium' : ''}>{crumb.label}</span>
           ) : (
             <a href={crumb.href}>{crumb.label}</a>
           )}
-          {!isLast && <span class="separator" aria-hidden="true">/</span>}
         </li>
       );
     })}
-  </ol>
-</nav>
+  </ul>
+</div>
 
 <script type="application/ld+json" set:html={JSON.stringify(breadcrumbList)} />
-
-<style>
-  .breadcrumbs {
-    margin-bottom: var(--space-md);
-    font-size: var(--font-size-sm);
-  }
-  .breadcrumbs ol {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .breadcrumbs li {
-    display: inline-flex;
-    align-items: center;
-  }
-  .breadcrumbs a {
-    color: var(--color-content-tertiary);
-    text-decoration: none;
-  }
-  .breadcrumbs a:hover {
-    color: var(--color-content);
-    text-decoration: underline;
-  }
-  .breadcrumbs span[aria-current="page"] {
-    color: var(--color-content);
-    font-weight: 500;
-  }
-  .separator {
-    color: var(--color-border-muted);
-    margin: 0 var(--space-xs);
-  }
-</style>

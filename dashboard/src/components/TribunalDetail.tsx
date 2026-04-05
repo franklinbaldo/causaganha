@@ -52,7 +52,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
   // Don't render content until hash is read (prevents flash of wrong date)
   // Disable hash loading barrier when running under test/ssg, otherwise the page will be completely blank
   if (!hashReady && typeof window !== 'undefined') {
-    return <article aria-busy="true" className="text-center text-muted pt-md pb-sm">Carregando...</article>;
+    return <div className="flex justify-center p-8"><span className="loading loading-spinner loading-lg"></span></div>;
   }
 
   const coverage = allData?.tribunalCoverage ?? initialCoverage ?? {};
@@ -167,24 +167,25 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         />
       )}
 
-      <nav aria-label="breadcrumb">
+      <div className="breadcrumbs">
         <ul>
           <li><a href={`${baseUrl}`}>CausaGanha</a></li>
           <li><a href={`${baseUrl}publicacoes`}>Publicações</a></li>
           <li>{selectedTribunal}</li>
         </ul>
-      </nav>
+      </div>
 
       <div className="grid">
         {/* Sidebar */}
         <aside>
-          <article>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <label htmlFor="tribunal-select">
               Tribunal
             </label>
             <select
               id="tribunal-select" value={selectedTribunal}
-              onChange={handleTribunalChange}>
+              onChange={handleTribunalChange}
+              className="select select-bordered">
               {TRIBUNAL_GROUPS.map(group => (
                 <optgroup key={group.name} label={group.name}>
                   {group.tribunals.map(t => (
@@ -194,16 +195,16 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               ))}
             </select>
 
-            <div className="mb-md">
-              <div className="flex-between align-center mb-xs">
-                <h3 className="m-0 text-xl">{selectedTribunal}</h3>
+            <div className="mb-6">
+              <div className="flex justify-between items-baseline items-center mb-2">
+                <h3 className="m-0 text-2xl">{selectedTribunal}</h3>
                 {qualityScores[selectedTribunal] && (
                   <span
                     className={
                       qualityScores[selectedTribunal].grade === 'A' ? "badge badge-success" :
                       qualityScores[selectedTribunal].grade === 'B' ? "badge badge-accent" :
                       qualityScores[selectedTribunal].grade === 'C' ? "badge badge-warning" :
-                      qualityScores[selectedTribunal].grade === 'D' ? "badge badge-danger" :
+                      qualityScores[selectedTribunal].grade === 'D' ? "badge badge-error" :
                       "badge"
                     }
                     title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}>
@@ -213,48 +214,48 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               </div>
             </div>
 
-            <div className="mb-sm">
-              <small className="text-muted d-block uppercase tracking-wide text-xs">Data inicial</small>
+            <div className="mb-4">
+              <small className="opacity-50 block uppercase tracking-widest text-xs">Data inicial</small>
               <strong className="text-sm">{genesisDate || "Desconhecida"}</strong>
             </div>
 
-            <div className="mb-sm">
-              <div className="flex-between mb-xs">
-                <small className="text-muted uppercase tracking-wide text-xs">Progresso</small>
+            <div className="mb-4">
+              <div className="flex justify-between items-baseline mb-2">
+                <small className="opacity-50 uppercase tracking-widest text-xs">Progresso</small>
                 <strong className="text-primary text-sm">{completionPct}%</strong>
               </div>
               <progress
                 value={Math.round(syncedPct)}
                 max="100"
                 title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
-                className="mb-xs">
+                className="progress progress-primary mb-2">
               </progress>
-              <div className="text-muted text-xs flex-between">
+              <div className="opacity-50 text-xs flex justify-between items-baseline">
                 <span>{selectedCoverage.size} sincronizados</span>
                 <span>{absentCount} ausentes</span>
               </div>
             </div>
 
-            <div className="mb-sm">
-              <small className="text-muted d-block uppercase tracking-wide text-xs">Status</small>
+            <div className="mb-4">
+              <small className="opacity-50 block uppercase tracking-widest text-xs">Status</small>
               <strong className={`text-sm ${statusColor}`}>{completionStatusText}: {etaText}</strong>
             </div>
 
-            <div className="mb-sm">
-              <small className="text-muted d-block uppercase tracking-wide text-xs">Dias faltantes</small>
+            <div className="mb-4">
+              <small className="opacity-50 block uppercase tracking-widest text-xs">Dias faltantes</small>
               <strong className="text-sm">{actualMissingDays} dias</strong>
             </div>
 
             {cursorDate && !isStopped && (
-              <div className="mb-sm">
-                <small className="text-muted d-block uppercase tracking-wide text-xs">Cursor de varredura</small>
+              <div className="mb-4">
+                <small className="opacity-50 block uppercase tracking-widest text-xs">Cursor de varredura</small>
                 <strong className="text-primary text-sm">{cursorDate}</strong>
               </div>
             )}
 
             {isStopped && (
-              <div className="mb-sm">
-                <span className="badge badge-danger d-block text-center p-xs">
+              <div className="mb-4">
+                <span className="badge badge-error block text-center p-2">
                   Pipeline interrompido (60 dias sem publicações)
                 </span>
               </div>
@@ -265,11 +266,11 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
               // Derive year from active date or fall back to current year
               const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
               return (
-                <div className="mt-md pt-md border-top">
+                <div className="mt-6 pt-6 border-t border-base-300">
                   <a
                     href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
                     rel="noopener noreferrer"
-                    className="secondary flex align-center gap-xs mb-sm">
+                    className="secondary flex items-center gap-2 mb-4">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
@@ -281,12 +282,12 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 </div>
               );
             })()}
-          </article>
+          </div></div>
         </aside>
 
         {/* Main: Heatmap area */}
         <main>
-          <article>
+          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
             <Heatmap
               globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
               tribunalStartDateStr={tribunalStartDate}
@@ -298,7 +299,7 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
                 absentSet: absentSet
               }}
             />
-          </article>
+          </div></div>
         </main>
       </div>
 

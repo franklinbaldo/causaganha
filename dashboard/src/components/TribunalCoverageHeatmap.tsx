@@ -65,7 +65,7 @@ export function TribunalCoverageHeatmap() {
         {['30d', '90d', '1a'].map(p => (
           <button
             key={p} onClick={() => handlePeriodChange(p)}
-            className={period === p ? undefined : "secondary"}>
+            className={period === p ? "btn" : "btn btn-secondary"}>
             {p}
           </button>
         ))}
@@ -75,19 +75,19 @@ export function TribunalCoverageHeatmap() {
 
   if (loading) {
     return (
-      <article>
+      <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
         {renderHeader(`Recent Catalog Coverage (${period})`)}
         <div>Loading coverage data...</div>
-      </article>
+      </div></div>
     );
   }
 
   if (error) {
     return (
-      <article>
+      <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
         {renderHeader(`Recent Catalog Coverage (${period})`)}
-        <div className="text-danger">Error: {error}</div>
-      </article>
+        <div className="text-error">Error: {error}</div>
+      </div></div>
     );
   }
 
@@ -103,11 +103,11 @@ export function TribunalCoverageHeatmap() {
   const recent = sortedDates.slice(0, days);
 
   return (
-    <article>
+    <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div>
-        <div className="table-responsive">
-          <table>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
             <tr>
               <th>Date</th>
@@ -160,6 +160,6 @@ export function TribunalCoverageHeatmap() {
           </table>
         </div>
       </div>
-    </article>
+    </div></div>
   );
 }
