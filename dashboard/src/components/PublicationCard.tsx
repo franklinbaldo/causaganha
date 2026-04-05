@@ -69,7 +69,7 @@ function ShareButton({ dateStr, page, seq, label }: ShareButtonProps) {
 
   return (
     <button
-      className="outline secondary text-xs px-sm py-xs d-inline-flex align-center gap-xs"
+      className="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2"
       onClick={handleClick}
       title="Copiar link"
     >
@@ -88,7 +88,7 @@ interface NavButtonProps {
 function NavButton({ label, onClick, disabled }: NavButtonProps) {
   return (
     <button
-      className="secondary outline text-xs px-sm py-xs"
+      className="btn btn-outline btn-secondary text-xs px-4 py-2"
       onClick={onClick}
       disabled={disabled}
     >
@@ -113,46 +113,46 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
   if (compact) {
     return (
-      <article id={`pub-${seq}`} className="p-md">
-        <header className="flex-between align-center border-bottom pb-sm mb-sm flex-wrap gap-sm">
-          <div className="flex flex-column gap-xs">
-            <div className="flex align-center gap-sm flex-wrap">
-              <span className="font-mono text-xs text-muted">#{seq}</span>
+      <div className="card bg-base-100 shadow-sm border border-base-300" id={`pub-${seq}`}><div className="card-body p-4">
+        <header className="flex justify-between items-baseline items-center border-b border-base-300 pb-4 mb-4 flex-wrap gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="font-mono text-xs opacity-50">#{seq}</span>
               {pub.tipoComunicacao && (
                 <span className="badge">{pub.tipoComunicacao}</span>
               )}
             </div>
             {processNumber && (
-              <span className="text-accent text-md font-semibold font-mono">{processNumber}</span>
+              <span className="text-accent text-lg font-semibold font-mono">{processNumber}</span>
             )}
           </div>
           <ShareButton dateStr={dateStr} page={page} seq={seq} />
         </header>
         {pub.nomeOrgao && (
-          <small className="text-primary font-medium text-xs d-block mb-sm">{pub.nomeOrgao}</small>
+          <small className="text-primary font-medium text-xs block mb-4">{pub.nomeOrgao}</small>
         )}
         {pub.texto && (
-          <p className="text-sm text-secondary" style={{ lineHeight: '1.6' }}>
+          <p className="text-sm opacity-70" style={{ lineHeight: '1.6' }}>
             {pub.texto.length > 300 ? pub.texto.substring(0, 300) + '...' : pub.texto}
           </p>
         )}
         {pub.destinatarios?.length > 0 && (
-          <div className="flex flex-wrap gap-xs">
+          <div className="flex flex-wrap gap-2">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="badge">{d.nome}</span>
             ))}
           </div>
         )}
         {pub.destinatarioadvogados?.length > 0 && (
-          <div className="flex flex-wrap gap-xs mt-xs">
+          <div className="flex flex-wrap gap-2 mt-2">
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} className="text-xs text-muted">
+              <span key={j} className="text-xs opacity-50">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
           </div>
         )}
-      </article>
+      </div></div>
     );
   }
 
@@ -161,16 +161,16 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
 
   if (isReaderMode) {
     return (
-      <article id={`pub-${seq}`} className="reader-mode p-lg">
-        <header className="flex-between flex-wrap gap-sm border-bottom pb-sm mb-md align-center">
-          <div className="flex align-center flex-wrap gap-sm">
-            <span className="font-mono text-xs font-semibold text-muted">#{seq}</span>
+      <div className="card bg-base-100 shadow-sm border border-base-300 reader-mode" id={`pub-${seq}`}><div className="card-body p-6">
+        <header className="flex justify-between items-baseline flex-wrap gap-4 border-b border-base-300 pb-4 mb-6 items-center">
+          <div className="flex items-center flex-wrap gap-4">
+            <span className="font-mono text-xs font-semibold opacity-50">#{seq}</span>
             <span className="badge">Modo Leitura</span>
-            <small className="text-muted text-xs">{dateStr}</small>
+            <small className="opacity-50 text-xs">{dateStr}</small>
           </div>
-          <div role="group" aria-label="Ações de navegação e leitura" className="flex align-center gap-xs">
+          <div className="flex gap-2" aria-label="Ações de navegação e leitura">
             <button
-              className="outline secondary text-xs px-sm py-xs d-inline-flex align-center gap-xs touch-target-24"
+              className="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2 min-h-6 min-w-6"
               onClick={() => setIsReaderMode(false)}
               title="Sair do Modo Leitura"
             >
@@ -184,25 +184,25 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
         </header>
 
         {processNumber && (
-          <h2 className="text-accent text-xl font-semibold font-mono mb-xs">{processNumber}</h2>
+          <h2 className="text-accent text-2xl font-semibold font-mono mb-2">{processNumber}</h2>
         )}
         {pub.nomeOrgao && (
-          <p className="text-muted text-sm mb-lg">{pub.nomeOrgao}</p>
+          <p className="opacity-50 text-sm mb-10">{pub.nomeOrgao}</p>
         )}
 
-        <div className="ai-summary-placeholder p-md mb-lg border rounded bg-surface-overlay">
-          <div className="flex align-center gap-sm mb-xs">
+        <div className="ai-summary-placeholder p-4 mb-10 border rounded bg-surface-overlay">
+          <div className="flex items-center gap-4 mb-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-gold)" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <strong className="text-sm uppercase tracking-wide text-accent">Resumo com IA (Em breve)</strong>
+            <strong className="text-sm uppercase tracking-widest text-accent">Resumo com IA (Em breve)</strong>
           </div>
-          <p className="text-sm text-secondary m-0">
+          <p className="text-sm opacity-70 m-0">
             Esta seção fornecerá um resumo em linguagem clara da decisão e seu resultado.
           </p>
         </div>
 
-        <div className="reader-content pt-md">
+        <div className="reader-content pt-6">
           {textParts.length > 0 && (
             <div className="reader-text">
               {textParts.map((part, i) => {
@@ -224,7 +224,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
                 }
 
                 if (terms.length === 0) {
-                  return <p key={i} className="text-md text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>{part}</p>;
+                  return <p key={i} className="text-lg text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>{part}</p>;
                 }
 
                 // Escape regex special characters safely
@@ -242,7 +242,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
                 const tokens = part.split(regex);
 
                 return (
-                  <p key={i} className="text-md text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>
+                  <p key={i} className="text-lg text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>
                     {tokens.map((token, j) => {
                       const type = termMap.get(token.toLowerCase());
                       if (type) {
@@ -256,23 +256,23 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
             </div>
           )}
         </div>
-      </article>
+      </div></div>
     );
   }
 
   return (
-    <article id={`pub-${seq}`} className="p-lg">
-      <header className="flex-between flex-wrap gap-sm border-bottom pb-sm mb-md align-center">
-        <div className="flex align-center flex-wrap gap-sm">
-          <span className="font-mono text-xs font-semibold text-muted">#{seq}</span>
+    <div className="card bg-base-100 shadow-sm border border-base-300" id={`pub-${seq}`}><div className="card-body p-6">
+      <header className="flex justify-between items-baseline flex-wrap gap-4 border-b border-base-300 pb-4 mb-6 items-center">
+        <div className="flex items-center flex-wrap gap-4">
+          <span className="font-mono text-xs font-semibold opacity-50">#{seq}</span>
           {pub.tipoComunicacao && (
             <span className="badge">{pub.tipoComunicacao}</span>
           )}
-          <small className="text-muted text-xs">{dateStr}</small>
+          <small className="opacity-50 text-xs">{dateStr}</small>
         </div>
-        <div role="group" aria-label="Ações de navegação e leitura" className="flex align-center gap-xs flex-wrap">
+        <div className="flex gap-2" aria-label="Ações de navegação e leitura">
           <button
-            className="outline primary text-xs px-sm py-xs d-inline-flex align-center gap-xs touch-target-24"
+            className="btn btn-outline btn-primary text-xs px-4 py-2 inline-flex items-center gap-2 min-h-6 min-w-6"
             onClick={() => setIsReaderMode(true)}
             title="Abrir Modo Leitura"
           >
@@ -281,7 +281,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
             </svg>
             Modo Leitura
           </button>
-          <div role="group" aria-label="Ações de navegação" className="flex align-center gap-xs">
+          <div className="flex items-center gap-2" aria-label="Ações de navegação">
             {onNavigate && (
               <>
                 <NavButton label="Anterior" onClick={() => onNavigate(seq - 1)} disabled={seq <= 1} />
@@ -294,16 +294,16 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       </header>
 
       {processNumber && (
-        <div className="text-accent text-md font-semibold font-mono mb-sm">{processNumber}</div>
+        <div className="text-accent text-lg font-semibold font-mono mb-4">{processNumber}</div>
       )}
       {pub.nomeOrgao && (
-        <small className="d-block text-muted text-xs mb-md">{pub.nomeOrgao}</small>
+        <small className="block opacity-50 text-xs mb-6">{pub.nomeOrgao}</small>
       )}
 
       {textParts.length > 0 && (
-        <div className="border-top pt-md">
+        <div className="border-t border-base-300 pt-6">
           {textParts.map((part, i) => (
-            <p key={i} className="text-sm text-secondary" style={{ lineHeight: '1.7' }}>
+            <p key={i} className="text-sm opacity-70" style={{ lineHeight: '1.7' }}>
               {part}
             </p>
           ))}
@@ -311,9 +311,9 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       )}
 
       {pub.destinatarios?.length > 0 && (
-        <footer className="border-top pt-md mt-sm">
-          <strong className="text-xs uppercase tracking-wide text-muted d-block mb-xs">Destinatários</strong>
-          <div className="flex flex-wrap gap-xs">
+        <footer className="border-t border-base-300 pt-6 mt-4">
+          <strong className="text-xs uppercase tracking-widest opacity-50 block mb-2">Destinatários</strong>
+          <div className="flex flex-wrap gap-2">
             {pub.destinatarios.map((d, j) => (
               <span key={j} className="badge">{d.nome}</span>
             ))}
@@ -321,17 +321,17 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
         </footer>
       )}
       {pub.destinatarioadvogados?.length > 0 && (
-        <footer className="border-top pt-md mt-sm">
-          <strong className="text-xs uppercase tracking-wide text-muted d-block mb-xs">Advogados</strong>
-          <div className="flex flex-wrap gap-xs">
+        <footer className="border-t border-base-300 pt-6 mt-4">
+          <strong className="text-xs uppercase tracking-widest opacity-50 block mb-2">Advogados</strong>
+          <div className="flex flex-wrap gap-2">
             {pub.destinatarioadvogados.map((da, j) => (
-              <span key={j} className="text-sm text-secondary">
+              <span key={j} className="text-sm opacity-70">
                 {da.advogado?.nome} {da.advogado?.numero_oab && `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})`}
               </span>
             ))}
           </div>
         </footer>
       )}
-    </article>
+    </div></div>
   );
 }

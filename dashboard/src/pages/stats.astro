@@ -41,19 +41,16 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
     .coverage-grid figcaption {
       font-size: var(--font-size-xs);
       font-weight: 500;
-      color: var(--color-content-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-top: 0.5rem;
+      opacity: 0.5;
     }
     .coverage-grid small {
       display: block;
       margin-top: var(--space-xs);
     }
 
-    table td {
-      vertical-align: middle;
-    }
     .rank-num {
       display: inline-flex;
       align-items: center;
@@ -73,9 +70,8 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       gap: var(--space-sm);
       text-align: center;
     }
-    .weekly-grid article {
+    .weekly-grid .card {
       padding: var(--space-md) var(--space-sm);
-      margin-bottom: 0;
     }
     .weekly-grid .stat-value {
       font-size: var(--font-size-xl);
@@ -86,7 +82,7 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: var(--color-content-tertiary);
+      opacity: 0.5;
     }
 
     @media (max-width: 768px) {
@@ -103,113 +99,120 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
     backLabel="Voltar para o Início"
   />
 
-  <div class="container">
+  <div class="container mx-auto px-4">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: base },
       { label: 'Estatísticas' }
     ]} />
 
     <!-- Coverage Overview -->
-    <article class="mb-xl">
-      <header class="pb-sm border-bottom">
-        <strong>Resumo de Cobertura</strong>
-        <small class="text-muted" style="float: right;">Últimos 30 dias</small>
-      </header>
-      <div class="coverage-grid pt-md">
-        <figure>
-          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small style="font-size: 0.5em; font-weight: 500;">%</small></div>
-          <figcaption>Média de Coleta</figcaption>
-          <small class="text-muted">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
-        </figure>
-        <figure>
-          <div class="stat-value text-success">{bestCount}<small style="font-size: 0.5em; font-weight: 400; color: var(--color-content-tertiary);"> / 91</small></div>
-          <figcaption>Melhor Dia</figcaption>
-          <small class="text-muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
-        </figure>
-        <figure>
-          <div class="stat-value text-danger">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.5em; font-weight: 400; color: var(--color-content-tertiary);"> / 91</small></div>
-          <figcaption>Pior Dia</figcaption>
-          <small class="text-muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
-        </figure>
+    <div class="card bg-base-100 shadow-sm border border-base-300 mb-10">
+      <div class="card-body">
+        <div class="flex justify-between items-baseline border-b border-base-300 pb-3">
+          <strong>Resumo de Cobertura</strong>
+          <small class="opacity-50">Últimos 30 dias</small>
+        </div>
+        <div class="coverage-grid pt-4">
+          <figure>
+            <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small style="font-size: 0.5em; font-weight: 500;">%</small></div>
+            <figcaption>Média de Coleta</figcaption>
+            <small class="opacity-50">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
+          </figure>
+          <figure>
+            <div class="stat-value text-success">{bestCount}<small style="font-size: 0.5em; font-weight: 400; opacity: 0.5;"> / 91</small></div>
+            <figcaption>Melhor Dia</figcaption>
+            <small class="opacity-50">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
+          </figure>
+          <figure>
+            <div class="stat-value text-error">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.5em; font-weight: 400; opacity: 0.5;"> / 91</small></div>
+            <figcaption>Pior Dia</figcaption>
+            <small class="opacity-50">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
+          </figure>
+        </div>
       </div>
-    </article>
+    </div>
 
     <!-- Court Rankings -->
-    <div class="grid mb-xl">
-      <article>
-        <header class="pb-sm border-bottom">
-          <strong>Top 5 Mais Confiáveis</strong>
-        </header>
-        {top5.length > 0 ? (
-          <div style="overflow-x: auto;">
-            <table>
-              <tbody>
-                {top5.map((c, i) => (
-                  <tr>
-                    <td><span class="rank-num">{i + 1}</span></td>
-                    <td><strong>{c.court}</strong></td>
-                    <td class="text-success text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <div class="border-b border-base-300 pb-3">
+            <strong>Top 5 Mais Confiáveis</strong>
           </div>
-        ) : (
-          <p class="text-center text-muted">Sem dados suficientes</p>
-        )}
-      </article>
+          {top5.length > 0 ? (
+            <div class="overflow-x-auto">
+              <table class="table">
+                <tbody>
+                  {top5.map((c, i) => (
+                    <tr>
+                      <td><span class="rank-num">{i + 1}</span></td>
+                      <td><strong>{c.court}</strong></td>
+                      <td class="text-success text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p class="text-center opacity-50">Sem dados suficientes</p>
+          )}
+        </div>
+      </div>
 
-      <article>
-        <header class="pb-sm border-bottom">
-          <strong>Top 5 Mais Falhas</strong>
-        </header>
-        {bottom5.length > 0 ? (
-          <div style="overflow-x: auto;">
-            <table>
-              <tbody>
-                {bottom5.map((c, i) => (
-                  <tr>
-                    <td><span class="rank-num">{i + 1}</span></td>
-                    <td><strong>{c.court}</strong></td>
-                    <td class="text-danger text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <div class="border-b border-base-300 pb-3">
+            <strong>Top 5 Mais Falhas</strong>
           </div>
-        ) : (
-          <p class="text-center text-muted">Sem dados suficientes</p>
-        )}
-      </article>
+          {bottom5.length > 0 ? (
+            <div class="overflow-x-auto">
+              <table class="table">
+                <tbody>
+                  {bottom5.map((c, i) => (
+                    <tr>
+                      <td><span class="rank-num">{i + 1}</span></td>
+                      <td><strong>{c.court}</strong></td>
+                      <td class="text-error text-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p class="text-center opacity-50">Sem dados suficientes</p>
+          )}
+        </div>
+      </div>
     </div>
 
     <!-- Weekly Pattern -->
-    <article style="margin-bottom: var(--space-2xl);">
-      <header class="pb-sm border-bottom mb-md">
-        <hgroup>
-          <h3 class="mb-0">Padrão Semanal</h3>
-          <p class="mb-0" style="font-size: var(--font-size-sm);">Média de cobertura por dia da semana</p>
-        </hgroup>
-      </header>
-      <div class="weekly-grid">
-        {displayWeekly.map(w => {
-          if (!w) return null;
-          const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
-          return (
-            <article>
-              <span class="day-name">{w.name.slice(0, 3)}</span>
-              <div class={`stat-value ${isLowest ? 'text-danger' : ''}`}>
-                {w.avgPct.toFixed(0)}%
+    <div class="card bg-base-100 shadow-sm border border-base-300 mb-16">
+      <div class="card-body">
+        <div class="border-b border-base-300 pb-3 mb-4">
+          <h3 class="text-xl font-bold mb-0">Padrão Semanal</h3>
+          <p class="text-sm opacity-60 mb-0">Média de cobertura por dia da semana</p>
+        </div>
+        <div class="weekly-grid">
+          {displayWeekly.map(w => {
+            if (!w) return null;
+            const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
+            return (
+              <div class="card bg-base-200">
+                <div class="card-body items-center p-4">
+                  <span class="day-name">{w.name.slice(0, 3)}</span>
+                  <div class={`stat-value ${isLowest ? 'text-error' : ''}`}>
+                    {w.avgPct.toFixed(0)}%
+                  </div>
+                  <small class="opacity-50">{w.avg.toFixed(1)} / 91</small>
+                  {isLowest && (
+                    <div class="mt-1"><span class="badge badge-error badge-sm">Menor</span></div>
+                  )}
+                </div>
               </div>
-              <small class="text-muted">{w.avg.toFixed(1)} / 91</small>
-              {isLowest && (
-                <div style="margin-top: var(--space-xs);"><span class="badge badge-danger">Menor</span></div>
-              )}
-            </article>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </article>
-
+    </div>
   </div>
 </Layout>

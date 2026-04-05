@@ -18,22 +18,22 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
   const { weeklyData, historicalAvgVelocity, currentVelocity, trend } = metrics;
   const maxCollected = Math.max(7, ...weeklyData.map((w: VelocityWeek) => w.collected));
 
-  let trendColor = "text-muted";
+  let trendColor = "opacity-50";
   let trendText = "Estável";
   if (currentVelocity > historicalAvgVelocity * 1.2) {
     trendColor = "text-success";
     trendText = "Acelerando";
   } else if (currentVelocity < historicalAvgVelocity * 0.7) {
-    trendColor = "text-danger";
+    trendColor = "text-error";
     trendText = "Em declínio";
   }
 
   return (
     <div aria-label="Velocidade de Coleta nas Últimas 12 Semanas">
-      <div className="flex-between flex-wrap gap-sm mb-md align-baseline">
+      <div className="flex justify-between items-baseline flex-wrap gap-4 mb-6 items-baseline">
         <div>
           <h4 className="mb-0">Velocidade de Coleta</h4>
-          <p className="text-muted mb-0 text-sm">Taxa de coleta das últimas 12 semanas</p>
+          <p className="opacity-50 mb-0 text-sm">Taxa de coleta das últimas 12 semanas</p>
         </div>
         <div className="text-right">
           <div className="font-bold">{currentVelocity.toFixed(1)} dias/sem (média)</div>
@@ -43,7 +43,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         </div>
       </div>
 
-      <div role="list" className="flex align-end mt-lg" style={{ gap: '4px', height: '100px' }}>
+      <div role="list" className="flex items-end mt-10" style={{ gap: '4px', height: '100px' }}>
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
@@ -51,7 +51,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
             <div
               key={`w-${idx}`}
               role="listitem"
-              className="flex align-end"
+              className="flex items-end"
               style={{ flex: 1, position: 'relative', height: '100%', group: 'hover' }}
               title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}
               aria-label={`${week.collected} dias coletados na semana ${12 - week.weekOffset}`}>
@@ -62,7 +62,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         })}
       </div>
 
-      <div className="flex-between text-muted mt-xs text-xs">
+      <div className="flex justify-between items-baseline opacity-50 mt-2 text-xs">
         <span>12 semanas atrás</span>
         <span>Atual</span>
       </div>
@@ -243,10 +243,10 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
         return (
           <div key={year}>
-            <h4 className="mb-sm text-lg">{year}</h4>
-            <div className="table-responsive pb-sm" style={{ border: 'none' }}>
-              <div className="flex gap-xs" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-                <div aria-hidden="true" className="flex text-xs text-muted" style={{ flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem' }}>
+            <h4 className="mb-4 text-xl">{year}</h4>
+            <div className="overflow-x-auto pb-4" style={{ border: 'none' }}>
+              <div className="flex gap-2" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
+                <div aria-hidden="true" className="flex text-xs opacity-50" style={{ flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem' }}>
                   <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
                   <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Seg</div>
                   <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
@@ -257,7 +257,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                 </div>
                 {yrWeeks.map((week, weekIndex) => (
                   <div key={`w-${year}-${weekIndex}`} role="row" className="flex" style={{ flexDirection: 'column', gap: '4px' }}>
-                    <div className="text-xs text-muted mb-xs" style={{ height: '16px' }}>
+                    <div className="text-xs opacity-50 mb-2" style={{ height: '16px' }}>
                       {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
                     </div>
                     {week.map((day, dayIndex) => (
@@ -288,21 +288,21 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         );
       })}
 
-      <div className="flex-between flex-wrap gap-sm mt-md pt-sm border-top text-sm">
-        <span className="text-muted">
+      <div className="flex justify-between items-baseline flex-wrap gap-4 mt-6 pt-4 border-t border-base-300 text-sm">
+        <span className="opacity-50">
           <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
         </span>
-        <div className="flex align-center flex-wrap gap-md">
-          <span className="text-muted">Legenda:</span>
-          <div className="flex align-center gap-xs">
+        <div className="flex items-center flex-wrap gap-6">
+          <span className="opacity-50">Legenda:</span>
+          <div className="flex items-center gap-2">
             <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Faltante</span>
           </div>
-          <div className="flex align-center gap-xs">
+          <div className="flex items-center gap-2">
             <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Ausente</span>
           </div>
-          <div className="flex align-center gap-xs">
+          <div className="flex items-center gap-2">
             <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
             <span>Coletado</span>
           </div>
@@ -310,7 +310,7 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
       </div>
 
       {velocityMetrics && velocityMetrics.hasEnoughHistory && (
-        <div className="border-top pt-lg mt-lg">
+        <div className="border-t border-base-300 pt-6 mt-10">
           <VelocityTimeline metrics={velocityMetrics} />
         </div>
       )}

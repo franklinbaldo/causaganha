@@ -124,17 +124,17 @@ export function LiveStatusWidget() {
 
   if (error) {
     return (
-      <article>
+      <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
         <span>Status ao vivo indisponível.</span>
-      </article>
+      </div></div>
     );
   }
 
   if (!data) {
     return (
-      <article>
+      <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
         <span aria-busy="true">Carregando status do pipeline...</span>
-      </article>
+      </div></div>
     );
   }
 
@@ -150,7 +150,7 @@ export function LiveStatusWidget() {
   else if (status) translatedStatus = status;
 
   return (
-    <article>
+    <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       <header>
         {isActuallyRunning ? (
           <span className="cg-pulse"></span>
@@ -178,6 +178,6 @@ export function LiveStatusWidget() {
           <strong>{active_tribunals ?? '—'}</strong>
         </div>
       </div>
-    </article>
+    </div></div>
   );
 }

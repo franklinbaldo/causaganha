@@ -64,12 +64,12 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
   return (
     <div>
       {/* Archive Progress */}
-      <article className="mb-xl">
-        <header className="pb-sm border-bottom mb-md">
-          <div className="flex-between flex-wrap gap-xs align-center">
+      <div className="card bg-base-100 shadow-sm border border-base-300 mb-16"><div className="card-body">
+        <header className="pb-4 border-b border-base-300 mb-6">
+          <div className="flex justify-between items-baseline flex-wrap gap-2 items-center">
             <h2 className="mb-0 text-2xl">Progresso do Arquivo</h2>
             {latestDate && (
-              <span className="text-xs text-muted">
+              <span className="text-xs opacity-50">
                 Última coleta: {latestDate}
                 {snapshotAge && <span> · {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>}
               </span>
@@ -81,9 +81,9 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: 'var(--space-md)',
+          gap: '1.5rem',
           textAlign: 'center',
-          padding: 'var(--space-md) 0'
+          padding: '1.5rem 0'
         }}>
           <div>
             <div className="stat-value">{totalZips.toLocaleString()}</div>
@@ -94,7 +94,7 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             <p className="stat-label">Volume</p>
           </div>
           <div>
-            <div className="stat-value text-success">{tribunalsWithData}<small className="font-normal text-muted" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>/ {snap?.tribunals_total || 96}</small></div>
+            <div className="stat-value text-success">{tribunalsWithData}<small className="font-normal opacity-50" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>/ {snap?.tribunals_total || 96}</small></div>
             <p className="stat-label">Tribunais</p>
           </div>
           <div>
@@ -102,34 +102,34 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
             <p className="stat-label">Itens no IA</p>
           </div>
         </div>
-      </article>
+      </div></div>
 
       {/* Progress by Year */}
       {Object.keys(snapshotByYear).length > 0 ? (
-        <article className="mb-xl">
-          <header className="pb-sm border-bottom mb-md flex-between">
+        <div className="card bg-base-100 shadow-sm border border-base-300 mb-16"><div className="card-body">
+          <header className="pb-4 border-b border-base-300 mb-6 flex justify-between items-baseline">
             <strong>ZIPs por Ano</strong>
-            <small className="text-muted text-xs">Internet Archive</small>
+            <small className="opacity-50 text-xs">Internet Archive</small>
           </header>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-sm)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
             {Object.entries(snapshotByYear)
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([year, d]) => (
-                <article key={year} className="mb-0 p-md">
-                  <div className="flex-between mb-xs">
+                <div className="card bg-base-100 shadow-sm border border-base-300 mb-0" key={year}><div className="card-body p-4">
+                  <div className="flex justify-between items-baseline mb-2">
                     <strong className="text-sm">{year}</strong>
                     <span className="font-mono text-sm font-bold">{(d as any).zip_count.toLocaleString()}</span>
                   </div>
-                  <small className="text-muted text-xs">
+                  <small className="opacity-50 text-xs">
                     {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
                   </small>
-                </article>
+                </div></div>
               ))}
           </div>
-        </article>
+        </div></div>
       ) : progressByYear && Object.keys(progressByYear).length > 0 ? (
-        <article className="mb-xl">
-          <header className="pb-sm border-bottom mb-md">
+        <div className="card bg-base-100 shadow-sm border border-base-300 mb-16"><div className="card-body">
+          <header className="pb-4 border-b border-base-300 mb-6">
             <strong>Progresso por Ano</strong>
           </header>
           <div>
@@ -138,13 +138,13 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
               .map(([year, d]) => {
                 const pct = (d as any).pct || 0;
                 return (
-                  <div key={year} className="mb-md">
-                    <div className="flex-between mb-xs">
+                  <div key={year} className="mb-6">
+                    <div className="flex justify-between items-baseline mb-2">
                       <strong className="text-sm">{year}</strong>
                       <span className="font-mono text-sm font-semibold">{pct.toFixed(1)}%</span>
                     </div>
-                    <progress value={Math.round(Math.min(100, pct))} max="100" aria-label={`Progresso de coleta para o ano ${year}`}></progress>
-                    <div className="text-muted text-xs flex gap-sm mt-xs">
+                    <progress className="progress progress-primary" value={Math.round(Math.min(100, pct))} max="100" aria-label={`Progresso de coleta para o ano ${year}`}></progress>
+                    <div className="opacity-50 text-xs flex gap-4 mt-2">
                       <span>{(d as any).zips || 0} ZIPs</span>
                       <span>{(d as any).days_consolidated || 0} consolidados</span>
                       <span>{(d as any).unique_days || 0} / {(d as any).weekdays || 0} dias</span>
@@ -153,16 +153,17 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                 );
               })}
           </div>
-        </article>
+        </div></div>
       ) : null}
 
       {/* Tribunal Filter */}
-      <div className="mb-md mt-lg">
-        <label htmlFor="tribunal-filter" className="text-sm font-medium text-secondary">
+      <div className="mb-6 mt-10">
+        <label htmlFor="tribunal-filter" className="text-sm font-medium opacity-70">
           Filtrar tribunais
         </label>
         <input
           id="tribunal-filter" type="search"
+          className="input input-bordered"
           value={query}
           onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
           onKeyDown={(event) => {
@@ -170,7 +171,6 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
           }}
           placeholder="Busque por sigla ou nome (ex.: tjsp, trf1, stj)"
           aria-label="Filtrar tribunais por sigla ou nome"
-          className="mb-0"
         />
       </div>
 
@@ -182,12 +182,12 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         </div>
       ) : filteredGroups.map(group => {
         return (
-          <section key={group.name} className="mb-xl">
-            <div className="mb-md pb-sm border-bottom">
-              <h3 className="text-lg mb-xs" style={{ marginBottom: '0.25rem' }}>{group.name}</h3>
-              <small className="text-muted text-xs">{group.tribunals.length} tribunais</small>
+          <section key={group.name} className="mb-16">
+            <div className="mb-6 pb-4 border-b border-base-300">
+              <h3 className="text-xl mb-2" style={{ marginBottom: '0.25rem' }}>{group.name}</h3>
+              <small className="opacity-50 text-xs">{group.tribunals.length} tribunais</small>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-sm)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
               {group.tribunals.map(t => {
                 let totalZips = 0;
                 let latestDate = null;
@@ -205,22 +205,22 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <a
                     key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
                     style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <article className="mb-0 p-md h-100">
-                      <div className="flex-between align-center">
+                    <div className="card bg-base-100 shadow-sm border border-base-300 mb-0 h-100"><div className="card-body p-4">
+                      <div className="flex justify-between items-baseline items-center">
                         <strong className="text-sm">{t}</strong>
                         {hasData && (
                           <span className="badge">{totalZips}</span>
                         )}
                       </div>
-                      <div className="text-xs text-muted mt-xs">
+                      <div className="text-xs opacity-50 mt-2">
                         {hasData ? `até ${latestDate}` : (
-                          <span className="flex align-center gap-xs" style={{ color: 'var(--color-warning)' }}>
+                          <span className="flex items-center gap-2" style={{ color: 'var(--color-warning)' }}>
                             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             Sem dados
                           </span>
                         )}
                       </div>
-                    </article>
+                    </div></div>
                   </a>
                 );
               })}

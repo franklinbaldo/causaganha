@@ -91,7 +91,7 @@ export function PRGateExplainer() {
     const isClosed = prInfo.state === 'closed';
 
     if (isMerged) return { status: 'Merged', description: 'This PR is already merged.', color: 'text-success' };
-    if (isClosed) return { status: 'Closed', description: 'This PR is closed without merging.', color: 'text-danger' };
+    if (isClosed) return { status: 'Closed', description: 'This PR is closed without merging.', color: 'text-error' };
 
     const pendingChecks = checkRuns.filter(c => c.status !== 'completed');
     const failedChecks = checkRuns.filter(c => c.status === 'completed' && c.conclusion !== 'success' && c.conclusion !== 'neutral' && c.conclusion !== 'skipped');
@@ -105,7 +105,7 @@ export function PRGateExplainer() {
 
     if (failedChecks.length> 0) {
         status = 'Blocked';
-        color = 'text-danger';
+        color = 'text-error';
         if (blockedByKilo) {
             description = `CI ${failedChecks.length> 1 ? 'and Kilo failed' : 'green, Kilo ACTION_REQUIRED'} → merge blocked by external review gate.`;
         } else {
@@ -121,10 +121,11 @@ export function PRGateExplainer() {
   };
 
   return (
-    <article>
+    <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       <h2>PR Readiness Gate Explainer</h2>
       <form onSubmit={fetchPRStatus}>
         <input
+          className="input input-bordered"
           type="number" placeholder="Enter PR Number (e.g., 425)"
           value={prNumber}
           onChange={(e: JSX.TargetedEvent<HTMLInputElement>) => setPrNumber(e.currentTarget.value)}
@@ -134,7 +135,7 @@ export function PRGateExplainer() {
         </button>
       </form>
 
-      {error && <div className="text-danger">{error}</div>}
+      {error && <div className="text-error">{error}</div>}
 
       {prData && (
         <div>
@@ -171,7 +172,7 @@ export function PRGateExplainer() {
                     {prData.checkRuns.filter(c => c.status === 'completed').map(c => (
                         <li key={c.id}>
                             <span  title={c.name}>{c.name}</span>
-                            <span className={c.conclusion === 'success' ? 'text-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'text-danger')}>
+                            <span className={c.conclusion === 'success' ? 'text-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'text-error')}>
                                 {c.conclusion === 'success' ? '✓' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? '-' : '✗')} {c.conclusion}
                             </span>
                         </li>
@@ -195,6 +196,6 @@ export function PRGateExplainer() {
           </div>
         </div>
       )}
-    </article>
+    </div></div>
   );
 }

@@ -6,48 +6,20 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 <Layout title="Página não encontrada — CausaGanha">
   <Header variant="page" title="Página não encontrada" backHref={BASE} backLabel="Início" />
-  <style>
-    .error-page {
-      text-align: center;
-      padding: var(--space-3xl) 0;
-      max-width: 32rem;
-      margin: 0 auto;
-    }
-    .error-code {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 8rem;
-      font-weight: 800;
-      letter-spacing: -0.05em;
-      line-height: 1;
-      color: var(--color-border);
-      margin-bottom: var(--space-md);
-    }
-    .error-page h2 {
-      font-size: var(--font-size-2xl);
-      margin-bottom: var(--space-sm);
-    }
-    .error-page p {
-      color: var(--color-content-tertiary);
-      margin-bottom: var(--space-xl);
-    }
-    .error-actions {
-      display: flex;
-      gap: var(--space-sm);
-      justify-content: center;
-    }
-  </style>
 
-  <main class="container">
-    <div class="error-page">
-      <div class="error-code">404</div>
-      <h2>Página não encontrada</h2>
-      <p>
-        Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
-      </p>
-      <div class="error-actions">
-        <a href={BASE + 'publicacoes'} role="button">Dashboard</a>
-        <a href={BASE} role="button" class="secondary outline">Início</a>
+  <div class="hero min-h-[50vh]">
+    <div class="hero-content text-center">
+      <div class="max-w-md">
+        <p class="font-mono text-8xl font-extrabold tracking-tighter opacity-20">404</p>
+        <h2 class="text-3xl font-bold mt-4">Página não encontrada</h2>
+        <p class="py-4 opacity-60">
+          Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
+        </p>
+        <div class="flex gap-4 justify-center">
+          <a href={BASE + 'publicacoes'} class="btn btn-primary">Dashboard</a>
+          <a href={BASE} class="btn btn-outline btn-secondary">Início</a>
+        </div>
       </div>
     </div>
-  </main>
+  </div>
 </Layout>

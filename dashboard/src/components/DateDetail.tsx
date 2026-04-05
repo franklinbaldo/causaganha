@@ -58,7 +58,7 @@ function DateShareButton({ dateStr }: { dateStr: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleClick} className="secondary outline" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+    <button onClick={handleClick} className="btn btn-outline btn-secondary" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
       <svg  xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
       </svg>
@@ -228,6 +228,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
             }}
           />
           <button
+            className="btn"
            onClick={() => { setFeaturedPub(null); history.replaceState(null, '', `#${dateStr}`); }}>
             Ver todas as publicações
           </button>
@@ -235,20 +236,20 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {/* Date header */}
-      <article style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+      <div className="card bg-base-100 shadow-sm border border-base-300" style={{ marginBottom: 'var(--space-lg)' }}><div className="card-body" style={{ padding: 'var(--space-md)' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0 }}>{dateStr}</h3>
             {zipSize != null && <span className="badge badge-accent">{formatSize(zipSize)}</span>}
-            {totalPages> 0 && <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{totalPages} pág.</span>}
+            {totalPages> 0 && <span className="opacity-50" style={{ fontSize: 'var(--font-size-sm)' }}>{totalPages} pág.</span>}
             {itemFileCount != null && (
-              <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{itemFileCount} arquivos</span>
+              <span className="opacity-50" style={{ fontSize: 'var(--font-size-sm)' }}>{itemFileCount} arquivos</span>
             )}
           </div>
-          <div role="group" aria-label="Ações do arquivo" style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+          <div className="flex gap-2" aria-label="Ações do arquivo">
             <DateShareButton dateStr={dateStr} />
-            <a href={zipUrl} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Baixar ZIP</a>
-            <a href={`https://archive.org/details/${itemId}`} role="button" class="secondary outline" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Ver no IA</a>
+            <a href={zipUrl} className="btn btn-outline btn-secondary" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Baixar ZIP</a>
+            <a href={`https://archive.org/details/${itemId}`} className="btn btn-outline btn-secondary" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-size-xs)', padding: '0.4rem 0.75rem' }}>Ver no IA</a>
           </div>
         </header>
         <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: 'var(--font-size-xs)', color: 'var(--color-content-tertiary)', marginTop: 'var(--space-sm)' }}>
@@ -263,10 +264,10 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
             </span>
           )}
         </div>
-      </article>
+      </div></div>
 
-      {loading && <article aria-busy="true" className="text-center text-muted">Carregando publicações...</article>}
-      {error && <article className="text-danger text-center">Erro: {error}</article>}
+      {loading && <div className="flex justify-center p-8"><span className="loading loading-spinner loading-lg"></span></div>}
+      {error && <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body text-error text-center">Erro: {error}</div></div>}
 
       {/* Publications list */}
       {publications.length> 0 && !featuredPub && (
@@ -284,8 +285,8 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {currentPage < totalPages && !loading && (
-        <div className="text-center mt-xl">
-          <button onClick={handleLoadMore} disabled={loadingMore} className="secondary" aria-busy={loadingMore}>
+        <div className="text-center mt-16">
+          <button onClick={handleLoadMore} disabled={loadingMore} className="btn btn-secondary" aria-busy={loadingMore}>
             {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
           </button>
         </div>
@@ -298,7 +299,7 @@ export function DateDetail({ tribunalCode, dateStr, initialPage, initialSeq }: D
       )}
 
       {!loading && publications.length === 0 && !error && (
-        <article className="text-center text-muted">Nenhuma publicação encontrada.</article>
+        <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body text-center opacity-50">Nenhuma publicação encontrada.</div></div>
       )}
     </div>
   );

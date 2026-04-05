@@ -16,91 +16,94 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <DatabaseIcon slot="icon" />
   </Header>
 
-  <div class="container">
+  <div class="container mx-auto px-4">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Explorador de Dados' }
     ]} />
 
-    <section style="margin-top: var(--space-lg); margin-bottom: var(--space-xl);">
+    <section class="mt-6 mb-10">
       <p>
         Execute consultas SQL diretamente nos arquivos Parquet hospedados no
-        <a href="https://archive.org/details/djen-2026-04-01" target="_blank" rel="noopener">Internet Archive</a>.
+        <a href="https://archive.org/details/djen-2026-04-01" target="_blank" rel="noopener" class="link">Internet Archive</a>.
         O <strong>DuckDB-WASM</strong> roda inteiramente no seu navegador — nenhum dado é enviado para servidores externos.
       </p>
 
-      <details style="margin-bottom: var(--space-md);">
-        <summary>Tabelas disponíveis</summary>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Tabela</th>
-                <th>Descrição</th>
-                <th>Campos principais</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>comunicacoes</code></td>
-                <td>Intimações e comunicações judiciais</td>
-                <td>id, tribunal, numero_processo, data_disponibilizacao, tipo_comunicacao</td>
-              </tr>
-              <tr>
-                <td><code>advogados</code></td>
-                <td>Advogados identificados por OAB</td>
-                <td>id, nome, numero_oab, uf_oab, tribunal</td>
-              </tr>
-              <tr>
-                <td><code>textos</code></td>
-                <td>Conteúdo das comunicações (deduplicado)</td>
-                <td>id, texto</td>
-              </tr>
-              <tr>
-                <td><code>processos</code></td>
-                <td>Índice de atividade por processo</td>
-                <td>numero_processo, tribunal, data, comunicacao_id</td>
-              </tr>
-              <tr>
-                <td><code>classificacoes</code></td>
-                <td>Classificação de resultado (procedente/improcedente)</td>
-                <td>texto_id, outcome, decision_type, confidence</td>
-              </tr>
-              <tr>
-                <td><code>destinatarios</code></td>
-                <td>Destinatários das comunicações</td>
-                <td>comunicacao_id, nome, polo, parte_id</td>
-              </tr>
-              <tr>
-                <td><code>representacoes</code></td>
-                <td>Vínculos advogado-parte</td>
-                <td>advogado_id, parte_id, polo</td>
-              </tr>
-              <tr>
-                <td><code>partes</code></td>
-                <td>Partes normalizadas</td>
-                <td>id, nome_normalizado, nome_original</td>
-              </tr>
-              <tr>
-                <td><code>comunicacao_advogados</code></td>
-                <td>Vínculo comunicação-advogado</td>
-                <td>comunicacao_id, advogado_id</td>
-              </tr>
-              <tr>
-                <td><code>advogado_nomes</code></td>
-                <td>Variações de nome por advogado</td>
-                <td>advogado_id, nome, first_seen</td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="collapse collapse-arrow border border-base-300 bg-base-100 mb-4">
+        <input type="checkbox" />
+        <div class="collapse-title font-medium">Tabelas disponíveis</div>
+        <div class="collapse-content">
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Tabela</th>
+                  <th>Descrição</th>
+                  <th>Campos principais</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>comunicacoes</code></td>
+                  <td>Intimações e comunicações judiciais</td>
+                  <td>id, tribunal, numero_processo, data_disponibilizacao, tipo_comunicacao</td>
+                </tr>
+                <tr>
+                  <td><code>advogados</code></td>
+                  <td>Advogados identificados por OAB</td>
+                  <td>id, nome, numero_oab, uf_oab, tribunal</td>
+                </tr>
+                <tr>
+                  <td><code>textos</code></td>
+                  <td>Conteúdo das comunicações (deduplicado)</td>
+                  <td>id, texto</td>
+                </tr>
+                <tr>
+                  <td><code>processos</code></td>
+                  <td>Índice de atividade por processo</td>
+                  <td>numero_processo, tribunal, data, comunicacao_id</td>
+                </tr>
+                <tr>
+                  <td><code>classificacoes</code></td>
+                  <td>Classificação de resultado (procedente/improcedente)</td>
+                  <td>texto_id, outcome, decision_type, confidence</td>
+                </tr>
+                <tr>
+                  <td><code>destinatarios</code></td>
+                  <td>Destinatários das comunicações</td>
+                  <td>comunicacao_id, nome, polo, parte_id</td>
+                </tr>
+                <tr>
+                  <td><code>representacoes</code></td>
+                  <td>Vínculos advogado-parte</td>
+                  <td>advogado_id, parte_id, polo</td>
+                </tr>
+                <tr>
+                  <td><code>partes</code></td>
+                  <td>Partes normalizadas</td>
+                  <td>id, nome_normalizado, nome_original</td>
+                </tr>
+                <tr>
+                  <td><code>comunicacao_advogados</code></td>
+                  <td>Vínculo comunicação-advogado</td>
+                  <td>comunicacao_id, advogado_id</td>
+                </tr>
+                <tr>
+                  <td><code>advogado_nomes</code></td>
+                  <td>Variações de nome por advogado</td>
+                  <td>advogado_id, nome, first_seen</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </details>
+      </div>
     </section>
 
     <DuckDBExplorer client:only="preact" />
 
-    <footer style="text-align: center; margin-top: var(--space-2xl); padding: var(--space-lg) 0; border-top: 1px solid var(--color-border-muted);">
-      <small class="text-muted">
+    <footer class="text-center mt-16 py-6 border-t border-base-300">
+      <small class="opacity-50">
         Dados do DJEN arquivados no Internet Archive.
         O DuckDB-WASM executa no navegador — seus dados não saem do seu dispositivo.
       </small>

@@ -57,50 +57,50 @@ export function PipelineRunHistory() {
   };
 
   return (
-    <article>
-      <h3>Pipeline Run History (Collect ZIPs)</h3>
+    <div className="card bg-base-100 shadow-sm border border-base-300">
+      <div className="card-body">
+        <h3>Pipeline Run History (Collect ZIPs)</h3>
 
-      {loading && <div>Loading run history...</div>}
+        {loading && <div>Loading run history...</div>}
 
-      {error && <div>Error: {error}</div>}
+        {error && <div>Error: {error}</div>}
 
-      {!loading && !error && (
-        <div>
-          <div className="table-responsive">
-            <table>
+        {!loading && !error && (
+          <div className="overflow-x-auto">
+            <table className="table">
               <thead>
-              <tr>
-                <th>Run Date</th>
-                <th>Duration (min)</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.id}>
-                  <td>
-                    <a href={run.html_url} target="_blank" rel="noopener noreferrer">
-                      {new Date(run.created_at).toLocaleString()}
-                    </a>
-                  </td>
-                  <td>
-                    {calculateDuration(run.created_at, run.updated_at)}
-                  </td>
-                  <td>
-                    {getStatusIcon(run.status, run.conclusion)}
-                  </td>
-                </tr>
-              ))}
-              {runs.length === 0 && (
                 <tr>
-                  <td colSpan={3}>No runs found.</td>
+                  <th>Run Date</th>
+                  <th>Duration (min)</th>
+                  <th>Status</th>
                 </tr>
-              )}
+              </thead>
+              <tbody>
+                {runs.map((run) => (
+                  <tr key={run.id}>
+                    <td>
+                      <a href={run.html_url} target="_blank" rel="noopener noreferrer">
+                        {new Date(run.created_at).toLocaleString()}
+                      </a>
+                    </td>
+                    <td>
+                      {calculateDuration(run.created_at, run.updated_at)}
+                    </td>
+                    <td>
+                      {getStatusIcon(run.status, run.conclusion)}
+                    </td>
+                  </tr>
+                ))}
+                {runs.length === 0 && (
+                  <tr>
+                    <td colSpan={3}>No runs found.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-    </article>
+        )}
+      </div>
+    </div>
   );
 }

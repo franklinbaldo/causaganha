@@ -12,55 +12,65 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 >
   <Header variant="page" title="Sobre o Projeto" backHref={BASE} backLabel="Início" />
 
-  <main class="container">
+  <div class="container mx-auto px-4">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Sobre o Projeto' }
     ]} />
 
-    <section style="margin-top: var(--space-xl); margin-bottom: var(--space-2xl);">
-      <article>
-        <h2>O Projeto</h2>
-        <p>
-          O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
-        </p>
-      </article>
+    <section class="mt-10 mb-16 space-y-8">
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">O Projeto</h2>
+          <p>
+            O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
+          </p>
+        </div>
+      </div>
 
-      <article style="margin-top: var(--space-xl);">
-        <h2>Metodologia</h2>
-        <p>
-          O sistema opera através de um pipeline automatizado que utiliza o GitHub Actions. A cada 20 minutos, robôs consultam as plataformas oficiais para capturar novos dados. Esses dados são validados, formatados e em seguida enviados para o Internet Archive, assegurando que o histórico de publicações nunca se perca, mesmo que os sistemas de origem fiquem indisponíveis.
-        </p>
-      </article>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">Metodologia</h2>
+          <p>
+            O sistema opera através de um pipeline automatizado que utiliza o GitHub Actions. A cada 20 minutos, robôs consultam as plataformas oficiais para capturar novos dados. Esses dados são validados, formatados e em seguida enviados para o Internet Archive, assegurando que o histórico de publicações nunca se perca, mesmo que os sistemas de origem fiquem indisponíveis.
+          </p>
+        </div>
+      </div>
 
-      <article style="margin-top: var(--space-xl);">
-        <h2>Fontes de Dados</h2>
-        <p>
-          Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
-        </p>
-        <p>
-          Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
-        </p>
-      </article>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">Fontes de Dados</h2>
+          <p>
+            Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
+          </p>
+          <p>
+            Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
+          </p>
+        </div>
+      </div>
 
-      <article style="margin-top: var(--space-xl);">
-        <h2>Acesso aos Dados</h2>
-        <p>
-          Todos os dados coletados são disponibilizados de maneira estruturada:
-        </p>
-        <ul>
-          <li><strong>Zips Originais:</strong> Arquivados no Internet Archive (prefixo <code>djen-YYYY-MM-DD</code>).</li>
-          <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
-          <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
-        </ul>
-      </article>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">Acesso aos Dados</h2>
+          <p>
+            Todos os dados coletados são disponibilizados de maneira estruturada:
+          </p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Zips Originais:</strong> Arquivados no Internet Archive (prefixo <code class="badge badge-ghost">djen-YYYY-MM-DD</code>).</li>
+            <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
+            <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
+          </ul>
+        </div>
+      </div>
 
-      <article style="margin-top: var(--space-xl);">
-        <h2>Licença</h2>
-        <p>
-          O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os dados armazenados são de domínio público. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
-        </p>
-      </article>
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">Licença</h2>
+          <p>
+            O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os dados armazenados são de domínio público. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
+          </p>
+        </div>
+      </div>
     </section>
-  </main>
+  </div>
 </Layout>

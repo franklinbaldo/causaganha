@@ -72,7 +72,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       fireEvent.input(input, { target: { value: '99999' } });
       fireEvent.submit(input.closest('form'));
       await waitFor(() => {
-        const errorEl = document.querySelector('[class*="danger"]');
+        const errorEl = document.querySelector('[class*="error"]');
         if (!errorEl) throw new Error('waiting for error');
       });
     });
