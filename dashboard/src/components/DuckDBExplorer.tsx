@@ -258,8 +258,8 @@ export function DuckDBExplorer() {
 
       {/* Results table */}
       {result && result.rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="table">
+        <div className="table-responsive">
+          <table className="table table-zebra table-sm">
             <thead>
               <tr>
                 {result.columns.map((col) => (

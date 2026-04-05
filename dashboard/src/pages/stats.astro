@@ -140,8 +140,8 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
             <strong>Top 5 Mais Confiáveis</strong>
           </div>
           {top5.length > 0 ? (
-            <div class="overflow-x-auto">
-              <table class="table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm">
                 <tbody>
                   {top5.map((c, i) => (
                     <tr>
@@ -165,8 +165,8 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
             <strong>Top 5 Mais Falhas</strong>
           </div>
           {bottom5.length > 0 ? (
-            <div class="overflow-x-auto">
-              <table class="table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm">
                 <tbody>
                   {bottom5.map((c, i) => (
                     <tr>

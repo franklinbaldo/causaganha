@@ -66,8 +66,8 @@ export function PipelineRunHistory() {
         {error && <div>Error: {error}</div>}
 
         {!loading && !error && (
-          <div className="overflow-x-auto">
-            <table className="table">
+          <div className="table-responsive">
+            <table className="table table-zebra table-sm">
               <thead>
                 <tr>
                   <th>Run Date</th>

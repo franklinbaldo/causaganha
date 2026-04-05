@@ -2,58 +2,59 @@
 ---
 <dialog
   id="command-palette-dialog"
+  class="modal"
   aria-labelledby="command-palette-title">
-  <article>
-    <header>
-      <h2 id="command-palette-title">Keyboard Shortcuts</h2>
+  <div class="modal-box">
+    <h3 class="font-bold text-lg" id="command-palette-title">Keyboard Shortcuts</h3>
+    <form method="dialog">
       <button
         id="command-palette-close"
-        class="outline"
+        class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
         aria-label="Close dialog">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
+        ✕
       </button>
-    </header>
+    </form>
 
-    <div>
-      <div>
+    <div class="py-4 space-y-4">
+      <div class="flex justify-between items-center border-b border-base-200 pb-2">
         <span>Open Command Palette / Help</span>
-        <div>
-          <kbd>Ctrl</kbd>
+        <div class="space-x-1">
+          <kbd class="kbd kbd-sm">Ctrl</kbd>
           <span>+</span>
-          <kbd>K</kbd>
+          <kbd class="kbd kbd-sm">K</kbd>
           <span>or</span>
-          <kbd>?</kbd>
+          <kbd class="kbd kbd-sm">?</kbd>
         </div>
       </div>
 
-      <div>
+      <div class="flex justify-between items-center border-b border-base-200 pb-2">
         <span>Close Modals / Tooltips</span>
-        <kbd>Esc</kbd>
+        <kbd class="kbd kbd-sm">Esc</kbd>
       </div>
 
-      <div>
+      <div class="flex justify-between items-center border-b border-base-200 pb-2">
         <span>Navigate Heatmap</span>
-        <div>
-          <kbd>↑</kbd>
-          <kbd>↓</kbd>
-          <kbd>←</kbd>
-          <kbd>→</kbd>
+        <div class="space-x-1">
+          <kbd class="kbd kbd-sm">↑</kbd>
+          <kbd class="kbd kbd-sm">↓</kbd>
+          <kbd class="kbd kbd-sm">←</kbd>
+          <kbd class="kbd kbd-sm">→</kbd>
         </div>
       </div>
 
-      <div>
+      <div class="flex justify-between items-center border-b border-base-200 pb-2">
         <span>Select Heatmap Cell</span>
-        <kbd>Enter</kbd>
+        <kbd class="kbd kbd-sm">Enter</kbd>
       </div>
     </div>
 
-    <footer>
-      <small>Accessibility mode is always active. Use Tab to navigate through all interactive elements.</small>
-    </footer>
-  </article>
+    <div class="modal-action mt-4 justify-start">
+      <small class="text-base-content/70">Accessibility mode is always active. Use Tab to navigate through all interactive elements.</small>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
 </dialog>
 
 <script>
