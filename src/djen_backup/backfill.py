@@ -969,13 +969,14 @@ async def run_backfill(config: BackfillConfig) -> int:
             validate_tribunal(config.tribunal)
             all_tribunals = [config.tribunal]
 
-        # 1b. Unstick tribunals that were incorrectly stopped due to the proxy 404 bug.
-        for t in ["TJRO"]:
-            if t in all_tribunals:
-                prog = bstate.get_all_progress().get(t)
-                if prog and prog.stopped:
-                    log.info("backfill_unsticking_tribunal", tribunal=t)
-                    await bstate.reset_tribunal(t)
+        # 1b. Unstick tribunals that were incorrectly stopped
+        #     (e.g., proxy errors counted as empties in older code).
+        all_progress = bstate.get_all_progress()
+        for t in all_tribunals:
+            prog = all_progress.get(t)
+            if prog and prog.stopped and prog.last_result == "error":
+                log.info("backfill_unsticking_tribunal", tribunal=t, last_result=prog.last_result)
+                await bstate.reset_tribunal(t)
 
         # 2. Advance stopped tribunal cursors
         await _advance_stopped_cursors(bstate, all_tribunals, config.start_date)

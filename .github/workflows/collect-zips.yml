@@ -171,6 +171,7 @@ jobs:
         if: success() || failure()
         run: |
           UPLOADED="${{ steps.collect.outputs.uploaded }}"
+          ERRORS="${{ steps.collect.outputs.errors }}"
 
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
             UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
