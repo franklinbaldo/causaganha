@@ -167,7 +167,7 @@ export function DuckDBExplorer() {
   return (
     <div>
       {/* Status */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className="mb-6">
         {dbStatus === 'loading' && (
           <div className="flex items-center gap-2 opacity-70">
             <span className="loading loading-spinner loading-sm text-primary"></span>
@@ -187,14 +187,13 @@ export function DuckDBExplorer() {
       </div>
 
       {/* Query templates */}
-      <details style={{ marginBottom: '1.5rem' }}>
+      <details className="mb-6">
         <summary>Consultas de exemplo</summary>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="flex flex-col gap-2">
           {QUERY_TEMPLATES.map((tmpl) => (
             <button
               key={tmpl.label}
-              className="btn btn-outline btn-secondary"
-              style={{ textAlign: 'left', fontSize: 'var(--font-size-sm)' }}
+              className="btn btn-outline btn-secondary text-left text-sm"
               onClick={() => {
                 setSql(tmpl.sql);
                 setResult(null);
@@ -210,24 +209,18 @@ export function DuckDBExplorer() {
       {/* SQL editor */}
       <textarea
         ref={textareaRef}
-        className="textarea textarea-bordered"
+        className="textarea textarea-bordered font-mono text-sm w-full resize-y"
         value={sql}
         onInput={(e) => setSql((e.target as HTMLTextAreaElement).value)}
         onKeyDown={handleKeyDown}
         rows={8}
-        style={{
-          fontFamily: 'monospace',
-          fontSize: 'var(--font-size-sm)',
-          width: '100%',
-          resize: 'vertical',
-        }}
         placeholder="SELECT * FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet') LIMIT 10"
         disabled={dbStatus !== 'ready'}
         aria-label="Editor SQL"
       />
 
       {/* Action bar */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem', alignItems: 'center' }}>
+      <div className="flex gap-4 mb-10 items-center">
         <button
           className="btn"
           onClick={runQuery}
@@ -241,7 +234,7 @@ export function DuckDBExplorer() {
             <button className="btn btn-outline" onClick={exportCsv}>
               Exportar CSV
             </button>
-            <small style={{ color: 'var(--color-content-tertiary)' }}>
+            <small className="opacity-50">
               {result.rowCount} linha{result.rowCount !== 1 ? 's' : ''} em {result.duration}ms
             </small>
           </>
@@ -250,8 +243,8 @@ export function DuckDBExplorer() {
 
       {/* Error */}
       {error && (
-        <div className="card bg-base-100 shadow-sm border border-base-300" style={{ borderLeft: '4px solid var(--color-danger)' }}><div className="card-body" style={{ padding: '1rem' }}>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-sm)', color: 'var(--color-danger)', margin: 0 }}>
+        <div className="card bg-base-100 shadow-sm border border-base-300 border-l-4 border-error"><div className="card-body p-4">
+          <pre className="whitespace-pre-wrap text-sm text-error m-0">
             {error}
           </pre>
         </div></div>
@@ -294,8 +287,8 @@ export function DuckDBExplorer() {
               {result.rows.slice(0, 500).map((row, i) => (
                 <tr key={i} className="hover">
                   {row.map((cell, j) => (
-                    <td key={j} style={{ fontSize: 'var(--font-size-sm)', whiteSpace: 'nowrap' }}>
-                      {cell === null || cell === undefined ? <em style={{ color: 'var(--color-content-tertiary)' }}>NULL</em> : String(cell)}
+                    <td key={j} className="text-sm whitespace-nowrap">
+                      {cell === null || cell === undefined ? <em className="opacity-50">NULL</em> : String(cell)}
                     </td>
                   ))}
                 </tr>
@@ -303,7 +296,7 @@ export function DuckDBExplorer() {
             </tbody>
           </table>
           {result.rows.length > 500 && (
-            <small style={{ color: 'var(--color-content-tertiary)' }}>
+            <small className="opacity-50">
               Mostrando 500 de {result.rowCount} linhas. Use LIMIT na query para controlar.
             </small>
           )}
@@ -311,7 +304,7 @@ export function DuckDBExplorer() {
       )}
 
       {result && result.rows.length === 0 && (
-        <p style={{ color: 'var(--color-content-tertiary)', textAlign: 'center' }}>
+        <p className="opacity-50 text-center">
           Nenhum resultado retornado.
         </p>
       )}
