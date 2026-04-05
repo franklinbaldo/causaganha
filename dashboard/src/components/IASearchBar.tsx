@@ -97,17 +97,18 @@ export function IASearchBar() {
   };
 
   return (
-    <div>
-      <div>
+    <div className="mb-6">
+      <div className="flex gap-2">
         <input
-          className="input input-bordered"
+          id="ia-search-input"
+          className="input input-bordered flex-grow"
           type="search" value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
+          placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03) — Pressione Ctrl+K"
         />
         <button
-          className="btn"
+          className="btn btn-primary"
           onClick={handleSearch} disabled={loading || !query.trim()}>
           {loading ? 'Buscando...' : 'Buscar'}
         </button>

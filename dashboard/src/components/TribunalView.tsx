@@ -203,21 +203,16 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
                   <a
                     key={t} href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
                     style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div className="card bg-base-100 shadow-sm border border-base-300 mb-0 h-100"><div className="card-body p-4">
-                      <div className="flex justify-between items-baseline items-center">
+                    <div className="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow h-100"><div className="card-body p-4">
+                      <div className="flex justify-between items-baseline items-center mb-2">
                         <strong className="text-sm">{t}</strong>
-                        {hasData && (
-                          <span className="badge">{totalZips}</span>
-                        )}
+                        <span className={hasData ? "badge badge-success badge-sm" : "badge badge-error badge-sm"}>{hasData ? "Online" : "Offline"}</span>
                       </div>
-                      <div className="text-xs opacity-50 mt-2">
-                        {hasData ? `até ${latestDate}` : (
-                          <span className="flex items-center gap-2" style={{ color: 'var(--color-warning)' }}>
-                            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            Sem dados
-                          </span>
-                        )}
+                      <div className="text-xs opacity-70 mb-2">
+                        {hasData ? `${totalZips.toLocaleString()} publicações` : 'Sem dados processados'}
+                        {latestDate && <span className="block mt-1 opacity-70">Última: {latestDate}</span>}
                       </div>
+                      <progress className={`progress w-full ${hasData ? 'progress-success' : 'progress-error'}`} value={hasData ? 100 : 0} max="100"></progress>
                     </div></div>
                   </a>
                 );

@@ -288,23 +288,25 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
         );
       })}
 
-      <div className="flex justify-between items-baseline flex-wrap gap-4 mt-6 pt-4 border-t border-base-300 text-sm">
-        <span className="opacity-50">
-          <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
-        </span>
-        <div className="flex items-center flex-wrap gap-6">
-          <span className="opacity-50">Legenda:</span>
-          <div className="flex items-center gap-2">
-            <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
-            <span>Faltante</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
-            <span>Ausente</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
-            <span>Coletado</span>
+      <div className="card bg-base-200 mt-6">
+        <div className="card-body p-4 flex-row justify-between items-center text-sm flex-wrap gap-4">
+          <span className="opacity-70">
+            <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
+          </span>
+          <div className="flex items-center flex-wrap gap-6">
+            <span className="opacity-50">Legenda:</span>
+            <div className="flex items-center gap-2">
+              <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <span>Faltante</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <span>Ausente</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <span>Coletado</span>
+            </div>
           </div>
         </div>
       </div>
