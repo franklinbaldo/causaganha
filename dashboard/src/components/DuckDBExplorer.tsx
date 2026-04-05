@@ -167,7 +167,7 @@ export function DuckDBExplorer() {
   return (
     <div>
       {/* Status */}
-      <div style={{ marginBottom: 'var(--space-md)' }}>
+      <div style={{ marginBottom: '1.5rem' }}>
         {dbStatus === 'loading' && (
           <small aria-busy="true" style={{ color: 'var(--color-content-tertiary)' }}>
             Carregando DuckDB-WASM...
@@ -186,13 +186,13 @@ export function DuckDBExplorer() {
       </div>
 
       {/* Query templates */}
-      <details style={{ marginBottom: 'var(--space-md)' }}>
+      <details style={{ marginBottom: '1.5rem' }}>
         <summary>Consultas de exemplo</summary>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {QUERY_TEMPLATES.map((tmpl) => (
             <button
               key={tmpl.label}
-              class="outline secondary"
+              className="btn btn-outline btn-secondary"
               style={{ textAlign: 'left', fontSize: 'var(--font-size-sm)' }}
               onClick={() => {
                 setSql(tmpl.sql);
@@ -209,6 +209,7 @@ export function DuckDBExplorer() {
       {/* SQL editor */}
       <textarea
         ref={textareaRef}
+        className="textarea textarea-bordered"
         value={sql}
         onInput={(e) => setSql((e.target as HTMLTextAreaElement).value)}
         onKeyDown={handleKeyDown}
@@ -225,8 +226,9 @@ export function DuckDBExplorer() {
       />
 
       {/* Action bar */}
-      <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem', alignItems: 'center' }}>
         <button
+          className="btn"
           onClick={runQuery}
           disabled={dbStatus !== 'ready' || loading || !sql.trim()}
           aria-busy={loading}
@@ -235,7 +237,7 @@ export function DuckDBExplorer() {
         </button>
         {result && (
           <>
-            <button class="outline" onClick={exportCsv}>
+            <button className="btn btn-outline" onClick={exportCsv}>
               Exportar CSV
             </button>
             <small style={{ color: 'var(--color-content-tertiary)' }}>
@@ -247,17 +249,17 @@ export function DuckDBExplorer() {
 
       {/* Error */}
       {error && (
-        <article style={{ borderLeft: '4px solid var(--color-danger)', padding: 'var(--space-md)' }}>
+        <div className="card bg-base-100 shadow-sm border border-base-300" style={{ borderLeft: '4px solid var(--color-danger)' }}><div className="card-body" style={{ padding: '1rem' }}>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-sm)', color: 'var(--color-danger)', margin: 0 }}>
             {error}
           </pre>
-        </article>
+        </div></div>
       )}
 
       {/* Results table */}
       {result && result.rows.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table role="grid">
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
               <tr>
                 {result.columns.map((col) => (
