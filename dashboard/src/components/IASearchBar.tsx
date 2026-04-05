@@ -100,19 +100,21 @@ export function IASearchBar() {
     <div>
       <div>
         <input
+          className="input input-bordered"
           type="search" value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
         />
         <button
+          className="btn"
           onClick={handleSearch} disabled={loading || !query.trim()}>
           {loading ? 'Buscando...' : 'Buscar'}
         </button>
       </div>
 
       {loading && (
-        <p aria-busy="true">Consultando Internet Archive...</p>
+        <div className="flex justify-center p-8"><span className="loading loading-spinner loading-lg"></span></div>
       )}
 
       {!loading && searched && results.length === 0 && (
@@ -121,8 +123,8 @@ export function IASearchBar() {
 
       {results.length> 0 && (
         <div>
-          <div className="table-responsive">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="table">
               <thead>
               <tr>
                 <th>Tribunal</th>
