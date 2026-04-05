@@ -129,8 +129,8 @@ export function AnnualCoverageMonitor() {
 
       {/* Table */}
       <div>
-        <div className="overflow-x-auto">
-          <table className="table">
+        <div className="table-responsive">
+          <table className="table table-zebra table-sm">
             <thead>
             <tr>
               <th

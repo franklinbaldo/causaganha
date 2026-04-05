@@ -123,8 +123,8 @@ export function IASearchBar() {
 
       {results.length> 0 && (
         <div>
-          <div className="overflow-x-auto">
-            <table className="table">
+          <div className="table-responsive">
+            <table className="table table-zebra table-sm">
               <thead>
               <tr>
                 <th>Tribunal</th>

@@ -154,8 +154,8 @@ const snap = iaSnapshot?.summary;
           <input type="checkbox" checked />
           <div class="collapse-title font-medium"><code>comunicacoes.parquet</code> — Intimações e comunicações judiciais</div>
           <div class="collapse-content">
-            <div class="overflow-x-auto">
-              <table class="table schema-table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm schema-table">
                 <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
                 <tbody>
                   <tr><td>id</td><td>string</td><td>UUID da comunicação (hash de id + tribunal)</td></tr>
@@ -175,8 +175,8 @@ const snap = iaSnapshot?.summary;
           <input type="checkbox" />
           <div class="collapse-title font-medium"><code>advogados.parquet</code> — Advogados identificados por OAB</div>
           <div class="collapse-content">
-            <div class="overflow-x-auto">
-              <table class="table schema-table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm schema-table">
                 <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
                 <tbody>
                   <tr><td>id</td><td>string</td><td>UUID global (hash de OAB+UF ou nome+tribunal)</td></tr>
@@ -194,8 +194,8 @@ const snap = iaSnapshot?.summary;
           <input type="checkbox" />
           <div class="collapse-title font-medium"><code>classificacoes.parquet</code> — Classificação de resultado</div>
           <div class="collapse-content">
-            <div class="overflow-x-auto">
-              <table class="table schema-table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm schema-table">
                 <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
                 <tbody>
                   <tr><td>texto_id</td><td>string</td><td>FK para textos.id</td></tr>
@@ -215,8 +215,8 @@ const snap = iaSnapshot?.summary;
           <input type="checkbox" />
           <div class="collapse-title font-medium"><code>processos.parquet</code> ��� Índice de atividade processual</div>
           <div class="collapse-content">
-            <div class="overflow-x-auto">
-              <table class="table schema-table">
+            <div class="table-responsive">
+              <table class="table table-zebra table-sm schema-table">
                 <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
                 <tbody>
                   <tr><td>numero_processo</td><td>string</td><td>Número CNJ</td></tr>

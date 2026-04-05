@@ -106,8 +106,8 @@ export function TribunalCoverageHeatmap() {
     <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
       {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div>
-        <div className="overflow-x-auto">
-          <table className="table">
+        <div className="table-responsive">
+          <table className="table table-zebra table-sm">
             <thead>
             <tr>
               <th>Date</th>
