@@ -78,28 +78,22 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
         </header>
 
         {/* Quick Stats */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-          gap: '1.5rem',
-          textAlign: 'center',
-          padding: '1.5rem 0'
-        }}>
-          <div>
-            <div className="stat-value">{totalZips.toLocaleString()}</div>
-            <p className="stat-label">ZIPs no IA</p>
+        <div className="stats stats-vertical lg:stats-horizontal shadow-sm w-full mb-6">
+          <div className="stat text-center">
+            <div className="stat-value text-info">{totalZips.toLocaleString()}</div>
+            <p className="stat-title mt-2">ZIPs no IA</p>
           </div>
-          <div>
-            <div className="stat-value">{totalGB.toFixed(1)}<small className="font-medium" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>GB</small></div>
-            <p className="stat-label">Volume</p>
+          <div className="stat text-center">
+            <div className="stat-value text-warning">{totalGB.toFixed(1)}<small className="font-medium" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>GB</small></div>
+            <p className="stat-title mt-2">Volume</p>
           </div>
-          <div>
-            <div className="stat-value text-success">{tribunalsWithData}<small className="font-normal opacity-50" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>/ {snap?.tribunals_total || 96}</small></div>
-            <p className="stat-label">Tribunais</p>
+          <div className="stat text-center">
+            <div className="stat-value text-success">{tribunalsWithData}<small className="font-normal opacity-50 text-base-content" style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>/ {snap?.tribunals_total || 96}</small></div>
+            <p className="stat-title mt-2">Tribunais</p>
           </div>
-          <div>
-            <div className="stat-value">{snap?.total_items || 0}</div>
-            <p className="stat-label">Itens no IA</p>
+          <div className="stat text-center">
+            <div className="stat-value text-primary">{snap?.total_items || 0}</div>
+            <p className="stat-title mt-2">Itens no IA</p>
           </div>
         </div>
       </div></div>
@@ -158,20 +152,24 @@ function OverviewGrid({ pipeline, progressByYear, volume, iaSnapshot }: Overview
 
       {/* Tribunal Filter */}
       <div className="mb-6 mt-10">
-        <label htmlFor="tribunal-filter" className="text-sm font-medium opacity-70">
+        <label htmlFor="tribunal-filter" className="text-sm font-medium opacity-70 mb-2 block">
           Filtrar tribunais
         </label>
-        <input
-          id="tribunal-filter" type="search"
-          className="input input-bordered"
-          value={query}
-          onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setQuery('');
-          }}
-          placeholder="Busque por sigla ou nome (ex.: tjsp, trf1, stj)"
-          aria-label="Filtrar tribunais por sigla ou nome"
-        />
+        <label className="input input-bordered flex items-center gap-2 max-w-lg">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="opacity-50"><path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clipRule="evenodd" /></svg>
+          <input
+            id="tribunal-filter" type="search"
+            className="grow"
+            value={query}
+            onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setQuery('');
+            }}
+            placeholder="Busque por sigla ou nome (ex.: tjsp, trf1, stj)"
+            aria-label="Filtrar tribunais por sigla ou nome"
+          />
+          {query && <span className="badge badge-info badge-sm cursor-pointer" onClick={() => setQuery('')}>Limpar</span>}
+        </label>
       </div>
 
       {/* Tribunal Groups */}

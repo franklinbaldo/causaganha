@@ -57,26 +57,32 @@ const navLinks = [
     </div>
     <div class="navbar-end gap-2">
       <ThemeToggle />
-      <div class="dropdown dropdown-end md:hidden">
-        <div tabindex="0" role="button" class="btn btn-ghost btn-square">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
+      <div class="drawer drawer-end md:hidden w-auto">
+        <input id="mobile-drawer-home" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content">
+          <label for="mobile-drawer-home" class="btn btn-ghost btn-square">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </label>
         </div>
-        <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow-lg">
-          <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-          <li><a href={BASE + '#dados'}>Dados</a></li>
-          <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-          {navLinks.map(link => (
-            <li>
-              <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div class="drawer-side z-[99]">
+          <label for="mobile-drawer-home" aria-label="close sidebar" class="drawer-overlay"></label>
+          <ul class="menu bg-base-200 min-h-full w-80 p-4">
+            <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
+            <li><a href={BASE + '#dados'}>Dados</a></li>
+            <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
+            {navLinks.map(link => (
+              <li>
+                <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -113,24 +119,30 @@ const navLinks = [
       </div>
       <div class="navbar-end md:hidden gap-2">
         <ThemeToggle />
-        <div class="dropdown dropdown-end">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-square">
-            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
+        <div class="drawer drawer-end w-auto">
+          <input id="mobile-drawer-page" type="checkbox" class="drawer-toggle" />
+          <div class="drawer-content">
+            <label for="mobile-drawer-page" class="btn btn-ghost btn-square">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </label>
           </div>
-          <ul tabindex="0" class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow-lg">
-            <li><a href={BASE}>Início</a></li>
-            {navLinks.map(link => (
-              <li>
-                <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <div class="drawer-side z-[99]">
+            <label for="mobile-drawer-page" aria-label="close sidebar" class="drawer-overlay"></label>
+            <ul class="menu bg-base-200 min-h-full w-80 p-4">
+              <li><a href={BASE}>Início</a></li>
+              {navLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>

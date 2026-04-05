@@ -133,7 +133,7 @@ export function TribunalCoverageHeatmap() {
               const bgClass = colorClasses.split(' ')[1];
 
               return (
-                <tr key={dateKey}>
+                <tr key={dateKey} className="hover">
                   <td>{displayDate}</td>
                   <td>{tribunalCount}</td>
                   <td>{absentCount}</td>
