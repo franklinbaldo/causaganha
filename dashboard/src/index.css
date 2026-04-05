@@ -205,19 +205,11 @@
 .bar-danger { background: #dc2626; }
 
 /* ═══════════════════════════════════════════
-   Heatmap Cells - Touch Targets
+   Heatmap Cells - Calendar Table
    ═══════════════════════════════════════════ */
 
-.heatmap-cell, .heatmap-cell-empty {
-  width: 14px;
-  height: 14px;
-}
-
-@media (max-width: 768px) {
-  .heatmap-cell, .heatmap-cell-empty {
-    width: 24px;
-    height: 24px;
-  }
+.heatmap-cell {
+  transition: opacity var(--transition-base);
 }
 
 /* ═══════════════════════════════════════════

@@ -132,7 +132,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
           <small className="text-primary font-medium text-xs block mb-4">{pub.nomeOrgao}</small>
         )}
         {pub.texto && (
-          <p className="text-sm opacity-70" style={{ lineHeight: '1.6' }}>
+          <p className="text-sm opacity-70 leading-relaxed">
             {pub.texto.length > 300 ? pub.texto.substring(0, 300) + '...' : pub.texto}
           </p>
         )}
@@ -224,7 +224,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
                 }
 
                 if (terms.length === 0) {
-                  return <p key={i} className="text-lg text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>{part}</p>;
+                  return <p key={i} className="text-lg text-primary leading-loose mb-6">{part}</p>;
                 }
 
                 // Escape regex special characters safely
@@ -242,7 +242,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
                 const tokens = part.split(regex);
 
                 return (
-                  <p key={i} className="text-lg text-primary" style={{ lineHeight: '1.8', marginBottom: '1.5em' }}>
+                  <p key={i} className="text-lg text-primary leading-loose mb-6">
                     {tokens.map((token, j) => {
                       const type = termMap.get(token.toLowerCase());
                       if (type) {
@@ -303,7 +303,7 @@ export function PublicationCard({ pub, seq, dateStr, page, compact = false, tota
       {textParts.length > 0 && (
         <div className="border-t border-base-300 pt-6">
           {textParts.map((part, i) => (
-            <p key={i} className="text-sm opacity-70" style={{ lineHeight: '1.7' }}>
+            <p key={i} className="text-sm opacity-70 leading-relaxed">
               {part}
             </p>
           ))}

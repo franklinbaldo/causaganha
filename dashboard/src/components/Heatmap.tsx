@@ -43,7 +43,7 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
         </div>
       </div>
 
-      <div role="list" className="flex items-end mt-10" style={{ gap: '4px', height: '100px' }}>
+      <div role="list" className="flex items-end mt-10 gap-1 h-[100px]">
         {weeklyData.map((week: VelocityWeek, idx: number) => {
           const heightPct = Math.max(5, (week.collected / maxCollected) * 100);
 
@@ -51,12 +51,12 @@ export function VelocityTimeline({ metrics }: VelocityTimelineProps) {
             <div
               key={`w-${idx}`}
               role="listitem"
-              className="flex items-end"
-              style={{ flex: 1, position: 'relative', height: '100%', group: 'hover' }}
+              className="flex items-end flex-1 relative h-full"
               title={`${week.collected} dias coletados (Semana ${12 - week.weekOffset})`}
               aria-label={`${week.collected} dias coletados na semana ${12 - week.weekOffset}`}>
               <div
-                className={getBarColor(week.collected)} style={{ width: '100%', height: `${heightPct}%`, borderRadius: '4px 4px 0 0', opacity: 0.8, transition: 'opacity 0.2s' }}></div>
+                className={`${getBarColor(week.collected)} w-full rounded-t opacity-80 transition-opacity`}
+                style={{ height: `${heightPct}%` }}></div>
             </div>
           );
         })}
@@ -117,30 +117,46 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     return <div>Invalid date range.</div>;
   }
 
-  const years: { year: number; days: string[]; start: Date }[] = [];
-  const currentYear = start.getUTCFullYear();
-  const endYear = end.getUTCFullYear();
+  // Build months for calendar view
+  const months: { year: number; month: number; label: string; weeks: (string | null)[][] }[] = [];
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
 
-  for (let yr = currentYear; yr <= endYear; yr++) {
-    const yearDays: string[] = [];
-    const yrStart = new Date(Date.UTC(yr, 0, 1));
-    const yrEnd = new Date(Date.UTC(yr, 11, 31));
+  while (cursor <= endMonth) {
+    const yr = cursor.getUTCFullYear();
+    const mo = cursor.getUTCMonth();
+    const firstDay = new Date(Date.UTC(yr, mo, 1));
+    const lastDay = new Date(Date.UTC(yr, mo + 1, 0));
+    const startDow = firstDay.getUTCDay(); // 0=Sun
 
-    const actualStart = new Date(Math.max(yrStart.getTime(), start.getTime()));
-    const actualEnd = new Date(Math.min(yrEnd.getTime(), end.getTime()));
+    const weeks: (string | null)[][] = [];
+    let week: (string | null)[] = Array(startDow).fill(null);
 
-    const curr = new Date(actualStart);
-    while (curr <= actualEnd) {
-      yearDays.push(toDateString(curr));
-      curr.setUTCDate(curr.getUTCDate() + 1);
+    for (let d = 1; d <= lastDay.getUTCDate(); d++) {
+      const dt = new Date(Date.UTC(yr, mo, d));
+      const ds = toDateString(dt);
+      // Only include days within the global range
+      if (dt >= start && dt <= end) {
+        week.push(ds);
+      } else {
+        week.push(null);
+      }
+      if (week.length === 7) {
+        weeks.push(week);
+        week = [];
+      }
+    }
+    if (week.length > 0) {
+      while (week.length < 7) week.push(null);
+      weeks.push(week);
     }
 
-    if (yearDays.length> 0) {
-      years.push({ year: yr, days: yearDays, start: actualStart });
-    }
+    const label = firstDay.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    months.push({ year: yr, month: mo, label, weeks });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
 
-  const allDays = years.flatMap(y => y.days);
+  const allDays = months.flatMap(m => m.weeks.flat().filter(Boolean) as string[]);
   const coveredDays = allDays.filter(d => coverageSet.has(d)).length;
   const totalDays = allDays.length;
 
@@ -213,10 +229,10 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     if (currentIndex === -1) currentIndex = allDays.length - 1;
     let newIndex = currentIndex;
     switch (e.key) {
-      case 'ArrowUp': newIndex = Math.max(0, currentIndex - 1); e.preventDefault(); break;
-      case 'ArrowDown': newIndex = Math.min(allDays.length - 1, currentIndex + 1); e.preventDefault(); break;
-      case 'ArrowLeft': newIndex = Math.max(0, currentIndex - 7); e.preventDefault(); break;
-      case 'ArrowRight': newIndex = Math.min(allDays.length - 1, currentIndex + 7); e.preventDefault(); break;
+      case 'ArrowLeft': newIndex = Math.max(0, currentIndex - 1); e.preventDefault(); break;
+      case 'ArrowRight': newIndex = Math.min(allDays.length - 1, currentIndex + 1); e.preventDefault(); break;
+      case 'ArrowUp': newIndex = Math.max(0, currentIndex - 7); e.preventDefault(); break;
+      case 'ArrowDown': newIndex = Math.min(allDays.length - 1, currentIndex + 7); e.preventDefault(); break;
       case 'Enter':
       case ' ':
         if (focusedCell) {
@@ -234,43 +250,39 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
     }
   };
 
+  const weekdayHeaders = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
   return (
-    <div className="flex" style={{ flexDirection: 'column', gap: 'var(--space-xl)' }}>
-      {years.map(({ year, days: yDays, start: yrStart }) => {
-        const startDayOfWeek = yrStart.getUTCDay();
-        const paddedDays: (string | null)[] = Array(startDayOfWeek).fill(null).concat(yDays);
-        const yrWeeks: (string | null)[][] = [];
-        for (let i = 0; i < paddedDays.length; i += 7) { yrWeeks.push(paddedDays.slice(i, i + 7)); }
-        return (
-          <div key={year}>
-            <h4 className="mb-4 text-xl">{year}</h4>
-            <div className="overflow-x-auto pb-4" style={{ border: 'none' }}>
-              <div className="flex gap-2" role="grid" aria-label={`Activity heatmap for ${tribunalName} in ${year}.`} tabIndex={0} onKeyDown={handleGridKeyDown} onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }} onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}>
-                <div aria-hidden="true" className="flex text-xs opacity-50" style={{ flexDirection: 'column', gap: '4px', marginTop: '20px', paddingRight: '0.5rem' }}>
-                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
-                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Seg</div>
-                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
-                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Qua</div>
-                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
-                  <div className="heatmap-cell" style={{ display: 'flex', alignItems: 'center' }}>Sex</div>
-                  <div className="heatmap-cell" style={{ visibility: 'hidden' }}></div>
-                </div>
-                {yrWeeks.map((week, weekIndex) => (
-                  <div key={`w-${year}-${weekIndex}`} role="row" className="flex" style={{ flexDirection: 'column', gap: '4px' }}>
-                    <div className="text-xs opacity-50 mb-2" style={{ height: '16px' }}>
-                      {week.some(d => d && d.endsWith("-01")) ? new Date(week.find(d => d && d.endsWith("-01"))! + "T00:00:00Z").toLocaleString('pt-BR', { month: 'short' }) : ''}
-                    </div>
-                    {week.map((day, dayIndex) => (
-                      <div
-                        key={day || `empty-${year}-${weekIndex}-${dayIndex}`}
+    <div className="flex flex-col gap-8">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        role="grid"
+        aria-label={`Calendário de cobertura para ${tribunalName}`}
+        tabIndex={0}
+        onKeyDown={handleGridKeyDown}
+        onFocus={() => { if (!focusedCell) setFocusedCell(allDays[allDays.length - 1]); }}
+        onBlur={() => { setFocusedCell(null); setHoveredCell(null); }}
+      >
+        {months.map((m) => (
+          <div key={`${m.year}-${m.month}`} className="card bg-base-100 border border-base-300 p-3">
+            <h5 className="text-sm font-semibold capitalize mb-2">{m.label}</h5>
+            <table className="w-full">
+              <thead>
+                <tr>
+                  {weekdayHeaders.map((d) => (
+                    <th key={d} className="text-xs opacity-50 font-normal text-center pb-1">{d}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {m.weeks.map((week, wi) => (
+                  <tr key={`${m.year}-${m.month}-w${wi}`} role="row">
+                    {week.map((day, di) => (
+                      <td
+                        key={day || `empty-${m.year}-${m.month}-${wi}-${di}`}
                         id={day ? `cell-${day}` : undefined}
                         role="gridcell"
-                        className={getCellColor(day) || "heatmap-cell-empty"}
-                        style={{
-                          borderRadius: '2px',
-                          cursor: day && getCellStatus(day) === 'collected' && baseUrl ? 'pointer' : 'default',
-                          backgroundColor: !day ? 'transparent' : undefined // Fallback for null days
-                        }}
+                        className={`text-center text-xs p-0.5 ${day ? `rounded-sm ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'cursor-pointer' : 'cursor-default'}` : ''}`}
                         aria-label={getAriaLabel(day)}
                         aria-selected={focusedCell === day}
                         onMouseEnter={(e: any) => handleCellInteraction(e, day, 'enter')}
@@ -278,17 +290,19 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
                         onMouseLeave={(e: any) => handleCellInteraction(e, day, 'leave')}
                         onTouchStart={(e: any) => handleCellInteraction(e, day, 'touch')}
                         onClick={(e: any) => { handleCellInteraction(e, day, 'click'); setFocusedCell(day); }}
-                      />
+                      >
+                        {day ? new Date(day + 'T00:00:00Z').getUTCDate() : ''}
+                      </td>
                     ))}
-                  </div>
+                  </tr>
                 ))}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
-        );
-      })}
+        ))}
+      </div>
 
-      <div className="card bg-base-200 mt-6">
+      <div className="card bg-base-200">
         <div className="card-body p-4 flex-row justify-between items-center text-sm flex-wrap gap-4">
           <span className="opacity-70">
             <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
@@ -296,15 +310,15 @@ export function Heatmap({ globalStartDateStr, globalEndDateStr, tribunalStartDat
           <div className="flex items-center flex-wrap gap-6">
             <span className="opacity-50">Legenda:</span>
             <div className="flex items-center gap-2">
-              <div className="heatmap-missing" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <div className="heatmap-missing w-3.5 h-3.5 rounded-sm"></div>
               <span>Faltante</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="heatmap-absent" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <div className="heatmap-absent w-3.5 h-3.5 rounded-sm"></div>
               <span>Ausente</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="heatmap-collected" style={{ width: '14px', height: '14px', borderRadius: '2px' }}></div>
+              <div className="heatmap-collected w-3.5 h-3.5 rounded-sm"></div>
               <span>Coletado</span>
             </div>
           </div>
