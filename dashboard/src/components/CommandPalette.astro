@@ -67,7 +67,12 @@
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        toggleDialog();
+        const searchInput = document.getElementById('ia-search-input');
+        if (searchInput && document.activeElement !== searchInput) {
+          searchInput.focus();
+        } else {
+          toggleDialog();
+        }
       } else if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')) {
         e.preventDefault();
         toggleDialog();

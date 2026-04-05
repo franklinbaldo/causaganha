@@ -169,18 +169,18 @@ export function DuckDBExplorer() {
       {/* Status */}
       <div style={{ marginBottom: '1.5rem' }}>
         {dbStatus === 'loading' && (
-          <div>
-            <div className="skeleton h-4 w-64 opacity-50 mb-2"></div>
-            <small style={{ color: 'var(--color-content-tertiary)' }}>Carregando DuckDB-WASM...</small>
+          <div className="flex items-center gap-2 opacity-70">
+            <span className="loading loading-spinner loading-sm text-primary"></span>
+            <small>Carregando DuckDB-WASM...</small>
           </div>
         )}
         {dbStatus === 'ready' && (
-          <small style={{ color: 'var(--color-success)' }}>
+          <small className="text-success">
             DuckDB pronto — consulte arquivos Parquet diretamente do Internet Archive
           </small>
         )}
         {dbStatus === 'error' && (
-          <small style={{ color: 'var(--color-danger)' }}>
+          <small className="text-error">
             Erro ao carregar DuckDB-WASM
           </small>
         )}
@@ -258,6 +258,28 @@ export function DuckDBExplorer() {
       )}
 
       {/* Results table */}
+      {loading && !result && (
+        <div className="table-responsive">
+          <table className="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th><div className="skeleton h-4 w-20"></div></th>
+                <th><div className="skeleton h-4 w-32"></div></th>
+                <th><div className="skeleton h-4 w-24"></div></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  <td><div className="skeleton h-4 w-24 opacity-50"></div></td>
+                  <td><div className="skeleton h-4 w-48 opacity-50"></div></td>
+                  <td><div className="skeleton h-4 w-16 opacity-50"></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {result && result.rows.length > 0 && (
         <div className="table-responsive">
           <table className="table table-zebra table-sm table-pin-rows">

@@ -61,9 +61,9 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
   const tooltipContent = (
     <div
       ref={tooltipRef} role="tooltip"
-      
+      className="bg-neutral text-neutral-content p-4 rounded-lg shadow-xl text-sm z-50 pointer-events-none fixed space-y-1"
       style={style}>
-      <div>
+      <div className="font-bold border-b border-neutral-content/20 pb-1 mb-2">
         {cellData.date}
       </div>
       <div className={statusClass || undefined}>
@@ -71,13 +71,13 @@ export function CellTooltip({ cellData, position }: CellTooltipProps) {
       </div>
 
       {cellData.uploadedAt && (
-        <div>
+        <div className="text-xs opacity-70 mt-2">
           <span>Uploaded:</span>{' '}
           <span>{new Date(cellData.uploadedAt).toLocaleString()}</span>
         </div>
       )}
       {cellData.sizeMb && (
-        <div>
+        <div className="text-xs opacity-70">
           <span>Size:</span>{' '}
           <span>{cellData.sizeMb.toFixed(2)} MB</span>
         </div>

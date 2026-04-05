@@ -167,140 +167,170 @@ export function TribunalDetail({ tribunalCode, initialCoverage, initialEtas, ini
         />
       )}
 
-      <div className="breadcrumbs">
-        <ul>
-          <li><a href={`${baseUrl}`}>CausaGanha</a></li>
-          <li><a href={`${baseUrl}publicacoes`}>Publicações</a></li>
-          <li>{selectedTribunal}</li>
-        </ul>
+      <div className="flex justify-between items-center mb-4">
+        <div className="breadcrumbs mb-0">
+          <ul>
+            <li><a href={`${baseUrl}`}>CausaGanha</a></li>
+            <li><a href={`${baseUrl}publicacoes`}>Publicações</a></li>
+            <li>
+              <select
+                id="tribunal-select" value={selectedTribunal}
+                onChange={handleTribunalChange}
+                className="select select-ghost select-sm">
+                {TRIBUNAL_GROUPS.map(group => (
+                  <optgroup key={group.name} label={group.name}>
+                    {group.tribunals.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </li>
+          </ul>
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              const rows = ["data,status"];
+              snapshotDates.forEach(d => rows.push(`${d},coletado`));
+              absentSet.forEach(d => rows.push(`${d},ausente`));
+              const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `cobertura-${selectedTribunal.toLowerCase()}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            title="Exportar CSV de Cobertura"
+            aria-label="Exportar CSV"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Exportar CSV
+          </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              alert("Link copiado para a área de transferência.");
+            }}
+            title="Copiar Link"
+            aria-label="Compartilhar Link"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            Compartilhar Link
+          </button>
+        </div>
       </div>
 
-      <div className="grid">
-        {/* Sidebar */}
-        <aside>
-          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
-            <label htmlFor="tribunal-select">
-              Tribunal
-            </label>
-            <select
-              id="tribunal-select" value={selectedTribunal}
-              onChange={handleTribunalChange}
-              className="select select-bordered">
-              {TRIBUNAL_GROUPS.map(group => (
-                <optgroup key={group.name} label={group.name}>
-                  {group.tribunals.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">{selectedTribunal}</h1>
+          {qualityScores[selectedTribunal] && (
+            <span
+              className={`badge mt-2 ${qualityScores[selectedTribunal].grade === 'A' ? "badge-success" : qualityScores[selectedTribunal].grade === 'B' ? "badge-accent" : qualityScores[selectedTribunal].grade === 'C' ? "badge-warning" : "badge-error"}`}
+              title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}>
+              Qualidade: {qualityScores[selectedTribunal].grade}
+            </span>
+          )}
+        </div>
+      </div>
 
-            <div className="mb-6">
-              <div className="flex justify-between items-baseline items-center mb-2">
-                <h3 className="m-0 text-2xl">{selectedTribunal}</h3>
-                {qualityScores[selectedTribunal] && (
-                  <span
-                    className={
-                      qualityScores[selectedTribunal].grade === 'A' ? "badge badge-success" :
-                      qualityScores[selectedTribunal].grade === 'B' ? "badge badge-accent" :
-                      qualityScores[selectedTribunal].grade === 'C' ? "badge badge-warning" :
-                      qualityScores[selectedTribunal].grade === 'D' ? "badge badge-error" :
-                      "badge"
-                    }
-                    title={`Completude: ${qualityScores[selectedTribunal].completeness}%\nRecência: ${qualityScores[selectedTribunal].recency}%\nConsistência: ${qualityScores[selectedTribunal].consistency}%`}>
-                    Nota {qualityScores[selectedTribunal].grade}
-                  </span>
+      <div className="stats stats-vertical md:stats-horizontal shadow-sm border border-base-300 w-full mb-8">
+        <div className="stat">
+          <div className="stat-title">Progresso da Coleta</div>
+          <div className="stat-value text-primary">{completionPct}%</div>
+          <div className="stat-desc mt-1">
+            <progress className="progress progress-primary w-full" value={Math.round(syncedPct)} max="100"></progress>
+            <div className="flex justify-between mt-1">
+              <span>{selectedCoverage.size} itens sincronizados</span>
+              <span>{absentCount} dias ausentes</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="stat">
+          <div className="stat-title">Status</div>
+          <div className={`stat-value ${statusColor}`}>{completionStatusText}</div>
+          <div className="stat-desc">{etaText}</div>
+        </div>
+
+        <div className="stat">
+          <div className="stat-title">Dias Faltantes</div>
+          <div className="stat-value">{actualMissingDays}</div>
+          <div className="stat-desc">A partir de {genesisDate || "Desconhecida"}</div>
+        </div>
+      </div>
+
+      <div role="tablist" className="tabs tabs-lifted mb-8">
+        <input type="radio" name="tribunal_tabs" role="tab" className="tab font-semibold" aria-label="Calendário" defaultChecked />
+        <div role="tabpanel" className="tab-content bg-base-100 border-base-300 rounded-box p-4 md:p-6 shadow-sm">
+          <Heatmap
+            globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
+            tribunalStartDateStr={tribunalStartDate}
+            coverageSet={selectedCoverage}
+            tribunalName={selectedTribunal}
+            baseUrl={baseUrl}
+            velocityMetrics={{
+              ...velocityMetrics,
+              absentSet: absentSet
+            }}
+          />
+        </div>
+
+        <input type="radio" name="tribunal_tabs" role="tab" className="tab font-semibold" aria-label="Estatísticas & Arquivo" />
+        <div role="tabpanel" className="tab-content bg-base-100 border-base-300 rounded-box p-4 md:p-6 shadow-sm">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-xl mb-4">Informações do Pipeline</h3>
+              <div className="space-y-4">
+                <div>
+                  <small className="opacity-50 block uppercase tracking-widest text-xs">Data inicial do tribunal</small>
+                  <strong className="text-sm">{genesisDate || "Desconhecida"}</strong>
+                </div>
+
+                {cursorDate && !isStopped && (
+                  <div>
+                    <small className="opacity-50 block uppercase tracking-widest text-xs">Cursor de varredura atual</small>
+                    <strong className="text-primary text-sm">{cursorDate}</strong>
+                  </div>
+                )}
+
+                {isStopped && (
+                  <div className="alert alert-error">
+                    <span>Pipeline interrompido (60 dias sem publicações identificadas).</span>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="mb-4">
-              <small className="opacity-50 block uppercase tracking-widest text-xs">Data inicial</small>
-              <strong className="text-sm">{genesisDate || "Desconhecida"}</strong>
+            <div>
+              <h3 className="text-xl mb-4">Internet Archive</h3>
+              {(() => {
+                const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
+                return (
+                  <div className="space-y-6">
+                    <a
+                      href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-sm w-full sm:w-auto">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Ver coleção de {iaYear} no IA
+                    </a>
+                    <div className="bg-base-200 p-4 rounded-lg">
+                      <DataAccessPanel
+                        tribunalCode={selectedTribunal} year={iaYear}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-
-            <div className="mb-4">
-              <div className="flex justify-between items-baseline mb-2">
-                <small className="opacity-50 uppercase tracking-widest text-xs">Progresso</small>
-                <strong className="text-primary text-sm">{completionPct}%</strong>
-              </div>
-              <progress
-                value={Math.round(syncedPct)}
-                max="100"
-                title={`Sincronizados: ${selectedCoverage.size} ZIPs`}
-                className="progress progress-primary mb-2">
-              </progress>
-              <div className="opacity-50 text-xs flex justify-between items-baseline">
-                <span>{selectedCoverage.size} sincronizados</span>
-                <span>{absentCount} ausentes</span>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <small className="opacity-50 block uppercase tracking-widest text-xs">Status</small>
-              <strong className={`text-sm ${statusColor}`}>{completionStatusText}: {etaText}</strong>
-            </div>
-
-            <div className="mb-4">
-              <small className="opacity-50 block uppercase tracking-widest text-xs">Dias faltantes</small>
-              <strong className="text-sm">{actualMissingDays} dias</strong>
-            </div>
-
-            {cursorDate && !isStopped && (
-              <div className="mb-4">
-                <small className="opacity-50 block uppercase tracking-widest text-xs">Cursor de varredura</small>
-                <strong className="text-primary text-sm">{cursorDate}</strong>
-              </div>
-            )}
-
-            {isStopped && (
-              <div className="mb-4">
-                <span className="badge badge-error block text-center p-2">
-                  Pipeline interrompido (60 dias sem publicações)
-                </span>
-              </div>
-            )}
-
-            {/* IA item link */}
-            {(() => {
-              // Derive year from active date or fall back to current year
-              const iaYear = activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear();
-              return (
-                <div className="mt-6 pt-6 border-t border-base-300">
-                  <a
-                    href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`} target="_blank"
-                    rel="noopener noreferrer"
-                    className="secondary flex items-center gap-2 mb-4">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    Ver no Internet Archive
-                  </a>
-                  <DataAccessPanel
-                    tribunalCode={selectedTribunal} year={iaYear}
-                  />
-                </div>
-              );
-            })()}
-          </div></div>
-        </aside>
-
-        {/* Main: Heatmap area */}
-        <main>
-          <div className="card bg-base-100 shadow-sm border border-base-300"><div className="card-body">
-            <Heatmap
-              globalStartDateStr={targetRange.start} globalEndDateStr={targetRange.end}
-              tribunalStartDateStr={tribunalStartDate}
-              coverageSet={selectedCoverage}
-              tribunalName={selectedTribunal}
-              baseUrl={baseUrl}
-              velocityMetrics={{
-                ...velocityMetrics,
-                absentSet: absentSet
-              }}
-            />
-          </div></div>
-        </main>
+          </div>
+        </div>
       </div>
 
       {/* Publications for active date (only when not showing featured pub above) */}
