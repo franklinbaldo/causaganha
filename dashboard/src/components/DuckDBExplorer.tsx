@@ -169,9 +169,10 @@ export function DuckDBExplorer() {
       {/* Status */}
       <div style={{ marginBottom: '1.5rem' }}>
         {dbStatus === 'loading' && (
-          <small aria-busy="true" style={{ color: 'var(--color-content-tertiary)' }}>
-            Carregando DuckDB-WASM...
-          </small>
+          <div>
+            <div className="skeleton h-4 w-64 opacity-50 mb-2"></div>
+            <small style={{ color: 'var(--color-content-tertiary)' }}>Carregando DuckDB-WASM...</small>
+          </div>
         )}
         {dbStatus === 'ready' && (
           <small style={{ color: 'var(--color-success)' }}>
@@ -259,7 +260,7 @@ export function DuckDBExplorer() {
       {/* Results table */}
       {result && result.rows.length > 0 && (
         <div className="table-responsive">
-          <table className="table table-zebra table-sm">
+          <table className="table table-zebra table-sm table-pin-rows">
             <thead>
               <tr>
                 {result.columns.map((col) => (
@@ -269,7 +270,7 @@ export function DuckDBExplorer() {
             </thead>
             <tbody>
               {result.rows.slice(0, 500).map((row, i) => (
-                <tr key={i}>
+                <tr key={i} className="hover">
                   {row.map((cell, j) => (
                     <td key={j} style={{ fontSize: 'var(--font-size-sm)', whiteSpace: 'nowrap' }}>
                       {cell === null || cell === undefined ? <em style={{ color: 'var(--color-content-tertiary)' }}>NULL</em> : String(cell)}

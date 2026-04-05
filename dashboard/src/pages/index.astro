@@ -140,19 +140,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
     <div class="stats-grid">
       <figure>
-        <div class="stat-value">{formatNumber(totalZips)}</div>
+        <div class="stat-value text-info">{formatNumber(totalZips)}</div>
         <figcaption>ZIPs Arquivados</figcaption>
       </figure>
       <figure>
-        <div class="stat-value">{tribunalsWithData}</div>
+        <div class="stat-value text-success">{tribunalsWithData}</div>
         <figcaption>Tribunais com Dados</figcaption>
       </figure>
       <figure>
-        <div class="stat-value">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
+        <div class="stat-value text-warning">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
         <figcaption>Volume Arquivado</figcaption>
       </figure>
       <figure>
-        <div class="stat-value">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
+        <div class="stat-value text-primary">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
         <figcaption>Dados Públicos</figcaption>
       </figure>
     </div>
