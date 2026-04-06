@@ -1,0 +1,37 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+import StatCard from '../../components/StatCard.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import AlertBanner from '../../components/AlertBanner.astro';
+import { readJson } from '../../lib/readJson';
+
+const backfill = readJson<any>('cache/backfill.json');
+const progressPct = backfill?.progress_pct ?? 0;
+const completed = backfill?.completed ?? backfill?.backfill_done ?? 0;
+const total = backfill?.total ?? backfill?.backfill_total ?? 0;
+---
+
+<Layout title="Admin - Backfill" description="Progresso de backfill e cobertura histórica do pipeline.">
+  <Header variant="page" title="Backfill Progress" subtitle="Monitoramento do preenchimento histórico" />
+
+  <div class="container mx-auto px-4">
+    <AlertBanner level="info" title="Fonte de dados" message="Este painel lê diretamente public/cache/backfill.json no build." />
+
+    {backfill ? (
+      <>
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <StatCard title="Progresso" value={`${progressPct}%`} tone="info" />
+          <StatCard title="Itens concluídos" value={completed.toLocaleString('pt-BR')} tone="success" />
+          <StatCard title="Total planejado" value={total.toLocaleString('pt-BR')} />
+        </section>
+
+        <progress class="progress progress-primary w-full" value={progressPct} max="100"></progress>
+
+        <pre class="bg-base-200 rounded p-4 mt-6 text-xs overflow-x-auto"><code>{JSON.stringify(backfill, null, 2)}</code></pre>
+      </>
+    ) : (
+      <EmptyState title="Sem snapshot de backfill" message="Não foi possível carregar cache/backfill.json." />
+    )}
+  </div>
+</Layout>

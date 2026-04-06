@@ -1,0 +1,42 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+const entries = [
+  {
+    date: '2026-04-06',
+    title: 'Novas páginas de exploração de dados',
+    items: ['Adicionados diretório de advogados e detalhamento por OAB.', 'Nova área de consultas SQL prontas e comparador de tribunais.'],
+  },
+  {
+    date: '2026-04-03',
+    title: 'Aprimoramentos de observabilidade',
+    items: ['Painel admin de performance estabilizado.', 'Melhorias de cache para dados de backfill.'],
+  },
+];
+---
+
+<Layout title="Changelog - CausaGanha" description="Atualizações de produto e status do projeto CausaGanha.">
+  <Header variant="page" title="Changelog" subtitle="Evolução do dashboard e do pipeline" backHref={BASE} backLabel="Início" />
+
+  <div class="container mx-auto px-4">
+    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Changelog' }]} />
+
+    <section class="space-y-4 my-6">
+      {entries.map((entry) => (
+        <article class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card-body">
+            <small class="font-mono opacity-70">{entry.date}</small>
+            <h2 class="card-title">{entry.title}</h2>
+            <ul class="list-disc pl-5 opacity-80">
+              {entry.items.map((item) => <li>{item}</li>)}
+            </ul>
+          </div>
+        </article>
+      ))}
+    </section>
+  </div>
+</Layout>

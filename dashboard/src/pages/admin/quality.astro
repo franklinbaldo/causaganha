@@ -1,0 +1,45 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+import StatCard from '../../components/StatCard.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import { readJson } from '../../lib/readJson';
+
+const qualityScores = readJson<Record<string, number>>('tribunal_quality_scores.json') ?? {};
+const entries = Object.entries(qualityScores)
+  .map(([tribunal, score]) => ({ tribunal, score }))
+  .sort((a, b) => b.score - a.score);
+const avg = entries.length ? entries.reduce((sum, item) => sum + item.score, 0) / entries.length : 0;
+---
+
+<Layout title="Admin - Data Quality" description="Painel de qualidade por tribunal.">
+  <Header variant="page" title="Data Quality" subtitle="Score de qualidade por tribunal" />
+
+  <div class="container mx-auto px-4">
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <StatCard title="Tribunais avaliados" value={entries.length} />
+      <StatCard title="Score médio" value={avg.toFixed(2)} tone="info" />
+      <StatCard title="Faixa esperada" value="0.00 - 1.00" subtitle="Quanto maior, melhor" />
+    </section>
+
+    {entries.length > 0 ? (
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr><th>Tribunal</th><th>Score</th></tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr>
+                <td>{entry.tribunal}</td>
+                <td>{entry.score.toFixed(3)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <EmptyState title="Sem dados de qualidade" message="O arquivo tribunal_quality_scores.json não foi encontrado no build atual." />
+    )}
+  </div>
+</Layout>

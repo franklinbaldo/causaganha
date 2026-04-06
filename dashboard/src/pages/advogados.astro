@@ -1,0 +1,48 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import LawyerCard from '../components/LawyerCard.astro';
+import StatCard from '../components/StatCard.astro';
+import AlertBanner from '../components/AlertBanner.astro';
+import { readJson } from '../lib/readJson';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const backfill = readJson<any>('cache/backfill.json');
+const tribunalStats = (backfill?.tribunal_stats ?? [])
+  .map((item: any) => ({
+    tribunal: item.tribunal,
+    dataRatePct: Number(item.data_rate_pct ?? 0),
+    daysWithData: Number(item.days_with_data ?? 0),
+    daysTotal: Number(item.days_total ?? 0),
+  }))
+  .sort((a: any, b: any) => b.dataRatePct - a.dataRatePct)
+  .slice(0, 12);
+const avgCoverage = tribunalStats.length
+  ? tribunalStats.reduce((sum: number, item: any) => sum + item.dataRatePct, 0) / tribunalStats.length
+  : 0;
+---
+
+<Layout title="Advogados - CausaGanha" description="Cobertura por tribunal para exploração de dados de advogados/OAB no acervo público.">
+  <Header variant="page" title="Advogados / OAB" subtitle="Cobertura por tribunal para consultas de advogados" backHref={BASE} backLabel="Início" />
+
+  <div class="container mx-auto px-4">
+    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />
+
+    <AlertBanner
+      level="info"
+      title="Sem ranking nominal público"
+      message="Esta página prioriza dados já disponíveis no repositório: cobertura por tribunal e atalhos de consulta por OAB no explorador."
+    />
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 mb-8">
+      <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura recente" />
+      <StatCard title="Cobertura média" value={`${avgCoverage.toFixed(1)}%`} subtitle="Dias com dados / dias totais" tone="info" />
+      <StatCard title="Fonte" value="cache/backfill.json" subtitle="Snapshot já usado no dashboard" />
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      {tribunalStats.map((index) => <LawyerCard index={index} />)}
+    </section>
+  </div>
+</Layout>

@@ -1,0 +1,83 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import AlertBanner from '../../components/AlertBanner.astro';
+import StatCard from '../../components/StatCard.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import { readJson } from '../../lib/readJson';
+
+const backfill = readJson<any>('cache/backfill.json');
+const tribunalStats = (backfill?.tribunal_stats ?? [])
+  .map((item: any) => ({
+    tribunal: String(item.tribunal ?? '').toUpperCase(),
+    dataRatePct: Number(item.data_rate_pct ?? 0),
+    daysWithData: Number(item.days_with_data ?? 0),
+    daysTotal: Number(item.days_total ?? 0),
+  }))
+  .filter((item: any) => item.tribunal)
+  .sort((a: any, b: any) => b.dataRatePct - a.dataRatePct)
+  .slice(0, 12);
+
+export function getStaticPaths() {
+  const backfillData = readJson<any>('cache/backfill.json');
+  const entries = (backfillData?.tribunal_stats ?? [])
+    .map((item: any) => String(item.tribunal ?? '').toLowerCase())
+    .filter((tribunal: string) => tribunal.length > 0)
+    .slice(0, 12);
+
+  return entries.map((oab: string) => ({ params: { oab } }));
+}
+
+const { oab } = Astro.params;
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const key = String(oab ?? '').toUpperCase();
+const tribunal = tribunalStats.find((item: any) => item.tribunal === key);
+const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`;
+---
+
+<Layout title={`${key} - Advogados - CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
+  <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
+
+  <div class="container mx-auto px-4">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Advogados', href: BASE + 'advogados' },
+      { label: key },
+    ]} />
+
+    <AlertBanner
+      level="info"
+      title="Detalhe baseado em dados existentes"
+      message="Este detalhe é focado no que já existe no snapshot de backfill: cobertura por tribunal e query pronta para localizar OABs reais no explorador."
+    />
+
+    {tribunal ? (
+      <>
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
+          <StatCard title="Tribunal" value={tribunal.tribunal} />
+          <StatCard title="Cobertura" value={`${tribunal.dataRatePct.toFixed(1)}%`} tone="info" />
+          <StatCard title="Dias com dados" value={`${tribunal.daysWithData} / ${tribunal.daysTotal}`} />
+        </section>
+
+        <div class="card bg-base-100 border border-base-300 shadow-sm mb-6">
+          <div class="card-body">
+            <h2 class="card-title">Consulta SQL sugerida</h2>
+            <p class="text-sm opacity-70">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
+            <pre class="bg-base-200 rounded p-3 text-xs overflow-x-auto"><code>{query}</code></pre>
+            <div class="card-actions justify-end">
+              <a href={BASE + 'explorador'} class="btn btn-primary btn-sm">Abrir Explorador</a>
+            </div>
+          </div>
+        </div>
+      </>
+    ) : (
+      <EmptyState
+        title="Tribunal não encontrado"
+        message="Não há snapshot de cobertura para este identificador no build atual."
+        actionHref={BASE + 'advogados'}
+        actionLabel="Voltar para Advogados"
+      />
+    )}
+  </div>
+</Layout>

@@ -1,0 +1,21 @@
+---
+interface Props {
+  tribunal: string;
+  zipCount: number;
+  latestDate?: string;
+}
+
+const { tribunal, zipCount, latestDate } = Astro.props;
+const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}publicacoes/${tribunal.toLowerCase()}`;
+---
+
+<article class="card bg-base-100 shadow-sm border border-base-300 h-full">
+  <div class="card-body">
+    <h3 class="card-title">{tribunal}</h3>
+    <p><strong>{zipCount.toLocaleString('pt-BR')}</strong> ZIPs arquivados</p>
+    <p class="text-sm opacity-70">Última data: {latestDate || 'N/D'}</p>
+    <div class="card-actions justify-end">
+      <a href={href} class="btn btn-ghost btn-sm">Abrir tribunal</a>
+    </div>
+  </div>
+</article>
