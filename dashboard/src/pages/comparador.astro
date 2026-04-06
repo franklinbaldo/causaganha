@@ -1,0 +1,45 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import TribunalCompareCard from '../components/TribunalCompareCard.astro';
+import EmptyState from '../components/EmptyState.astro';
+import { readJson } from '../lib/readJson';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const iaSnapshot = readJson<any>('ia-snapshot.json');
+
+const grouped = new Map<string, { tribunal: string; zipCount: number; latestDate?: string }>();
+
+if (iaSnapshot?.items) {
+  for (const item of Object.values<any>(iaSnapshot.items)) {
+    if (!item.tribunal) continue;
+    const previous = grouped.get(item.tribunal) ?? { tribunal: item.tribunal, zipCount: 0, latestDate: '' };
+    previous.zipCount += item.zip_count ?? 0;
+    if (!previous.latestDate || (item.latest_date && item.latest_date > previous.latestDate)) {
+      previous.latestDate = item.latest_date;
+    }
+    grouped.set(item.tribunal, previous);
+  }
+}
+
+const tribunais = Array.from(grouped.values()).sort((a, b) => b.zipCount - a.zipCount).slice(0, 12);
+---
+
+<Layout title="Comparador de Tribunais - CausaGanha" description="Compare cobertura e volume de publicações entre tribunais.">
+  <Header variant="page" title="Comparador de Tribunais" subtitle="Visão lado a lado dos tribunais com maior volume" backHref={BASE + 'publicacoes'} backLabel="Publicações" />
+
+  <div class="container mx-auto px-4">
+    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Comparador' }]} />
+
+    <section class="my-6">
+      {tribunais.length > 0 ? (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tribunais.map((tribunal) => <TribunalCompareCard {...tribunal} />)}
+        </div>
+      ) : (
+        <EmptyState title="Sem snapshot disponível" message="Não foi possível carregar dados agregados para comparação de tribunais." />
+      )}
+    </section>
+  </div>
+</Layout>

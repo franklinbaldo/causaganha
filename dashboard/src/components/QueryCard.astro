@@ -1,0 +1,17 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  sql: string;
+}
+
+const { title, description, sql } = Astro.props;
+---
+
+<div class="card bg-base-100 shadow-sm border border-base-300 h-full">
+  <div class="card-body">
+    <h3 class="card-title">{title}</h3>
+    <p class="text-sm opacity-70">{description}</p>
+    <pre class="bg-base-200 rounded p-3 text-xs overflow-x-auto"><code>{sql}</code></pre>
+  </div>
+</div>

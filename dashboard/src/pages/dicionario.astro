@@ -1,0 +1,49 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+const dictionary = [
+  { tabela: 'comunicacoes', campo: 'numero_processo', tipo: 'string', descricao: 'Número CNJ do processo judicial.' },
+  { tabela: 'comunicacoes', campo: 'data_disponibilizacao', tipo: 'date', descricao: 'Data de disponibilização no DJEN.' },
+  { tabela: 'advogados', campo: 'numero_oab', tipo: 'string', descricao: 'Número da OAB do advogado quando identificado.' },
+  { tabela: 'classificacoes', campo: 'outcome', tipo: 'string', descricao: 'Resultado inferido: WIN, LOSS, PARTIAL, SETTLEMENT ou UNKNOWN.' },
+  { tabela: 'processos', campo: 'comunicacao_id', tipo: 'string', descricao: 'Referência para comunicacoes.id.' },
+  { tabela: 'representacoes', campo: 'polo', tipo: 'string', descricao: 'Polo processual da representação (ativo/passivo).' },
+];
+---
+
+<Layout title="Dicionário de Dados - CausaGanha" description="Glossário dos campos e tabelas do dataset jurídico aberto.">
+  <Header variant="page" title="Dicionário de Dados" subtitle="Campos principais do catálogo Parquet" backHref={BASE + 'dados'} backLabel="Dados" />
+
+  <div class="container mx-auto px-4">
+    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Dicionário de Dados' }]} />
+
+    <p class="my-6 opacity-80">Use este dicionário como referência rápida. Para uma visão completa de schemas, consulte também a página de <a class="link" href={BASE + 'dados'}>Dados Abertos</a>.</p>
+
+    <div class="overflow-x-auto mb-8">
+      <table class="table table-zebra">
+        <thead>
+          <tr>
+            <th>Tabela</th>
+            <th>Campo</th>
+            <th>Tipo</th>
+            <th>Descrição</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dictionary.map((row) => (
+            <tr>
+              <td><code>{row.tabela}</code></td>
+              <td><code>{row.campo}</code></td>
+              <td>{row.tipo}</td>
+              <td>{row.descricao}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Layout>

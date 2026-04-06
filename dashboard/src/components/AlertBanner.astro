@@ -1,0 +1,23 @@
+---
+interface Props {
+  title: string;
+  message: string;
+  level?: 'info' | 'success' | 'warning' | 'error';
+}
+
+const { title, message, level = 'info' } = Astro.props;
+
+const levelClass = {
+  info: 'alert-info',
+  success: 'alert-success',
+  warning: 'alert-warning',
+  error: 'alert-error',
+}[level];
+---
+
+<div class={`alert ${levelClass} my-4`}>
+  <div>
+    <strong>{title}</strong>
+    <div class="text-sm">{message}</div>
+  </div>
+</div>

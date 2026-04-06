@@ -1,0 +1,25 @@
+---
+interface Props {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  tone?: 'default' | 'success' | 'warning' | 'info';
+}
+
+const { title, value, subtitle, tone = 'default' } = Astro.props;
+
+const toneClass = {
+  default: 'text-base-content',
+  success: 'text-success',
+  warning: 'text-warning',
+  info: 'text-info',
+}[tone];
+---
+
+<div class="card bg-base-100 shadow-sm border border-base-300">
+  <div class="card-body p-4">
+    <small class="uppercase tracking-wide opacity-60">{title}</small>
+    <strong class={`text-2xl ${toneClass}`}>{value}</strong>
+    {subtitle && <small class="opacity-60">{subtitle}</small>}
+  </div>
+</div>
