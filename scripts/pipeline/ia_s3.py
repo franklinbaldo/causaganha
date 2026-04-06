@@ -227,9 +227,30 @@ def upload_to_ia(
     # Extract tribunal code from item_id for enriched metadata
     tribunal_code = ""
     parts = item_id.split("-")
+    is_yearly = False
     if len(parts) >= 3 and parts[0] == "djen":
+        if len(parts[-1]) == 4 and parts[-1].isdigit():
+            is_yearly = True
         # Handle "djen-tjsp-2026" and "djen-tre-ac-2026"
         tribunal_code = "-".join(parts[1:-1]).upper()
+
+    # Determine better title/description
+    if is_yearly:
+        title = f"DJEN {tribunal_code} - {parts[-1]} (Daily ZIP Archives)"
+        description = (
+            f"Annual archive of official judicial communications from the {tribunal_code} "
+            f"tribunal for the year {parts[-1]}. This item contains raw daily ZIP files "
+            "archived by CausaGanha to ensure permanent public access to Brazilian court data."
+        )
+    else:
+        title = f"DJEN {tribunal_code} - {date_str}" if tribunal_code else f"DJEN Data - {date_str}"
+        description = (
+            f"Diario de Justica Eletronico Nacional ({tribunal_code}) - "
+            "Judicial communications from Brazilian courts. "
+            "Public domain data archived by CausaGanha. "
+            "Query with DuckDB: SELECT * FROM read_parquet('https://archive.org/download/"
+            f"{item_id}/comunicacoes.parquet')"
+        )
 
     headers: dict[str, str] = {
         "Content-MD5": content_md5,
@@ -239,19 +260,12 @@ def upload_to_ia(
         # a custom collection (e.g. "causaganha") once created on archive.org.
         "x-archive-meta-collection": os.environ.get("IA_COLLECTION", "opensource"),
         "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN {tribunal_code} - {date_str}"
-        if tribunal_code
-        else f"DJEN Data - {date_str}",
-        "x-archive-meta-description": (
-            f"Diario de Justica Eletronico Nacional ({tribunal_code}) - "
-            "Judicial communications from Brazilian courts. "
-            "Public domain data archived by CausaGanha. "
-            "Query with DuckDB: SELECT * FROM read_parquet('https://archive.org/download/"
-            f"{item_id}/comunicacoes.parquet')"
-        ),
-        "x-archive-meta-subject": f"brazilian-law;djen;legal;judiciary;open-data;{tribunal_code.lower()};causaganha",
+        "x-archive-meta-title": title,
+        "x-archive-meta-description": description,
+        "x-archive-meta-subject": f"brazilian-law;djen;legal;judiciary;open-data;{tribunal_code.lower()};causaganha;"
+        f"{tribunal_code.lower()}-{parts[-1] if is_yearly else date_str[:4]}",
         "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": date_str,
+        "x-archive-meta-date": date_str if not is_yearly else parts[-1],
         "x-archive-meta-language": "por",
         "x-archive-meta-licenseurl": "https://creativecommons.org/publicdomain/mark/1.0/",
         "x-archive-meta-source": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/djen/",
