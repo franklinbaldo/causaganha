@@ -46,15 +46,24 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       { label: 'Publicações' }
     ]} />
 
-    <IASearchBar client:idle />
+    <div class="mb-12 border border-base-300 rounded-xl p-6 bg-base-100 shadow-sm mt-8">
+      <h2 class="text-xl font-bold mb-6 opacity-80 border-b border-base-200 pb-2">Visão Geral do Arquivo</h2>
+      <TribunalView
+        client:idle
+        initialPipeline={data?.cacheData?.today?.pipeline}
+        initialProgressByYear={data?.progressByYear}
+        initialVolume={data?.volume}
+        initialIaSnapshot={data?.iaSnapshot}
+      />
+    </div>
 
-    <TribunalView
-      client:idle
-      initialPipeline={data?.cacheData?.today?.pipeline}
-      initialProgressByYear={data?.progressByYear}
-      initialVolume={data?.volume}
-      initialIaSnapshot={data?.iaSnapshot}
-    />
+    <section class="max-w-5xl mx-auto mb-16">
+      <h2 class="text-2xl font-bold mb-4 opacity-90 text-center">Explorador de Arquivos</h2>
+      <p class="text-center opacity-60 mb-8 max-w-2xl mx-auto">
+        Busque diretamente nos buckets do Internet Archive por tribunal ou ano.
+      </p>
+      <IASearchBar client:idle />
+    </section>
 
     <footer class="text-center mt-16 py-6 border-t border-base-300">
       <small class="opacity-50">Dados do DJEN arquivados no Internet Archive.
