@@ -85,16 +85,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <div class="hero-content w-full max-w-6xl">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
         <div class="flex flex-col justify-center">
-          <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-[18ch]">Transparência no Mercado Jurídico Brasileiro</h1>
+          <h1 class="hero-h1 text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-[18ch]">Transparência no Mercado Jurídico Brasileiro</h1>
           <p class="text-lg opacity-70 mt-4 max-w-[52ch]">
             Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
             diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
           </p>
-          <div class="flex gap-4 mt-6 flex-wrap">
-            <a href={BASE + 'publicacoes'} class="btn btn-primary">
+          <div class="flex flex-col sm:flex-row gap-4 mt-6 flex-wrap">
+            <a href={BASE + 'publicacoes'} class="btn btn-primary w-full sm:w-auto">
               Ver Publicações
             </a>
-            <a href="#como-funciona" class="btn btn-outline btn-secondary">
+            <a href="#como-funciona" class="btn btn-outline btn-secondary w-full sm:w-auto">
               Saiba Mais
             </a>
           </div>
@@ -132,7 +132,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </div>
 
   <!-- Stats -->
-  <section id="dados" class="container mx-auto px-4 mb-16">
+  <section id="resumo" class="container mx-auto px-4 mb-16">
     <div class="text-center mb-10">
       <h2 class="text-3xl font-bold">Dados Reais do Pipeline</h2>
       <p class="opacity-60">Números atualizados automaticamente pelo workflow de coleta</p>

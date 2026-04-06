@@ -27,15 +27,18 @@ function isActive(href: string): boolean {
   return currentPath.startsWith(normalized);
 }
 
-const navLinks = [
+const mainLinks = [
   { href: BASE + 'publicacoes', label: 'Publicações' },
   { href: BASE + 'advogados', label: 'Advogados' },
   { href: BASE + 'comparador', label: 'Comparador' },
   { href: BASE + 'explorador', label: 'Explorador' },
-  { href: BASE + 'consultas', label: 'Consultas' },
   { href: BASE + 'dados', label: 'Dados' },
-  { href: BASE + 'dicionario', label: 'Dicionário' },
   { href: BASE + 'stats', label: 'Estatísticas' },
+];
+
+const secondaryLinks = [
+  { href: BASE + 'consultas', label: 'Consultas' },
+  { href: BASE + 'dicionario', label: 'Dicionário' },
   { href: BASE + 'changelog', label: 'Changelog' },
   { href: BASE + 'sobre', label: 'Sobre' },
 ];
@@ -46,23 +49,38 @@ const navLinks = [
     <div class="navbar-start">
       <a href={BASE} class="btn btn-ghost text-lg font-extrabold tracking-tight">CausaGanha</a>
     </div>
-    <div class="navbar-center hidden md:flex">
-      <ul class="menu menu-horizontal gap-1">
+    <div class="navbar-center hidden lg:flex">
+      <ul class="menu menu-horizontal gap-1 p-0">
         <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-        <li><a href={BASE + '#dados'}>Dados</a></li>
+        <li><a href={BASE + '#resumo'}>Resumo</a></li>
         <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-        {navLinks.map(link => (
+        <div class="divider divider-horizontal mx-1"></div>
+        {mainLinks.map(link => (
           <li>
             <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
               {link.label}
             </a>
           </li>
         ))}
+        <li>
+          <details>
+            <summary>Recursos</summary>
+            <ul class="bg-base-100 rounded-t-none p-2 z-[100] min-w-[160px] shadow-lg border border-base-300">
+              {secondaryLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
       </ul>
     </div>
     <div class="navbar-end gap-2">
       <ThemeToggle />
-      <div class="drawer drawer-end md:hidden w-auto">
+      <div class="drawer drawer-end lg:hidden w-auto">
         <input id="mobile-drawer-home" type="checkbox" class="drawer-toggle" />
         <div class="drawer-content">
           <label for="mobile-drawer-home" class="btn btn-ghost btn-square">
@@ -76,10 +94,22 @@ const navLinks = [
         <div class="drawer-side z-[99]">
           <label for="mobile-drawer-home" aria-label="close sidebar" class="drawer-overlay"></label>
           <ul class="menu bg-base-200 min-h-full w-80 p-4">
+            <li class="menu-title">Projeto</li>
             <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-            <li><a href={BASE + '#dados'}>Dados</a></li>
+            <li><a href={BASE + '#resumo'}>Resumo</a></li>
             <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-            {navLinks.map(link => (
+            <div class="divider"></div>
+            <li class="menu-title">Principal</li>
+            {mainLinks.map(link => (
+              <li>
+                <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
+            <div class="divider"></div>
+            <li class="menu-title">Recursos</li>
+            {secondaryLinks.map(link => (
               <li>
                 <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                   {link.label}
@@ -94,9 +124,11 @@ const navLinks = [
 ) : (
   <header class="container mx-auto px-4 border-b border-base-300 pb-6 mb-6">
     <div class="navbar bg-base-100 px-0">
-      <div class="navbar-start">
+      <div class="navbar-start flex items-center gap-4">
         {hasIconSlot ? (
-          <slot name="icon" />
+          <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center">
+            <slot name="icon" />
+          </div>
         ) : (
           <a href={backHref} aria-label={backLabel} class="btn btn-ghost btn-sm">
             <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -104,25 +136,40 @@ const navLinks = [
             </svg>
           </a>
         )}
-        <div>
-          <h1 class="text-2xl font-bold"><slot name="title">{title}</slot></h1>
-          {subtitle && <p class="text-sm text-base-content/50">{subtitle}</p>}
+        <div class="flex flex-col">
+          <h1 class="text-2xl font-bold leading-tight"><slot name="title">{title}</slot></h1>
+          {subtitle && <p class="text-xs text-base-content/50 leading-tight">{subtitle}</p>}
           <slot name="subtitle" />
         </div>
       </div>
-      <div class="navbar-end hidden md:flex">
-        <ul class="menu menu-horizontal gap-1">
-          {navLinks.map(link => (
+      <div class="navbar-end hidden lg:flex">
+        <ul class="menu menu-horizontal gap-1 p-0">
+          {mainLinks.map(link => (
             <li>
               <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                 {link.label}
               </a>
             </li>
           ))}
+          <li>
+            <details>
+              <summary>Recursos</summary>
+              <ul class="bg-base-100 rounded-t-none p-2 z-[100] min-w-[160px] shadow-lg border border-base-300">
+                {secondaryLinks.map(link => (
+                  <li>
+                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
         </ul>
+        <div class="divider divider-horizontal mx-1"></div>
         <ThemeToggle />
       </div>
-      <div class="navbar-end md:hidden gap-2">
+      <div class="navbar-end lg:hidden gap-2">
         <ThemeToggle />
         <div class="drawer drawer-end w-auto">
           <input id="mobile-drawer-page" type="checkbox" class="drawer-toggle" />
@@ -139,7 +186,18 @@ const navLinks = [
             <label for="mobile-drawer-page" aria-label="close sidebar" class="drawer-overlay"></label>
             <ul class="menu bg-base-200 min-h-full w-80 p-4">
               <li><a href={BASE}>Início</a></li>
-              {navLinks.map(link => (
+              <div class="divider"></div>
+              <li class="menu-title">Principal</li>
+              {mainLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+              <div class="divider"></div>
+              <li class="menu-title">Recursos</li>
+              {secondaryLinks.map(link => (
                 <li>
                   <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                     {link.label}

@@ -31,24 +31,31 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
     .coverage-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: var(--space-md);
+      gap: var(--space-lg);
       text-align: center;
+      padding: var(--space-md) 0;
     }
     .coverage-grid figure {
       margin: 0;
-      padding: var(--space-md) 0;
+      padding: var(--space-lg) var(--space-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
     .coverage-grid figcaption {
-      font-size: var(--font-size-xs);
-      font-weight: 500;
+      font-size: var(--font-size-sm);
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-top: 0.5rem;
-      opacity: 0.5;
+      letter-spacing: 0.05em;
+      margin-top: 1rem;
+      opacity: 0.8;
     }
     .coverage-grid small {
       display: block;
-      margin-top: var(--space-xs);
+      margin-top: 0.5rem;
+      opacity: 0.6;
+      font-size: var(--font-size-sm);
     }
 
     .rank-num {
@@ -66,10 +73,23 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
 
     .weekly-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(1, 1fr);
       gap: var(--space-sm);
       text-align: center;
     }
+
+    @media (min-width: 480px) {
+      .weekly-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (min-width: 768px) {
+      .weekly-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    @media (min-width: 1024px) {
+      .weekly-grid { grid-template-columns: repeat(7, 1fr); }
+    }
+
     .weekly-grid .card {
       padding: var(--space-md) var(--space-sm);
     }
@@ -78,16 +98,15 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
       margin: var(--space-xs) 0;
     }
     .day-name {
-      font-size: var(--font-size-xs);
-      font-weight: 600;
+      font-size: var(--font-size-sm);
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.5;
+      letter-spacing: 0.05em;
+      opacity: 0.7;
     }
 
     @media (max-width: 768px) {
-      .coverage-grid { grid-template-columns: 1fr; }
-      .weekly-grid { grid-template-columns: repeat(2, 1fr); }
+      .coverage-grid { grid-template-columns: 1fr; gap: var(--space-md); }
     }
   </style>
 
@@ -124,7 +143,7 @@ const base = import.meta.env.BASE_URL ?? '/causaganha/';
             <small class="opacity-50">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
           </figure>
           <figure>
-            <div class="stat-value text-error">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.5em; font-weight: 400; opacity: 0.5;"> / 91</small></div>
+            <div class="stat-value text-error">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.6em; font-weight: 600; opacity: 0.7;"> / 91</small></div>
             <figcaption>Pior Dia</figcaption>
             <small class="opacity-50">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
           </figure>

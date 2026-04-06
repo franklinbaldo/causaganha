@@ -29,11 +29,13 @@ const avgCoverage = tribunalStats.length
   <div class="container mx-auto px-4">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />
 
-    <AlertBanner
-      level="info"
-      title="Sem ranking nominal público"
-      message="Esta página prioriza dados já disponíveis no repositório: cobertura por tribunal e atalhos de consulta por OAB no explorador."
-    />
+    <div class="mb-8">
+      <AlertBanner
+        level="info"
+        title="Sem ranking nominal público"
+        message="Esta página prioriza dados já disponíveis no repositório: cobertura por tribunal e atalhos de consulta por OAB no explorador."
+      />
+    </div>
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 mb-8">
       <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura recente" />

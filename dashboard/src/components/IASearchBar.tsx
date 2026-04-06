@@ -125,7 +125,7 @@ export function IASearchBar() {
       {results.length> 0 && (
         <div>
           <div className="table-responsive">
-            <table className="table table-zebra table-sm">
+            <table className="table table-zebra table-sm whitespace-nowrap">
               <thead>
               <tr>
                 <th>Tribunal</th>

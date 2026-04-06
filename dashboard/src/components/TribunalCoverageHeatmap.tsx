@@ -107,7 +107,7 @@ export function TribunalCoverageHeatmap() {
       {renderHeader(`Recent Catalog Coverage (${period})`)}
       <div>
         <div className="table-responsive">
-          <table className="table table-zebra table-sm">
+          <table className="table table-zebra table-sm whitespace-nowrap">
             <thead>
             <tr>
               <th>Date</th>

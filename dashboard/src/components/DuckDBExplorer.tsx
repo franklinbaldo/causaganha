@@ -66,12 +66,29 @@ export function DuckDBExplorer() {
     async function init() {
       try {
         const duckdb = await import('@duckdb/duckdb-wasm');
+        console.log('DuckDB components loaded:', !!duckdb);
 
-        // Use CDN bundles for WASM files
+        // Get bundles (using CDN for simplicity/zero-config)
         const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
         const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+        console.log('DuckDB bundle selected:', bundle.mainWorker ? 'Worker ready' : 'No worker');
 
-        const worker = new Worker(bundle.mainWorker!);
+        if (!bundle.mainWorker) {
+          throw new Error('DuckDB bundle selection failed: No mainWorker found.');
+        }
+
+        // Initialize worker (may fail due to CSP/CORS)
+        let worker: Worker;
+        try {
+          worker = new Worker(bundle.mainWorker);
+        } catch (workerErr) {
+          console.warn('Direct Worker load failed, attempting Blob fallback...', workerErr);
+          const response = await fetch(bundle.mainWorker);
+          const content = await response.text();
+          const blob = new Blob([content], { type: 'application/javascript' });
+          worker = new Worker(URL.createObjectURL(blob));
+        }
+
         const logger = new duckdb.ConsoleLogger();
         const db = new duckdb.AsyncDuckDB(logger, worker);
         await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
@@ -85,12 +102,14 @@ export function DuckDBExplorer() {
           dbRef.current = db;
           connRef.current = conn;
           setDbStatus('ready');
+          console.log('DuckDB-WASM fully initialized.');
         }
       } catch (err) {
         if (!cancelled) {
           console.error('DuckDB init failed:', err);
           setDbStatus('error');
-          setError(`Falha ao inicializar DuckDB: ${err instanceof Error ? err.message : String(err)}`);
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(`Falha ao inicializar DuckDB: ${msg}. Verifique se seu navegador bloqueia Workers ou WASM externos.`);
         }
       }
     }
@@ -175,12 +194,12 @@ export function DuckDBExplorer() {
           </div>
         )}
         {dbStatus === 'ready' && (
-          <small className="text-success">
+          <small className="text-success block whitespace-normal leading-tight">
             DuckDB pronto — consulte arquivos Parquet diretamente do Internet Archive
           </small>
         )}
         {dbStatus === 'error' && (
-          <small className="text-error">
+          <small className="text-error block whitespace-normal leading-tight">
             Erro ao carregar DuckDB-WASM
           </small>
         )}
@@ -188,12 +207,12 @@ export function DuckDBExplorer() {
 
       {/* Query templates */}
       <details className="mb-6">
-        <summary>Consultas de exemplo</summary>
-        <div className="flex flex-col gap-2">
+        <summary className="cursor-pointer font-medium hover:underline">Consultas de exemplo</summary>
+        <div className="flex flex-col gap-2 mt-2">
           {QUERY_TEMPLATES.map((tmpl) => (
             <button
               key={tmpl.label}
-              className="btn btn-outline btn-secondary text-left text-sm"
+              className="btn btn-outline btn-secondary text-left text-sm py-2 h-auto min-h-[3rem]"
               onClick={() => {
                 setSql(tmpl.sql);
                 setResult(null);
@@ -209,11 +228,11 @@ export function DuckDBExplorer() {
       {/* SQL editor */}
       <textarea
         ref={textareaRef}
-        className="textarea textarea-bordered font-mono text-sm w-full resize-y"
+        className="textarea textarea-bordered font-mono text-sm w-full resize-y min-h-[160px] md:min-h-[200px]"
         value={sql}
         onInput={(e) => setSql((e.target as HTMLTextAreaElement).value)}
         onKeyDown={handleKeyDown}
-        rows={8}
+        rows={10}
         placeholder="SELECT * FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet') LIMIT 10"
         disabled={dbStatus !== 'ready'}
         aria-label="Editor SQL"
