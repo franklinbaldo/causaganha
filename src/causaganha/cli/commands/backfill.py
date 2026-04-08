@@ -1,14 +1,13 @@
 """CLI command module for CausaGanha backfill pipeline."""
 
 import asyncio
-import json
 import os
 import subprocess
 import sys
 import tempfile
 import time
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 
 import typer
@@ -29,9 +28,6 @@ app = typer.Typer(
 
 console = Console()
 
-SATURDAY_WEEKDAY = 5
-STATE_FILE = Path("data/backfill-state.json")
-
 
 # ── Data Types ──────────────────────────────────────────────
 
@@ -49,30 +45,6 @@ class StepResult:
 
 # ── Helpers ─────────────────────────────────────────────────
 
-
-def _get_next_date() -> str:
-    """Find the next date to process from backfill state."""
-    cursor_date = None
-    if STATE_FILE.exists():
-        state = json.loads(STATE_FILE.read_text())
-        cursor_date = state.get("cursor_date")
-
-    if cursor_date:
-        next_d = date.fromisoformat(cursor_date) - timedelta(days=1)
-    else:
-        next_d = datetime.now(UTC).date() - timedelta(days=1)
-
-    while next_d.weekday() >= SATURDAY_WEEKDAY:
-        next_d -= timedelta(days=1)
-
-    return next_d.isoformat()
-
-
-def _update_cursor(processed_date: str) -> None:
-    """Update the backfill cursor to the processed date."""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    state = {"cursor_date": processed_date, "updated_at": datetime.now(UTC).isoformat()}
-    STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
 def _run_step(
@@ -140,7 +112,13 @@ def _run_step(
                 name=name, success=False, duration=duration, error=short_error
             )
 
-        detail = outputs.get("files_added", "done")
+        files_added = outputs.get("files_added")
+        if files_added == "true":
+            detail = "new files added"
+        elif files_added == "false":
+            detail = "no new files"
+        else:
+            detail = "done"
         return StepResult(name=name, success=True, duration=duration, detail=detail)
 
     except Exception as e:
@@ -235,17 +213,26 @@ def run(
     """Run the backfill pipeline locally."""
     from causaganha.cli import setup_logging
 
+    # Load .env if present
+    env_file = Path(__file__).parent.parent.parent.parent.parent / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
     log_file = setup_logging(verbose=verbose)
 
     if not dry_run:
         _preflight_checks()
 
-    # Resolve target date
-    pipeline_date = target_date or _get_next_date()
+    # Resolve target date (only used if explicitly provided or for consolidate)
+    pipeline_date = target_date  # empty string means "let djen-backup decide"
 
     # Show run configuration
     config_lines = [
-        f"[bold]Data:[/bold]     {pipeline_date}",
+        f"[bold]Data:[/bold]     {pipeline_date or 'auto (backfill scan)'}",
         f"[bold]Job:[/bold]      {job}",
         f"[bold]Tribunal:[/bold] {tribunal or 'todos'}",
         f"[bold]Items:[/bold]    {max_items}",
@@ -274,14 +261,21 @@ def run(
     steps: list[tuple[str, list[str]]] = []
 
     if job in ("all", "collect"):
-        cmd = ["uv", "run", "python", f"{scripts_dir}/collect.py", "--date", pipeline_date]
+        cmd = ["uv", "run", "python", f"{scripts_dir}/collect.py"]
+        if pipeline_date:
+            cmd += ["--date", pipeline_date]
+        # else: djen-backup scans backfill-state.json for missing dates
         if tribunal:
             cmd += ["--tribunal", tribunal]
         cmd += ["--max-items", str(max_items)]
         steps.append(("Collect", cmd))
 
     if job in ("all", "consolidate"):
-        cmd = ["uv", "run", "python", f"{scripts_dir}/consolidate.py", "--date", pipeline_date]
+        cmd = ["uv", "run", "python", f"{scripts_dir}/consolidate.py"]
+        if pipeline_date:
+            cmd += ["--date", pipeline_date]
+        else:
+            cmd += ["--backfill", "--force"]
         steps.append(("Consolidate", cmd))
 
     if job in ("all", "embed"):
@@ -348,11 +342,6 @@ def run(
 
     console.print(table)
     console.print(f"\n  [dim]Log salvo em: {log_file}[/dim]\n")
-
-    # Update cursor if successful full run without explicit date
-    if not failed and not target_date and job == "all" and not dry_run:
-        _update_cursor(pipeline_date)
-        console.print(f"  [dim]Cursor atualizado para: {pipeline_date}[/dim]\n")
 
     if failed:
         raise typer.Exit(code=1)
