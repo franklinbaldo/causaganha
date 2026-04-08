@@ -1,8 +1,8 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
-import { PerfDashboard } from '../../components/PerfDashboard';
-import { TribunalCoverageHeatmap } from '../../components/TribunalCoverageHeatmap';
+import PerfDashboard from '../../components/PerfDashboard.svelte';
+import TribunalCoverageHeatmap from '../../components/TribunalCoverageHeatmap.svelte';
 import { readJson } from '../../lib/readJson';
 
 const perfMetrics = readJson('perf-metrics.json');

@@ -1,15 +1,18 @@
 import { defineConfig } from 'vite';
-import preact from '@preact/preset-vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [svelte({ hot: false })],
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
     include: [
-      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      '**/__steps__/**/*.steps.{js,jsx,ts,tsx}',
+      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
+      '**/__steps__/**/*.steps.{js,ts}',
     ],
+  },
+  resolve: {
+    conditions: ['browser'],
   },
 });

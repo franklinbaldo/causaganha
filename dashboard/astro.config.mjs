@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
-import preact from '@astrojs/preact';
+import svelte from '@astrojs/svelte';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
@@ -7,7 +7,7 @@ export default defineConfig({
   prefetch: true,
   site: 'https://franklinbaldo.github.io',
   base: '/causaganha',
-  integrations: [preact({ compat: true })],
+  integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],
   },

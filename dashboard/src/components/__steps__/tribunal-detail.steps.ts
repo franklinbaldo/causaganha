@@ -1,12 +1,12 @@
 import './shared';
-import { render, cleanup } from '@testing-library/preact/pure';
+import { render, cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
-import { TribunalDetail } from '../TribunalDetail';
+import TribunalDetail from '../TribunalDetail.svelte';
 
 const feature = await loadFeature('features/tribunal-detail.feature');
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
-  let props;
+  let props: any;
 
   BeforeEachScenario(() => {
     cleanup();
@@ -29,7 +29,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the tribunal detail page loads', () => {
-      render(<TribunalDetail {...props} />);
+      render(TribunalDetail, props);
     });
 
     Then('I should see a tribunal selector', () => {
@@ -38,7 +38,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('"STF" should be selected', () => {
-      const select = document.querySelector('select');
+      const select = document.querySelector('select') as HTMLSelectElement;
       expect(select.value).toBe('STF');
     });
   });
@@ -49,12 +49,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the component mounts before hash is parsed', () => {
-      render(<TribunalDetail {...props} />);
+      render(TribunalDetail, props);
     });
 
     Then('I should see the tribunal name in the detail view', () => {
-      // After effects run, hashReady becomes true and the component renders
-      // the full detail view with the tribunal name displayed.
       const content = document.body.textContent;
       expect(content).toContain('STJ');
     });
@@ -66,18 +64,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the tribunal detail page loads', () => {
-      render(<TribunalDetail {...props} />);
+      render(TribunalDetail, props);
     });
 
     Then('the selector should contain "STJ" as an option', () => {
       const options = document.querySelectorAll('select option');
-      const values = Array.from(options).map(o => o.value);
+      const values = Array.from(options).map(o => (o as HTMLOptionElement).value);
       expect(values).toContain('STJ');
     });
 
     And('the selector should contain "TRT1" as an option', () => {
       const options = document.querySelectorAll('select option');
-      const values = Array.from(options).map(o => o.value);
+      const values = Array.from(options).map(o => (o as HTMLOptionElement).value);
       expect(values).toContain('TRT1');
     });
   });

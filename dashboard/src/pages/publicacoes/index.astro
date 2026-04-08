@@ -4,8 +4,8 @@ import Header from '../../components/Header.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
 import { deriveData } from '../../lib/fetchData';
-import { TribunalView } from '../../components/TribunalView';
-import { IASearchBar } from '../../components/IASearchBar';
+import TribunalView from '../../components/TribunalView.svelte';
+import IASearchBar from '../../components/IASearchBar.svelte';
 import { readJson } from '../../lib/readJson';
 
 const dashboardData = readJson('dashboard-data.json');

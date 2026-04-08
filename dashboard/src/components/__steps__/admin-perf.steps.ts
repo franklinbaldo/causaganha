@@ -1,5 +1,5 @@
 import './shared';
-import { render, screen, cleanup } from '@testing-library/preact/pure';
+import { render, screen, cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
 import { vi } from 'vitest';
 
@@ -12,19 +12,15 @@ vi.mock('@observablehq/plot', () => ({
 }));
 
 // Mock sub-components that rely on fetch/WebSocket
-vi.mock('../LiveStatusWidget', () => ({
-  LiveStatusWidget: () => <div data-testid="live-status">Live Status</div>,
-}));
-vi.mock('../PipelineRunHistory', () => ({
-  PipelineRunHistory: () => <div data-testid="pipeline-history">History</div>,
-}));
+vi.mock('../LiveStatusWidget.svelte', () => import('./stubs/LiveStatusWidgetStub.svelte'));
+vi.mock('../PipelineRunHistory.svelte', () => import('./stubs/PipelineRunHistoryStub.svelte'));
 
-import { PerfDashboard } from '../PerfDashboard';
+import PerfDashboard from '../PerfDashboard.svelte';
 
 const feature = await loadFeature('features/admin-perf.feature');
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
-  let perfMetrics, qualityScores;
+  let perfMetrics: any, qualityScores: any;
 
   BeforeEachScenario(() => {
     cleanup();
@@ -49,7 +45,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the perf dashboard loads', () => {
-      render(<PerfDashboard perfMetrics={perfMetrics} qualityScores={qualityScores} />);
+      render(PerfDashboard, { perfMetrics, qualityScores });
     });
 
     Then('I should see "98.5%" as the upload success rate', () => {
@@ -65,7 +61,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the perf dashboard loads', () => {
-      render(<PerfDashboard perfMetrics={perfMetrics} qualityScores={qualityScores} />);
+      render(PerfDashboard, { perfMetrics, qualityScores });
     });
 
     Then('I should see "91" as active tribunals', () => {
@@ -81,7 +77,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the perf dashboard loads', () => {
-      render(<PerfDashboard perfMetrics={perfMetrics} qualityScores={qualityScores} />);
+      render(PerfDashboard, { perfMetrics, qualityScores });
     });
 
     Then('I should see "45" as pending backlog days', () => {
@@ -93,7 +89,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     resetData();
 
     Given('quality scores with grades A:10 B:30 C:40 D:10 F:1', () => {
-      const grades = { A: 10, B: 30, C: 40, D: 10, F: 1 };
+      const grades: Record<string, number> = { A: 10, B: 30, C: 40, D: 10, F: 1 };
       let i = 0;
       for (const [grade, count] of Object.entries(grades)) {
         for (let j = 0; j < count; j++) {
@@ -103,7 +99,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the perf dashboard loads', () => {
-      render(<PerfDashboard perfMetrics={perfMetrics} qualityScores={qualityScores} />);
+      render(PerfDashboard, { perfMetrics, qualityScores });
     });
 
     Then('I should see grade labels for non-zero grades', () => {
@@ -122,7 +118,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the perf dashboard loads', () => {
-      render(<PerfDashboard perfMetrics={perfMetrics} qualityScores={qualityScores} />);
+      render(PerfDashboard, { perfMetrics, qualityScores });
     });
 
     Then('I should see "TRT1" in the slowest tribunals list', () => {

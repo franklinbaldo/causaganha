@@ -3,7 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import DatabaseIcon from '../components/icons/DatabaseIcon.astro';
-import { DuckDBExplorer } from '../components/DuckDBExplorer';
+import DuckDBExplorer from '../components/DuckDBExplorer.svelte';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
@@ -100,7 +100,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       </div>
     </section>
 
-    <DuckDBExplorer client:only="preact" />
+    <DuckDBExplorer client:only="svelte" />
 
     <footer class="text-center mt-16 py-6 border-t border-base-300">
       <small class="opacity-50">

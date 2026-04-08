@@ -1,12 +1,12 @@
 import './shared';
-import { render, screen, cleanup } from '@testing-library/preact/pure';
+import { render, screen, cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
-import { TribunalView } from '../TribunalView';
+import TribunalView from '../TribunalView.svelte';
 
 const feature = await loadFeature('features/publicacoes.feature');
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
-  let props;
+  let props: any;
 
   BeforeEachScenario(() => {
     cleanup();
@@ -39,7 +39,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the publications overview loads', () => {
-      render(<TribunalView {...props} />);
+      render(TribunalView, props);
     });
 
     Then('I should see "Progresso do Arquivo"', () => {
@@ -47,8 +47,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('I should see the ZIP count in the banner', () => {
-      // toLocaleString() without locale returns "15,000" in Node.js
-      // Appears in both banner text and stats grid
       expect(screen.getAllByText(/15,000/).length).toBeGreaterThan(0);
     });
 
@@ -68,11 +66,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the publications overview loads', () => {
-      render(<TribunalView {...props} />);
+      render(TribunalView, props);
     });
 
     Then('I should see a card for "STF"', () => {
-      // STF is always in TRIBUNAL_GROUPS, so it always renders
       expect(screen.getAllByText('STF').length).toBeGreaterThan(0);
     });
 
@@ -85,7 +82,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     resetProps();
 
     When('the publications overview loads with default data', () => {
-      render(<TribunalView {...props} />);
+      render(TribunalView, props);
     });
 
     Then('I should see "Tribunais Superiores"', () => {
@@ -111,11 +108,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the publications overview loads', () => {
-      render(<TribunalView {...props} />);
+      render(TribunalView, props);
     });
 
     Then('I should see "150" next to STF', () => {
-      // Find the STF card link and verify the ZIP count is inside the same card
       const stfElements = screen.getAllByText('STF');
       const stfCard = stfElements
         .map(el => el.closest('a'))

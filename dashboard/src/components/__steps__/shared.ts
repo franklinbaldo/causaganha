@@ -1,8 +1,16 @@
 import { vi } from 'vitest';
 
-// Mock useDataRefresh so components fall back to initial props
-vi.mock('../../lib/useDataRefresh', () => ({
-  useDataRefresh: () => ({ data: null, loading: false, error: null, refresh: vi.fn() }),
+// Mock dataRefreshStore so components fall back to initial props
+vi.mock('../../lib/dataRefreshStore', () => ({
+  createDataRefresh: () => ({
+    subscribe: (fn: (val: any) => void) => {
+      fn({ data: null, loading: false, error: null });
+      return () => {};
+    },
+    refresh: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
 }));
 
 // Mock fetchAllData for components that import it directly

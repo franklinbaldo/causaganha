@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/preact/pure';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
 import { vi } from 'vitest';
-import { PRGateExplainer } from '../PRGateExplainer';
+import PRGateExplainer from '../PRGateExplainer.svelte';
 
 const feature = await loadFeature('features/admin-pr-gate.feature');
 
@@ -26,7 +26,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Show PR lookup form', ({ When, Then, And }) => {
     When('the PR gate page loads', () => {
-      render(<PRGateExplainer />);
+      render(PRGateExplainer);
     });
 
     Then('I should see a PR number input field', () => {
@@ -42,13 +42,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('Show loading state during fetch', ({ Given, When, Then }) => {
     Given('the PR gate page is loaded', () => {
       globalThis.fetch = vi.fn(() => new Promise(() => {}));
-      render(<PRGateExplainer />);
+      render(PRGateExplainer);
     });
 
     When('I submit PR number "42"', () => {
-      const input = document.querySelector('input[type="number"]');
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
       fireEvent.input(input, { target: { value: '42' } });
-      fireEvent.submit(input.closest('form'));
+      fireEvent.submit(input.closest('form')!);
     });
 
     Then('I should see a loading indicator', () => {
@@ -58,7 +58,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Show error on invalid PR', ({ Given, When, Then, And }) => {
     Given('the PR gate page is loaded', () => {
-      render(<PRGateExplainer />);
+      render(PRGateExplainer);
     });
 
     And('the GitHub API returns an error', () => {
@@ -68,9 +68,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('I submit PR number "99999"', async () => {
-      const input = document.querySelector('input[type="number"]');
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
       fireEvent.input(input, { target: { value: '99999' } });
-      fireEvent.submit(input.closest('form'));
+      fireEvent.submit(input.closest('form')!);
       await waitFor(() => {
         const errorEl = document.querySelector('[class*="error"]');
         if (!errorEl) throw new Error('waiting for error');
@@ -84,7 +84,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Show merged PR status', ({ Given, When, Then, And }) => {
     Given('the PR gate page is loaded', () => {
-      render(<PRGateExplainer />);
+      render(PRGateExplainer);
     });
 
     And('PR 42 is already merged', () => {
@@ -111,9 +111,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('I submit PR number "42"', async () => {
-      const input = document.querySelector('input[type="number"]');
+      const input = document.querySelector('input[type="number"]') as HTMLInputElement;
       fireEvent.input(input, { target: { value: '42' } });
-      fireEvent.submit(input.closest('form'));
+      fireEvent.submit(input.closest('form')!);
       await waitFor(() => screen.getByText('Merged'));
     });
 
