@@ -31,6 +31,7 @@ dependencies = [
     "boto3>=1.35.0",
     "fpdf>=1.7.2",
     "numpy>=2.0.0",
+    "holidays>=0.40.0",
 ]
 
 [project.optional-dependencies]
