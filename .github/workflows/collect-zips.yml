@@ -111,6 +111,9 @@ jobs:
           done
           echo "✅ All required CLI flags are present in djen_backup CLI."
 
+      - name: Record Start Time
+        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
       - name: Run causaganha backfill
         id: collect
         run: |
@@ -227,6 +230,26 @@ jobs:
             curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
               -d "chat_id=8490688452" \
               -d "text=⚠️ causaganha: cobertura baixa! Apenas ${UPLOADED}/91 tribunais coletados (${PCT}%). Dashboard: https://franklinbaldo.github.io/causaganha/"
+          fi
+
+      - name: Performance watchdog
+        if: always()
+        run: |
+          if [ -z "$START_TIME" ]; then
+            echo "START_TIME not set, skipping performance watchdog"
+            exit 0
+          fi
+
+          CURRENT_TIME=$(date +%s)
+          DURATION=$((CURRENT_TIME - START_TIME))
+
+          if [ "$DURATION" -gt 900 ]; then
+            echo "⚠️ Backfill running slow (> 15m). Duration: $DURATION seconds"
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=8490688452" \
+              -d "text=⚠️ Backfill running slow (> 15m). Current progress can be checked at: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          else
+            echo "Backfill completed in $DURATION seconds (within 15m limit)"
           fi
 
       - name: Show backfill status
