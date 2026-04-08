@@ -2,6 +2,10 @@
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import JulesSessionStatus from '../../components/JulesSessionStatus.svelte';
+import PausedTribunals from '../../components/PausedTribunals.svelte';
+import { readJson } from '../../lib/readJson';
+
+const backfillState = readJson<any>('cache/backfill_state.json');
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -41,5 +45,11 @@ const adminPages = [
       </div>
 
     </div>
+
+    <!-- Bottom Section: Paused Tribunals -->
+    <div class="mt-8">
+      <PausedTribunals data={backfillState} client:load />
+    </div>
+
   </div>
 </Layout>

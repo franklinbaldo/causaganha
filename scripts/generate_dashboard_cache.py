@@ -693,6 +693,9 @@ def generate_backfill_state_cache() -> dict[str, Any]:
                 "empty_streak": empty_streak,
                 "genesis_date": genesis_str,
                 "completion_pct": round(pct, 1),
+                "last_result": last_result,
+                "last_hit_date": info.get("last_hit_date"),
+                "last_checked_at": info.get("last_checked_at"),
             }
         )
 
