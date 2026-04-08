@@ -4,9 +4,11 @@ import Header from '../../components/Header.astro';
 import StatCard from '../../components/StatCard.astro';
 import EmptyState from '../../components/EmptyState.astro';
 import AlertBanner from '../../components/AlertBanner.astro';
+import BackfillDetailedStatus from '../../components/BackfillDetailedStatus.svelte';
 import { readJson } from '../../lib/readJson';
 
 const backfill = readJson<any>('cache/backfill.json');
+const backfillState = readJson<any>('cache/backfill_state.json');
 const progressPct = backfill?.progress_pct ?? 0;
 const completed = backfill?.completed ?? backfill?.backfill_done ?? 0;
 const total = backfill?.total ?? backfill?.backfill_total ?? 0;
@@ -27,6 +29,10 @@ const total = backfill?.total ?? backfill?.backfill_total ?? 0;
         </section>
 
         <progress class="progress-bar" value={progressPct} max="100"></progress>
+
+        <div class="mt-8">
+          <BackfillDetailedStatus data={backfillState} client:load />
+        </div>
 
         <pre class="raw-json"><code>{JSON.stringify(backfill, null, 2)}</code></pre>
       </>

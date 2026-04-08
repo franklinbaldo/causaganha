@@ -624,6 +624,85 @@ def generate_calendar_cache(
     }
 
 
+def generate_backfill_state_cache() -> dict[str, Any]:
+    """Generate backfill state summary from backfill-state.json."""
+    state_path = Path("data/backfill-state.json")
+    if not state_path.exists():
+        state_path = Path("data_backfill_state.json")
+
+    if not state_path.exists():
+        return {}
+
+    try:
+        with state_path.open() as f:
+            state_data = json.load(f)
+    except Exception:
+        return {}
+
+    tribunals_data = state_data.get("tribunals", {})
+
+    start_dates_path = (
+        Path(__file__).parent.parent / "dashboard" / "public" / "tribunal_start_dates.json"
+    )
+    start_dates = {}
+    if start_dates_path.exists():
+        try:
+            with start_dates_path.open() as f:
+                start_dates = json.load(f)
+        except Exception:
+            pass
+
+    today = datetime.now(UTC).date()
+    results = []
+
+    for tribunal, info in tribunals_data.items():
+        cursor_str = info.get("cursor_date")
+        stopped = info.get("stopped", False)
+        empty_streak = info.get("empty_streak", 0)
+        last_result = info.get("last_result")
+
+        if stopped:
+            state = "Stopped"
+        elif last_result == "error":
+            state = "Paused"
+        else:
+            state = "Active"
+
+        genesis_str = start_dates.get(tribunal, "2024-01-01")
+
+        pct = 0.0
+        if cursor_str and genesis_str:
+            try:
+                cursor_d = datetime.strptime(cursor_str, "%Y-%m-%d").date()
+                genesis_d = datetime.strptime(genesis_str, "%Y-%m-%d").date()
+                total_days = (today - genesis_d).days
+                if total_days > 0:
+                    completed_days = (today - cursor_d).days
+                    raw_pct = completed_days / total_days * 100.0
+                    pct = max(0.0, min(100.0, raw_pct))
+                else:
+                    pct = 100.0
+            except ValueError:
+                pass
+
+        results.append(
+            {
+                "tribunal": tribunal,
+                "cursor_date": cursor_str,
+                "state": state,
+                "empty_streak": empty_streak,
+                "genesis_date": genesis_str,
+                "completion_pct": round(pct, 1),
+            }
+        )
+
+    results.sort(key=lambda x: x["tribunal"])
+    return {
+        "tribunals": results,
+        "updated_at": state_data.get("updated_at", datetime.now(UTC).isoformat()),
+    }
+
+
 def generate_backfill_cache(
     con: duckdb.DuckDBPyConnection, sizes: dict[str, int] | None = None
 ) -> dict[str, Any]:
@@ -1140,6 +1219,7 @@ def main() -> None:
     calendar_data = generate_calendar_cache(con, sizes)
     pipeline_metrics = generate_pipeline_metrics(con)
     backfill_data = generate_backfill_cache(con, sizes)
+    backfill_state_data = generate_backfill_state_cache()
 
     con.close()
 
@@ -1177,6 +1257,8 @@ def main() -> None:
     }
     if backfill_data:
         files["backfill.json"] = backfill_data
+    if backfill_state_data:
+        files["backfill_state.json"] = backfill_state_data
 
     for filename, data in files.items():
         path = OUTPUT_DIR / filename
