@@ -4,9 +4,10 @@
 import argparse
 import json
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
+
 
 def fetch_remote_line_count(url: str) -> int:
     """Fetch remote manifest and return line count."""
@@ -26,9 +27,12 @@ def fetch_remote_line_count(url: str) -> int:
         return 0
     return 0
 
+
 def main():
     parser = argparse.ArgumentParser(description="Validate manifest.jsonl")
-    parser.add_argument("file_path", nargs="?", default="data/manifest.jsonl", help="Path to manifest.jsonl")
+    parser.add_argument(
+        "file_path", nargs="?", default="data/manifest.jsonl", help="Path to manifest.jsonl"
+    )
     args = parser.parse_args()
 
     manifest_path = Path(args.file_path)
@@ -75,13 +79,20 @@ def main():
     if remote_line_count > 0:
         if new_line_count < remote_line_count * 0.95:
             drop_pct = (1 - (new_line_count / remote_line_count)) * 100
-            print(f"Error: Significant data drop detected! Remote has {remote_line_count} lines, new has {new_line_count} lines ({drop_pct:.2f}% drop).")
+            print(
+                f"Error: Significant data drop detected! Remote has {remote_line_count} lines, new has {new_line_count} lines ({drop_pct:.2f}% drop)."
+            )
             print("To protect the catalog, upload has been aborted.")
             sys.exit(1)
         else:
-            print(f"Validation passed: New manifest has {new_line_count} lines (Remote has {remote_line_count} lines).")
+            print(
+                f"Validation passed: New manifest has {new_line_count} lines (Remote has {remote_line_count} lines)."
+            )
     else:
-        print(f"Validation passed: New manifest has {new_line_count} lines (Remote manifest not found or empty).")
+        print(
+            f"Validation passed: New manifest has {new_line_count} lines (Remote manifest not found or empty)."
+        )
+
 
 if __name__ == "__main__":
     main()
