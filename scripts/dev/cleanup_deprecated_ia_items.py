@@ -30,7 +30,7 @@ def get_item_metadata(client: httpx.Client, item_id: str) -> dict[str, Any] | No
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
-        logger.error("metadata_fetch_failed", item_id=item_id, error=str(e))
+        logger.exception("metadata_fetch_failed", item_id=item_id, error=str(e))
         return None
 
 
@@ -54,7 +54,7 @@ def delete_ia_file(client: httpx.Client, item_id: str, filename: str) -> bool:
         resp.raise_for_status()
         return True
     except Exception as e:
-        logger.error("file_deletion_failed", item_id=item_id, file=filename, error=str(e))
+        logger.exception("file_deletion_failed", item_id=item_id, file=filename, error=str(e))
         return False
 
 
