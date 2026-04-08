@@ -50,7 +50,7 @@ class State:
 
     def __init__(self) -> None:
         """Initialize the state cache with empty entries and a lock."""
-        self._entries: dict[str, dict[str, str]] = {}
+        self._entries: dict[str, dict[str, str | dict[str, object]]] = {}
         # _entries layout: {"2024-01-15": {"TJSP": "uploaded", "TJRO": "absent"}}
         self._lock = asyncio.Lock()
 
@@ -69,7 +69,10 @@ class State:
 
     def get_status(self, d: date, tribunal: str) -> str | None:
         """Return the status string (``"uploaded"``/``"absent"``) or ``None``."""
-        return self._entries.get(d.isoformat(), {}).get(tribunal)
+        val = self._entries.get(d.isoformat(), {}).get(tribunal)
+        if isinstance(val, dict):
+            return val.get("status")
+        return val
 
     @property
     def date_count(self) -> int:
@@ -80,13 +83,18 @@ class State:
     # Mutation
     # ------------------------------------------------------------------
 
-    async def mark(self, d: date, tribunal: str, status: ItemStatus) -> None:
+    async def mark(
+        self, d: date, tribunal: str, status: ItemStatus, duration_s: float | None = None
+    ) -> None:
         """Mark a tribunal as done for a date with the given status."""
         async with self._lock:
             key = d.isoformat()
             if key not in self._entries:
                 self._entries[key] = {}
-            self._entries[key][tribunal] = status.value
+            if duration_s is not None:
+                self._entries[key][tribunal] = {"status": status.value, "duration_s": duration_s}
+            else:
+                self._entries[key][tribunal] = status.value
 
     # ------------------------------------------------------------------
     # TTL pruning
@@ -126,7 +134,7 @@ class State:
                     state._entries[date_key] = {
                         k: v
                         for k, v in tribunals.items()
-                        if isinstance(k, str) and isinstance(v, str)
+                        if isinstance(k, str) and isinstance(v, (str, dict))
                     }
         return state
 

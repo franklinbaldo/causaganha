@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import PerfDashboard from '../../components/PerfDashboard.svelte';
 import TribunalCoverageHeatmap from '../../components/TribunalCoverageHeatmap.svelte';
+import LatencyHeatmap from '../../components/LatencyHeatmap.svelte';
 import { readJson } from '../../lib/readJson';
 
 const perfMetrics = readJson('perf-metrics.json');
@@ -19,9 +20,20 @@ const qualityScores = readJson('tribunal_quality_scores.json');
     subtitle="System latency, upload success rates, and tribunal data quality scores"
   />
 
-  <div class="page-container">
+  <div class="page-container space-y-6">
     <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
-    <TribunalCoverageHeatmap client:idle />
+
+    <div role="tablist" class="tabs tabs-bordered w-full sm:w-auto overflow-x-auto mb-4">
+      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Coverage Heatmap" checked="checked" />
+      <div role="tabpanel" class="tab-content pt-4">
+        <TribunalCoverageHeatmap client:idle />
+      </div>
+
+      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Latency Heatmap" />
+      <div role="tabpanel" class="tab-content pt-4">
+        <LatencyHeatmap client:idle />
+      </div>
+    </div>
   </div>
 </Layout>
 

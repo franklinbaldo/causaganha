@@ -229,13 +229,14 @@ async def _handle_upload_to_ia(
     state: State,
     summary: Summary,
     zip_path: Path,
+    duration_s: float | None = None,
 ) -> None:
     """Upload ZIP to IA and handle response."""
     try:
         resp = await upload_zip(client, item.date, item.tribunal, zip_path, config.ia_auth)
         if resp.status_code < HTTP_BAD_REQUEST:
             await breaker.record_success()
-            await state.mark(item.date, item.tribunal, ItemStatus.UPLOADED)
+            await state.mark(item.date, item.tribunal, ItemStatus.UPLOADED, duration_s=duration_s)
             await summary.inc_uploaded()
         else:
             log.error(
@@ -317,6 +318,7 @@ async def process_item(
         pass  # Can't confirm — proceed with normal flow
 
     zip_path: Path | None = None
+    process_start_time = time.monotonic()
     try:
         zip_url = await get_caderno_url(client, config.djen_proxy_url, item.tribunal, item.date)
         zip_path = await download_zip(client, zip_url)
@@ -345,7 +347,10 @@ async def process_item(
 
     # Upload to IA from the temp file
     try:
-        await _handle_upload_to_ia(client, breaker, item, config, state, summary, zip_path)
+        duration_s = time.monotonic() - process_start_time
+        await _handle_upload_to_ia(
+            client, breaker, item, config, state, summary, zip_path, duration_s=duration_s
+        )
     finally:
         if zip_path is not None:
             zip_path.unlink(missing_ok=True)
