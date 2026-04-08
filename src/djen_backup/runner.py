@@ -300,6 +300,22 @@ async def process_item(
         await summary.inc_uploaded()
         return
 
+    # Fast path: check if ZIP already exists on IA (source of truth)
+    from djen_backup.archive import get_ia_item_id
+
+    item_id = get_ia_item_id(item.tribunal, item.date)
+    zip_filename = f"djen-{item.date.isoformat()}-{item.tribunal.upper()}.zip"
+    ia_check_url = f"https://archive.org/download/{item_id}/{zip_filename}"
+    try:
+        head_resp = await client.head(ia_check_url, follow_redirects=True, timeout=10)
+        if head_resp.status_code < 400:
+            log.info(f"Skip (IA Hit): {item.tribunal} {item.date.isoformat()} already in IA")
+            await state.mark(item.date, item.tribunal, ItemStatus.UPLOADED)
+            await summary.inc_uploaded()
+            return
+    except (httpx.HTTPError, httpx.TimeoutException):
+        pass  # Can't confirm — proceed with normal flow
+
     zip_path: Path | None = None
     try:
         zip_url = await get_caderno_url(client, config.djen_proxy_url, item.tribunal, item.date)

@@ -532,6 +532,12 @@ async def backfill_process_date(
             await summary.inc_stopped()
         return "empty"
 
+    if config.dry_run:
+        log.info("backfill_dry_run", tribunal=tribunal, date=d.isoformat())
+        await bstate.record_hit(tribunal, d)
+        await summary.inc_hit()
+        return "hit"
+
     # Fast path 2: check if ZIP already exists on IA (source of truth)
     from djen_backup.archive import get_ia_item_id
 
@@ -541,7 +547,7 @@ async def backfill_process_date(
     try:
         head_resp = await client.head(ia_check_url, follow_redirects=True, timeout=10)
         if head_resp.status_code < 400:
-            log.info("backfill_already_on_ia", tribunal=tribunal, date=d.isoformat())
+            log.info(f"Skip (IA Hit): {tribunal} {d.isoformat()} already in IA")
             await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
             await bstate.record_hit(tribunal, d)
             await summary.inc_cache_hit()
@@ -554,12 +560,6 @@ async def backfill_process_date(
         await bstate.record_error(tribunal)
         await summary.inc_error()
         return "error"
-
-    if config.dry_run:
-        log.info("backfill_dry_run", tribunal=tribunal, date=d.isoformat())
-        await bstate.record_hit(tribunal, d)
-        await summary.inc_hit()
-        return "hit"
 
     # Fetch from DJEN
     zip_path: Path | None = None
