@@ -84,6 +84,8 @@ async def get_caderno_url(
 
     download_url = data.get("url")
     if not isinstance(download_url, str) or not download_url:
+        if data.get("status") == "Sem comunicações":
+            raise DJENNotFoundError(status_code=200, reason="No publications")
         msg = "Missing download URL in DJEN response"
         raise httpx.HTTPError(msg)
 
