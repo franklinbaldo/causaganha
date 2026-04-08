@@ -59,7 +59,13 @@ def get_new_uploads() -> list[dict]:
 
     for date_str, item_data in entries.items():
         if isinstance(item_data, dict):
-            for tribunal, status in item_data.items():
+            for tribunal, status_data in item_data.items():
+                status = status_data
+                duration_s = None
+                if isinstance(status_data, dict):
+                    status = status_data.get("status")
+                    duration_s = status_data.get("duration_s")
+
                 if status == "uploaded":
                     year = date_str[:4]
                     filename = f"djen-{date_str}-{tribunal.upper()}.zip"
@@ -70,6 +76,8 @@ def get_new_uploads() -> list[dict]:
                         "zip_url": f"https://archive.org/download/{item_id}/{filename}",
                         "downloaded_at": now_str,
                     }
+                    if duration_s is not None:
+                        row["duration_s"] = duration_s
                     new_rows.append(row)
 
     return new_rows

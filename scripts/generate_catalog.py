@@ -543,6 +543,15 @@ def calculate_completed_items(manifest: list[dict], total_tribunals: int, today:
                 if f.get("file_type") == "absent" and f.get("tribunal")
             ]
 
+            # Collect latencies for zip files
+            latencies = {
+                f.get("tribunal"): f.get("duration_s")
+                for f in files
+                if f.get("file_type") == "zip"
+                and f.get("tribunal")
+                and f.get("duration_s") is not None
+            }
+
             # Use sorted set to get unique sorted list of tribunals
             tribunais_coletados = sorted(set(zips))
             tribunais_ausentes = sorted(set(absents))
@@ -552,6 +561,7 @@ def calculate_completed_items(manifest: list[dict], total_tribunals: int, today:
                 "absent_count": len(absents),
                 "tribunais_coletados": tribunais_coletados,
                 "tribunais_ausentes": tribunais_ausentes,
+                "latencies": latencies,
             }
 
     return new_completed_items
@@ -936,7 +946,8 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
             "    date,",
             "    COUNT(DISTINCT tribunal) as tribunals_collected,",
             "    SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) as zip_files,",
-            "    SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files",
+            "    SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files,",
+            "    AVG(duration_s) as avg_latency_s",
             "FROM manifest",
             "GROUP BY date",
             "ORDER BY date DESC;",
@@ -991,7 +1002,8 @@ def create_catalog_duckdb(
                 file_name VARCHAR,
                 ia_item VARCHAR,
                 ia_url VARCHAR,
-                created_at VARCHAR
+                created_at VARCHAR,
+                duration_s DOUBLE
             )
         """)
 
@@ -1001,7 +1013,7 @@ def create_catalog_duckdb(
         for m in manifest:
             # Safe extraction with defaults for missing keys
             con.execute(
-                "INSERT INTO manifest VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO manifest VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     m.get("date", ""),
                     m.get("tribunal", ""),
@@ -1011,6 +1023,7 @@ def create_catalog_duckdb(
                     m.get("ia_item", ""),
                     m.get("ia_url", ""),
                     m.get("created_at", ""),
+                    m.get("duration_s"),
                 ],
             )
 
@@ -1046,7 +1059,8 @@ def create_catalog_duckdb(
                 date,
                 COUNT(DISTINCT tribunal) as tribunals_collected,
                 SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) as zip_files,
-                SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files
+                SUM(CASE WHEN file_type = 'parquet' THEN 1 ELSE 0 END) as parquet_files,
+                AVG(duration_s) as avg_latency_s
             FROM manifest
             GROUP BY date
             ORDER BY date DESC
