@@ -5,19 +5,32 @@
   <link>https://franklinbaldo.github.io/causaganha/</link>
   <description>Status updates from the CausaGanha judicial data collection pipeline</description>
   <language>pt-BR</language>
+<<<<<<< HEAD
   <lastBuildDate>Wed, 08 Apr 2026 06:28:43 +0000</lastBuildDate>
+=======
+  <lastBuildDate>Wed, 08 Apr 2026 06:22:20 +0000</lastBuildDate>
+>>>>>>> 7bcb6ff (feat: implement omission cost visualization widget (#253))
 
   <item>
     <title>2026-04-07: 65 tribunais, 0.0 B</title>
     <link>https://archive.org/details/djen-2026-04-07</link>
     <description>
+<<<<<<< HEAD
       Pipeline Status: 67% healthy
+=======
+      Pipeline Status: 70% healthy
+>>>>>>> 7bcb6ff (feat: implement omission cost visualization widget (#253))
       Tribunais coletados: 65/91
       Volume: 0.0 B
       Dias arquivados: 110
     </description>
+<<<<<<< HEAD
     <pubDate>Wed, 08 Apr 2026 06:28:43 +0000</pubDate>
     <guid isPermaLink="false">causaganha-20260408062843</guid>
+=======
+    <pubDate>Wed, 08 Apr 2026 06:22:20 +0000</pubDate>
+    <guid isPermaLink="false">causaganha-20260408062220</guid>
+>>>>>>> 7bcb6ff (feat: implement omission cost visualization widget (#253))
   </item>
 
 </channel>
