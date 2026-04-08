@@ -460,20 +460,6 @@
   }
 
   /* Buttons */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid transparent;
-    text-decoration: none;
-  }
 
   .btn-sm {
     padding: 0.25rem 0.5rem;
@@ -487,16 +473,6 @@
   }
 
   .btn-ghost:hover {
-    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
-  }
-
-  .btn-outline {
-    background: transparent;
-    border-color: var(--color-base-300);
-    color: inherit;
-  }
-
-  .btn-outline:hover {
     background: var(--color-base-200, rgba(0, 0, 0, 0.05));
   }
 
@@ -514,37 +490,14 @@
   }
 
   /* Badges */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.125rem 0.5rem;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    border-radius: var(--radius-full);
-  }
 
   .quality-badge {
     margin-top: 0.5rem;
   }
 
-  .badge-success {
-    background: var(--color-success);
-    color: var(--color-success-content, #fff);
-  }
-
   .badge-accent {
     background: var(--color-accent);
     color: var(--color-accent-content, #fff);
-  }
-
-  .badge-warning {
-    background: var(--color-warning);
-    color: var(--color-warning-content, #fff);
-  }
-
-  .badge-error {
-    background: var(--color-error);
-    color: var(--color-error-content, #fff);
   }
 
   /* Stats */
@@ -738,8 +691,5 @@
   }
 
   @media (min-width: 640px) {
-    .btn-outline {
-      width: auto;
-    }
   }
 </style>

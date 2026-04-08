@@ -221,39 +221,10 @@
 </div>
 
 <style>
-  .small-text { font-size: var(--font-size-sm); }
-  .no-margin { margin: 0; }
 
   /* Cards */
-  .card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .card-lg {
-    margin-bottom: 4rem;
-  }
-
-  .card-compact {
-    margin-bottom: 0;
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
-
-  .card-body-sm {
-    padding: 1rem;
-  }
 
   /* Section headers */
-  .section-header {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--color-base-300);
-    margin-bottom: 1.5rem;
-  }
 
   .header-row {
     display: flex;
@@ -262,16 +233,6 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
-  }
-
-  .section-title {
-    margin-bottom: 0;
-    font-size: var(--font-size-2xl, 1.5rem);
-  }
-
-  .meta-text {
-    font-size: var(--font-size-xs);
-    opacity: 0.5;
   }
 
   /* Stats */
@@ -446,35 +407,6 @@
   }
 
   /* Badges */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.125rem 0.5rem;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    border-radius: var(--radius-full);
-  }
-
-  .badge-sm {
-    padding: 0.0625rem 0.375rem;
-    font-size: 0.625rem;
-  }
-
-  .badge-info {
-    background: var(--color-info);
-    color: var(--color-info-content, #fff);
-    cursor: pointer;
-  }
-
-  .badge-success {
-    background: var(--color-success);
-    color: var(--color-success-content, #fff);
-  }
-
-  .badge-error {
-    background: var(--color-error);
-    color: var(--color-error-content, #fff);
-  }
 
   /* Empty state */
   .empty-state {

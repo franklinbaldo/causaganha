@@ -225,7 +225,7 @@
 {#snippet DateShareButton()}
   <button
     onclick={handleShareClick}
-    class="btn-outline-secondary"
+    class="btn btn-outline-secondary"
   >
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -272,8 +272,8 @@
         </div>
         <div class="header-actions" aria-label="Ações do arquivo">
           {@render DateShareButton()}
-          <a href={zipUrl} class="btn-outline-secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} class="btn-outline-secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
+          <a href={zipUrl} class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
+          <a href={`https://archive.org/details/${itemId}`} class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
         </div>
       </header>
       <div class="meta-row">
@@ -333,17 +333,6 @@
 </div>
 
 <style>
-  .card {
-    background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    margin-bottom: 2rem;
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
 
   .header-row {
     display: flex;
@@ -385,28 +374,6 @@
     gap: 0.5rem;
   }
 
-  .btn-outline-secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.75rem;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid var(--color-secondary);
-    background: transparent;
-    color: var(--color-secondary);
-    text-decoration: none;
-  }
-
-  .btn-outline-secondary:hover {
-    background: var(--color-secondary);
-    color: var(--color-secondary-content);
-  }
-
   .meta-row {
     display: flex;
     gap: 1.5rem;
@@ -445,22 +412,6 @@
   .empty-text {
     text-align: center;
     opacity: 0.5;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid transparent;
-    background: var(--color-primary);
-    color: var(--color-primary-content);
   }
 
   .btn--secondary {

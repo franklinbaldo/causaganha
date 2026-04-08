@@ -180,18 +180,6 @@
     margin-bottom: 1rem;
   }
 
-  .card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 1rem;
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
-
   .value-success {
     color: var(--color-success);
   }

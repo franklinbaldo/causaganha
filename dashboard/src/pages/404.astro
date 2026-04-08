@@ -16,8 +16,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
         </p>
         <div class="action-buttons">
-          <a href={BASE + 'publicacoes'} class="btn-primary">Dashboard</a>
-          <a href={BASE} class="btn-secondary">Início</a>
+          <a href={BASE + 'publicacoes'} class="btn btn-primary">Dashboard</a>
+          <a href={BASE} class="btn btn-secondary">Início</a>
         </div>
       </div>
     </div>
@@ -64,26 +64,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     display: flex;
     gap: 1rem;
     justify-content: center;
-  }
-
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    background: var(--color-primary);
-    color: var(--color-primary-content);
-    text-decoration: none;
-    border: 1px solid var(--color-primary);
-  }
-
-  .btn-primary:hover {
-    opacity: 0.85;
   }
 
   .btn-secondary {
