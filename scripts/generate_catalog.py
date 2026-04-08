@@ -1343,6 +1343,11 @@ def main() -> int:
     if args.upload:
         files = [manifest_path, backfill_path, sql_path, db_path]
 
+        # Add local JSONL manifest if it exists
+        manifest_jsonl_path = Path("data/manifest.jsonl")
+        if manifest_jsonl_path.exists():
+            files.append(manifest_jsonl_path)
+
         # Add progress files if they exist (JSON + JSONL)
         if collect_progress_path and collect_progress_path.exists():
             files.append(collect_progress_path)

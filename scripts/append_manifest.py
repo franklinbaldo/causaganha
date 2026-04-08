@@ -83,39 +83,6 @@ def get_new_uploads() -> list[dict]:
     return new_rows
 
 
-def upload_to_ia(file_path: Path) -> bool:
-    """Upload manifest.jsonl to IA using httpx and S3-like API."""
-    access_key = os.environ.get("IA_ACCESS_KEY")
-    secret_key = os.environ.get("IA_SECRET_KEY")
-
-    if not access_key or not secret_key:
-        logger.error("ia_credentials_missing")
-        return False
-
-    url = f"https://s3.us.archive.org/{IA_CATALOG_ITEM}/manifest.jsonl"
-    headers = {
-        "Authorization": f"LOW {access_key}:{secret_key}",
-        "x-archive-interactive-priority": "1",
-        "x-amz-auto-make-bucket": "1",
-    }
-
-    file_size = file_path.stat().st_size
-    headers["Content-Length"] = str(file_size)
-
-    try:
-        with file_path.open("rb") as f:
-            response = httpx.put(url, headers=headers, content=f, timeout=60.0)
-
-        if response.status_code in (200, 201):
-            logger.info("upload_success", item=IA_CATALOG_ITEM, file=file_path.name)
-            return True
-        logger.error("upload_failed", status=response.status_code, text=response.text[:200])
-        return False
-    except Exception as e:
-        logger.exception("upload_exception", error=str(e))
-        return False
-
-
 def main() -> int:
     logger.info("starting_append_manifest")
 
@@ -159,13 +126,7 @@ def main() -> int:
         for row in final_rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    if os.environ.get("IA_ACCESS_KEY"):
-        success = upload_to_ia(LOCAL_MANIFEST_PATH)
-        if not success:
-            logger.error("failed_to_upload_manifest")
-            return 1
-    else:
-        logger.info("skipping_upload_no_credentials")
+    logger.info("manifest_append_complete_locally")
 
     return 0
 
