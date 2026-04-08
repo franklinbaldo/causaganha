@@ -192,6 +192,11 @@ def run(
         "--dry-run",
         help="Simular sem executar.",
     ),
+    pause_on_error: bool = typer.Option(
+        False,
+        "--pause-on-error",
+        help="Pausar e aguardar confirmação em caso de erro (ao invés de abortar).",
+    ),
 ) -> None:
     """Run the backfill pipeline locally."""
     from causaganha.cli import setup_logging
@@ -283,7 +288,24 @@ def run(
                     padding=(0, 1),
                 ))
                 console.print(f"  [dim]Detalhes completos em: {log_file}[/dim]")
-            break  # Stop on first failure
+
+            if pause_on_error:
+                console.print()
+                try:
+                    choice = console.input(
+                        "  [yellow bold]Continuar mesmo assim? [/yellow bold][dim](s/N)[/dim] "
+                    )
+                except (KeyboardInterrupt, EOFError):
+                    choice = ""
+                if choice.strip().lower() in ("s", "y", "sim", "yes"):
+                    console.print("  [dim]Continuando...[/dim]\n")
+                    failed = False  # reset so pipeline continues
+                    continue
+                else:
+                    console.print("  [red]Abortado pelo usuário.[/red]\n")
+                    break
+            else:
+                break  # Stop on first failure
 
     # Summary table
     console.print()
