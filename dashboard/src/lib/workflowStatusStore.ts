@@ -39,13 +39,13 @@ export function createWorkflowStatus(pollInterval: number = 60000) {
 
       if (data.total_count > 0 && data.workflow_runs?.length > 0) {
         const run = data.workflow_runs[0];
-        const startedAt = new Date(run.run_started_at).getTime();
+        const startedAtTime = new Date(run.run_started_at).getTime();
 
         update(prev => ({
           ...prev,
           isRunning: true,
-          startedAt,
-          elapsedMs: Date.now() - startedAt,
+          startedAt: startedAtTime,
+          elapsedMs: Date.now() - startedAtTime,
           error: null,
         }));
         startElapsedTimer();
