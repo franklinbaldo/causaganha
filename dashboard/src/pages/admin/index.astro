@@ -2,8 +2,13 @@
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import JulesSessionStatus from '../../components/JulesSessionStatus.svelte';
+import OmissionCost from '../../components/OmissionCost.svelte';
+import { readJson } from '../../lib/readJson';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+// Build-time fetch of omission stats
+const omissionStats = readJson<any>('cache/omission_stats.json');
 
 const adminPages = [
   { href: BASE + 'admin/backfill', title: 'Backfill Progress', description: 'Progresso de backfill e cobertura histórica' },
@@ -41,5 +46,11 @@ const adminPages = [
       </div>
 
     </div>
+
+    <!-- Omission Cost Section -->
+    <div class="mt-8">
+      <OmissionCost omissionStats={omissionStats} client:load />
+    </div>
+
   </div>
 </Layout>

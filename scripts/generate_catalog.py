@@ -805,6 +805,60 @@ def _is_tribunal_stopped(
     return result
 
 
+def generate_omission_stats(manifest: list[dict], end_date: date) -> dict:
+    """Calculate omission cost globally and per tribunal.
+
+    A missed journal is a business day (Mon-Fri) from the tribunal's genesis date
+    to end_date that lacks both a .zip and a .absent marker in the manifest.
+    """
+    logger.info("generating_omission_stats", end_date=end_date)
+
+    # Load genesis dates
+    start_dates_path = Path("dashboard/public/tribunal_start_dates.json")
+    start_dates = {}
+    if start_dates_path.exists():
+        try:
+            start_dates = json.loads(start_dates_path.read_text())
+        except json.JSONDecodeError:
+            pass
+
+    # Build set of collected (date, tribunal) pairs
+    collected = set()
+    for m in manifest:
+        if m["file_type"] in ("zip", "absent"):
+            collected.add((m["date"], m["tribunal"]))
+
+    omissions_by_tribunal = {}
+    global_omission_cost = 0
+
+    for tribunal in TRIBUNAIS:
+        # Determine genesis date
+        genesis_str = start_dates.get(tribunal, "2024-01-01")
+        try:
+            genesis_date = datetime.strptime(genesis_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
+        except ValueError:
+            genesis_date = DJEN_START_DATE
+
+        current = genesis_date
+        tribunal_omissions = 0
+
+        while current <= end_date:
+            if current.weekday() < SATURDAY_WEEKDAY:  # Monday = 0, Friday = 4
+                date_str = current.strftime("%Y-%m-%d")
+                if (date_str, tribunal) not in collected:
+                    tribunal_omissions += 1
+            current += timedelta(days=1)
+
+        omissions_by_tribunal[tribunal] = tribunal_omissions
+        global_omission_cost += tribunal_omissions
+
+    return {
+        "global_omission_cost": global_omission_cost,
+        "tribunals": omissions_by_tribunal,
+        "generated_at": datetime.now(UTC).isoformat() + "Z"
+    }
+
+
 def generate_backfill_list(
     manifest: list[dict],
     start_date: date,
@@ -1241,6 +1295,15 @@ def main() -> int:
     except Exception as e:
         logger.warning("completed_items_save_failed", error=str(e))
 
+    # Calculate Omission Cost
+    omission_stats = generate_omission_stats(manifest, end_date)
+    omission_stats_path = output_dir / "omission_stats.json"
+    try:
+        omission_stats_path.write_text(json.dumps(omission_stats, indent=2))
+        logger.info("omission_stats_saved", path=str(omission_stats_path))
+    except Exception as e:
+        logger.warning("omission_stats_save_failed", error=str(e))
+
     # 4. Get local coverage and generate backfill list
     local_coverage = set()
     main_db_path = Path("data/causaganha.duckdb")
@@ -1350,6 +1413,9 @@ def main() -> int:
         completed_items_file = output_dir / "completed-items.json"
         if completed_items_file.exists():
             files.append(completed_items_file)
+
+        if omission_stats_path.exists():
+            files.append(omission_stats_path)
 
         success = upload_to_ia(files)
         if success:

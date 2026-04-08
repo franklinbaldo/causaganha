@@ -1,0 +1,34 @@
+
+> dashboard@0.0.0 dev
+> astro dev
+
+▶ Astro collects anonymous usage data.
+  This information helps us improve Astro.
+  Run "astro telemetry disable" to opt-out.
+  https://astro.build/telemetry
+
+06:28:03 [types] Generated 1ms
+06:28:03 [content] Syncing content
+06:28:03 [content] Synced content
+06:28:03 [vite] Forced re-optimization of dependencies
+
+ astro  v5.18.1 ready in 700 ms
+
+┃ Local    http://localhost:4321/causaganha
+┃ Network  use --host to expose
+
+06:28:03 watching for file changes...
+
+ update  ▶ New version of Astro available: 6.1.4
+  Run pnpm dlx @astrojs/upgrade to update
+
+6:29:23 AM [vite-plugin-svelte] src/components/JulesSessionStatus.svelte:77:6 Buttons and links should either contain text or have an `aria-label`, `aria-labelledby` or `title` attribute
+https://svelte.dev/e/a11y_consider_explicit_label
+6:29:23 AM [vite-plugin-svelte] src/components/JulesSessionStatus.svelte:112:21 '#' is not a valid href attribute
+https://svelte.dev/e/a11y_invalid_attribute
+06:29:23 [200] /admin 77ms
+6:29:25 AM [vite-plugin-svelte] src/components/JulesSessionStatus.svelte:77:6 Buttons and links should either contain text or have an `aria-label`, `aria-labelledby` or `title` attribute
+https://svelte.dev/e/a11y_consider_explicit_label
+6:29:25 AM [vite-plugin-svelte] src/components/JulesSessionStatus.svelte:112:21 '#' is not a valid href attribute
+https://svelte.dev/e/a11y_invalid_attribute
+06:30:41 [200] /admin 46ms
