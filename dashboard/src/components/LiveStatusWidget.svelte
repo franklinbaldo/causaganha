@@ -135,15 +135,15 @@
 </script>
 
 {#if error}
-  <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+  <div class="card"><div class="card-body">
     <span>Status ao vivo indisponível.</span>
   </div></div>
 {:else if !data}
-  <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+  <div class="card"><div class="card-body">
     <span aria-busy="true">Carregando status do pipeline...</span>
   </div></div>
 {:else}
-  <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+  <div class="card"><div class="card-body">
     <header>
       {#if isActuallyRunning}
         <span class="cg-pulse"></span>
@@ -173,3 +173,16 @@
     </div>
   </div></div>
 {/if}
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+</style>

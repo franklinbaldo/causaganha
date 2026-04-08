@@ -22,16 +22,16 @@ const entries = [
 <Layout title="Changelog - CausaGanha" description="Atualizações de produto e status do projeto CausaGanha.">
   <Header variant="page" title="Changelog" subtitle="Evolução do dashboard e do pipeline" backHref={BASE} backLabel="Início" />
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Changelog' }]} />
 
-    <section class="space-y-4 my-6">
+    <section class="entries-section">
       {entries.map((entry) => (
-        <article class="card bg-base-100 shadow-sm border border-base-300">
+        <article class="card">
           <div class="card-body">
-            <small class="font-mono opacity-70">{entry.date}</small>
-            <h2 class="card-title">{entry.title}</h2>
-            <ul class="list-disc pl-5 opacity-80">
+            <small class="entry-date">{entry.date}</small>
+            <h2 class="card-heading">{entry.title}</h2>
+            <ul class="entry-list">
               {entry.items.map((item) => <li>{item}</li>)}
             </ul>
           </div>
@@ -40,3 +40,46 @@ const entries = [
     </section>
   </div>
 </Layout>
+
+<style>
+  .page-container {
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  .entries-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-block: 1.5rem;
+  }
+
+  .card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .entry-date {
+    font-family: var(--font-mono);
+    opacity: 0.7;
+  }
+
+  .card-heading {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+
+  .entry-list {
+    list-style: disc;
+    padding-left: 1.25rem;
+    opacity: 0.8;
+  }
+</style>

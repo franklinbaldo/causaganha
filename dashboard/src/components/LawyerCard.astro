@@ -12,16 +12,82 @@ const { index } = Astro.props;
 const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${index.tribunal.toLowerCase()}`;
 ---
 
-<article class="card bg-base-100 shadow-sm border border-base-300 h-full">
+<article class="card">
   <div class="card-body">
-    <h3 class="card-title text-lg">{index.tribunal}</h3>
-    <p class="text-sm opacity-70">Base disponível para exploração de OABs neste tribunal</p>
-    <ul class="text-sm space-y-1 mt-2">
+    <h3 class="card-title">{index.tribunal}</h3>
+    <p class="description">Base disponível para exploração de OABs neste tribunal</p>
+    <ul class="details">
       <li><strong>Dias com dados:</strong> {index.daysWithData.toLocaleString('pt-BR')} de {index.daysTotal.toLocaleString('pt-BR')}</li>
       <li><strong>Cobertura:</strong> {index.dataRatePct.toFixed(1)}%</li>
     </ul>
-    <div class="card-actions justify-end mt-4">
-      <a href={href} class="btn btn-outline btn-sm">Ver guia do tribunal</a>
+    <div class="card-actions">
+      <a href={href} class="btn">Ver guia do tribunal</a>
     </div>
   </div>
 </article>
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    height: 100%;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .description {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .details {
+    font-size: var(--font-size-sm);
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .card-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    background: transparent;
+    text-decoration: none;
+    transition: var(--transition-base);
+  }
+
+  .btn:hover {
+    background: var(--color-primary);
+    color: var(--color-primary-content, #fff);
+  }
+</style>

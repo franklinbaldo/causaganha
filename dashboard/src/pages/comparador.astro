@@ -29,12 +29,12 @@ const tribunais = Array.from(grouped.values()).sort((a, b) => b.zipCount - a.zip
 <Layout title="Comparador de Tribunais - CausaGanha" description="Compare cobertura e volume de publicações entre tribunais.">
   <Header variant="page" title="Comparador de Tribunais" subtitle="Visão lado a lado dos tribunais com maior volume" backHref={BASE + 'publicacoes'} backLabel="Publicações" />
 
-  <div class="container mx-auto px-4">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Comparador' }]} />
 
-    <section class="my-6">
+    <section class="section-wrapper">
       {tribunais.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="compare-grid">
           {tribunais.map((tribunal) => <TribunalCompareCard {...tribunal} />)}
         </div>
       ) : (
@@ -43,3 +43,28 @@ const tribunais = Array.from(grouped.values()).sort((a, b) => b.zipCount - a.zip
     </section>
   </div>
 </Layout>
+
+<style>
+  .section-wrapper {
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  @media (min-width: 768px) {
+    .compare-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .compare-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

@@ -1,6 +1,6 @@
 ---
 ---
-<small id="datasource-indicator" role="status">
+<small id="datasource-indicator" class="datasource" role="status">
   Connecting...
 </small>
 
@@ -31,3 +31,14 @@
   setupDataSourceIndicator();
   document.addEventListener('astro:after-swap', setupDataSourceIndicator);
 </script>
+
+<style>
+  .datasource {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+    opacity: 0.7;
+  }
+</style>

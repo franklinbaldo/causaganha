@@ -1,80 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-@import "tailwindcss";
-@plugin "daisyui" {
-  themes: causaganha --default, causaganhadark --prefersdark;
-}
-
 /* ═══════════════════════════════════════════
-   DaisyUI Custom Themes
+   CausaGanha Dashboard — Global Styles
+   No CSS framework. Design tokens + vanilla CSS.
    ═══════════════════════════════════════════ */
 
-@theme {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-}
-
-@plugin "daisyui/theme" {
-  name: "causaganha";
-  default: true;
-  color-scheme: light;
-  --color-base-100: #fafaf9;
-  --color-base-200: #f5f5f4;
-  --color-base-300: #e7e5e4;
-  --color-base-content: #1c1917;
-  --color-primary: #1e293b;
-  --color-primary-content: #fafaf9;
-  --color-secondary: #57534e;
-  --color-secondary-content: #fafaf9;
-  --color-accent: #b45309;
-  --color-accent-content: #fafaf9;
-  --color-neutral: #1c1917;
-  --color-neutral-content: #fafaf9;
-  --color-info: #3b82f6;
-  --color-info-content: #ffffff;
-  --color-success: #059669;
-  --color-success-content: #ffffff;
-  --color-warning: #d97706;
-  --color-warning-content: #ffffff;
-  --color-error: #dc2626;
-  --color-error-content: #ffffff;
-  --radius-btn: 0.5rem;
-  --radius-box: 0.5rem;
-  --radius-field: 0.5rem;
-}
-
-@plugin "daisyui/theme" {
-  name: "causaganhadark";
-  color-scheme: dark;
-  --color-base-100: #0c0a09;
-  --color-base-200: #1c1917;
-  --color-base-300: #292524;
-  --color-base-content: #fafaf9;
-  --color-primary: #e7e5e4;
-  --color-primary-content: #1c1917;
-  --color-secondary: #a8a29e;
-  --color-secondary-content: #1c1917;
-  --color-accent: #d97706;
-  --color-accent-content: #1c1917;
-  --color-neutral: #fafaf9;
-  --color-neutral-content: #0c0a09;
-  --color-info: #60a5fa;
-  --color-info-content: #0c0a09;
-  --color-success: #10b981;
-  --color-success-content: #0c0a09;
-  --color-warning: #f59e0b;
-  --color-warning-content: #0c0a09;
-  --color-error: #ef4444;
-  --color-error-content: #0c0a09;
-  --radius-btn: 0.5rem;
-  --radius-box: 0.5rem;
-  --radius-field: 0.5rem;
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ═══════════════════════════════════════════
-   Design Tokens (used by inline styles in components)
+   CSS Reset (Modern Minimal)
+   ═══════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+* { margin: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+
+input, button, textarea, select { font: inherit; }
+
+p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
+
+/* ═══════════════════════════════════════════
+   Design Tokens
    ═══════════════════════════════════════════ */
 
 :root {
+  /* Font Stacks */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
   /* Typography Scale (1.25 ratio) */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -95,15 +56,50 @@
   --space-2xl: 6rem;
   --space-3xl: 8rem;
 
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-box: 0.5rem;
+  --radius-btn: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+
   /* Transitions */
   --transition-base: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow: 400ms cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Accent */
-  --accent-gold: #b45309;
-  --accent-gold-hover: #92400e;
+  /* ── Semantic Colors (Light Theme) ── */
 
-  /* Light Mode Palette — warm stone (kept for inline styles) */
+  /* Base surfaces */
+  --color-base-100: #fafaf9;
+  --color-base-200: #f5f5f4;
+  --color-base-300: #e7e5e4;
+  --color-base-content: #1c1917;
+
+  /* Brand */
+  --color-primary: #1e293b;
+  --color-primary-content: #fafaf9;
+  --color-secondary: #57534e;
+  --color-secondary-content: #fafaf9;
+  --color-accent: #b45309;
+  --color-accent-content: #fafaf9;
+  --color-neutral: #1c1917;
+  --color-neutral-content: #fafaf9;
+
+  /* Feedback */
+  --color-info: #3b82f6;
+  --color-info-content: #ffffff;
+  --color-success: #059669;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+
+  /* Surface aliases (for inline-style usage) */
   --color-bg: #fafaf9;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
@@ -113,13 +109,41 @@
   --color-content: #1c1917;
   --color-content-secondary: #57534e;
   --color-content-tertiary: #a8a29e;
+
+  /* Accent alias */
+  --accent-gold: #b45309;
+  --accent-gold-hover: #92400e;
+
+  /* Scrollbar */
   --color-scrollbar: rgba(168, 162, 158, 0.3);
   --color-scrollbar-hover: rgba(168, 162, 158, 0.5);
 }
 
+/* ── Dark Theme ── */
+
 [data-theme="causaganhadark"] {
-  --accent-gold: #d97706;
-  --accent-gold-hover: #f59e0b;
+  --color-base-100: #0c0a09;
+  --color-base-200: #1c1917;
+  --color-base-300: #292524;
+  --color-base-content: #fafaf9;
+
+  --color-primary: #e7e5e4;
+  --color-primary-content: #1c1917;
+  --color-secondary: #a8a29e;
+  --color-secondary-content: #1c1917;
+  --color-accent: #d97706;
+  --color-accent-content: #1c1917;
+  --color-neutral: #fafaf9;
+  --color-neutral-content: #0c0a09;
+
+  --color-info: #60a5fa;
+  --color-info-content: #0c0a09;
+  --color-success: #10b981;
+  --color-success-content: #0c0a09;
+  --color-warning: #f59e0b;
+  --color-warning-content: #0c0a09;
+  --color-error: #ef4444;
+  --color-error-content: #0c0a09;
 
   --color-bg: #0c0a09;
   --color-surface: #1c1917;
@@ -130,9 +154,76 @@
   --color-content: #fafaf9;
   --color-content-secondary: #a8a29e;
   --color-content-tertiary: #78716c;
+
+  --accent-gold: #d97706;
+  --accent-gold-hover: #f59e0b;
+
   --color-scrollbar: rgba(120, 113, 108, 0.3);
   --color-scrollbar-hover: rgba(120, 113, 108, 0.5);
 }
+
+/* ═══════════════════════════════════════════
+   Base Element Styles
+   ═══════════════════════════════════════════ */
+
+html {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  color: var(--color-base-content);
+  background: var(--color-base-100);
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code, pre, kbd {
+  font-family: var(--font-mono);
+}
+
+pre {
+  overflow-x: auto;
+  padding: var(--space-sm);
+  background: var(--color-base-200);
+  border-radius: var(--radius-box);
+  font-size: var(--font-size-sm);
+}
+
+code {
+  font-size: 0.875em;
+  background: var(--color-base-200);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+h1 { font-size: var(--font-size-3xl); }
+h2 { font-size: var(--font-size-2xl); }
+h3 { font-size: var(--font-size-xl); }
+h4 { font-size: var(--font-size-lg); }
+h5 { font-size: var(--font-size-md); }
+
+small { font-size: var(--font-size-sm); }
 
 /* ═══════════════════════════════════════════
    Selection & Scrollbar
@@ -149,8 +240,38 @@
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: 9999px; }
+::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-scrollbar-hover); }
+
+/* ═══════════════════════════════════════════
+   Global Utility Classes
+   ═══════════════════════════════════════════ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: var(--space-sm);
+}
+
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ═══════════════════════════════════════════
    Stat Elements
@@ -159,7 +280,7 @@
 .stat-value {
   font-size: 2.5rem;
   font-weight: 800;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   color: var(--color-content);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
@@ -199,18 +320,12 @@
 
 .heatmap-focused { outline: 2px solid var(--color-primary); outline-offset: 1px; z-index: 10; transform: scale(1.1); }
 
+.heatmap-cell { transition: opacity var(--transition-base); }
+
 /* Velocity bar colors */
 .bar-success { background: #059669; }
 .bar-warning { background: #d97706; }
 .bar-danger { background: #dc2626; }
-
-/* ═══════════════════════════════════════════
-   Heatmap Cells - Calendar Table
-   ═══════════════════════════════════════════ */
-
-.heatmap-cell {
-  transition: opacity var(--transition-base);
-}
 
 /* ═══════════════════════════════════════════
    Animations
@@ -224,6 +339,11 @@
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .cg-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
@@ -242,7 +362,7 @@
   color: var(--color-content-tertiary);
   background: var(--color-surface-overlay);
   border: 1px dashed var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-box);
   gap: var(--space-sm);
 }
 
@@ -283,15 +403,8 @@
 }
 
 /* ═══════════════════════════════════════════
-   Utilities & Responsiveness
+   Responsive Utilities
    ═══════════════════════════════════════════ */
-
-.table-responsive {
-  display: block;
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
 
 @media (max-width: 640px) {
   .hero-h1 {

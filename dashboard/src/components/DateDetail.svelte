@@ -225,7 +225,7 @@
 {#snippet DateShareButton()}
   <button
     onclick={handleShareClick}
-    class="btn btn-outline btn-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5"
+    class="btn-outline-secondary"
   >
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -255,28 +255,28 @@
   {/if}
 
   <!-- Date header -->
-  <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
-    <div class="card-body p-6">
-      <header class="flex justify-between items-center flex-wrap gap-4">
-        <div class="flex items-center gap-6 flex-wrap">
-          <h3 class="m-0">{dateStr}</h3>
+  <div class="card">
+    <div class="card-body">
+      <header class="header-row">
+        <div class="header-info">
+          <h3 class="date-title">{dateStr}</h3>
           {#if zipSize != null}
-            <span class="badge badge-accent">{formatSize(zipSize)}</span>
+            <span class="badge-accent">{formatSize(zipSize)}</span>
           {/if}
           {#if totalPages > 0}
-            <span class="opacity-50 text-sm">{totalPages} pág.</span>
+            <span class="meta-dim">{totalPages} pág.</span>
           {/if}
           {#if itemFileCount != null}
-            <span class="opacity-50 text-sm">{itemFileCount} arquivos</span>
+            <span class="meta-dim">{itemFileCount} arquivos</span>
           {/if}
         </div>
-        <div class="flex gap-2" aria-label="Ações do arquivo">
+        <div class="header-actions" aria-label="Ações do arquivo">
           {@render DateShareButton()}
-          <a href={zipUrl} class="btn btn-outline btn-secondary text-xs px-3 py-1.5" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} class="btn btn-outline btn-secondary text-xs px-3 py-1.5" target="_blank" rel="noopener noreferrer">Ver no IA</a>
+          <a href={zipUrl} class="btn-outline-secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
+          <a href={`https://archive.org/details/${itemId}`} class="btn-outline-secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
         </div>
       </header>
-      <div class="flex gap-6 text-xs opacity-50 mt-4">
+      <div class="meta-row">
         {#if zipAddedDate}
           <span title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
             Arquivado {formatRelativeTime(zipAddedDate)}
@@ -292,11 +292,11 @@
   </div>
 
   {#if loading}
-    <div class="flex justify-center p-8"><span class="loading loading-spinner loading-lg"></span></div>
+    <div class="loading-center"><span class="spinner spinner--lg"></span></div>
   {/if}
 
   {#if error}
-    <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body text-error text-center">Erro: {error}</div></div>
+    <div class="card"><div class="card-body error-text">Erro: {error}</div></div>
   {/if}
 
   {#if publications.length > 0 && !featuredPub}
@@ -314,20 +314,169 @@
   {/if}
 
   {#if currentPage < totalPages && !loading}
-    <div class="text-center mt-16">
-      <button onclick={handleLoadMore} disabled={loadingMore} class="btn btn-secondary" aria-busy={loadingMore}>
+    <div class="load-more-row">
+      <button onclick={handleLoadMore} disabled={loadingMore} class="btn btn--secondary" aria-busy={loadingMore}>
         {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
       </button>
     </div>
   {/if}
 
   {#if currentPage >= totalPages && publications.length > 0 && !loading && !featuredPub}
-    <div class="text-center mt-16 opacity-50 text-sm">
+    <div class="end-summary">
       {publications.length.toLocaleString()} publicações
     </div>
   {/if}
 
   {#if !loading && publications.length === 0 && !error}
-    <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body text-center opacity-50">Nenhuma publicação encontrada.</div></div>
+    <div class="card"><div class="card-body empty-text">Nenhuma publicação encontrada.</div></div>
   {/if}
 </div>
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    margin-bottom: 2rem;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .header-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .date-title {
+    margin: 0;
+  }
+
+  .badge-accent {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+    color: var(--color-accent-content);
+  }
+
+  .meta-dim {
+    opacity: 0.5;
+    font-size: var(--font-size-sm);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-outline-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid var(--color-secondary);
+    background: transparent;
+    color: var(--color-secondary);
+    text-decoration: none;
+  }
+
+  .btn-outline-secondary:hover {
+    background: var(--color-secondary);
+    color: var(--color-secondary-content);
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 1.5rem;
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    margin-top: 1rem;
+  }
+
+  .loading-center {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .spinner {
+    border: 2px solid var(--color-base-300);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  .spinner--lg {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .error-text {
+    color: var(--color-error);
+    text-align: center;
+  }
+
+  .empty-text {
+    text-align: center;
+    opacity: 0.5;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+
+  .btn--secondary {
+    background: var(--color-secondary);
+    color: var(--color-secondary-content);
+  }
+
+  .load-more-row {
+    text-align: center;
+    margin-top: 4rem;
+  }
+
+  .end-summary {
+    text-align: center;
+    margin-top: 4rem;
+    opacity: 0.5;
+    font-size: var(--font-size-sm);
+  }
+</style>

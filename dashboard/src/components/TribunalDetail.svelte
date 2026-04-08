@@ -158,7 +158,7 @@
   });
 
   let isComplete = $derived(actualMissingDays === 0 && expectedDays > 0);
-  let statusColor = $derived(isComplete ? "text-success" : "text-warning");
+  let statusColor = $derived(isComplete ? "value-success" : "value-warning");
 
   let absentList = $derived(absentCoverage[selectedTribunal] || []);
   let absentSet = $derived(new Set(absentList));
@@ -201,7 +201,7 @@
 </script>
 
 {#if !hashReady && typeof window !== 'undefined'}
-  <div class="flex justify-center p-8"><span class="loading loading-spinner loading-lg"></span></div>
+  <div class="loading-container"><span class="spinner"></span></div>
 {:else}
   <div>
     {#if hasFeaturedPub && activeDate}
@@ -213,8 +213,8 @@
       />
     {/if}
 
-    <div class="flex justify-between items-center mb-4">
-      <div class="breadcrumbs mb-0">
+    <div class="toolbar">
+      <div class="breadcrumbs">
         <ul>
           <li><a href={`${baseUrl}`}>CausaGanha</a></li>
           <li><a href={`${baseUrl}publicacoes`}>Publicacoes</a></li>
@@ -223,7 +223,7 @@
               id="tribunal-select"
               value={selectedTribunal}
               onchange={handleTribunalChange}
-              class="select select-ghost select-sm"
+              class="tribunal-select"
             >
               {#each TRIBUNAL_GROUPS as group}
                 <optgroup label={group.name}>
@@ -236,7 +236,7 @@
           </li>
         </ul>
       </div>
-      <div class="flex gap-2">
+      <div class="toolbar-actions">
         <button
           class="btn btn-sm btn-ghost"
           onclick={exportCsv}
@@ -258,12 +258,12 @@
       </div>
     </div>
 
-    <div class="flex justify-between items-end mb-6">
+    <div class="title-section">
       <div>
-        <h1 class="text-3xl font-bold">{selectedTribunal}</h1>
+        <h1 class="tribunal-title">{selectedTribunal}</h1>
         {#if qualityScore}
           <span
-            class={`badge mt-2 ${qualityBadgeClass}`}
+            class={`badge quality-badge ${qualityBadgeClass}`}
             title={`Completude: ${qualityScore.completeness}%\nRecencia: ${qualityScore.recency}%\nConsistencia: ${qualityScore.consistency}%`}
           >
             Qualidade: {qualityScore.grade}
@@ -272,13 +272,13 @@
       </div>
     </div>
 
-    <div class="stats stats-vertical md:stats-horizontal shadow-sm border border-base-300 w-full mb-8">
+    <div class="stats">
       <div class="stat">
         <div class="stat-title">Progresso da Coleta</div>
-        <div class="stat-value text-primary">{completionPct}%</div>
-        <div class="stat-desc mt-1">
-          <progress class="progress progress-primary w-full" value={Math.round(syncedPct)} max="100"></progress>
-          <div class="flex justify-between mt-1">
+        <div class="stat-value value-primary">{completionPct}%</div>
+        <div class="stat-desc">
+          <progress class="progress-bar progress-primary" value={Math.round(syncedPct)} max="100"></progress>
+          <div class="progress-legend">
             <span>{selectedCoverage.size} itens sincronizados</span>
             <span>{absentCount} dias ausentes</span>
           </div>
@@ -298,9 +298,10 @@
       </div>
     </div>
 
-    <div role="tablist" class="tabs tabs-lifted mb-8">
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab font-semibold" aria-label="Calendario" checked />
-      <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4 md:p-6 shadow-sm">
+    <div class="tabs" role="tablist">
+      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Calendario" id="tab-calendario" checked />
+      <label for="tab-calendario" class="tab-label">Calendario</label>
+      <div role="tabpanel" class="tab-content">
         <Heatmap
           globalStartDateStr={targetRange.start}
           globalEndDateStr={targetRange.end}
@@ -315,21 +316,22 @@
         />
       </div>
 
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab font-semibold" aria-label="Estatisticas & Arquivo" />
-      <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4 md:p-6 shadow-sm">
-        <div class="grid md:grid-cols-2 gap-8">
+      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Estatisticas & Arquivo" id="tab-stats" />
+      <label for="tab-stats" class="tab-label">Estatisticas & Arquivo</label>
+      <div role="tabpanel" class="tab-content">
+        <div class="two-col-grid">
           <div>
-            <h3 class="text-xl mb-4">Informacoes do Pipeline</h3>
-            <div class="space-y-4">
+            <h3 class="subsection-title">Informacoes do Pipeline</h3>
+            <div class="info-stack">
               <div>
-                <small class="opacity-50 block uppercase tracking-widest text-xs">Data inicial do tribunal</small>
-                <strong class="text-sm">{genesisDate || "Desconhecida"}</strong>
+                <small class="field-label">Data inicial do tribunal</small>
+                <strong class="field-value">{genesisDate || "Desconhecida"}</strong>
               </div>
 
               {#if cursorDate && !isStopped}
                 <div>
-                  <small class="opacity-50 block uppercase tracking-widest text-xs">Cursor de varredura atual</small>
-                  <strong class="text-primary text-sm">{cursorDate}</strong>
+                  <small class="field-label">Cursor de varredura atual</small>
+                  <strong class="field-value value-primary">{cursorDate}</strong>
                 </div>
               {/if}
 
@@ -342,20 +344,20 @@
           </div>
 
           <div>
-            <h3 class="text-xl mb-4">Internet Archive</h3>
-            <div class="space-y-6">
+            <h3 class="subsection-title">Internet Archive</h3>
+            <div class="ia-stack">
               <a
                 href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="btn btn-outline btn-sm w-full sm:w-auto"
+                class="btn btn-outline btn-sm"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1.25rem; height: 1.25rem;">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
                 Ver colecao de {iaYear} no IA
               </a>
-              <div class="bg-base-200 p-4 rounded-lg">
+              <div class="data-access-wrapper">
                 <DataAccessPanel
                   tribunalCode={selectedTribunal}
                   year={iaYear}
@@ -376,3 +378,368 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  /* Loading */
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--color-base-300);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* Breadcrumbs */
+  .breadcrumbs {
+    margin-bottom: 0;
+  }
+
+  .breadcrumbs ul {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    gap: 0.25rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .breadcrumbs li {
+    display: flex;
+    align-items: center;
+  }
+
+  .breadcrumbs li + li::before {
+    content: '/';
+    margin: 0 0.5rem;
+    opacity: 0.4;
+  }
+
+  .breadcrumbs a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .breadcrumbs a:hover {
+    text-decoration: underline;
+  }
+
+  /* Tribunal select */
+  .tribunal-select {
+    border: none;
+    background: transparent;
+    padding: 0.25rem 0.5rem;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    text-decoration: none;
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: inherit;
+  }
+
+  .btn-ghost:hover {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+  }
+
+  .btn-outline {
+    background: transparent;
+    border-color: var(--color-base-300);
+    color: inherit;
+  }
+
+  .btn-outline:hover {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+  }
+
+  /* Title section */
+  .title-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+  }
+
+  .tribunal-title {
+    font-size: var(--font-size-3xl, 1.875rem);
+    font-weight: 700;
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    border-radius: var(--radius-full);
+  }
+
+  .quality-badge {
+    margin-top: 0.5rem;
+  }
+
+  .badge-success {
+    background: var(--color-success);
+    color: var(--color-success-content, #fff);
+  }
+
+  .badge-accent {
+    background: var(--color-accent);
+    color: var(--color-accent-content, #fff);
+  }
+
+  .badge-warning {
+    background: var(--color-warning);
+    color: var(--color-warning-content, #fff);
+  }
+
+  .badge-error {
+    background: var(--color-error);
+    color: var(--color-error-content, #fff);
+  }
+
+  /* Stats */
+  .stats {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    width: 100%;
+    margin-bottom: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .stats {
+      flex-direction: row;
+    }
+  }
+
+  .stat {
+    padding: 1rem 1.5rem;
+    flex: 1;
+  }
+
+  .stat-title {
+    opacity: 0.6;
+    font-size: var(--font-size-sm);
+  }
+
+  .stat-value {
+    font-size: var(--font-size-2xl, 1.5rem);
+    font-weight: 700;
+  }
+
+  .stat-desc {
+    margin-top: 0.25rem;
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+  }
+
+  .value-primary {
+    color: var(--color-primary);
+  }
+
+  .value-success {
+    color: var(--color-success);
+  }
+
+  .value-warning {
+    color: var(--color-warning);
+  }
+
+  /* Progress bars */
+  .progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    appearance: none;
+    border-radius: var(--radius-full);
+  }
+
+  .progress-bar::-webkit-progress-bar {
+    background: var(--color-base-300);
+    border-radius: var(--radius-full);
+  }
+
+  .progress-primary::-webkit-progress-value {
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+  }
+
+  .progress-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    font-size: var(--font-size-xs);
+    opacity: 0.6;
+  }
+
+  /* Tabs */
+  .tabs {
+    margin-bottom: 2rem;
+  }
+
+  .tab-input {
+    display: none;
+  }
+
+  .tab-label {
+    display: inline-block;
+    padding: 0.75rem 1.25rem;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius-box) var(--radius-box) 0 0;
+    margin-right: 0.25rem;
+    position: relative;
+    top: 1px;
+    background: transparent;
+    opacity: 0.6;
+  }
+
+  .tab-input:checked + .tab-label {
+    background: var(--color-base-100);
+    border-color: var(--color-base-300);
+    opacity: 1;
+  }
+
+  .tab-content {
+    display: none;
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: 0 var(--radius-box) var(--radius-box) var(--radius-box);
+    padding: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (min-width: 768px) {
+    .tab-content {
+      padding: 1.5rem;
+    }
+  }
+
+  .tab-input:checked + .tab-label + .tab-content {
+    display: block;
+  }
+
+  /* Two column grid */
+  .two-col-grid {
+    display: grid;
+    gap: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .two-col-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Subsections */
+  .subsection-title {
+    font-size: var(--font-size-xl, 1.25rem);
+    margin-bottom: 1rem;
+  }
+
+  .info-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .ia-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .field-label {
+    opacity: 0.5;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: var(--font-size-xs);
+  }
+
+  .field-value {
+    font-size: var(--font-size-sm);
+  }
+
+  /* Data access wrapper */
+  .data-access-wrapper {
+    background: var(--color-base-200);
+    padding: 1rem;
+    border-radius: var(--radius-box);
+  }
+
+  /* Alert */
+  .alert {
+    padding: 1rem;
+    border-radius: var(--radius-box);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .alert-error {
+    background: var(--color-error);
+    color: var(--color-error-content, #fff);
+  }
+
+  @media (min-width: 640px) {
+    .btn-outline {
+      width: auto;
+    }
+  }
+</style>

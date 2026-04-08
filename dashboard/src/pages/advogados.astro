@@ -26,10 +26,10 @@ const avgCoverage = tribunalStats.length
 <Layout title="Advogados - CausaGanha" description="Cobertura por tribunal para exploração de dados de advogados/OAB no acervo público.">
   <Header variant="page" title="Advogados / OAB" subtitle="Cobertura por tribunal para consultas de advogados" backHref={BASE} backLabel="Início" />
 
-  <div class="container mx-auto px-4">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />
 
-    <div class="mb-8">
+    <div class="alert-wrapper">
       <AlertBanner
         level="info"
         title="Sem ranking nominal público"
@@ -37,14 +37,45 @@ const avgCoverage = tribunalStats.length
       />
     </div>
 
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 mb-8">
+    <section class="stats-grid">
       <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura recente" />
       <StatCard title="Cobertura média" value={`${avgCoverage.toFixed(1)}%`} subtitle="Dias com dados / dias totais" tone="info" />
       <StatCard title="Fonte" value="cache/backfill.json" subtitle="Snapshot já usado no dashboard" />
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <section class="cards-grid">
       {tribunalStats.map((index) => <LawyerCard index={index} />)}
     </section>
   </div>
 </Layout>
+
+<style>
+  .alert-wrapper {
+    margin-bottom: var(--space-lg);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-lg);
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+  }
+
+  @media (min-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .cards-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

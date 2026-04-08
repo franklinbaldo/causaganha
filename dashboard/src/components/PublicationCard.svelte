@@ -141,21 +141,21 @@
 
 {#if compact}
   <!-- Compact view -->
-  <div class="card bg-base-100 shadow-sm border border-base-300" id={`pub-${seq}`}><div class="card-body p-4">
-    <header class="flex justify-between items-baseline items-center border-b border-base-300 pb-4 mb-4 flex-wrap gap-4">
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center gap-4 flex-wrap">
-          <span class="font-mono text-xs opacity-50">#{seq}</span>
+  <div class="card" id={`pub-${seq}`}><div class="card-body compact-body">
+    <header class="card-header">
+      <div class="header-left-stack">
+        <div class="header-meta">
+          <span class="seq-number">#{seq}</span>
           {#if pub.tipoComunicacao}
             <span class="badge">{pub.tipoComunicacao}</span>
           {/if}
         </div>
         {#if processNumber}
-          <span class="text-accent text-lg font-semibold font-mono">{processNumber}</span>
+          <span class="process-number process-number-lg">{processNumber}</span>
         {/if}
       </div>
       <button
-        class="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2"
+        class="btn-outline-secondary"
         onclick={(e: MouseEvent) => handleShare(e, 'compact')}
         title="Copiar link"
       >
@@ -164,24 +164,24 @@
       </button>
     </header>
     {#if pub.nomeOrgao}
-      <small class="text-primary font-medium text-xs block mb-4">{pub.nomeOrgao}</small>
+      <small class="orgao-name">{pub.nomeOrgao}</small>
     {/if}
     {#if pub.texto}
-      <p class="text-sm opacity-70 leading-relaxed">
+      <p class="text-preview">
         {pub.texto.length > 300 ? pub.texto.substring(0, 300) + '...' : pub.texto}
       </p>
     {/if}
     {#if pub.destinatarios && pub.destinatarios.length > 0}
-      <div class="flex flex-wrap gap-2">
+      <div class="tags-row">
         {#each pub.destinatarios as d}
           <span class="badge">{d.nome}</span>
         {/each}
       </div>
     {/if}
     {#if pub.destinatarioadvogados && pub.destinatarioadvogados.length > 0}
-      <div class="flex flex-wrap gap-2 mt-2">
+      <div class="tags-row lawyers-row">
         {#each pub.destinatarioadvogados as da}
-          <span class="text-xs opacity-50">
+          <span class="lawyer-text">
             {da.advogado?.nome} {da.advogado?.numero_oab ? `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})` : ''}
           </span>
         {/each}
@@ -191,16 +191,16 @@
 
 {:else if isReaderMode}
   <!-- Reader mode -->
-  <div class="card bg-base-100 shadow-sm border border-base-300 reader-mode" id={`pub-${seq}`}><div class="card-body p-6">
-    <header class="flex justify-between items-baseline flex-wrap gap-4 border-b border-base-300 pb-4 mb-6 items-center">
-      <div class="flex items-center flex-wrap gap-4">
-        <span class="font-mono text-xs font-semibold opacity-50">#{seq}</span>
+  <div class="card reader-mode" id={`pub-${seq}`}><div class="card-body reader-body">
+    <header class="card-header">
+      <div class="header-meta">
+        <span class="seq-number seq-bold">#{seq}</span>
         <span class="badge">Modo Leitura</span>
-        <small class="opacity-50 text-xs">{dateStr}</small>
+        <small class="date-label">{dateStr}</small>
       </div>
-      <div class="flex gap-2" aria-label="Ações de navegação e leitura">
+      <div class="header-actions" aria-label="Ações de navegação e leitura">
         <button
-          class="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2 min-h-6 min-w-6"
+          class="btn-outline-secondary"
           onclick={() => isReaderMode = false}
           title="Sair do Modo Leitura"
         >
@@ -210,7 +210,7 @@
           Voltar
         </button>
         <button
-          class="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2"
+          class="btn-outline-secondary"
           onclick={(e: MouseEvent) => handleShare(e, 'reader')}
           title="Copiar link"
         >
@@ -221,29 +221,29 @@
     </header>
 
     {#if processNumber}
-      <h2 class="text-accent text-2xl font-semibold font-mono mb-2">{processNumber}</h2>
+      <h2 class="process-number process-number-xl">{processNumber}</h2>
     {/if}
     {#if pub.nomeOrgao}
-      <p class="opacity-50 text-sm mb-10">{pub.nomeOrgao}</p>
+      <p class="orgao-name-reader">{pub.nomeOrgao}</p>
     {/if}
 
-    <div class="ai-summary-placeholder p-4 mb-10 border rounded bg-surface-overlay">
-      <div class="flex items-center gap-4 mb-2">
+    <div class="ai-summary-placeholder">
+      <div class="ai-summary-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-gold)" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <strong class="text-sm uppercase tracking-widest text-accent">Resumo com IA (Em breve)</strong>
+        <strong class="ai-summary-title">Resumo com IA (Em breve)</strong>
       </div>
-      <p class="text-sm opacity-70 m-0">
+      <p class="ai-summary-text">
         Esta seção fornecerá um resumo em linguagem clara da decisão e seu resultado.
       </p>
     </div>
 
-    <div class="reader-content pt-6">
+    <div class="reader-content">
       {#if textParts.length > 0}
         <div class="reader-text">
           {#each textParts as part}
-            <p class="text-lg text-primary leading-loose mb-6">
+            <p class="reader-paragraph">
               {#each highlightText(part, terms) as segment}
                 {#if segment.type}
                   <mark class={segment.type === 'party' ? 'entity-party' : 'entity-lawyer'}>{segment.token}</mark>
@@ -260,18 +260,18 @@
 
 {:else}
   <!-- Full / featured view -->
-  <div class="card bg-base-100 shadow-sm border border-base-300" id={`pub-${seq}`}><div class="card-body p-6">
-    <header class="flex justify-between items-baseline flex-wrap gap-4 border-b border-base-300 pb-4 mb-6 items-center">
-      <div class="flex items-center flex-wrap gap-4">
-        <span class="font-mono text-xs font-semibold opacity-50">#{seq}</span>
+  <div class="card" id={`pub-${seq}`}><div class="card-body featured-body">
+    <header class="card-header">
+      <div class="header-meta">
+        <span class="seq-number seq-bold">#{seq}</span>
         {#if pub.tipoComunicacao}
           <span class="badge">{pub.tipoComunicacao}</span>
         {/if}
-        <small class="opacity-50 text-xs">{dateStr}</small>
+        <small class="date-label">{dateStr}</small>
       </div>
-      <div class="flex gap-2" aria-label="Ações de navegação e leitura">
+      <div class="header-actions" aria-label="Ações de navegação e leitura">
         <button
-          class="btn btn-outline btn-primary text-xs px-4 py-2 inline-flex items-center gap-2 min-h-6 min-w-6"
+          class="btn-outline-primary"
           onclick={() => isReaderMode = true}
           title="Abrir Modo Leitura"
         >
@@ -280,17 +280,17 @@
           </svg>
           Modo Leitura
         </button>
-        <div class="flex items-center gap-2" aria-label="Ações de navegação">
+        <div class="nav-actions" aria-label="Ações de navegação">
           {#if onNavigate}
             <button
-              class="btn btn-outline btn-secondary text-xs px-4 py-2"
+              class="btn-outline-secondary"
               onclick={() => onNavigate(seq - 1)}
               disabled={seq <= 1}
             >
               Anterior
             </button>
             <button
-              class="btn btn-outline btn-secondary text-xs px-4 py-2"
+              class="btn-outline-secondary"
               onclick={() => onNavigate(seq + 1)}
               disabled={totalSeq != null && seq >= totalSeq}
             >
@@ -298,7 +298,7 @@
             </button>
           {/if}
           <button
-            class="btn btn-outline btn-secondary text-xs px-4 py-2 inline-flex items-center gap-2"
+            class="btn-outline-secondary"
             onclick={(e: MouseEvent) => handleShare(e, 'main')}
             title="Copiar link"
           >
@@ -310,16 +310,16 @@
     </header>
 
     {#if processNumber}
-      <div class="text-accent text-lg font-semibold font-mono mb-4">{processNumber}</div>
+      <div class="process-number process-number-lg featured-process">{processNumber}</div>
     {/if}
     {#if pub.nomeOrgao}
-      <small class="block opacity-50 text-xs mb-6">{pub.nomeOrgao}</small>
+      <small class="orgao-name-block">{pub.nomeOrgao}</small>
     {/if}
 
     {#if textParts.length > 0}
-      <div class="border-t border-base-300 pt-6">
+      <div class="text-section">
         {#each textParts as part}
-          <p class="text-sm opacity-70 leading-relaxed">
+          <p class="text-preview">
             {part}
           </p>
         {/each}
@@ -327,9 +327,9 @@
     {/if}
 
     {#if pub.destinatarios && pub.destinatarios.length > 0}
-      <footer class="border-t border-base-300 pt-6 mt-4">
-        <strong class="text-xs uppercase tracking-widest opacity-50 block mb-2">Destinatários</strong>
-        <div class="flex flex-wrap gap-2">
+      <footer class="card-footer">
+        <strong class="footer-label">Destinatários</strong>
+        <div class="tags-row">
           {#each pub.destinatarios as d}
             <span class="badge">{d.nome}</span>
           {/each}
@@ -337,11 +337,11 @@
       </footer>
     {/if}
     {#if pub.destinatarioadvogados && pub.destinatarioadvogados.length > 0}
-      <footer class="border-t border-base-300 pt-6 mt-4">
-        <strong class="text-xs uppercase tracking-widest opacity-50 block mb-2">Advogados</strong>
-        <div class="flex flex-wrap gap-2">
+      <footer class="card-footer">
+        <strong class="footer-label">Advogados</strong>
+        <div class="tags-row">
           {#each pub.destinatarioadvogados as da}
-            <span class="text-sm opacity-70">
+            <span class="lawyer-text-sm">
               {da.advogado?.nome} {da.advogado?.numero_oab ? `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})` : ''}
             </span>
           {/each}
@@ -350,3 +350,280 @@
     {/if}
   </div></div>
 {/if}
+
+<style>
+  /* Card base */
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .compact-body {
+    padding: 1rem;
+  }
+
+  .reader-body {
+    padding: 1.5rem;
+  }
+
+  .featured-body {
+    padding: 1.5rem;
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    border-bottom: 1px solid var(--color-base-300);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .reader-mode .card-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .featured-body .card-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .header-left-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Seq number */
+  .seq-number {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+  }
+
+  .seq-bold {
+    font-weight: 600;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+    color: var(--color-base-content);
+  }
+
+  /* Date label */
+  .date-label {
+    opacity: 0.5;
+    font-size: var(--font-size-xs);
+  }
+
+  /* Process number */
+  .process-number {
+    color: var(--color-accent);
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .process-number-lg {
+    font-size: 1.125rem;
+  }
+
+  .process-number-xl {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .featured-process {
+    margin-bottom: 1rem;
+  }
+
+  /* Buttons */
+  .btn-outline-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-xs);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--color-base-content);
+    cursor: pointer;
+    transition: var(--transition-base);
+    min-height: 1.5rem;
+    min-width: 1.5rem;
+  }
+
+  .btn-outline-secondary:hover {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+  }
+
+  .btn-outline-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-outline-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-xs);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: var(--transition-base);
+    min-height: 1.5rem;
+    min-width: 1.5rem;
+  }
+
+  .btn-outline-primary:hover {
+    background: var(--color-primary);
+    color: var(--color-base-100);
+  }
+
+  /* Orgao name */
+  .orgao-name {
+    display: block;
+    color: var(--color-primary);
+    font-weight: 500;
+    font-size: var(--font-size-xs);
+    margin-bottom: 1rem;
+  }
+
+  .orgao-name-reader {
+    opacity: 0.5;
+    font-size: var(--font-size-sm);
+    margin-bottom: 2.5rem;
+  }
+
+  .orgao-name-block {
+    display: block;
+    opacity: 0.5;
+    font-size: var(--font-size-xs);
+    margin-bottom: 1.5rem;
+  }
+
+  /* Text */
+  .text-preview {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    line-height: 1.625;
+  }
+
+  .text-section {
+    border-top: 1px solid var(--color-base-300);
+    padding-top: 1.5rem;
+  }
+
+  /* Tags */
+  .tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .lawyers-row {
+    margin-top: 0.5rem;
+  }
+
+  .lawyer-text {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+  }
+
+  .lawyer-text-sm {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+  }
+
+  /* Footer */
+  .card-footer {
+    border-top: 1px solid var(--color-base-300);
+    padding-top: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .footer-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    margin-bottom: 0.5rem;
+  }
+
+  /* AI Summary placeholder */
+  .ai-summary-placeholder {
+    padding: 1rem;
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-200, rgba(0, 0, 0, 0.03));
+  }
+
+  .ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .ai-summary-title {
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent);
+  }
+
+  .ai-summary-text {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  /* Reader content */
+  .reader-content {
+    padding-top: 1.5rem;
+  }
+
+  .reader-paragraph {
+    font-size: 1.125rem;
+    color: var(--color-primary);
+    line-height: 2;
+    margin-bottom: 1.5rem;
+  }
+</style>

@@ -171,32 +171,32 @@ LIMIT 20`,
 
 <div>
   <!-- Status -->
-  <div class="mb-6">
+  <div class="status-section">
     {#if dbStatus === 'loading'}
-      <div class="flex items-center gap-2 opacity-70">
-        <span class="loading loading-spinner loading-sm text-primary"></span>
+      <div class="status-loading">
+        <span class="spinner"></span>
         <small>Carregando DuckDB-WASM...</small>
       </div>
     {/if}
     {#if dbStatus === 'ready'}
-      <small class="text-success block whitespace-normal leading-tight">
+      <small class="status-ready">
         DuckDB pronto — consulte arquivos Parquet diretamente do Internet Archive
       </small>
     {/if}
     {#if dbStatus === 'error'}
-      <small class="text-error block whitespace-normal leading-tight">
+      <small class="status-error">
         Erro ao carregar DuckDB-WASM
       </small>
     {/if}
   </div>
 
   <!-- Query templates -->
-  <details class="mb-6">
-    <summary class="cursor-pointer font-medium hover:underline">Consultas de exemplo</summary>
-    <div class="flex flex-col gap-2 mt-2">
+  <details class="templates-section">
+    <summary class="templates-summary">Consultas de exemplo</summary>
+    <div class="templates-list">
       {#each QUERY_TEMPLATES as tmpl}
         <button
-          class="btn btn-outline btn-secondary text-left text-sm py-2 h-auto min-h-[3rem]"
+          class="template-btn"
           onclick={() => {
             sql = tmpl.sql;
             result = null;
@@ -212,7 +212,7 @@ LIMIT 20`,
   <!-- SQL editor -->
   <textarea
     bind:this={textareaEl}
-    class="textarea textarea-bordered font-mono text-sm w-full resize-y min-h-[160px] md:min-h-[200px]"
+    class="sql-editor"
     bind:value={sql}
     onkeydown={handleKeyDown}
     rows="10"
@@ -222,7 +222,7 @@ LIMIT 20`,
   ></textarea>
 
   <!-- Action bar -->
-  <div class="flex gap-4 mb-10 items-center">
+  <div class="action-bar">
     <button
       class="btn"
       onclick={runQuery}
@@ -232,10 +232,10 @@ LIMIT 20`,
       {loading ? 'Executando...' : 'Executar (Ctrl+Enter)'}
     </button>
     {#if result}
-      <button class="btn btn-outline" onclick={exportCsv}>
+      <button class="btn btn--outline" onclick={exportCsv}>
         Exportar CSV
       </button>
-      <small class="opacity-50">
+      <small class="result-meta">
         {result.rowCount} linha{result.rowCount !== 1 ? 's' : ''} em {result.duration}ms
       </small>
     {/if}
@@ -243,28 +243,28 @@ LIMIT 20`,
 
   <!-- Error -->
   {#if error}
-    <div class="card bg-base-100 shadow-sm border border-base-300 border-l-4 border-error"><div class="card-body p-4">
-      <pre class="whitespace-pre-wrap text-sm text-error m-0">{error}</pre>
+    <div class="error-card"><div class="error-card-body">
+      <pre class="error-pre">{error}</pre>
     </div></div>
   {/if}
 
   <!-- Results table -->
   {#if loading && !result}
     <div class="table-responsive">
-      <table class="table table-zebra table-sm">
+      <table class="data-table">
         <thead>
           <tr>
-            <th><div class="skeleton h-4 w-20"></div></th>
-            <th><div class="skeleton h-4 w-32"></div></th>
-            <th><div class="skeleton h-4 w-24"></div></th>
+            <th><div class="skeleton skeleton--w20"></div></th>
+            <th><div class="skeleton skeleton--w32"></div></th>
+            <th><div class="skeleton skeleton--w24"></div></th>
           </tr>
         </thead>
         <tbody>
           {#each [1, 2, 3, 4, 5] as i}
             <tr>
-              <td><div class="skeleton h-4 w-24 opacity-50"></div></td>
-              <td><div class="skeleton h-4 w-48 opacity-50"></div></td>
-              <td><div class="skeleton h-4 w-16 opacity-50"></div></td>
+              <td><div class="skeleton skeleton--w24 skeleton--dim"></div></td>
+              <td><div class="skeleton skeleton--w48 skeleton--dim"></div></td>
+              <td><div class="skeleton skeleton--w16 skeleton--dim"></div></td>
             </tr>
           {/each}
         </tbody>
@@ -274,7 +274,7 @@ LIMIT 20`,
 
   {#if result && result.rows.length > 0}
     <div class="table-responsive">
-      <table class="table table-zebra table-sm table-pin-rows">
+      <table class="data-table data-table--pinned">
         <thead>
           <tr>
             {#each result.columns as col}
@@ -284,11 +284,11 @@ LIMIT 20`,
         </thead>
         <tbody>
           {#each result.rows.slice(0, 500) as row, i}
-            <tr class="hover">
+            <tr class="data-row">
               {#each row as cell, j}
-                <td class="text-sm whitespace-nowrap">
+                <td class="data-cell">
                   {#if cell === null || cell === undefined}
-                    <em class="opacity-50">NULL</em>
+                    <em class="null-value">NULL</em>
                   {:else}
                     {String(cell)}
                   {/if}
@@ -299,7 +299,7 @@ LIMIT 20`,
         </tbody>
       </table>
       {#if result.rows.length > 500}
-        <small class="opacity-50">
+        <small class="truncation-notice">
           Mostrando 500 de {result.rowCount} linhas. Use LIMIT na query para controlar.
         </small>
       {/if}
@@ -307,8 +307,263 @@ LIMIT 20`,
   {/if}
 
   {#if result && result.rows.length === 0}
-    <p class="opacity-50 text-center">
+    <p class="empty-result">
       Nenhum resultado retornado.
     </p>
   {/if}
 </div>
+
+<style>
+  .status-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .status-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0.7;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--color-base-300);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .status-ready {
+    color: var(--color-success);
+    display: block;
+    white-space: normal;
+    line-height: 1.4;
+  }
+
+  .status-error {
+    color: var(--color-error);
+    display: block;
+    white-space: normal;
+    line-height: 1.4;
+  }
+
+  .templates-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .templates-summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .templates-summary:hover {
+    text-decoration: underline;
+  }
+
+  .templates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .template-btn {
+    display: inline-flex;
+    align-items: center;
+    text-align: left;
+    font-size: var(--font-size-sm);
+    padding: 0.5rem 1rem;
+    min-height: 3rem;
+    height: auto;
+    border: 1px solid var(--color-secondary);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--color-secondary);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-weight: 600;
+  }
+
+  .template-btn:hover {
+    background: var(--color-secondary);
+    color: var(--color-secondary-content);
+  }
+
+  .sql-editor {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    width: 100%;
+    resize: vertical;
+    min-height: 160px;
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 768px) {
+    .sql-editor {
+      min-height: 200px;
+    }
+  }
+
+  .action-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    align-items: center;
+    margin-top: 0.75rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn--outline {
+    background: transparent;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn--outline:hover {
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+
+  .result-meta {
+    opacity: 0.5;
+  }
+
+  .error-card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-left: 4px solid var(--color-error);
+    border-radius: var(--radius-box);
+    margin-bottom: 1rem;
+  }
+
+  .error-card-body {
+    padding: 1rem;
+  }
+
+  .error-pre {
+    white-space: pre-wrap;
+    font-size: var(--font-size-sm);
+    color: var(--color-error);
+    margin: 0;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+    font-size: var(--font-size-sm);
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: var(--color-base-200);
+  }
+
+  .data-table--pinned thead {
+    position: sticky;
+    top: 0;
+    background: var(--color-base-100);
+    z-index: 1;
+  }
+
+  .data-row:hover {
+    background: var(--color-base-200);
+  }
+
+  .data-cell {
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+  }
+
+  .null-value {
+    opacity: 0.5;
+  }
+
+  .truncation-notice {
+    opacity: 0.5;
+    display: block;
+    margin-top: 0.5rem;
+  }
+
+  .empty-result {
+    opacity: 0.5;
+    text-align: center;
+  }
+
+  .skeleton {
+    height: 1rem;
+    background: linear-gradient(90deg, var(--color-base-200) 25%, var(--color-base-300) 50%, var(--color-base-200) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+  }
+
+  .skeleton--dim {
+    opacity: 0.5;
+  }
+
+  .skeleton--w16 {
+    width: 4rem;
+  }
+
+  .skeleton--w20 {
+    width: 5rem;
+  }
+
+  .skeleton--w24 {
+    width: 6rem;
+  }
+
+  .skeleton--w32 {
+    width: 8rem;
+  }
+
+  .skeleton--w48 {
+    width: 12rem;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+</style>

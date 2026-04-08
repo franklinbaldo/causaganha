@@ -9,14 +9,66 @@ interface Props {
 const { title, message, actionHref, actionLabel } = Astro.props;
 ---
 
-<div class="card bg-base-200 border border-dashed border-base-300">
-  <div class="card-body text-center">
-    <h3 class="text-lg font-semibold">{title}</h3>
-    <p class="opacity-70">{message}</p>
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-heading">{title}</h3>
+    <p class="card-message">{message}</p>
     {actionHref && actionLabel && (
-      <div class="card-actions justify-center mt-2">
-        <a href={actionHref} class="btn btn-primary btn-sm">{actionLabel}</a>
+      <div class="card-actions">
+        <a href={actionHref} class="btn-primary">{actionLabel}</a>
       </div>
     )}
   </div>
 </div>
+
+<style>
+  .card {
+    background: var(--color-base-200);
+    border: 1px dashed var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .card-heading {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .card-message {
+    opacity: 0.7;
+  }
+
+  .card-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    background: var(--color-primary);
+    color: var(--color-base-100);
+    text-decoration: none;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+</style>

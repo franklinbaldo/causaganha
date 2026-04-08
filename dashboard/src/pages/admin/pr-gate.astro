@@ -14,7 +14,17 @@ import PRGateExplainer from '../../components/PRGateExplainer.svelte';
     subtitle="Explain why a PR is or is not ready to merge"
   />
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <PRGateExplainer client:load />
   </div>
 </Layout>
+
+<style>
+  .page-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+</style>

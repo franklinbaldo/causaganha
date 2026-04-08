@@ -78,16 +78,16 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 
 {#if !expanded}
   <button
-    class="btn btn-secondary w-full flex items-center justify-center gap-2"
+    class="btn btn-expand"
     onclick={() => (expanded = true)}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z" />
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M12 9v6" />
     </svg>
     Acesso aos dados (DuckDB / Parquet)
   </button>
 {:else}
-  <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+  <div class="card"><div class="card-body">
     <header>
       <h4>Acesso aos Dados</h4>
       <button
@@ -127,7 +127,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
                 <a
                   href={f.url} target="_blank"
                   rel="noopener noreferrer"
-                  class="text-accent">
+                  class="file-link">
                   {f.name}
                 </a>
                 <small>{formatSize(f.size)}</small>
@@ -153,3 +153,59 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     {/if}
   </div></div>
 {/if}
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+  }
+
+  .btn-expand {
+    width: 100%;
+    background: var(--color-secondary, var(--color-primary));
+    color: var(--color-secondary-content, var(--color-primary-content));
+  }
+
+  .btn-expand:hover {
+    opacity: 0.9;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border-color: var(--color-base-300);
+    color: var(--color-base-content);
+  }
+
+  .btn-outline:hover {
+    background: var(--color-base-200);
+  }
+
+  .btn-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .file-link {
+    color: var(--color-accent);
+  }
+</style>

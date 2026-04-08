@@ -83,7 +83,7 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
     <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
   </Header>
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Publicações', href: BASE + 'publicacoes' },
@@ -101,3 +101,13 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
     />
   </div>
 </Layout>
+
+<style>
+  .page-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+</style>

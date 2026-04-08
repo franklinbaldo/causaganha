@@ -81,7 +81,7 @@ function sortIcon(field: string): string {
         {#each YEARS as y}
           <button
             onclick={() => { year = y; }}
-            class={year === y ? "btn" : "btn btn-secondary"}>
+            class={year === y ? "year-btn year-btn-active" : "year-btn"}>
             {y}
           </button>
         {/each}
@@ -104,20 +104,20 @@ function sortIcon(field: string): string {
 
   <!-- Summary cards -->
   {#if results.length > 0}
-    <div class="grid">
-      <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+    <div class="summary-grid">
+      <div class="summary-card"><div class="summary-card-body">
         <div>{complete}</div>
         <small>&gt;90%</small>
       </div></div>
-      <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+      <div class="summary-card"><div class="summary-card-body">
         <div>{partial}</div>
         <small>50-89%</small>
       </div></div>
-      <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+      <div class="summary-card"><div class="summary-card-body">
         <div>{low}</div>
         <small>&lt;50%</small>
       </div></div>
-      <div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
+      <div class="summary-card"><div class="summary-card-body">
         <div>{missing}</div>
         <small>Sem dados</small>
       </div></div>
@@ -132,20 +132,20 @@ function sortIcon(field: string): string {
   <!-- Table -->
   <div>
     <div class="table-responsive">
-      <table class="table table-zebra table-sm">
+      <table class="data-table">
         <thead>
           <tr>
-            <th onclick={() => handleSort('tribunal')}>
+            <th class="sortable-th" onclick={() => handleSort('tribunal')}>
               Tribunal{sortIcon('tribunal')}
             </th>
-            <th onclick={() => handleSort('fileCount')}>
+            <th class="sortable-th" onclick={() => handleSort('fileCount')}>
               ZIPs{sortIcon('fileCount')}
             </th>
             <th>Esperado</th>
-            <th onclick={() => handleSort('downloads')}>
+            <th class="sortable-th" onclick={() => handleSort('downloads')}>
               Downloads{sortIcon('downloads')}
             </th>
-            <th onclick={() => handleSort('percentage')}>
+            <th class="sortable-th" onclick={() => handleSort('percentage')}>
               Cobertura{sortIcon('percentage')}
             </th>
             <th>Progresso</th>
@@ -180,9 +180,9 @@ function sortIcon(field: string): string {
                 {/if}
               </td>
               <td>
-                <div>
+                <div class="progress-bar-track">
                   <div
-                    class={colors.bg || undefined}
+                    class={`progress-bar-fill ${colors.bg || ''}`}
                     style="width: {Math.min(100, r.percentage)}%"
                   ></div>
                 </div>
@@ -201,3 +201,98 @@ function sortIcon(field: string): string {
     </div>
   </div>
 </div>
+
+<style>
+  .year-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--color-base-content);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .year-btn-active {
+    background: var(--color-primary);
+    color: var(--color-base-100);
+    border-color: var(--color-primary);
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  @media (max-width: 767px) {
+    .summary-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .summary-card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .summary-card-body {
+    padding: var(--space-sm);
+    text-align: center;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  .data-table thead th {
+    font-weight: 600;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.03));
+  }
+
+  .sortable-th {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sortable-th:hover {
+    color: var(--color-primary);
+  }
+
+  .progress-bar-track {
+    width: 100%;
+    height: 0.5rem;
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    background: var(--color-primary);
+  }
+</style>

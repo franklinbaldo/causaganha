@@ -42,7 +42,7 @@
   });
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
+<div class="card">
   <div class="card-body">
     <h3>Pipeline Run History (Collect ZIPs)</h3>
 
@@ -56,7 +56,7 @@
 
     {#if !loading && !error}
       <div class="table-responsive">
-        <table class="table table-zebra table-sm">
+        <table class="data-table">
           <thead>
             <tr>
               <th>Run Date</th>
@@ -97,3 +97,36 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+    font-size: var(--font-size-sm);
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: var(--color-base-200);
+  }
+</style>

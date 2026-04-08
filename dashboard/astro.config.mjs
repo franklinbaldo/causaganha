@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
-import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
@@ -8,9 +7,6 @@ export default defineConfig({
   site: 'https://franklinbaldo.github.io',
   base: '/causaganha',
   integrations: [svelte()],
-  vite: {
-    plugins: [tailwindcss()],
-  },
   output: 'static',
   trailingSlash: 'never',
   prefetch: {

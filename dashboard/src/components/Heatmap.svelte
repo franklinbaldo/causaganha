@@ -203,9 +203,9 @@
 {#if invalidRange}
   <div>Invalid date range.</div>
 {:else}
-  <div class="flex flex-col gap-8">
+  <div class="heatmap-wrapper">
     <div
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+      class="months-grid"
       role="grid"
       aria-label="Calendário de cobertura para {tribunalName}"
       tabindex="0"
@@ -214,13 +214,13 @@
       onblur={() => { focusedCell = null; hoveredCell = null; }}
     >
       {#each months as m (`${m.year}-${m.month}`)}
-        <div class="card bg-base-100 border border-base-300 p-3">
-          <h5 class="text-sm font-semibold capitalize mb-2">{m.label}</h5>
-          <table class="w-full">
+        <div class="month-card">
+          <h5 class="month-label">{m.label}</h5>
+          <table class="calendar-table">
             <thead>
               <tr>
                 {#each weekdayHeaders as d}
-                  <th class="text-xs opacity-50 font-normal text-center pb-1">{d}</th>
+                  <th class="weekday-header">{d}</th>
                 {/each}
               </tr>
             </thead>
@@ -231,7 +231,7 @@
                     <td
                       id={day ? `cell-${day}` : undefined}
                       role="gridcell"
-                      class="text-center text-xs p-0.5 {day ? `rounded-sm ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'cursor-pointer' : 'cursor-default'}` : ''}"
+                      class="day-cell {day ? `day-cell--active ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'day-cell--clickable' : 'day-cell--default'}` : ''}"
                       aria-label={getAriaLabel(day)}
                       aria-selected={focusedCell === day}
                       onmouseenter={(e: any) => handleCellInteraction(e, day, 'enter')}
@@ -251,23 +251,23 @@
       {/each}
     </div>
 
-    <div class="card bg-base-200">
-      <div class="card-body p-4 flex-row justify-between items-center text-sm flex-wrap gap-4">
-        <span class="opacity-70">
+    <div class="legend-card">
+      <div class="legend-body">
+        <span class="legend-summary">
           <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
         </span>
-        <div class="flex items-center flex-wrap gap-6">
-          <span class="opacity-50">Legenda:</span>
-          <div class="flex items-center gap-2">
-            <div class="heatmap-missing w-3.5 h-3.5 rounded-sm"></div>
+        <div class="legend-items">
+          <span class="legend-label">Legenda:</span>
+          <div class="legend-item">
+            <div class="legend-swatch heatmap-missing"></div>
             <span>Faltante</span>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="heatmap-absent w-3.5 h-3.5 rounded-sm"></div>
+          <div class="legend-item">
+            <div class="legend-swatch heatmap-absent"></div>
             <span>Ausente</span>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="heatmap-collected w-3.5 h-3.5 rounded-sm"></div>
+          <div class="legend-item">
+            <div class="legend-swatch heatmap-collected"></div>
             <span>Coletado</span>
           </div>
         </div>
@@ -275,7 +275,7 @@
     </div>
 
     {#if velocityMetrics && velocityMetrics.hasEnoughHistory}
-      <div class="border-t border-base-300 pt-6 mt-10">
+      <div class="velocity-section">
         <VelocityTimeline metrics={velocityMetrics} />
       </div>
     {/if}
@@ -285,3 +285,128 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .heatmap-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .months-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .months-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .months-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .months-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .month-card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    padding: 0.75rem;
+  }
+
+  .month-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: capitalize;
+    margin-bottom: 0.5rem;
+  }
+
+  .calendar-table {
+    width: 100%;
+  }
+
+  .weekday-header {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    font-weight: 400;
+    text-align: center;
+    padding-bottom: 0.25rem;
+  }
+
+  .day-cell {
+    text-align: center;
+    font-size: var(--font-size-xs);
+    padding: 0.125rem;
+  }
+
+  .day-cell--active {
+    border-radius: var(--radius-sm);
+  }
+
+  .day-cell--clickable {
+    cursor: pointer;
+  }
+
+  .day-cell--default {
+    cursor: default;
+  }
+
+  .legend-card {
+    background: var(--color-base-200);
+    border-radius: var(--radius-box);
+  }
+
+  .legend-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .legend-summary {
+    opacity: 0.7;
+  }
+
+  .legend-items {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  .legend-label {
+    opacity: 0.5;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .legend-swatch {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .velocity-section {
+    border-top: 1px solid var(--color-base-300);
+    padding-top: 1.5rem;
+    margin-top: 2.5rem;
+  }
+</style>

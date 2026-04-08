@@ -76,7 +76,7 @@
   });
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
+<div class="card">
   <div class="card-body">
     <div>
       <h3>Recent Catalog Coverage ({period})</h3>
@@ -84,7 +84,7 @@
         {#each periods as p}
           <button
             onclick={() => handlePeriodChange(p)}
-            class={period === p ? "btn" : "btn btn-secondary"}
+            class={period === p ? "period-btn period-btn-active" : "period-btn"}
           >
             {p}
           </button>
@@ -99,7 +99,7 @@
     {:else}
       <div>
         <div class="table-responsive">
-          <table class="table table-zebra table-sm whitespace-nowrap">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -120,7 +120,7 @@
                 {@const colorClasses = getCoverageColorClass(pct)}
                 {@const textClass = colorClasses.split(' ')[0]}
                 {@const bgClass = colorClasses.split(' ')[1]}
-                <tr class="hover">
+                <tr class="hoverable-row">
                   <td>{displayDate}</td>
                   <td>{tribunalCount}</td>
                   <td>{absentCount}</td>
@@ -128,9 +128,9 @@
                     {pct.toFixed(1)}%
                   </td>
                   <td>
-                    <div>
+                    <div class="progress-bar-track">
                       <div
-                        class={total === 0 ? undefined : bgClass}
+                        class={`progress-bar-fill ${total === 0 ? '' : bgClass}`}
                         style="width: {Math.min(100, pct)}%"
                         title="{pct.toFixed(1)}% Coverage"
                       ></div>
@@ -150,3 +150,84 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .card-body {
+    padding: var(--space-sm);
+  }
+
+  .period-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--color-base-content);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .period-btn-active {
+    background: var(--color-primary);
+    color: var(--color-base-100);
+    border-color: var(--color-primary);
+  }
+
+  .text-error {
+    color: var(--color-error);
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  .data-table thead th {
+    font-weight: 600;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.03));
+  }
+
+  .hoverable-row:hover {
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+  }
+
+  .progress-bar-track {
+    width: 100%;
+    height: 0.5rem;
+    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    background: var(--color-primary);
+  }
+</style>

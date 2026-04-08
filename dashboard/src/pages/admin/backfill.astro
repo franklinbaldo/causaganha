@@ -15,23 +15,78 @@ const total = backfill?.total ?? backfill?.backfill_total ?? 0;
 <Layout title="Admin - Backfill" description="Progresso de backfill e cobertura histórica do pipeline.">
   <Header variant="page" title="Backfill Progress" subtitle="Monitoramento do preenchimento histórico" />
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <AlertBanner level="info" title="Fonte de dados" message="Este painel lê diretamente public/cache/backfill.json no build." />
 
     {backfill ? (
       <>
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <section class="stats-row">
           <StatCard title="Progresso" value={`${progressPct}%`} tone="info" />
           <StatCard title="Itens concluídos" value={completed.toLocaleString('pt-BR')} tone="success" />
           <StatCard title="Total planejado" value={total.toLocaleString('pt-BR')} />
         </section>
 
-        <progress class="progress progress-primary w-full" value={progressPct} max="100"></progress>
+        <progress class="progress-bar" value={progressPct} max="100"></progress>
 
-        <pre class="bg-base-200 rounded p-4 mt-6 text-xs overflow-x-auto"><code>{JSON.stringify(backfill, null, 2)}</code></pre>
+        <pre class="raw-json"><code>{JSON.stringify(backfill, null, 2)}</code></pre>
       </>
     ) : (
       <EmptyState title="Sem snapshot de backfill" message="Não foi possível carregar cache/backfill.json." />
     )}
   </div>
 </Layout>
+
+<style>
+  .page-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    margin-bottom: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .stats-row {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    appearance: none;
+    border-radius: 9999px;
+    border: none;
+  }
+
+  .progress-bar::-webkit-progress-bar {
+    background: var(--color-base-300);
+    border-radius: 9999px;
+  }
+
+  .progress-bar::-webkit-progress-value {
+    background: var(--color-primary);
+    border-radius: 9999px;
+  }
+
+  .progress-bar::-moz-progress-bar {
+    background: var(--color-primary);
+    border-radius: 9999px;
+  }
+
+  .raw-json {
+    background: var(--color-base-200);
+    border-radius: var(--radius-box);
+    padding: var(--space-md);
+    margin-top: 1.5rem;
+    font-size: var(--font-size-xs);
+    overflow-x: auto;
+  }
+</style>

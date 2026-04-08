@@ -29,99 +29,51 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
   fullWidth={true}
 >
-  <style>
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-md);
-      text-align: center;
-      padding: var(--space-lg) 0;
-      border-top: 1px solid var(--color-border);
-      border-bottom: 1px solid var(--color-border);
-    }
-    .stats-grid figure {
-      margin: 0;
-      padding: var(--space-md) 0;
-    }
-    .stats-grid figcaption {
-      font-size: var(--font-size-xs);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-top: 0.5rem;
-      opacity: 0.5;
-    }
-
-    .infra-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-md);
-      text-align: left;
-    }
-    .infra-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-xs);
-      font-size: var(--font-size-sm);
-      opacity: 0.7;
-    }
-    .infra-item svg {
-      width: 24px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-
-    @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .infra-grid { grid-template-columns: 1fr; }
-    }
-  </style>
-
   <!-- Navigation -->
   <Header variant="home" />
 
   <!-- Hero -->
-  <div class="hero min-h-[60vh] bg-base-100">
-    <div class="hero-content w-full max-w-6xl">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
-        <div class="flex flex-col justify-center">
-          <h1 class="hero-h1 text-4xl md:text-5xl font-extrabold tracking-tight leading-tight max-w-[18ch]">Transparência no Mercado Jurídico Brasileiro</h1>
-          <p class="text-lg opacity-70 mt-4 max-w-[52ch]">
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-grid">
+        <div class="hero-text">
+          <h1 class="hero-h1">Transparência no Mercado Jurídico Brasileiro</h1>
+          <p class="hero-description">
             Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
             diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
           </p>
-          <div class="flex flex-col sm:flex-row gap-4 mt-6 flex-wrap">
-            <a href={BASE + 'publicacoes'} class="btn btn-primary w-full sm:w-auto">
+          <div class="hero-actions">
+            <a href={BASE + 'publicacoes'} class="btn btn-primary">
               Ver Publicações
             </a>
-            <a href="#como-funciona" class="btn btn-outline btn-secondary w-full sm:w-auto">
+            <a href="#como-funciona" class="btn btn-outline-secondary">
               Saiba Mais
             </a>
           </div>
         </div>
         <div>
-          <div class="card bg-base-100 shadow-sm border border-base-300">
+          <div class="card">
             <div class="card-body">
-              <div class="flex justify-between items-baseline border-b border-base-300 pb-3">
+              <div class="pipeline-header">
                 <strong>Pipeline ao Vivo</strong>
-                <small class="text-xs opacity-50">Atualizado a cada 20 min</small>
+                <small class="pipeline-updated">Atualizado a cada 20 min</small>
               </div>
-              <ul class="space-y-0 divide-y divide-base-200">
-                <li class="py-4">
+              <ul class="pipeline-list">
+                <li class="pipeline-item">
                   <strong>{tribunalsWithData} tribunais com dados</strong><br/>
-                  <small class="opacity-50">de {totalTribunals} monitorados</small>
+                  <small class="muted">de {totalTribunals} monitorados</small>
                 </li>
-                <li class="py-4">
+                <li class="pipeline-item">
                   <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
-                  <small class="opacity-50">armazenados no Internet Archive</small>
+                  <small class="muted">armazenados no Internet Archive</small>
                 </li>
-                <li class="py-4">
-                  <div class="flex justify-between items-baseline mb-1">
+                <li class="pipeline-item">
+                  <div class="backfill-row">
                     <strong>Backfill</strong>
-                    <span class="font-mono text-sm font-semibold">{progressPct}%</span>
+                    <span class="backfill-pct">{progressPct}%</span>
                   </div>
-                  <progress class="progress progress-primary w-full" value={progressPct} max="100"></progress>
-                  <small class="opacity-50">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
+                  <progress class="progress-bar" value={progressPct} max="100"></progress>
+                  <small class="muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
                 </li>
               </ul>
             </div>
@@ -132,57 +84,57 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </div>
 
   <!-- Stats -->
-  <section id="resumo" class="container mx-auto px-4 mb-16">
-    <div class="text-center mb-10">
-      <h2 class="text-3xl font-bold">Dados Reais do Pipeline</h2>
-      <p class="opacity-60">Números atualizados automaticamente pelo workflow de coleta</p>
+  <section id="resumo" class="section-container">
+    <div class="section-header">
+      <h2 class="section-title">Dados Reais do Pipeline</h2>
+      <p class="section-subtitle">Números atualizados automaticamente pelo workflow de coleta</p>
     </div>
 
     <div class="stats-grid">
       <figure>
-        <div class="stat-value text-info">{formatNumber(totalZips)}</div>
+        <div class="stat-value stat-info">{formatNumber(totalZips)}</div>
         <figcaption>ZIPs Arquivados</figcaption>
       </figure>
       <figure>
-        <div class="stat-value text-success">{tribunalsWithData}</div>
+        <div class="stat-value stat-success">{tribunalsWithData}</div>
         <figcaption>Tribunais com Dados</figcaption>
       </figure>
       <figure>
-        <div class="stat-value text-warning">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
+        <div class="stat-value stat-warning">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
         <figcaption>Volume Arquivado</figcaption>
       </figure>
       <figure>
-        <div class="stat-value text-primary">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
+        <div class="stat-value stat-primary">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
         <figcaption>Dados Públicos</figcaption>
       </figure>
     </div>
   </section>
 
   <!-- How it Works -->
-  <section id="como-funciona" class="mb-16">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-10">
-        <h2 class="text-3xl font-bold">Como Funciona</h2>
-        <p class="opacity-60">Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
+  <section id="como-funciona" class="section-full">
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Como Funciona</h2>
+        <p class="section-subtitle">Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="steps-grid">
+        <div class="card">
           <div class="card-body">
-            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 01</span>
+            <span class="step-label">Passo 01</span>
             <h3 class="card-title">Coleta Automática</h3>
             <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card">
           <div class="card-body">
-            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 02</span>
+            <span class="step-label">Passo 02</span>
             <h3 class="card-title">Arquivo Permanente</h3>
             <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card">
           <div class="card-body">
-            <span class="font-mono text-xs font-semibold uppercase tracking-widest opacity-50">Passo 03</span>
+            <span class="step-label">Passo 03</span>
             <h3 class="card-title">Catálogo Indexado</h3>
             <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
           </div>
@@ -192,40 +144,40 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- Audience -->
-  <section id="para-quem" class="mb-16">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-10">
-        <h2 class="text-3xl font-bold">Para Quem?</h2>
-        <p class="opacity-60">Dados abertos para todo o ecossistema jurídico</p>
+  <section id="para-quem" class="section-full">
+    <div class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">Para Quem?</h2>
+        <p class="section-subtitle">Dados abertos para todo o ecossistema jurídico</p>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="steps-grid">
+        <div class="card">
           <div class="card-body">
             <h3 class="card-title">Pesquisadores</h3>
             <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
-            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+            <ul class="feature-list">
               <li>Dados em formato Parquet</li>
               <li>Consultável via DuckDB</li>
               <li>Histórico completo preservado</li>
             </ul>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card">
           <div class="card-body">
             <h3 class="card-title">LegalTechs</h3>
             <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
-            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+            <ul class="feature-list">
               <li>API via Internet Archive</li>
               <li>Atualização contínua</li>
               <li>Sem custos de licenciamento</li>
             </ul>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card">
           <div class="card-body">
             <h3 class="card-title">Jornalistas</h3>
             <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
-            <ul class="list-disc pl-5 space-y-1 text-sm opacity-70">
+            <ul class="feature-list">
               <li>Dados públicos verificáveis</li>
               <li>Cobertura de {totalTribunals} tribunais</li>
               <li>Arquivo permanente no IA</li>
@@ -237,21 +189,21 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- Open Data -->
-  <section class="mb-16">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-10">
-        <p class="mb-2"><kbd class="kbd kbd-sm text-xs tracking-widest uppercase">100% Aberto e Gratuito</kbd></p>
-        <h2 class="text-3xl font-bold">Dados Abertos Para Sempre</h2>
-        <p class="max-w-[42ch] mx-auto opacity-60">
+  <section class="section-full">
+    <div class="section-container">
+      <div class="section-header">
+        <p class="open-badge"><span class="kbd">100% Aberto e Gratuito</span></p>
+        <h2 class="section-title">Dados Abertos Para Sempre</h2>
+        <p class="section-subtitle section-subtitle--narrow">
           Transparência no judiciário é um direito de todos.
           Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
         </p>
       </div>
 
-      <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
+      <div class="card infra-card">
         <div class="card-body">
-          <h4 class="text-center font-semibold mb-4">Infraestrutura</h4>
-          <ul class="infra-grid" style="list-style: none; padding-left: 0; margin-bottom: 0;">
+          <h4 class="infra-heading">Infraestrutura</h4>
+          <ul class="infra-grid">
             <li class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</li>
             <li class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</li>
             <li class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</li>
@@ -260,15 +212,15 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
       </div>
 
-      <div class="card bg-base-100 shadow-sm border border-base-300 text-center">
-        <div class="card-body py-10">
-          <h4 class="font-semibold mb-1">Apoie o Projeto</h4>
-          <p class="max-w-[38ch] mx-auto opacity-60">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
-          <div class="flex justify-center gap-4 flex-wrap mt-4">
+      <div class="card support-card">
+        <div class="card-body support-body">
+          <h4 class="support-heading">Apoie o Projeto</h4>
+          <p class="support-text">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
+          <div class="support-actions">
             <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-primary">
               <GitHubIcon /> Estrela no GitHub
             </a>
-            <a href={BASE + 'publicacoes'} class="btn btn-outline btn-secondary">
+            <a href={BASE + 'publicacoes'} class="btn btn-outline-secondary">
               Ver Publicações
             </a>
           </div>
@@ -278,41 +230,499 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- FAQ -->
-  <section class="mb-16">
-    <div class="container mx-auto px-4">
-      <div class="max-w-2xl mx-auto">
-        <h2 class="text-center text-3xl font-bold mb-10">Perguntas Frequentes</h2>
-        <div class="space-y-2">
-          <div class="collapse collapse-plus border border-base-300 bg-base-100">
-            <input type="radio" name="faq" checked />
-            <div class="collapse-title font-semibold">De onde vêm os dados?</div>
-            <div class="collapse-content text-base-content/70">
+  <section class="section-full">
+    <div class="section-container">
+      <div class="faq-wrapper">
+        <h2 class="section-title faq-title">Perguntas Frequentes</h2>
+        <div class="faq-list">
+          <details class="faq-item" open>
+            <summary class="faq-summary">De onde vêm os dados?</summary>
+            <div class="faq-content">
               <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
             </div>
-          </div>
-          <div class="collapse collapse-plus border border-base-300 bg-base-100">
-            <input type="radio" name="faq" />
-            <div class="collapse-title font-semibold">Com que frequência os dados são atualizados?</div>
-            <div class="collapse-content text-base-content/70">
+          </details>
+          <details class="faq-item">
+            <summary class="faq-summary">Com que frequência os dados são atualizados?</summary>
+            <div class="faq-content">
               <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
             </div>
-          </div>
-          <div class="collapse collapse-plus border border-base-300 bg-base-100">
-            <input type="radio" name="faq" />
-            <div class="collapse-title font-semibold">Como posso acessar os dados?</div>
-            <div class="collapse-content text-base-content/70">
+          </details>
+          <details class="faq-item">
+            <summary class="faq-summary">Como posso acessar os dados?</summary>
+            <div class="faq-content">
               <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
             </div>
-          </div>
-          <div class="collapse collapse-plus border border-base-300 bg-base-100">
-            <input type="radio" name="faq" />
-            <div class="collapse-title font-semibold">O projeto é open source?</div>
-            <div class="collapse-content text-base-content/70">
-              <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="link">GitHub</a>. Contribuições são bem-vindas.</p>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-summary">O projeto é open source?</summary>
+            <div class="faq-content">
+              <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="faq-link">GitHub</a>. Contribuições são bem-vindas.</p>
             </div>
-          </div>
+          </details>
         </div>
       </div>
     </div>
   </section>
 </Layout>
+
+<style>
+  /* ── Hero ── */
+  .hero {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    background: var(--color-base-100);
+  }
+
+  .hero-content {
+    width: 100%;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .hero-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .hero-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .hero-h1 {
+    font-size: var(--font-size-4xl);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    max-width: 18ch;
+  }
+
+  @media (min-width: 768px) {
+    .hero-h1 {
+      font-size: var(--font-size-5xl);
+    }
+  }
+
+  .hero-description {
+    font-size: var(--font-size-lg);
+    opacity: 0.7;
+    margin-top: 1rem;
+    max-width: 52ch;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  @media (min-width: 640px) {
+    .hero-actions {
+      flex-direction: row;
+    }
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    border: 1px solid transparent;
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-primary-content, #fff);
+    width: 100%;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+
+  @media (min-width: 640px) {
+    .btn-primary,
+    .btn-outline-secondary {
+      width: auto;
+    }
+  }
+
+  .btn-outline-secondary {
+    background: transparent;
+    color: var(--color-secondary);
+    border-color: var(--color-secondary);
+    width: 100%;
+  }
+
+  .btn-outline-secondary:hover {
+    background: var(--color-secondary);
+    color: var(--color-secondary-content, #fff);
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    margin: 0.25rem 0 0.5rem;
+  }
+
+  /* ── Pipeline card ── */
+  .pipeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--color-base-300);
+    padding-bottom: 0.75rem;
+  }
+
+  .pipeline-updated {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+  }
+
+  .pipeline-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .pipeline-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--color-base-200);
+  }
+
+  .pipeline-item:last-child {
+    border-bottom: none;
+  }
+
+  .muted {
+    opacity: 0.5;
+  }
+
+  .backfill-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.25rem;
+  }
+
+  .backfill-pct {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    appearance: none;
+    border-radius: 9999px;
+    border: none;
+  }
+
+  .progress-bar::-webkit-progress-bar {
+    background: var(--color-base-300);
+    border-radius: 9999px;
+  }
+
+  .progress-bar::-webkit-progress-value {
+    background: var(--color-primary);
+    border-radius: 9999px;
+  }
+
+  .progress-bar::-moz-progress-bar {
+    background: var(--color-primary);
+    border-radius: 9999px;
+  }
+
+  /* ── Sections ── */
+  .section-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+    margin-bottom: 4rem;
+  }
+
+  .section-full {
+    margin-bottom: 4rem;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .section-title {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+  }
+
+  .section-subtitle {
+    opacity: 0.6;
+  }
+
+  .section-subtitle--narrow {
+    max-width: 42ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ── Stats grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+    text-align: center;
+    padding: var(--space-lg) 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .stats-grid figure {
+    margin: 0;
+    padding: var(--space-md) 0;
+  }
+
+  .stats-grid figcaption {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.5rem;
+    opacity: 0.5;
+  }
+
+  @media (max-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .stat-value {
+    font-size: var(--font-size-3xl);
+    font-weight: 800;
+  }
+
+  .stat-info { color: var(--color-info); }
+  .stat-success { color: var(--color-success); }
+  .stat-warning { color: var(--color-warning); }
+  .stat-primary { color: var(--color-primary); }
+
+  /* ── Steps / 3-col grid ── */
+  .steps-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .steps-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .step-label {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+  }
+
+  /* ── Feature list ── */
+  .feature-list {
+    list-style: disc;
+    padding-left: 1.25rem;
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+  }
+
+  .feature-list li + li {
+    margin-top: 0.25rem;
+  }
+
+  /* ── Open Data section ── */
+  .open-badge {
+    margin-bottom: 0.5rem;
+  }
+
+  .kbd {
+    display: inline-flex;
+    padding: 0.125rem 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--color-base-200);
+    border: 1px solid var(--color-base-300);
+    border-radius: 0.25rem;
+  }
+
+  .infra-card {
+    margin-bottom: 1.5rem;
+  }
+
+  .infra-heading {
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .infra-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    text-align: left;
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+  }
+
+  .infra-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+  }
+
+  .infra-item :global(svg) {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .infra-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .support-card {
+    text-align: center;
+  }
+
+  .support-body {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .support-heading {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .support-text {
+    max-width: 38ch;
+    margin-left: auto;
+    margin-right: auto;
+    opacity: 0.6;
+  }
+
+  .support-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  /* ── FAQ ── */
+  .faq-wrapper {
+    max-width: 42rem;
+    margin: 0 auto;
+  }
+
+  .faq-title {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .faq-item {
+    border: 1px solid var(--color-base-300);
+    background: var(--color-base-100);
+    border-radius: var(--radius-box);
+    overflow: hidden;
+  }
+
+  .faq-summary {
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .faq-summary::after {
+    content: '+';
+    font-size: 1.25rem;
+    font-weight: 300;
+    transition: transform var(--transition-base);
+  }
+
+  .faq-item[open] > .faq-summary::after {
+    content: '\2212';
+  }
+
+  .faq-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-content {
+    padding: 0 1.5rem 1rem;
+    opacity: 0.7;
+  }
+
+  .faq-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .faq-link:hover {
+    opacity: 0.8;
+  }
+</style>

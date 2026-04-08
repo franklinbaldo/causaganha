@@ -101,26 +101,26 @@
       <LiveStatusWidget />
     </div>
 
-    <div class="grid">
-      <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="stats-grid">
+      <div class="card">
         <div class="card-body">
           <small>Upload Success Rate</small>
-          <div class={successRate >= 90 ? 'text-success' : 'text-error'}>
+          <div class={successRate >= 90 ? 'value-success' : 'value-error'}>
             {successRate.toFixed(1)}%
           </div>
         </div>
       </div>
 
-      <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card">
         <div class="card-body">
           <small>Pending Backlog Days</small>
-          <div class="text-accent">
+          <div class="value-accent">
             {backlogDays}
           </div>
         </div>
       </div>
 
-      <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card">
         <div class="card-body">
           <small>Active Tribunals</small>
           <div>
@@ -130,7 +130,7 @@
       </div>
     </div>
 
-    <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card">
       <div class="card-body">
         <h3>Collection Latency Trend (7 days)</h3>
         <div bind:this={chartEl}></div>
@@ -140,18 +140,18 @@
       </div>
     </div>
 
-    <div class="grid">
-      <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="stats-grid">
+      <div class="card">
         <div class="card-body">
           <h3>Grade Distribution</h3>
           <div bind:this={pieEl}></div>
         </div>
       </div>
 
-      <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card">
         <div class="card-body">
           <h3>Top 5 Slowest Tribunals</h3>
-          <ul>
+          <ul class="slowest-list">
             {#each slowestTribunals as t, idx}
               <li>
                 <span>{idx + 1}. {t.tribunal}</span>
@@ -171,3 +171,53 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1rem;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .value-success {
+    color: var(--color-success);
+  }
+
+  .value-error {
+    color: var(--color-error);
+  }
+
+  .value-accent {
+    color: var(--color-accent);
+  }
+
+  .slowest-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .slowest-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+
+  .slowest-list li:last-child {
+    border-bottom: none;
+  }
+</style>

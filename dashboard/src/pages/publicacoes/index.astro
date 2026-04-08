@@ -35,19 +35,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 >
   <Header variant="page" title="CausaGanha">
     <DatabaseIcon slot="icon" />
-    <p slot="subtitle" class="text-sm opacity-50" style="margin: 0;">
+    <p slot="subtitle" class="header-subtitle">
       {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
     </p>
   </Header>
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Publicações' }
     ]} />
 
-    <div class="mb-12 border border-base-300 rounded-xl p-6 bg-base-100 shadow-sm mt-8">
-      <h2 class="text-xl font-bold mb-6 opacity-80 border-b border-base-200 pb-2">Visão Geral do Arquivo</h2>
+    <div class="overview-card">
+      <h2 class="overview-title">Visão Geral do Arquivo</h2>
       <TribunalView
         client:idle
         initialPipeline={data?.cacheData?.today?.pipeline}
@@ -57,18 +57,89 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       />
     </div>
 
-    <section class="max-w-5xl mx-auto mb-16">
-      <h2 class="text-2xl font-bold mb-4 opacity-90 text-center">Explorador de Arquivos</h2>
-      <p class="text-center opacity-60 mb-8 max-w-2xl mx-auto">
+    <section class="explorer-section">
+      <h2 class="explorer-heading">Explorador de Arquivos</h2>
+      <p class="explorer-description">
         Busque diretamente nos buckets do Internet Archive por tribunal ou ano.
       </p>
       <IASearchBar client:idle />
     </section>
 
-    <footer class="text-center mt-16 py-6 border-t border-base-300">
-      <small class="opacity-50">Dados do DJEN arquivados no Internet Archive.
+    <footer class="page-footer">
+      <small class="footer-text">Dados do DJEN arquivados no Internet Archive.
         {snapshotTime && <span> Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
       </small>
     </footer>
   </div>
 </Layout>
+
+<style>
+  .header-subtitle {
+    font-size: var(--font-size-sm);
+    opacity: 0.5;
+    margin: 0;
+  }
+
+  .page-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+
+  .overview-card {
+    margin-bottom: 3rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    padding: 1.5rem;
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    margin-top: 2rem;
+  }
+
+  .overview-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+    border-bottom: 1px solid var(--color-base-200);
+    padding-bottom: 0.5rem;
+  }
+
+  .explorer-section {
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 4rem;
+  }
+
+  .explorer-heading {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+    text-align: center;
+  }
+
+  .explorer-description {
+    text-align: center;
+    opacity: 0.6;
+    margin-bottom: 2rem;
+    max-width: 42rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .page-footer {
+    text-align: center;
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-top: 1px solid var(--color-base-300);
+  }
+
+  .footer-text {
+    opacity: 0.5;
+  }
+</style>

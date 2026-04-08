@@ -28,13 +28,54 @@ const queries = [
 <Layout title="Consultas SQL - CausaGanha" description="Consultas prontas para acelerar o uso do Explorador DuckDB.">
   <Header variant="page" title="Consultas Prontas" subtitle="Exemplos SQL para usar no explorador" backHref={BASE + 'explorador'} backLabel="Explorador" />
 
-  <div class="container mx-auto px-4">
+  <div class="page-container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Consultas' }]} />
 
-    <p class="my-6 opacity-80">Copie e adapte os blocos abaixo no <a class="link" href={BASE + 'explorador'}>Explorador de Dados</a>.</p>
+    <p class="intro-text">Copie e adapte os blocos abaixo no <a class="link" href={BASE + 'explorador'}>Explorador de Dados</a>.</p>
 
-    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <section class="queries-grid">
       {queries.map((query) => <QueryCard {...query} />)}
     </section>
   </div>
 </Layout>
+
+<style>
+  .page-container {
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  .intro-text {
+    margin-block: 1.5rem;
+    opacity: 0.8;
+  }
+
+  .link {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .link:hover {
+    opacity: 0.8;
+  }
+
+  .queries-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .queries-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .queries-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

@@ -59,21 +59,21 @@
   });
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300"><div class="card-body">
-  <div>
+<div class="card"><div class="card-body">
+  <div class="status-layout">
     <!-- Left: status & stats -->
-    <div>
-      <div role="status" aria-live="polite">
+    <div class="status-left">
+      <div class="status-indicator" role="status" aria-live="polite">
         {#if stats}
           {#if isSuccess}
-            <div class="bg-success-muted">
-              <svg class="text-success" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="icon-circle icon-circle--success">
+              <svg class="icon icon--success" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
             </div>
           {:else}
-            <div class="bg-danger-muted">
-              <svg class="text-error" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="icon-circle icon-circle--error">
+              <svg class="icon icon--error" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
@@ -81,8 +81,8 @@
         {:else}
           <div></div>
         {/if}
-        <div>
-          <div>
+        <div class="status-text">
+          <div class="status-title">
             {#if stats}
               {isSuccess ? 'Pipeline Operational' : 'Pipeline Issue'}
             {:else}
@@ -90,11 +90,11 @@
             {/if}
           </div>
           {#if stats?.timestamp}
-            <small>
+            <small class="status-timestamp">
               Last run: {new Date(stats.timestamp).toLocaleString()}
             </small>
           {/if}
-          <span>
+          <span class="status-subtitle">
             {#if stats}
               {isSuccess ? 'System operational' : 'System fault detected'}
             {:else}
@@ -105,10 +105,10 @@
       </div>
 
       <!-- Stat pills -->
-      <div>
+      <div class="stat-pills">
         {#if health != null}
-          <div>
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div class="stat-pill">
+            <svg class="pill-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
             </svg>
             <span>Health:</span>
@@ -118,7 +118,7 @@
           </div>
         {/if}
         {#if filesToday != null}
-          <div>
+          <div class="stat-pill">
             <span>{isDataStale ? dataDate : 'Today'}:</span>
             <span class={isDataStale ? 'text-warning' : ''}>{filesToday}/91</span>
             {#if isDataStale}
@@ -127,8 +127,8 @@
           </div>
         {/if}
         {#if stats?.duration_seconds != null}
-          <div>
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div class="stat-pill">
+            <svg class="pill-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
             <span>{stats.duration_seconds}s</span>
@@ -138,25 +138,26 @@
     </div>
 
     <!-- Right: countdown & actions -->
-    <div>
+    <div class="status-right">
       {#if stats?.timestamp}
-        <div>
-          <small>Next run</small>
-          <div class="text-accent">{countdown}</div>
+        <div class="countdown-block">
+          <small class="countdown-label">Next run</small>
+          <div class="countdown-value">{countdown}</div>
         </div>
       {/if}
 
       {#if stats?.steps}
         <button
+          class="toggle-btn"
           onclick={() => showDetails = !showDetails}
           aria-expanded={showDetails}
           aria-label="Toggle run details">
           {#if showDetails}
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="toggle-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m18 15-6-6-6 6"/>
             </svg>
           {:else}
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="toggle-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m6 9 6 6 6-6"/>
             </svg>
           {/if}
@@ -167,36 +168,36 @@
 
   <!-- Expandable details -->
   {#if stats?.steps && showDetails}
-    <div>
-      <div>
-        <h3>Pipeline Steps</h3>
-        <div>
+    <div class="details-section">
+      <div class="details-inner">
+        <h3 class="details-heading">Pipeline Steps</h3>
+        <div class="steps-list">
           {#each Object.entries(stats.steps) as [stepName, stepData]}
             {@const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true}
-            <div>
-              <div>
-                <span>
+            <div class="step-item">
+              <div class="step-header">
+                <span class="step-name">
                   {stepName.replace(/_/g, ' ')}
                 </span>
-                <span class="badge {isOk ? 'badge-success' : 'badge-error'}">
+                <span class="badge {isOk ? 'badge--success' : 'badge--error'}">
                   {#if isOk}
-                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="badge-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
                   {:else}
-                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="badge-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
                     </svg>
                   {/if}
                   <span>{isOk ? 'OK' : 'Issue'}</span>
                 </span>
               </div>
-              <div>
+              <div class="step-details">
                 {#each Object.entries(stepData) as [k, v]}
                   {#if k !== 'success'}
-                    <div>
-                      <span>{k.replace(/_/g, ' ')}</span>
-                      <span>{v}</span>
+                    <div class="step-detail-row">
+                      <span class="step-detail-key">{k.replace(/_/g, ' ')}</span>
+                      <span class="step-detail-value">{v}</span>
                     </div>
                   {/if}
                 {/each}
@@ -210,8 +211,8 @@
 
   <!-- IA Task Status -->
   {#if cacheToday?.ia_tasks?.pending_count > 0}
-    <div>
-      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="ia-tasks-notice">
+      <svg class="pill-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
       <span>{cacheToday.ia_tasks.pending_count} tarefa(s) de processamento pendente(s) no Internet Archive</span>
@@ -219,15 +220,313 @@
   {/if}
 
   <!-- Footer -->
-  <footer>
-    <small>Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</small>
+  <footer class="status-footer">
+    <small class="footer-text">Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</small>
     <a
+      class="footer-link"
       href="https://github.com/franklinbaldo/causaganha/actions" target="_blank"
       rel="noopener noreferrer">
       View Actions
-      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="footer-link-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
       </svg>
     </a>
   </footer>
 </div></div>
+
+<style>
+  .card {
+    background: var(--color-base-100);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .status-layout {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .status-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .icon-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+  }
+
+  .icon-circle--success {
+    background: color-mix(in srgb, var(--color-success) 15%, var(--color-base-100));
+  }
+
+  .icon-circle--error {
+    background: color-mix(in srgb, var(--color-error) 15%, var(--color-base-100));
+  }
+
+  .icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon--success {
+    color: var(--color-success);
+  }
+
+  .icon--error {
+    color: var(--color-error);
+  }
+
+  .status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .status-title {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+  }
+
+  .status-timestamp {
+    font-size: var(--font-size-xs);
+    opacity: 0.6;
+  }
+
+  .status-subtitle {
+    font-size: var(--font-size-sm);
+    opacity: 0.6;
+  }
+
+  .stat-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .pill-icon {
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.6;
+  }
+
+  .text-success {
+    color: var(--color-success);
+  }
+
+  .text-error {
+    color: var(--color-error);
+  }
+
+  .text-warning {
+    color: var(--color-warning);
+  }
+
+  .status-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .countdown-block {
+    text-align: center;
+  }
+
+  .countdown-label {
+    font-size: var(--font-size-xs);
+    opacity: 0.6;
+  }
+
+  .countdown-value {
+    color: var(--color-accent);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+
+  .toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    color: var(--color-base-content);
+  }
+
+  .toggle-btn:hover {
+    background: var(--color-base-200);
+  }
+
+  .toggle-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .details-section {
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--color-base-300);
+    padding-top: 1.5rem;
+  }
+
+  .details-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .details-heading {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .step-item {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+  }
+
+  .step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-name {
+    font-weight: 500;
+    text-transform: capitalize;
+    font-size: var(--font-size-sm);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    gap: 0.25rem;
+  }
+
+  .badge--success {
+    background: color-mix(in srgb, var(--color-success) 15%, var(--color-base-100));
+    color: var(--color-success);
+  }
+
+  .badge--error {
+    background: color-mix(in srgb, var(--color-error) 15%, var(--color-base-100));
+    color: var(--color-error);
+  }
+
+  .badge-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .step-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .step-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+  }
+
+  .step-detail-key {
+    opacity: 0.6;
+    text-transform: capitalize;
+  }
+
+  .step-detail-value {
+    font-weight: 500;
+  }
+
+  .ia-tasks-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: var(--font-size-sm);
+    color: var(--color-warning);
+    padding: 0.75rem;
+    background: color-mix(in srgb, var(--color-warning) 10%, var(--color-base-100));
+    border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+    border-radius: var(--radius-sm);
+  }
+
+  .status-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-base-300);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .footer-text {
+    opacity: 0.5;
+    font-size: var(--font-size-xs);
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .footer-link:hover {
+    text-decoration: underline;
+  }
+
+  .footer-link-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+</style>

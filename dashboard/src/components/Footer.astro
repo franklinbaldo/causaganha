@@ -6,23 +6,86 @@ interface Props {
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<footer class="footer bg-base-200 text-base-content mt-20 p-10">
-  <aside>
-    <p class="text-lg font-extrabold tracking-tight">CausaGanha</p>
-    <p class="max-w-xs text-sm opacity-70">Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
-    <p class="text-xs opacity-50">&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</p>
+<footer class="site-footer">
+  <aside class="footer-aside">
+    <p class="footer-brand">CausaGanha</p>
+    <p class="footer-description">Dados judiciais públicos arquivados permanentemente para transparência e acesso universal.</p>
+    <p class="footer-copyright">&copy; {new Date().getFullYear()} CausaGanha. Código aberto sob licença MIT.</p>
   </aside>
-  <nav>
+  <nav class="footer-nav">
     <h6 class="footer-title">Navegação</h6>
-    <a href={BASE + 'sobre'} class="link link-hover">Sobre</a>
-    <a href={BASE + 'publicacoes'} class="link link-hover">Publicações</a>
-    <a href={BASE + 'stats'} class="link link-hover">Estatísticas</a>
-    <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="link link-hover">GitHub</a>
+    <a href={BASE + 'sobre'} class="footer-link">Sobre</a>
+    <a href={BASE + 'publicacoes'} class="footer-link">Publicações</a>
+    <a href={BASE + 'stats'} class="footer-link">Estatísticas</a>
+    <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="footer-link">GitHub</a>
   </nav>
-  <nav>
+  <nav class="footer-nav">
     <h6 class="footer-title">Dados</h6>
-    <a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="link link-hover">Internet Archive</a>
-    <a href={BASE + '#como-funciona'} class="link link-hover">Como Funciona</a>
-    <a href={BASE + '#para-quem'} class="link link-hover">Para Quem</a>
+    <a href="https://archive.org/search?query=identifier%3Adjen-*" target="_blank" rel="noopener" class="footer-link">Internet Archive</a>
+    <a href={BASE + '#como-funciona'} class="footer-link">Como Funciona</a>
+    <a href={BASE + '#para-quem'} class="footer-link">Para Quem</a>
   </nav>
 </footer>
+
+<style>
+  .site-footer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-8, 2rem);
+    background: var(--color-base-200);
+    color: var(--color-base-content);
+    margin-top: var(--space-20, 5rem);
+    padding: var(--space-10, 2.5rem);
+  }
+
+  .footer-aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .footer-brand {
+    font-size: var(--font-size-lg);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+
+  .footer-description {
+    max-width: 20rem;
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .footer-copyright {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    margin: 0;
+  }
+
+  .footer-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .footer-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+    margin: 0;
+  }
+
+  .footer-link {
+    text-decoration: none;
+    color: var(--color-base-content);
+    font-size: var(--font-size-sm);
+  }
+
+  .footer-link:hover {
+    text-decoration: underline;
+  }
+</style>

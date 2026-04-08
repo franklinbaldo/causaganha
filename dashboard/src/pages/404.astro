@@ -7,19 +7,103 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <Layout title="Página não encontrada — CausaGanha">
   <Header variant="page" title="Página não encontrada" backHref={BASE} backLabel="Início" />
 
-  <div class="hero min-h-[50vh]">
-    <div class="hero-content text-center">
-      <div class="max-w-md">
-        <p class="font-mono text-8xl font-extrabold tracking-tighter opacity-20">404</p>
-        <h2 class="text-3xl font-bold mt-4">Página não encontrada</h2>
-        <p class="py-4 opacity-60">
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-inner">
+        <p class="error-code">404</p>
+        <h2 class="error-heading">Página não encontrada</h2>
+        <p class="error-message">
           Este conteúdo pode ainda não ter sido coletado ou o snapshot ainda não foi atualizado.
         </p>
-        <div class="flex gap-4 justify-center">
-          <a href={BASE + 'publicacoes'} class="btn btn-primary">Dashboard</a>
-          <a href={BASE} class="btn btn-outline btn-secondary">Início</a>
+        <div class="action-buttons">
+          <a href={BASE + 'publicacoes'} class="btn-primary">Dashboard</a>
+          <a href={BASE} class="btn-secondary">Início</a>
         </div>
       </div>
     </div>
   </div>
 </Layout>
+
+<style>
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+  }
+
+  .hero-content {
+    text-align: center;
+  }
+
+  .hero-inner {
+    max-width: 28rem;
+  }
+
+  .error-code {
+    font-family: var(--font-mono);
+    font-size: 6rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    opacity: 0.2;
+    line-height: 1;
+  }
+
+  .error-heading {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    margin-top: 1rem;
+  }
+
+  .error-message {
+    padding-block: 1rem;
+    opacity: 0.6;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+    text-decoration: none;
+    border: 1px solid var(--color-primary);
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    background: transparent;
+    border: 1px solid var(--color-secondary);
+    color: var(--color-secondary);
+    text-decoration: none;
+  }
+
+  .btn-secondary:hover {
+    background: var(--color-secondary);
+    color: var(--color-secondary-content);
+  }
+</style>

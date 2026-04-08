@@ -12,9 +12,9 @@
   }
 
   const STATUS_MAP: Record<string, { text: string; className: string }> = {
-    collected: { text: '\u2705 Collected & Uploaded', className: 'text-success' },
-    missing: { text: '\u274C Missing', className: 'text-error' },
-    partial: { text: '\u26A0\uFE0F Partial', className: 'text-warning' },
+    collected: { text: '\u2705 Collected & Uploaded', className: 'status-success' },
+    missing: { text: '\u274C Missing', className: 'status-error' },
+    partial: { text: '\u26A0\uFE0F Partial', className: 'status-warning' },
     outside: { text: 'Outside active range', className: '' },
   };
 
@@ -64,10 +64,10 @@
   <div
     bind:this={tooltipEl}
     role="tooltip"
-    class="bg-neutral text-neutral-content p-4 rounded-lg shadow-xl text-sm z-50 pointer-events-none fixed space-y-1"
+    class="tooltip-container"
     style="top: {style.top}px; left: {style.left}px; opacity: {style.opacity};"
   >
-    <div class="font-bold border-b border-neutral-content/20 pb-1 mb-2">
+    <div class="tooltip-header">
       {cellData.date}
     </div>
     <div class={statusClass || undefined}>
@@ -75,16 +75,64 @@
     </div>
 
     {#if cellData.uploadedAt}
-      <div class="text-xs opacity-70 mt-2">
+      <div class="tooltip-meta">
         <span>Uploaded:</span>{' '}
         <span>{new Date(cellData.uploadedAt).toLocaleString()}</span>
       </div>
     {/if}
     {#if cellData.sizeMb}
-      <div class="text-xs opacity-70">
+      <div class="tooltip-meta-inline">
         <span>Size:</span>{' '}
         <span>{cellData.sizeMb.toFixed(2)} MB</span>
       </div>
     {/if}
   </div>
 {/if}
+
+<style>
+  .tooltip-container {
+    background: var(--color-neutral, #2a2e37);
+    color: var(--color-neutral-content, #fff);
+    padding: 1rem;
+    border-radius: var(--radius-box);
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1);
+    font-size: var(--font-size-sm);
+    z-index: 50;
+    pointer-events: none;
+    position: fixed;
+  }
+
+  .tooltip-container > * + * {
+    margin-top: 0.25rem;
+  }
+
+  .tooltip-header {
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .status-success {
+    color: var(--color-success);
+  }
+
+  .status-error {
+    color: var(--color-error);
+  }
+
+  .status-warning {
+    color: var(--color-warning);
+  }
+
+  .tooltip-meta {
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+    margin-top: 0.5rem;
+  }
+
+  .tooltip-meta-inline {
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+  }
+</style>
