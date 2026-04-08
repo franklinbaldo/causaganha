@@ -1,6 +1,8 @@
 """Check if zero collections occurred on a Brazilian business day."""
+
 import sys
 from datetime import datetime, timedelta, timezone
+
 
 def main():
     if len(sys.argv) < 2:
@@ -27,7 +29,7 @@ def main():
     br_tz = timezone(timedelta(hours=-3))
     today = datetime.now(br_tz).date()
 
-    br_holidays = holidays.country_holidays('BR')
+    br_holidays = holidays.country_holidays("BR")
 
     is_weekend = today.weekday() >= 5
     is_holiday = today in br_holidays
@@ -39,6 +41,7 @@ def main():
 
     print("🚨 CRITICAL: Zero diários coletados hoje (Dia Útil). Check proxy and DJEN status.")
     sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
