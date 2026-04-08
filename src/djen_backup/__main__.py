@@ -128,6 +128,12 @@ def _resolve_ia_auth(*, dry_run: bool) -> str:
     default=False,
     help="Publish live status JSON to the causaganha-live-status Internet Archive item.",
 )
+@click.option(
+    "--skip-if-mostly-complete",
+    is_flag=True,
+    default=False,
+    help="Skip execution if target date has > 80 successful collections.",
+)
 @click.pass_context
 def main(  # noqa: PLR0913
     ctx: click.Context,
@@ -141,6 +147,7 @@ def main(  # noqa: PLR0913
     state_file: Path | None,
     *,
     publish_live_status: bool,
+    skip_if_mostly_complete: bool,
     dry_run: bool,
     skip_absent_markers: bool,
 ) -> None:
@@ -171,6 +178,7 @@ def main(  # noqa: PLR0913
         dry_run=dry_run,
         skip_absent_markers=skip_absent_markers,
         publish_live_status=publish_live_status,
+        skip_if_mostly_complete=skip_if_mostly_complete,
     )
 
     log = structlog.get_logger()

@@ -316,6 +316,7 @@ class BackfillConfig:
     dry_run: bool
     skip_absent_markers: bool = False
     publish_live_status: bool = False
+    skip_if_mostly_complete: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
@@ -949,6 +950,18 @@ async def run_backfill(config: BackfillConfig) -> int:
         )
     else:
         ia_state = local_ia_state
+
+    # Idempotency check for single-day runs
+    if config.skip_if_mostly_complete and config.start_date == config.lower_bound:
+        done_tribs = await ia_state.get_done_tribunals(config.start_date)
+        if len(done_tribs) > 80:
+            log.info(
+                "idempotency_skip",
+                message=f"Skip: today already collected ({len(done_tribs)}/91)",
+                date=config.start_date.isoformat(),
+            )
+            print(f"Skip: today already collected ({len(done_tribs)}/91)")
+            return 0
 
     # 0b. Load discovered Genesis dates
     genesis_dates = {}
