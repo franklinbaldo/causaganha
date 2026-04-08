@@ -146,13 +146,13 @@ export default function App() {
 
       if (iaRes.ok) {
         const data = await iaRes.json();
-        const mapped: ArchiveItem[] = data.response.docs.map((doc: any) => ({
-          id: doc.identifier,
-          tribunal: doc.identifier.split('-').pop(),
-          date: (doc.date || '').split('T')[0],
-          addedate: doc.addeddate,
-          comms: parseInt(doc.total_comunicacoes || '0', 10),
-          hasParquet: doc.format?.includes('Parquet') || false
+        const mapped: ArchiveItem[] = data.response.docs.map((doc: Record<string, unknown>) => ({
+          id: String(doc.identifier),
+          tribunal: String(doc.identifier).split('-').pop() || '',
+          date: (String(doc.date || '')).split('T')[0],
+          addedate: String(doc.addeddate),
+          comms: parseInt(String(doc.total_comunicacoes || '0'), 10),
+          hasParquet: Array.isArray(doc.format) ? doc.format.includes('Parquet') : false
         }));
         setItems(mapped);
 
@@ -176,6 +176,7 @@ export default function App() {
         setRuns(data.workflow_runs || []);
       }
     } catch (err) {
+      console.error("Fetch failed:", err);
       setError("Sync Interrupted. Retrying...");
     } finally {
       setLoading(false);
