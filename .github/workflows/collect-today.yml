@@ -84,6 +84,7 @@ jobs:
           # Skip absent markers to avoid IA spam detection
           CMD="$CMD --skip-absent-markers"
           CMD="$CMD --publish-live-status"
+          CMD="$CMD --skip-if-mostly-complete"
 
           echo "Running: $CMD"
 
