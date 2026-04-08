@@ -150,6 +150,40 @@ def _run_step(
         Path(output_path).unlink(missing_ok=True)
 
 
+def _preflight_checks() -> None:
+    """Check prerequisites before running the pipeline. Exits on failure."""
+    errors: list[str] = []
+
+    # Check IA credentials
+    if not os.environ.get("IAS3_ACCESS_KEY") and not os.environ.get("IA_ACCESS_KEY"):
+        errors.append("IAS3_ACCESS_KEY (ou IA_ACCESS_KEY) não definido no ambiente")
+    if not os.environ.get("IAS3_SECRET_KEY") and not os.environ.get("IA_SECRET_KEY"):
+        errors.append("IAS3_SECRET_KEY (ou IA_SECRET_KEY) não definido no ambiente")
+
+    # Check scripts exist
+    repo_root = Path(__file__).parent.parent.parent.parent.parent
+    scripts_dir = repo_root / "scripts" / "pipeline"
+    for script in ("collect.py", "consolidate.py", "embed.py"):
+        if not (scripts_dir / script).exists():
+            errors.append(f"Script não encontrado: {scripts_dir / script}")
+
+    # Check uv is available
+    import shutil
+    if not shutil.which("uv"):
+        errors.append("'uv' não encontrado no PATH")
+
+    if errors:
+        console.print()
+        console.print(Panel(
+            "\n".join(f"• {e}" for e in errors),
+            title="[red bold]Pre-flight check failed[/red bold]",
+            border_style="red",
+            padding=(1, 2),
+        ))
+        console.print("  [dim]Configure as variáveis em .env ou exporte no shell.[/dim]\n")
+        raise typer.Exit(code=1)
+
+
 def _format_duration(seconds: float) -> str:
     """Format seconds into human-readable duration."""
     if seconds < 60:
@@ -192,16 +226,19 @@ def run(
         "--dry-run",
         help="Simular sem executar.",
     ),
-    pause_on_error: bool = typer.Option(
+    continue_on_error: bool = typer.Option(
         False,
-        "--pause-on-error",
-        help="Pausar e aguardar confirmação em caso de erro (ao invés de abortar).",
+        "--continue-on-error",
+        help="Continuar pipeline mesmo quando um step falha.",
     ),
 ) -> None:
     """Run the backfill pipeline locally."""
     from causaganha.cli import setup_logging
 
     log_file = setup_logging(verbose=verbose)
+
+    if not dry_run:
+        _preflight_checks()
 
     # Resolve target date
     pipeline_date = target_date or _get_next_date()
@@ -289,23 +326,8 @@ def run(
                 ))
                 console.print(f"  [dim]Detalhes completos em: {log_file}[/dim]")
 
-            if pause_on_error:
-                console.print()
-                try:
-                    choice = console.input(
-                        "  [yellow bold]Continuar mesmo assim? [/yellow bold][dim](s/N)[/dim] "
-                    )
-                except (KeyboardInterrupt, EOFError):
-                    choice = ""
-                if choice.strip().lower() in ("s", "y", "sim", "yes"):
-                    console.print("  [dim]Continuando...[/dim]\n")
-                    failed = False  # reset so pipeline continues
-                    continue
-                else:
-                    console.print("  [red]Abortado pelo usuário.[/red]\n")
-                    break
-            else:
-                break  # Stop on first failure
+            if not continue_on_error:
+                break
 
     # Summary table
     console.print()
