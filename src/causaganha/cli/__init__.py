@@ -9,16 +9,20 @@ MAX_QUERY_LENGTH = 80
 import asyncio
 import csv
 import json
+import logging
 import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
 import httpx
 import structlog
 import typer
+from rich.console import Console
+from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.traceback import install as install_rich_traceback
 
 from causaganha.analysis.ground_truth import GroundTruthManager
 from causaganha.analysis.vector_store import VectorStore
@@ -43,7 +47,52 @@ from causaganha.storage.connection import get_connection
 from causaganha.storage.migrations import migration_status, run_migrations
 
 
-# Configure logging
+# Rich console for CLI output (stderr so stdout stays clean for piping)
+console = Console(stderr=True)
+install_rich_traceback(console=console, show_locals=False, width=120)
+
+
+def setup_logging(verbose: bool = False, log_dir: Path = Path("logs")) -> Path:
+    """Configure dual logging: file (DEBUG) + console (WARNING+ or DEBUG if verbose)."""
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / f"pipeline-{date.today().isoformat()}.log"
+
+    # stdlib logging with two handlers
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.handlers.clear()
+
+    # File handler: everything in detail
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(name)s  %(message)s"))
+    root.addHandler(fh)
+
+    # Console handler: warnings+ (or debug if verbose)
+    ch = logging.StreamHandler(sys.stderr)
+    ch.setLevel(logging.DEBUG if verbose else logging.WARNING)
+    ch.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    root.addHandler(ch)
+
+    # Bridge structlog → stdlib logging
+    structlog.configure(
+        processors=[
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    return log_file
+
+
+# Default logging setup (console only, no file)
 structlog.configure(
     processors=[
         structlog.processors.add_log_level,
@@ -82,16 +131,17 @@ COMMON_EXCEPTIONS = (
 
 
 def _handle_error(e: Exception, message: str) -> None:
-    """Formats and prints a standardized error message."""
-    typer.secho(f"❌ {message}", fg=typer.colors.RED, bold=True)
-    error_details = f"{type(e).__name__}: {e}"
-    lines = error_details.splitlines()
-    max_line_length = max(len(line) for line in lines) if lines else 0
-
-    typer.echo("\n" + "┌" + "─" * (max_line_length + 4) + "┐")
-    for line in lines:
-        typer.echo(f"│  {line.ljust(max_line_length)}  │")
-    typer.echo("└" + "─" * (max_line_length + 4) + "┘" + "\n")
+    """Display a rich error panel with details and exit."""
+    console.print()
+    console.print(Panel(
+        f"[bold]{type(e).__name__}[/bold]: {e}",
+        title=f"❌ {message}",
+        border_style="red",
+        padding=(1, 2),
+    ))
+    if e.__traceback__:
+        console.print_exception(show_locals=False, width=120)
+    console.print()
     raise typer.Exit(code=1)
 
 
