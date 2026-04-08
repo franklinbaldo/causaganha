@@ -1,5 +1,6 @@
 ---
 import ThemeToggle from './ThemeToggle.astro';
+import ActivePipelineStatus from './ActivePipelineStatus.svelte';
 
 interface Props {
   variant: 'home' | 'page';
@@ -79,6 +80,9 @@ const secondaryLinks = [
       </ul>
     </div>
     <div class="navbar-end">
+      <div class="desktop-only mr-2 widget-wrapper">
+        <ActivePipelineStatus client:load />
+      </div>
       <ThemeToggle />
       <div class="drawer drawer-end mobile-only">
         <input id="mobile-drawer-home" type="checkbox" class="drawer-toggle" />
@@ -143,6 +147,9 @@ const secondaryLinks = [
         </div>
       </div>
       <div class="navbar-end desktop-only">
+        <div class="mr-2 widget-wrapper">
+          <ActivePipelineStatus client:load />
+        </div>
         <ul class="menu menu-horizontal">
           {mainLinks.map(link => (
             <li>
@@ -170,6 +177,9 @@ const secondaryLinks = [
         <ThemeToggle />
       </div>
       <div class="navbar-end-mobile mobile-only">
+        <div class="mr-2 widget-wrapper">
+          <ActivePipelineStatus client:load />
+        </div>
         <ThemeToggle />
         <div class="drawer drawer-end">
           <input id="mobile-drawer-page" type="checkbox" class="drawer-toggle" />
@@ -539,4 +549,13 @@ const secondaryLinks = [
       display: none;
     }
   }
+
+.mr-2 {
+  margin-right: var(--space-2);
+}
+
+.widget-wrapper {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 </style>
