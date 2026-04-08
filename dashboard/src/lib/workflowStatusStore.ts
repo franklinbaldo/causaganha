@@ -48,7 +48,7 @@ export function createWorkflowStatus(pollInterval: number = 60000) {
           elapsedMs: Date.now() - startedAt,
           error: null,
         }));
-        startElapsedTimer(startedAt);
+        startElapsedTimer();
       } else {
         update(prev => ({
           ...prev,
@@ -69,7 +69,7 @@ export function createWorkflowStatus(pollInterval: number = 60000) {
     }
   }
 
-  function startElapsedTimer(startedAt: number): void {
+  function startElapsedTimer(): void {
     stopElapsedTimer();
     elapsedTimer = setInterval(() => {
       update(prev => ({
