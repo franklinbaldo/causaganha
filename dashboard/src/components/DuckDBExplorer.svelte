@@ -423,27 +423,6 @@ LIMIT 20`,
     margin-top: 0.75rem;
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid transparent;
-    background: var(--color-primary);
-    color: var(--color-primary-content);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .btn--outline {
     background: transparent;
     border-color: var(--color-primary);

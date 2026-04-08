@@ -155,7 +155,7 @@
         {/if}
       </div>
       <button
-        class="btn-outline-secondary"
+        class="btn btn-outline-secondary"
         onclick={(e: MouseEvent) => handleShare(e, 'compact')}
         title="Copiar link"
       >
@@ -200,7 +200,7 @@
       </div>
       <div class="header-actions" aria-label="Ações de navegação e leitura">
         <button
-          class="btn-outline-secondary"
+          class="btn btn-outline-secondary"
           onclick={() => isReaderMode = false}
           title="Sair do Modo Leitura"
         >
@@ -210,7 +210,7 @@
           Voltar
         </button>
         <button
-          class="btn-outline-secondary"
+          class="btn btn-outline-secondary"
           onclick={(e: MouseEvent) => handleShare(e, 'reader')}
           title="Copiar link"
         >
@@ -283,14 +283,14 @@
         <div class="nav-actions" aria-label="Ações de navegação">
           {#if onNavigate}
             <button
-              class="btn-outline-secondary"
+              class="btn btn-outline-secondary"
               onclick={() => onNavigate(seq - 1)}
               disabled={seq <= 1}
             >
               Anterior
             </button>
             <button
-              class="btn-outline-secondary"
+              class="btn btn-outline-secondary"
               onclick={() => onNavigate(seq + 1)}
               disabled={totalSeq != null && seq >= totalSeq}
             >
@@ -298,7 +298,7 @@
             </button>
           {/if}
           <button
-            class="btn-outline-secondary"
+            class="btn btn-outline-secondary"
             onclick={(e: MouseEvent) => handleShare(e, 'main')}
             title="Copiar link"
           >
@@ -353,16 +353,6 @@
 
 <style>
   /* Card base */
-  .card {
-    background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
 
   .compact-body {
     padding: 1rem;
@@ -432,15 +422,6 @@
   }
 
   /* Badge */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.125rem 0.5rem;
-    border-radius: var(--radius-full);
-    font-size: var(--font-size-xs);
-    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
-    color: var(--color-base-content);
-  }
 
   /* Date label */
   .date-label {
@@ -469,30 +450,6 @@
   }
 
   /* Buttons */
-  .btn-outline-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-btn);
-    background: transparent;
-    color: var(--color-base-content);
-    cursor: pointer;
-    transition: var(--transition-base);
-    min-height: 1.5rem;
-    min-width: 1.5rem;
-  }
-
-  .btn-outline-secondary:hover {
-    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
-  }
-
-  .btn-outline-secondary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 
   .btn-outline-primary {
     display: inline-flex;

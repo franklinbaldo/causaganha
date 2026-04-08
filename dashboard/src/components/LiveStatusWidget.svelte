@@ -174,15 +174,4 @@
   </div></div>
 {/if}
 
-<style>
-  .card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-  }
 
-  .card-body {
-    padding: 1.5rem;
-  }
-</style>

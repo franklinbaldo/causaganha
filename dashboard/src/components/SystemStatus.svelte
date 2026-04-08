@@ -235,16 +235,6 @@
 </div></div>
 
 <style>
-  .card {
-    background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
 
   .status-layout {
     display: flex;
@@ -435,16 +425,6 @@
     font-weight: 500;
     text-transform: capitalize;
     font-size: var(--font-size-sm);
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.125rem 0.5rem;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    border-radius: var(--radius-full);
-    gap: 0.25rem;
   }
 
   .badge--success {

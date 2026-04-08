@@ -155,30 +155,6 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 {/if}
 
 <style>
-  .card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid transparent;
-  }
 
   .btn-expand {
     width: 100%;
@@ -188,16 +164,6 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 
   .btn-expand:hover {
     opacity: 0.9;
-  }
-
-  .btn-outline {
-    background: transparent;
-    border-color: var(--color-base-300);
-    color: var(--color-base-content);
-  }
-
-  .btn-outline:hover {
-    background: var(--color-base-200);
   }
 
   .btn-icon {

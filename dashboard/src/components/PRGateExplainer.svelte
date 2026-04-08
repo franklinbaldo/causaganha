@@ -203,16 +203,6 @@
 </div></div>
 
 <style>
-  .card {
-    background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-  }
-
-  .card-body {
-    padding: var(--space-sm);
-  }
 
   .input-field {
     border: 1px solid var(--color-base-300);

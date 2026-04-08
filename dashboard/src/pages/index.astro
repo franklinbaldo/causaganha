@@ -336,61 +336,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   /* ── Buttons ── */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    text-decoration: none;
-    border: 1px solid transparent;
-  }
 
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--color-primary-content, #fff);
-    width: 100%;
-  }
 
-  .btn-primary:hover {
-    opacity: 0.85;
-  }
-
-  @media (min-width: 640px) {
-    .btn-primary,
-    .btn-outline-secondary {
-      width: auto;
-    }
-  }
-
-  .btn-outline-secondary {
-    background: transparent;
-    color: var(--color-secondary);
-    border-color: var(--color-secondary);
-    width: 100%;
-  }
-
-  .btn-outline-secondary:hover {
-    background: var(--color-secondary);
-    color: var(--color-secondary-content, #fff);
-  }
 
   /* ── Card ── */
-  .card {
-    background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-  }
-
-  .card-body {
-    padding: 1.5rem;
-  }
 
   .card-title {
     font-size: var(--font-size-lg);
@@ -479,16 +428,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   .section-full {
     margin-bottom: 4rem;
-  }
-
-  .section-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-
-  .section-title {
-    font-size: var(--font-size-3xl);
-    font-weight: 700;
   }
 
   .section-subtitle {
