@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   lint:
@@ -21,6 +21,20 @@ jobs:
         run: uv run ruff check
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
+      - name: Auto-fix linting issues
+        if: failure() && github.event_name == 'pull_request' && endsWith(github.actor, '[bot]')
+        run: |
+          uvx ruff format . || true
+          uvx ruff check --fix . || true
+          npx prettier --write . || true
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git add .
+            git commit -m "style: auto-fix lint violations [bot]"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
 
   tests:
     runs-on: ubuntu-latest
