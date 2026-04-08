@@ -4,6 +4,7 @@ import Header from '../../components/Header.astro';
 import PerfDashboard from '../../components/PerfDashboard.svelte';
 import TribunalCoverageHeatmap from '../../components/TribunalCoverageHeatmap.svelte';
 import LatencyHeatmap from '../../components/LatencyHeatmap.svelte';
+import ParquetDensityHeatmap from '../../components/ParquetDensityHeatmap.svelte';
 import { readJson } from '../../lib/readJson';
 
 const perfMetrics = readJson('perf-metrics.json');
@@ -32,6 +33,11 @@ const qualityScores = readJson('tribunal_quality_scores.json');
       <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Latency Heatmap" />
       <div role="tabpanel" class="tab-content pt-4">
         <LatencyHeatmap client:idle />
+      </div>
+
+      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Parquet Density" />
+      <div role="tabpanel" class="tab-content pt-4">
+        <ParquetDensityHeatmap client:idle />
       </div>
     </div>
   </div>
