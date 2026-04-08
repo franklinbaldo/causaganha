@@ -28,6 +28,7 @@ import structlog
 
 from djen_backup.archive import (
     CircuitBreaker,
+    get_ia_item_id,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
@@ -749,6 +750,51 @@ async def _advance_stopped_cursors(
                 )
 
 
+async def _fetch_ia_dates_for_item(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    year: int,
+    sem: asyncio.Semaphore,
+) -> set[date]:
+    """Fetch all dates with ZIPs for a tribunal×year from IA metadata (1 request)."""
+    item_id = get_ia_item_id(tribunal, date(year, 1, 1))
+    metadata_url = f"https://archive.org/metadata/{item_id}/files"
+    async with sem:
+        try:
+            resp = await client.get(metadata_url, timeout=15)
+            if resp.status_code >= 400:
+                return set()
+            files = resp.json().get("result", [])
+            dates: set[date] = set()
+            for f in files:
+                name = f.get("name", "")
+                if not name.startswith("djen-") or not name.endswith(".zip"):
+                    continue
+                parts = name[len("djen-"):].split("-")
+                if len(parts) < 4:
+                    continue
+                try:
+                    dates.add(date.fromisoformat(f"{parts[0]}-{parts[1]}-{parts[2]}"))
+                except ValueError:
+                    continue
+            return dates
+        except (httpx.HTTPError, httpx.TimeoutException, Exception):
+            return set()
+
+
+def _weekdays_in_year(year: int, upper: date, lower: date) -> list[date]:
+    """Return all weekdays in a year within [lower, upper] bounds."""
+    start = max(date(year, 1, 1), lower)
+    end = min(date(year, 12, 31), upper)
+    days = []
+    current = start
+    while current <= end:
+        if current.weekday() < 5:  # Mon-Fri
+            days.append(current)
+        current += timedelta(days=1)
+    return days
+
+
 async def _run_backfill_workers(
     client: httpx.AsyncClient,
     breaker: CircuitBreaker,
@@ -759,16 +805,12 @@ async def _run_backfill_workers(
     summary: BackfillSummary,
     all_tribunals: list[str],
 ) -> None:
-    """Run workers processing (date, tribunal) pairs, iterating by date first.
+    """Year-first backfill: for each year (newest→oldest), fetch IA metadata once
+    per tribunal×year to discover gaps, then only process missing dates.
 
-    This ensures all tribunals get coverage for each date before moving to the
-    next date, instead of the old approach that exhausted one tribunal at a time
-    (starving tribunals later in the list).
+    This avoids per-file HEAD checks (~38k requests) by using bulk metadata
+    queries (~200 requests) to build a precise gap list.
     """
-    # Build queue of (date, tribunal) pairs iterating DATE-first.
-    # For each date (from most recent backward), enqueue all active tribunals.
-    queue: asyncio.Queue[tuple[date, str]] = asyncio.Queue()
-
     # Determine which tribunals are active (not stopped)
     active_tribunals = []
     for t in all_tribunals:
@@ -779,87 +821,142 @@ async def _run_backfill_workers(
         else:
             active_tribunals.append(t)
 
-    # Generate date range: from start_date backward to lower_bound
-    current = config.start_date
     lower = config.lower_bound or date(2013, 1, 1)
-    dates_enqueued = 0
-    max_dates = 400  # cap to avoid huge queue; 400 dates × 96 tribunals = ~38k items
+    upper = config.start_date
+    years = sorted(range(lower.year, upper.year + 1), reverse=True)
 
-    while current >= lower and dates_enqueued < max_dates:
+    sem = asyncio.Semaphore(10)  # Limit concurrent IA metadata requests
+
+    queue: asyncio.Queue[tuple[date, str]] = asyncio.Queue()
+    total_gaps = 0
+    total_complete = 0
+
+    # Build gap queue year by year (newest first)
+    for year in years:
+        if time.monotonic() > deadline - 60:
+            break
+
+        weekdays = _weekdays_in_year(year, upper, lower)
+        if not weekdays:
+            continue
+
+        # Fetch IA inventory for all tribunals in this year concurrently
+        fetch_tasks = {
+            t: asyncio.create_task(_fetch_ia_dates_for_item(client, t, year, sem))
+            for t in active_tribunals
+        }
+        ia_dates_by_tribunal: dict[str, set[date]] = {}
+        for t, task in fetch_tasks.items():
+            ia_dates_by_tribunal[t] = await task
+
+        # For each tribunal, compute gaps and enqueue
+        year_gaps = 0
+        year_complete = 0
         for t in active_tribunals:
-            queue.put_nowait((current, t))
-        current -= timedelta(days=1)
-        dates_enqueued += 1
+            ia_dates = ia_dates_by_tribunal.get(t, set())
+
+            # Mark known dates in state cache (avoids future HEAD checks)
+            for d in ia_dates:
+                if ia_state.get_status(d, t) is None:
+                    await ia_state.mark(d, t, ItemStatus.UPLOADED)
+
+            # Check genesis bound
+            genesis_str = config.genesis_dates.get(t)
+            tribunal_lower = lower
+            if genesis_str and genesis_str != "None":
+                try:
+                    tribunal_lower = max(lower, date.fromisoformat(genesis_str))
+                except ValueError:
+                    pass
+
+            # Calculate missing dates
+            expected = {d for d in weekdays if d >= tribunal_lower}
+            # Also exclude dates known as absent in state cache
+            known_absent = {
+                d for d in expected
+                if ia_state.get_status(d, t) == "absent"
+            }
+            missing = sorted(expected - ia_dates - known_absent, reverse=True)
+
+            if not missing:
+                year_complete += 1
+                continue
+
+            for d in missing:
+                queue.put_nowait((d, t))
+            year_gaps += len(missing)
+
+        total_gaps += year_gaps
+        total_complete += year_complete
+
+        log.info(
+            "backfill_year_scan",
+            year=year,
+            weekdays=len(weekdays),
+            gaps=year_gaps,
+            complete_tribunals=year_complete,
+            total_tribunals=len(active_tribunals),
+        )
+
+        # If this year is fully complete for all tribunals, skip to next
+        if year_gaps == 0:
+            log.info("backfill_year_complete", year=year)
 
     log.info(
         "backfill_queue_built",
         active_tribunals=len(active_tribunals),
-        dates=dates_enqueued,
-        total_pairs=queue.qsize(),
+        total_gaps=total_gaps,
+        complete_tribunals=total_complete,
+        queue_size=queue.qsize(),
     )
 
-    # Track per-tribunal scanned flag
+    if queue.empty():
+        log.info("backfill_nothing_to_do", message="No gaps found — backfill is complete")
+        # Still mark all tribunals as scanned for summary
+        for t in active_tribunals:
+            await summary.inc_scanned()
+        return
+
+    # Track per-tribunal state
     scanned_tribunals: set[str] = set()
     paused_tribunals: set[str] = set()
-
-    # Rate limiter: IA allows ~1 upload/second. Shared lock ensures
-    # only 1 upload at a time, with a 2s cooldown after each.
-    # Downloads from DJEN happen in parallel (no lock needed).
-    asyncio.Lock()
+    items_processed = 0
 
     async def _worker() -> None:
+        nonlocal items_processed
         while not queue.empty():
             if time.monotonic() > deadline - 30:
+                break
+            if config.max_items > 0 and items_processed >= config.max_items:
                 break
             try:
                 d, tribunal = queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
 
-            # Skip if tribunal encountered an error earlier in this run to avoid error storms
-            # and leaving gaps in the backfill sequence.
             if tribunal in paused_tribunals:
                 queue.task_done()
                 continue
 
-            # Skip if tribunal got stopped during this run
             prog = bstate.get_all_progress().get(tribunal)
             if prog and prog.stopped:
                 queue.task_done()
                 continue
-
-            # Check genesis bound
-            genesis_str = config.genesis_dates.get(tribunal)
-            if genesis_str and genesis_str != "None":
-                genesis = date.fromisoformat(genesis_str)
-                if d < genesis:
-                    queue.task_done()
-                    continue
 
             if tribunal not in scanned_tribunals:
                 scanned_tribunals.add(tribunal)
                 await summary.inc_scanned()
 
             result = await backfill_process_date(
-                client,
-                breaker,
-                tribunal,
-                d,
-                config,
-                bstate,
-                ia_state,
-                summary,
+                client, breaker, tribunal, d, config, bstate, ia_state, summary,
             )
 
-            # Update state tracking
             if result in {"hit", "empty", "spam"}:
-                # Update cursor if this date is older than current cursor
+                items_processed += 1
                 if prog and d <= prog.cursor_date:
                     await bstate.advance_cursor(tribunal)
                     save_backfill_state(bstate, config.backfill_state_file)
             else:
-                # result is "error" - pause this tribunal so we don't try older dates
-                # and leave gaps, since the queue is date-first
                 paused_tribunals.add(tribunal)
                 log.info(
                     "backfill_tribunal_paused",
@@ -873,7 +970,7 @@ async def _run_backfill_workers(
     async def _state_syncer() -> None:
         """Periodically upload state to IA so progress survives timeouts."""
         while True:
-            await asyncio.sleep(120)  # Every 2 minutes
+            await asyncio.sleep(120)
             if not config.dry_run:
                 save_backfill_state(bstate, config.backfill_state_file)
                 save_state(ia_state, config.state_file)
@@ -886,20 +983,14 @@ async def _run_backfill_workers(
     async def _status_publisher() -> None:
         if not config.publish_live_status:
             return
-
         interval_str = os.getenv("LIVE_STATUS_INTERVAL_SECONDS", "60")
         try:
             interval = float(interval_str)
         except ValueError:
             interval = 60.0
-
         while True:
             await asyncio.sleep(interval)
-            await _publish_ntfy_status(
-                summary,
-                "running",
-                bstate,
-            )
+            await _publish_ntfy_status(summary, "running", bstate)
 
     workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
     syncer_task = asyncio.create_task(_state_syncer())
@@ -907,7 +998,6 @@ async def _run_backfill_workers(
 
     await asyncio.gather(*workers)
 
-    # Cancel background tasks once workers finish
     syncer_task.cancel()
     publisher_task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
