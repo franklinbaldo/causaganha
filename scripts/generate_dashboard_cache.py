@@ -1251,6 +1251,16 @@ def main() -> None:
         "manifest_available": manifest_populated,
     }
 
+    # Load omission stats if available locally
+    omission_data = None
+    omission_path = Path("catalog/omission_stats.json")
+    if omission_path.exists():
+        try:
+            with omission_path.open() as f:
+                omission_data = json.load(f)
+        except json.JSONDecodeError:
+            pass
+
     # Write local files
     files: dict[str, Any] = {
         "meta.json": meta,
@@ -1262,6 +1272,8 @@ def main() -> None:
         files["backfill.json"] = backfill_data
     if backfill_state_data:
         files["backfill_state.json"] = backfill_state_data
+    if omission_data:
+        files["omission_stats.json"] = omission_data
 
     for filename, data in files.items():
         path = OUTPUT_DIR / filename

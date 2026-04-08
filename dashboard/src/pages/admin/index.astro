@@ -4,9 +4,11 @@ import Header from '../../components/Header.astro';
 import JulesSessionStatus from '../../components/JulesSessionStatus.svelte';
 import AuditLogExport from '../../components/AuditLogExport.svelte';
 import PausedTribunals from '../../components/PausedTribunals.svelte';
+import OmissionCost from '../../components/OmissionCost.svelte';
 import { readJson } from '../../lib/readJson';
 
 const backfillState = readJson<any>('cache/backfill_state.json');
+const omissionStats = readJson<any>('cache/omission_stats.json');
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -52,6 +54,9 @@ const adminPages = [
       <PausedTribunals data={backfillState} client:load />
       <div class="mt-8">
         <AuditLogExport client:load />
+      </div>
+      <div class="mt-8">
+        <OmissionCost omissionStats={omissionStats} client:load />
       </div>
     </div>
 
