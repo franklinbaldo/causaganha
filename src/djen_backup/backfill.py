@@ -541,22 +541,8 @@ async def backfill_process_date(
         await summary.inc_hit()
         return "hit"
 
-    # Fast path 2: check if ZIP already exists on IA (source of truth)
-    from djen_backup.archive import get_ia_item_id
-
-    item_id = get_ia_item_id(tribunal, d)
-    zip_filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
-    ia_check_url = f"https://archive.org/download/{item_id}/{zip_filename}"
-    try:
-        head_resp = await client.head(ia_check_url, follow_redirects=True, timeout=10)
-        if head_resp.status_code < 400:
-            log.info(f"Skip (IA Hit): {tribunal} {d.isoformat()} already in IA")
-            await ia_state.mark(d, tribunal, ItemStatus.UPLOADED)
-            await bstate.record_hit(tribunal, d)
-            await summary.inc_cache_hit()
-            return "hit"
-    except (httpx.HTTPError, httpx.TimeoutException):
-        pass  # Can't confirm — proceed with normal flow
+    # No HEAD check — inventory already knows what's on IA.
+    # If we're here, the date is NOT in inventory → go straight to DJEN.
 
     # Circuit breaker guard
     if not await breaker.allow_request():
@@ -570,8 +556,7 @@ async def backfill_process_date(
         zip_url = await get_caderno_url(client, config.djen_proxy_url, tribunal, d)
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
-        if exc.reason != "Not Found":
-            # 404s on the download proxy endpoint or 0-byte responses are errors, not authoritative empties
+        if exc.reason not in ("Not Found", "No publications"):
             log.warning(
                 "backfill_download_error_djen",
                 tribunal=tribunal,
@@ -765,6 +750,38 @@ def _days_in_year(year: int, upper: date, lower: date) -> list[date]:
 
 
 ZIP_INVENTORY_FILE = Path("data/zip-inventory.txt")
+
+
+async def _fetch_ia_item_zips(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    year: int,
+    sem: asyncio.Semaphore,
+) -> set[date]:
+    """Fetch all ZIP dates for a tribunal×year from IA metadata (1 request per item)."""
+    item_id = get_ia_item_id(tribunal, date(year, 1, 1))
+    metadata_url = f"https://archive.org/metadata/{item_id}/files"
+    async with sem:
+        try:
+            resp = await client.get(metadata_url, timeout=15)
+            if resp.status_code >= 400:
+                return set()
+            files = resp.json().get("result", [])
+            dates: set[date] = set()
+            for f in files:
+                name = f.get("name", "")
+                if not name.startswith("djen-") or not name.endswith(".zip"):
+                    continue
+                parts = name[len("djen-"):].split("-")
+                if len(parts) < 4:
+                    continue
+                try:
+                    dates.add(date.fromisoformat(f"{parts[0]}-{parts[1]}-{parts[2]}"))
+                except ValueError:
+                    continue
+            return dates
+        except (httpx.HTTPError, httpx.TimeoutException, Exception):
+            return set()
 
 
 class ZipInventory:
@@ -971,7 +988,23 @@ async def _run_backfill_workers(
         if config.max_items > 0 and summary.hits >= config.max_items:
             break
 
-        # Compute gaps purely from inventory (instant)
+        # Step A: Enrich inventory from IA metadata (1 request per tribunal×year)
+        # This discovers ZIPs on IA that aren't in the inventory yet.
+        ia_fetch_tasks = {
+            t: asyncio.create_task(_fetch_ia_item_zips(client, t, year, sem))
+            for t in active_tribunals
+        }
+        ia_added = 0
+        for t, task in ia_fetch_tasks.items():
+            ia_dates = await task
+            for d in ia_dates:
+                if not inventory.has(t, d):
+                    inventory.add(t, d)
+                    ia_added += 1
+        if ia_added:
+            log.info("inventory_enriched_from_ia", year=year, new_entries=ia_added)
+
+        # Step B: Compute gaps from enriched inventory (instant)
         all_gaps: list[tuple[date, str]] = []
         for t in active_tribunals:
             genesis_str = config.genesis_dates.get(t)
@@ -981,7 +1014,6 @@ async def _run_backfill_workers(
                     t_lower = max(lower, date.fromisoformat(genesis_str))
 
             missing = inventory.gaps_for_year(t, year, upper, t_lower)
-            # inventory.gaps_for_year already excludes absents
             for d in missing:
                 all_gaps.append((d, t))
 
