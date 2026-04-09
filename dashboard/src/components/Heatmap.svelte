@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { fade } from 'svelte/transition';
   import CellTooltip from './CellTooltip.svelte';
   import VelocityTimeline from './VelocityTimeline.svelte';
   import { type CellStatus, CELL_STATUS_COLORS } from '../lib/colorUtils';
@@ -80,6 +81,11 @@
 
   function prevYear() { if (selectedYear > minYear) selectedYear--; }
   function nextYear() { if (selectedYear < maxYear) selectedYear++; }
+  function goToToday() {
+    const now = new Date();
+    selectedYear = now.getUTCFullYear();
+    selectedMonth = now.getUTCMonth();
+  }
 
   function selectMonth(mo: number) {
     const first = new Date(Date.UTC(selectedYear, mo, 1));
@@ -235,6 +241,9 @@
         disabled={selectedYear >= maxYear}
         aria-label="Próximo ano"
       >&#8594;</button>
+      <button class="today-btn" onclick={goToToday} aria-label="Ir para o mês atual">
+        Hoje
+      </button>
     </div>
 
     <!-- ── Month picker grid ───────────────────────────────── -->
@@ -262,7 +271,8 @@
     </div>
 
     <!-- ── Single-month calendar ───────────────────────────── -->
-    <div class="month-card">
+    {#key `${selectedYear}-${selectedMonth}`}
+    <div class="month-card" transition:fade={{ duration: 120 }}>
       <h5 class="month-title">{selectedMonthCalendar.label}</h5>
       <table
         class="calendar-table"
@@ -304,6 +314,7 @@
         </tbody>
       </table>
     </div>
+    {/key}
 
     <!-- ── Legend ──────────────────────────────────────────── -->
     <div class="legend-card">
@@ -379,10 +390,26 @@
     text-align: center;
   }
 
+  .today-btn {
+    font-size: var(--font-size-xs);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-base-300);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s, background 0.15s;
+  }
+
+  .today-btn:hover {
+    opacity: 1;
+    background: var(--color-base-200);
+  }
+
   /* ── Month picker ── */
   .month-picker {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr));
     gap: 0.375rem;
   }
 
