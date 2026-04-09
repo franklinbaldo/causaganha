@@ -3,9 +3,7 @@
 import asyncio
 import logging
 import os
-import sys
 import time
-from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -32,7 +30,7 @@ app = typer.Typer(
 console = Console()
 
 
-def _setup_backfill_logging(log_file: Path, verbose: bool = False) -> None:
+def _setup_backfill_logging(log_file: Path, *, verbose: bool = False) -> None:
     """Configure logging for the backfill run: file (DEBUG) + console (Rich)."""
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -93,6 +91,7 @@ def _resolve_djen_url(*, use_proxy: bool = False) -> str:
     """Get the DJEN URL. Direct by default, proxy when outside Brazil."""
     if use_proxy:
         from causaganha.config import DJEN_PROXY_URL
+
         return os.environ.get("DJEN_PROXY_URL", DJEN_PROXY_URL)
     return os.environ.get("DJEN_PROXY_URL", DJEN_DIRECT_URL)
 
@@ -114,12 +113,14 @@ def _preflight_checks() -> None:
         errors.append("IAS3_SECRET_KEY (ou IA_SECRET_KEY) não definido no ambiente")
     if errors:
         console.print()
-        console.print(Panel(
-            "\n".join(f"• {e}" for e in errors),
-            title="[red bold]Pre-flight check failed[/red bold]",
-            border_style="red",
-            padding=(1, 2),
-        ))
+        console.print(
+            Panel(
+                "\n".join(f"• {e}" for e in errors),
+                title="[red bold]Pre-flight check failed[/red bold]",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
         console.print("  [dim]Configure as variáveis em .env ou exporte no shell.[/dim]\n")
         raise typer.Exit(code=1)
 
@@ -128,7 +129,7 @@ def _preflight_checks() -> None:
 
 
 @app.command()
-def run(
+def run(  # noqa: PLR0913
     target_date: str = typer.Option(
         "",
         "--date",
@@ -150,6 +151,7 @@ def run(
         45,
         help="Tempo máximo em minutos.",
     ),
+    *,
     verbose: bool = typer.Option(
         False,
         "--verbose",
@@ -188,7 +190,7 @@ def run(
     # Setup logging
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"pipeline-{date.today().isoformat()}.log"
+    log_file = log_dir / f"pipeline-{datetime.now(UTC).date().isoformat()}.log"
     _setup_backfill_logging(log_file, verbose=verbose)
 
     # Resolve config
@@ -206,12 +208,14 @@ def run(
         config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run")
 
     console.print()
-    console.print(Panel(
-        "\n".join(config_lines),
-        title="[bold]Pipeline Run[/bold]",
-        border_style="blue",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            "\n".join(config_lines),
+            title="[bold]Pipeline Run[/bold]",
+            border_style="blue",
+            padding=(1, 2),
+        )
+    )
     console.print()
 
     if job in ("all", "collect"):
@@ -236,8 +240,7 @@ def run(
             duration = time.time() - start
             if exit_code == 0:
                 console.print(
-                    f"  [green]✓[/green] Collect         "
-                    f"[dim]{_format_duration(duration)}[/dim]"
+                    f"  [green]✓[/green] Collect         [dim]{_format_duration(duration)}[/dim]"
                 )
             else:
                 console.print(
@@ -248,16 +251,15 @@ def run(
                     raise typer.Exit(code=exit_code)
         except Exception as e:
             duration = time.time() - start
+            console.print(f"  [red]✗[/red] Collect         [dim]{_format_duration(duration)}[/dim]")
             console.print(
-                f"  [red]✗[/red] Collect         "
-                f"[dim]{_format_duration(duration)}[/dim]"
+                Panel(
+                    f"[bold]{type(e).__name__}[/bold]: {e}",
+                    title="[red]Error in Collect[/red]",
+                    border_style="red",
+                    padding=(0, 1),
+                )
             )
-            console.print(Panel(
-                f"[bold]{type(e).__name__}[/bold]: {e}",
-                title="[red]Error in Collect[/red]",
-                border_style="red",
-                padding=(0, 1),
-            ))
             if not continue_on_error:
                 raise typer.Exit(code=1) from e
 
@@ -296,8 +298,14 @@ def status(
         prog = progress[code]
         status_str = "[red]STOPPED[/red]" if prog.stopped else "[green]running[/green]"
         hit_str = prog.last_hit_date.isoformat() if prog.last_hit_date else "[dim]never[/dim]"
-        streak_style = "red" if prog.empty_streak > 30 else "yellow" if prog.empty_streak > 10 else ""
-        streak_text = f"[{streak_style}]{prog.empty_streak}[/{streak_style}]" if streak_style else str(prog.empty_streak)
+        streak_style = (
+            "red" if prog.empty_streak > 30 else "yellow" if prog.empty_streak > 10 else ""
+        )
+        streak_text = (
+            f"[{streak_style}]{prog.empty_streak}[/{streak_style}]"
+            if streak_style
+            else str(prog.empty_streak)
+        )
 
         table.add_row(
             code,
