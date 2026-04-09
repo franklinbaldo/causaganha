@@ -3,11 +3,9 @@
 import asyncio
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 import typer
@@ -46,7 +44,6 @@ class StepResult:
 # ── Helpers ─────────────────────────────────────────────────
 
 
-
 def _run_step(
     name: str,
     cmd: list[str],
@@ -71,16 +68,18 @@ def _run_step(
     env["GITHUB_OUTPUT"] = output_path
 
     # Stderr capture for error display
-    stderr_path = Path(tempfile.mktemp(prefix=f"cg-{name}-err-", suffix=".log"))
+    fd_err, stderr_str = tempfile.mkstemp(prefix=f"cg-{name}-err-", suffix=".log")
+    os.close(fd_err)
+    stderr_path = Path(stderr_str)
 
     start = time.time()
     try:
         # Stream stdout directly to log file in real time
-        log_fh = open(log_file, "a") if log_file else subprocess.DEVNULL
-        stderr_fh = open(stderr_path, "w")
+        log_fh = log_file.open("a") if log_file else subprocess.DEVNULL
+        stderr_fh = stderr_path.open("w")
         try:
             if log_file:
-                log_fh.write(f"\n{'='*60}\n[{name}] {' '.join(cmd)}\n{'='*60}\n")
+                log_fh.write(f"\n{'=' * 60}\n[{name}] {' '.join(cmd)}\n{'=' * 60}\n")
                 log_fh.flush()
 
             result = subprocess.run(
@@ -114,11 +113,9 @@ def _run_step(
 
         if result.returncode != 0:
             error_msg = stderr_content or f"exit code {result.returncode}"
-            lines = [l for l in error_msg.splitlines() if l.strip()]
+            lines = [ln for ln in error_msg.splitlines() if ln.strip()]
             short_error = "\n".join(lines[-5:]) if len(lines) > 5 else error_msg
-            return StepResult(
-                name=name, success=False, duration=duration, error=short_error
-            )
+            return StepResult(name=name, success=False, duration=duration, error=short_error)
 
         files_added = outputs.get("files_added")
         if files_added == "true":
@@ -156,17 +153,20 @@ def _preflight_checks() -> None:
 
     # Check uv is available
     import shutil
+
     if not shutil.which("uv"):
         errors.append("'uv' não encontrado no PATH")
 
     if errors:
         console.print()
-        console.print(Panel(
-            "\n".join(f"• {e}" for e in errors),
-            title="[red bold]Pre-flight check failed[/red bold]",
-            border_style="red",
-            padding=(1, 2),
-        ))
+        console.print(
+            Panel(
+                "\n".join(f"• {e}" for e in errors),
+                title="[red bold]Pre-flight check failed[/red bold]",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
         console.print("  [dim]Configure as variáveis em .env ou exporte no shell.[/dim]\n")
         raise typer.Exit(code=1)
 
@@ -202,18 +202,18 @@ def run(
         5,
         help="Máximo de itens para coletar.",
     ),
-    verbose: bool = typer.Option(
+    verbose: bool = typer.Option(  # noqa: FBT001
         False,
         "--verbose",
         "-v",
         help="Mostrar logs detalhados no console.",
     ),
-    dry_run: bool = typer.Option(
+    dry_run: bool = typer.Option(  # noqa: FBT001
         False,
         "--dry-run",
         help="Simular sem executar.",
     ),
-    continue_on_error: bool = typer.Option(
+    continue_on_error: bool = typer.Option(  # noqa: FBT001
         False,
         "--continue-on-error",
         help="Continuar pipeline mesmo quando um step falha.",
@@ -248,15 +248,19 @@ def run(
         f"[bold]Log:[/bold]      {log_file}",
     ]
     if dry_run:
-        config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run (nenhuma ação será executada)")
+        config_lines.append(
+            "[yellow bold]Modo:[/yellow bold]     dry-run (nenhuma ação será executada)"
+        )
 
     console.print()
-    console.print(Panel(
-        "\n".join(config_lines),
-        title="[bold]Pipeline Run[/bold]",
-        border_style="blue",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            "\n".join(config_lines),
+            title="[bold]Pipeline Run[/bold]",
+            border_style="blue",
+            padding=(1, 2),
+        )
+    )
     console.print()
 
     # backfill.py → commands/ → cli/ → causaganha/ → src/ → repo_root
@@ -292,14 +296,18 @@ def run(
         steps.append(("Embed", cmd))
 
     if job == "all":
-        steps.append((
-            "Catalog",
-            ["uv", "run", "python", f"{repo_root}/scripts/generate_catalog.py", "--upload"],
-        ))
-        steps.append((
-            "Dashboard",
-            ["uv", "run", "python", f"{repo_root}/scripts/generate_dashboard_cache.py"],
-        ))
+        steps.append(
+            (
+                "Catalog",
+                ["uv", "run", "python", f"{repo_root}/scripts/generate_catalog.py", "--upload"],
+            )
+        )
+        steps.append(
+            (
+                "Dashboard",
+                ["uv", "run", "python", f"{repo_root}/scripts/generate_dashboard_cache.py"],
+            )
+        )
 
     # Execute steps
     for step_name, cmd in steps:
@@ -315,18 +323,19 @@ def run(
             )
         else:
             console.print(
-                f"\r  [red]✗[/red] {step_name:<15s} "
-                f"[dim]{_format_duration(result.duration)}[/dim]"
+                f"\r  [red]✗[/red] {step_name:<15s} [dim]{_format_duration(result.duration)}[/dim]"
             )
             failed = True
             # Show error details
             if result.error:
-                console.print(Panel(
-                    result.error,
-                    title=f"[red]Error in {step_name}[/red]",
-                    border_style="red",
-                    padding=(0, 1),
-                ))
+                console.print(
+                    Panel(
+                        result.error,
+                        title=f"[red]Error in {step_name}[/red]",
+                        border_style="red",
+                        padding=(0, 1),
+                    )
+                )
                 console.print(f"  [dim]Detalhes completos em: {log_file}[/dim]")
 
             if not continue_on_error:
@@ -388,8 +397,14 @@ def status(
         prog = progress[code]
         status_str = "[red]STOPPED[/red]" if prog.stopped else "[green]running[/green]"
         hit_str = prog.last_hit_date.isoformat() if prog.last_hit_date else "[dim]never[/dim]"
-        streak_style = "red" if prog.empty_streak > 30 else "yellow" if prog.empty_streak > 10 else ""
-        streak_text = f"[{streak_style}]{prog.empty_streak}[/{streak_style}]" if streak_style else str(prog.empty_streak)
+        streak_style = (
+            "red" if prog.empty_streak > 30 else "yellow" if prog.empty_streak > 10 else ""
+        )
+        streak_text = (
+            f"[{streak_style}]{prog.empty_streak}[/{streak_style}]"
+            if streak_style
+            else str(prog.empty_streak)
+        )
 
         table.add_row(
             code,
