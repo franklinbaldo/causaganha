@@ -1009,7 +1009,8 @@ async def _run_backfill_workers(
                         IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth
                     )
                     await upload_state_to_ia(IA_STATE_FILENAME, ia_state.to_dict(), config.ia_auth)
-                    log.info("state_checkpoint_saved")
+                    await inventory.upload_to_ia(config.ia_auth)
+                    log.info("state_checkpoint_saved", inventory_size=len(inventory))
 
         async def _status_publisher() -> None:
             if not config.publish_live_status:
