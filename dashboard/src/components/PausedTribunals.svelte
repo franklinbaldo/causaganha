@@ -1,12 +1,12 @@
 <script lang="ts">
-  export let data: any = null;
+  let { data = null }: { data: any } = $props();
 
-  $: tribunals = data?.tribunals || [];
+  const tribunals = $derived(data?.tribunals || []);
 
   // Filter for non-active states (Paused or Stopped)
-  $: pausedTribunals = tribunals.filter((t: any) => t.state === 'Paused' || t.state === 'Stopped');
+  const pausedTribunals = $derived(tribunals.filter((t: any) => t.state === 'Paused' || t.state === 'Stopped'));
 
-  $: updatedAt = data?.updated_at ? new Date(data.updated_at).toLocaleString('pt-BR') : 'N/A';
+  const updatedAt = $derived(data?.updated_at ? new Date(data.updated_at).toLocaleString('pt-BR') : 'N/A');
 
   function getDaysSinceDate(dateStr: string | null) {
     if (!dateStr) return 'Desconhecido';

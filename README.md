@@ -78,7 +78,7 @@ flowchart LR
 
     A -.-> |"Scrape 91 courts\nUpload ZIPs"| IA1[("Internet Archive\n(Daily Items)")]
     B -.-> |"Generate catalog.json\n(Metadata + Stats)"| IA2[("Internet Archive\n(Master Catalog)")]
-    C -.-> |"React/Astro UI\nFetch from IA"| GH["GitHub Pages\nDashboard"]
+    C -.-> |"Astro/Svelte UI\nFetch from IA"| GH["GitHub Pages\nDashboard"]
 
     classDef workflow fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
     classDef storage fill:#2b6cb0,stroke:#2c5282,color:#fff,stroke-width:2px;
@@ -91,7 +91,51 @@ flowchart LR
 
 1. **Collect ZIPs** (daily workflow): scrapes 91 Brazilian court websites, downloads legal gazette ZIPs, and uploads them to the Internet Archive.
 2. **Update Catalog** (runs after collect): generates catalog JSON with metadata (`tribunal_count`, `generated_at`), and uploads it to the Internet Archive.
-3. **Deploy Dashboard** (runs after catalog): React/Astro dashboard hosted on GitHub Pages showing pipeline status, tribunal coverage (91 courts), and run history.
+3. **Deploy Dashboard** (runs after catalog): Astro/Svelte dashboard hosted on GitHub Pages showing pipeline status, tribunal coverage (91 courts), and run history.
+
+## Tech Stack
+
+### Backend (Python 3.12+)
+
+| Layer | Technology | Purpose |
+| :---- | :--------- | :------ |
+| Runtime | [uv](https://docs.astral.sh/uv/) | Fast package manager & virtualenv |
+| CLI | [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) | Command-line interface |
+| HTTP | [httpx](https://www.python-httpx.org/) | Async HTTP client (IA uploads, DJEN API) |
+| Config | [Pydantic](https://docs.pydantic.dev/) + pydantic-settings | Data validation & env config |
+| Logging | [structlog](https://www.structlog.org/) | Structured logging |
+| Retry | [tenacity](https://tenacity.readthedocs.io/) | Resilient API calls |
+| Data | [DuckDB](https://duckdb.org/) + [Ibis](https://ibis-project.org/) | Embedded OLAP DB + lazy query builder |
+| Storage | [Apache Parquet](https://parquet.apache.org/) | Columnar analytics format |
+| Vectors | [LanceDB](https://lancedb.github.io/lancedb/) | Embeddings vector store |
+| AI/LLM | [Google Gemini](https://ai.google.dev/) (`gemini-2.5-flash`) | Decision text analysis |
+| AI Agent | [Pydantic AI](https://ai.pydantic.dev/) | Structured LLM output |
+| Ratings | [OpenSkill](https://openskill.me/) | Elo-style lawyer performance ratings |
+| Archive | [internetarchive](https://archive.org/developers/internetarchive.html) | Internet Archive client |
+| Linter | [ruff](https://docs.astral.sh/ruff/) | Formatter + linter (all rules) |
+| Testing | pytest + pytest-bdd + respx | Unit, BDD, and HTTP mock tests |
+
+### Frontend (Dashboard)
+
+| Layer | Technology | Purpose |
+| :---- | :--------- | :------ |
+| Framework | [Astro 5](https://astro.build/) | Static site generator (island architecture) |
+| UI | [Svelte 5](https://svelte.dev/) | Reactive components |
+| Analytics | [DuckDB WASM](https://duckdb.org/docs/api/wasm/overview.html) | Client-side SQL queries on Parquet |
+| Charts | [Observable Plot](https://observablehq.com/plot/) | Data visualization |
+| Build | [Vite](https://vite.dev/) | Module bundler |
+| Tests | [Vitest](https://vitest.dev/) + Vitest-Cucumber | Unit + BDD tests |
+| Hosting | [GitHub Pages](https://pages.github.com/) | Static site deployment |
+
+### Infrastructure
+
+| Component | Technology | Purpose |
+| :-------- | :--------- | :------ |
+| CI/CD | [GitHub Actions](https://github.com/features/actions) | Pipeline orchestration (every 20 min) |
+| Data lake | [Internet Archive](https://archive.org/) | Permanent public Parquet/ZIP storage |
+| DJEN proxy | [Google Cloud Run](https://cloud.google.com/run) (São Paulo) | Bypass DJEN geo-block |
+
+---
 
 ## Development Status (V2 Refactoring)
 

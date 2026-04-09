@@ -12,7 +12,7 @@ import json
 import logging
 import re
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -52,10 +52,10 @@ console = Console(stderr=True)
 install_rich_traceback(console=console, show_locals=False, width=120)
 
 
-def setup_logging(verbose: bool = False, log_dir: Path = Path("logs")) -> Path:
+def setup_logging(*, verbose: bool = False, log_dir: Path = Path("logs")) -> Path:
     """Configure dual logging: file (DEBUG) + console (WARNING+ or DEBUG if verbose)."""
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"pipeline-{date.today().isoformat()}.log"
+    log_file = log_dir / f"pipeline-{datetime.now(UTC).date().isoformat()}.log"
 
     # stdlib logging with two handlers
     root = logging.getLogger()
@@ -133,12 +133,14 @@ COMMON_EXCEPTIONS = (
 def _handle_error(e: Exception, message: str) -> None:
     """Display a rich error panel with details and exit."""
     console.print()
-    console.print(Panel(
-        f"[bold]{type(e).__name__}[/bold]: {e}",
-        title=f"❌ {message}",
-        border_style="red",
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            f"[bold]{type(e).__name__}[/bold]: {e}",
+            title=f"❌ {message}",
+            border_style="red",
+            padding=(1, 2),
+        )
+    )
     if e.__traceback__:
         console.print_exception(show_locals=False, width=120)
     console.print()
