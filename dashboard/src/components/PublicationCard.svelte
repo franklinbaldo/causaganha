@@ -25,25 +25,12 @@
   function parseText(text: string | undefined | null): string[] {
     if (!text) return [];
     const markers =
-      /(?=(?:Processo\s*:|Classe\s*:|INTIMA[CÃ‡][AÃƒ]O|CITA[CÃ‡][AÃƒ]O|DESPACHO|DECIS[AÃƒ]O|SENTEN[CÃ‡]A|EDITAL|Designada\s+AUDI[EÃŠ]NCIA|DATA\s+E\s+HORA))/gi;
+      /(?=(?:Processo\s*:|Classe\s*:|INTIMA(?:\u00c7\u00c3O|CAO)|CITA(?:\u00c7\u00c3O|CAO)|DESPACHO|DECIS(?:\u00c3O|AO)|SENTEN(?:\u00c7A|CA)|EDITAL|Designada\s+AUDI(?:\u00caNCIA|ENCIA)|DATA\s+E\s+HORA))/gi;
     const parts = text
       .split(markers)
       .map((part) => part.trim())
       .filter(Boolean);
     return parts.length > 1 ? parts : [text];
-  }
-
-  function stripHtml(html: string): string {
-    return html
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">")
-      .replace(/\s+/g, " ")
-      .trim();
   }
 
   function escapeRegExp(value: string): string {
@@ -58,12 +45,11 @@
       return [{ token: part }];
     }
 
-    terms.sort((a, b) => b.text.length - a.text.length);
-
+    const sortedTerms = [...terms].sort((a, b) => b.text.length - a.text.length);
     const termMap = new Map<string, "party" | "lawyer">();
-    terms.forEach((term) => termMap.set(term.text.toLowerCase(), term.type));
+    sortedTerms.forEach((term) => termMap.set(term.text.toLowerCase(), term.type));
 
-    const pattern = terms.map((term) => escapeRegExp(term.text)).join("|");
+    const pattern = sortedTerms.map((term) => escapeRegExp(term.text)).join("|");
     const regex = new RegExp(`(${pattern})`, "gi");
 
     return part.split(regex).map((token) => {
@@ -97,15 +83,9 @@
     return `${cleaned.slice(0, limit).trimEnd()}...`;
   }
 
-  function previewContent(pub: DjenPublication, limit = 320): string | null {
-    const render = pub.textoRender;
-    if (!render?.content) return null;
-    return previewText(render.kind === "html" ? stripHtml(render.content) : render.content, limit);
-  }
-
   function summarizeMedium(pub: DjenPublication): string | null {
     if (pub.meiocompleto) return pub.meiocompleto;
-    if (pub.meio === "D") return "DiÃ¡rio EletrÃ´nico";
+    if (pub.meio === "D") return "Di\u00e1rio Eletr\u00f4nico";
     if (pub.meio === "E") return "Edital";
     return null;
   }
@@ -132,11 +112,13 @@
 
     if (statusChip) chips.push(statusChip);
     if (pub.siglaTribunal) chips.push({ label: "Tribunal", value: pub.siglaTribunal });
-    if (summarizeMedium(pub)) chips.push({ label: "Meio", value: summarizeMedium(pub)!, tone: "accent" });
+    if (summarizeMedium(pub)) {
+      chips.push({ label: "Meio", value: summarizeMedium(pub)!, tone: "accent" });
+    }
     if (pub.nomeClasse) chips.push({ label: "Classe", value: pub.nomeClasse });
     if (pub.tipoDocumento) chips.push({ label: "Documento", value: pub.tipoDocumento });
     if (pub.numeroComunicacao != null) {
-      chips.push({ label: "ComunicaÃ§Ã£o", value: String(pub.numeroComunicacao) });
+      chips.push({ label: "Comunica\u00e7\u00e3o", value: String(pub.numeroComunicacao) });
     }
 
     return chips;
@@ -146,10 +128,10 @@
     const rows: MetaChip[] = [];
 
     if (pub.data_disponibilizacao) {
-      rows.push({ label: "DisponibilizaÃ§Ã£o", value: pub.data_disponibilizacao });
+      rows.push({ label: "Disponibiliza\u00e7\u00e3o", value: pub.data_disponibilizacao });
     }
     if (pub.codigoClasse) {
-      rows.push({ label: "CÃ³digo da classe", value: pub.codigoClasse });
+      rows.push({ label: "C\u00f3digo da classe", value: pub.codigoClasse });
     }
     if (pub.hash) {
       rows.push({ label: "Hash", value: pub.hash.slice(0, 16) });
@@ -218,11 +200,11 @@
   let shareCopiedCompact = $state(false);
 
   const processNumber = $derived(formatProcessNumber(pub.numero_processo));
-  const textParts = $derived(
-    pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : [],
-  );
+  const textParts = $derived(pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : []);
   const terms = $derived(buildTerms(pub));
-  const teaser = $derived(previewContent(pub, compact ? 220 : 420));
+  const teaser = $derived(
+    pub.textoRender?.kind === "text" ? previewText(pub.textoRender.content, compact ? 220 : 420) : null,
+  );
   const metaChips = $derived(buildMetaChips(pub));
   const identityRows = $derived(buildIdentityRows(pub));
   const parties = $derived(uniquePartyNames(pub));
@@ -319,7 +301,11 @@
         <small class="orgao-name">{pub.nomeOrgao}</small>
       {/if}
 
-      {#if teaser}
+      {#if pub.textoRender?.kind === "html"}
+        <div class="html-content html-content-compact">
+          {@html pub.textoRender.content}
+        </div>
+      {:else if teaser}
         <p class="text-preview">{teaser}</p>
       {/if}
 
@@ -358,7 +344,7 @@
             <p class="orgao-name-reader">{pub.nomeOrgao}</p>
           {/if}
         </div>
-        <div class="header-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o e leitura">
+        <div class="header-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o e leitura"}>
           <button
             class="btn btn-outline-secondary"
             onclick={() => (isReaderMode = false)}
@@ -468,7 +454,7 @@
           {/if}
         </div>
 
-        <div class="header-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o e leitura">
+        <div class="header-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o e leitura"}>
           <button
             class="btn-outline-primary"
             onclick={() => (isReaderMode = true)}
@@ -482,7 +468,7 @@
               Inteiro teor
             </a>
           {/if}
-          <div class="nav-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o">
+          <div class="nav-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o"}>
             {#if onNavigate}
               <button
                 class="btn btn-outline-secondary"
@@ -496,7 +482,7 @@
                 onclick={() => onNavigate(seq + 1)}
                 disabled={totalSeq != null && seq >= totalSeq}
               >
-                PrÃ³xima
+                {"Pr\u00f3xima"}
               </button>
             {/if}
             <button
@@ -540,7 +526,7 @@
 
         <aside class="detail-panel">
           <div class="sidebar-panel">
-            <strong class="sidebar-title">IdentificaÃ§Ã£o</strong>
+            <strong class="sidebar-title">{"Identifica\u00e7\u00e3o"}</strong>
             <dl class="identity-list">
               {#if identityRows.length > 0}
                 {#each identityRows as item}
@@ -555,7 +541,7 @@
 
           {#if parties.length > 0}
             <div class="sidebar-panel">
-              <strong class="sidebar-title">DestinatÃ¡rios</strong>
+              <strong class="sidebar-title">{"Destinat\u00e1rios"}</strong>
               <div class="sidebar-tags">
                 {#each parties as party}
                   <span class="badge name-pill">{party}</span>
@@ -818,11 +804,6 @@
     border-radius: 1rem;
     background: rgba(255, 255, 255, 0.62);
     backdrop-filter: blur(6px);
-  }
-
-  .lead-panel,
-  .detail-panel,
-  .sidebar-panel {
     padding: 1rem;
   }
 
@@ -921,6 +902,10 @@
 
   .html-content-reader {
     font-size: 1.08rem;
+  }
+
+  .html-content-compact {
+    font-size: var(--font-size-sm);
   }
 
   .html-content-featured {
