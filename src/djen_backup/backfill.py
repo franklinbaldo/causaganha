@@ -758,7 +758,7 @@ async def _fetch_ia_item_zips(
     tribunal: str,
     year: int,
 ) -> set[date]:
-    """Fetch all ZIP dates for a tribunal×year from IA metadata (1 request per item)."""
+    """Fetch all ZIP dates for a tribunal x year from IA metadata (1 request per item)."""
     item_id = get_ia_item_id(tribunal, date(year, 1, 1))
     metadata_url = f"https://archive.org/metadata/{item_id}/files"
     try:
@@ -771,7 +771,7 @@ async def _fetch_ia_item_zips(
             name = f.get("name", "")
             if not name.startswith("djen-") or not name.endswith(".zip"):
                 continue
-            parts = name[len("djen-"):].split("-")
+            parts = name[len("djen-") :].split("-")
             if len(parts) < 4:
                 continue
             with contextlib.suppress(ValueError):
@@ -1031,7 +1031,14 @@ async def _run_backfill_workers(
                     break
 
                 result = await backfill_process_date(
-                    client, breaker, t, d, config, bstate, ia_state, summary,
+                    client,
+                    breaker,
+                    t,
+                    d,
+                    config,
+                    bstate,
+                    ia_state,
+                    summary,
                 )
 
                 if result == "hit":
