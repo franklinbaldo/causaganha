@@ -769,70 +769,114 @@ ZIP_INVENTORY_FILE = Path("data/zip-inventory.txt")
 
 
 class ZipInventory:
-    """Flat set of known ZIPs on Internet Archive.
+    """CSV-based inventory of all known ZIPs on Internet Archive.
 
-    Stored as one line per entry: ``TRIBUNAL/YYYY-MM-DD``
-    Loaded instantly from disk, updated after uploads and IA scans.
+    Format (one line per entry, sorted by timestamp):
+        TIMESTAMP,TRIBUNAL,DATE,STATUS,URL
+
+    STATUS is ``uploaded`` or ``absent``.
+    URL is the IA download URL for uploaded ZIPs, empty for absents.
+
+    Lookup is O(1) via a ``{TRIBUNAL/DATE}`` keyed dict.
     """
 
+    HEADER = "timestamp,tribunal,date,status,url"
+
     def __init__(self) -> None:
-        self._zips: set[str] = set()
+        # Key: "TRIBUNAL/YYYY-MM-DD" → (status, url, timestamp)
+        self._entries: dict[str, tuple[str, str, str]] = {}
 
     @staticmethod
     def _key(tribunal: str, d: date) -> str:
         return f"{tribunal.upper()}/{d.isoformat()}"
 
+    @staticmethod
+    def _url(tribunal: str, d: date) -> str:
+        item_id = f"djen-{tribunal.lower()}-{d.year}"
+        filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
+        return f"https://archive.org/download/{item_id}/{filename}"
+
     def has(self, tribunal: str, d: date) -> bool:
         """Check if date is known (either uploaded or absent)."""
-        k = self._key(tribunal, d)
-        return k in self._zips or f"{k}:absent" in self._zips
+        return self._key(tribunal, d) in self._entries
 
     def add(self, tribunal: str, d: date) -> None:
         """Mark a date as uploaded (ZIP exists on IA)."""
-        self._zips.add(self._key(tribunal, d))
+        k = self._key(tribunal, d)
+        if k not in self._entries:
+            self._entries[k] = (
+                "uploaded",
+                self._url(tribunal, d),
+                datetime.now(UTC).isoformat(timespec="seconds"),
+            )
 
     def add_absent(self, tribunal: str, d: date) -> None:
         """Mark a date as confirmed absent (no journal published)."""
-        self._zips.add(f"{self._key(tribunal, d)}:absent")
+        k = self._key(tribunal, d)
+        if k not in self._entries:
+            self._entries[k] = (
+                "absent",
+                "",
+                datetime.now(UTC).isoformat(timespec="seconds"),
+            )
 
     def add_many(self, tribunal: str, dates: set[date]) -> None:
         for d in dates:
-            self._zips.add(self._key(tribunal, d))
+            self.add(tribunal, d)
 
     def __len__(self) -> int:
-        return len(self._zips)
+        return len(self._entries)
 
-    def load_from_text(self, text: str) -> int:
-        """Load from text content (one entry per line). Returns count added."""
-        before = len(self._zips)
-        self._zips.update(line.strip() for line in text.splitlines() if line.strip())
-        return len(self._zips) - before
+    def load_from_csv(self, text: str) -> int:
+        """Load from CSV text. Returns count added."""
+        before = len(self._entries)
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("timestamp"):
+                continue
+            parts = line.split(",", 4)
+            if len(parts) < 4:
+                continue
+            ts, tribunal, date_str, status = parts[0], parts[1], parts[2], parts[3]
+            url = parts[4] if len(parts) > 4 else ""
+            k = f"{tribunal.upper()}/{date_str}"
+            if k not in self._entries:
+                self._entries[k] = (status, url, ts)
+        return len(self._entries) - before
 
-    def to_text(self) -> str:
-        """Serialize to text (one entry per line)."""
-        return "\n".join(sorted(self._zips)) + "\n" if self._zips else ""
+    def to_csv(self) -> str:
+        """Serialize to CSV sorted by timestamp."""
+        lines = [self.HEADER]
+        rows = []
+        for k, (status, url, ts) in self._entries.items():
+            tribunal, date_str = k.split("/", 1)
+            rows.append((ts, tribunal, date_str, status, url))
+        rows.sort()  # Sorts by timestamp first
+        for ts, tribunal, date_str, status, url in rows:
+            lines.append(f"{ts},{tribunal},{date_str},{status},{url}")
+        return "\n".join(lines) + "\n"
 
     async def load_from_ia(self) -> int:
         """Download inventory from Internet Archive. Returns count loaded."""
         text = await download_text_from_ia(IA_ZIP_INVENTORY_FILENAME)
         if text:
-            return self.load_from_text(text)
+            return self.load_from_csv(text)
         return 0
 
     async def upload_to_ia(self, auth: str) -> bool:
         """Upload inventory to Internet Archive."""
-        return await upload_text_to_ia(IA_ZIP_INVENTORY_FILENAME, self.to_text(), auth)
+        return await upload_text_to_ia(IA_ZIP_INVENTORY_FILENAME, self.to_csv(), auth)
 
     def load_from_disk(self, path: Path = ZIP_INVENTORY_FILE) -> int:
         """Load from local disk as fallback. Returns count loaded."""
         if not path.exists():
             return 0
-        return self.load_from_text(path.read_text(encoding="utf-8"))
+        return self.load_from_csv(path.read_text(encoding="utf-8"))
 
     def save_to_disk(self, path: Path = ZIP_INVENTORY_FILE) -> None:
         """Persist to local disk."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.to_text(), encoding="utf-8")
+        path.write_text(self.to_csv(), encoding="utf-8")
 
     def load_from_snapshot(self) -> int:
         """Seed from ia-snapshot.json (zero network)."""
@@ -843,12 +887,16 @@ class ZipInventory:
             snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return 0
-        before = len(self._zips)
+        before = len(self._entries)
         for item_data in snapshot.get("items", {}).values():
             tribunal = item_data.get("tribunal", "")
             for date_str in item_data.get("dates", []):
-                self._zips.add(f"{tribunal.upper()}/{date_str}")
-        return len(self._zips) - before
+                try:
+                    d = date.fromisoformat(date_str)
+                except ValueError:
+                    continue
+                self.add(tribunal, d)
+        return len(self._entries) - before
 
     def gaps_for_year(
         self,
@@ -857,15 +905,14 @@ class ZipInventory:
         upper: date,
         lower: date,
     ) -> list[date]:
-        """Return days in the year that are NOT in inventory (neither uploaded nor absent)."""
+        """Return days in the year that are NOT in inventory."""
         start = max(date(year, 1, 1), lower)
         end = min(date(year, 12, 31), upper)
         missing = []
         current = start
         t_upper = tribunal.upper()
         while current <= end:
-            k = f"{t_upper}/{current.isoformat()}"
-            if k not in self._zips and f"{k}:absent" not in self._zips:
+            if f"{t_upper}/{current.isoformat()}" not in self._entries:
                 missing.append(current)
             current += timedelta(days=1)
         return missing
