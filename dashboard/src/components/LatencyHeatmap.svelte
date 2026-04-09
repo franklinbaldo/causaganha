@@ -3,14 +3,17 @@
   import { fade } from 'svelte/transition';
   import CellTooltip from './CellTooltip.svelte';
   import MonthPicker from './MonthPicker.svelte';
+  import { completedItemsStore } from '../lib/completedItemsStore.svelte';
 
-  let data: Record<string, any> | null = $state(null);
-  let loading = $state(true);
-  let error: string | null = $state(null);
+  onMount(() => completedItemsStore.load());
 
   const _now = new Date();
   let selectedYear  = $state(_now.getUTCFullYear());
   let selectedMonth = $state(_now.getUTCMonth());
+
+  const data    = $derived(completedItemsStore.data);
+  const loading = $derived(completedItemsStore.loading);
+  const error   = $derived(completedItemsStore.error);
 
   // "YYYY-MM" → fraction of (tribunal, day) pairs where tribunal was collected
   let monthSummaries = $derived.by((): Record<string, number> => {
@@ -52,27 +55,6 @@
     'PJeCor',
   ];
 
-  onMount(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const response = await fetch(
-          `https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const json = await response.json();
-        if (isMounted) { data = json.completed_items || {}; error = null; }
-      } catch (e) {
-        if (isMounted) {
-          error = e instanceof Error ? e.message : 'Unknown error occurred';
-          console.error('Error fetching completed items:', e);
-        }
-      } finally {
-        if (isMounted) loading = false;
-      }
-    })();
-    return () => { isMounted = false; };
-  });
 
   function getLatencyColor(duration_s: number | null): string {
     if (duration_s === null) return 'bg-base-200';

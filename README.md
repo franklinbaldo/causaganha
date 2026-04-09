@@ -78,7 +78,7 @@ flowchart LR
 
     A -.-> |"Scrape 91 courts\nUpload ZIPs"| IA1[("Internet Archive\n(Daily Items)")]
     B -.-> |"Generate catalog.json\n(Metadata + Stats)"| IA2[("Internet Archive\n(Master Catalog)")]
-    C -.-> |"React/Astro UI\nFetch from IA"| GH["GitHub Pages\nDashboard"]
+    C -.-> |"Astro/Svelte UI\nFetch from IA"| GH["GitHub Pages\nDashboard"]
 
     classDef workflow fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
     classDef storage fill:#2b6cb0,stroke:#2c5282,color:#fff,stroke-width:2px;
@@ -91,7 +91,7 @@ flowchart LR
 
 1. **Collect ZIPs** (daily workflow): scrapes 91 Brazilian court websites, downloads legal gazette ZIPs, and uploads them to the Internet Archive.
 2. **Update Catalog** (runs after collect): generates catalog JSON with metadata (`tribunal_count`, `generated_at`), and uploads it to the Internet Archive.
-3. **Deploy Dashboard** (runs after catalog): React/Astro dashboard hosted on GitHub Pages showing pipeline status, tribunal coverage (91 courts), and run history.
+3. **Deploy Dashboard** (runs after catalog): Astro/Svelte dashboard hosted on GitHub Pages showing pipeline status, tribunal coverage (91 courts), and run history.
 
 ## Tech Stack
 
