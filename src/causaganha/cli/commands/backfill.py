@@ -66,32 +66,41 @@ def _run_step(
         "PYTHONPATH": f"{repo_root}:{Path(repo_root) / 'src'}",
     }
 
-    # Capture output to both log file and for error display
     fd, output_path = tempfile.mkstemp(prefix=f"cg-{name}-", suffix=".log")
     os.close(fd)
-
     env["GITHUB_OUTPUT"] = output_path
+
+    # Stderr capture for error display
+    stderr_path = Path(tempfile.mktemp(prefix=f"cg-{name}-err-", suffix=".log"))
 
     start = time.time()
     try:
-        result = subprocess.run(
-            cmd,
-            env=env,
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        # Stream stdout directly to log file in real time
+        log_fh = open(log_file, "a") if log_file else subprocess.DEVNULL
+        stderr_fh = open(stderr_path, "w")
+        try:
+            if log_file:
+                log_fh.write(f"\n{'='*60}\n[{name}] {' '.join(cmd)}\n{'='*60}\n")
+                log_fh.flush()
+
+            result = subprocess.run(
+                cmd,
+                env=env,
+                cwd=repo_root,
+                stdout=log_fh,
+                stderr=stderr_fh,
+                text=True,
+                check=False,
+            )
+        finally:
+            if log_file:
+                log_fh.close()
+            stderr_fh.close()
+
         duration = time.time() - start
 
-        # Append subprocess output to log file
-        if log_file:
-            with open(log_file, "a") as f:
-                f.write(f"\n{'='*60}\n[{name}] {' '.join(cmd)}\n{'='*60}\n")
-                if result.stdout:
-                    f.write(result.stdout)
-                if result.stderr:
-                    f.write(result.stderr)
+        # Read captured stderr for error display
+        stderr_content = stderr_path.read_text().strip() if stderr_path.exists() else ""
 
         # Parse GITHUB_OUTPUT for metadata
         outputs = {}
@@ -104,8 +113,7 @@ def _run_step(
             out_file.unlink(missing_ok=True)
 
         if result.returncode != 0:
-            error_msg = result.stderr.strip() if result.stderr else f"exit code {result.returncode}"
-            # Show last meaningful lines
+            error_msg = stderr_content or f"exit code {result.returncode}"
             lines = [l for l in error_msg.splitlines() if l.strip()]
             short_error = "\n".join(lines[-5:]) if len(lines) > 5 else error_msg
             return StepResult(
@@ -126,6 +134,7 @@ def _run_step(
         return StepResult(name=name, success=False, duration=duration, error=str(e))
     finally:
         Path(output_path).unlink(missing_ok=True)
+        stderr_path.unlink(missing_ok=True)
 
 
 def _preflight_checks() -> None:
