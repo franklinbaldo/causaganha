@@ -756,32 +756,28 @@ async def _fetch_ia_item_zips(
     client: httpx.AsyncClient,
     tribunal: str,
     year: int,
-    sem: asyncio.Semaphore,
 ) -> set[date]:
     """Fetch all ZIP dates for a tribunal×year from IA metadata (1 request per item)."""
     item_id = get_ia_item_id(tribunal, date(year, 1, 1))
     metadata_url = f"https://archive.org/metadata/{item_id}/files"
-    async with sem:
-        try:
-            resp = await client.get(metadata_url, timeout=15)
-            if resp.status_code >= 400:
-                return set()
-            files = resp.json().get("result", [])
-            dates: set[date] = set()
-            for f in files:
-                name = f.get("name", "")
-                if not name.startswith("djen-") or not name.endswith(".zip"):
-                    continue
-                parts = name[len("djen-"):].split("-")
-                if len(parts) < 4:
-                    continue
-                try:
-                    dates.add(date.fromisoformat(f"{parts[0]}-{parts[1]}-{parts[2]}"))
-                except ValueError:
-                    continue
-            return dates
-        except (httpx.HTTPError, httpx.TimeoutException, Exception):
+    try:
+        resp = await client.get(metadata_url, timeout=15)
+        if resp.status_code >= 400:
             return set()
+        files = resp.json().get("result", [])
+        dates: set[date] = set()
+        for f in files:
+            name = f.get("name", "")
+            if not name.startswith("djen-") or not name.endswith(".zip"):
+                continue
+            parts = name[len("djen-"):].split("-")
+            if len(parts) < 4:
+                continue
+            with contextlib.suppress(ValueError):
+                dates.add(date.fromisoformat(f"{parts[0]}-{parts[1]}-{parts[2]}"))
+        return dates
+    except (httpx.HTTPError, httpx.TimeoutException):
+        return set()
 
 
 class ZipInventory:
@@ -1001,7 +997,7 @@ async def _run_backfill_workers(
                     t_lower = max(lower, date.fromisoformat(genesis_str))
 
             # 1. Fetch IA metadata for this tribunal×year (1 request)
-            ia_dates = await _fetch_ia_item_zips(client, t, year, sem)
+            ia_dates = await _fetch_ia_item_zips(client, t, year)
             for d in ia_dates:
                 if not inventory.has(t, d):
                     inventory.add(t, d)
