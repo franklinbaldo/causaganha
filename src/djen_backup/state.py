@@ -188,6 +188,49 @@ _IA_DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
 _IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
 
 
+IA_ZIP_INVENTORY_FILENAME = "zip-inventory.txt"
+
+
+async def download_text_from_ia(filename: str) -> str | None:
+    """Download a text file from IA. Returns content string or None."""
+    import httpx
+
+    url = _IA_DOWNLOAD_URL.format(filename)
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                log.info("text_downloaded_from_ia", filename=filename, size=len(resp.text))
+                return resp.text
+            log.info("text_not_found_on_ia", filename=filename, status=resp.status_code)
+    except Exception as exc:
+        log.warning("text_download_failed", filename=filename, error=str(exc))
+    return None
+
+
+async def upload_text_to_ia(filename: str, content: str, auth: str) -> bool:
+    """Upload a text file to IA. Returns True on success."""
+    import httpx
+
+    url = _IA_S3_URL.format(filename)
+    headers = {
+        "Authorization": auth,
+        "Content-Type": "text/plain",
+        "x-amz-auto-make-bucket": "1",
+        "x-archive-meta-mediatype": "data",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.put(url, content=content.encode("utf-8"), headers=headers)
+            if resp.status_code < 400:
+                log.info("text_uploaded_to_ia", filename=filename)
+                return True
+            log.warning("text_upload_failed", filename=filename, status=resp.status_code)
+    except Exception as exc:
+        log.warning("text_upload_error", filename=filename, error=str(exc))
+    return False
+
+
 async def download_state_from_ia(filename: str) -> dict | None:
     """Download a state JSON from IA. Returns parsed dict or None."""
     import httpx

@@ -36,13 +36,16 @@ from djen_backup.runner import validate_tribunal
 from djen_backup.state import (
     IA_BACKFILL_STATE_FILENAME,
     IA_STATE_FILENAME,
+    IA_ZIP_INVENTORY_FILENAME,
     ItemStatus,
     State,
     download_state_from_ia,
+    download_text_from_ia,
     load_state,
     merge_state,
     save_state,
     upload_state_to_ia,
+    upload_text_to_ia,
 )
 from djen_backup.tribunais import get_tribunal_list
 
@@ -793,22 +796,37 @@ class ZipInventory:
     def __len__(self) -> int:
         return len(self._zips)
 
-    def load(self, path: Path = ZIP_INVENTORY_FILE) -> int:
-        """Load from disk. Returns count loaded."""
-        if not path.exists():
-            return 0
-        lines = path.read_text(encoding="utf-8").splitlines()
+    def load_from_text(self, text: str) -> int:
+        """Load from text content (one entry per line). Returns count added."""
         before = len(self._zips)
-        self._zips.update(line.strip() for line in lines if line.strip())
+        self._zips.update(line.strip() for line in text.splitlines() if line.strip())
         return len(self._zips) - before
 
-    def save(self, path: Path = ZIP_INVENTORY_FILE) -> None:
-        """Persist to disk."""
+    def to_text(self) -> str:
+        """Serialize to text (one entry per line)."""
+        return "\n".join(sorted(self._zips)) + "\n" if self._zips else ""
+
+    async def load_from_ia(self) -> int:
+        """Download inventory from Internet Archive. Returns count loaded."""
+        text = await download_text_from_ia(IA_ZIP_INVENTORY_FILENAME)
+        if text:
+            return self.load_from_text(text)
+        return 0
+
+    async def upload_to_ia(self, auth: str) -> bool:
+        """Upload inventory to Internet Archive."""
+        return await upload_text_to_ia(IA_ZIP_INVENTORY_FILENAME, self.to_text(), auth)
+
+    def load_from_disk(self, path: Path = ZIP_INVENTORY_FILE) -> int:
+        """Load from local disk as fallback. Returns count loaded."""
+        if not path.exists():
+            return 0
+        return self.load_from_text(path.read_text(encoding="utf-8"))
+
+    def save_to_disk(self, path: Path = ZIP_INVENTORY_FILE) -> None:
+        """Persist to local disk."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            "\n".join(sorted(self._zips)) + "\n",
-            encoding="utf-8",
-        )
+        path.write_text(self.to_text(), encoding="utf-8")
 
     def load_from_snapshot(self) -> int:
         """Seed from ia-snapshot.json (zero network)."""
@@ -878,12 +896,14 @@ async def _run_backfill_workers(
     upper = config.start_date
     years = sorted(range(lower.year, upper.year + 1), reverse=True)
 
-    # Load inventory from disk (instant, zero network)
+    # Load inventory: IA first (source of truth), then disk fallback, then snapshot seed
     inventory = ZipInventory()
-    loaded_disk = inventory.load()
+    loaded_ia = await inventory.load_from_ia()
+    loaded_disk = inventory.load_from_disk()
     loaded_snapshot = inventory.load_from_snapshot()
     log.info(
         "zip_inventory_loaded",
+        from_ia=loaded_ia,
         from_disk=loaded_disk,
         from_snapshot=loaded_snapshot,
         total=len(inventory),
@@ -984,7 +1004,7 @@ async def _run_backfill_workers(
                 if not config.dry_run:
                     save_backfill_state(bstate, config.backfill_state_file)
                     save_state(ia_state, config.state_file)
-                    inventory.save()
+                    inventory.save_to_disk()
                     await upload_state_to_ia(
                         IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth
                     )
@@ -1013,11 +1033,14 @@ async def _run_backfill_workers(
         with contextlib.suppress(asyncio.CancelledError):
             await publisher_task
 
-        inventory.save()
+        inventory.save_to_disk()
         save_backfill_state(bstate, config.backfill_state_file)
         log.info("backfill_year_done", year=year, items_processed=items_processed)
 
-    inventory.save()
+    # Final save: disk + IA
+    inventory.save_to_disk()
+    if not config.dry_run:
+        await inventory.upload_to_ia(config.ia_auth)
     log.info("zip_inventory_saved", total=len(inventory))
 
     if not scanned_tribunals:
