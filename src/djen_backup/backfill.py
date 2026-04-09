@@ -795,31 +795,109 @@ def _weekdays_in_year(year: int, upper: date, lower: date) -> list[date]:
     return days
 
 
-def _load_snapshot_seed(ia_state: State) -> int:
-    """Pre-populate ia_state from ia-snapshot.json (zero network cost)."""
-    snapshot_path = Path("dashboard/public/ia-snapshot.json")
-    if not snapshot_path.exists():
-        return 0
+ZIP_INVENTORY_FILE = Path("data/zip-inventory.txt")
 
-    try:
-        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return 0
 
-    count = 0
-    for item_data in snapshot.get("items", {}).values():
-        tribunal = item_data.get("tribunal", "")
-        for date_str in item_data.get("dates", []):
-            try:
-                d = date.fromisoformat(date_str)
-            except ValueError:
-                continue
-            if ia_state.get_status(d, tribunal) is None:
-                # Synchronous mark — State.mark is async but we need sync here
-                # Use the internal dict directly for speed
-                ia_state._mark_sync(d, tribunal, "uploaded")
-                count += 1
-    return count
+class ZipInventory:
+    """Flat set of known ZIPs on Internet Archive.
+
+    Stored as one line per entry: ``TRIBUNAL/YYYY-MM-DD``
+    Loaded instantly from disk, updated after uploads and IA scans.
+    """
+
+    def __init__(self) -> None:
+        self._zips: set[str] = set()
+
+    @staticmethod
+    def _key(tribunal: str, d: date) -> str:
+        return f"{tribunal.upper()}/{d.isoformat()}"
+
+    def has(self, tribunal: str, d: date) -> bool:
+        return self._key(tribunal, d) in self._zips
+
+    def add(self, tribunal: str, d: date) -> None:
+        self._zips.add(self._key(tribunal, d))
+
+    def add_many(self, tribunal: str, dates: set[date]) -> None:
+        for d in dates:
+            self._zips.add(self._key(tribunal, d))
+
+    def __len__(self) -> int:
+        return len(self._zips)
+
+    def load(self, path: Path = ZIP_INVENTORY_FILE) -> int:
+        """Load from disk. Returns count loaded."""
+        if not path.exists():
+            return 0
+        lines = path.read_text(encoding="utf-8").splitlines()
+        before = len(self._zips)
+        self._zips.update(line.strip() for line in lines if line.strip())
+        return len(self._zips) - before
+
+    def save(self, path: Path = ZIP_INVENTORY_FILE) -> None:
+        """Persist to disk."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "\n".join(sorted(self._zips)) + "\n",
+            encoding="utf-8",
+        )
+
+    def load_from_snapshot(self) -> int:
+        """Seed from ia-snapshot.json (zero network)."""
+        snapshot_path = Path("dashboard/public/ia-snapshot.json")
+        if not snapshot_path.exists():
+            return 0
+        try:
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return 0
+        before = len(self._zips)
+        for item_data in snapshot.get("items", {}).values():
+            tribunal = item_data.get("tribunal", "")
+            for date_str in item_data.get("dates", []):
+                self._zips.add(f"{tribunal.upper()}/{date_str}")
+        return len(self._zips) - before
+
+    def gaps_for_year(
+        self,
+        tribunal: str,
+        year: int,
+        upper: date,
+        lower: date,
+    ) -> list[date]:
+        """Return weekdays in the year that are NOT in inventory."""
+        start = max(date(year, 1, 1), lower)
+        end = min(date(year, 12, 31), upper)
+        missing = []
+        current = start
+        t_upper = tribunal.upper()
+        while current <= end:
+            if current.weekday() < 5:  # Mon-Fri
+                if f"{t_upper}/{current.isoformat()}" not in self._zips:
+                    missing.append(current)
+            current += timedelta(days=1)
+        return missing
+
+
+async def _refresh_inventory_for_year(
+    client: httpx.AsyncClient,
+    inventory: ZipInventory,
+    tribunals: list[str],
+    year: int,
+    sem: asyncio.Semaphore,
+) -> int:
+    """Fetch IA metadata for all tribunals in a year and update inventory."""
+    tasks = {
+        t: asyncio.create_task(_fetch_ia_dates_for_item(client, t, year, sem))
+        for t in tribunals
+    }
+    added = 0
+    for t, task in tasks.items():
+        dates = await task
+        before = len(inventory)
+        inventory.add_many(t, dates)
+        added += len(inventory) - before
+    return added
 
 
 async def _scan_year_gaps(
@@ -896,13 +974,15 @@ async def _run_backfill_workers(
     summary: BackfillSummary,
     all_tribunals: list[str],
 ) -> None:
-    """Year-first backfill: scan one year at a time, work gaps, move on.
+    """Year-first backfill using a local ZIP inventory for instant gap detection.
 
-    1. Seed ia_state from local ia-snapshot.json (instant, 0 requests)
-    2. Scan current year (~96 IA metadata requests, ~90s)
-    3. If year has gaps → process them immediately
-    4. If year is complete → skip to previous year
-    5. Stop when max_items reached or deadline hit
+    1. Load zip-inventory.txt + ia-snapshot.json (instant, 0 requests)
+    2. For current year: check inventory for gaps
+       - If inventory has data for this year → compute gaps instantly
+       - If not → fetch IA metadata (~96 requests, ~90s) and update inventory
+    3. Process gaps immediately
+    4. Move to previous year only when current is done
+    5. Persist inventory to disk after each year
     """
     active_tribunals = []
     for t in all_tribunals:
@@ -917,41 +997,96 @@ async def _run_backfill_workers(
     upper = config.start_date
     years = sorted(range(lower.year, upper.year + 1), reverse=True)
 
-    # Seed from local snapshot (instant, zero network)
-    seeded = _load_snapshot_seed(ia_state)
-    if seeded:
-        log.info("ia_snapshot_seed", dates_cached=seeded)
+    # Step 1: Load inventory (instant)
+    inventory = ZipInventory()
+    loaded_disk = inventory.load()
+    loaded_snapshot = inventory.load_from_snapshot()
+    log.info(
+        "zip_inventory_loaded",
+        from_disk=loaded_disk,
+        from_snapshot=loaded_snapshot,
+        total=len(inventory),
+    )
 
     sem = asyncio.Semaphore(20)
     scanned_tribunals: set[str] = set()
     paused_tribunals: set[str] = set()
     items_processed = 0
 
-    # Process year by year
     for year in years:
         if time.monotonic() > deadline - 60:
-            log.info("backfill_deadline_approaching", remaining_years=len(years))
             break
         if config.max_items > 0 and items_processed >= config.max_items:
             break
 
-        # Scan this year
-        gaps = await _scan_year_gaps(
-            client, year, active_tribunals, ia_state,
-            config.genesis_dates, upper, lower, sem,
-        )
+        # Step 2: Compute gaps from inventory first (instant)
+        all_gaps: list[tuple[date, str]] = []
+        tribunals_needing_refresh: list[str] = []
 
-        if not gaps:
+        for t in active_tribunals:
+            genesis_str = config.genesis_dates.get(t)
+            t_lower = lower
+            if genesis_str and genesis_str != "None":
+                try:
+                    t_lower = max(lower, date.fromisoformat(genesis_str))
+                except ValueError:
+                    pass
+
+            missing = inventory.gaps_for_year(t, year, upper, t_lower)
+
+            # Also exclude known absents from ia_state
+            missing = [d for d in missing if ia_state.get_status(d, t) != "absent"]
+
+            if missing:
+                # If inventory had NO data at all for this tribunal/year,
+                # we need to refresh from IA to be sure
+                has_any = any(inventory.has(t, d) for d in _weekdays_in_year(year, upper, t_lower)[:5])
+                if not has_any:
+                    tribunals_needing_refresh.append(t)
+                else:
+                    for d in missing:
+                        all_gaps.append((d, t))
+
+        # Refresh inventory from IA only for tribunals with no local data
+        if tribunals_needing_refresh:
+            log.info(
+                "zip_inventory_refreshing",
+                year=year,
+                tribunals=len(tribunals_needing_refresh),
+            )
+            added = await _refresh_inventory_for_year(
+                client, inventory, tribunals_needing_refresh, year, sem,
+            )
+            log.info("zip_inventory_refreshed", year=year, new_entries=added)
+
+            # Recompute gaps for refreshed tribunals
+            for t in tribunals_needing_refresh:
+                genesis_str = config.genesis_dates.get(t)
+                t_lower = lower
+                if genesis_str and genesis_str != "None":
+                    try:
+                        t_lower = max(lower, date.fromisoformat(genesis_str))
+                    except ValueError:
+                        pass
+                missing = inventory.gaps_for_year(t, year, upper, t_lower)
+                missing = [d for d in missing if ia_state.get_status(d, t) != "absent"]
+                for d in missing:
+                    all_gaps.append((d, t))
+
+        if not all_gaps:
             log.info("backfill_year_complete", year=year)
             continue
 
-        # Build queue from gaps and process immediately
+        # Sort: newest dates first
+        all_gaps.sort(key=lambda x: x[0], reverse=True)
+
         queue: asyncio.Queue[tuple[date, str]] = asyncio.Queue()
-        for gap in gaps:
+        for gap in all_gaps:
             queue.put_nowait(gap)
 
-        log.info("backfill_year_working", year=year, gaps=len(gaps))
+        log.info("backfill_year_working", year=year, gaps=len(all_gaps))
 
+        # Step 3: Workers process gaps
         async def _worker() -> None:
             nonlocal items_processed
             while not queue.empty():
@@ -981,11 +1116,15 @@ async def _run_backfill_workers(
                     client, breaker, tribunal, d, config, bstate, ia_state, summary,
                 )
 
-                if result in {"hit", "empty", "spam"}:
+                if result == "hit":
+                    inventory.add(tribunal, d)
                     items_processed += 1
                     if prog and d <= prog.cursor_date:
                         await bstate.advance_cursor(tribunal)
-                        save_backfill_state(bstate, config.backfill_state_file)
+                elif result in {"empty", "spam"}:
+                    items_processed += 1
+                    if prog and d <= prog.cursor_date:
+                        await bstate.advance_cursor(tribunal)
                 else:
                     paused_tribunals.add(tribunal)
                     log.info(
@@ -999,7 +1138,6 @@ async def _run_backfill_workers(
 
         workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
 
-        # State syncer for this year's batch
         async def _state_syncer() -> None:
             while True:
                 await asyncio.sleep(120)
@@ -1026,9 +1164,7 @@ async def _run_backfill_workers(
 
         syncer_task = asyncio.create_task(_state_syncer())
         publisher_task = asyncio.create_task(_status_publisher())
-
         await asyncio.gather(*workers)
-
         syncer_task.cancel()
         publisher_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -1036,11 +1172,15 @@ async def _run_backfill_workers(
         with contextlib.suppress(asyncio.CancelledError):
             await publisher_task
 
-        log.info(
-            "backfill_year_done",
-            year=year,
-            items_processed=items_processed,
-        )
+        # Save inventory after each year
+        inventory.save()
+        save_backfill_state(bstate, config.backfill_state_file)
+
+        log.info("backfill_year_done", year=year, items_processed=items_processed)
+
+    # Final save
+    inventory.save()
+    log.info("zip_inventory_saved", total=len(inventory))
 
     if not scanned_tribunals:
         for t in active_tribunals:
