@@ -134,7 +134,6 @@ flowchart LR
 | CI/CD | [GitHub Actions](https://github.com/features/actions) | Pipeline orchestration (every 20 min) |
 | Data lake | [Internet Archive](https://archive.org/) | Permanent public Parquet/ZIP storage |
 | DJEN proxy | [Google Cloud Run](https://cloud.google.com/run) (São Paulo) | Bypass DJEN geo-block |
-| Alerts | Telegram Bot API | Failure notifications |
 
 ---
 
