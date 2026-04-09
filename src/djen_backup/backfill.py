@@ -1014,7 +1014,9 @@ async def _run_backfill_workers(
 
             log.info("backfill_tribunal_year", tribunal=t, year=year, gaps=len(missing))
 
-            # 3. Process gaps (newest first)
+            # 3. Process gaps (newest first). Skip tribunal on consecutive errors.
+            consecutive_errors = 0
+            max_consecutive_errors = 3
             for d in sorted(missing, reverse=True):
                 if time.monotonic() > deadline - 30:
                     break
@@ -1027,10 +1029,21 @@ async def _run_backfill_workers(
 
                 if result == "hit":
                     inventory.add(t, d)
+                    consecutive_errors = 0
                 elif result in {"empty", "spam"}:
                     inventory.add_absent(t, d)
+                    consecutive_errors = 0
                 elif result == "error":
+                    consecutive_errors += 1
                     log.warning("backfill_item_error", tribunal=t, date=d.isoformat())
+                    if consecutive_errors >= max_consecutive_errors:
+                        log.warning(
+                            "backfill_tribunal_skipped",
+                            tribunal=t,
+                            year=year,
+                            reason=f"{consecutive_errors} consecutive errors",
+                        )
+                        break
 
         inventory.save_to_disk()
         save_backfill_state(bstate, config.backfill_state_file)
