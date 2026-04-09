@@ -946,7 +946,8 @@ async def _run_backfill_workers(
             active_tribunals.append(t)
 
     lower = config.lower_bound or date(2013, 1, 1)
-    upper = config.start_date
+    today = datetime.now(UTC).date()
+    upper = min(config.start_date, today)
     years = sorted(range(lower.year, upper.year + 1), reverse=True)
 
     # Load inventory: IA first (source of truth), then disk fallback, then snapshot seed
@@ -964,12 +965,11 @@ async def _run_backfill_workers(
 
     scanned_tribunals: set[str] = set()
     paused_tribunals: set[str] = set()
-    items_processed = 0
 
     for year in years:
         if time.monotonic() > deadline - 60:
             break
-        if config.max_items > 0 and items_processed >= config.max_items:
+        if config.max_items > 0 and summary.hits >= config.max_items:
             break
 
         # Compute gaps purely from inventory (instant)
@@ -1000,11 +1000,10 @@ async def _run_backfill_workers(
         log.info("backfill_year_working", year=year, gaps=len(all_gaps))
 
         async def _worker() -> None:
-            nonlocal items_processed
             while not queue.empty():
                 if time.monotonic() > deadline - 30:
                     break
-                if config.max_items > 0 and items_processed >= config.max_items:
+                if config.max_items > 0 and summary.hits >= config.max_items:
                     break
                 try:
                     d, tribunal = queue.get_nowait()
@@ -1030,12 +1029,12 @@ async def _run_backfill_workers(
 
                 if result == "hit":
                     inventory.add(tribunal, d)
-                    items_processed += 1
+                    # "hit" from cache/HEAD = discovery, not real work
+                    # Only count actual uploads against max_items
                     if prog and d <= prog.cursor_date:
                         await bstate.advance_cursor(tribunal)
                 elif result in {"empty", "spam"}:
                     inventory.add_absent(tribunal, d)
-                    items_processed += 1
                     if prog and d <= prog.cursor_date:
                         await bstate.advance_cursor(tribunal)
                 else:
@@ -1089,7 +1088,7 @@ async def _run_backfill_workers(
 
         inventory.save_to_disk()
         save_backfill_state(bstate, config.backfill_state_file)
-        log.info("backfill_year_done", year=year, items_processed=items_processed)
+        log.info("backfill_year_done", year=year, uploads=summary.hits, discovered=summary.cache_hits)
 
     # Final save: disk + IA
     inventory.save_to_disk()
