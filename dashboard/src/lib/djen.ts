@@ -79,6 +79,14 @@ function normalizeDateString(value: unknown): string | undefined {
   return raw;
 }
 
+function normalizeLabel(value: unknown): string {
+  return (typeof value === "string" ? value : String(value))
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 const optionalDateString = z.preprocess(
   normalizeDateString,
   z
@@ -86,6 +94,64 @@ const optionalDateString = z.preprocess(
     .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Expected date in YYYY-MM-DD format")
     .optional(),
 );
+
+function normalizeMeio(value: unknown): "D" | "E" | undefined {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  const raw = normalizeLabel(value);
+
+  if (!raw) {
+    return undefined;
+  }
+
+  if (
+    raw === "d" ||
+    raw === "diario" ||
+    raw === "diario eletronico" ||
+    raw === "eletronico" ||
+    raw === "eletronico nacional"
+  ) {
+    return "D";
+  }
+
+  if (raw === "e" || raw === "edital" || raw === "edital eletronico") {
+    return "E";
+  }
+
+  return undefined;
+}
+
+function normalizePolo(value: unknown): "A" | "P" | "T" | "D" | undefined {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  const raw = normalizeLabel(value);
+
+  if (!raw) {
+    return undefined;
+  }
+
+  if (raw === "a" || raw === "ativo" || raw === "ativa" || raw === "autor" || raw === "autora") {
+    return "A";
+  }
+
+  if (raw === "p" || raw === "passivo" || raw === "passiva" || raw === "reu" || raw === "re") {
+    return "P";
+  }
+
+  if (raw === "t" || raw === "terceiro" || raw === "terceira") {
+    return "T";
+  }
+
+  if (raw === "d" || raw === "destinatario") {
+    return "D";
+  }
+
+  return undefined;
+}
 
 function looksLikeHtml(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value);
@@ -157,11 +223,15 @@ export const DjenAdvogadoSchema = z
 export const DjenDestinatarioSchema = z
   .object({
     nome: optionalString,
-    polo: DjenPoloSchema.optional(),
+    polo: optionalString,
     comunicacao_id: optionalNumber,
     cpf_cnpj: optionalString,
   })
-  .passthrough();
+  .passthrough()
+  .transform((value) => ({
+    ...value,
+    polo: normalizePolo(value.polo),
+  }));
 
 export const DjenDestinatarioAdvogadoSchema = z
   .object({
@@ -192,7 +262,7 @@ const DjenPublicationSourceSchema = z
     texto: optionalString,
     numero_processo: optionalString,
     numeroProcesso: optionalString,
-    meio: DjenMeioSchema.optional(),
+    meio: optionalString,
     link: optionalString,
     tipoDocumento: optionalString,
     tipo_documento: optionalString,
@@ -223,6 +293,7 @@ export const DjenPublicationSchema = DjenPublicationSourceSchema.transform((valu
   nomeOrgao: value.nomeOrgao ?? value.nome_orgao ?? value.orgao,
   idOrgao: value.idOrgao ?? value.id_orgao,
   numero_processo: value.numero_processo ?? value.numeroProcesso,
+  meio: normalizeMeio(value.meio),
   tipoDocumento: value.tipoDocumento ?? value.tipo_documento,
   nomeClasse: value.nomeClasse ?? value.nome_classe,
   codigoClasse: value.codigoClasse ?? value.codigo_classe,
