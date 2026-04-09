@@ -57,6 +57,11 @@ def _setup_backfill_logging(log_file: Path, verbose: bool = False) -> None:
     )
     root.addHandler(rh)
 
+    # Silence noisy HTTP debug logs
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.INFO)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+
     # Bridge structlog → stdlib logging
     structlog.configure(
         processors=[

@@ -964,7 +964,6 @@ async def _run_backfill_workers(
     )
 
     scanned_tribunals: set[str] = set()
-    paused_tribunals: set[str] = set()
 
     for year in years:
         if time.monotonic() > deadline - 60:
@@ -1008,48 +1007,20 @@ async def _run_backfill_workers(
                 except asyncio.QueueEmpty:
                     break
 
-                if tribunal in paused_tribunals:
-                    queue.task_done()
-                    continue
-
-                prog = bstate.get_all_progress().get(tribunal)
-                if prog and prog.stopped:
-                    queue.task_done()
-                    continue
-
                 if tribunal not in scanned_tribunals:
                     scanned_tribunals.add(tribunal)
                     await summary.inc_scanned()
 
                 result = await backfill_process_date(
-                    client,
-                    breaker,
-                    tribunal,
-                    d,
-                    config,
-                    bstate,
-                    ia_state,
-                    summary,
+                    client, breaker, tribunal, d, config, bstate, ia_state, summary,
                 )
 
                 if result == "hit":
                     inventory.add(tribunal, d)
-                    # "hit" from cache/HEAD = discovery, not real work
-                    # Only count actual uploads against max_items
-                    if prog and d <= prog.cursor_date:
-                        await bstate.advance_cursor(tribunal)
                 elif result in {"empty", "spam"}:
                     inventory.add_absent(tribunal, d)
-                    if prog and d <= prog.cursor_date:
-                        await bstate.advance_cursor(tribunal)
-                else:
-                    paused_tribunals.add(tribunal)
-                    log.info(
-                        "backfill_tribunal_paused",
-                        tribunal=tribunal,
-                        date=d.isoformat(),
-                        reason="error_encountered",
-                    )
+                elif result == "error":
+                    log.warning("backfill_item_error", tribunal=tribunal, date=d.isoformat())
 
                 queue.task_done()
 
