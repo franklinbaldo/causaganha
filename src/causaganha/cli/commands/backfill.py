@@ -86,8 +86,13 @@ def _resolve_ia_auth() -> str:
     return f"LOW {access}:{secret}"
 
 
-def _resolve_proxy_url() -> str:
-    """Get the DJEN proxy URL from environment or default."""
+DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br/api/v1"
+
+
+def _resolve_proxy_url(*, no_proxy: bool = False) -> str:
+    """Get the DJEN URL. Uses direct API when running locally in Brazil."""
+    if no_proxy:
+        return DJEN_DIRECT_URL
     from causaganha.config import DJEN_PROXY_URL
     return os.environ.get("DJEN_PROXY_URL", DJEN_PROXY_URL)
 
@@ -161,6 +166,11 @@ def run(
         "--continue-on-error",
         help="Continuar pipeline mesmo quando um step falha.",
     ),
+    no_proxy: bool = typer.Option(
+        False,
+        "--no-proxy",
+        help="Acessar DJEN direto (sem proxy). Use quando estiver no Brasil.",
+    ),
 ) -> None:
     """Run the backfill pipeline locally."""
     # Load .env if present
@@ -214,7 +224,7 @@ def run(
             workers=1,
             backfill_state_file=Path("data/backfill-state.json"),
             state_file=Path("data/ia-state.json"),
-            djen_proxy_url=_resolve_proxy_url(),
+            djen_proxy_url=_resolve_proxy_url(no_proxy=no_proxy),
             ia_auth=_resolve_ia_auth(),
             dry_run=dry_run,
         )
