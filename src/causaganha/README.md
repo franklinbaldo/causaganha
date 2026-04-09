@@ -1,65 +1,46 @@
-# CausaGanha - Package Architecture
+# CausaGanha Python package
 
-This directory contains the main CausaGanha package.
+This directory contains the main Python package used by the CLI, data pipeline, analysis workflows, and storage layers.
 
-## Directory Structure
+## Package layout
 
-```
+```text
 src/causaganha/
-├── cli/                  # Typer CLI commands
-│   └── __init__.py      # Main CLI application
-├── api/                  # External API clients (if needed)
-├── storage/             # Ibis + DuckDB data layer
-│   ├── connection.py    # DuckDB connection via Ibis (singleton)
-│   ├── schema.sql       # Table definitions
-│   ├── queries.py       # Data access queries
-│   └── migrations.py    # Schema migrations
-├── analysis/            # Decision analysis (AI + embeddings)
-│   ├── analyzer.py      # Pydantic AI decision analyzer
-│   ├── rag_analyzer.py  # RAG-based analyzer
-│   ├── hybrid_analyzer.py # Hybrid strategy (RAG + LLM fallback)
-│   ├── embedding_service.py # Embedding generation
-│   ├── vector_store.py  # LanceDB vector storage
-│   └── models.py        # DecisionAnalysis Pydantic models
-├── pipeline/            # Data pipeline orchestration
-│   ├── collect.py       # Metadata collection from DJEN
-│   ├── analyze.py       # Decision analysis workflow
-│   ├── analyze_parquet.py # Parquet-based analysis
-│   ├── parquet_export.py # Export to Parquet format
-│   ├── ia_upload.py     # Internet Archive upload
-│   ├── ia_download.py   # Internet Archive download
-│   ├── export_orchestrator.py # Export workflow orchestration
-│   └── score.py         # OpenSkill rating calculation
-├── scoring/             # OpenSkill rating system
-│   └── openskill.py     # Rating algorithm wrapper
-├── catalog/             # DuckDB metadata catalog
-│   └── creator.py       # Catalog creation for remote Parquet
-├── clients/             # External service clients
-│   └── archive.py       # Internet Archive client
-└── config.py            # Pydantic Settings configuration
+  analysis/      AI analysis, embeddings, RAG, and ground truth utilities
+  archival/      archival and cold storage helpers
+  catalog/       catalog generation logic
+  cli/           Typer CLI entrypoints and commands
+  clients/       external service clients
+  compliance/    compliance reporting
+  pipeline/      collection, export, analysis, and orchestration workflows
+  scoring/       OpenSkill rating logic
+  storage/       DuckDB, schema, migrations, and repositories
+  config.py      shared configuration
 ```
 
-## Technology Stack
+## What is here today
 
-- **Pydantic AI**: LLM provider abstraction with structured outputs
-- **Ibis Framework**: Fast analytical queries via DuckDB
-- **DuckDB**: Embedded analytical database
-- **LanceDB**: Vector storage for embeddings
-- **httpx/aiohttp**: Async HTTP clients
-- **structlog**: Structured logging
-- **OpenSkill**: Lawyer rating algorithm
-- **Internet Archive**: Data distribution platform
+The package currently exposes the `causaganha` CLI and supports these main areas:
 
-## Data Flow
+- collection from PJe and DJEN-related sources
+- backfill and archival workflows
+- Parquet export and downstream analysis
+- OpenSkill-based scoring
+- DuckDB-backed local data handling
+- AI-assisted analysis and embedding flows
 
+## CLI entrypoint
+
+The package installs the `causaganha` command defined by the project metadata in [pyproject.toml](/Users/frank/workspace/causaganha/pyproject.toml).
+
+Inspect the current CLI surface with:
+
+```bash
+uv run causaganha --help
 ```
-DJEN API → Metadata (structured JSON)
-    ↓
-Store in DuckDB + Parquet
-    ↓
-Pydantic AI + Gemini → Analyze decisions → Extract outcomes
-    ↓
-OpenSkill → Calculate ratings
-    ↓
-Internet Archive → Publish data + rankings
-```
+
+## Notes for maintainers
+
+- Keep this file aligned with the actual module tree.
+- If a directory is removed or renamed, update this file in the same change.
+- Prefer pointing readers to concrete modules and commands instead of aspirational architecture.

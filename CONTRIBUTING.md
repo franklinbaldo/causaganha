@@ -1,105 +1,108 @@
 # Contributing to CausaGanha
 
-Thank you for your interest in contributing to CausaGanha! This project scrapes legal gazette ZIPs from 91 Brazilian courts daily and uploads them to Internet Archive. We welcome contributions to help improve transparency in the Brazilian legal system.
+This project is under active refactoring. Contributions are welcome, but changes need to stay aligned with the current codebase, CI, and operational constraints.
 
-This document outlines the constraints and requirements for contributing to the project, especially regarding adding new tribunals, data pipeline, and Internet Archive uploads.
+## Development setup
 
-## 1. Getting Started
+Requirements:
 
-Before you begin, ensure you have the following prerequisites installed:
 - Python 3.12+
-- `uv` (fast Python package installer and resolver)
+- `uv`
 - `git`
+- Node.js and `npm` for dashboard work
 
-### Clone and setup:
+Setup:
+
 ```bash
 git clone https://github.com/franklinbaldo/causaganha.git
 cd causaganha
 uv sync --dev
+cp .env.example .env
+uv run pre-commit install
 ```
 
-### Run tests:
+## Core commands
+
+Python quality checks:
+
 ```bash
-uv run pytest
+uv run pytest -q
+uv run ruff format --check
+uv run ruff check
+uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
 ```
 
-### Run linting and formatting:
+Dashboard checks:
+
 ```bash
-uv run ruff check .
-uv run ruff format .
+cd dashboard
+npm ci
+npm run lint
+npm test
+npm run build
 ```
 
-## 2. Project Structure
+## Repository map
 
-A brief overview of key directories in the repository:
+- [src/causaganha](/Users/frank/workspace/causaganha/src/causaganha): main Python package
+- [src/djen_backup](/Users/frank/workspace/causaganha/src/djen_backup): ZIP and backfill utilities
+- [dashboard](/Users/frank/workspace/causaganha/dashboard): Astro + Svelte dashboard
+- [scripts](/Users/frank/workspace/causaganha/scripts): operational scripts and pipeline helpers
+- [tests](/Users/frank/workspace/causaganha/tests): pytest and pytest-bdd suites
+- [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows): CI and production workflows
 
-- `src/causaganha/`: Main Python package containing CLI, data pipeline, storage, and models.
-- `src/causaganha/pipeline/`: Data collection, analysis, and orchestration logic.
-- `djen-scraper/`: DJEN scraping infrastructure and conversion scripts.
-- `dashboard/`: Pipeline monitoring dashboard (Astro/React).
-- `tests/`: Unit and BDD tests.
-- `.github/workflows/`: GitHub Actions pipelines for daily collection, catalog updates, and deployment.
+## Contribution rules
 
-## 3. How to Add a New Tribunal
+- Keep docs in sync with the code you change.
+- Do not introduce undocumented operational behavior.
+- Prefer narrow PRs over large mixed changes.
+- Add or update tests when behavior changes.
+- Avoid reviving legacy paths or directories unless the repository still uses them.
 
-We are continually expanding coverage to include all Brazilian courts. To add a new tribunal scraper:
+## Internet Archive rule
 
-1. **Find the gazette URL**: Usually formatted as `diariooficial.tjXX.jus.br` or similar, depending on the state/court.
-2. **Look at an existing scraper for reference**: Explore `src/causaganha/pipeline/collect.py` and other files in `src/causaganha/pipeline/` or `djen-scraper/` to see how existing collections work.
-3. **Create the scraper**: Follow the existing patterns to write a scraper that downloads the legal gazette and extracts the data.
-4. **Add to the list of courts**: Update the `TRIBUNAIS` configuration list in `src/causaganha/config.py` with the new tribunal's exact DJEN code/sigla.
-5. **Write tests**: Ensure your new scraper is fully tested (unit tests, mock responses). Tests are required for new scrapers.
-6. **Open a PR**: Submit your pull request for review.
+Do not replace Internet Archive upload logic with `boto3`.
 
-## 4. PR Checklist
+Reason:
 
-Before submitting your PR, please verify the following:
+- IA metadata handling depends on custom headers that are not a clean fit for standard AWS S3 client behavior.
+- The project explicitly treats `httpx`-based upload code as the supported path for IA uploads.
+- `boto3` in this repository is only for cold-storage use cases, not DJEN archival uploads.
 
-- [ ] Tests added/updated (Tests are required for new scrapers)
-- [ ] `ruff check` passes
-- [ ] `ruff format` applied
-- [ ] PR description explains the change (use "Refs #N" or "Closes #N" to link issues)
+If your change touches archival code, validate the affected path carefully.
 
-## 5. Code Style
+## DJEN access rule
 
-- **Python**: We strictly use `ruff` for both linting and formatting. Ensure you run `uv run ruff check .` and `uv run ruff format .` before committing.
-- **Type Hints**: Type hints are strongly encouraged for all Python code to ensure clarity and reliability.
-- **Tests**: Tests are strictly required for any new scrapers, features, or bug fixes.
+DJEN access can be geo-restricted. The repository supports a Cloud Run proxy through `DJEN_PROXY_URL`. Do not hardcode environment-specific URLs into application logic.
 
----
+## Pull requests
 
-## Internet Archive (IA) Upload Constraints
+Before opening a PR:
 
-**CRITICAL: Do not replace `httpx` with `boto3` for Internet Archive uploads.**
+- make sure `ruff format --check` passes
+- make sure `ruff check` passes
+- make sure tests relevant to your change pass
+- make sure the dashboard builds if you touched `dashboard/`
+- update docs when commands, architecture, or behavior changed
 
-Our data pipeline uses the Internet Archive S3-compatible API. While it looks like standard S3, it has specific requirements that are incompatible with the default behavior of `boto3`:
+Recommended PR checklist:
 
-1.  **Metadata Headers**: IA requires metadata headers to be prefixed with `x-archive-meta-*`. `boto3` hardcodes these to `x-amz-meta-*`, which IA ignores or rejects.
-2.  **HTTP 411 Errors**: `boto3` often fails to set `Content-Length` correctly for IA's frontend, resulting in `HTTP 411 (Length Required)` errors.
-3.  **History**: We have attempted to migrate to `boto3` twice, and both times it broke the pipeline (see PR #348).
+- [ ] scope is clear and limited
+- [ ] tests added or updated when needed
+- [ ] docs updated when needed
+- [ ] no credentials or environment secrets committed
+- [ ] CI passes
 
-Always use `httpx` or a direct HTTP client for IA interactions. For more details, refer to [Internet Archive Upload Architecture](docs/architecture/internet-archive-upload.md).
+## Adding or changing pipeline behavior
 
-## Testing Requirements
+If you change collection, consolidation, catalog, or dashboard deployment behavior:
 
-Before merging any changes that affect the upload logic:
-
-1.  **Local Verification**: Run the collection script locally with your IA credentials:
-    ```bash
-    export IAS3_ACCESS_KEY="your_key"
-    export IAS3_SECRET_KEY="your_secret"
-    python scripts/pipeline/collect.py --max-items 1 --date 2026-01-01 --tribunal STF
-    ```
-2.  **Verify Metadata**: Check the IA item metadata after upload to ensure all `x-archive-meta-*` headers are correctly processed by IA.
-3.  **No Regressions**: Ensure that the `Content-MD5` check still passes and that retries are handled gracefully.
-
-## Development Workflow
-
-1.  Fork the repository.
-2.  Create a feature branch.
-3.  Ensure code follows `ruff` linting rules.
-4.  Submit a Pull Request with a clear description of the changes.
+- inspect the corresponding workflow in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows)
+- verify the script or CLI entrypoint it invokes still matches
+- update root docs if operator-facing behavior changes
 
 ## Security
 
-Do not commit any credentials (`ia.ini`, `.env`, or hardcoded keys). Use environment variables for local testing.
+- Never commit `.env`, IA credentials, or service tokens.
+- Prefer environment variables for all secrets.
+- Treat Internet Archive item naming and metadata as part of the public contract.
