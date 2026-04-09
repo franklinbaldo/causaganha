@@ -1,22 +1,25 @@
 """CLI command module for CausaGanha backfill pipeline."""
 
 import asyncio
+import logging
 import os
-import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import structlog
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
 
 from djen_backup.backfill import (
+    BackfillConfig,
     load_backfill_state,
+    run_backfill,
     save_backfill_state,
 )
 
@@ -29,136 +32,76 @@ app = typer.Typer(
 console = Console()
 
 
-# ── Data Types ──────────────────────────────────────────────
+def _setup_backfill_logging(log_file: Path, verbose: bool = False) -> None:
+    """Configure logging for the backfill run: file (DEBUG) + console (Rich)."""
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.handlers.clear()
+
+    # File handler: everything in detail
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(name)s  %(message)s"))
+    root.addHandler(fh)
+
+    # Console handler: Rich, WARNING+ (or DEBUG if verbose)
+    rh = RichHandler(
+        console=Console(stderr=True),
+        show_time=True,
+        show_path=False,
+        rich_tracebacks=True,
+        tracebacks_show_locals=False,
+        level=logging.DEBUG if verbose else logging.WARNING,
+    )
+    root.addHandler(rh)
+
+    # Bridge structlog → stdlib logging
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=False,
+    )
 
 
-@dataclass
-class StepResult:
-    """Result of a single pipeline step."""
-
-    name: str
-    success: bool
-    duration: float
-    detail: str = ""
-    error: str = ""
+def _resolve_ia_auth() -> str:
+    """Build the IA S3 auth header from environment."""
+    access = os.environ.get("IAS3_ACCESS_KEY") or os.environ.get("IA_ACCESS_KEY", "")
+    secret = os.environ.get("IAS3_SECRET_KEY") or os.environ.get("IA_SECRET_KEY", "")
+    return f"LOW {access}:{secret}"
 
 
-# ── Helpers ─────────────────────────────────────────────────
+def _resolve_proxy_url() -> str:
+    """Get the DJEN proxy URL from environment or default."""
+    from causaganha.config import DJEN_PROXY_URL
+    return os.environ.get("DJEN_PROXY_URL", DJEN_PROXY_URL)
 
 
-
-def _run_step(
-    name: str,
-    cmd: list[str],
-    *,
-    dry_run: bool = False,
-    log_file: Path | None = None,
-) -> StepResult:
-    """Execute a pipeline step, capturing output."""
-    if dry_run:
-        console.print(f"  [dim]→ {' '.join(cmd)}[/dim]")
-        return StepResult(name=name, success=True, duration=0.0, detail="dry-run")
-
-    # backfill.py → commands/ → cli/ → causaganha/ → src/ → repo_root
-    repo_root = str(Path(__file__).parent.parent.parent.parent.parent)
-    env = {
-        **os.environ,
-        "PYTHONPATH": f"{repo_root}:{Path(repo_root) / 'src'}",
-    }
-
-    fd, output_path = tempfile.mkstemp(prefix=f"cg-{name}-", suffix=".log")
-    os.close(fd)
-    env["GITHUB_OUTPUT"] = output_path
-
-    # Stderr capture for error display
-    stderr_path = Path(tempfile.mktemp(prefix=f"cg-{name}-err-", suffix=".log"))
-
-    start = time.time()
-    try:
-        # Stream stdout directly to log file in real time
-        log_fh = open(log_file, "a") if log_file else subprocess.DEVNULL
-        stderr_fh = open(stderr_path, "w")
-        try:
-            if log_file:
-                log_fh.write(f"\n{'='*60}\n[{name}] {' '.join(cmd)}\n{'='*60}\n")
-                log_fh.flush()
-
-            result = subprocess.run(
-                cmd,
-                env=env,
-                cwd=repo_root,
-                stdout=log_fh,
-                stderr=stderr_fh,
-                text=True,
-                check=False,
-            )
-        finally:
-            if log_file:
-                log_fh.close()
-            stderr_fh.close()
-
-        duration = time.time() - start
-
-        # Read captured stderr for error display
-        stderr_content = stderr_path.read_text().strip() if stderr_path.exists() else ""
-
-        # Parse GITHUB_OUTPUT for metadata
-        outputs = {}
-        out_file = Path(output_path)
-        if out_file.exists():
-            for line in out_file.read_text().splitlines():
-                if "=" in line:
-                    k, _, v = line.partition("=")
-                    outputs[k.strip()] = v.strip()
-            out_file.unlink(missing_ok=True)
-
-        if result.returncode != 0:
-            error_msg = stderr_content or f"exit code {result.returncode}"
-            lines = [l for l in error_msg.splitlines() if l.strip()]
-            short_error = "\n".join(lines[-5:]) if len(lines) > 5 else error_msg
-            return StepResult(
-                name=name, success=False, duration=duration, error=short_error
-            )
-
-        files_added = outputs.get("files_added")
-        if files_added == "true":
-            detail = "new files added"
-        elif files_added == "false":
-            detail = "no new files"
-        else:
-            detail = "done"
-        return StepResult(name=name, success=True, duration=duration, detail=detail)
-
-    except Exception as e:
-        duration = time.time() - start
-        return StepResult(name=name, success=False, duration=duration, error=str(e))
-    finally:
-        Path(output_path).unlink(missing_ok=True)
-        stderr_path.unlink(missing_ok=True)
+def _format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds // 60)
+    secs = seconds % 60
+    return f"{minutes}m{secs:.0f}s"
 
 
 def _preflight_checks() -> None:
-    """Check prerequisites before running the pipeline. Exits on failure."""
+    """Check prerequisites before running. Exits on failure."""
     errors: list[str] = []
-
-    # Check IA credentials
     if not os.environ.get("IAS3_ACCESS_KEY") and not os.environ.get("IA_ACCESS_KEY"):
         errors.append("IAS3_ACCESS_KEY (ou IA_ACCESS_KEY) não definido no ambiente")
     if not os.environ.get("IAS3_SECRET_KEY") and not os.environ.get("IA_SECRET_KEY"):
         errors.append("IAS3_SECRET_KEY (ou IA_SECRET_KEY) não definido no ambiente")
-
-    # Check scripts exist
-    repo_root = Path(__file__).parent.parent.parent.parent.parent
-    scripts_dir = repo_root / "scripts" / "pipeline"
-    for script in ("collect.py", "consolidate.py", "embed.py"):
-        if not (scripts_dir / script).exists():
-            errors.append(f"Script não encontrado: {scripts_dir / script}")
-
-    # Check uv is available
-    import shutil
-    if not shutil.which("uv"):
-        errors.append("'uv' não encontrado no PATH")
-
     if errors:
         console.print()
         console.print(Panel(
@@ -171,15 +114,6 @@ def _preflight_checks() -> None:
         raise typer.Exit(code=1)
 
 
-def _format_duration(seconds: float) -> str:
-    """Format seconds into human-readable duration."""
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    minutes = int(seconds // 60)
-    secs = seconds % 60
-    return f"{minutes}m{secs:.0f}s"
-
-
 # ── Commands ────────────────────────────────────────────────
 
 
@@ -188,7 +122,7 @@ def run(
     target_date: str = typer.Option(
         "",
         "--date",
-        help="Data específica (YYYY-MM-DD). Default: próxima data do backfill.",
+        help="Data específica (YYYY-MM-DD). Default: ontem.",
     ),
     job: str = typer.Option(
         "all",
@@ -199,8 +133,12 @@ def run(
         help="Tribunal específico (ex: TJSP). Default: todos.",
     ),
     max_items: int = typer.Option(
-        5,
-        help="Máximo de itens para coletar.",
+        0,
+        help="Máximo de uploads por run (0 = sem limite).",
+    ),
+    deadline_minutes: int = typer.Option(
+        45,
+        help="Tempo máximo em minutos.",
     ),
     verbose: bool = typer.Option(
         False,
@@ -220,8 +158,6 @@ def run(
     ),
 ) -> None:
     """Run the backfill pipeline locally."""
-    from causaganha.cli import setup_logging
-
     # Load .env if present
     env_file = Path(__file__).parent.parent.parent.parent.parent / ".env"
     if env_file.exists():
@@ -231,24 +167,28 @@ def run(
                 key, _, value = line.partition("=")
                 os.environ.setdefault(key.strip(), value.strip())
 
-    log_file = setup_logging(verbose=verbose)
-
     if not dry_run:
         _preflight_checks()
 
-    # Resolve target date (only used if explicitly provided or for consolidate)
-    pipeline_date = target_date  # empty string means "let djen-backup decide"
+    # Setup logging
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / f"pipeline-{date.today().isoformat()}.log"
+    _setup_backfill_logging(log_file, verbose=verbose)
 
-    # Show run configuration
+    # Resolve config
+    today = datetime.now(UTC).date()
+    end_date = date.fromisoformat(target_date) if target_date else today - timedelta(days=1)
+
     config_lines = [
-        f"[bold]Data:[/bold]     {pipeline_date or 'auto (backfill scan)'}",
+        f"[bold]Data:[/bold]     {end_date.isoformat()}",
         f"[bold]Job:[/bold]      {job}",
         f"[bold]Tribunal:[/bold] {tribunal or 'todos'}",
-        f"[bold]Items:[/bold]    {max_items}",
+        f"[bold]Limite:[/bold]   {max_items or 'sem limite'} uploads, {deadline_minutes}min",
         f"[bold]Log:[/bold]      {log_file}",
     ]
     if dry_run:
-        config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run (nenhuma ação será executada)")
+        config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run")
 
     console.print()
     console.print(Panel(
@@ -259,101 +199,54 @@ def run(
     ))
     console.print()
 
-    # backfill.py → commands/ → cli/ → causaganha/ → src/ → repo_root
-    repo_root = str(Path(__file__).parent.parent.parent.parent.parent)
-    scripts_dir = str(Path(repo_root) / "scripts" / "pipeline")
-
-    results: list[StepResult] = []
-    failed = False
-
-    # Define steps based on job
-    steps: list[tuple[str, list[str]]] = []
-
     if job in ("all", "collect"):
-        cmd = ["uv", "run", "python", f"{scripts_dir}/collect.py"]
-        if pipeline_date:
-            cmd += ["--date", pipeline_date]
-        # else: djen-backup scans backfill-state.json for missing dates
-        if tribunal:
-            cmd += ["--tribunal", tribunal]
-        cmd += ["--max-items", str(max_items)]
-        steps.append(("Collect", cmd))
+        backfill_config = BackfillConfig(
+            start_date=end_date,
+            lower_bound=None,
+            tribunal=tribunal or None,
+            deadline_minutes=deadline_minutes,
+            max_items=max_items,
+            workers=1,
+            backfill_state_file=Path("data/backfill-state.json"),
+            state_file=Path("data/ia-state.json"),
+            djen_proxy_url=_resolve_proxy_url(),
+            ia_auth=_resolve_ia_auth(),
+            dry_run=dry_run,
+        )
 
-    if job in ("all", "consolidate"):
-        cmd = ["uv", "run", "python", f"{scripts_dir}/consolidate.py"]
-        if pipeline_date:
-            cmd += ["--date", pipeline_date]
-        else:
-            cmd += ["--backfill", "--force"]
-        steps.append(("Consolidate", cmd))
-
-    if job in ("all", "embed"):
-        cmd = ["uv", "run", "python", f"{scripts_dir}/embed.py", "--deadline", "10m"]
-        steps.append(("Embed", cmd))
-
-    if job == "all":
-        steps.append((
-            "Catalog",
-            ["uv", "run", "python", f"{repo_root}/scripts/generate_catalog.py", "--upload"],
-        ))
-        steps.append((
-            "Dashboard",
-            ["uv", "run", "python", f"{repo_root}/scripts/generate_dashboard_cache.py"],
-        ))
-
-    # Execute steps
-    for step_name, cmd in steps:
-        console.print(f"  ⏳ {step_name}...", end="")
-        result = _run_step(step_name, cmd, dry_run=dry_run, log_file=log_file)
-        results.append(result)
-
-        if result.success:
+        console.print("  ⏳ Collect...")
+        start = time.time()
+        try:
+            exit_code = asyncio.run(run_backfill(backfill_config))
+            duration = time.time() - start
+            if exit_code == 0:
+                console.print(
+                    f"  [green]✓[/green] Collect         "
+                    f"[dim]{_format_duration(duration)}[/dim]"
+                )
+            else:
+                console.print(
+                    f"  [red]✗[/red] Collect         "
+                    f"[dim]{_format_duration(duration)}[/dim]  exit={exit_code}"
+                )
+                if not continue_on_error:
+                    raise typer.Exit(code=exit_code)
+        except Exception as e:
+            duration = time.time() - start
             console.print(
-                f"\r  [green]✓[/green] {step_name:<15s} "
-                f"[dim]{_format_duration(result.duration)}[/dim]  "
-                f"{result.detail}"
+                f"  [red]✗[/red] Collect         "
+                f"[dim]{_format_duration(duration)}[/dim]"
             )
-        else:
-            console.print(
-                f"\r  [red]✗[/red] {step_name:<15s} "
-                f"[dim]{_format_duration(result.duration)}[/dim]"
-            )
-            failed = True
-            # Show error details
-            if result.error:
-                console.print(Panel(
-                    result.error,
-                    title=f"[red]Error in {step_name}[/red]",
-                    border_style="red",
-                    padding=(0, 1),
-                ))
-                console.print(f"  [dim]Detalhes completos em: {log_file}[/dim]")
-
+            console.print(Panel(
+                f"[bold]{type(e).__name__}[/bold]: {e}",
+                title="[red]Error in Collect[/red]",
+                border_style="red",
+                padding=(0, 1),
+            ))
             if not continue_on_error:
-                break
+                raise typer.Exit(code=1) from e
 
-    # Summary table
-    console.print()
-    table = Table(title="Pipeline Summary", border_style="dim")
-    table.add_column("Step", style="bold")
-    table.add_column("Time", justify="right")
-    table.add_column("Result")
-
-    total_time = sum(r.duration for r in results)
-    for r in results:
-        status = "[green]✓[/green]" if r.success else "[red]✗[/red]"
-        detail = r.detail if r.success else r.error[:40]
-        table.add_row(r.name, _format_duration(r.duration), f"{status} {detail}")
-
-    table.add_section()
-    overall = "[green]✓ Complete[/green]" if not failed else "[red]✗ Failed[/red]"
-    table.add_row("[bold]Total[/bold]", f"[bold]{_format_duration(total_time)}[/bold]", overall)
-
-    console.print(table)
-    console.print(f"\n  [dim]Log salvo em: {log_file}[/dim]\n")
-
-    if failed:
-        raise typer.Exit(code=1)
+    console.print(f"\n  [dim]Log: {log_file}[/dim]\n")
 
 
 @app.command()
