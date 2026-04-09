@@ -66,8 +66,11 @@ async def get_caderno_url(
         retry_djen_400=True,
     )
 
-    if resp.status_code == HTTP_NOT_FOUND:
-        raise DJENNotFoundError(status_code=HTTP_NOT_FOUND, reason="Not Found")
+    # 404 and 403 from DJEN both mean "no publication for this date"
+    # 404 = typical for weekends on some tribunals
+    # 403 = CloudFront rejection for weekends on other tribunals (TJRO, TJRR, etc.)
+    if resp.status_code in (HTTP_NOT_FOUND, 403):
+        raise DJENNotFoundError(status_code=resp.status_code, reason="Not Found")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
