@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import { z } from "zod";
 
 const optionalString = z.preprocess((value) => {
@@ -88,6 +89,26 @@ const optionalDateString = z.preprocess(
 
 function looksLikeHtml(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function sanitizeHtml(value: string): string {
+  if (typeof window === "undefined") {
+    return escapeHtml(value);
+  }
+  return DOMPurify.sanitize(value, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ["script", "style"],
+    FORBID_ATTR: ["style"],
+  });
 }
 
 export const DjenTextoRenderSchema = z.union([
@@ -208,7 +229,7 @@ export const DjenPublicationSchema = DjenPublicationSourceSchema.transform((valu
   numeroComunicacao: value.numeroComunicacao ?? value.numero_comunicacao,
   textoRender: value.texto
     ? looksLikeHtml(value.texto)
-      ? { kind: "html" as const, content: value.texto }
+      ? { kind: "html" as const, content: sanitizeHtml(value.texto) }
       : { kind: "text" as const, content: value.texto }
     : undefined,
 }));
