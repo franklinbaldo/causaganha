@@ -28,7 +28,6 @@ import structlog
 
 from djen_backup.archive import (
     CircuitBreaker,
-    get_ia_item_id,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
@@ -825,6 +824,7 @@ class ZipInventory:
             self.add(tribunal, d)
 
     def __len__(self) -> int:
+        """Return number of inventory entries."""
         return len(self._entries)
 
     def load_from_csv(self, text: str) -> int:
@@ -978,10 +978,8 @@ async def _run_backfill_workers(
             genesis_str = config.genesis_dates.get(t)
             t_lower = lower
             if genesis_str and genesis_str != "None":
-                try:
+                with contextlib.suppress(ValueError):
                     t_lower = max(lower, date.fromisoformat(genesis_str))
-                except ValueError:
-                    pass
 
             missing = inventory.gaps_for_year(t, year, upper, t_lower)
             # inventory.gaps_for_year already excludes absents
@@ -999,7 +997,7 @@ async def _run_backfill_workers(
 
         log.info("backfill_year_working", year=year, gaps=len(all_gaps))
 
-        async def _worker() -> None:
+        async def _worker(queue: asyncio.Queue = queue) -> None:
             while not queue.empty():
                 if time.monotonic() > deadline - 30:
                     break
@@ -1024,7 +1022,14 @@ async def _run_backfill_workers(
                     await summary.inc_scanned()
 
                 result = await backfill_process_date(
-                    client, breaker, tribunal, d, config, bstate, ia_state, summary,
+                    client,
+                    breaker,
+                    tribunal,
+                    d,
+                    config,
+                    bstate,
+                    ia_state,
+                    summary,
                 )
 
                 if result == "hit":
@@ -1088,7 +1093,9 @@ async def _run_backfill_workers(
 
         inventory.save_to_disk()
         save_backfill_state(bstate, config.backfill_state_file)
-        log.info("backfill_year_done", year=year, uploads=summary.hits, discovered=summary.cache_hits)
+        log.info(
+            "backfill_year_done", year=year, uploads=summary.hits, discovered=summary.cache_hits
+        )
 
     # Final save: disk + IA
     inventory.save_to_disk()
