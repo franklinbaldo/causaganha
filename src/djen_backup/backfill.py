@@ -878,7 +878,14 @@ class ZipInventory:
         return 0
 
     async def upload_to_ia(self, auth: str) -> bool:
-        """Upload inventory to Internet Archive."""
+        """Merge-then-upload: re-download remote inventory, merge with local, upload.
+
+        This prevents race conditions when multiple runners update concurrently.
+        Since entries are keyed by TRIBUNAL/DATE, the merge is idempotent.
+        """
+        remote_text = await download_text_from_ia(IA_ZIP_INVENTORY_FILENAME)
+        if remote_text:
+            self.load_from_csv(remote_text)
         return await upload_text_to_ia(IA_ZIP_INVENTORY_FILENAME, self.to_csv(), auth)
 
     def load_from_disk(self, path: Path = ZIP_INVENTORY_FILE) -> int:
