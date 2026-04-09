@@ -3,14 +3,17 @@
   import { fade } from 'svelte/transition';
   import { getCoverageColorClass } from '../lib/colorUtils';
   import MonthPicker from './MonthPicker.svelte';
+  import { completedItemsStore } from '../lib/completedItemsStore.svelte';
 
-  let data: Record<string, any> | null = $state(null);
-  let loading = $state(true);
-  let error: string | null = $state(null);
+  onMount(() => completedItemsStore.load());
 
   const _now = new Date();
   let selectedYear  = $state(_now.getUTCFullYear());
   let selectedMonth = $state(_now.getUTCMonth());
+
+  const data    = $derived(completedItemsStore.data);
+  const loading = $derived(completedItemsStore.loading);
+  const error   = $derived(completedItemsStore.error);
 
   // "YYYY-MM" → average daily coverage (0-1) for month picker badges
   let monthSummaries = $derived.by((): Record<string, number> => {
@@ -41,27 +44,6 @@
       .sort((a, b) => a.localeCompare(b));
   });
 
-  onMount(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const response = await fetch(
-          `https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const json = await response.json();
-        if (isMounted) { data = json.completed_items || {}; }
-      } catch (e: unknown) {
-        if (isMounted) {
-          error = e instanceof Error ? e.message : String(e);
-          console.error('Failed to fetch catalog completed-items.json:', e);
-        }
-      } finally {
-        if (isMounted) loading = false;
-      }
-    })();
-    return () => { isMounted = false; };
-  });
 </script>
 
 <div class="card">
