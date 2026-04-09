@@ -45,6 +45,22 @@ from djen_backup.state import (
 )
 from djen_backup.tribunais import get_tribunal_list
 
+from rich.live import Live
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TimeElapsedColumn,
+    MofNCompleteColumn,
+    TaskID,
+)
+from rich.table import Table
+from rich.panel import Panel
+from rich.console import Console, Group
+
+console = Console()
+
 
 log = structlog.get_logger()
 
@@ -317,6 +333,7 @@ class BackfillConfig:
     skip_absent_markers: bool = False
     publish_live_status: bool = False
     skip_if_mostly_complete: bool = False
+    use_rich: bool = True
     genesis_dates: dict[str, date] = field(default_factory=dict)
 
 
@@ -798,16 +815,44 @@ async def _run_backfill_workers(
         total_pairs=queue.qsize(),
     )
 
-    # Track per-tribunal scanned flag
+    # UI Setup
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+    )
+
+    overall_task = progress.add_task("[green]Total Progress", total=queue.qsize())
+    worker_tasks: dict[int, TaskID] = {}
+
+    # Track tracking state
     scanned_tribunals: set[str] = set()
     paused_tribunals: set[str] = set()
 
-    # Rate limiter: IA allows ~1 upload/second. Shared lock ensures
-    # only 1 upload at a time, with a 2s cooldown after each.
-    # Downloads from DJEN happen in parallel (no lock needed).
-    asyncio.Lock()
+    def create_layout() -> Group:
+        status_table = Table.grid(expand=True)
+        status_table.add_column(style="bold cyan", width=20)
+        status_table.add_column(style="bold green")
+        status_table.add_column(style="bold yellow")
+        status_table.add_column(style="bold red")
 
-    async def _worker() -> None:
+        status_table.add_row(
+            "Stats:",
+            f"Hits: {summary.hits}",
+            f"Empties: {summary.empties}",
+            f"Errors: {summary.errors}",
+        )
+
+        return Group(
+            Panel(status_table, title="Backfill Live Status", border_style="blue"),
+            progress,
+        )
+
+    async def _worker(worker_id: int) -> None:
+        worker_tasks[worker_id] = progress.add_task(f"Worker {worker_id}: Idle", total=None)
         while not queue.empty():
             if time.monotonic() > deadline - 30:
                 break
@@ -816,16 +861,22 @@ async def _run_backfill_workers(
             except asyncio.QueueEmpty:
                 break
 
+            progress.update(
+                worker_tasks[worker_id], description=f"Worker {worker_id}: {tribunal} ({d})"
+            )
+
             # Skip if tribunal encountered an error earlier in this run to avoid error storms
             # and leaving gaps in the backfill sequence.
             if tribunal in paused_tribunals:
                 queue.task_done()
+                progress.advance(overall_task)
                 continue
 
             # Skip if tribunal got stopped during this run
             prog = bstate.get_all_progress().get(tribunal)
             if prog and prog.stopped:
                 queue.task_done()
+                progress.advance(overall_task)
                 continue
 
             # Check genesis bound
@@ -834,13 +885,14 @@ async def _run_backfill_workers(
                 genesis = date.fromisoformat(genesis_str)
                 if d < genesis:
                     queue.task_done()
+                    progress.advance(overall_task)
                     continue
 
             if tribunal not in scanned_tribunals:
                 scanned_tribunals.add(tribunal)
                 await summary.inc_scanned()
 
-            result = await backfill_process_date(
+            await backfill_process_date(
                 client,
                 breaker,
                 tribunal,
@@ -852,23 +904,24 @@ async def _run_backfill_workers(
             )
 
             # Update state tracking
-            if result in {"hit", "empty", "spam"}:
-                # Update cursor if this date is older than current cursor
-                if prog and d <= prog.cursor_date:
+            if tribunal in bstate._tribunals:
+                prog = bstate._tribunals[tribunal]
+                if d <= prog.cursor_date and prog.last_result in {"hit", "empty", "spam"}:
                     await bstate.advance_cursor(tribunal)
                     save_backfill_state(bstate, config.backfill_state_file)
-            else:
-                # result is "error" - pause this tribunal so we don't try older dates
-                # and leave gaps, since the queue is date-first
-                paused_tribunals.add(tribunal)
-                log.info(
-                    "backfill_tribunal_paused",
-                    tribunal=tribunal,
-                    date=d.isoformat(),
-                    reason="error_encountered",
-                )
+                elif prog.last_result == "error":
+                    paused_tribunals.add(tribunal)
+                    log.info(
+                        "backfill_tribunal_paused",
+                        tribunal=tribunal,
+                        date=d.isoformat(),
+                        reason="error_encountered",
+                    )
 
             queue.task_done()
+            progress.advance(overall_task)
+
+        progress.update(worker_tasks[worker_id], description=f"Worker {worker_id}: Done")
 
     async def _state_syncer() -> None:
         """Periodically upload state to IA so progress survives timeouts."""
@@ -901,11 +954,23 @@ async def _run_backfill_workers(
                 bstate,
             )
 
-    workers = [asyncio.create_task(_worker()) for _ in range(config.workers)]
-    syncer_task = asyncio.create_task(_state_syncer())
-    publisher_task = asyncio.create_task(_status_publisher())
+    # Run with Live display
+    with Live(create_layout(), refresh_per_second=4, console=console) as live:
+        # Add a periodic refresher for stats
+        async def _ui_refresher():
+            while True:
+                await asyncio.sleep(0.5)
+                live.update(create_layout())
 
-    await asyncio.gather(*workers)
+        refresher_task = asyncio.create_task(_ui_refresher())
+        workers = [asyncio.create_task(_worker(i)) for i in range(config.workers)]
+        syncer_task = asyncio.create_task(_state_syncer())
+        publisher_task = asyncio.create_task(_status_publisher())
+
+        await asyncio.gather(*workers)
+        refresher_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await refresher_task
 
     # Cancel background tasks once workers finish
     syncer_task.cancel()
@@ -1073,5 +1138,23 @@ async def run_backfill(config: BackfillConfig) -> int:
         # Publish final status blockingly
         final_status = "failed" if exit_code != 0 else "completed"
         await _publish_ntfy_status(summary, final_status, bstate)
+
+    if config.use_rich:
+        res_table = Table(show_header=True, header_style="bold magenta")
+        res_table.add_column("Metric", style="cyan")
+        res_table.add_column("Value", justify="right")
+        res_table.add_row("✅ Uploaded (new)", f"[bold green]{summary.hits}[/bold green]")
+        res_table.add_row("♻️ Cache hits", str(summary.cache_hits))
+        res_table.add_row("❌ Errors", f"[bold red]{summary.errors}[/bold red]")
+        res_table.add_row("⬜ Empties", str(summary.empties))
+        res_table.add_row("⏹ Stopped", str(summary.tribunals_stopped))
+
+        start_date_str = config.lower_bound.isoformat() if config.lower_bound else "2013-01-01"
+        end_date_str = config.start_date.isoformat()
+        res_table.add_row("Window", f"{start_date_str} → {end_date_str}")
+
+        console.print(
+            Panel(res_table, title="[bold green]Backfill Complete[/bold green]", border_style="green", expand=False)
+        )
 
     return exit_code
