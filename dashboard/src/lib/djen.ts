@@ -47,9 +47,43 @@ const optionalBoolean = z.preprocess((value) => {
   return undefined;
 }, z.boolean().optional());
 
-const optionalDateString = optionalString.refine(
-  (value) => value === undefined || /^\d{4}-\d{2}-\d{2}$/.test(value),
-  "Expected date in YYYY-MM-DD format",
+function normalizeDateString(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  const raw = typeof value === "string" ? value.trim() : String(value).trim();
+
+  if (!raw) {
+    return undefined;
+  }
+
+  const isoDateMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) {
+    return isoDateMatch[1];
+  }
+
+  const brDateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brDateMatch) {
+    const [, day, month, year] = brDateMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const dashedBrDateMatch = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashedBrDateMatch) {
+    const [, day, month, year] = dashedBrDateMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return raw;
+}
+
+const optionalDateString = z.preprocess(
+  normalizeDateString,
+  z
+    .string()
+    .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Expected date in YYYY-MM-DD format")
+    .optional(),
 );
 
 function looksLikeHtml(value: string): boolean {
