@@ -83,6 +83,13 @@ class State:
     # Mutation
     # ------------------------------------------------------------------
 
+    def _mark_sync(self, d: date, tribunal: str, status: str) -> None:
+        """Synchronous mark for bulk loading (no lock, use only at startup)."""
+        key = d.isoformat()
+        if key not in self._entries:
+            self._entries[key] = {}
+        self._entries[key][tribunal] = status
+
     async def mark(
         self, d: date, tribunal: str, status: ItemStatus, duration_s: float | None = None
     ) -> None:
