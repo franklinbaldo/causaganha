@@ -28,6 +28,7 @@ import structlog
 
 from djen_backup.archive import (
     CircuitBreaker,
+    get_ia_item_id,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
