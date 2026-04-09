@@ -783,10 +783,17 @@ class ZipInventory:
         return f"{tribunal.upper()}/{d.isoformat()}"
 
     def has(self, tribunal: str, d: date) -> bool:
-        return self._key(tribunal, d) in self._zips
+        """Check if date is known (either uploaded or absent)."""
+        k = self._key(tribunal, d)
+        return k in self._zips or f"{k}:absent" in self._zips
 
     def add(self, tribunal: str, d: date) -> None:
+        """Mark a date as uploaded (ZIP exists on IA)."""
         self._zips.add(self._key(tribunal, d))
+
+    def add_absent(self, tribunal: str, d: date) -> None:
+        """Mark a date as confirmed absent (no journal published)."""
+        self._zips.add(f"{self._key(tribunal, d)}:absent")
 
     def add_many(self, tribunal: str, dates: set[date]) -> None:
         for d in dates:
@@ -850,14 +857,15 @@ class ZipInventory:
         upper: date,
         lower: date,
     ) -> list[date]:
-        """Return days in the year that are NOT in inventory."""
+        """Return days in the year that are NOT in inventory (neither uploaded nor absent)."""
         start = max(date(year, 1, 1), lower)
         end = min(date(year, 12, 31), upper)
         missing = []
         current = start
         t_upper = tribunal.upper()
         while current <= end:
-            if f"{t_upper}/{current.isoformat()}" not in self._zips:
+            k = f"{t_upper}/{current.isoformat()}"
+            if k not in self._zips and f"{k}:absent" not in self._zips:
                 missing.append(current)
             current += timedelta(days=1)
         return missing
@@ -929,7 +937,7 @@ async def _run_backfill_workers(
                     pass
 
             missing = inventory.gaps_for_year(t, year, upper, t_lower)
-            missing = [d for d in missing if ia_state.get_status(d, t) != "absent"]
+            # inventory.gaps_for_year already excludes absents
             for d in missing:
                 all_gaps.append((d, t))
 
@@ -974,12 +982,12 @@ async def _run_backfill_workers(
                 )
 
                 if result == "hit":
-                    # Found on IA already — add to inventory so next run skips it
                     inventory.add(tribunal, d)
                     items_processed += 1
                     if prog and d <= prog.cursor_date:
                         await bstate.advance_cursor(tribunal)
                 elif result in {"empty", "spam"}:
+                    inventory.add_absent(tribunal, d)
                     items_processed += 1
                     if prog and d <= prog.cursor_date:
                         await bstate.advance_cursor(tribunal)
