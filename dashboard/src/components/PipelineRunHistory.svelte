@@ -81,7 +81,7 @@
                   {:else if run.conclusion === 'success'}
                     <span title="Success">✅</span>
                   {:else}
-                    <span title="Failure">❌</span>
+                    <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha">❌</a>
                   {/if}
                 </td>
               </tr>

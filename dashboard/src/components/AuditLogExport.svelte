@@ -1,12 +1,12 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
 
   let loading = $state(false);
   let status = $state('idle'); // idle, loading-db, ready, error
   let errorMsg = $state('');
 
-  let db = null;
-  let conn = null;
+  let db = $state<any>(null);
+  let conn = $state<any>(null);
 
   // Date filters
   let endDate = $state(new Date().toISOString().split('T')[0]);
