@@ -753,15 +753,14 @@ async def _advance_stopped_cursors(
                 )
 
 
-def _weekdays_in_year(year: int, upper: date, lower: date) -> list[date]:
-    """Return all weekdays in a year within [lower, upper] bounds."""
+def _days_in_year(year: int, upper: date, lower: date) -> list[date]:
+    """Return all days in a year within [lower, upper] bounds."""
     start = max(date(year, 1, 1), lower)
     end = min(date(year, 12, 31), upper)
     days = []
     current = start
     while current <= end:
-        if current.weekday() < 5:  # Mon-Fri
-            days.append(current)
+        days.append(current)
         current += timedelta(days=1)
     return days
 
@@ -851,16 +850,15 @@ class ZipInventory:
         upper: date,
         lower: date,
     ) -> list[date]:
-        """Return weekdays in the year that are NOT in inventory."""
+        """Return days in the year that are NOT in inventory."""
         start = max(date(year, 1, 1), lower)
         end = min(date(year, 12, 31), upper)
         missing = []
         current = start
         t_upper = tribunal.upper()
         while current <= end:
-            if current.weekday() < 5:  # Mon-Fri
-                if f"{t_upper}/{current.isoformat()}" not in self._zips:
-                    missing.append(current)
+            if f"{t_upper}/{current.isoformat()}" not in self._zips:
+                missing.append(current)
             current += timedelta(days=1)
         return missing
 
@@ -878,7 +876,7 @@ async def _run_backfill_workers(
     """Naive inventory-based backfill. Zero upfront scanning.
 
     1. Load zip-inventory.txt + ia-snapshot.json from disk (instant)
-    2. Compute gaps: weekdays NOT in inventory = work to do
+    2. Compute gaps: days NOT in inventory = work to do
     3. Process gaps year by year (newest first)
     4. Each processed item updates inventory (hit from IA or new upload)
     5. Inventory grows over runs — subsequent starts are instant
