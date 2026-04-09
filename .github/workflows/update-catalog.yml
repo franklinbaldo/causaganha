@@ -57,13 +57,6 @@ jobs:
           echo "Validating manifest data Integrity..."
           uv run python scripts/validate_manifest.py data/manifest.jsonl
 
-      - name: Notify on validation failure
-        if: failure() && steps.validate.conclusion == 'failure'
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=8490688452" \
-            -d "text=🚨 CRITICAL: Manifest validation failed! Data Integrity Guard aborted the upload. https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
       - name: Generate and upload catalog
         if: steps.append.outputs.has_new_uploads == 'true'
         run: |
