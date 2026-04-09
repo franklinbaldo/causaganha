@@ -86,7 +86,7 @@ def _resolve_ia_auth() -> str:
     return f"LOW {access}:{secret}"
 
 
-DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br/api/v1"
+DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
 
 
 def _resolve_djen_url(*, use_proxy: bool = False) -> str:
