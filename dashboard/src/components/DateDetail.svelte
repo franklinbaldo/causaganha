@@ -1,21 +1,14 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import PublicationCard from './PublicationCard.svelte';
+  import {
+    parseDjenPublicationCollection,
+    type DjenPublication,
+  } from '../lib/djen';
 
   const PUBS_PER_PAGE = 1000;
 
-  interface Publication {
-    id?: string;
-    numero_processo?: string;
-    tipoComunicacao?: string;
-    nomeOrgao?: string;
-    texto?: string;
-    destinatarios?: { nome: string }[];
-    destinatarioadvogados?: { advogado?: { nome?: string; numero_oab?: string; uf_oab?: string } }[];
-  }
-
   interface FeaturedPub {
-    pub: Publication;
+    pub: DjenPublication;
     seq: number;
     page: number;
   }
@@ -72,7 +65,7 @@
 
   let totalPages = $state<number>(0);
   let currentPage = $state<number>(initialPage || 1);
-  let publications = $state<Publication[]>([]);
+  let publications = $state<DjenPublication[]>([]);
   let zipSize = $state<number | null>(null);
   let zipAddedDate = $state<string | null>(null);
   let zipMd5 = $state<string | null>(null);
@@ -91,11 +84,11 @@
     return `${zipUrl}/${tribunal}-D-${dateStr}_${pageNum}.json`;
   }
 
-  async function loadPage(pageNum: number): Promise<Publication[] | null> {
+  async function loadPage(pageNum: number): Promise<DjenPublication[] | null> {
     const res = await cachedFetch(jsonUrl(pageNum));
     if (!res.ok) return null;
     const data = await res.json();
-    return Array.isArray(data) ? data : (data.items || []);
+    return parseDjenPublicationCollection(data);
   }
 
   $effect(() => {

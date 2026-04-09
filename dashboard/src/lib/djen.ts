@@ -1,0 +1,343 @@
+import { z } from "zod";
+
+const optionalString = z.preprocess((value) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  return typeof value === "string" ? value : String(value);
+}, z.string().optional());
+
+const optionalNumber = z.preprocess((value) => {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}, z.number().optional());
+
+const optionalBoolean = z.preprocess((value) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") {
+      return true;
+    }
+
+    if (value.toLowerCase() === "false") {
+      return false;
+    }
+  }
+
+  return undefined;
+}, z.boolean().optional());
+
+const optionalDateString = optionalString.refine(
+  (value) => value === undefined || /^\d{4}-\d{2}-\d{2}$/.test(value),
+  "Expected date in YYYY-MM-DD format",
+);
+
+function looksLikeHtml(value: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+export const DjenTextoRenderSchema = z.union([
+  z.object({
+    kind: z.literal("html"),
+    content: z.string(),
+  }),
+  z.object({
+    kind: z.literal("text"),
+    content: z.string(),
+  }),
+]);
+
+export const DjenMeioSchema = z.enum(["D", "E"]);
+export const DjenPoloSchema = z.enum(["A", "P", "T", "D"]);
+export const DjenTipoComunicacaoCodigoSchema = z.enum(["C", "I", "E", "P", "L", "A"]);
+
+export const DjenLoginRequestSchema = z.object({
+  login: z.string(),
+  senha: z.string(),
+});
+
+export const DjenLoginResponseSchema = z.object({
+  user: z
+    .object({
+      id: z.number().int().optional(),
+      nome: optionalString,
+      email: optionalString,
+      cpf: optionalString,
+    })
+    .optional(),
+  access_token: optionalString,
+});
+
+export const DjenAdvogadoSchema = z
+  .object({
+    id: optionalNumber,
+    nome: optionalString,
+    numero_oab: optionalString,
+    uf_oab: optionalString,
+    tipo_inscricao: optionalString,
+    email: optionalString,
+  })
+  .passthrough();
+
+export const DjenDestinatarioSchema = z
+  .object({
+    nome: optionalString,
+    polo: DjenPoloSchema.optional(),
+    comunicacao_id: optionalNumber,
+    cpf_cnpj: optionalString,
+  })
+  .passthrough();
+
+export const DjenDestinatarioAdvogadoSchema = z
+  .object({
+    id: optionalNumber,
+    comunicacao_id: optionalNumber,
+    advogado_id: optionalNumber,
+    created_at: optionalString,
+    updated_at: optionalString,
+    advogado: DjenAdvogadoSchema.optional(),
+  })
+  .passthrough();
+
+const DjenPublicationSourceSchema = z
+  .object({
+    id: optionalNumber,
+    data_disponibilizacao: optionalDateString,
+    datadisponibilizacao: optionalDateString,
+    dataDisponibilizacao: optionalDateString,
+    siglaTribunal: optionalString,
+    sigla_tribunal: optionalString,
+    tipoComunicacao: optionalString,
+    tipo_comunicacao: optionalString,
+    nomeOrgao: optionalString,
+    nome_orgao: optionalString,
+    orgao: optionalString,
+    idOrgao: optionalNumber,
+    id_orgao: optionalNumber,
+    texto: optionalString,
+    numero_processo: optionalString,
+    numeroProcesso: optionalString,
+    meio: DjenMeioSchema.optional(),
+    link: optionalString,
+    tipoDocumento: optionalString,
+    tipo_documento: optionalString,
+    nomeClasse: optionalString,
+    nome_classe: optionalString,
+    codigoClasse: optionalString,
+    codigo_classe: optionalString,
+    numeroComunicacao: optionalNumber,
+    numero_comunicacao: optionalNumber,
+    ativo: optionalBoolean,
+    hash: optionalString,
+    status: optionalString,
+    motivo_cancelamento: optionalString,
+    data_cancelamento: optionalString,
+    meiocompleto: optionalString,
+    numeroprocessocommascara: optionalString,
+    destinatarios: z.array(DjenDestinatarioSchema).optional(),
+    destinatarioadvogados: z.array(DjenDestinatarioAdvogadoSchema).optional(),
+  })
+  .passthrough();
+
+export const DjenPublicationSchema = DjenPublicationSourceSchema.transform((value) => ({
+  ...value,
+  data_disponibilizacao:
+    value.data_disponibilizacao ?? value.datadisponibilizacao ?? value.dataDisponibilizacao,
+  siglaTribunal: value.siglaTribunal ?? value.sigla_tribunal,
+  tipoComunicacao: value.tipoComunicacao ?? value.tipo_comunicacao,
+  nomeOrgao: value.nomeOrgao ?? value.nome_orgao ?? value.orgao,
+  idOrgao: value.idOrgao ?? value.id_orgao,
+  numero_processo: value.numero_processo ?? value.numeroProcesso,
+  tipoDocumento: value.tipoDocumento ?? value.tipo_documento,
+  nomeClasse: value.nomeClasse ?? value.nome_classe,
+  codigoClasse: value.codigoClasse ?? value.codigo_classe,
+  numeroComunicacao: value.numeroComunicacao ?? value.numero_comunicacao,
+  textoRender: value.texto
+    ? looksLikeHtml(value.texto)
+      ? { kind: "html" as const, content: value.texto }
+      : { kind: "text" as const, content: value.texto }
+    : undefined,
+}));
+
+export type DjenPublication = z.infer<typeof DjenPublicationSchema>;
+export type DjenDestinatario = z.infer<typeof DjenDestinatarioSchema>;
+export type DjenDestinatarioAdvogado = z.infer<typeof DjenDestinatarioAdvogadoSchema>;
+export type DjenAdvogado = z.infer<typeof DjenAdvogadoSchema>;
+
+export const DjenPublicationCollectionSchema = z
+  .union([
+    z.array(DjenPublicationSchema),
+    z.object({ items: z.array(DjenPublicationSchema) }).passthrough(),
+  ])
+  .transform((value) => (Array.isArray(value) ? value : value.items));
+
+export const DjenComunicacaoQuerySchema = z
+  .object({
+    numeroOab: optionalString,
+    ufOab: optionalString,
+    nomeAdvogado: optionalString,
+    nomeParte: optionalString,
+    numeroProcesso: optionalString,
+    dataDisponibilizacaoInicio: optionalDateString,
+    dataDisponibilizacaoFim: optionalDateString,
+    siglaTribunal: optionalString,
+    numeroComunicacao: optionalNumber,
+    pagina: optionalNumber,
+    itensPorPagina: optionalNumber,
+    orgaoId: optionalNumber,
+    meio: DjenMeioSchema.optional(),
+  })
+  .passthrough();
+
+export const DjenComunicacaoListResponseSchema = z.object({
+  status: optionalString,
+  message: optionalString,
+  count: optionalNumber,
+  items: z.array(DjenPublicationSchema).default([]),
+});
+
+export const DjenCreateComunicacaoRequestSchema = z
+  .object({
+    codigo_classe: z.string(),
+    numero_processo: z.string(),
+    sigla_tribunal: z.string(),
+    meio: DjenMeioSchema,
+    link: optionalString,
+    texto: optionalString,
+    tipo_documento: z.string(),
+    orgao: z.string(),
+    data_disponibilizacao: optionalDateString,
+    tipo_comunicacao: DjenTipoComunicacaoCodigoSchema,
+    destinatarios: z.array(
+      z
+        .object({
+          nome: optionalString,
+          cpf_cnpj: optionalString,
+          polo: DjenPoloSchema.optional(),
+        })
+        .passthrough(),
+    ),
+    advogados: z
+      .array(
+        z
+          .object({
+            nome: optionalString,
+            numero_oab: optionalString,
+            uf_oab: optionalString,
+          })
+          .passthrough(),
+      )
+      .optional(),
+  })
+  .passthrough();
+
+export const DjenCreateComunicacaoResponseItemSchema = z
+  .object({
+    tribunal_id: optionalNumber,
+    classe_id: optionalNumber,
+    tipo_documento_id: optionalNumber,
+    orgao_id: optionalNumber,
+    tipo_id: optionalNumber,
+    id: optionalNumber,
+    data_publicacao: optionalDateString,
+    texto: optionalString,
+    numero_processo: optionalString,
+    meio: DjenMeioSchema.optional(),
+    link: optionalString,
+    numero_comunicacao: optionalNumber,
+    ativo: optionalBoolean,
+    hash: optionalString,
+    meiocompleto: optionalString,
+    numeroprocessocommascara: optionalString,
+    destinatarios: z.array(DjenDestinatarioSchema).optional(),
+    destinatarioadvogados: z.array(DjenDestinatarioAdvogadoSchema).optional(),
+  })
+  .passthrough();
+
+export const DjenCreateComunicacaoResponseSchema = z.object({
+  status: optionalString,
+  message: optionalString,
+  items: z.array(DjenCreateComunicacaoResponseItemSchema).default([]),
+});
+
+export const DjenDeleteComunicacaoParamsSchema = z.object({
+  id: z.string(),
+});
+
+export const DjenDeleteComunicacaoRequestSchema = z.object({
+  motivo_cancelamento: z.string(),
+});
+
+export const DjenDeleteComunicacaoResponseSchema = z.object({
+  status: optionalString,
+  message: optionalString,
+});
+
+export const DjenCertidaoParamsSchema = z.object({
+  hash: z.string(),
+});
+
+export const DjenTribunalSchema = z
+  .object({
+    id: optionalNumber,
+    nome: optionalString,
+    sigla: optionalString,
+    jurisdicao: optionalString,
+    endereco: optionalString,
+    telefone: optionalString,
+  })
+  .passthrough();
+
+export const DjenTribunalListSchema = z.array(DjenTribunalSchema);
+
+export const DjenErrorResponseSchema = z.object({
+  status: optionalString,
+  message: optionalString,
+});
+
+export const DjenCadernoParamsSchema = z.object({
+  sigla_tribunal: z.string(),
+  data: optionalDateString,
+  meio: DjenMeioSchema,
+});
+
+export const DjenCadernoSchema = z.object({
+  tribunal: optionalString,
+  sigla_tribunal: optionalString,
+  meio: DjenMeioSchema.optional(),
+  status: optionalString,
+  versao: optionalString,
+  data: optionalDateString,
+  total_comunicacoes: optionalNumber,
+  numero_paginas: optionalNumber,
+  hash: optionalString,
+  url: optionalString,
+});
+
+export function parseDjenPublication(input: unknown): DjenPublication {
+  return DjenPublicationSchema.parse(input);
+}
+
+export function parseDjenPublicationCollection(input: unknown): DjenPublication[] {
+  return DjenPublicationCollectionSchema.parse(input);
+}

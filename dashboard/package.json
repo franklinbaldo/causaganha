@@ -18,7 +18,8 @@
     "@duckdb/duckdb-wasm": "^1.33.1-dev20.0",
     "@observablehq/plot": "^0.6.0",
     "astro": "^5.18.1",
-    "svelte": "^5.55.2"
+    "svelte": "^5.55.2",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",

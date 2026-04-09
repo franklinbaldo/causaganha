@@ -1,87 +1,197 @@
 <script lang="ts">
-  interface Publication {
-    id?: string;
-    numero_processo?: string;
-    tipoComunicacao?: string;
-    nomeOrgao?: string;
-    texto?: string;
-    destinatarios?: { nome: string }[];
-    destinatarioadvogados?: { advogado?: { nome?: string; numero_oab?: string; uf_oab?: string } }[];
+  import type { DjenPublication } from "../lib/djen";
+
+  interface HighlightTerm {
+    text: string;
+    type: "party" | "lawyer";
   }
 
-  /**
-   * Format a raw process number into the standard CNJ pattern.
-   * Input:  "7019279602020822001" or "70192796020208220001"
-   * Output: "7019279-60.2020.8.22.0001"
-   * Pattern: NNNNNNN-DD.AAAA.J.TR.OOOO
-   */
+  interface MetaChip {
+    label: string;
+    value: string;
+    tone?: "default" | "accent" | "success" | "warning" | "danger";
+  }
+
   function formatProcessNumber(raw: string | undefined | null): string | null {
     if (!raw) return null;
-    if (raw.includes('-')) return raw;
-    const digits = raw.replace(/\D/g, '');
+    if (raw.includes("-")) return raw;
+    const digits = raw.replace(/\D/g, "");
     if (digits.length === 20) {
       return `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
     }
     return raw;
   }
 
-  /**
-   * Parse publication text into structured paragraphs.
-   */
   function parseText(text: string | undefined | null): string[] {
     if (!text) return [];
-    const markers = /(?=(?:Processo\s*:|Classe\s*:|INTIMA[CÇ][AÃ]O|CITA[CÇ][AÃ]O|DESPACHO|DECIS[AÃ]O|SENTEN[CÇ]A|EDITAL|Designada\s+AUDI[EÊ]NCIA|DATA\s+E\s+HORA))/gi;
-    const parts = text.split(markers).map(p => p.trim()).filter(Boolean);
+    const markers =
+      /(?=(?:Processo\s*:|Classe\s*:|INTIMA[CÃ‡][AÃƒ]O|CITA[CÃ‡][AÃƒ]O|DESPACHO|DECIS[AÃƒ]O|SENTEN[CÃ‡]A|EDITAL|Designada\s+AUDI[EÃŠ]NCIA|DATA\s+E\s+HORA))/gi;
+    const parts = text
+      .split(markers)
+      .map((part) => part.trim())
+      .filter(Boolean);
     return parts.length > 1 ? parts : [text];
   }
 
-  function escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function stripHtml(html: string): string {
+    return html
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
-  interface HighlightTerm {
-    text: string;
-    type: 'party' | 'lawyer';
+  function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-  function highlightText(part: string, terms: HighlightTerm[]): { token: string; type?: 'party' | 'lawyer' }[] {
+  function highlightText(
+    part: string,
+    terms: HighlightTerm[],
+  ): { token: string; type?: "party" | "lawyer" }[] {
     if (terms.length === 0) {
       return [{ token: part }];
     }
 
     terms.sort((a, b) => b.text.length - a.text.length);
 
-    const termMap = new Map<string, 'party' | 'lawyer'>();
-    terms.forEach(t => termMap.set(t.text.toLowerCase(), t.type));
+    const termMap = new Map<string, "party" | "lawyer">();
+    terms.forEach((term) => termMap.set(term.text.toLowerCase(), term.type));
 
-    const pattern = terms.map(t => escapeRegExp(t.text)).join('|');
-    const regex = new RegExp(`(${pattern})`, 'gi');
+    const pattern = terms.map((term) => escapeRegExp(term.text)).join("|");
+    const regex = new RegExp(`(${pattern})`, "gi");
 
-    const tokens = part.split(regex);
-
-    return tokens.map(token => {
+    return part.split(regex).map((token) => {
       const type = termMap.get(token.toLowerCase());
       return type ? { token, type } : { token };
     });
   }
 
-  function buildTerms(pub: Publication): HighlightTerm[] {
+  function buildTerms(pub: DjenPublication): HighlightTerm[] {
     const terms: HighlightTerm[] = [];
-    if (pub.destinatarios) {
-      pub.destinatarios.forEach(d => {
-        if (d.nome && d.nome.length > 3) {
-          terms.push({ text: d.nome, type: 'party' });
-        }
-      });
-    }
-    if (pub.destinatarioadvogados) {
-      pub.destinatarioadvogados.forEach(da => {
-        if (da.advogado?.nome && da.advogado.nome.length > 3) {
-          terms.push({ text: da.advogado.nome, type: 'lawyer' });
-        }
-      });
-    }
+
+    pub.destinatarios?.forEach((destinatario) => {
+      if (destinatario.nome && destinatario.nome.length > 3) {
+        terms.push({ text: destinatario.nome, type: "party" });
+      }
+    });
+
+    pub.destinatarioadvogados?.forEach((entry) => {
+      if (entry.advogado?.nome && entry.advogado.nome.length > 3) {
+        terms.push({ text: entry.advogado.nome, type: "lawyer" });
+      }
+    });
+
     return terms;
+  }
+
+  function previewText(text: string | undefined, limit = 320): string | null {
+    if (!text) return null;
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    if (cleaned.length <= limit) return cleaned;
+    return `${cleaned.slice(0, limit).trimEnd()}...`;
+  }
+
+  function previewContent(pub: DjenPublication, limit = 320): string | null {
+    const render = pub.textoRender;
+    if (!render?.content) return null;
+    return previewText(render.kind === "html" ? stripHtml(render.content) : render.content, limit);
+  }
+
+  function summarizeMedium(pub: DjenPublication): string | null {
+    if (pub.meiocompleto) return pub.meiocompleto;
+    if (pub.meio === "D") return "DiÃ¡rio EletrÃ´nico";
+    if (pub.meio === "E") return "Edital";
+    return null;
+  }
+
+  function summarizeStatus(pub: DjenPublication): MetaChip | null {
+    if (pub.ativo === false || pub.motivo_cancelamento) {
+      return { label: "Status", value: "Cancelada", tone: "danger" };
+    }
+    if (pub.status === "P") {
+      return { label: "Status", value: "Publicada", tone: "success" };
+    }
+    if (pub.status) {
+      return { label: "Status", value: pub.status, tone: "warning" };
+    }
+    if (pub.ativo === true) {
+      return { label: "Status", value: "Ativa", tone: "success" };
+    }
+    return null;
+  }
+
+  function buildMetaChips(pub: DjenPublication): MetaChip[] {
+    const chips: MetaChip[] = [];
+    const statusChip = summarizeStatus(pub);
+
+    if (statusChip) chips.push(statusChip);
+    if (pub.siglaTribunal) chips.push({ label: "Tribunal", value: pub.siglaTribunal });
+    if (summarizeMedium(pub)) chips.push({ label: "Meio", value: summarizeMedium(pub)!, tone: "accent" });
+    if (pub.nomeClasse) chips.push({ label: "Classe", value: pub.nomeClasse });
+    if (pub.tipoDocumento) chips.push({ label: "Documento", value: pub.tipoDocumento });
+    if (pub.numeroComunicacao != null) {
+      chips.push({ label: "ComunicaÃ§Ã£o", value: String(pub.numeroComunicacao) });
+    }
+
+    return chips;
+  }
+
+  function buildIdentityRows(pub: DjenPublication): MetaChip[] {
+    const rows: MetaChip[] = [];
+
+    if (pub.data_disponibilizacao) {
+      rows.push({ label: "DisponibilizaÃ§Ã£o", value: pub.data_disponibilizacao });
+    }
+    if (pub.codigoClasse) {
+      rows.push({ label: "CÃ³digo da classe", value: pub.codigoClasse });
+    }
+    if (pub.hash) {
+      rows.push({ label: "Hash", value: pub.hash.slice(0, 16) });
+    }
+    if (pub.numeroprocessocommascara && pub.numeroprocessocommascara !== pub.numero_processo) {
+      rows.push({ label: "Processo mascarado", value: pub.numeroprocessocommascara });
+    }
+
+    return rows;
+  }
+
+  function uniquePartyNames(pub: DjenPublication): string[] {
+    const seen = new Set<string>();
+    const names: string[] = [];
+
+    pub.destinatarios?.forEach((destinatario) => {
+      if (!destinatario.nome) return;
+      const key = destinatario.nome.trim().toLowerCase();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      names.push(destinatario.nome);
+    });
+
+    return names;
+  }
+
+  function uniqueLawyers(pub: DjenPublication): string[] {
+    const seen = new Set<string>();
+    const lawyers: string[] = [];
+
+    pub.destinatarioadvogados?.forEach((entry) => {
+      const advogado = entry.advogado;
+      if (!advogado?.nome) return;
+      const oab = advogado.numero_oab ? `OAB ${advogado.uf_oab ?? ""} ${advogado.numero_oab}`.trim() : null;
+      const label = oab ? `${advogado.nome} (${oab})` : advogado.nome;
+      const key = label.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      lawyers.push(label);
+    });
+
+    return lawyers;
   }
 
   let {
@@ -93,7 +203,7 @@
     totalSeq,
     onNavigate,
   }: {
-    pub: Publication;
+    pub: DjenPublication;
     seq: number;
     dateStr: string;
     page?: number;
@@ -108,10 +218,19 @@
   let shareCopiedCompact = $state(false);
 
   const processNumber = $derived(formatProcessNumber(pub.numero_processo));
-  const textParts = $derived(parseText(pub.texto));
+  const textParts = $derived(
+    pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : [],
+  );
   const terms = $derived(buildTerms(pub));
+  const teaser = $derived(previewContent(pub, compact ? 220 : 420));
+  const metaChips = $derived(buildMetaChips(pub));
+  const identityRows = $derived(buildIdentityRows(pub));
+  const parties = $derived(uniquePartyNames(pub));
+  const lawyers = $derived(uniqueLawyers(pub));
+  const partyCount = $derived(parties.length);
+  const lawyerCount = $derived(lawyers.length);
 
-  function handleShare(e: MouseEvent, copiedSetter: 'main' | 'reader' | 'compact') {
+  function handleShare(e: MouseEvent, copiedSetter: "main" | "reader" | "compact") {
     e.preventDefault();
     e.stopPropagation();
     const base = window.location.pathname;
@@ -120,15 +239,16 @@
     if (seq) hash += `/${seq}`;
     const url = `${window.location.origin}${base}#${hash}`;
     navigator.clipboard?.writeText(url);
-    if (copiedSetter === 'main') {
+
+    if (copiedSetter === "main") {
       shareCopied = true;
-      setTimeout(() => shareCopied = false, 2000);
-    } else if (copiedSetter === 'reader') {
+      setTimeout(() => (shareCopied = false), 2000);
+    } else if (copiedSetter === "reader") {
       shareCopiedReader = true;
-      setTimeout(() => shareCopiedReader = false, 2000);
+      setTimeout(() => (shareCopiedReader = false), 2000);
     } else {
       shareCopiedCompact = true;
-      setTimeout(() => shareCopiedCompact = false, 2000);
+      setTimeout(() => (shareCopiedCompact = false), 2000);
     }
   }
 </script>
@@ -139,238 +259,353 @@
   </svg>
 {/snippet}
 
+{#snippet openExternalIcon()}
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7m0 0v7m0-7L10 14" />
+    <path stroke-linecap="round" stroke-linejoin="round" d="M21 14v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+  </svg>
+{/snippet}
+
+{#snippet chip(meta: MetaChip)}
+  <span class={`meta-chip ${meta.tone ?? "default"}`}>
+    <small>{meta.label}</small>
+    <strong>{meta.value}</strong>
+  </span>
+{/snippet}
+
 {#if compact}
-  <!-- Compact view -->
-  <div class="card" id={`pub-${seq}`}><div class="card-body compact-body">
-    <header class="card-header">
-      <div class="header-left-stack">
-        <div class="header-meta">
-          <span class="seq-number">#{seq}</span>
-          {#if pub.tipoComunicacao}
-            <span class="badge">{pub.tipoComunicacao}</span>
+  <div class="card publication-card compact-card" id={`pub-${seq}`}>
+    <div class="card-body compact-body">
+      <header class="card-header">
+        <div class="header-left-stack">
+          <div class="header-meta">
+            <span class="seq-number">#{seq}</span>
+            {#if pub.tipoComunicacao}
+              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+            {/if}
+            <small class="date-label">{dateStr}</small>
+          </div>
+          {#if processNumber}
+            <span class="process-number process-number-lg">{processNumber}</span>
           {/if}
         </div>
-        {#if processNumber}
-          <span class="process-number process-number-lg">{processNumber}</span>
+        <div class="header-actions">
+          {#if pub.link}
+            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+              {@render openExternalIcon()}
+              Inteiro teor
+            </a>
+          {/if}
+          <button
+            class="btn btn-outline-secondary"
+            onclick={(e: MouseEvent) => handleShare(e, "compact")}
+            title="Copiar link"
+          >
+            {@render shareIcon()}
+            {shareCopiedCompact ? "Copiado!" : "Link"}
+          </button>
+        </div>
+      </header>
+
+      {#if metaChips.length > 0}
+        <div class="meta-chip-row">
+          {#each metaChips as meta}
+            {@render chip(meta)}
+          {/each}
+        </div>
+      {/if}
+
+      {#if pub.nomeOrgao}
+        <small class="orgao-name">{pub.nomeOrgao}</small>
+      {/if}
+
+      {#if teaser}
+        <p class="text-preview">{teaser}</p>
+      {/if}
+
+      <div class="summary-bar">
+        {#if partyCount > 0}
+          <span>{partyCount} parte{partyCount > 1 ? "s" : ""}</span>
+        {/if}
+        {#if lawyerCount > 0}
+          <span>{lawyerCount} advogado{lawyerCount > 1 ? "s" : ""}</span>
         {/if}
       </div>
-      <button
-        class="btn btn-outline-secondary"
-        onclick={(e: MouseEvent) => handleShare(e, 'compact')}
-        title="Copiar link"
-      >
-        {@render shareIcon()}
-        {shareCopiedCompact ? 'Copiado!' : 'Link'}
-      </button>
-    </header>
-    {#if pub.nomeOrgao}
-      <small class="orgao-name">{pub.nomeOrgao}</small>
-    {/if}
-    {#if pub.texto}
-      <p class="text-preview">
-        {pub.texto.length > 300 ? pub.texto.substring(0, 300) + '...' : pub.texto}
-      </p>
-    {/if}
-    {#if pub.destinatarios && pub.destinatarios.length > 0}
-      <div class="tags-row">
-        {#each pub.destinatarios as d}
-          <span class="badge">{d.nome}</span>
-        {/each}
-      </div>
-    {/if}
-    {#if pub.destinatarioadvogados && pub.destinatarioadvogados.length > 0}
-      <div class="tags-row lawyers-row">
-        {#each pub.destinatarioadvogados as da}
-          <span class="lawyer-text">
-            {da.advogado?.nome} {da.advogado?.numero_oab ? `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})` : ''}
-          </span>
-        {/each}
-      </div>
-    {/if}
-  </div></div>
 
-{:else if isReaderMode}
-  <!-- Reader mode -->
-  <div class="card reader-mode" id={`pub-${seq}`}><div class="card-body reader-body">
-    <header class="card-header">
-      <div class="header-meta">
-        <span class="seq-number seq-bold">#{seq}</span>
-        <span class="badge">Modo Leitura</span>
-        <small class="date-label">{dateStr}</small>
-      </div>
-      <div class="header-actions" aria-label="Ações de navegação e leitura">
-        <button
-          class="btn btn-outline-secondary"
-          onclick={() => isReaderMode = false}
-          title="Sair do Modo Leitura"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Voltar
-        </button>
-        <button
-          class="btn btn-outline-secondary"
-          onclick={(e: MouseEvent) => handleShare(e, 'reader')}
-          title="Copiar link"
-        >
-          {@render shareIcon()}
-          {shareCopiedReader ? 'Copiado!' : 'Compartilhar'}
-        </button>
-      </div>
-    </header>
-
-    {#if processNumber}
-      <h2 class="process-number process-number-xl">{processNumber}</h2>
-    {/if}
-    {#if pub.nomeOrgao}
-      <p class="orgao-name-reader">{pub.nomeOrgao}</p>
-    {/if}
-
-    <div class="ai-summary-placeholder">
-      <div class="ai-summary-header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-gold)" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <strong class="ai-summary-title">Resumo com IA (Em breve)</strong>
-      </div>
-      <p class="ai-summary-text">
-        Esta seção fornecerá um resumo em linguagem clara da decisão e seu resultado.
-      </p>
-    </div>
-
-    <div class="reader-content">
-      {#if textParts.length > 0}
-        <div class="reader-text">
-          {#each textParts as part}
-            <p class="reader-paragraph">
-              {#each highlightText(part, terms) as segment}
-                {#if segment.type}
-                  <mark class={segment.type === 'party' ? 'entity-party' : 'entity-lawyer'}>{segment.token}</mark>
-                {:else}
-                  {segment.token}
-                {/if}
-              {/each}
-            </p>
+      {#if parties.length > 0}
+        <div class="tags-row">
+          {#each parties.slice(0, 4) as party}
+            <span class="badge name-pill">{party}</span>
           {/each}
         </div>
       {/if}
     </div>
-  </div></div>
-
-{:else}
-  <!-- Full / featured view -->
-  <div class="card" id={`pub-${seq}`}><div class="card-body featured-body">
-    <header class="card-header">
-      <div class="header-meta">
-        <span class="seq-number seq-bold">#{seq}</span>
-        {#if pub.tipoComunicacao}
-          <span class="badge">{pub.tipoComunicacao}</span>
-        {/if}
-        <small class="date-label">{dateStr}</small>
-      </div>
-      <div class="header-actions" aria-label="Ações de navegação e leitura">
-        <button
-          class="btn-outline-primary"
-          onclick={() => isReaderMode = true}
-          title="Abrir Modo Leitura"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          Modo Leitura
-        </button>
-        <div class="nav-actions" aria-label="Ações de navegação">
-          {#if onNavigate}
-            <button
-              class="btn btn-outline-secondary"
-              onclick={() => onNavigate(seq - 1)}
-              disabled={seq <= 1}
-            >
-              Anterior
-            </button>
-            <button
-              class="btn btn-outline-secondary"
-              onclick={() => onNavigate(seq + 1)}
-              disabled={totalSeq != null && seq >= totalSeq}
-            >
-              Próxima
-            </button>
+  </div>
+{:else if isReaderMode}
+  <div class="card publication-card reader-mode" id={`pub-${seq}`}>
+    <div class="card-body reader-body">
+      <header class="card-header">
+        <div class="header-left-stack">
+          <div class="header-meta">
+            <span class="seq-number seq-bold">#{seq}</span>
+            <span class="badge publication-badge">Modo Leitura</span>
+            <small class="date-label">{dateStr}</small>
+          </div>
+          {#if processNumber}
+            <h2 class="process-number process-number-xl">{processNumber}</h2>
+          {/if}
+          {#if pub.nomeOrgao}
+            <p class="orgao-name-reader">{pub.nomeOrgao}</p>
+          {/if}
+        </div>
+        <div class="header-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o e leitura">
+          <button
+            class="btn btn-outline-secondary"
+            onclick={() => (isReaderMode = false)}
+            title="Sair do Modo Leitura"
+          >
+            Voltar
+          </button>
+          {#if pub.link}
+            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+              {@render openExternalIcon()}
+              Inteiro teor
+            </a>
           {/if}
           <button
             class="btn btn-outline-secondary"
-            onclick={(e: MouseEvent) => handleShare(e, 'main')}
+            onclick={(e: MouseEvent) => handleShare(e, "reader")}
             title="Copiar link"
           >
             {@render shareIcon()}
-            {shareCopied ? 'Copiado!' : 'Compartilhar'}
+            {shareCopiedReader ? "Copiado!" : "Compartilhar"}
           </button>
         </div>
-      </div>
-    </header>
+      </header>
 
-    {#if processNumber}
-      <div class="process-number process-number-lg featured-process">{processNumber}</div>
-    {/if}
-    {#if pub.nomeOrgao}
-      <small class="orgao-name-block">{pub.nomeOrgao}</small>
-    {/if}
-
-    {#if textParts.length > 0}
-      <div class="text-section">
-        {#each textParts as part}
-          <p class="text-preview">
-            {part}
-          </p>
-        {/each}
-      </div>
-    {/if}
-
-    {#if pub.destinatarios && pub.destinatarios.length > 0}
-      <footer class="card-footer">
-        <strong class="footer-label">Destinatários</strong>
-        <div class="tags-row">
-          {#each pub.destinatarios as d}
-            <span class="badge">{d.nome}</span>
+      {#if metaChips.length > 0}
+        <div class="meta-chip-row meta-chip-row-spacious">
+          {#each metaChips as meta}
+            {@render chip(meta)}
           {/each}
         </div>
-      </footer>
-    {/if}
-    {#if pub.destinatarioadvogados && pub.destinatarioadvogados.length > 0}
-      <footer class="card-footer">
-        <strong class="footer-label">Advogados</strong>
-        <div class="tags-row">
-          {#each pub.destinatarioadvogados as da}
-            <span class="lawyer-text-sm">
-              {da.advogado?.nome} {da.advogado?.numero_oab ? `(OAB ${da.advogado.uf_oab} ${da.advogado.numero_oab})` : ''}
-            </span>
+      {/if}
+
+      <div class="reader-layout">
+        <aside class="reader-sidebar">
+          {#if identityRows.length > 0}
+            <div class="sidebar-panel">
+              <strong class="sidebar-title">Metadados</strong>
+              <dl class="identity-list">
+                {#each identityRows as item}
+                  <div class="identity-row">
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                {/each}
+              </dl>
+            </div>
+          {/if}
+
+          <div class="sidebar-panel">
+            <strong class="sidebar-title">Envolvidos</strong>
+            <div class="sidebar-tags">
+              {#if parties.length > 0}
+                {#each parties as party}
+                  <span class="badge name-pill">{party}</span>
+                {/each}
+              {/if}
+              {#if lawyers.length > 0}
+                {#each lawyers as lawyer}
+                  <span class="badge lawyer-pill">{lawyer}</span>
+                {/each}
+              {/if}
+            </div>
+          </div>
+        </aside>
+
+        <div class="reader-content">
+          {#if pub.textoRender?.kind === "html"}
+            <div class="html-content html-content-reader">
+              {@html pub.textoRender.content}
+            </div>
+          {:else if textParts.length > 0}
+            <div class="reader-text">
+              {#each textParts as part}
+                <p class="reader-paragraph">
+                  {#each highlightText(part, terms) as segment}
+                    {#if segment.type}
+                      <mark class={segment.type === "party" ? "entity-party" : "entity-lawyer"}>{segment.token}</mark>
+                    {:else}
+                      {segment.token}
+                    {/if}
+                  {/each}
+                </p>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+{:else}
+  <div class="card publication-card featured-card" id={`pub-${seq}`}>
+    <div class="card-body featured-body">
+      <header class="card-header">
+        <div class="header-left-stack">
+          <div class="header-meta">
+            <span class="seq-number seq-bold">#{seq}</span>
+            {#if pub.tipoComunicacao}
+              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+            {/if}
+            <small class="date-label">{dateStr}</small>
+          </div>
+          {#if processNumber}
+            <div class="process-number process-number-lg featured-process">{processNumber}</div>
+          {/if}
+          {#if pub.nomeOrgao}
+            <small class="orgao-name-block">{pub.nomeOrgao}</small>
+          {/if}
+        </div>
+
+        <div class="header-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o e leitura">
+          <button
+            class="btn-outline-primary"
+            onclick={() => (isReaderMode = true)}
+            title="Abrir Modo Leitura"
+          >
+            Modo Leitura
+          </button>
+          {#if pub.link}
+            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+              {@render openExternalIcon()}
+              Inteiro teor
+            </a>
+          {/if}
+          <div class="nav-actions" aria-label="AÃ§Ãµes de navegaÃ§Ã£o">
+            {#if onNavigate}
+              <button
+                class="btn btn-outline-secondary"
+                onclick={() => onNavigate(seq - 1)}
+                disabled={seq <= 1}
+              >
+                Anterior
+              </button>
+              <button
+                class="btn btn-outline-secondary"
+                onclick={() => onNavigate(seq + 1)}
+                disabled={totalSeq != null && seq >= totalSeq}
+              >
+                PrÃ³xima
+              </button>
+            {/if}
+            <button
+              class="btn btn-outline-secondary"
+              onclick={(e: MouseEvent) => handleShare(e, "main")}
+              title="Copiar link"
+            >
+              {@render shareIcon()}
+              {shareCopied ? "Copiado!" : "Compartilhar"}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {#if metaChips.length > 0}
+        <div class="meta-chip-row meta-chip-row-spacious">
+          {#each metaChips as meta}
+            {@render chip(meta)}
           {/each}
         </div>
-      </footer>
-    {/if}
-  </div></div>
+      {/if}
+
+      <div class="story-grid">
+        <section class="lead-panel">
+          {#if teaser}
+            <p class="lead-text">{teaser}</p>
+          {/if}
+
+          {#if pub.textoRender?.kind === "html"}
+            <div class="html-content html-content-featured">
+              {@html pub.textoRender.content}
+            </div>
+          {:else if textParts.length > 0}
+            <div class="text-section">
+              {#each textParts.slice(0, 3) as part}
+                <p class="text-preview">{part}</p>
+              {/each}
+            </div>
+          {/if}
+        </section>
+
+        <aside class="detail-panel">
+          <div class="sidebar-panel">
+            <strong class="sidebar-title">IdentificaÃ§Ã£o</strong>
+            <dl class="identity-list">
+              {#if identityRows.length > 0}
+                {#each identityRows as item}
+                  <div class="identity-row">
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                {/each}
+              {/if}
+            </dl>
+          </div>
+
+          {#if parties.length > 0}
+            <div class="sidebar-panel">
+              <strong class="sidebar-title">DestinatÃ¡rios</strong>
+              <div class="sidebar-tags">
+                {#each parties as party}
+                  <span class="badge name-pill">{party}</span>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          {#if lawyers.length > 0}
+            <div class="sidebar-panel">
+              <strong class="sidebar-title">Advogados</strong>
+              <div class="sidebar-tags">
+                {#each lawyers as lawyer}
+                  <span class="badge lawyer-pill">{lawyer}</span>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </aside>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
-  /* Card base */
+  .publication-card {
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(180, 83, 9, 0.08), transparent 26rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 12rem),
+      var(--color-base-100);
+  }
+
+  .compact-card {
+    margin-bottom: 1rem;
+  }
 
   .compact-body {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
-  .reader-body {
-    padding: 1.5rem;
-  }
-
+  .reader-body,
   .featured-body {
     padding: 1.5rem;
   }
 
-  /* Header */
   .card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: 1rem;
     border-bottom: 1px solid var(--color-base-300);
@@ -378,39 +613,38 @@
     margin-bottom: 1rem;
   }
 
-  .reader-mode .card-header {
-    margin-bottom: 1.5rem;
-  }
-
-  .featured-body .card-header {
-    margin-bottom: 1.5rem;
-  }
-
   .header-left-stack {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .header-meta,
+  .header-actions,
+  .nav-actions,
+  .meta-chip-row,
+  .tags-row,
+  .sidebar-tags,
+  .summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .header-meta {
-    display: flex;
     align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
+    gap: 0.75rem;
   }
 
   .header-actions {
-    display: flex;
-    gap: 0.5rem;
+    justify-content: flex-end;
   }
 
   .nav-actions {
-    display: flex;
     align-items: center;
-    gap: 0.5rem;
   }
 
-  /* Seq number */
   .seq-number {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
@@ -418,22 +652,24 @@
   }
 
   .seq-bold {
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  /* Badge */
+  .publication-badge {
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+  }
 
-  /* Date label */
   .date-label {
-    opacity: 0.5;
+    opacity: 0.6;
     font-size: var(--font-size-xs);
   }
 
-  /* Process number */
   .process-number {
     color: var(--color-accent);
-    font-weight: 600;
+    font-weight: 700;
     font-family: var(--font-mono);
+    letter-spacing: -0.03em;
   }
 
   .process-number-lg {
@@ -442,14 +678,12 @@
 
   .process-number-xl {
     font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+    margin: 0;
   }
 
   .featured-process {
-    margin-bottom: 1rem;
+    margin-bottom: 0;
   }
-
-  /* Buttons */
 
   .btn-outline-primary {
     display: inline-flex;
@@ -472,115 +706,262 @@
     color: var(--color-base-100);
   }
 
-  /* Orgao name */
-  .orgao-name {
-    display: block;
-    color: var(--color-primary);
-    font-weight: 500;
-    font-size: var(--font-size-xs);
+  .meta-chip-row {
     margin-bottom: 1rem;
   }
 
-  .orgao-name-reader {
-    opacity: 0.5;
-    font-size: var(--font-size-sm);
-    margin-bottom: 2.5rem;
-  }
-
-  .orgao-name-block {
-    display: block;
-    opacity: 0.5;
-    font-size: var(--font-size-xs);
+  .meta-chip-row-spacious {
     margin-bottom: 1.5rem;
   }
 
-  /* Text */
+  .meta-chip {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 7rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(6px);
+  }
+
+  .meta-chip small {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.55;
+  }
+
+  .meta-chip strong {
+    font-size: var(--font-size-sm);
+    line-height: 1.2;
+    color: var(--color-primary);
+  }
+
+  .meta-chip.accent {
+    border-color: rgba(180, 83, 9, 0.3);
+    background: rgba(180, 83, 9, 0.08);
+  }
+
+  .meta-chip.success {
+    border-color: rgba(5, 150, 105, 0.25);
+    background: rgba(5, 150, 105, 0.08);
+  }
+
+  .meta-chip.warning {
+    border-color: rgba(217, 119, 6, 0.25);
+    background: rgba(217, 119, 6, 0.08);
+  }
+
+  .meta-chip.danger {
+    border-color: rgba(220, 38, 38, 0.25);
+    background: rgba(220, 38, 38, 0.08);
+  }
+
+  .orgao-name,
+  .orgao-name-reader,
+  .orgao-name-block {
+    display: block;
+    color: var(--color-primary);
+  }
+
+  .orgao-name {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    margin-bottom: 0.9rem;
+  }
+
+  .orgao-name-reader,
+  .orgao-name-block {
+    opacity: 0.6;
+    font-size: var(--font-size-sm);
+  }
+
+  .lead-text {
+    font-size: var(--font-size-md);
+    line-height: 1.8;
+    color: var(--color-primary);
+    margin-bottom: 1rem;
+  }
+
   .text-preview {
     font-size: var(--font-size-sm);
-    opacity: 0.7;
-    line-height: 1.625;
+    opacity: 0.78;
+    line-height: 1.7;
   }
 
   .text-section {
+    display: grid;
+    gap: 0.85rem;
     border-top: 1px solid var(--color-base-300);
-    padding-top: 1.5rem;
+    padding-top: 1.2rem;
   }
 
-  /* Tags */
-  .tags-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .lawyers-row {
-    margin-top: 0.5rem;
-  }
-
-  .lawyer-text {
+  .summary-bar {
+    margin: 1rem 0 0.75rem;
     font-size: var(--font-size-xs);
-    opacity: 0.5;
+    color: var(--color-content-secondary);
   }
 
-  .lawyer-text-sm {
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
+  .story-grid,
+  .reader-layout {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
   }
 
-  /* Footer */
-  .card-footer {
-    border-top: 1px solid var(--color-base-300);
-    padding-top: 1.5rem;
-    margin-top: 1rem;
-  }
-
-  .footer-label {
-    display: block;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    opacity: 0.5;
-    margin-bottom: 0.5rem;
-  }
-
-  /* AI Summary placeholder */
-  .ai-summary-placeholder {
-    padding: 1rem;
-    margin-bottom: 2.5rem;
+  .lead-panel,
+  .detail-panel,
+  .sidebar-panel {
     border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    background: var(--color-base-200, rgba(0, 0, 0, 0.03));
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(6px);
   }
 
-  .ai-summary-header {
-    display: flex;
-    align-items: center;
+  .lead-panel,
+  .detail-panel,
+  .sidebar-panel {
+    padding: 1rem;
+  }
+
+  .detail-panel,
+  .reader-sidebar {
+    display: grid;
     gap: 1rem;
-    margin-bottom: 0.5rem;
+    align-content: start;
   }
 
-  .ai-summary-title {
-    font-size: var(--font-size-sm);
+  .sidebar-title {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--color-accent);
+    letter-spacing: 0.08em;
+    opacity: 0.55;
   }
 
-  .ai-summary-text {
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
+  .identity-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .identity-row {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .identity-row dt {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+  }
+
+  .identity-row dd {
     margin: 0;
+    font-size: var(--font-size-sm);
+    word-break: break-word;
   }
 
-  /* Reader content */
+  .name-pill,
+  .lawyer-pill {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--color-base-300);
+    background: var(--color-base-200);
+    color: var(--color-primary);
+  }
+
+  .lawyer-pill {
+    background: rgba(180, 83, 9, 0.1);
+    border-color: rgba(180, 83, 9, 0.22);
+  }
+
   .reader-content {
-    padding-top: 1.5rem;
+    min-width: 0;
+  }
+
+  .reader-text {
+    padding: 0.75rem 0;
+  }
+
+  .html-content {
+    font-size: var(--font-size-sm);
+    line-height: 1.8;
+    color: var(--color-primary);
+  }
+
+  .html-content :global(p) {
+    margin: 0 0 1rem;
+  }
+
+  .html-content :global(br) {
+    line-height: 2;
+  }
+
+  .html-content :global(strong),
+  .html-content :global(b) {
+    font-weight: 700;
+  }
+
+  .html-content :global(ul),
+  .html-content :global(ol) {
+    margin: 0 0 1rem 1.25rem;
+  }
+
+  .html-content :global(li) {
+    margin-bottom: 0.35rem;
+  }
+
+  .html-content :global(a) {
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+
+  .html-content-reader {
+    font-size: 1.08rem;
+  }
+
+  .html-content-featured {
+    border-top: 1px solid var(--color-base-300);
+    padding-top: 1.2rem;
   }
 
   .reader-paragraph {
-    font-size: 1.125rem;
+    font-size: 1.08rem;
     color: var(--color-primary);
     line-height: 2;
     margin-bottom: 1.5rem;
+  }
+
+  @media (max-width: 960px) {
+    .story-grid,
+    .reader-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .header-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .meta-chip {
+      min-width: calc(50% - 0.25rem);
+    }
+  }
+
+  @media (max-width: 540px) {
+    .meta-chip {
+      min-width: 100%;
+    }
+
+    .reader-body,
+    .featured-body,
+    .compact-body {
+      padding: 1rem;
+    }
   }
 </style>
