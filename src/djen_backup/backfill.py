@@ -988,117 +988,56 @@ async def _run_backfill_workers(
         if config.max_items > 0 and summary.hits >= config.max_items:
             break
 
-        # Step A: Enrich inventory from IA metadata (1 request per tribunal×year)
-        # This discovers ZIPs on IA that aren't in the inventory yet.
-        ia_fetch_tasks = {
-            t: asyncio.create_task(_fetch_ia_item_zips(client, t, year, sem))
-            for t in active_tribunals
-        }
-        ia_added = 0
-        for t, task in ia_fetch_tasks.items():
-            ia_dates = await task
-            for d in ia_dates:
-                if not inventory.has(t, d):
-                    inventory.add(t, d)
-                    ia_added += 1
-        if ia_added:
-            log.info("inventory_enriched_from_ia", year=year, new_entries=ia_added)
-
-        # Step B: Compute gaps from enriched inventory (instant)
-        all_gaps: list[tuple[date, str]] = []
         for t in active_tribunals:
+            if time.monotonic() > deadline - 60:
+                break
+            if config.max_items > 0 and summary.hits >= config.max_items:
+                break
+
             genesis_str = config.genesis_dates.get(t)
             t_lower = lower
             if genesis_str and genesis_str != "None":
                 with contextlib.suppress(ValueError):
                     t_lower = max(lower, date.fromisoformat(genesis_str))
 
+            # 1. Fetch IA metadata for this tribunal×year (1 request)
+            ia_dates = await _fetch_ia_item_zips(client, t, year, sem)
+            for d in ia_dates:
+                if not inventory.has(t, d):
+                    inventory.add(t, d)
+
+            # 2. Compute gaps (instant)
             missing = inventory.gaps_for_year(t, year, upper, t_lower)
-            for d in missing:
-                all_gaps.append((d, t))
+            if not missing:
+                continue
 
-        if not all_gaps:
-            log.info("backfill_year_complete", year=year)
-            continue
+            if t not in scanned_tribunals:
+                scanned_tribunals.add(t)
+                await summary.inc_scanned()
 
-        all_gaps.sort(key=lambda x: x[0], reverse=True)
-        queue: asyncio.Queue[tuple[date, str]] = asyncio.Queue()
-        for gap in all_gaps:
-            queue.put_nowait(gap)
+            log.info("backfill_tribunal_year", tribunal=t, year=year, gaps=len(missing))
 
-        log.info("backfill_year_working", year=year, gaps=len(all_gaps))
-
-        async def _worker(queue: asyncio.Queue = queue) -> None:
-            while not queue.empty():
+            # 3. Process gaps (newest first)
+            for d in sorted(missing, reverse=True):
                 if time.monotonic() > deadline - 30:
                     break
                 if config.max_items > 0 and summary.hits >= config.max_items:
                     break
-                try:
-                    d, tribunal = queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-
-                if tribunal not in scanned_tribunals:
-                    scanned_tribunals.add(tribunal)
-                    await summary.inc_scanned()
 
                 result = await backfill_process_date(
-                    client, breaker, tribunal, d, config, bstate, ia_state, summary,
+                    client, breaker, t, d, config, bstate, ia_state, summary,
                 )
 
                 if result == "hit":
-                    inventory.add(tribunal, d)
+                    inventory.add(t, d)
                 elif result in {"empty", "spam"}:
-                    inventory.add_absent(tribunal, d)
+                    inventory.add_absent(t, d)
                 elif result == "error":
-                    log.warning("backfill_item_error", tribunal=tribunal, date=d.isoformat())
-
-                queue.task_done()
-
-        worker_tasks = [asyncio.create_task(_worker()) for _ in range(config.workers)]
-
-        async def _state_syncer() -> None:
-            while True:
-                await asyncio.sleep(120)
-                if not config.dry_run:
-                    save_backfill_state(bstate, config.backfill_state_file)
-                    save_state(ia_state, config.state_file)
-                    inventory.save_to_disk()
-                    await upload_state_to_ia(
-                        IA_BACKFILL_STATE_FILENAME, bstate.to_dict(), config.ia_auth
-                    )
-                    await upload_state_to_ia(IA_STATE_FILENAME, ia_state.to_dict(), config.ia_auth)
-                    await inventory.upload_to_ia(config.ia_auth)
-                    log.info("state_checkpoint_saved", inventory_size=len(inventory))
-
-        async def _status_publisher() -> None:
-            if not config.publish_live_status:
-                return
-            interval_str = os.getenv("LIVE_STATUS_INTERVAL_SECONDS", "60")
-            try:
-                interval = float(interval_str)
-            except ValueError:
-                interval = 60.0
-            while True:
-                await asyncio.sleep(interval)
-                await _publish_ntfy_status(summary, "running", bstate)
-
-        syncer_task = asyncio.create_task(_state_syncer())
-        publisher_task = asyncio.create_task(_status_publisher())
-        await asyncio.gather(*worker_tasks)
-        syncer_task.cancel()
-        publisher_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await syncer_task
-        with contextlib.suppress(asyncio.CancelledError):
-            await publisher_task
+                    log.warning("backfill_item_error", tribunal=t, date=d.isoformat())
 
         inventory.save_to_disk()
         save_backfill_state(bstate, config.backfill_state_file)
-        log.info(
-            "backfill_year_done", year=year, uploads=summary.hits, discovered=summary.cache_hits
-        )
+        log.info("backfill_year_done", year=year, uploads=summary.hits)
 
     # Final save: disk + IA
     inventory.save_to_disk()
