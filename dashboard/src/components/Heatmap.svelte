@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import CellTooltip from './CellTooltip.svelte';
   import VelocityTimeline from './VelocityTimeline.svelte';
-  import { type CellStatus, CELL_STATUS_COLORS, getBarColor } from '../lib/colorUtils';
+  import { type CellStatus, CELL_STATUS_COLORS } from '../lib/colorUtils';
   import { toDateString } from '../lib/dateUtils';
 
   interface CellData {
@@ -40,9 +40,7 @@
   let hoveredCell = $state<HoveredCellState | null>(null);
   let focusedCell = $state<string | null>(null);
 
-  function handleOutsideInteraction() {
-    hoveredCell = null;
-  }
+  function handleOutsideInteraction() { hoveredCell = null; }
 
   onMount(() => {
     document.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
@@ -56,145 +54,162 @@
     }
   });
 
-  let start = $derived(new Date(globalStartDateStr + "T00:00:00Z"));
-  let end = $derived(new Date(globalEndDateStr + "T00:00:00Z"));
+  let start = $derived(new Date(globalStartDateStr + 'T00:00:00Z'));
+  let end   = $derived(new Date(globalEndDateStr   + 'T00:00:00Z'));
   let invalidRange = $derived(start > end);
 
-  let months = $derived.by(() => {
-    if (invalidRange) return [];
+  // ── Year/month picker state ──────────────────────────────────────────────
+  const _now = new Date();
+  let selectedYear  = $state(_now.getUTCFullYear());
+  let selectedMonth = $state(_now.getUTCMonth()); // 0-indexed
 
-    const result: { year: number; month: number; label: string; weeks: (string | null)[][] }[] = [];
-    const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
-    const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+  let minYear = $derived(start.getUTCFullYear());
+  let maxYear = $derived(end.getUTCFullYear());
 
-    while (cursor <= endMonth) {
-      const yr = cursor.getUTCFullYear();
-      const mo = cursor.getUTCMonth();
-      const firstDay = new Date(Date.UTC(yr, mo, 1));
-      const lastDay = new Date(Date.UTC(yr, mo + 1, 0));
-      const startDow = firstDay.getUTCDay();
-
-      const weeks: (string | null)[][] = [];
-      let week: (string | null)[] = Array(startDow).fill(null);
-
-      for (let d = 1; d <= lastDay.getUTCDate(); d++) {
-        const dt = new Date(Date.UTC(yr, mo, d));
-        const ds = toDateString(dt);
-        if (dt >= start && dt <= end) {
-          week.push(ds);
-        } else {
-          week.push(null);
-        }
-        if (week.length === 7) {
-          weeks.push(week);
-          week = [];
-        }
-      }
-      if (week.length > 0) {
-        while (week.length < 7) week.push(null);
-        weeks.push(week);
-      }
-
-      const label = firstDay.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-      result.push({ year: yr, month: mo, label, weeks });
-      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-    }
-
-    return result;
+  // Clamp year to valid range when props change
+  $effect(() => {
+    if (selectedYear < minYear) { selectedYear = minYear; }
+    if (selectedYear > maxYear) { selectedYear = maxYear; }
   });
 
-  let allDays = $derived(months.flatMap(m => m.weeks.flat().filter(Boolean) as string[]));
-  let coveredDays = $derived(allDays.filter(d => coverageSet.has(d)).length);
-  let totalDays = $derived(allDays.length);
+  // Reset focused cell when navigation changes
+  $effect(() => {
+    selectedYear; selectedMonth;
+    focusedCell = null;
+  });
 
-  function getCellStatus(dateStr: string): CellStatus {
-    if (tribunalStartDateStr && dateStr < tribunalStartDateStr) {
-      return 'outside';
+  function prevYear() { if (selectedYear > minYear) selectedYear--; }
+  function nextYear() { if (selectedYear < maxYear) selectedYear++; }
+
+  function selectMonth(mo: number) {
+    const first = new Date(Date.UTC(selectedYear, mo, 1));
+    const last  = new Date(Date.UTC(selectedYear, mo + 1, 0));
+    if (first > end || last < start) return; // outside data range
+    selectedMonth = mo;
+  }
+
+  // ── Month-picker coverage badges ────────────────────────────────────────
+  const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  let monthCoverage = $derived.by(() =>
+    MONTH_NAMES.map((name, mo) => {
+      const first = new Date(Date.UTC(selectedYear, mo, 1));
+      const last  = new Date(Date.UTC(selectedYear, mo + 1, 0));
+      if (first > end || last < start) return { name, mo, total: 0, collected: 0, pct: -1 };
+
+      let total = 0, collected = 0;
+      for (let d = 1; d <= last.getUTCDate(); d++) {
+        const dt = new Date(Date.UTC(selectedYear, mo, d));
+        if (dt < start || dt > end) continue;
+        const ds = toDateString(dt);
+        if (tribunalStartDateStr && ds < tribunalStartDateStr) continue;
+        total++;
+        if (coverageSet.has(ds)) collected++;
+      }
+      return { name, mo, total, collected, pct: total > 0 ? collected / total : 0 };
+    })
+  );
+
+  function monthBadgeClass(pct: number): string {
+    if (pct < 0)    return 'month-outside';
+    if (pct >= 0.8) return 'month-high';
+    if (pct >= 0.5) return 'month-mid';
+    if (pct > 0)    return 'month-low';
+    return 'month-zero';
+  }
+
+  // ── Single-month calendar ────────────────────────────────────────────────
+  let selectedMonthCalendar = $derived.by(() => {
+    const yr = selectedYear, mo = selectedMonth;
+    const firstDay = new Date(Date.UTC(yr, mo, 1));
+    const lastDay  = new Date(Date.UTC(yr, mo + 1, 0));
+    const startDow = firstDay.getUTCDay();
+
+    const weeks: (string | null)[][] = [];
+    let week: (string | null)[] = Array(startDow).fill(null);
+
+    for (let d = 1; d <= lastDay.getUTCDate(); d++) {
+      const dt = new Date(Date.UTC(yr, mo, d));
+      week.push((dt >= start && dt <= end) ? toDateString(dt) : null);
+      if (week.length === 7) { weeks.push(week); week = []; }
     }
+    if (week.length > 0) {
+      while (week.length < 7) week.push(null);
+      weeks.push(week);
+    }
+
+    const label = firstDay.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return { label, weeks };
+  });
+
+  let allDays     = $derived(selectedMonthCalendar.weeks.flat().filter(Boolean) as string[]);
+  let coveredDays = $derived(allDays.filter(d => coverageSet.has(d)).length);
+  let totalDays   = $derived(allDays.length);
+
+  // ── Cell helpers (unchanged logic) ──────────────────────────────────────
+  function getCellStatus(dateStr: string): CellStatus {
+    if (tribunalStartDateStr && dateStr < tribunalStartDateStr) return 'outside';
     if (coverageSet.has(dateStr)) return 'collected';
     if (velocityMetrics?.absentSet?.has(dateStr)) return 'absent';
     return 'missing';
   }
 
   function getCellColor(dateStr: string | null): string {
-    if (!dateStr) return "";
+    if (!dateStr) return '';
     const status = getCellStatus(dateStr);
     const base = CELL_STATUS_COLORS[status];
-    const isFocused = focusedCell === dateStr;
-    return isFocused ? `${base} heatmap-focused heatmap-cell` : `${base} heatmap-cell`;
+    return focusedCell === dateStr ? `${base} heatmap-focused heatmap-cell` : `${base} heatmap-cell`;
   }
 
   function getAriaLabel(dateStr: string | null): string {
-    if (!dateStr) return "Empty cell";
+    if (!dateStr) return 'Empty cell';
     const status = getCellStatus(dateStr);
-    if (status === 'outside') return `${dateStr}: Before Tribunal Joined`;
-    if (status === 'absent') return `${dateStr}: Confirmed Absent (No journal published)`;
+    if (status === 'outside')  return `${dateStr}: Before Tribunal Joined`;
+    if (status === 'absent')   return `${dateStr}: Confirmed Absent (No journal published)`;
     return `${dateStr}: ${status === 'collected' ? 'Collected' : 'Missing'}`;
   }
 
   function handleCellInteraction(e: any, dateStr: string | null, type: string) {
-    if (e && e.stopPropagation) e.stopPropagation();
+    if (e?.stopPropagation) e.stopPropagation();
     if (!dateStr) return;
-    if (type === 'leave') {
-      hoveredCell = null;
-      return;
-    }
+    if (type === 'leave') { hoveredCell = null; return; }
     if (type === 'touch') {
-      if (e && e.cancelable) e.preventDefault();
+      if (e?.cancelable) e.preventDefault();
       const pos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      if (hoveredCell?.data?.date === dateStr) {
-        hoveredCell = null;
-      } else {
-        hoveredCell = {
-          data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null },
-          position: pos
-        };
-      }
+      hoveredCell = hoveredCell?.data?.date === dateStr ? null
+        : { data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null }, position: pos };
       return;
     }
     const pos = { x: e.clientX, y: e.clientY };
     if (type === 'click') {
-      const status = getCellStatus(dateStr);
-      if (status === 'collected' && baseUrl) {
-        window.location.hash = dateStr;
-        return;
-      }
-      if (hoveredCell?.data?.date === dateStr) {
-        hoveredCell = null;
-        return;
-      }
+      if (getCellStatus(dateStr) === 'collected' && baseUrl) { window.location.hash = dateStr; return; }
+      if (hoveredCell?.data?.date === dateStr) { hoveredCell = null; return; }
     }
-    hoveredCell = {
-      data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null },
-      position: pos
-    };
+    hoveredCell = { data: { date: dateStr, status: getCellStatus(dateStr), uploadedAt: null, sizeMb: null }, position: pos };
   }
 
   function handleGridKeyDown(e: any) {
     if (!allDays.length) return;
-    let currentIndex = focusedCell ? allDays.indexOf(focusedCell) : allDays.length - 1;
-    if (currentIndex === -1) currentIndex = allDays.length - 1;
-    let newIndex = currentIndex;
+    let idx = focusedCell ? allDays.indexOf(focusedCell) : allDays.length - 1;
+    if (idx === -1) idx = allDays.length - 1;
+    let next = idx;
     switch (e.key) {
-      case 'ArrowLeft': newIndex = Math.max(0, currentIndex - 1); e.preventDefault(); break;
-      case 'ArrowRight': newIndex = Math.min(allDays.length - 1, currentIndex + 1); e.preventDefault(); break;
-      case 'ArrowUp': newIndex = Math.max(0, currentIndex - 7); e.preventDefault(); break;
-      case 'ArrowDown': newIndex = Math.min(allDays.length - 1, currentIndex + 7); e.preventDefault(); break;
-      case 'Enter':
-      case ' ':
+      case 'ArrowLeft':  next = Math.max(0, idx - 1);              e.preventDefault(); break;
+      case 'ArrowRight': next = Math.min(allDays.length - 1, idx + 1); e.preventDefault(); break;
+      case 'ArrowUp':    next = Math.max(0, idx - 7);              e.preventDefault(); break;
+      case 'ArrowDown':  next = Math.min(allDays.length - 1, idx + 7); e.preventDefault(); break;
+      case 'Enter': case ' ':
         if (focusedCell) {
           e.preventDefault();
-          const cellEl = document.getElementById(`cell-${focusedCell}`);
-          const rect = cellEl ? cellEl.getBoundingClientRect() : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+          const rect = document.getElementById(`cell-${focusedCell}`)?.getBoundingClientRect()
+            ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
           handleCellInteraction({ clientX: rect.x + 6, clientY: rect.y + 6, stopPropagation: () => {} }, focusedCell, 'click');
         }
         break;
       case 'Escape': hoveredCell = null; e.preventDefault(); break;
       default: return;
     }
-    if (newIndex !== currentIndex && allDays[newIndex]) {
-      focusedCell = allDays[newIndex];
-    }
+    if (next !== idx && allDays[next]) focusedCell = allDays[next];
   }
 
   const weekdayHeaders = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -204,77 +219,108 @@
   <div>Invalid date range.</div>
 {:else}
   <div class="heatmap-wrapper">
-    <div
-      class="months-grid"
-      role="grid"
-      aria-label="Calendário de cobertura para {tribunalName}"
-      tabindex="0"
-      onkeydown={handleGridKeyDown}
-      onfocus={() => { if (!focusedCell) focusedCell = allDays[allDays.length - 1]; }}
-      onblur={() => { focusedCell = null; hoveredCell = null; }}
-    >
-      {#each months as m (`${m.year}-${m.month}`)}
-        <div class="month-card">
-          <h5 class="month-label">{m.label}</h5>
-          <table class="calendar-table">
-            <thead>
-              <tr>
-                {#each weekdayHeaders as d}
-                  <th class="weekday-header">{d}</th>
-                {/each}
-              </tr>
-            </thead>
-            <tbody>
-              {#each m.weeks as week, wi (`${m.year}-${m.month}-w${wi}`)}
-                <tr role="row">
-                  {#each week as day, di}
-                    <td
-                      id={day ? `cell-${day}` : undefined}
-                      role="gridcell"
-                      class="day-cell {day ? `day-cell--active ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'day-cell--clickable' : 'day-cell--default'}` : ''}"
-                      aria-label={getAriaLabel(day)}
-                      aria-selected={focusedCell === day}
-                      onmouseenter={(e: any) => handleCellInteraction(e, day, 'enter')}
-                      onmousemove={(e: any) => handleCellInteraction(e, day, 'move')}
-                      onmouseleave={(e: any) => handleCellInteraction(e, day, 'leave')}
-                      ontouchstart={(e: any) => handleCellInteraction(e, day, 'touch')}
-                      onclick={(e: any) => { handleCellInteraction(e, day, 'click'); focusedCell = day; }}
-                    >
-                      {day ? new Date(day + 'T00:00:00Z').getUTCDate() : ''}
-                    </td>
-                  {/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+
+    <!-- ── Year wheel ──────────────────────────────────────── -->
+    <div class="year-nav">
+      <button
+        class="year-arrow"
+        onclick={prevYear}
+        disabled={selectedYear <= minYear}
+        aria-label="Ano anterior"
+      >&#8592;</button>
+      <span class="year-label">{selectedYear}</span>
+      <button
+        class="year-arrow"
+        onclick={nextYear}
+        disabled={selectedYear >= maxYear}
+        aria-label="Próximo ano"
+      >&#8594;</button>
+    </div>
+
+    <!-- ── Month picker grid ───────────────────────────────── -->
+    <div class="month-picker" role="listbox" aria-label="Selecionar mês">
+      {#each monthCoverage as mc}
+        {@const isSelected = mc.mo === selectedMonth}
+        {@const isDisabled = mc.pct < 0}
+        <button
+          class="month-btn {monthBadgeClass(mc.pct)} {isSelected ? 'month-selected' : ''}"
+          onclick={() => selectMonth(mc.mo)}
+          disabled={isDisabled}
+          role="option"
+          aria-selected={isSelected}
+          aria-label="{mc.name}: {mc.pct >= 0 ? Math.round(mc.pct * 100) + '% coletado' : 'fora do intervalo'}"
+          title="{mc.collected}/{mc.total} dias coletados"
+        >
+          <span class="month-name">{mc.name}</span>
+          {#if mc.pct >= 0 && mc.total > 0}
+            <div class="month-progress">
+              <div class="month-progress-fill" style="width:{Math.round(mc.pct * 100)}%"></div>
+            </div>
+          {/if}
+        </button>
       {/each}
     </div>
 
+    <!-- ── Single-month calendar ───────────────────────────── -->
+    <div class="month-card">
+      <h5 class="month-title">{selectedMonthCalendar.label}</h5>
+      <table
+        class="calendar-table"
+        role="grid"
+        aria-label="Calendário de cobertura — {selectedMonthCalendar.label} — {tribunalName}"
+        tabindex="0"
+        onkeydown={handleGridKeyDown}
+        onfocus={() => { if (!focusedCell) focusedCell = allDays[allDays.length - 1]; }}
+        onblur={() => { focusedCell = null; hoveredCell = null; }}
+      >
+        <thead>
+          <tr>
+            {#each weekdayHeaders as d}
+              <th class="weekday-header">{d}</th>
+            {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each selectedMonthCalendar.weeks as week, wi}
+            <tr role="row">
+              {#each week as day, di}
+                <td
+                  id={day ? `cell-${day}` : undefined}
+                  role="gridcell"
+                  class="day-cell {day ? `day-cell--active ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'day-cell--clickable' : 'day-cell--default'}` : ''}"
+                  aria-label={getAriaLabel(day)}
+                  aria-selected={focusedCell === day}
+                  onmouseenter={(e: any) => handleCellInteraction(e, day, 'enter')}
+                  onmousemove={(e: any)  => handleCellInteraction(e, day, 'move')}
+                  onmouseleave={(e: any) => handleCellInteraction(e, day, 'leave')}
+                  ontouchstart={(e: any) => handleCellInteraction(e, day, 'touch')}
+                  onclick={(e: any) => { handleCellInteraction(e, day, 'click'); focusedCell = day; }}
+                >
+                  {day ? new Date(day + 'T00:00:00Z').getUTCDate() : ''}
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Legend ──────────────────────────────────────────── -->
     <div class="legend-card">
       <div class="legend-body">
         <span class="legend-summary">
-          <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados
+          <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados neste mês
         </span>
         <div class="legend-items">
           <span class="legend-label">Legenda:</span>
-          <div class="legend-item">
-            <div class="legend-swatch heatmap-missing"></div>
-            <span>Faltante</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-swatch heatmap-absent"></div>
-            <span>Ausente</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-swatch heatmap-collected"></div>
-            <span>Coletado</span>
-          </div>
+          <div class="legend-item"><div class="legend-swatch heatmap-missing"></div><span>Faltante</span></div>
+          <div class="legend-item"><div class="legend-swatch heatmap-absent"></div><span>Ausente</span></div>
+          <div class="legend-item"><div class="legend-swatch heatmap-collected"></div><span>Coletado</span></div>
         </div>
       </div>
     </div>
 
-    {#if velocityMetrics && velocityMetrics.hasEnoughHistory}
+    {#if velocityMetrics?.hasEnoughHistory}
       <div class="velocity-section">
         <VelocityTimeline metrics={velocityMetrics} />
       </div>
@@ -283,6 +329,7 @@
     {#if hoveredCell}
       <CellTooltip cellData={hoveredCell.data} position={hoveredCell.position} />
     {/if}
+
   </div>
 {/if}
 
@@ -290,49 +337,131 @@
   .heatmap-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.25rem;
   }
 
-  .months-grid {
-    display: grid;
-    grid-template-columns: 1fr;
+  /* ── Year navigation ── */
+  .year-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 1rem;
   }
 
-  @media (min-width: 640px) {
-    .months-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
+  .year-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-base-300);
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background 0.15s;
   }
 
-  @media (min-width: 1024px) {
-    .months-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
+  .year-arrow:hover:not(:disabled) {
+    background: var(--color-base-200);
   }
 
-  @media (min-width: 1280px) {
-    .months-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
+  .year-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
   }
 
+  .year-label {
+    font-size: var(--font-size-xl, 1.25rem);
+    font-weight: 700;
+    min-width: 4rem;
+    text-align: center;
+  }
+
+  /* ── Month picker ── */
+  .month-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.375rem;
+  }
+
+  .month-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.25rem 0.375rem;
+    border-radius: var(--radius-box);
+    border: 2px solid transparent;
+    background: var(--color-base-200);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .month-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .month-btn:not(:disabled):hover {
+    border-color: var(--color-primary);
+  }
+
+  .month-selected {
+    border-color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-base-100));
+  }
+
+  .month-name {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* ── Month coverage mini-bar ── */
+  .month-progress {
+    width: 100%;
+    height: 3px;
+    background: var(--color-base-300);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .month-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .month-high   .month-progress-fill { background: var(--color-success); }
+  .month-mid    .month-progress-fill { background: var(--color-warning); }
+  .month-low    .month-progress-fill { background: var(--color-error);   }
+  .month-zero   .month-progress-fill { background: var(--color-base-300); }
+  .month-outside { opacity: 0.3; }
+
+  /* ── Single month calendar ── */
   .month-card {
     background: var(--color-base-100);
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius-box);
-    padding: 0.75rem;
+    padding: 1rem;
   }
 
-  .month-label {
+  .month-title {
     font-size: var(--font-size-sm);
     font-weight: 600;
     text-transform: capitalize;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    text-align: center;
   }
 
   .calendar-table {
     width: 100%;
+    max-width: 22rem;
+    margin: 0 auto;
   }
 
   .weekday-header {
@@ -346,67 +475,50 @@
   .day-cell {
     text-align: center;
     font-size: var(--font-size-xs);
-    padding: 0.125rem;
+    padding: 0.2rem;
   }
 
-  .day-cell--active {
-    border-radius: var(--radius-sm);
-  }
+  .day-cell--active   { border-radius: var(--radius-sm); }
+  .day-cell--clickable { cursor: pointer; }
+  .day-cell--default  { cursor: default; }
 
-  .day-cell--clickable {
-    cursor: pointer;
-  }
-
-  .day-cell--default {
-    cursor: default;
-  }
-
-  .legend-card {
-    background: var(--color-base-200);
-    border-radius: var(--radius-box);
-  }
+  /* ── Legend ── */
+  .legend-card   { background: var(--color-base-200); border-radius: var(--radius-box); }
 
   .legend-body {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     font-size: var(--font-size-sm);
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
-  .legend-summary {
-    opacity: 0.7;
-  }
+  .legend-summary { opacity: 0.7; }
 
   .legend-items {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: 1rem;
   }
 
-  .legend-label {
-    opacity: 0.5;
-  }
+  .legend-label { opacity: 0.5; }
 
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
+  .legend-item  { display: flex; align-items: center; gap: 0.375rem; }
 
   .legend-swatch {
-    width: 0.875rem;
-    height: 0.875rem;
+    width: 0.75rem;
+    height: 0.75rem;
     border-radius: var(--radius-sm);
   }
 
+  /* ── Velocity section ── */
   .velocity-section {
     border-top: 1px solid var(--color-base-300);
     padding-top: 1.5rem;
-    margin-top: 2.5rem;
+    margin-top: 1rem;
   }
 </style>
