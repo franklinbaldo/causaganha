@@ -78,6 +78,7 @@ class ZipInventory:
     def __init__(self) -> None:
         # Key: "TRIBUNAL/YYYY-MM-DD" → (status, url, timestamp)
         self._entries: dict[str, tuple[str, str, str]] = {}
+        self._lock = asyncio.Lock()
 
     @staticmethod
     def _key(tribunal: str, d: date) -> str:
@@ -98,29 +99,38 @@ class ZipInventory:
         entry = self._entries.get(self._key(tribunal, d))
         return entry[0] if entry else None
 
-    def add(self, tribunal: str, d: date) -> None:
+    async def add(self, tribunal: str, d: date) -> None:
         """Mark a date as uploaded (ZIP exists on IA)."""
-        k = self._key(tribunal, d)
-        if k not in self._entries:
-            self._entries[k] = (
-                "uploaded",
-                self._url(tribunal, d),
-                datetime.now(UTC).isoformat(timespec="seconds"),
-            )
+        async with self._lock:
+            k = self._key(tribunal, d)
+            if k not in self._entries:
+                self._entries[k] = (
+                    "uploaded",
+                    self._url(tribunal, d),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                )
 
-    def add_absent(self, tribunal: str, d: date) -> None:
+    async def add_absent(self, tribunal: str, d: date) -> None:
         """Mark a date as confirmed absent (no journal published)."""
-        k = self._key(tribunal, d)
-        if k not in self._entries:
-            self._entries[k] = (
-                "absent",
-                "",
-                datetime.now(UTC).isoformat(timespec="seconds"),
-            )
+        async with self._lock:
+            k = self._key(tribunal, d)
+            if k not in self._entries:
+                self._entries[k] = (
+                    "absent",
+                    "",
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                )
 
-    def add_many(self, tribunal: str, dates: set[date]) -> None:
-        for d in dates:
-            self.add(tribunal, d)
+    async def add_many(self, tribunal: str, dates: set[date]) -> None:
+        async with self._lock:
+            for d in dates:
+                k = self._key(tribunal, d)
+                if k not in self._entries:
+                    self._entries[k] = (
+                        "uploaded",
+                        self._url(tribunal, d),
+                        datetime.now(UTC).isoformat(timespec="seconds"),
+                    )
 
     def __len__(self) -> int:
         """Return number of inventory entries."""

@@ -337,7 +337,7 @@ async def process_date(
         zip_path = await download_zip(client, zip_url)
     except DJENNotFoundError as exc:
         if exc.reason in ("Not Found", "No publications"):
-            inventory.add_absent(tribunal, d)
+            await inventory.add_absent(tribunal, d)
             await state.record_empty(tribunal)
             await summary.inc_empty()
             return "empty"
@@ -354,7 +354,7 @@ async def process_date(
         resp = await upload_zip(client, d, tribunal, zip_path, config.ia_auth)
         if resp.status_code < HTTP_BAD_REQUEST:
             await breaker.record_success()
-            inventory.add(tribunal, d)
+            await inventory.add(tribunal, d)
             await state.record_hit(tribunal, d)
             await summary.inc_hit()
             return "hit"
@@ -413,23 +413,27 @@ async def run_sync(config: SyncConfig) -> int:
         upper = config.start_date
         lower = config.lower_bound or date(2013, 1, 1)
         years = sorted(range(lower.year, upper.year + 1), reverse=True)
+        
+        last_ia_sync = time.monotonic()
+        SYNC_INTERVAL_S = 180  # 3 minutes
+        
+        sem = asyncio.Semaphore(config.workers)
 
-        for year in years:
-            if time.monotonic() > deadline - 60: break
-            
-            for t in tribunals:
-                if time.monotonic() > deadline - 60: break
+        async def process_tribunal_year(t: str, year: int) -> None:
+            nonlocal last_ia_sync
+            async with sem:
+                if time.monotonic() > deadline - 60: return
                 prog = await state.get_or_init(t, config.start_date)
-                if prog.stopped: continue
+                if prog.stopped: return
 
                 # Metadata sync
                 ia_dates = await fetch_ia_existing(client, t, year)
-                for d in ia_dates:
-                    if not inventory.has(t, d): inventory.add(t, d)
+                if ia_dates:
+                    await inventory.add_many(t, set(ia_dates.keys()))
 
                 # Gap processing
                 gaps = inventory.gaps_for_year(t, year, upper, lower)
-                if not gaps: continue
+                if not gaps: return
                 
                 log.info("sync_tribunal_year", tribunal=t, year=year, gaps=len(gaps))
                 
@@ -439,16 +443,32 @@ async def run_sync(config: SyncConfig) -> int:
                     if config.max_items and summary.hits >= config.max_items: break
                     
                     res = await process_date(client, breaker, t, d, config, state, inventory, summary, deadline)
+                    
+                    # Periodic IA Sync (every 3 minutes) - Protected by a lock implicitly via being in the same thread
+                    # but we only allow one worker to trigger it at a time to avoid spam.
+                    if not config.dry_run and time.monotonic() - last_ia_sync > SYNC_INTERVAL_S:
+                        # Update last_ia_sync IMMEDIATELY to prevent other workers from entering
+                        last_ia_sync = time.monotonic() 
+                        log.info("sync_periodic_upload_starting")
+                        await inventory.upload_to_ia(config.ia_auth)
+                        await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
+                        log.info("sync_periodic_upload_complete")
+
                     if res == "error":
                         consecutive_errors += 1
                         if consecutive_errors >= 3:
                             log.warning("sync_skipping_tribunal", tribunal=t, reason="3 consecutive errors")
                             break
-                    else:
+                    elif res in ("hit", "empty"):
                         consecutive_errors = 0
                         await state.advance_cursor(t)
 
-            # Checkpoint
+        for year in years:
+            if time.monotonic() > deadline - 60: break
+            log.info("sync_year_starting", year=year)
+            await asyncio.gather(*(process_tribunal_year(t, year) for t in tribunals))
+            
+            # Checkpoint after each year
             inventory.save_to_disk()
             if config.state_file:
                 config.state_file.write_text(json.dumps(state.to_dict(), indent=2))
