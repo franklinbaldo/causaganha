@@ -29,38 +29,64 @@ class DecisionAnalyzer:
 
         # System prompt for the AI
         system_prompt = """
-        You are an expert Brazilian legal analyst specializing in judicial decisions.
+        You are an expert Brazilian legal analyst. Your job is to extract structured
+        data from DJEN (Diário de Justiça Eletrônico Nacional) judicial communications
+        to power a lawyer performance rating system (similar to an Elo/OpenSkill rating).
 
-        Your task is to read judicial decision documents and extract structured
-        information about case outcomes for a lawyer performance rating system.
+        ── DECISION TYPE ────────────────────────────────────────────────────────────
+        Classify the decision as one of:
+        • "sentença"              - first-instance merit judgment (juiz singular)
+        • "acórdão"               - appellate panel decision (turma/câmara)
+        • "decisão interlocutória" - procedural/interim order, NOT a final ruling
 
-        CRITICAL REQUIREMENTS:
-        1. Identify the winning and losing parties with precision
-        2. Extract the correct OAB numbers for each lawyer
-        3. Determine the decision type and outcome accurately
-        4. Provide a brief summary of the judge's reasoning
-        5. Use confidence_score to indicate uncertainty:
-           - 0.9-1.0: Very confident, all information clear
-           - 0.7-0.9: Confident, minor ambiguities
-           - 0.5-0.7: Moderate confidence, some unclear elements
-           - <0.5: Low confidence, significant ambiguities
+        For "decisão interlocutória" there is no winner or loser yet. Set
+        outcome="unknown", plaintiff_won=False, confidence_score≤0.4, and leave
+        winner/loser fields null.
 
-        IMPORTANT NOTES:
-        - OAB numbers are usually in format: "OAB/XX NNNNN" (e.g., "OAB/RO 5733")
-        - In Brazilian law:
-           * "Autor" or "Requerente" = plaintiff/claimant
-           * "Réu" or "Requerido" = defendant/respondent
-           * "Procedente" means the plaintiff won
-           * "Improcedente" means the defendant won
-           * "Parcialmente procedente" = partial victory (treat as plaintiff win)
-        - Decision types:
-           * "Sentença" = first instance judgment
-           * "Acórdão" = appellate court decision
-           * "Decisão interlocutória" = interlocutory decision
+        ── OUTCOME ──────────────────────────────────────────────────────────────────
+        Map the dispositivo (operative part) to ONE of:
+        • "procedente"            - claim granted in full -> plaintiff wins
+        • "parcialmente procedente" - claim partially granted -> plaintiff wins
+          (even partial victories count as wins for rating purposes)
+        • "improcedente"          - claim denied -> defendant wins
+        • "unknown"               - cannot determine from the text
 
-        If critical information is missing or unclear, reflect this in your
-        confidence_score. Never guess OAB numbers - if unclear, indicate in
-        confidence_score.
+        Set plaintiff_won=True for "procedente" or "parcialmente procedente",
+        False otherwise. Keep outcome and plaintiff_won CONSISTENT.
+
+        ── ACÓRDÃOS (APPEALS) ────────────────────────────────────────────────────
+        The outcome must reflect the FINAL result after the appeal, not the
+        first-instance outcome being reviewed. Look for "dá provimento",
+        "nega provimento", "reforma a sentença" in the dispositivo.
+
+        ── LAWYER / OAB EXTRACTION ──────────────────────────────────────────────
+        OAB numbers appear as: "OAB/RO 5733", "OAB-SP 123456", "OAB nº 5733/RO".
+        Rules:
+        1. Extract ONLY digits for winner_lawyer_oab / loser_lawyer_oab.
+        2. Extract the two-letter state abbreviation for winner_lawyer_state /
+           loser_lawyer_state (e.g. "RO", "SP").
+        3. If a party has multiple lawyers, prefer the first-listed (lead counsel).
+        4. If a party is unrepresented (without counsel) or represented by a
+           public defender (Defensoria Pública), set the OAB field to null, NOT
+           to a made-up number.
+        5. NEVER invent OAB numbers. If the number is illegible or absent, set
+           the field to null and lower confidence_score accordingly.
+
+        ── CONFIDENCE SCORE ─────────────────────────────────────────────────────
+        0.9-1.0 All required fields clearly present in the text
+        0.7-0.9 Minor ambiguity (e.g. party names unclear, but OAB numbers found)
+        0.5-0.7 Significant ambiguity (e.g. multiple possible outcomes, or OAB
+                numbers missing for one side)
+        0.3-0.5 Critical fields missing or contradictory signals in the text
+        <0.3    Cannot reliably extract winner/loser (use this for
+                "decisão interlocutória" or purely procedural notices)
+
+        ── WHAT TO EXTRACT ──────────────────────────────────────────────────────
+        • winner_party_name / loser_party_name: exact name as it appears in the text
+        • judge_name: signing judge (sentença) or rapporteur (acórdão)
+        • decision_reasoning: 1-2 sentences summarising the legal basis (not the
+          procedural history)
+        • summary: one sentence describing what the case is about
         """
 
         # Create Pydantic AI agent
@@ -103,7 +129,12 @@ class DecisionAnalyzer:
         try:
             # Use Gemini to analyze text directly (no PDF needed!)
             result = await self.agent.run(
-                f"Analyze this judicial decision:\n\n{decision_text}",
+                "Extract structured data from the judicial communication below.\n\n"
+                "Focus on:\n"
+                "1. The dispositivo (operative part) to determine outcome\n"
+                "2. OAB numbers for the winning and losing lawyers\n"
+                "3. Whether this is a final merit decision or a procedural order\n\n"
+                f"DOCUMENT:\n{decision_text}",
                 message_history=[],
             )
 
