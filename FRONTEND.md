@@ -214,7 +214,7 @@ Any component that imports `myStore` reads reactive state directly — no subscr
     count?: number;
   }
 
-  const { tribunal, count = 0 }: Props = $props();
+  let { tribunal, count = 0 }: Props = $props();
 </script>
 ```
 
@@ -415,7 +415,7 @@ The file exports:
 - `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
 - `fetchAllData()` — fetches the full derived dataset (used by `createDataRefresh`)
 - `startLivePolling(onUpdate, intervalMs)` — starts a polling loop, returns a stop function
-- `deriveData(raw)` — pure transformation from raw API response to `DerivedData`
+- `deriveData(stats, dashboardData, cacheData, tribunalStartDates?, tribunalQualityScores?, perfMetrics?, iaSnapshot?)` — pure transformation that merges multiple data sources into the `DerivedData` shape; used in Astro pages at build time
 
 ```ts
 // Correct — use the exported helpers
