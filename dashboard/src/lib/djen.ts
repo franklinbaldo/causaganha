@@ -177,6 +177,28 @@ function sanitizeHtml(value: string): string {
   });
 }
 
+function normalizeExternalUrl(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  const raw = typeof value === "string" ? value.trim() : String(value).trim();
+  if (!raw) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 export const DjenTextoRenderSchema = z.union([
   z.object({
     kind: z.literal("html"),
@@ -294,6 +316,7 @@ export const DjenPublicationSchema = DjenPublicationSourceSchema.transform((valu
   idOrgao: value.idOrgao ?? value.id_orgao,
   numero_processo: value.numero_processo ?? value.numeroProcesso,
   meio: normalizeMeio(value.meio),
+  link: normalizeExternalUrl(value.link),
   tipoDocumento: value.tipoDocumento ?? value.tipo_documento,
   nomeClasse: value.nomeClasse ?? value.nome_classe,
   codigoClasse: value.codigoClasse ?? value.codigo_classe,
