@@ -82,15 +82,15 @@ describeFeature(feature, ({ Scenario }) => {
     });
 
     Then('I should see "Coleta Automática"', () => {
-      expect(rendered.sections).toContain('1. Coleta Automática');
+      expect(rendered.sections).toContain('Coleta Automática');
     });
 
     And('I should see "Arquivo Permanente"', () => {
-      expect(rendered.sections).toContain('2. Arquivo Permanente');
+      expect(rendered.sections).toContain('Arquivo Permanente');
     });
 
     And('I should see "Catálogo Indexado"', () => {
-      expect(rendered.sections).toContain('3. Catálogo Indexado');
+      expect(rendered.sections).toContain('Catálogo Indexado');
     });
   });
 
