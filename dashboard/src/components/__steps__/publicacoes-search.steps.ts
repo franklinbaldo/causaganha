@@ -1,0 +1,152 @@
+import './shared';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/svelte/pure';
+import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
+import { expect, vi } from 'vitest';
+import PublicationSearchRaw from '../PublicationSearch.svelte';
+import { clearDjenSearchCache } from '../../lib/djen';
+
+// Astro's Svelte integration wraps components with PropsWithClientDirectives
+// which confuses testing-library's types. Cast to any for the tests.
+const PublicationSearch = PublicationSearchRaw as unknown as Parameters<typeof render>[0];
+
+const feature = await loadFeature('features/publicacoes-search.feature');
+
+function samplePublication(id: number) {
+  return {
+    id,
+    numeroComunicacao: id,
+    siglaTribunal: 'TJSP',
+    texto: `Exemplo de publicação ${id}`,
+    data_disponibilizacao: '2026-04-01',
+    tipoDocumento: 'Intimação',
+    nomeOrgao: 'Vara X',
+    destinatarios: [],
+    destinatarioadvogados: [],
+  };
+}
+
+function mockFetchOnce(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}) {
+  const fetchMock = vi.fn().mockImplementation(
+    async () =>
+      new Response(JSON.stringify(body), {
+        status: init.status ?? 200,
+        headers: init.headers,
+      }),
+  );
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}
+
+async function typeAndSubmit(input: HTMLInputElement, value: string) {
+  await fireEvent.input(input, { target: { value } });
+  await fireEvent.keyDown(input, { key: 'Enter' });
+}
+
+describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) => {
+  BeforeEachScenario(() => {
+    cleanup();
+    clearDjenSearchCache();
+    vi.restoreAllMocks();
+    // Reset URL between scenarios
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
+  AfterEachScenario(() => {
+    clearDjenSearchCache();
+  });
+
+  Scenario('Idle state shows instructions', ({ When, Then }) => {
+    When('the publication search loads with no URL params', () => {
+      render(PublicationSearch);
+    });
+
+    Then('I should see instructions about OAB, processo or texto livre', () => {
+      expect(
+        screen.getByText(/Comece digitando um número de OAB, um processo CNJ ou um termo livre/i),
+      ).toBeTruthy();
+    });
+  });
+
+  Scenario('User searches by OAB and sees results', ({ Given, When, Then, And }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 2 publications for the next request', () => {
+      fetchMock = mockFetchOnce(
+        { items: [samplePublication(1), samplePublication(2)], count: 2 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+    });
+
+    When('I enter "OAB/SP 123456" and press Enter', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await typeAndSubmit(input, 'OAB/SP 123456');
+    });
+
+    Then('I should see 2 result cards', async () => {
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+        expect(screen.getByText(/2 resultado/)).toBeTruthy();
+      });
+    });
+
+    And('I should see "OAB SP/123456 detectada" as the hint', () => {
+      expect(screen.getByText(/OAB SP\/123456 detectada/)).toBeTruthy();
+    });
+  });
+
+  Scenario('User pastes a CNJ process number', ({ Given, When, Then, And }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 1 publication for the next request', () => {
+      fetchMock = mockFetchOnce(
+        { items: [samplePublication(7)], count: 1 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '28' } },
+      );
+    });
+
+    When('I enter "1234567-89.2024.8.26.0100" and press Enter', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await typeAndSubmit(input, '1234567-89.2024.8.26.0100');
+    });
+
+    Then('I should see the hint "Número de processo CNJ detectado"', () => {
+      expect(screen.getByText(/Número de processo CNJ detectado/)).toBeTruthy();
+    });
+
+    And('I should see 1 result card', async () => {
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+        expect(screen.getByText(/1 resultado/)).toBeTruthy();
+      });
+    });
+  });
+
+  Scenario('User hits the rate limit', ({ Given, When, Then }) => {
+    Given('the DJEN API responds with HTTP 429 and retry-after 60', () => {
+      mockFetchOnce(
+        { message: 'Too Many Requests' },
+        { status: 429, headers: { 'retry-after': '60' } },
+      );
+    });
+
+    When('I enter "contrato" with tribunal "TJSP" and press Enter', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      // Expand filters and pick tribunal
+      await fireEvent.click(screen.getByRole('button', { name: /Filtros avançados/ }));
+      const tribunalSelect = screen.getByRole('combobox') as HTMLSelectElement;
+      await fireEvent.change(tribunalSelect, { target: { value: 'TJSP' } });
+      await typeAndSubmit(input, 'contrato');
+    });
+
+    Then('I should see a rate-limit banner with a countdown', async () => {
+      await waitFor(() => {
+        expect(screen.getByText(/Limite de requisições atingido/i)).toBeTruthy();
+      });
+    });
+  });
+});
