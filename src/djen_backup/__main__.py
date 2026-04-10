@@ -200,6 +200,9 @@ def main(  # noqa: PLR0913
     publish_live_status: bool = typer.Option(
         False, "--publish-live-status", help="Publish live status to IA."
     ),
+    skip_if_mostly_complete: bool = typer.Option(
+        False, "--skip-if-mostly-complete", help="Skip collection if today is already mostly complete."
+    ),
 ):
     """Main backup and sync command."""
     if ctx.invoked_subcommand:
@@ -254,6 +257,7 @@ def main(  # noqa: PLR0913
         dry_run=dry_run,
         skip_absent_markers=skip_absent_markers,
         publish_live_status=publish_live_status,
+        skip_if_mostly_complete=skip_if_mostly_complete,
         observer=observer,
     )
 

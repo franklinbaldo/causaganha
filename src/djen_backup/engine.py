@@ -262,6 +262,7 @@ class SyncConfig:
     dry_run: bool
     skip_absent_markers: bool = False
     publish_live_status: bool = False
+    skip_if_mostly_complete: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
     observer: SyncObserver | None = None
 
