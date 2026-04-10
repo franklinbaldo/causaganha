@@ -1,7 +1,7 @@
 <script lang="ts">
   import PublicationCard from './PublicationCard.svelte';
   import {
-    parseDjenPublicationCollection,
+    parseDjenPublicationCollectionSafely,
     type DjenPublication,
   } from '../lib/djen';
 
@@ -88,7 +88,7 @@
     const res = await cachedFetch(jsonUrl(pageNum));
     if (!res.ok) return null;
     const data = await res.json();
-    return parseDjenPublicationCollection(data);
+    return parseDjenPublicationCollectionSafely(data);
   }
 
   $effect(() => {
