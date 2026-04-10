@@ -1,16 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import CheckCircleIcon from '../components/icons/CheckCircleIcon.astro';
-import DownloadIcon from '../components/icons/DownloadIcon.astro';
-import ArchiveIcon from '../components/icons/ArchiveIcon.astro';
-import ChartIcon from '../components/icons/ChartIcon.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
+import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import { readJson } from '../lib/readJson';
-import { formatNumber } from '../lib/homepage-content';
+import { formatNumber, HOW_IT_WORKS_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
-const iaSnapshot = readJson('ia-snapshot.json');
-const today = readJson('cache/today.json');
+const iaSnapshot = readJson<any>('ia-snapshot.json');
+const today = readJson<any>('cache/today.json');
+const backfill = readJson<any>('cache/backfill.json');
 
 const snap = iaSnapshot?.summary || {};
 const totalZips = snap.total_zips || 0;
@@ -18,78 +16,127 @@ const totalTribunals = snap.tribunals_total || 96;
 const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
 
-const pipeline = today?.pipeline || {};
-const progressPct = pipeline.progress_pct || 0;
+const filesToday = today?.files_today || 0;
+const tribunalStatusCount = Object.keys(today?.tribunal_status || {}).length;
+
+const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
+  (backfill?.tribunal_stats || []).map((t: any) => ({
+    tribunal: t.tribunal as string,
+    data_rate_pct: Number(t.data_rate_pct ?? 0),
+  }));
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="CausaGanha — Transparência no Mercado Jurídico Brasileiro"
+  title="CausaGanha — Dados do Judiciário Brasileiro"
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
   fullWidth={true}
 >
-  <!-- Navigation -->
   <Header variant="home" />
 
-  <!-- Hero -->
-  <div class="hero">
+  <!-- ── HERO ── -->
+  <section class="hero">
     <div class="hero-content">
       <div class="hero-grid">
+
+        <!-- Left: headline + search -->
         <div class="hero-text">
-          <h1 class="hero-h1">Transparência no Mercado Jurídico Brasileiro</h1>
+          <p class="hero-eyebrow">100% Aberto · 100% Gratuito · Open Source</p>
+          <h1 class="hero-h1">Dados do judiciário brasileiro, abertos para todos.</h1>
           <p class="hero-description">
-            Coletamos e arquivamos dados públicos de <strong>{totalTribunals} tribunais</strong> brasileiros
-            diariamente. Dados abertos, gratuitos, armazenados permanentemente no Internet Archive.
+            Coletamos publicações de <strong>{totalTribunals} tribunais</strong> a cada 20 minutos
+            e arquivamos permanentemente no Internet Archive.
           </p>
-          <div class="hero-actions">
-            <a href={BASE + 'publicacoes'} class="btn btn-primary">
-              Ver Publicações
-            </a>
-            <a href="#como-funciona" class="btn btn-outline-secondary">
-              Saiba Mais
-            </a>
+
+          <!-- Search form -->
+          <form class="search-form" id="home-search-form" action={BASE + 'publicacoes'} method="get">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                id="home-search-input"
+                name="texto"
+                type="search"
+                class="search-input"
+                placeholder="Buscar por OAB (SP 123456), processo ou texto…"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+              />
+            </div>
+            <button type="submit" class="btn btn-primary search-btn">Buscar</button>
+          </form>
+          <p class="search-hint">Experimente: <button class="hint-chip" data-example="TJSP">TJSP</button> · <button class="hint-chip" data-example="OAB SP 12345">OAB SP 12345</button> · <button class="hint-chip" data-example="mandado de segurança">mandado de segurança</button></p>
+
+          <div class="hero-ctas">
+            <a href={BASE + 'publicacoes'} class="btn btn-outline">Ver Publicações de Hoje</a>
+            <a href={BASE + 'explorador'} class="btn btn-outline">Explorar com SQL</a>
           </div>
         </div>
-        <div>
-          <div class="card">
+
+        <!-- Right: live status -->
+        <div class="hero-status">
+          <div class="card status-card">
             <div class="card-body">
-              <div class="pipeline-header">
-                <strong>Pipeline ao Vivo</strong>
-                <small class="pipeline-updated">Atualizado a cada 20 min</small>
+              <div class="status-header">
+                <span class="status-dot" aria-hidden="true"></span>
+                <strong>Coletando agora</strong>
+                <small class="status-freq">a cada 20 min</small>
               </div>
-              <ul class="pipeline-list">
-                <li class="pipeline-item">
-                  <strong>{tribunalsWithData} tribunais com dados</strong><br/>
-                  <small class="muted">de {totalTribunals} monitorados</small>
+              <ul class="status-list">
+                <li class="status-item">
+                  <span class="status-num">{tribunalStatusCount}</span>
+                  <span class="status-desc">tribunais ativos hoje</span>
                 </li>
-                <li class="pipeline-item">
-                  <strong>{formatNumber(totalZips)} ZIPs coletados</strong><br/>
-                  <small class="muted">armazenados no Internet Archive</small>
+                <li class="status-item">
+                  <span class="status-num">{filesToday > 0 ? formatNumber(filesToday) : formatNumber(totalZips)}</span>
+                  <span class="status-desc">{filesToday > 0 ? 'arquivos coletados hoje' : 'ZIPs no arquivo total'}</span>
                 </li>
-                <li class="pipeline-item">
-                  <div class="backfill-row">
-                    <strong>Backfill</strong>
-                    <span class="backfill-pct">{progressPct}%</span>
-                  </div>
-                  <progress class="progress-bar" value={progressPct} max="100"></progress>
-                  <small class="muted">{formatNumber(pipeline.backfill_done || 0)} de {formatNumber(pipeline.backfill_total || 0)}</small>
+                <li class="status-item">
+                  <span class="status-num">{totalGB.toFixed(1)}<small class="unit">GB</small></span>
+                  <span class="status-desc">preservados no Internet Archive</span>
                 </li>
               </ul>
             </div>
           </div>
         </div>
+
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Stats -->
-  <section id="resumo" class="section-container">
-    <div class="section-header">
-      <h2 class="section-title">Dados Reais do Pipeline</h2>
-      <p class="section-subtitle">Números atualizados automaticamente pelo workflow de coleta</p>
+  <!-- ── QUICK ACCESS ── -->
+  <section class="section-container" id="explorar">
+    <div class="section-header-row">
+      <h2 class="section-title">O que você pode fazer</h2>
     </div>
+    <div class="quick-access-grid">
+      {QUICK_ACCESS_CARDS.map(card => (
+        <a href={BASE + card.href} class="qa-card card">
+          <div class="card-body">
+            <div class="qa-icon" aria-hidden="true">{card.icon}</div>
+            <h3 class="qa-title">{card.title}</h3>
+            <p class="qa-desc">{card.description}</p>
+            <span class="qa-cta">{card.cta} →</span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
 
+  <!-- ── TRIBUNAL COVERAGE ── -->
+  <section class="section-container" id="cobertura">
+    <TribunalCoverageGrid
+      tribunalStats={tribunalStats}
+      totalTribunals={totalTribunals}
+      statsHref={BASE + 'stats'}
+    />
+  </section>
+
+  <!-- ── STATS ── -->
+  <section id="resumo" class="section-container">
     <div class="stats-grid">
       <figure>
         <div class="stat-value stat-info">{formatNumber(totalZips)}</div>
@@ -100,178 +147,107 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <figcaption>Tribunais com Dados</figcaption>
       </figure>
       <figure>
-        <div class="stat-value stat-warning">{totalGB.toFixed(0)}<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.15em;">GB</small></div>
+        <div class="stat-value stat-warning">{totalGB.toFixed(0)}<small class="stat-unit">GB</small></div>
         <figcaption>Volume Arquivado</figcaption>
       </figure>
       <figure>
-        <div class="stat-value stat-primary">100<small style="font-size: 0.5em; font-weight: 500; margin-left: 0.1em;">%</small></div>
+        <div class="stat-value stat-primary">100<small class="stat-unit">%</small></div>
         <figcaption>Dados Públicos</figcaption>
       </figure>
     </div>
   </section>
 
-  <!-- How it Works -->
+  <!-- ── HOW IT WORKS ── -->
   <section id="como-funciona" class="section-full">
     <div class="section-container">
-      <div class="section-header">
-        <h2 class="section-title">Como Funciona</h2>
-        <p class="section-subtitle">Pipeline automatizado: coleta, arquivamento e indexação a cada 20 minutos</p>
-      </div>
+      <h2 class="section-title how-title">Como Funciona</h2>
       <div class="steps-grid">
-        <div class="card">
-          <div class="card-body">
-            <span class="step-label">Passo 01</span>
-            <h3 class="card-title">Coleta Automática</h3>
-            <p>A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de {totalTribunals} tribunais brasileiros via proxy dedicado.</p>
+        {HOW_IT_WORKS_CARDS.map(step => (
+          <div class="card step-card">
+            <div class="card-body">
+              <span class="step-icon" aria-hidden="true">{step.icon}</span>
+              <h3 class="card-title">{step.title}</h3>
+              <p class="step-desc">{step.description}</p>
+            </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-body">
-            <span class="step-label">Passo 02</span>
-            <h3 class="card-title">Arquivo Permanente</h3>
-            <p>Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente. Já temos {formatNumber(totalZips)} arquivos preservados.</p>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-body">
-            <span class="step-label">Passo 03</span>
-            <h3 class="card-title">Catálogo Indexado</h3>
-            <p>Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas sobre os dados coletados.</p>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   </section>
 
-  <!-- Audience -->
-  <section id="para-quem" class="section-full">
-    <div class="section-container">
-      <div class="section-header">
-        <h2 class="section-title">Para Quem?</h2>
-        <p class="section-subtitle">Dados abertos para todo o ecossistema jurídico</p>
-      </div>
-      <div class="steps-grid">
-        <div class="card">
-          <div class="card-body">
-            <h3 class="card-title">Pesquisadores</h3>
-            <p>Acesse dados estruturados de publicações judiciais para pesquisas acadêmicas e análises jurídicas.</p>
-            <ul class="feature-list">
-              <li>Dados em formato Parquet</li>
-              <li>Consultável via DuckDB</li>
-              <li>Histórico completo preservado</li>
-            </ul>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-body">
-            <h3 class="card-title">LegalTechs</h3>
-            <p>Use como base de dados para construir produtos e serviços no mercado jurídico brasileiro.</p>
-            <ul class="feature-list">
-              <li>API via Internet Archive</li>
-              <li>Atualização contínua</li>
-              <li>Sem custos de licenciamento</li>
-            </ul>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-body">
-            <h3 class="card-title">Jornalistas</h3>
-            <p>Investigue e analise dados do judiciário brasileiro com transparência total.</p>
-            <ul class="feature-list">
-              <li>Dados públicos verificáveis</li>
-              <li>Cobertura de {totalTribunals} tribunais</li>
-              <li>Arquivo permanente no IA</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Open Data -->
+  <!-- ── OPEN SOURCE ── -->
   <section class="section-full">
     <div class="section-container">
-      <div class="section-header">
-        <p class="open-badge"><span class="kbd">100% Aberto e Gratuito</span></p>
-        <h2 class="section-title">Dados Abertos Para Sempre</h2>
-        <p class="section-subtitle section-subtitle--narrow">
-          Transparência no judiciário é um direito de todos.
-          Os dados coletados pelo CausaGanha são e sempre serão gratuitos e públicos.
-        </p>
-      </div>
-
-      <div class="card infra-card">
-        <div class="card-body">
-          <h4 class="infra-heading">Infraestrutura</h4>
-          <ul class="infra-grid">
-            <li class="infra-item"><CheckCircleIcon /> GitHub Actions para coleta automática</li>
-            <li class="infra-item"><CheckCircleIcon /> Internet Archive para armazenamento permanente</li>
-            <li class="infra-item"><CheckCircleIcon /> DuckDB + Parquet para consultas rápidas</li>
-            <li class="infra-item"><CheckCircleIcon /> Código 100% open source no GitHub</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="card support-card">
-        <div class="card-body support-body">
-          <h4 class="support-heading">Apoie o Projeto</h4>
-          <p class="support-text">O CausaGanha é mantido de forma independente. Contribua com uma estrela no GitHub ou ajude a divulgar.</p>
-          <div class="support-actions">
+      <div class="card open-card">
+        <div class="card-body open-body">
+          <div class="open-text">
+            <h2 class="open-title">100% Aberto e Gratuito, para sempre.</h2>
+            <p class="open-desc">
+              Todos os dados coletados pelo CausaGanha são e sempre serão públicos e gratuitos.
+              Código 100% open source. Infraestrutura: GitHub Actions + Internet Archive + DuckDB.
+            </p>
+          </div>
+          <div class="open-actions">
             <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-primary">
-              <GitHubIcon /> Estrela no GitHub
+              <GitHubIcon /> Ver no GitHub
             </a>
-            <a href={BASE + 'publicacoes'} class="btn btn-outline-secondary">
-              Ver Publicações
+            <a href={BASE + 'sobre'} class="btn btn-outline">
+              Sobre o Projeto
             </a>
           </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section class="section-full">
-    <div class="section-container">
-      <div class="faq-wrapper">
-        <h2 class="section-title faq-title">Perguntas Frequentes</h2>
-        <div class="faq-list">
-          <details class="faq-item" open>
-            <summary class="faq-summary">De onde vêm os dados?</summary>
-            <div class="faq-content">
-              <p>Todos os dados são extraídos do Diário de Justiça Eletrônico Nacional (DJEN), que é um registro público de todas as comunicações judiciais do Brasil. Coletamos de {totalTribunals} tribunais.</p>
-            </div>
-          </details>
-          <details class="faq-item">
-            <summary class="faq-summary">Com que frequência os dados são atualizados?</summary>
-            <div class="faq-content">
-              <p>O pipeline roda a cada 20 minutos via GitHub Actions. Cada execução coleta novas publicações e envia ao Internet Archive. O dashboard é atualizado automaticamente após cada coleta.</p>
-            </div>
-          </details>
-          <details class="faq-item">
-            <summary class="faq-summary">Como posso acessar os dados?</summary>
-            <div class="faq-content">
-              <p>Os dados estão disponíveis no Internet Archive sob o identificador <code>djen-YYYY-MM-DD</code>. O catálogo indexado em formato Parquet pode ser consultado via DuckDB.</p>
-            </div>
-          </details>
-          <details class="faq-item">
-            <summary class="faq-summary">O projeto é open source?</summary>
-            <div class="faq-content">
-              <p>Sim! Todo o código está disponível no <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="faq-link">GitHub</a>. Contribuições são bem-vindas.</p>
-            </div>
-          </details>
         </div>
       </div>
     </div>
   </section>
 </Layout>
 
+<!-- Search: parse OAB/processo/texto and redirect with correct params -->
+<script>
+  const form = document.getElementById('home-search-form') as HTMLFormElement | null;
+  const input = document.getElementById('home-search-input') as HTMLInputElement | null;
+
+  const OAB_RE = /^\s*(?:OAB\s*[\/\-]?\s*)?([A-Za-z]{2})\s*[-\/ ]?\s*(\d{3,6})\s*$/;
+  const CNJ_MASKED_RE = /^\s*\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\s*$/;
+  const CNJ_BARE_RE = /^\s*\d{20}\s*$/;
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!input) return;
+    const raw = input.value.trim();
+    if (!raw) return;
+
+    const base = form.action.replace(/\/$/, '');
+    const params = new URLSearchParams();
+
+    const oabMatch = raw.match(OAB_RE);
+    if (oabMatch) {
+      params.set('ufOab', oabMatch[1].toUpperCase());
+      params.set('numeroOab', oabMatch[2]);
+    } else if (CNJ_MASKED_RE.test(raw) || CNJ_BARE_RE.test(raw)) {
+      params.set('numeroProcesso', raw.replace(/\D/g, ''));
+    } else {
+      params.set('texto', raw);
+    }
+
+    window.location.href = `${base}?${params.toString()}`;
+  });
+
+  // Hint chips pre-fill the input
+  document.querySelectorAll<HTMLButtonElement>('.hint-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (input) {
+        input.value = btn.dataset.example || '';
+        input.focus();
+      }
+    });
+  });
+</script>
+
 <style>
   /* ── Hero ── */
   .hero {
-    min-height: 60vh;
-    display: flex;
-    align-items: center;
     background: var(--color-base-100);
+    border-bottom: 1px solid var(--color-base-300);
   }
 
   .hero-content {
@@ -284,160 +260,279 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .hero-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2rem;
-    width: 100%;
+    gap: 2.5rem;
+    align-items: start;
   }
 
   @media (min-width: 768px) {
     .hero-grid {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 3fr 2fr;
+      align-items: center;
     }
   }
 
   .hero-text {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 1rem;
+  }
+
+  .hero-eyebrow {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    font-weight: 600;
+    margin: 0;
   }
 
   .hero-h1 {
     font-size: var(--font-size-4xl);
     font-weight: 800;
-    letter-spacing: -0.025em;
-    line-height: 1.15;
-    max-width: 18ch;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0;
+    max-width: 22ch;
   }
 
   @media (min-width: 768px) {
     .hero-h1 {
-      font-size: var(--font-size-5xl);
+      font-size: var(--font-size-5xl, 3.8rem);
     }
   }
 
   .hero-description {
     font-size: var(--font-size-lg);
     opacity: 0.7;
-    margin-top: 1rem;
+    margin: 0;
     max-width: 52ch;
   }
 
-  .hero-actions {
+  /* ── Search form ── */
+  .search-form {
     display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-top: 1.5rem;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .search-input-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 0.625rem 0.75rem 0.625rem 2.5rem;
+    font-size: var(--font-size-base);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-field);
+    background: var(--color-surface, #fff);
+    color: var(--color-base-content);
+    outline: none;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .search-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.12);
+  }
+
+  .search-btn {
+    padding: 0.625rem 1.25rem;
+    white-space: nowrap;
+    font-size: var(--font-size-base);
+  }
+
+  .search-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     flex-wrap: wrap;
   }
 
-  @media (min-width: 640px) {
-    .hero-actions {
-      flex-direction: row;
-    }
-  }
-
-  /* ── Buttons ── */
-
-
-
-  /* ── Card ── */
-
-  .card-title {
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    margin: 0.25rem 0 0.5rem;
-  }
-
-  /* ── Pipeline card ── */
-  .pipeline-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-bottom: 1px solid var(--color-base-300);
-    padding-bottom: 0.75rem;
-  }
-
-  .pipeline-updated {
+  .hint-chip {
+    background: var(--color-base-200);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-full);
+    padding: 0.1rem 0.5rem;
     font-size: var(--font-size-xs);
-    opacity: 0.5;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    color: inherit;
+    transition: background var(--transition-base);
   }
 
-  .pipeline-list {
+  .hint-chip:hover {
+    background: var(--color-base-300);
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  /* ── Live Status card ── */
+  .status-card {
+    border-left: 3px solid var(--color-success);
+  }
+
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-success);
+    flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  .status-freq {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    opacity: 0.4;
+    font-family: var(--font-mono);
+  }
+
+  .status-list {
     list-style: none;
     padding: 0;
     margin: 0;
-  }
-
-  .pipeline-item {
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--color-base-200);
-  }
-
-  .pipeline-item:last-child {
-    border-bottom: none;
-  }
-
-  .muted {
-    opacity: 0.5;
-  }
-
-  .backfill-row {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 0.25rem;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
-  .backfill-pct {
+  .status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .status-num {
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
     font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--color-base-content);
   }
 
-  .progress-bar {
-    width: 100%;
-    height: 0.5rem;
-    appearance: none;
-    border-radius: 9999px;
-    border: none;
+  .unit {
+    font-size: 0.5em;
+    font-weight: 500;
+    margin-left: 0.1em;
+    opacity: 0.7;
   }
 
-  .progress-bar::-webkit-progress-bar {
-    background: var(--color-base-300);
-    border-radius: 9999px;
-  }
-
-  .progress-bar::-webkit-progress-value {
-    background: var(--color-primary);
-    border-radius: 9999px;
-  }
-
-  .progress-bar::-moz-progress-bar {
-    background: var(--color-primary);
-    border-radius: 9999px;
+  .status-desc {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
   }
 
   /* ── Sections ── */
   .section-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
-    margin-bottom: 4rem;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-md);
   }
 
   .section-full {
-    margin-bottom: 4rem;
+    border-top: 1px solid var(--color-base-300);
   }
 
-  .section-subtitle {
-    opacity: 0.6;
+  .section-header-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
   }
 
-  .section-subtitle--narrow {
-    max-width: 42ch;
-    margin-left: auto;
-    margin-right: auto;
+  .section-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin: 0;
+  }
+
+  /* ── Quick Access cards ── */
+  .quick-access-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .quick-access-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .qa-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: box-shadow var(--transition-base), transform var(--transition-base);
+  }
+
+  .qa-card:hover {
+    text-decoration: none;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .qa-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+  }
+
+  .qa-title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+  }
+
+  .qa-desc {
+    font-size: var(--font-size-sm);
+    opacity: 0.65;
+    margin: 0 0 1rem;
+    line-height: 1.5;
+  }
+
+  .qa-cta {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-accent);
   }
 
   /* ── Stats grid ── */
@@ -474,18 +569,33 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .stat-value {
     font-size: var(--font-size-3xl);
     font-weight: 800;
+    font-family: var(--font-mono);
+    letter-spacing: -0.03em;
+    line-height: 1;
   }
 
-  .stat-info { color: var(--color-info); }
+  .stat-unit {
+    font-size: 0.45em;
+    font-weight: 500;
+    margin-left: 0.1em;
+    opacity: 0.7;
+    vertical-align: middle;
+  }
+
+  .stat-info    { color: var(--color-info); }
   .stat-success { color: var(--color-success); }
   .stat-warning { color: var(--color-warning); }
   .stat-primary { color: var(--color-primary); }
 
-  /* ── Steps / 3-col grid ── */
+  /* ── How it works ── */
+  .how-title {
+    margin-bottom: 1.5rem;
+  }
+
   .steps-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   @media (min-width: 768px) {
@@ -494,174 +604,88 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     }
   }
 
-  .step-label {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    opacity: 0.5;
+  .step-card {
+    height: 100%;
   }
 
-  /* ── Feature list ── */
-  .feature-list {
-    list-style: disc;
-    padding-left: 1.25rem;
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
-  }
-
-  .feature-list li + li {
-    margin-top: 0.25rem;
-  }
-
-  /* ── Open Data section ── */
-  .open-badge {
+  .step-icon {
+    font-size: 1.5rem;
+    display: block;
     margin-bottom: 0.5rem;
   }
 
-  .kbd {
-    display: inline-flex;
-    padding: 0.125rem 0.375rem;
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: var(--color-base-200);
-    border: 1px solid var(--color-base-300);
-    border-radius: 0.25rem;
+  .card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    margin: 0 0 0.5rem;
   }
 
-  .infra-card {
-    margin-bottom: 1.5rem;
-  }
-
-  .infra-heading {
-    text-align: center;
-    font-weight: 600;
-    margin-bottom: 1rem;
-  }
-
-  .infra-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-md);
-    text-align: left;
-    list-style: none;
-    padding-left: 0;
-    margin-bottom: 0;
-  }
-
-  .infra-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
+  .step-desc {
     font-size: var(--font-size-sm);
     opacity: 0.7;
+    margin: 0;
+    line-height: 1.6;
   }
 
-  .infra-item :global(svg) {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
+  /* ── Open Source card ── */
+  .open-card {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-content);
   }
 
-  @media (max-width: 768px) {
-    .infra-grid {
-      grid-template-columns: 1fr;
+  .open-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2.5rem 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .open-body {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
     }
   }
 
-  .support-card {
-    text-align: center;
+  .open-title {
+    font-size: var(--font-size-xl);
+    font-weight: 800;
+    margin: 0 0 0.5rem;
   }
 
-  .support-body {
-    padding-top: 2.5rem;
-    padding-bottom: 2.5rem;
+  .open-desc {
+    font-size: var(--font-size-sm);
+    opacity: 0.75;
+    margin: 0;
+    max-width: 60ch;
+    line-height: 1.6;
   }
 
-  .support-heading {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-  }
-
-  .support-text {
-    max-width: 38ch;
-    margin-left: auto;
-    margin-right: auto;
-    opacity: 0.6;
-  }
-
-  .support-actions {
+  .open-actions {
     display: flex;
-    justify-content: center;
-    gap: 1rem;
+    gap: 0.75rem;
+    flex-shrink: 0;
     flex-wrap: wrap;
-    margin-top: 1rem;
   }
 
-  /* ── FAQ ── */
-  .faq-wrapper {
-    max-width: 42rem;
-    margin: 0 auto;
-  }
-
-  .faq-title {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-
-  .faq-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .faq-item {
-    border: 1px solid var(--color-base-300);
-    background: var(--color-base-100);
-    border-radius: var(--radius-box);
-    overflow: hidden;
-  }
-
-  .faq-summary {
-    font-weight: 600;
-    padding: 1rem 1.5rem;
-    cursor: pointer;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .faq-summary::after {
-    content: '+';
-    font-size: 1.25rem;
-    font-weight: 300;
-    transition: transform var(--transition-base);
-  }
-
-  .faq-item[open] > .faq-summary::after {
-    content: '\2212';
-  }
-
-  .faq-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .faq-content {
-    padding: 0 1.5rem 1rem;
-    opacity: 0.7;
-  }
-
-  .faq-link {
+  .open-actions .btn-primary {
+    background: var(--color-primary-content);
     color: var(--color-primary);
-    text-decoration: underline;
+    border-color: var(--color-primary-content);
   }
 
-  .faq-link:hover {
-    opacity: 0.8;
+  .open-actions .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .open-actions .btn-outline {
+    border-color: rgba(255,255,255,0.4);
+    color: var(--color-primary-content);
+  }
+
+  .open-actions .btn-outline:hover {
+    background: rgba(255,255,255,0.1);
   }
 </style>
