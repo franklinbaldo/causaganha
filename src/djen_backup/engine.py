@@ -384,31 +384,33 @@ async def batch_uploader(
                     files.append(str(STAGING_DIR / item_id / filename))
 
                 try:
-                    # IA SDK Upload (Synchronous block, move to thread)
-                    await asyncio.to_thread(
-                        ia.upload,
-                        item_id,
-                        files,
-                        access_key=os.environ.get("IAS3_ACCESS_KEY"),
-                        secret_key=os.environ.get("IAS3_SECRET_KEY"),
-                        metadata={
-                            "collection": "opensource",
-                            "mediatype": "data",
-                            "creator": "CausaGanha",
-                            "subject": "brazilian-law;djen;legal;judiciary",
-                        },
-                        retries=5,
-                    )
+                    if not config.dry_run:
+                        # IA SDK Upload (Synchronous block, move to thread)
+                        await asyncio.to_thread(
+                            ia.upload,
+                            item_id,
+                            files,
+                            access_key=os.environ.get("IAS3_ACCESS_KEY"),
+                            secret_key=os.environ.get("IAS3_SECRET_KEY"),
+                            metadata={
+                                "collection": "opensource",
+                                "mediatype": "data",
+                                "creator": "CausaGanha",
+                                "subject": "brazilian-law;djen;legal;judiciary",
+                            },
+                            retries=5,
+                        )
 
-                    # Post-upload cleanup
+                    # Post-upload cleanup (always track locally)
                     for d in dates:
                         await inventory.add(item_id.split("-")[1].upper(), d)
                         await state.record_hit(item_id.split("-")[1].upper(), d)
                         await summary.inc_hit()
 
-                        # Remove local file
-                        filename = f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
-                        (STAGING_DIR / item_id / filename).unlink(missing_ok=True)
+                        if not config.dry_run:
+                            # Remove local file
+                            filename = f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
+                            (STAGING_DIR / item_id / filename).unlink(missing_ok=True)
 
                     if config.observer:
                         config.observer.on_batch_upload_complete(item_id, len(dates))
@@ -505,7 +507,7 @@ async def run_sync(config: SyncConfig) -> int:
                                 tribunal_queue.put_nowait(t)
 
                         # Periodic sync
-                        if time.monotonic() - last_ia_sync > sync_interval_s:
+                        if not config.dry_run and time.monotonic() - last_ia_sync > sync_interval_s:
                             last_ia_sync = time.monotonic()
                             await inventory.upload_to_ia(config.ia_auth)
                             await upload_state_to_ia(
@@ -521,27 +523,33 @@ async def run_sync(config: SyncConfig) -> int:
     # 3. Finalize
     uploader_task.cancel()  # Stop monitoring, but we need a final flush
     log.info("final_flush_starting")
-    # Final upload of anything left in staging
-    staged_items = inventory.get_staged_by_item()
-    for item_id, dates in staged_items.items():
-        files = [
-            str(STAGING_DIR / item_id / f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip")
-            for d in dates
-        ]
-        try:
-            await asyncio.to_thread(
-                ia.upload,
-                item_id,
-                files,
-                access_key=os.environ.get("IAS3_ACCESS_KEY"),
-                secret_key=os.environ.get("IAS3_SECRET_KEY"),
-            )
-            for d in dates:
-                await inventory.add(item_id.split("-")[1].upper(), d)
-        except Exception:
-            log.exception("final_flush_failed", item_id=item_id)
+    if not config.dry_run:
+        # Final upload of anything left in staging
+        staged_items = inventory.get_staged_by_item()
+        for item_id, dates in staged_items.items():
+            files = [
+                str(
+                    STAGING_DIR
+                    / item_id
+                    / f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
+                )
+                for d in dates
+            ]
+            try:
+                await asyncio.to_thread(
+                    ia.upload,
+                    item_id,
+                    files,
+                    access_key=os.environ.get("IAS3_ACCESS_KEY"),
+                    secret_key=os.environ.get("IAS3_SECRET_KEY"),
+                )
+                for d in dates:
+                    await inventory.add(item_id.split("-")[1].upper(), d)
+            except Exception:
+                log.exception("final_flush_failed", item_id=item_id)
 
-    await inventory.upload_to_ia(config.ia_auth)
-    await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
-    log.info("sync_complete", hits=summary.hits)
-    return 0
+        await inventory.upload_to_ia(config.ia_auth)
+        await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
+
+    log.info("sync_complete", hits=summary.hits, errors=summary.errors, dry_run=config.dry_run)
+    return 1 if summary.errors > 0 else 0
