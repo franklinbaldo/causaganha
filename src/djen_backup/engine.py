@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import math
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -433,14 +434,17 @@ async def run_sync(config: SyncConfig) -> int:
     inventory.load_from_disk()
     await inventory.load_from_snapshot()
 
-    # Early exit: if today is already mostly collected, skip the run
-    if config.skip_if_mostly_complete:
+    # Early exit: if today is already mostly collected, skip the run.
+    # Skip this check for single-tribunal runs — those must always execute
+    # regardless of global completion, otherwise --tribunal TJSP would exit
+    # early because other courts pushed the global count above the threshold.
+    if config.skip_if_mostly_complete and not config.tribunal:
         from causaganha.config import TRIBUNAIS
 
         target = config.start_date  # start_date holds the upper (most-recent) date
         total = len(TRIBUNAIS)
         already_done = sum(1 for t in TRIBUNAIS if inventory.has(t, target))
-        threshold = int(total * 0.9)
+        threshold = math.ceil(total * 0.9)  # ceil ensures true >=90%, not floor
         if already_done >= threshold:
             log.info(
                 "skip_if_mostly_complete",
