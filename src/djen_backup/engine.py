@@ -7,10 +7,8 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-import anyio
 import httpx
 import structlog
 
@@ -23,9 +21,10 @@ from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.inventory import ZipInventory
 from djen_backup.tribunais import get_tribunal_list
 
-from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from httpx import AsyncClient
 
 log = structlog.get_logger()
@@ -40,7 +39,8 @@ class SyncObserver(Protocol):
     def on_metadata_sync_complete(self, tribunal: str, year: int, found: int) -> None: ...
     def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None: ...
     def on_item_start(self, tribunal: str, d: date) -> None: ...
-    def on_item_complete(self, tribunal: str, d: date, status: str) -> None: ...
+    def on_item_complete(self, tribunal: str, d: date, status: str, url: str | None = None) -> None: ...
+    def on_retry(self, tribunal: str, d: date, attempt: int, status: int, wait_s: float, body: str | None = None) -> None: ...
     def on_periodic_sync_start(self) -> None: ...
     def on_periodic_sync_complete(self) -> None: ...
 
@@ -310,7 +310,7 @@ class SyncSummary:
         return self.processed / self.attempted
 
 
-async def process_date(
+async def process_date(  # noqa: PLR0913
     client: AsyncClient,
     breaker: CircuitBreaker,
     tribunal: str,
@@ -332,15 +332,24 @@ async def process_date(
     if status == "uploaded":
         await state.record_hit(tribunal, d)
         await summary.inc_cache_hit()
+        if config.observer:
+            # URL for the item (containing the year's files)
+            item_id = f"djen-{tribunal.lower()}-{d.year}"
+            url = f"https://archive.org/download/{item_id}"
+            config.observer.on_item_complete(tribunal, d, "hit", url=url)
         return "hit"
     if status == "absent":
         await state.record_empty(tribunal)
         await summary.inc_empty()
+        if config.observer:
+            config.observer.on_item_complete(tribunal, d, "empty")
         return "empty"
 
     if config.dry_run:
         log.info("sync_dry_run", tribunal=tribunal, date=d.isoformat())
         await summary.inc_hit()
+        if config.observer:
+            config.observer.on_item_complete(tribunal, d, "hit")
         return "hit"
 
     # 2. Circuit breaker guard
@@ -373,25 +382,40 @@ async def process_date(
         res_status = "error"
 
     if res_status != "error":
+        url = None
         if config.observer:
-            config.observer.on_item_complete(tribunal, d, res_status)
+            config.observer.on_item_complete(tribunal, d, res_status, url=url)
         return res_status
 
     # 4. Upload to IA
     try:
-        resp = await upload_zip(client, d, tribunal, zip_path, config.ia_auth)
+        resp = await upload_zip(client, d, tribunal, zip_path, config.ia_auth, observer=config.observer)
         if resp.status_code < HTTP_BAD_REQUEST:
             await breaker.record_success()
             await inventory.add(tribunal, d)
             await state.record_hit(tribunal, d)
             await summary.inc_hit()
             res_status = "hit"
+            item_id = f"djen-{tribunal.lower()}-{d.year}"
+            url = f"https://archive.org/download/{item_id}"
+        elif resp.status_code == HTTP_SERVICE_UNAVAILABLE:
+            # Check if it was a saturation skip
+            body = resp.text if resp.text else ""
+            if "SlowDown" in body or "bucket_tasks_queued" in body:
+                res_status = "saturated"
+                url = None
+            else:
+                await breaker.record_failure()
+                res_status = "error"
+                url = None
         else:
             await breaker.record_failure()
             res_status = "error"
+            url = None
     except Exception:
         await breaker.record_failure()
         res_status = "error"
+        url = None
     finally:
         if zip_path:
             zip_path.unlink(missing_ok=True)
@@ -399,9 +423,9 @@ async def process_date(
     if res_status == "error":
         await state.record_error(tribunal)
         await summary.inc_ia_error()
-    
+
     if config.observer:
-        config.observer.on_item_complete(tribunal, d, res_status)
+        config.observer.on_item_complete(tribunal, d, res_status, url=url)
     return res_status
 
 
@@ -420,9 +444,9 @@ async def run_sync(config: SyncConfig) -> int:
     if config.state_file and config.state_file.exists():
         with contextlib.suppress(Exception):
             local_state_data = json.loads(config.state_file.read_text())
-    
+
     remote_state_data = await download_state_from_ia(IA_BACKFILL_STATE_FILENAME)
-    
+
     if remote_state_data:
         state = SyncState.from_dict(remote_state_data)
     elif local_state_data:
@@ -439,7 +463,7 @@ async def run_sync(config: SyncConfig) -> int:
 
         summary = SyncSummary()
         breaker = CircuitBreaker(threshold=10, recovery_timeout=60.0)
-        
+
         # Advance/Unstick logic
         for t in tribunals:
             await state.ensure_cursor_at_least(t, config.start_date)
@@ -448,75 +472,101 @@ async def run_sync(config: SyncConfig) -> int:
         upper = config.start_date
         lower = config.lower_bound or date(2013, 1, 1)
         years = sorted(range(lower.year, upper.year + 1), reverse=True)
-        
+
         last_ia_sync = time.monotonic()
-        SYNC_INTERVAL_S = 180  # 3 minutes
-        
-        sem = asyncio.Semaphore(config.workers)
+        sync_interval_s = 180  # 3 minutes
 
-        async def process_tribunal_year(t: str, year: int) -> None:
-            nonlocal last_ia_sync
-            async with sem:
-                if time.monotonic() > deadline - 60: return
+        for year in years:
+            if time.monotonic() > deadline - 60:
+                break
+            log.info("sync_year_starting", year=year)
+
+            # 2a. Discovery Phase: Build interleaved work queue for the year
+            # Group gaps by date so we can process all tribunals for a date, then move to next
+            # This naturally rotates buckets (tribunals)
+            tribunal_gaps: dict[str, list[date]] = {}
+            for t in tribunals:
                 prog = await state.get_or_init(t, config.start_date)
-                if prog.stopped: return
+                if prog.stopped:
+                    continue
 
-                # Fast check: is this year already finished in our CSV?
-                if inventory.is_year_complete(t, year, upper, lower):
-                    return
+                # Just-in-time metadata sync for items we haven't seen this year
+                if not inventory.is_year_complete(t, year, upper, lower):
+                    if config.observer:
+                        config.observer.on_metadata_sync_start(t, year)
+                    ia_dates = await fetch_ia_existing(client, t, year)
+                    if ia_dates:
+                        await inventory.add_many(t, set(ia_dates.keys()))
+                    if config.observer:
+                        config.observer.on_metadata_sync_complete(t, year, len(ia_dates))
 
-                # Metadata sync (only if gaps exist in local CSV)
-                if config.observer:
-                    config.observer.on_metadata_sync_start(t, year)
-                ia_dates = await fetch_ia_existing(client, t, year)
-                if ia_dates:
-                    await inventory.add_many(t, set(ia_dates.keys()))
-                if config.observer:
-                    config.observer.on_metadata_sync_complete(t, year, len(ia_dates))
-
-                # Gap processing
                 gaps = inventory.gaps_for_year(t, year, upper, lower)
-                if config.observer:
-                    config.observer.on_gaps_discovered(t, year, len(gaps))
-                if not gaps: return
-                
-                log.info("sync_tribunal_year", tribunal=t, year=year, gaps=len(gaps))
-                
-                consecutive_errors = 0
-                for d in sorted(gaps, reverse=True):
-                    if time.monotonic() > deadline - 30: break
-                    if config.max_items and summary.hits >= config.max_items: break
-                    
-                    res = await process_date(client, breaker, t, d, config, state, inventory, summary, deadline)
-                    
-                    # Periodic IA Sync (every 3 minutes) - Protected by a lock implicitly via being in the same thread
-                    # but we only allow one worker to trigger it at a time to avoid spam.
-                    if not config.dry_run and time.monotonic() - last_ia_sync > SYNC_INTERVAL_S:
-                        # Update last_ia_sync IMMEDIATELY to prevent other workers from entering
-                        last_ia_sync = time.monotonic() 
+                if gaps:
+                    tribunal_gaps[t] = sorted(gaps, reverse=True)
+
+            if not tribunal_gaps:
+                continue
+
+            # 2b. Interleave gaps: Round-Robin across tribunals
+            # This is the "Hopping" strategy to avoid 503s
+            work_queue: list[tuple[str, date]] = []
+            max_gaps = max(len(g) for g in tribunal_gaps.values()) if tribunal_gaps else 0
+            for i in range(max_gaps):
+                for t in sorted(tribunal_gaps.keys()):
+                    if i < len(tribunal_gaps[t]):
+                        d = tribunal_gaps[t][i]
+                        # Double check inventory here to be 100% sure we don't queue duplicates
+                        if not inventory.has(t, d):
+                            work_queue.append((t, d))
+
+            log.info("sync_queue_ready", year=year, items=len(work_queue), tribunals=len(tribunal_gaps))
+
+            # 2c. Worker Phase: Process the interleaved queue
+            sem = asyncio.Semaphore(config.workers)
+            consecutive_errors_map: dict[str, int] = {t: 0 for t in tribunal_gaps}
+
+            async def worker_task(t: str, d: date) -> None:
+                nonlocal last_ia_sync
+                async with sem:
+                    if time.monotonic() > deadline - 30:
+                        return
+                    if config.max_items and summary.hits >= config.max_items:
+                        return
+
+                    # Check if tribunal was stopped by a previous concurrent task
+                    prog = await state.get_or_init(t, config.start_date)
+                    if prog.stopped or consecutive_errors_map.get(t, 0) >= 3:
+                        return
+
+                    res = await process_date(
+                        client, breaker, t, d, config, state, inventory, summary, deadline
+                    )
+
+                    # Periodic IA Sync (every 3 minutes)
+                    if not config.dry_run and time.monotonic() - last_ia_sync > sync_interval_s:
+                        last_ia_sync = time.monotonic()
                         if config.observer:
                             config.observer.on_periodic_sync_start()
-                        log.info("sync_periodic_upload_starting")
                         await inventory.upload_to_ia(config.ia_auth)
                         await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
-                        log.info("sync_periodic_upload_complete")
                         if config.observer:
                             config.observer.on_periodic_sync_complete()
 
                     if res == "error":
-                        consecutive_errors += 1
-                        if consecutive_errors >= 3:
+                        consecutive_errors_map[t] += 1
+                        if consecutive_errors_map[t] >= 3:
                             log.warning("sync_skipping_tribunal", tribunal=t, reason="3 consecutive errors")
-                            break
+                    elif res == "saturated":
+                        # If a bucket is STILL saturated even with hopping, stop this tribunal for this run
+                        consecutive_errors_map[t] = 99
+                        log.warning("sync_switching_tribunal", tribunal=t, reason="bucket saturation (SlowDown)")
                     elif res in ("hit", "empty"):
-                        consecutive_errors = 0
+                        consecutive_errors_map[t] = 0
                         await state.advance_cursor(t)
 
-        for year in years:
-            if time.monotonic() > deadline - 60: break
-            log.info("sync_year_starting", year=year)
-            await asyncio.gather(*(process_tribunal_year(t, year) for t in tribunals))
-            
+            # Gather all items for the current year
+            await asyncio.gather(*(worker_task(t, d) for t, d in work_queue))
+
             # Checkpoint after each year
             inventory.save_to_disk()
             if config.state_file:
@@ -541,7 +591,9 @@ async def run_sync(config: SyncConfig) -> int:
     print(f"Collected {summary.hits} ZIPs in {duration_sec:.1f} seconds")
 
     if gh_output := os.getenv("GITHUB_OUTPUT"):
-        with open(gh_output, "a") as f:
+        from pathlib import Path
+
+        with Path(gh_output).open("a") as f:
             f.write(f"uploaded={summary.hits}\n")
             f.write(f"errors={summary.errors}\n")
             f.write(f"empties={summary.empties}\n")

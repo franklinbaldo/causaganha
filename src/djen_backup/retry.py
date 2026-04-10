@@ -139,5 +139,5 @@ def _backoff(attempt: int, resp: httpx.Response) -> float:
     base = float(2**attempt)
     # IA S3 503 needs longer minimum backoff — item creation is rate-limited
     if resp.status_code == HTTP_SERVICE_UNAVAILABLE:
-        return max(base, 10.0)
+        return max(base, 15.0)
     return base

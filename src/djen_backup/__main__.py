@@ -4,36 +4,37 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
-import typer
 import structlog
-from rich.console import Console
+import typer
+from rich.console import Console, Group
+from rich.live import Live
 from rich.panel import Panel
-from rich.table import Table
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-    TimeElapsedColumn,
     TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
 )
-from rich.live import Live
-from rich.console import Group
-from rich.logging import RichHandler
+from rich.table import Table
 
+from djen_backup.credentials import get_ia_s3_auth
 from djen_backup.engine import (
     SyncConfig,
     SyncState,
-    SyncObserver,
     run_sync,
 )
-from djen_backup.credentials import get_ia_s3_auth
+
+
+if TYPE_CHECKING:
+    pass
+
 
 # ── Setup ───────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ structlog.configure(
 
 # ── Rich Observer ───────────────────────────────────────────────────
 
+
 class RichSyncObserver:
     def __init__(self, progress: Progress):
         self.progress = progress
@@ -75,11 +77,7 @@ class RichSyncObserver:
 
     def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None:
         if count > 0:
-            task_id = self.progress.add_task(
-                f"[cyan]{tribunal} {year}", 
-                total=count,
-                visible=True
-            )
+            task_id = self.progress.add_task(f"[cyan]{tribunal} {year}", total=count, visible=True)
             self.tribunal_tasks[f"{tribunal}-{year}"] = task_id
         else:
             self.progress.console.log(f"[green]✓ {tribunal} {year} is up to date.[/green]")
@@ -87,12 +85,27 @@ class RichSyncObserver:
     def on_item_start(self, tribunal: str, d: date) -> None:
         pass
 
-    def on_item_complete(self, tribunal: str, d: date, status: str) -> None:
+    def on_item_complete(self, tribunal: str, d: date, status: str, url: str | None = None) -> None:
+        # Log successful uploads/hits with URL
+        if status == "hit" and url:
+            self.progress.console.log(f"[green]✓[/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]")
+
         # Find the task for this tribunal-year
         task_key = f"{tribunal}-{d.year}"
         if task_key in self.tribunal_tasks:
             self.progress.advance(self.tribunal_tasks[task_key])
             self.progress.advance(self.main_task)
+
+    def on_retry(
+        self, tribunal: str, d: date, attempt: int, status: int, wait_s: float, body: str | None = None
+    ) -> None:
+        msg = (
+            f"[bold yellow]⚠ Retry {attempt}[/bold yellow] for {tribunal} {d.isoformat()} "
+            f"(Status: {status}). Waiting {wait_s:.1f}s..."
+        )
+        if body:
+            msg += f" [dim]Reason: {body}[/dim]"
+        self.progress.console.log(msg)
 
     def on_periodic_sync_start(self) -> None:
         self.progress.console.log("[yellow]⟳ Periodic sync to Internet Archive starting...[/yellow]")
@@ -103,49 +116,56 @@ class RichSyncObserver:
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
 
+
 def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
-def _resolve_proxy_url() -> str:
-    return (
-        os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
-    )
 
-def _resolve_ia_auth(dry_run: bool) -> str:
+def _resolve_proxy_url() -> str:
+    return os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+
+def _resolve_ia_auth(*, dry_run: bool) -> str:
     try:
         return get_ia_s3_auth()
     except RuntimeError as exc:
         if dry_run:
             return "LOW dry-run:dry-run"
         console.print(f"[bold red]Error:[/bold red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
+
 
 def show_banner():
     banner = r"""
 [bold green]
-   ______                               ______            __            
+   ______                               ______            __
   / ____/___ ___  __________ __________ _/ ____/___ _____  / /_  ____ _
  / /   / __ `/ / / / ___/ __ `/ ___/ __ `/ / __/ __ `/ __ \/ __ \/ __ `/
-/ /___/ /_/ / /_/ (__  ) /_/ / /  / /_/ / /_/ / /_/ / / / / / / / /_/ / 
-\____/\__,_/\__,_/____/\__,_/_/   \__,_/\____/\__,_/ / /_/_/ /_/\__,_/  
+/ /___/ /_/ / /_/ (__  ) /_/ / /  / /_/ / /_/ / /_/ / / / / / / / /_/ /
+\____/\__,_/\__,_/____/\__,_/_/   \__,_/\____/\__,_/ / /_/_/ /_/\__,_/
 [/bold green]
 [bold white]DJEN Backup Engine v2.0 - Unified Sync Module[/bold white]
 """
     console.print(Panel(banner, border_style="green"))
 
+
 # ── Commands ────────────────────────────────────────────────────────
 
+
 @app.callback(invoke_without_command=True)
-def main(
+def main(  # noqa: PLR0913
     ctx: typer.Context,
-    start_date: Optional[str] = typer.Option(None, "--start-date", help="Oldest date to scan (YYYY-MM-DD)."),
-    end_date: Optional[str] = typer.Option(None, "--end-date", help="Newest date to scan (YYYY-MM-DD)."),
-    tribunal: Optional[str] = typer.Option(None, "--tribunal", help="Process a single tribunal (e.g. TJSP)."),
+    start_date: str | None = typer.Option(None, "--start-date", help="Oldest date to scan (YYYY-MM-DD)."),
+    end_date: str | None = typer.Option(None, "--end-date", help="Newest date to scan (YYYY-MM-DD)."),
+    tribunal: str | None = typer.Option(None, "--tribunal", help="Process a single tribunal (e.g. TJSP)."),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
     max_items: int = typer.Option(0, "--max-items", help="Max dates per tribunal per run (0 = unlimited)."),
-    workers: int = typer.Option(1, "--workers", help="Parallel workers."),
-    backfill_state_file: Optional[Path] = typer.Option(None, "--backfill-state-file", help="Path to backfill progress JSON."),
-    state_file: Optional[Path] = typer.Option(None, "--state-file", help="Path to IA state cache JSON (obsolete)."),
+    workers: int = typer.Option(4, "--workers", help="Parallel workers."),
+    backfill_state_file: Path | None = typer.Option(
+        None, "--backfill-state-file", help="Path to backfill progress JSON."
+    ),
+    state_file: Path | None = typer.Option(None, "--state-file", help="Path to IA state cache JSON (obsolete)."),
+    *,
     dry_run: bool = typer.Option(False, "--dry-run", help="Log actions without uploading."),
     skip_absent_markers: bool = typer.Option(False, "--skip-absent-markers", help="Skip uploading absent markers."),
     publish_live_status: bool = typer.Option(False, "--publish-live-status", help="Publish live status to IA."),
@@ -158,7 +178,7 @@ def main(
     today = datetime.now(tz=UTC).date()
     resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
     resolved_start = _parse_date(start_date) if start_date else None
-    
+
     resolved_state_file = backfill_state_file or state_file
 
     # Show config panel
@@ -170,7 +190,7 @@ def main(
     config_table.add_row("Tribunal:", tribunal or "All")
     config_table.add_row("Workers:", str(workers))
     config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
-    
+
     console.print(Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue"))
 
     # Prepare Rich components
@@ -181,9 +201,9 @@ def main(
         TaskProgressColumn(),
         TimeElapsedColumn(),
         console=console,
-        expand=True
+        expand=True,
     )
-    
+
     observer = RichSyncObserver(progress)
 
     config = SyncConfig(
@@ -199,27 +219,34 @@ def main(
         dry_run=dry_run,
         skip_absent_markers=skip_absent_markers,
         publish_live_status=publish_live_status,
-        observer=observer
+        observer=observer,
     )
 
     with Live(Group(progress), console=console, refresh_per_second=4):
         exit_code = asyncio.run(run_sync(config))
-    
+
     raise typer.Exit(code=exit_code)
 
 
 @app.command()
 def reset(
-    tribunal: Optional[str] = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
+    tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
+    *,
     reset_all: bool = typer.Option(False, "--all", help="Reset all stopped tribunals."),
-    backfill_state_file: Path = typer.Option(..., "--backfill-state-file", exists=True, help="Path to state JSON."),
-    set_cursor: Optional[str] = typer.Option(None, "--set-cursor", help="Set the cursor to this date (YYYY-MM-DD)."),
+    backfill_state_file: Path | None = typer.Option(
+        None, "--backfill-state-file", exists=True, help="Path to state JSON."
+    ),
+    set_cursor: str | None = typer.Option(None, "--set-cursor", help="Set the cursor to this date (YYYY-MM-DD)."),
 ):
     """Reset stopped tribunal(s) for re-scanning."""
     import json
-    
+
     if not tribunal and not reset_all:
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
+        raise typer.Exit(code=1)
+
+    if not backfill_state_file or not backfill_state_file.exists():
+        console.print("[bold red]Error:[/bold red] state file not found.")
         raise typer.Exit(code=1)
 
     state_data = json.loads(backfill_state_file.read_text())

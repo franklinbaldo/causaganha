@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import structlog
 
-if TYPE_CHECKING:
-    import httpx
 
 log = structlog.get_logger()
 
@@ -244,11 +240,11 @@ class ZipInventory:
         """Check if all days for this tribunal/year are already in inventory."""
         start = max(date(year, 1, 1), lower)
         end = min(date(year, 12, 31), upper)
-        
+
         # If the start is after the end, this year isn't even in our range
         if start > end:
             return True
-            
+
         t_upper = tribunal.upper()
         current = start
         while current <= end:

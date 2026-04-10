@@ -9,16 +9,17 @@ import time
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import httpx
 import structlog
 
-from djen_backup.retry import request_with_retry
+from djen_backup.retry import RETRIABLE_STATUS_CODES, _backoff, request_with_retry
 
 
 if TYPE_CHECKING:
     from datetime import date
     from pathlib import Path
 
-    import httpx
+    from djen_backup.engine import SyncObserver
 
 log = structlog.get_logger()
 
@@ -89,7 +90,7 @@ IA_S3_URL = "https://s3.us.archive.org/{item}/{filename}"
 # Module-level upload lock: IA rate-limits to ~1 upload/second per access key.
 # This lock serializes uploads across all workers; downloads from DJEN run in parallel.
 _upload_lock = asyncio.Lock()
-_UPLOAD_COOLDOWN_S = 2.0
+_UPLOAD_COOLDOWN_S = 5.0
 
 
 def get_ia_item_id(tribunal: str, d: date) -> str:
@@ -113,17 +114,11 @@ def _build_upload_headers(
         "Authorization": auth,
         "Content-MD5": content_md5,
         "Content-Type": content_type,
-        "x-archive-auto-make-bucket": "1",
-        "x-archive-queue-derive": "0",
-        "x-archive-meta-collection": "opensource",
+        "x-amz-auto-make-bucket": "1",
         "x-archive-meta-mediatype": "data",
-        "x-archive-meta-title": f"DJEN Data - {d.isoformat()}",
-        "x-archive-meta-description": (
-            "Diario de Justica Eletronico Nacional - Judicial communications from Brazilian courts."
-        ),
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary;open-data",
+        "x-archive-meta-collection": "opensource",
         "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-date": d.isoformat(),
+        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary",
     }
 
 
@@ -133,11 +128,12 @@ async def upload_zip(
     tribunal: str,
     zip_path: Path,
     auth: str,
+    observer: SyncObserver | None = None,
 ) -> httpx.Response:
-    """Upload a ZIP file to IA S3.
+    """Upload a ZIP file to IA S3 with fine-grained locking and retries.
 
-    Reads *zip_path* into memory for the upload.
-    Logs size in MB and timing for large file visibility.
+    Releases the global upload lock during retry backoff periods to prevent
+    blocking the entire queue when one item is rate-limited.
     """
     start_time = time.monotonic()
     content = await asyncio.to_thread(zip_path.read_bytes)
@@ -148,25 +144,51 @@ async def upload_zip(
     md5 = _content_md5(content)
     headers = _build_upload_headers(d, md5, "application/zip", auth)
 
-    log.info(
-        "upload_starting",
-        date=d.isoformat(),
-        tribunal=tribunal,
-        size_mb=size_mb,
-    )
-    async with _upload_lock:
-        resp = await request_with_retry(
-            client,
-            "PUT",
-            url,
-            content=content,
-            headers=headers,
-        )
-        # Respect IA rate limit: ~1 upload per second
-        await asyncio.sleep(_UPLOAD_COOLDOWN_S)
+    log.info("upload_starting", date=d.isoformat(), tribunal=tribunal, size_mb=size_mb)
+
+    max_retries = 7
+    last_resp: httpx.Response | None = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            async with _upload_lock:
+                resp = await client.request("PUT", url, content=content, headers=headers)
+                last_resp = resp
+                # If success or non-retriable, we still hold the lock for the cooldown
+                if resp.status_code == HTTP_OK or resp.status_code not in RETRIABLE_STATUS_CODES:
+                    await asyncio.sleep(_UPLOAD_COOLDOWN_S)
+                    break
+        except (httpx.TransportError, httpx.TimeoutException):
+            wait = max(5.0, float(2**attempt))
+            if attempt < max_retries:
+                if observer:
+                    observer.on_retry(tribunal, d, attempt + 1, 0, wait, body="Transport/Timeout")
+                await asyncio.sleep(wait)
+                continue
+            raise
+
+        if attempt < max_retries:
+            body_text = resp.text[:200] if resp.text else "No body"
+            
+            # If the error is a specific "Slow Down" or "Bucket Queued" from IA,
+            # we don't just wait; we return so the engine can switch to a different tribunal.
+            if "SlowDown" in body_text or "bucket_tasks_queued" in body_text:
+                log.warning("upload_bucket_saturated", tribunal=tribunal, status=resp.status_code)
+                if observer:
+                    observer.on_retry(tribunal, d, attempt + 1, resp.status_code, 0, body="Bucket Saturated - Switching")
+                return resp
+
+            wait = _backoff(attempt, resp)
+            if observer:
+                observer.on_retry(tribunal, d, attempt + 1, resp.status_code, wait, body=body_text)
+            await asyncio.sleep(wait)
+            continue
+        break
+
+    assert last_resp is not None
     elapsed = round(time.monotonic() - start_time, 1)
-    body = resp.content or b""
-    if resp.status_code == HTTP_OK:
+    body = last_resp.content or b""
+    if last_resp.status_code == HTTP_OK:
         log.info(
             "upload_complete",
             date=d.isoformat(),
@@ -181,7 +203,7 @@ async def upload_zip(
                 "upload_spam_rejected",
                 date=d.isoformat(),
                 tribunal=tribunal,
-                status=resp.status_code,
+                status=last_resp.status_code,
                 body=body_preview,
             )
         else:
@@ -189,11 +211,11 @@ async def upload_zip(
                 "upload_failed",
                 date=d.isoformat(),
                 tribunal=tribunal,
-                status=resp.status_code,
+                status=last_resp.status_code,
                 elapsed_s=elapsed,
                 body=body_preview,
             )
-    return resp
+    return last_resp
 
 
 # ── Circuit breaker ──────────────────────────────────────────────────
