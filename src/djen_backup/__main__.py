@@ -5,8 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
-from typing import TYPE_CHECKING
+from pathlib import Path  # noqa: TC003
 
 import structlog
 import typer
@@ -30,10 +29,6 @@ from djen_backup.engine import (
     SyncState,
     run_sync,
 )
-
-
-if TYPE_CHECKING:
-    pass
 
 
 # ── Setup ───────────────────────────────────────────────────────────
