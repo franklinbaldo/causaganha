@@ -481,91 +481,88 @@ async def run_sync(config: SyncConfig) -> int:
                 break
             log.info("sync_year_starting", year=year)
 
-            # 2a. Discovery Phase: Build interleaved work queue for the year
-            # Group gaps by date so we can process all tribunals for a date, then move to next
-            # This naturally rotates buckets (tribunals)
-            tribunal_gaps: dict[str, list[date]] = {}
-            for t in tribunals:
+            # 2a. Queue tribunals that are not stopped
+            tribunal_queue = asyncio.Queue()
+            for t in sorted(tribunals):
                 prog = await state.get_or_init(t, config.start_date)
-                if prog.stopped:
-                    continue
+                if not prog.stopped:
+                    # Initial check: skip if inventory says it's already complete
+                    if not inventory.is_year_complete(t, year, upper, lower):
+                        tribunal_queue.put_nowait(t)
 
-                # Just-in-time metadata sync for items we haven't seen this year
-                if not inventory.is_year_complete(t, year, upper, lower):
-                    if config.observer:
-                        config.observer.on_metadata_sync_start(t, year)
-                    ia_dates = await fetch_ia_existing(client, t, year)
-                    if ia_dates:
-                        await inventory.add_many(t, set(ia_dates.keys()))
-                    if config.observer:
-                        config.observer.on_metadata_sync_complete(t, year, len(ia_dates))
-
-                gaps = inventory.gaps_for_year(t, year, upper, lower)
-                if gaps:
-                    tribunal_gaps[t] = sorted(gaps, reverse=True)
-
-            if not tribunal_gaps:
+            if tribunal_queue.empty():
                 continue
 
-            # 2b. Interleave gaps: Round-Robin across tribunals
-            # This is the "Hopping" strategy to avoid 503s
-            work_queue: list[tuple[str, date]] = []
-            max_gaps = max(len(g) for g in tribunal_gaps.values()) if tribunal_gaps else 0
-            for i in range(max_gaps):
-                for t in sorted(tribunal_gaps.keys()):
-                    if i < len(tribunal_gaps[t]):
-                        d = tribunal_gaps[t][i]
-                        # Double check inventory here to be 100% sure we don't queue duplicates
-                        if not inventory.has(t, d):
-                            work_queue.append((t, d))
+            # 2b. Worker Phase: Process tribunals dynamically
+            # Each worker pulls a tribunal, syncs metadata (if needed), processes ONE date,
+            # and then puts the tribunal back at the end of the queue.
+            synced_metadata: set[str] = set()
+            consecutive_errors_map: dict[str, int] = {t: 0 for t in tribunals}
 
-            log.info("sync_queue_ready", year=year, items=len(work_queue), tribunals=len(tribunal_gaps))
-
-            # 2c. Worker Phase: Process the interleaved queue
-            sem = asyncio.Semaphore(config.workers)
-            consecutive_errors_map: dict[str, int] = {t: 0 for t in tribunal_gaps}
-
-            async def worker_task(t: str, d: date) -> None:
+            async def worker_task(worker_id: int) -> None:
                 nonlocal last_ia_sync
-                async with sem:
+                while not tribunal_queue.empty():
                     if time.monotonic() > deadline - 30:
-                        return
+                        break
                     if config.max_items and summary.hits >= config.max_items:
-                        return
+                        break
 
-                    # Check if tribunal was stopped by a previous concurrent task
-                    prog = await state.get_or_init(t, config.start_date)
-                    if prog.stopped or consecutive_errors_map.get(t, 0) >= 3:
-                        return
+                    t = await tribunal_queue.get()
+                    
+                    try:
+                        # Just-in-time metadata sync (once per tribunal per year)
+                        if t not in synced_metadata:
+                            if config.observer:
+                                config.observer.on_metadata_sync_start(t, year)
+                            ia_dates = await fetch_ia_existing(client, t, year)
+                            if ia_dates:
+                                await inventory.add_many(t, set(ia_dates.keys()))
+                            if config.observer:
+                                config.observer.on_metadata_sync_complete(t, year, len(ia_dates))
+                            synced_metadata.add(t)
 
-                    res = await process_date(
-                        client, breaker, t, d, config, state, inventory, summary, deadline
-                    )
+                        # Find the NEXT gap for this tribunal
+                        gaps = inventory.gaps_for_year(t, year, upper, lower)
+                        if not gaps:
+                            continue # Don't re-queue
 
-                    # Periodic IA Sync (every 3 minutes)
-                    if not config.dry_run and time.monotonic() - last_ia_sync > sync_interval_s:
-                        last_ia_sync = time.monotonic()
-                        if config.observer:
-                            config.observer.on_periodic_sync_start()
-                        await inventory.upload_to_ia(config.ia_auth)
-                        await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
-                        if config.observer:
-                            config.observer.on_periodic_sync_complete()
+                        d = sorted(gaps, reverse=True)[0]
+                        
+                        # Process one date
+                        res = await process_date(
+                            client, breaker, t, d, config, state, inventory, summary, deadline
+                        )
 
-                    if res == "error":
-                        consecutive_errors_map[t] += 1
-                        if consecutive_errors_map[t] >= 3:
-                            log.warning("sync_skipping_tribunal", tribunal=t, reason="3 consecutive errors")
-                    elif res == "saturated":
-                        # If a bucket is STILL saturated even with hopping, stop this tribunal for this run
-                        consecutive_errors_map[t] = 99
-                        log.warning("sync_switching_tribunal", tribunal=t, reason="bucket saturation (SlowDown)")
-                    elif res in ("hit", "empty"):
-                        consecutive_errors_map[t] = 0
-                        await state.advance_cursor(t)
+                        # Periodic IA Sync (every 3 minutes)
+                        if not config.dry_run and time.monotonic() - last_ia_sync > sync_interval_s:
+                            last_ia_sync = time.monotonic()
+                            if config.observer:
+                                config.observer.on_periodic_sync_start()
+                            await inventory.upload_to_ia(config.ia_auth)
+                            await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
+                            if config.observer:
+                                config.observer.on_periodic_sync_complete()
 
-            # Gather all items for the current year
-            await asyncio.gather(*(worker_task(t, d) for t, d in work_queue))
+                        if res == "error":
+                            consecutive_errors_map[t] += 1
+                            if consecutive_errors_map[t] < 3:
+                                tribunal_queue.put_nowait(t) # Try again later
+                            else:
+                                log.warning("sync_skipping_tribunal", tribunal=t, reason="3 consecutive errors")
+                        elif res == "saturated":
+                            log.warning("sync_switching_tribunal", tribunal=t, reason="bucket saturation (SlowDown)")
+                            # Do not re-queue for this run
+                        elif res in ("hit", "empty"):
+                            consecutive_errors_map[t] = 0
+                            await state.advance_cursor(t)
+                            # Re-queue to process next date for this tribunal
+                            tribunal_queue.put_nowait(t)
+                    finally:
+                        tribunal_queue.task_done()
+
+            # Start workers
+            worker_tasks = [asyncio.create_task(worker_task(i)) for i in range(config.workers)]
+            await asyncio.gather(*worker_tasks)
 
             # Checkpoint after each year
             inventory.save_to_disk()
