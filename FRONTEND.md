@@ -411,12 +411,18 @@ Use a plain `writable` store when the data is local to one island or managed by 
 
 All data fetching goes through `dashboard/src/lib/fetchData.ts`, which implements retry logic and error handling. Do not call `fetch()` directly in components.
 
-```ts
-// Correct
-import { fetchData } from '../lib/fetchData';
-const result = await fetchData('/api/julgamentos');
+The file exports:
+- `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
+- `fetchAllData()` — fetches the full derived dataset (used by `createDataRefresh`)
+- `startLivePolling(onUpdate, intervalMs)` — starts a polling loop, returns a stop function
+- `deriveData(raw)` — pure transformation from raw API response to `DerivedData`
 
-// Wrong
+```ts
+// Correct — use the exported helpers
+import { fetchWithRetry } from '../lib/fetchData';
+const result = await fetchWithRetry('/api/julgamentos');
+
+// Wrong — bypasses retry logic and error handling
 const result = await fetch('/api/julgamentos').then(r => r.json());
 ```
 
@@ -479,17 +485,31 @@ test('shows tribunal name', () => {
 
 ### BDD tests — vitest-cucumber
 
-Feature-level behavior is specified in Gherkin `.feature` files under `src/components/__steps__/`. This is the right place to describe user-facing behavior.
+Feature-level behavior is specified in Gherkin `.feature` files under `dashboard/features/`. Step definitions live separately under `dashboard/src/components/__steps__/`. Keep these two directories separate.
 
-```gherkin
-Feature: Publication search
-  Scenario: User searches for a tribunal
-    Given the search input is visible
-    When the user types "TJSP"
-    Then the results list shows publications from TJSP
+```
+dashboard/
+├── features/
+│   ├── homepage.feature
+│   └── publicacoes.feature   ← .feature files go here
+└── src/components/__steps__/
+    ├── homepage.steps.tsx
+    └── publicacoes.steps.ts  ← step definitions go here
 ```
 
-Write step definitions in the corresponding `*.steps.ts` file. Keep step definitions thin — they should call the same Testing Library queries used in unit tests.
+Step files load their feature using a path relative to the project root:
+
+```ts
+import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
+
+const feature = await loadFeature('features/homepage.feature');
+
+describeFeature(feature, ({ Scenario }) => {
+  // ...
+});
+```
+
+Keep step definitions thin — they should call the same Testing Library queries used in unit tests.
 
 ### Anti-patterns — Testing
 
