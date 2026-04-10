@@ -433,6 +433,30 @@ async def run_sync(config: SyncConfig) -> int:
     inventory.load_from_disk()
     await inventory.load_from_snapshot()
 
+    # Early exit: if today is already mostly collected, skip the run
+    if config.skip_if_mostly_complete:
+        from causaganha.config import TRIBUNAIS
+
+        target = config.start_date  # start_date holds the upper (most-recent) date
+        total = len(TRIBUNAIS)
+        already_done = sum(1 for t in TRIBUNAIS if inventory.has(t, target))
+        threshold = int(total * 0.9)
+        if already_done >= threshold:
+            log.info(
+                "skip_if_mostly_complete",
+                date=target.isoformat(),
+                already_done=already_done,
+                total=total,
+            )
+            return 0
+        log.info(
+            "skip_if_mostly_complete_not_met",
+            date=target.isoformat(),
+            already_done=already_done,
+            total=total,
+            threshold=threshold,
+        )
+
     remote_state_data = await download_state_from_ia(IA_BACKFILL_STATE_FILENAME)
     state = SyncState.from_dict(remote_state_data) if remote_state_data else SyncState()
 
