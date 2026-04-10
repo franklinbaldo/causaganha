@@ -76,7 +76,7 @@ def _preflight_checks() -> None:
 
 
 @app.command()
-def run(  # noqa: PLR0913
+def run(
     target_date: str = typer.Option(
         "",
         "--date",
@@ -100,6 +100,7 @@ def run(  # noqa: PLR0913
     ),
     state_file: Path = typer.Option(
         _DEFAULT_STATE_FILE,
+        "--backfill-state-file",
         help="Path ao arquivo JSON de progresso.",
     ),
     *,
@@ -152,7 +153,7 @@ def run(  # noqa: PLR0913
         deadline_minutes=deadline_minutes,
         max_items=max_items,
         workers=workers,
-        state_file=state_file if state_file.exists() else None,
+        state_file=state_file,
         djen_proxy_url=_resolve_djen_url(),
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
@@ -172,19 +173,20 @@ def run(  # noqa: PLR0913
 def status(
     state_file: Path = typer.Option(
         _DEFAULT_STATE_FILE,
-        help="Path ao arquivo JSON de progresso.",
+        "--backfill-state-file",
+        help="Path to backfill progress JSON.",
     ),
 ) -> None:
     """Show per-tribunal backfill progress."""
     if not state_file.exists():
-        console.print(f"[dim]State file não encontrado: {state_file}[/dim]")
+        console.print("[dim]No backfill state found.[/dim]")
         return
 
     bstate = SyncState.from_dict(json.loads(state_file.read_text()))
     progress = bstate.get_all_progress()
 
     if not progress:
-        console.print("[dim]Nenhum estado de backfill encontrado.[/dim]")
+        console.print("[dim]No backfill state found.[/dim]")
         return
 
     running = sum(1 for p in progress.values() if not p.stopped)
@@ -223,17 +225,18 @@ def status(
 def reset(
     tribunal: str | None = typer.Option(
         None,
-        help="Tribunal a resetar. Omita para usar --all.",
+        help="Tribunal to reset. Omit to use --all.",
     ),
     *,
     all_tribunals: bool = typer.Option(
         False,
         "--all",
-        help="Resetar todos os tribunais parados.",
+        help="Reset all stopped tribunals.",
     ),
     state_file: Path = typer.Option(
         _DEFAULT_STATE_FILE,
-        help="Path ao arquivo JSON de progresso.",
+        "--backfill-state-file",
+        help="Path to backfill progress JSON.",
     ),
 ) -> None:
     """Reset stopped tribunal(s) for re-scanning."""
@@ -242,7 +245,7 @@ def reset(
         raise typer.Exit(code=1)
 
     if not state_file.exists():
-        console.print(f"[red]State file não encontrado: {state_file}[/red]")
+        console.print(f"[red]State file not found: {state_file}[/red]")
         raise typer.Exit(code=1)
 
     bstate = SyncState.from_dict(json.loads(state_file.read_text()))
@@ -257,7 +260,8 @@ def reset(
             console.print(f"  [green]✓[/green] Reset {tribunal}")
             count = 1
         else:
-            console.print(f"  [red]✗[/red] Tribunal {tribunal} não encontrado no state.")
+            console.print(f"  [red]✗[/red] Tribunal {tribunal} not found in state.")
+            console.print("  [dim]Nothing to reset.[/dim]")
     else:
         for code, prog in progress.items():
             if prog.stopped:
@@ -269,5 +273,7 @@ def reset(
     if count > 0:
         state_file.write_text(json.dumps(bstate.to_dict(), indent=2))
         console.print(f"\n  {count} tribunal(s) reset.")
+    elif tribunal:
+        pass  # message already printed above
     else:
-        console.print("  [dim]Nada para resetar.[/dim]")
+        console.print("  [dim]Nothing to reset.[/dim]")
