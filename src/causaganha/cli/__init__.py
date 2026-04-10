@@ -39,7 +39,7 @@ from causaganha.pipeline.analyze_parquet import (
 from causaganha.pipeline.collect import collect_metadata_for_all_courts
 from causaganha.pipeline.export_orchestrator import ExportOrchestrator
 from causaganha.pipeline.ia_download import DownloadConfig, IAParquetDownloader
-from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+from causaganha.pipeline.ia_parquet_uploader import IAS3ParquetUploader
 from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
 from causaganha.pipeline.repositories import DuckDBExportRepository
 from causaganha.pipeline.score import calculate_ratings
@@ -335,7 +335,7 @@ def export_parquet(
             con = get_connection()
             repository = DuckDBExportRepository(con)  # NEW: inject repository
             exporter = ParquetExporter(con, ExportConfig())
-            uploader = InternetArchiveUploader(UploadConfig())
+            uploader = IAS3ParquetUploader()
             orchestrator = ExportOrchestrator(
                 repository,
                 exporter,

@@ -16,7 +16,7 @@ Usage:
 
     repo = DuckDBExportRepository(db)
     exporter = ParquetExporter(config)
-    uploader = InternetArchiveUploader(config)
+    uploader = IAS3ParquetUploader()
     orchestrator = ExportOrchestrator(repo, exporter, uploader)
     result = await orchestrator.run_daily_export()
 """
@@ -25,7 +25,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
-from .ia_upload import InternetArchiveUploader
+from .ia_parquet_uploader import IAS3ParquetUploader
 from .models import ExportPlan, ExportResult, TribunalExportResult
 from .parquet_export import ParquetExporter
 from .repositories import ExportRepository
@@ -45,14 +45,14 @@ class ExportOrchestrator:
         self,
         repository: ExportRepository,
         parquet_exporter: ParquetExporter,
-        ia_uploader: InternetArchiveUploader,
+        ia_uploader: IAS3ParquetUploader,
     ) -> None:
         """Initialize export orchestrator.
 
         Args:
             repository: ExportRepository for data operations (injected)
             parquet_exporter: ParquetExporter instance
-            ia_uploader: InternetArchiveUploader instance
+            ia_uploader: IAS3ParquetUploader instance
         """
         self.repo = repository
         self.exporter = parquet_exporter
