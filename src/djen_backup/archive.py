@@ -31,18 +31,24 @@ HTTP_SERVICE_UNAVAILABLE = 503
 
 # ── IA metadata ──────────────────────────────────────────────────────
 
-IA_METADATA_URL = "https://archive.org/metadata/backup-djen-{date}"
-
 
 async def fetch_ia_existing(
     client: httpx.AsyncClient,
-    d: date,
-) -> dict[str, str]:
-    """Query IA metadata; return ``{tribunal: "uploaded"|"absent"}``."""
-    url = IA_METADATA_URL.format(date=d.isoformat())
+    tribunal: str,
+    year: int,
+) -> dict[date, str]:
+    """Query IA metadata for a tribunal+year; return ``{date: "uploaded"}``.
+
+    Queries the bucket djen-{tribunal}-{year}.
+    """
+    from datetime import date
+
+    item_id = get_ia_item_id(tribunal, date(year, 1, 1))
+    url = f"https://archive.org/metadata/{item_id}/files"
     resp = await request_with_retry(client, "GET", url)
     if resp.status_code != HTTP_OK:
-        log.warning("ia_metadata_error", date=d.isoformat(), status=resp.status_code)
+        if resp.status_code != HTTP_NOT_FOUND:
+            log.warning("ia_metadata_error", item_id=item_id, status=resp.status_code)
         return {}
 
     try:
@@ -50,24 +56,28 @@ async def fetch_ia_existing(
     except ValueError:
         return {}
 
-    result: dict[str, str] = {}
-    files = data.get("files")
+    result: dict[date, str] = {}
+    files = data.get("result")
     if not isinstance(files, list):
         return result
 
-    prefix = f"backup-djen-{d.isoformat()}-"
+    # Filename format: djen-YYYY-MM-DD-TRIBUNAL.zip
+    # We look for files starting with djen- and ending with .zip
     for entry in files:
         if not isinstance(entry, dict):
             continue
         name = entry.get("name")
         if not isinstance(name, str):
             continue
-        if name.startswith(prefix):
-            rest = name[len(prefix) :]
-            if rest.endswith(".zip"):
-                result[rest[: -len(".zip")]] = "uploaded"
-            elif rest.endswith(".absent"):
-                result[rest[: -len(".absent")]] = "absent"
+        if name.startswith("djen-") and name.endswith(".zip"):
+            parts = name[len("djen-") : -len(".zip")].split("-")
+            # Expected parts: [YYYY, MM, DD, TRIBUNAL]
+            if len(parts) >= 3:
+                try:
+                    d = date.fromisoformat(f"{parts[0]}-{parts[1]}-{parts[2]}")
+                    result[d] = "uploaded"
+                except ValueError:
+                    continue
 
     return result
 
