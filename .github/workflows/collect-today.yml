@@ -59,7 +59,7 @@ jobs:
       - name: Validate CLI flags
         run: |
           echo "Validating CLI flags..."
-          HELP_OUTPUT=$(uv run python -m djen_backup --help)
+          HELP_OUTPUT=$(uv run --no-dev python -m djen_backup --help)
           FLAGS=("--workers" "--backfill-state-file" "--state-file" "--start-date" "--end-date")
           for FLAG in "${FLAGS[@]}"; do
             if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
@@ -75,7 +75,7 @@ jobs:
           TODAY=$(date -u +%Y-%m-%d)
           echo "Running collection for today: $TODAY"
 
-          CMD="uv run python -m djen_backup"
+          CMD="uv run --no-dev python -m djen_backup"
           CMD="$CMD --start-date $TODAY"
           CMD="$CMD --end-date $TODAY"
           CMD="$CMD --workers 20"
@@ -126,7 +126,7 @@ jobs:
           fi
 
           echo "Running zero collection check for UPLOADED=$UPLOADED"
-          if ! uv run python scripts/check_zero_collection.py "$UPLOADED"; then
+          if ! uv run --no-dev python scripts/check_zero_collection.py "$UPLOADED"; then
             echo "CRITICAL: Zero ZIPs collected on a business day!"
             exit 1
           fi

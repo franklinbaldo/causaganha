@@ -92,7 +92,7 @@ jobs:
         run: |
           if [ -f data/backfill-state.json ]; then
             echo "⚠️ Manual reset requested - resetting stopped tribunals..."
-            uv run causaganha backfill reset \
+            uv run --no-dev causaganha backfill reset \
               --backfill-state-file data/backfill-state.json \
               --all
             echo "✅ Reset complete"
@@ -103,7 +103,7 @@ jobs:
       - name: Validate CLI flags
         run: |
           echo "Validating CLI flags..."
-          HELP_OUTPUT=$(uv run python -m djen_backup --help)
+          HELP_OUTPUT=$(uv run --no-dev python -m djen_backup --help)
           FLAGS=("--deadline-minutes" "--workers" "--backfill-state-file" "--state-file" "--start-date")
           for FLAG in "${FLAGS[@]}"; do
             if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
@@ -125,7 +125,7 @@ jobs:
           START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
-          CMD="uv run python -m djen_backup"
+          CMD="uv run --no-dev python -m djen_backup"
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
           CMD="$CMD --backfill-state-file data/backfill-state.json"
@@ -223,7 +223,7 @@ jobs:
           fi
 
           echo "Running zero collection check for UPLOADED=$UPLOADED"
-          if ! uv run python scripts/check_zero_collection.py "$UPLOADED"; then
+          if ! uv run --no-dev python scripts/check_zero_collection.py "$UPLOADED"; then
             echo "CRITICAL: Zero ZIPs collected on a business day!"
             exit 1
           fi
@@ -250,7 +250,7 @@ jobs:
         run: |
           echo "## Backfill Status" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          uv run causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
+          uv run --no-dev causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
 
