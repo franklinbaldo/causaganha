@@ -169,13 +169,20 @@ async def upload_zip(
 
         if attempt < max_retries:
             body_text = resp.text[:200] if resp.text else "No body"
-            
+
             # If the error is a specific "Slow Down" or "Bucket Queued" from IA,
             # we don't just wait; we return so the engine can switch to a different tribunal.
             if "SlowDown" in body_text or "bucket_tasks_queued" in body_text:
                 log.warning("upload_bucket_saturated", tribunal=tribunal, status=resp.status_code)
                 if observer:
-                    observer.on_retry(tribunal, d, attempt + 1, resp.status_code, 0, body="Bucket Saturated - Switching")
+                    observer.on_retry(
+                        tribunal,
+                        d,
+                        attempt + 1,
+                        resp.status_code,
+                        0,
+                        body="Bucket Saturated - Switching",
+                    )
                 return resp
 
             wait = _backoff(attempt, resp)

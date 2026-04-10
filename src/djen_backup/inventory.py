@@ -92,7 +92,7 @@ class ZipInventory:
         return self._key(tribunal, d) in self._entries
 
     def get_status(self, tribunal: str, d: date) -> str | None:
-        """Return status (uploaded/absent) or None if unknown."""
+        """Return status (uploaded/absent/staged) or None if unknown."""
         entry = self._entries.get(self._key(tribunal, d))
         return entry[0] if entry else None
 
@@ -100,12 +100,21 @@ class ZipInventory:
         """Mark a date as uploaded (ZIP exists on IA)."""
         async with self._lock:
             k = self._key(tribunal, d)
-            if k not in self._entries:
-                self._entries[k] = (
-                    "uploaded",
-                    self._url(tribunal, d),
-                    datetime.now(UTC).isoformat(timespec="seconds"),
-                )
+            self._entries[k] = (
+                "uploaded",
+                self._url(tribunal, d),
+                datetime.now(UTC).isoformat(timespec="seconds"),
+            )
+
+    async def add_staged(self, tribunal: str, d: date) -> None:
+        """Mark a date as staged (ZIP exists locally in staging)."""
+        async with self._lock:
+            k = self._key(tribunal, d)
+            self._entries[k] = (
+                "staged",
+                "",
+                datetime.now(UTC).isoformat(timespec="seconds"),
+            )
 
     async def add_absent(self, tribunal: str, d: date) -> None:
         """Mark a date as confirmed absent (no journal published)."""
@@ -132,6 +141,23 @@ class ZipInventory:
     def __len__(self) -> int:
         """Return number of inventory entries."""
         return len(self._entries)
+
+    def count_staged(self) -> int:
+        """Return total number of files currently in staging."""
+        return sum(1 for status, _, _ in self._entries.values() if status == "staged")
+
+    def get_staged_by_item(self) -> dict[str, list[date]]:
+        """Return a mapping of item_id -> list of dates that are staged."""
+        items: dict[str, list[date]] = {}
+        for k, (status, _, _) in self._entries.items():
+            if status == "staged":
+                tribunal, date_str = k.split("/", 1)
+                d = date.fromisoformat(date_str)
+                item_id = f"djen-{tribunal.lower()}-{d.year}"
+                if item_id not in items:
+                    items[item_id] = []
+                items[item_id].append(d)
+        return items
 
     def load_from_csv(self, text: str) -> int:
         """Load from CSV text. Returns count added."""

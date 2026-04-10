@@ -88,7 +88,9 @@ class RichSyncObserver:
     def on_item_complete(self, tribunal: str, d: date, status: str, url: str | None = None) -> None:
         # Log successful uploads/hits with URL
         if status == "hit" and url:
-            self.progress.console.log(f"[green]✓[/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]")
+            self.progress.console.log(
+                f"[green]✓[/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]"
+            )
 
         # Find the task for this tribunal-year
         task_key = f"{tribunal}-{d.year}"
@@ -97,7 +99,13 @@ class RichSyncObserver:
             self.progress.advance(self.main_task)
 
     def on_retry(
-        self, tribunal: str, d: date, attempt: int, status: int, wait_s: float, body: str | None = None
+        self,
+        tribunal: str,
+        d: date,
+        attempt: int,
+        status: int,
+        wait_s: float,
+        body: str | None = None,
     ) -> None:
         msg = (
             f"[bold yellow]⚠ Retry {attempt}[/bold yellow] for {tribunal} {d.isoformat()} "
@@ -108,10 +116,18 @@ class RichSyncObserver:
         self.progress.console.log(msg)
 
     def on_periodic_sync_start(self) -> None:
-        self.progress.console.log("[yellow]⟳ Periodic sync to Internet Archive starting...[/yellow]")
+        self.progress.console.log(
+            "[yellow]⟳ Periodic sync to Internet Archive starting...[/yellow]"
+        )
 
     def on_periodic_sync_complete(self) -> None:
         self.progress.console.log("[green]✓ Periodic sync complete.[/green]")
+
+    def on_batch_upload_start(self, item_id: str, count: int) -> None:
+        self.progress.console.log(f"[bold blue]↑ Batch Upload Starting:[/bold blue] {item_id} ({count} files)")
+
+    def on_batch_upload_complete(self, item_id: str, count: int) -> None:
+        self.progress.console.log(f"[bold green]✓ Batch Upload Complete:[/bold green] {item_id} ({count} files)")
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
@@ -122,7 +138,9 @@ def _parse_date(value: str) -> date:
 
 
 def _resolve_proxy_url() -> str:
-    return os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+    return (
+        os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+    )
 
 
 def _resolve_ia_auth(*, dry_run: bool) -> str:
@@ -155,20 +173,34 @@ def show_banner():
 @app.callback(invoke_without_command=True)
 def main(  # noqa: PLR0913
     ctx: typer.Context,
-    start_date: str | None = typer.Option(None, "--start-date", help="Oldest date to scan (YYYY-MM-DD)."),
-    end_date: str | None = typer.Option(None, "--end-date", help="Newest date to scan (YYYY-MM-DD)."),
-    tribunal: str | None = typer.Option(None, "--tribunal", help="Process a single tribunal (e.g. TJSP)."),
+    start_date: str | None = typer.Option(
+        None, "--start-date", help="Oldest date to scan (YYYY-MM-DD)."
+    ),
+    end_date: str | None = typer.Option(
+        None, "--end-date", help="Newest date to scan (YYYY-MM-DD)."
+    ),
+    tribunal: str | None = typer.Option(
+        None, "--tribunal", help="Process a single tribunal (e.g. TJSP)."
+    ),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
-    max_items: int = typer.Option(0, "--max-items", help="Max dates per tribunal per run (0 = unlimited)."),
+    max_items: int = typer.Option(
+        0, "--max-items", help="Max dates per tribunal per run (0 = unlimited)."
+    ),
     workers: int = typer.Option(4, "--workers", help="Parallel workers."),
     backfill_state_file: Path | None = typer.Option(
         None, "--backfill-state-file", help="Path to backfill progress JSON."
     ),
-    state_file: Path | None = typer.Option(None, "--state-file", help="Path to IA state cache JSON (obsolete)."),
+    state_file: Path | None = typer.Option(
+        None, "--state-file", help="Path to IA state cache JSON (obsolete)."
+    ),
     *,
     dry_run: bool = typer.Option(False, "--dry-run", help="Log actions without uploading."),
-    skip_absent_markers: bool = typer.Option(False, "--skip-absent-markers", help="Skip uploading absent markers."),
-    publish_live_status: bool = typer.Option(False, "--publish-live-status", help="Publish live status to IA."),
+    skip_absent_markers: bool = typer.Option(
+        False, "--skip-absent-markers", help="Skip uploading absent markers."
+    ),
+    publish_live_status: bool = typer.Option(
+        False, "--publish-live-status", help="Publish live status to IA."
+    ),
 ):
     """Main backup and sync command."""
     if ctx.invoked_subcommand:
@@ -177,7 +209,7 @@ def main(  # noqa: PLR0913
 
     today = datetime.now(tz=UTC).date()
     resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
-    resolved_start = _parse_date(start_date) if start_date else None
+    resolved_start = _parse_date(start_date) if start_date else date(2020, 1, 1)
 
     resolved_state_file = backfill_state_file or state_file
 
@@ -186,12 +218,16 @@ def main(  # noqa: PLR0913
     config_table.add_column(style="bold cyan")
     config_table.add_column()
     config_table.add_row("End Date:", resolved_end.isoformat())
-    config_table.add_row("Start Date:", resolved_start.isoformat() if resolved_start else "2013-01-01 (Auto)")
+    config_table.add_row(
+        "Start Date:", resolved_start.isoformat() if resolved_start else "2013-01-01 (Auto)"
+    )
     config_table.add_row("Tribunal:", tribunal or "All")
     config_table.add_row("Workers:", str(workers))
     config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
 
-    console.print(Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue"))
+    console.print(
+        Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue")
+    )
 
     # Prepare Rich components
     progress = Progress(
@@ -236,7 +272,9 @@ def reset(
     backfill_state_file: Path | None = typer.Option(
         None, "--backfill-state-file", exists=True, help="Path to state JSON."
     ),
-    set_cursor: str | None = typer.Option(None, "--set-cursor", help="Set the cursor to this date (YYYY-MM-DD)."),
+    set_cursor: str | None = typer.Option(
+        None, "--set-cursor", help="Set the cursor to this date (YYYY-MM-DD)."
+    ),
 ):
     """Reset stopped tribunal(s) for re-scanning."""
     import json
@@ -260,7 +298,9 @@ def reset(
                 if set_cursor:
                     target_date = date.fromisoformat(set_cursor)
                     await bstate.ensure_cursor_at_least(tribunal, target_date)
-                    console.print(f"[green]Reset {tribunal} and set cursor to {target_date}[/green]")
+                    console.print(
+                        f"[green]Reset {tribunal} and set cursor to {target_date}[/green]"
+                    )
                 else:
                     prog.stopped = False
                     prog.empty_streak = 0
