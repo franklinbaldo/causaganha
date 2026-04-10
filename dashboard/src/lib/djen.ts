@@ -518,3 +518,59 @@ export function parseDjenPublicationCollectionSafely(input: unknown): DjenPublic
 
   return publications;
 }
+
+export async function fetchLivePublicationDetail(
+  pubFromIa: DjenPublication
+): Promise<{ publication: DjenPublication | null; source: "djen" | "ia"; usedFallback: boolean; error?: string }> {
+  if (!pubFromIa.numeroComunicacao || !pubFromIa.siglaTribunal) {
+    return { publication: pubFromIa, source: "ia", usedFallback: true, error: "Missing identity fields" };
+  }
+
+  const queryParams = `?numeroComunicacao=${pubFromIa.numeroComunicacao}&siglaTribunal=${pubFromIa.siglaTribunal}`;
+  const publicUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao${queryParams}`;
+  const proxyUrl = `https://djen-proxy-mhgmawcn3a-rj.a.run.app/api/v1/comunicacao${queryParams}`;
+
+  const tryFetch = async (url: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const items = parseDjenPublicationCollectionSafely(data);
+    if (items.length > 0) {
+      return items[0];
+    }
+    return null;
+  };
+
+  try {
+    // Try public API first
+    const pub = await tryFetch(publicUrl);
+    if (pub) {
+      return { publication: pub, source: "djen", usedFallback: false };
+    }
+  } catch {
+    // If public API fails (CORS, 403, timeout), try proxy
+    try {
+      const pubProxy = await tryFetch(proxyUrl);
+      if (pubProxy) {
+        return { publication: pubProxy, source: "djen", usedFallback: false };
+      }
+    } catch (proxyErr: unknown) {
+      return {
+        publication: pubFromIa,
+        source: "ia",
+        usedFallback: true,
+        error: proxyErr instanceof Error ? proxyErr.message : String(proxyErr)
+      };
+    }
+  }
+
+  // Fallback if requests complete but return nothing
+  return { publication: pubFromIa, source: "ia", usedFallback: true };
+}

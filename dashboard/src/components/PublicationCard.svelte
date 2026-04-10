@@ -201,6 +201,8 @@
     compact = false,
     totalSeq,
     onNavigate,
+    source,
+    usedFallback,
   }: {
     pub: DjenPublication;
     seq: number;
@@ -209,6 +211,8 @@
     compact?: boolean;
     totalSeq?: number;
     onNavigate?: (newSeq: number) => void;
+    source?: "djen" | "ia";
+    usedFallback?: boolean;
   } = $props();
 
   let isReaderMode = $state(false);
@@ -285,6 +289,11 @@
             {#if pub.tipoComunicacao}
               <span class="badge publication-badge">{pub.tipoComunicacao}</span>
             {/if}
+            {#if source}
+              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
+                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
+              </span>
+            {/if}
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
@@ -353,6 +362,11 @@
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
             <span class="badge publication-badge">Modo Leitura</span>
+            {#if source}
+              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
+                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
+              </span>
+            {/if}
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
@@ -461,6 +475,11 @@
             <span class="seq-number seq-bold">#{seq}</span>
             {#if pub.tipoComunicacao}
               <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+            {/if}
+            {#if source}
+              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
+                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
+              </span>
             {/if}
             <small class="date-label">{dateStr}</small>
           </div>

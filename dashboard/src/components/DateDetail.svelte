@@ -2,6 +2,7 @@
   import PublicationCard from './PublicationCard.svelte';
   import {
     parseDjenPublicationCollectionSafely,
+    fetchLivePublicationDetail,
     type DjenPublication,
   } from '../lib/djen';
 
@@ -11,6 +12,8 @@
     pub: DjenPublication;
     seq: number;
     page: number;
+    source?: "djen" | "ia";
+    usedFallback?: boolean;
   }
 
   function getItemId(tribunal: string, year: number): string {
@@ -142,7 +145,14 @@
           if (pubs) {
             const idx = _initialSeq - ((targetPage - 1) * PUBS_PER_PAGE) - 1;
             if (idx >= 0 && idx < pubs.length) {
-              featuredPub = { pub: pubs[idx], seq: _initialSeq, page: targetPage };
+              const liveData = await fetchLivePublicationDetail(pubs[idx]);
+              featuredPub = {
+                pub: liveData.publication || pubs[idx],
+                seq: _initialSeq,
+                page: targetPage,
+                source: liveData.source,
+                usedFallback: liveData.usedFallback
+              };
             }
             publications = pubs;
             currentPage = targetPage;
@@ -194,7 +204,14 @@
       }
       const idx = newSeq - ((newPage - 1) * PUBS_PER_PAGE) - 1;
       if (idx >= 0 && idx < pubs.length) {
-        featuredPub = { pub: pubs[idx], seq: newSeq, page: newPage };
+        const liveData = await fetchLivePublicationDetail(pubs[idx]);
+        featuredPub = {
+          pub: liveData.publication || pubs[idx],
+          seq: newSeq,
+          page: newPage,
+          source: liveData.source,
+          usedFallback: liveData.usedFallback
+        };
       }
     })();
   }
@@ -237,6 +254,8 @@
         page={featuredPub.page}
         totalSeq={publications.length || totalPages * PUBS_PER_PAGE}
         onNavigate={handleNavigate}
+        source={featuredPub.source}
+        usedFallback={featuredPub.usedFallback}
       />
       <button
         class="btn"
