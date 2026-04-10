@@ -83,6 +83,23 @@
     return `${cleaned.slice(0, limit).trimEnd()}...`;
   }
 
+  function htmlToPreviewText(html: string | undefined, limit = 320): string | null {
+    if (!html) return null;
+
+    const text = html
+      .replace(/<br\s*\/?>/gi, " ")
+      .replace(/<\/(p|div|li|tr|td|th|h[1-6])>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+
+    return previewText(text, limit);
+  }
+
   function summarizeMedium(pub: DjenPublication): string | null {
     if (pub.meiocompleto) return pub.meiocompleto;
     if (pub.meio === "D") return "Di\u00e1rio Eletr\u00f4nico";
@@ -205,6 +222,9 @@
   const teaser = $derived(
     pub.textoRender?.kind === "text" ? previewText(pub.textoRender.content, compact ? 220 : 420) : null,
   );
+  const htmlTeaser = $derived(
+    pub.textoRender?.kind === "html" ? htmlToPreviewText(pub.textoRender.content, compact ? 220 : 420) : null,
+  );
   const metaChips = $derived(buildMetaChips(pub));
   const identityRows = $derived(buildIdentityRows(pub));
   const parties = $derived(uniquePartyNames(pub));
@@ -301,10 +321,8 @@
         <small class="orgao-name">{pub.nomeOrgao}</small>
       {/if}
 
-      {#if pub.textoRender?.kind === "html"}
-        <div class="html-content html-content-compact">
-          {@html pub.textoRender.content}
-        </div>
+      {#if pub.textoRender?.kind === "html" && htmlTeaser}
+        <p class="text-preview">{htmlTeaser}</p>
       {:else if teaser}
         <p class="text-preview">{teaser}</p>
       {/if}
