@@ -203,44 +203,48 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 <!-- Search: parse OAB/processo/texto and redirect with correct params -->
 <script>
-  const form = document.getElementById('home-search-form') as HTMLFormElement | null;
-  const input = document.getElementById('home-search-input') as HTMLInputElement | null;
-
   const OAB_RE = /^\s*(?:OAB\s*[\/\-]?\s*)?([A-Za-z]{2})\s*[-\/ ]?\s*(\d{3,6})\s*$/;
   const CNJ_MASKED_RE = /^\s*\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\s*$/;
   const CNJ_BARE_RE = /^\s*\d{20}\s*$/;
 
-  form?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!input) return;
-    const raw = input.value.trim();
-    if (!raw) return;
+  function setupSearchHandlers() {
+    const form = document.getElementById('home-search-form') as HTMLFormElement | null;
+    const input = document.getElementById('home-search-input') as HTMLInputElement | null;
+    if (!form || !input) return;
 
-    const base = form.action.replace(/\/$/, '');
-    const params = new URLSearchParams();
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const raw = input.value.trim();
+      if (!raw) return;
 
-    const oabMatch = raw.match(OAB_RE);
-    if (oabMatch) {
-      params.set('ufOab', oabMatch[1].toUpperCase());
-      params.set('numeroOab', oabMatch[2]);
-    } else if (CNJ_MASKED_RE.test(raw) || CNJ_BARE_RE.test(raw)) {
-      params.set('numeroProcesso', raw.replace(/\D/g, ''));
-    } else {
-      params.set('texto', raw);
-    }
+      const base = form.action.replace(/\/$/, '');
+      const params = new URLSearchParams();
 
-    window.location.href = `${base}?${params.toString()}`;
-  });
+      const oabMatch = raw.match(OAB_RE);
+      if (oabMatch) {
+        params.set('ufOab', oabMatch[1].toUpperCase());
+        params.set('numeroOab', oabMatch[2]);
+      } else if (CNJ_MASKED_RE.test(raw) || CNJ_BARE_RE.test(raw)) {
+        params.set('numeroProcesso', raw.replace(/\D/g, ''));
+      } else {
+        params.set('texto', raw);
+      }
 
-  // Hint chips pre-fill the input
-  document.querySelectorAll<HTMLButtonElement>('.hint-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (input) {
+      window.location.href = `${base}?${params.toString()}`;
+    });
+
+    // Hint chips pre-fill the input
+    document.querySelectorAll<HTMLButtonElement>('.hint-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
         input.value = btn.dataset.example || '';
         input.focus();
-      }
+      });
     });
-  });
+  }
+
+  // Setup on initial load and after view transitions swap the page back in
+  setupSearchHandlers();
+  document.addEventListener('astro:after-swap', setupSearchHandlers);
 </script>
 
 <style>
