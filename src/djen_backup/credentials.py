@@ -20,12 +20,10 @@ def get_ia_s3_auth() -> str:
     2. ``~/.config/internetarchive/ia.ini`` ``[s3]`` section
     """
     access = (
-        os.environ.get("IAS3_ACCESS_KEY", "").strip()
-        or os.environ.get("IA_ACCESS_KEY", "").strip()
+        os.environ.get("IAS3_ACCESS_KEY", "").strip() or os.environ.get("IA_ACCESS_KEY", "").strip()
     )
     secret = (
-        os.environ.get("IAS3_SECRET_KEY", "").strip()
-        or os.environ.get("IA_SECRET_KEY", "").strip()
+        os.environ.get("IAS3_SECRET_KEY", "").strip() or os.environ.get("IA_SECRET_KEY", "").strip()
     )
 
     if access and secret:
