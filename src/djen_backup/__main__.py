@@ -201,7 +201,9 @@ def main(  # noqa: PLR0913
         False, "--publish-live-status", help="Publish live status to IA."
     ),
     skip_if_mostly_complete: bool = typer.Option(
-        False, "--skip-if-mostly-complete", help="Skip collection if today is already mostly complete."
+        False,
+        "--skip-if-mostly-complete",
+        help="Skip collection if today is already mostly complete.",
     ),
 ):
     """Main backup and sync command."""
