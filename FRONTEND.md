@@ -6,6 +6,17 @@ All frontend code lives under `dashboard/`.
 
 ---
 
+## Design Principles
+
+All frontend decisions must serve the principles in [`DESIGN.md`](DESIGN.md). Read it before touching any UI. The principles most directly relevant to code decisions:
+
+- **HTML first, CSS second, JavaScript last.** Start from a document that works without scripting. Every `client:*` directive you add is a deliberate exception, not a default.
+- **Speed is part of aesthetics.** Fast pages feel intelligent. Client-side JavaScript that isn't necessary is a performance regression, not neutral.
+- **No appification of reading tasks.** This is a data-reading interface. Resist the impulse to add modals, carousels, and app-like patterns where a simple page would do.
+- **Expose structure instead of hiding it.** Prefer tables, headings, and inline information over collapsed panels and hover-reveals.
+
+---
+
 ## Tech Stack Overview
 
 | Layer | Technology |
@@ -78,7 +89,8 @@ Astro renders every component to static HTML at build time. A Svelte component o
 <!-- Hydrates when the component enters the viewport. Use for below-the-fold UI. -->
 <MyComponent client:visible />
 
-<!-- Hydrates on first user interaction. Use for things like dropdowns. -->
+<!-- Hydrates when the browser is idle (low priority). Use for non-critical UI
+     that doesn't need to be interactive immediately after page load. -->
 <MyComponent client:idle />
 ```
 
@@ -142,9 +154,13 @@ Svelte 5 introduces runes. Use them instead of the legacy `let` + reactive synta
 
 Do not mix the Svelte 4 `$:` reactive statements with Svelte 5 runes in the same component.
 
-### Svelte stores — for shared cross-island state
+### Three tiers of state
 
-When two Svelte islands on the same page need to share state, use a writable store defined in `lib/`:
+Choose the right tier for each piece of state:
+
+**1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
+
+**2. Cross-island shared state** — a `writable` store exported from a `.ts` file in `lib/`. Use when two or more Svelte islands on the same page need to read from or write to the same value.
 
 ```ts
 // dashboard/src/lib/workflowStatusStore.ts
@@ -154,7 +170,6 @@ export const workflowStatus = writable<string | null>(null);
 ```
 
 ```svelte
-<!-- Inside any Svelte component -->
 <script lang="ts">
   import { workflowStatus } from '../lib/workflowStatusStore';
 </script>
@@ -163,6 +178,32 @@ export const workflowStatus = writable<string | null>(null);
 ```
 
 The `$` prefix auto-subscribes and auto-unsubscribes. Never manually call `.subscribe()` inside a component unless you also call the returned unsubscribe function in `onDestroy`.
+
+**3. Singleton lazy-loader** — module-level `$state` runes inside a `.svelte.ts` file. Use for shared data that should be fetched once and shared reactively across any component that imports it. The file extension **must be `.svelte.ts`** for runes to work outside of `.svelte` components.
+
+```ts
+// dashboard/src/lib/completedItemsStore.svelte.ts
+let _data = $state<Record<string, any> | null>(null);
+let _loading = $state(true);
+let _initialized = false;
+
+function ensureLoaded() {
+  if (_initialized || typeof window === 'undefined') return;
+  _initialized = true;
+  fetch('...')
+    .then(r => r.json())
+    .then(json => { _data = json; })
+    .finally(() => { _loading = false; });
+}
+
+export const myStore = {
+  get data()    { return _data; },
+  get loading() { return _loading; },
+  load: ensureLoaded,
+};
+```
+
+Any component that imports `myStore` reads reactive state directly — no subscription boilerplate needed.
 
 ### Props — use `$props()` rune in Svelte 5
 
@@ -190,6 +231,7 @@ Design token CSS variables (defined in `dashboard/src/index.css`) are available 
 - **Do not** store mutable class instances in `$state` if you want fine-grained reactivity. Svelte tracks object identity, not deep mutations. Use plain objects or arrays.
 - **Do not** create stores inside components. Stores belong in `lib/`. A store created inside a component is re-created on every mount.
 - **Do not** reach for `onMount` just to set initial state — use `$state` initialization or `$derived` instead.
+- **Do not** use a `.svelte.ts` file extension unless you actually need module-level runes. Plain logic belongs in `.ts`.
 
 ---
 
@@ -221,6 +263,15 @@ All global design tokens are in `dashboard/src/index.css`. Every token is a CSS 
 
 The theme is applied via `data-theme` on `<html>`. Both `causaganha` (light) and `causaganhadark` (dark) themes are defined as attribute selectors in `index.css`. Components automatically respond to theme changes because they use CSS variables.
 
+### Tailwind migration status
+
+Tailwind has been **removed from the toolchain** — it is not in `package.json`. However, some existing components still contain legacy utility class strings (`bg-*`, `text-*`, `p-*`, `flex`, etc.) from before the migration. A migration script exists at `dashboard/strip-tailwind-classes.mjs`.
+
+Rules for contributors:
+- **Never add new Tailwind/utility classes.** Always write vanilla CSS using design tokens.
+- If you are editing a component that still has legacy utility classes, migrate those classes to CSS variables in the same PR. Do not leave mixed styles.
+- If you see `class="bg-gray-100 p-4"` in a file you are touching, replace it with a scoped CSS rule using `var(--color-base-100)` and `var(--space-4)`.
+
 ### Responsive design
 
 Use a mobile-first approach. Write the default styles for small screens and add `@media (min-width: ...)` for larger breakpoints.
@@ -250,7 +301,8 @@ const JulgamentoSchema = z.object({
   resultado: z.enum(['procedente', 'improcedente', 'parcialmente_procedente']),
 });
 
-type Julgamento = z.infer<typeof Julgamento>;
+// Derive the type from the schema — never from itself
+type Julgamento = z.infer<typeof JulgamentoSchema>;
 
 const raw = await res.json();
 const julgamento = JulgamentoSchema.parse(raw); // throws on invalid data
@@ -289,42 +341,63 @@ type MyType = z.infer<typeof Schema>;
 
 ---
 
+## DOMPurify
+
+Judicial publications from the DJEN API arrive as raw HTML strings. They may contain unsafe markup. Before rendering any HTML string with Svelte's `{@html ...}`, always sanitize with DOMPurify. The pattern is established in `dashboard/src/lib/djen.ts`.
+
+```svelte
+<script lang="ts">
+  import DOMPurify from 'dompurify';
+
+  const { rawHtml }: { rawHtml: string } = $props();
+  const safeHtml = DOMPurify.sanitize(rawHtml);
+</script>
+
+<div>{@html safeHtml}</div>
+```
+
+**Anti-pattern:**
+
+```svelte
+<!-- Never do this — XSS vulnerability -->
+<div>{@html publication.texto}</div>
+```
+
+---
+
 ## State Architecture — Combining Svelte Stores with Astro Islands
 
 The hardest problem in this architecture is sharing state between Svelte islands that Astro treats as independent component trees.
 
 ### The shared store pattern
 
-Islands share state by importing the same store module. Because modules are singletons in the browser, both islands read from and write to the same store instance:
+Islands share state by importing the same store module. Because modules are singletons in the browser, both islands read from and write to the same store instance.
+
+See `dashboard/src/lib/workflowStatusStore.ts` for a simple example and `dashboard/src/lib/completedItemsStore.svelte.ts` for the singleton lazy-loader variant.
+
+### The `createDataRefresh` factory
+
+`dashboard/src/lib/dataRefreshStore.ts` exports a factory for islands that need auto-refreshing data:
 
 ```ts
-// lib/dataRefreshStore.ts — singleton, lives outside any component
-export const refreshTrigger = writable(0);
+import { createDataRefresh } from '../lib/dataRefreshStore';
+
+// key: the property name in the shared data payload
+// initialData: server-rendered seed data (optional)
+// interval: polling interval in ms (default 60 000)
+const store = createDataRefresh('tribunais', serverData, 60_000);
+store.start(); // fetches immediately, then polls
 ```
 
-```svelte
-<!-- Island A: triggers a refresh -->
-<script lang="ts">
-  import { refreshTrigger } from '../lib/dataRefreshStore';
-  function refresh() { refreshTrigger.update(n => n + 1); }
-</script>
-```
+The factory returns a Svelte store with shape `{ data, loading, error }` plus `refresh()`, `start()`, and `stop()` methods.
 
-```svelte
-<!-- Island B: reacts to refreshes -->
-<script lang="ts">
-  import { refreshTrigger } from '../lib/dataRefreshStore';
+Internally it maintains `window.__CAUSAGANHA_DATA` — a client-side cache with a 15-second TTL that deduplicates in-flight requests. Multiple islands on the same page that call `createDataRefresh` will share one underlying fetch, not issue parallel requests.
 
-  $effect(() => {
-    const _ = $refreshTrigger; // subscribe to trigger
-    loadData();
-  });
-</script>
-```
+Use `createDataRefresh` when the island needs:
+- Auto-polling with a configurable interval
+- Shared caching across other islands on the page
 
-### Client-side cache
-
-`dataRefreshStore.ts` implements a 15-second stale-time cache on `window`. This prevents duplicate API calls when multiple islands fetch the same data. Always go through this cache for shared data fetches rather than calling `fetch()` directly.
+Use a plain `writable` store when the data is local to one island or managed by user interaction, not periodic fetch.
 
 ### Anti-patterns — State
 
@@ -363,7 +436,7 @@ Keep DuckDB initialization in a single place (do not spin up multiple instances)
 
 ## Observable Plot
 
-Used for data visualization (heatmaps, coverage charts). Always render Plot inside `onMount` or a Svelte `$effect` — Plot requires the DOM.
+Used for data visualization (heatmaps, coverage charts). Always render Plot inside a Svelte `$effect` — Plot requires the DOM.
 
 ```svelte
 <script lang="ts">
@@ -437,14 +510,25 @@ The project uses strict TypeScript (`astro/tsconfigs/strict`). All `.svelte` fil
 
 ---
 
+## Known Gaps
+
+These areas are not yet covered by existing infrastructure. Be aware before assuming they exist.
+
+- **No end-to-end tests.** Playwright or a similar e2e framework is not set up. BDD tests run in jsdom only and do not test real browser behavior or full page navigation.
+- **No i18n.** All UI strings are hardcoded in Portuguese. There is no translation framework in place.
+- **Accessibility.** Guidelines and known gaps are documented in `dashboard/ACCESSIBILITY.md` and `dashboard/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
+
+---
+
 ## Summary: The Decision Ladder
 
 When adding a new piece of code, ask these questions in order:
 
 1. **Is this logic with no UI?** → `lib/` as a `.ts` file.
 2. **Is this a Zod schema or type definition?** → `lib/` alongside the fetcher that uses it.
-3. **Is this a store?** → `lib/` as a `.ts` or `.svelte.ts` file.
-4. **Is this static HTML with at most one trivial DOM interaction?** → `.astro` with a plain `<script>`.
-5. **Is this interactive UI with reactive state?** → `.svelte` component, added to a page as an island with the least-expensive `client:*` directive that still works.
+3. **Is this a singleton store or lazy-loader?** → `lib/` as a `.svelte.ts` file (module-level `$state`).
+4. **Is this shared reactive state between islands?** → `lib/` as a plain `.ts` file with a `writable` store.
+5. **Is this static HTML with at most one trivial DOM interaction?** → `.astro` with a plain `<script>`.
+6. **Is this interactive UI with reactive state?** → `.svelte` component, added to a page as an island with the least-expensive `client:*` directive that still works.
 
 Every line of client-side JavaScript is a cost. Always start at step 1 and only move down the ladder when the simpler option is insufficient.
