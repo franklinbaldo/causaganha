@@ -519,6 +519,216 @@ export function parseDjenPublicationCollectionSafely(input: unknown): DjenPublic
   return publications;
 }
 
+const DJEN_PUBLIC_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao";
+const DJEN_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app/api/v1/comunicacao";
+const DJEN_FETCH_TIMEOUT_MS = 10000;
+const DJEN_CACHE_TTL_MS = 60_000;
+const DJEN_CACHE_MAX_ENTRIES = 40;
+
+export type DjenComunicacaoQuery = z.infer<typeof DjenComunicacaoQuerySchema>;
+
+export interface DjenRateLimit {
+  limit: number | null;
+  remaining: number | null;
+  resetAt: number | null;
+}
+
+export interface DjenSearchResult {
+  items: DjenPublication[];
+  count: number;
+  rateLimit: DjenRateLimit;
+  source: "djen";
+  usedFallback: boolean;
+}
+
+export class DjenValidationError extends Error {
+  issues: string[];
+
+  constructor(issues: string[]) {
+    super(`Consulta DJEN inválida: ${issues.join("; ")}`);
+    this.name = "DjenValidationError";
+    this.issues = issues;
+  }
+}
+
+export class DjenRateLimitError extends Error {
+  retryAfterSec: number;
+
+  constructor(retryAfterSec: number) {
+    super(`Limite de requisições atingido. Aguarde ${retryAfterSec}s.`);
+    this.name = "DjenRateLimitError";
+    this.retryAfterSec = retryAfterSec;
+  }
+}
+
+const DJEN_IDENTITY_KEYS = [
+  "siglaTribunal",
+  "texto",
+  "nomeParte",
+  "nomeAdvogado",
+  "numeroOab",
+  "numeroProcesso",
+] as const;
+
+function hasIdentityParam(query: DjenComunicacaoQuery): boolean {
+  return DJEN_IDENTITY_KEYS.some((key) => {
+    const value = (query as Record<string, unknown>)[key];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+}
+
+function buildDjenQueryString(query: DjenComunicacaoQuery): string {
+  const params = new URLSearchParams();
+  const entries = Object.entries(query) as [string, unknown][];
+  entries.sort(([a], [b]) => a.localeCompare(b));
+  for (const [key, value] of entries) {
+    if (value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
+  return params.toString();
+}
+
+function parseRateLimit(headers: Headers): DjenRateLimit {
+  const limitRaw = headers.get("x-ratelimit-limit");
+  const remainingRaw = headers.get("x-ratelimit-remaining");
+  const retryAfterRaw = headers.get("retry-after");
+
+  const limit = limitRaw !== null ? Number(limitRaw) : NaN;
+  const remaining = remainingRaw !== null ? Number(remainingRaw) : NaN;
+  const retryAfter = retryAfterRaw !== null ? Number(retryAfterRaw) : NaN;
+
+  return {
+    limit: Number.isFinite(limit) ? limit : null,
+    remaining: Number.isFinite(remaining) ? remaining : null,
+    resetAt: Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : null,
+  };
+}
+
+interface DjenCacheEntry {
+  expiresAt: number;
+  result: DjenSearchResult;
+}
+
+const djenSearchCache = new Map<string, DjenCacheEntry>();
+
+export function clearDjenSearchCache(): void {
+  djenSearchCache.clear();
+}
+
+async function attemptDjenSearch(
+  baseUrl: string,
+  queryString: string,
+  signal: AbortSignal | undefined,
+): Promise<DjenSearchResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DJEN_FETCH_TIMEOUT_MS);
+
+  const onExternalAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}?${queryString}`, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener("abort", onExternalAbort);
+  }
+
+  const rateLimit = parseRateLimit(res.headers);
+
+  if (res.status === 429) {
+    const retryHeader = Number(res.headers.get("retry-after"));
+    const retryAfterSec = Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : 60;
+    throw new DjenRateLimitError(Math.max(60, retryAfterSec));
+  }
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  const listParsed = DjenComunicacaoListResponseSchema.safeParse(data);
+  const items = listParsed.success
+    ? listParsed.data.items
+    : parseDjenPublicationCollectionSafely(data);
+  const count = listParsed.success
+    ? (listParsed.data.count ?? items.length)
+    : items.length;
+
+  return {
+    items,
+    count,
+    rateLimit,
+    source: "djen",
+    usedFallback: false,
+  };
+}
+
+export async function searchDjenComunicacoes(
+  query: DjenComunicacaoQuery,
+  opts: { signal?: AbortSignal; bypassCache?: boolean } = {},
+): Promise<DjenSearchResult> {
+  const parsed = DjenComunicacaoQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    throw new DjenValidationError(parsed.error.issues.map((issue) => issue.message));
+  }
+
+  const normalizedQuery = parsed.data as DjenComunicacaoQuery;
+  const smallPage =
+    typeof normalizedQuery.itensPorPagina === "number" &&
+    normalizedQuery.itensPorPagina > 0 &&
+    normalizedQuery.itensPorPagina <= 5;
+
+  if (!hasIdentityParam(normalizedQuery) && !smallPage) {
+    throw new DjenValidationError([
+      "Informe ao menos um de: tribunal, texto, parte, advogado, OAB ou processo.",
+    ]);
+  }
+
+  const queryString = buildDjenQueryString(normalizedQuery);
+  const cacheKey = queryString;
+
+  if (!opts.bypassCache) {
+    const hit = djenSearchCache.get(cacheKey);
+    if (hit && hit.expiresAt > Date.now()) {
+      // Refresh LRU order
+      djenSearchCache.delete(cacheKey);
+      djenSearchCache.set(cacheKey, hit);
+      return hit.result;
+    }
+    if (hit) {
+      djenSearchCache.delete(cacheKey);
+    }
+  }
+
+  let result: DjenSearchResult;
+  try {
+    result = await attemptDjenSearch(DJEN_PUBLIC_URL, queryString, opts.signal);
+  } catch (err) {
+    if (err instanceof DjenRateLimitError) throw err;
+    if (opts.signal?.aborted) throw err;
+    if ((err as Error)?.name === "AbortError") throw err;
+
+    const viaProxy = await attemptDjenSearch(DJEN_PROXY_URL, queryString, opts.signal);
+    result = { ...viaProxy, usedFallback: true };
+  }
+
+  if (djenSearchCache.size >= DJEN_CACHE_MAX_ENTRIES) {
+    const firstKey = djenSearchCache.keys().next().value;
+    if (firstKey !== undefined) djenSearchCache.delete(firstKey);
+  }
+  djenSearchCache.set(cacheKey, { expiresAt: Date.now() + DJEN_CACHE_TTL_MS, result });
+
+  return result;
+}
+
 export async function fetchLivePublicationDetail(
   pubFromIa: DjenPublication
 ): Promise<{ publication: DjenPublication | null; source: "djen" | "ia"; usedFallback: boolean; error?: string }> {

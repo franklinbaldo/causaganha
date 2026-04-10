@@ -6,6 +6,7 @@ import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
 import { deriveData } from '../../lib/fetchData';
 import TribunalView from '../../components/TribunalView.svelte';
 import IASearchBar from '../../components/IASearchBar.svelte';
+import PublicationSearch from '../../components/PublicationSearch.svelte';
 import { readJson } from '../../lib/readJson';
 
 const dashboardData = readJson('dashboard-data.json');
@@ -46,24 +47,38 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       { label: 'Publicações' }
     ]} />
 
-    <div class="overview-card">
-      <h2 class="overview-title">Visão Geral do Arquivo</h2>
-      <TribunalView
-        client:idle
-        initialPipeline={data?.cacheData?.today?.pipeline}
-        initialProgressByYear={data?.progressByYear}
-        initialVolume={data?.volume}
-        initialIaSnapshot={data?.iaSnapshot}
-      />
-    </div>
-
-    <section class="explorer-section">
-      <h2 class="explorer-heading">Explorador de Arquivos</h2>
-      <p class="explorer-description">
-        Busque diretamente nos buckets do Internet Archive por tribunal ou ano.
+    <section class="live-search-section">
+      <h2 class="section-heading">Busca ao vivo no DJEN</h2>
+      <p class="section-description">
+        Pesquise publicações diretamente na API pública do CNJ por OAB, número de processo, parte, advogado ou texto livre.
       </p>
-      <IASearchBar client:idle />
+      <PublicationSearch client:idle />
     </section>
+
+    <details class="archive-section">
+      <summary class="archive-summary">
+        <span class="summary-title">Explorador de Arquivos (Internet Archive)</span>
+        <span class="summary-hint">Navegue por tribunal, ano e data nos snapshots arquivados</span>
+      </summary>
+      <div class="overview-card">
+        <h3 class="overview-title">Visão Geral do Arquivo</h3>
+        <TribunalView
+          client:idle
+          initialPipeline={data?.cacheData?.today?.pipeline}
+          initialProgressByYear={data?.progressByYear}
+          initialVolume={data?.volume}
+          initialIaSnapshot={data?.iaSnapshot}
+        />
+      </div>
+
+      <section class="explorer-section">
+        <h3 class="explorer-heading">Buscar ZIPs por tribunal ou ano</h3>
+        <p class="explorer-description">
+          Busque diretamente nos buckets do Internet Archive por tribunal ou ano.
+        </p>
+        <IASearchBar client:idle />
+      </section>
+    </details>
 
     <footer class="page-footer">
       <small class="footer-text">Dados do DJEN arquivados no Internet Archive.
@@ -88,44 +103,101 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     padding-right: var(--space-md);
   }
 
-  .overview-card {
+  .live-search-section {
+    margin-top: 2rem;
     margin-bottom: 3rem;
+  }
+
+  .section-heading {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+  }
+
+  .section-description {
+    opacity: 0.7;
+    margin-bottom: 1.25rem;
+    max-width: 54rem;
+  }
+
+  .archive-section {
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius-box);
-    padding: 1.5rem;
     background: var(--color-base-100);
-    box-shadow: var(--shadow-sm);
-    margin-top: 2rem;
+    padding: 0 1.25rem;
+    margin-bottom: 3rem;
+  }
+
+  .archive-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .archive-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .archive-summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 0.5rem;
+    transition: transform 120ms ease;
+    opacity: 0.6;
+  }
+
+  details[open] > .archive-summary::before {
+    transform: rotate(90deg);
+  }
+
+  .summary-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    opacity: 0.85;
+  }
+
+  .summary-hint {
+    font-size: var(--font-size-sm);
+    opacity: 0.6;
+    padding-left: 1.25rem;
+  }
+
+  .overview-card {
+    margin-bottom: 2rem;
+    border-top: 1px solid var(--color-base-200);
+    padding-top: 1.25rem;
   }
 
   .overview-title {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-weight: 700;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     opacity: 0.8;
-    border-bottom: 1px solid var(--color-base-200);
-    padding-bottom: 0.5rem;
   }
 
   .explorer-section {
     max-width: 64rem;
     margin-left: auto;
     margin-right: auto;
-    margin-bottom: 4rem;
+    margin-bottom: 2rem;
   }
 
   .explorer-heading {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-lg);
     font-weight: 700;
-    margin-bottom: 1rem;
-    opacity: 0.9;
+    margin-bottom: 0.5rem;
+    opacity: 0.85;
     text-align: center;
   }
 
   .explorer-description {
     text-align: center;
     opacity: 0.6;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     max-width: 42rem;
     margin-left: auto;
     margin-right: auto;
