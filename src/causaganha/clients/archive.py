@@ -1,19 +1,10 @@
 ITEM_ID_PARTS_MIN = 3
 
-"""Internet Archive service for uploading documents.
+"""Local archive fallback and protocol for testing.
 
-.. deprecated::
-    The ``InternetArchiveService`` class in this module uses the
-    ``internetarchive`` Python library for uploads. The production pipeline
-    uses httpx-based uploads via ``scripts/pipeline/ia_s3.py`` instead,
-    because the ``internetarchive`` library does not reliably support the
-    ``x-archive-meta-*`` headers that IA requires. See CONTRIBUTING.md.
-
-    **Do not use InternetArchiveService for production uploads.**
-    Use ``scripts.pipeline.ia_s3.upload_to_ia()`` instead.
-
-    The ``LocalArchiveService`` fallback and the ``ArchiveService`` protocol
-    are retained for local testing and metadata/download operations.
+The ``ArchiveService`` protocol and ``LocalArchiveService`` are retained for
+local testing and development.  Production uploads to Internet Archive use the
+httpx-based ``scripts/pipeline/ia_s3.py`` module.
 """
 
 import asyncio
@@ -22,13 +13,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-import internetarchive as ia
 import structlog
 
 from causaganha.clients.constants import (
-    DEFAULT_RETRY_SLEEP_SECONDS,
-    DEFAULT_UPLOAD_RETRIES,
-    DEFAULT_UPLOAD_TIMEOUT_SECONDS,
     IA_DEFAULT_COLLECTION,
     IA_DEFAULT_CREATOR,
     IA_DEFAULT_MEDIATYPE,
@@ -151,170 +138,3 @@ class LocalArchiveService:
         }
 
 
-class InternetArchiveService:
-    """Service for uploading documents to Internet Archive."""
-
-    def __init__(self, upload_settings: dict[str, Any] | None = None) -> None:
-        """Initialize the Internet Archive service.
-
-        Args:
-            upload_settings: Optional custom upload settings (retries, timeout, etc.).
-        """
-        self.session = ia.get_session()
-        self.upload_settings = upload_settings or {
-            "retries": DEFAULT_UPLOAD_RETRIES,
-            "retries_sleep": DEFAULT_RETRY_SLEEP_SECONDS,
-            "timeout": DEFAULT_UPLOAD_TIMEOUT_SECONDS,
-        }
-
-    async def upload_file(
-        self,
-        file_path: Path,
-        item_id: str,
-        metadata: dict[str, Any] | None = None,
-    ) -> str | None:
-        """Upload a file to Internet Archive with retry logic.
-
-        Args:
-            file_path: Path to the file to upload.
-            item_id: Internet Archive item identifier.
-            metadata: Optional metadata for the upload.
-
-        Returns:
-            The Internet Archive URL if successful, None otherwise.
-        """
-        if not file_path.exists():
-            logger.error("file_not_found", path=str(file_path))
-            return None
-
-        logger.info("upload_starting", item_id=item_id, file=file_path.name)
-
-        # Retry logic (TDD-driven improvement)
-        max_retries = self.upload_settings.get("retries", 3)
-        retry_sleep = self.upload_settings.get("retries_sleep", 5)
-
-        for attempt in range(max_retries):
-            try:
-                logger.debug("upload_attempt", attempt=attempt + 1, max_retries=max_retries)
-
-                # Run the blocking IA upload in a thread pool
-                result = await asyncio.to_thread(
-                    self._sync_upload,
-                    file_path,
-                    item_id,
-                    metadata or {},
-                )
-
-                logger.info("upload_success", item_id=item_id, url=result)
-            except (ConnectionError, TimeoutError) as e:
-                # Transient errors - retry
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        "upload_retry",
-                        attempt=attempt + 1,
-                        error=str(e),
-                        retry_in=retry_sleep,
-                    )
-                    await asyncio.sleep(retry_sleep)
-                else:
-                    logger.exception("upload_failed_max_retries", item_id=item_id, error=str(e))
-                    return None
-            except Exception as e:
-                # Non-transient errors - don't retry
-                logger.exception(
-                    "upload_failed",
-                    item_id=item_id,
-                    path=str(file_path),
-                    error=str(e),
-                )
-                return None
-            else:
-                return result
-
-        return None
-
-    def _sync_upload(
-        self,
-        file_path: Path,
-        item_id: str,
-        metadata: dict[str, Any],
-    ) -> str:
-        """Synchronous upload to IA.
-
-        Args:
-            file_path: Path to the file.
-            item_id: IA item identifier.
-            metadata: Upload metadata.
-
-        Returns:
-            The IA URL.
-        """
-        logger.info("uploading_to_ia", item_id=item_id, file=file_path.name)
-
-        item = self.session.get_item(item_id)
-        result = item.upload_file(
-            file_path,
-            metadata=metadata,
-            verbose=True,
-            retries=3,
-            retries_sleep=5,
-        )
-
-        if result:
-            url = f"https://archive.org/details/{item_id}"
-            logger.info("upload_success", url=url)
-            return url
-        msg = f"Upload failed for {item_id}"
-        raise RuntimeError(msg)
-
-    async def check_item_exists(self, item_id: str) -> bool:
-        """Check if an item exists on Internet Archive.
-
-        Args:
-            item_id: The IA item identifier.
-
-        Returns:
-            True if the item exists, False otherwise.
-        """
-        try:
-            return await asyncio.to_thread(self._sync_check_item, item_id)
-        except Exception:
-            logger.exception("check_failed", item_id=item_id)
-            return False
-
-    def _sync_check_item(self, item_id: str) -> bool:
-        """Synchronous check for item existence.
-
-        Args:
-            item_id: The IA item identifier.
-
-        Returns:
-            True if exists, False otherwise.
-        """
-        item = self.session.get_item(item_id)
-        return item.exists
-
-    def generate_metadata(self, intimation_data: dict[str, Any]) -> dict[str, Any]:
-        """Generate Internet Archive metadata from intimation data.
-
-        Args:
-            intimation_data: Intimation data dictionary.
-
-        Returns:
-            Formatted metadata dict for IA upload.
-        """
-        processo = intimation_data.get("numero_processo", "unknown")
-        tribunal = intimation_data.get("sigla_tribunal", "unknown")
-        data_pub = intimation_data.get(
-            "data_disponibilizacao", datetime.now(UTC).date().isoformat()
-        )
-
-        return {
-            "collection": IA_DEFAULT_COLLECTION,
-            "mediatype": IA_DEFAULT_MEDIATYPE,
-            "title": f"{tribunal} - Processo {processo}",
-            "creator": IA_DEFAULT_CREATOR,
-            "subject": [*IA_DEFAULT_SUBJECTS, tribunal.lower()],
-            "description": f"Intimação judicial do processo {processo}",
-            "date": data_pub,
-        }
