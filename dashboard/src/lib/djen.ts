@@ -467,3 +467,31 @@ export function parseDjenPublication(input: unknown): DjenPublication {
 export function parseDjenPublicationCollection(input: unknown): DjenPublication[] {
   return DjenPublicationCollectionSchema.parse(input);
 }
+
+export function parseDjenPublicationCollectionSafely(input: unknown): DjenPublication[] {
+  const collectionResult = z
+    .union([
+      z.array(z.unknown()),
+      z.object({ items: z.array(z.unknown()) }).passthrough(),
+    ])
+    .safeParse(input);
+
+  if (!collectionResult.success) {
+    return [];
+  }
+
+  const items = Array.isArray(collectionResult.data)
+    ? collectionResult.data
+    : collectionResult.data.items;
+
+  const publications: DjenPublication[] = [];
+
+  for (const item of items) {
+    const parsed = DjenPublicationSchema.safeParse(item);
+    if (parsed.success) {
+      publications.push(parsed.data);
+    }
+  }
+
+  return publications;
+}
