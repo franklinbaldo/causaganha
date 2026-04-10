@@ -1,25 +1,21 @@
-"""CLI command module for CausaGanha backfill pipeline."""
+"""CLI command module for the DJEN backfill pipeline."""
+
+from __future__ import annotations
 
 import asyncio
-import logging
+import json
 import os
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-import structlog
 import typer
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
 
-from djen_backup.backfill import (
-    BackfillConfig,
-    load_backfill_state,
-    run_backfill,
-    save_backfill_state,
-)
+from djen_backup.credentials import get_ia_s3_auth
+from djen_backup.engine import SyncConfig, SyncState, run_sync
 
 
 app = typer.Typer(
@@ -29,71 +25,8 @@ app = typer.Typer(
 
 console = Console()
 
-
-def _setup_backfill_logging(log_file: Path, *, verbose: bool = False) -> None:
-    """Configure logging for the backfill run: file (DEBUG) + console (Rich)."""
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-    root.handlers.clear()
-
-    # File handler: everything in detail
-    fh = logging.FileHandler(log_file, encoding="utf-8")
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(name)s  %(message)s"))
-    root.addHandler(fh)
-
-    # Console handler: Rich, WARNING+ (or DEBUG if verbose)
-    rh = RichHandler(
-        console=Console(stderr=True),
-        show_time=True,
-        show_path=False,
-        rich_tracebacks=True,
-        tracebacks_show_locals=False,
-        level=logging.DEBUG if verbose else logging.WARNING,
-    )
-    root.addHandler(rh)
-
-    # Silence noisy HTTP debug logs
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.INFO)
-    logging.getLogger("hpack").setLevel(logging.WARNING)
-
-    # Bridge structlog → stdlib logging
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=False,
-    )
-
-
-def _resolve_ia_auth() -> str:
-    """Build the IA S3 auth header from environment."""
-    access = os.environ.get("IAS3_ACCESS_KEY") or os.environ.get("IA_ACCESS_KEY", "")
-    secret = os.environ.get("IAS3_SECRET_KEY") or os.environ.get("IA_SECRET_KEY", "")
-    return f"LOW {access}:{secret}"
-
-
-DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
-
-
-def _resolve_djen_url(*, use_proxy: bool = False) -> str:
-    """Get the DJEN URL. Direct by default, proxy when outside Brazil."""
-    if use_proxy:
-        from causaganha.config import DJEN_PROXY_URL
-
-        return os.environ.get("DJEN_PROXY_URL", DJEN_PROXY_URL)
-    return os.environ.get("DJEN_PROXY_URL", DJEN_DIRECT_URL)
+_DEFAULT_STATE_FILE = Path("data/backfill-state.json")
+_DEFAULT_DJEN_PROXY = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
 
 def _format_duration(seconds: float) -> str:
@@ -104,8 +37,22 @@ def _format_duration(seconds: float) -> str:
     return f"{minutes}m{secs:.0f}s"
 
 
+def _resolve_ia_auth(*, dry_run: bool = False) -> str:
+    """Get IA S3 auth header; returns a dummy value in dry-run mode."""
+    try:
+        return get_ia_s3_auth()
+    except RuntimeError:
+        if dry_run:
+            return "LOW dry-run:dry-run"
+        raise
+
+
+def _resolve_djen_url() -> str:
+    return os.environ.get("DJEN_PROXY_URL", _DEFAULT_DJEN_PROXY)
+
+
 def _preflight_checks() -> None:
-    """Check prerequisites before running. Exits on failure."""
+    """Verify IA credentials are present; exit with a clear message if not."""
     errors: list[str] = []
     if not os.environ.get("IAS3_ACCESS_KEY") and not os.environ.get("IA_ACCESS_KEY"):
         errors.append("IAS3_ACCESS_KEY (ou IA_ACCESS_KEY) não definido no ambiente")
@@ -125,7 +72,7 @@ def _preflight_checks() -> None:
         raise typer.Exit(code=1)
 
 
-# ── Commands ────────────────────────────────────────────────
+# ── Commands ────────────────────────────────────────────────────────────────
 
 
 @app.command()
@@ -133,11 +80,7 @@ def run(  # noqa: PLR0913
     target_date: str = typer.Option(
         "",
         "--date",
-        help="Data específica (YYYY-MM-DD). Default: ontem.",
-    ),
-    job: str = typer.Option(
-        "all",
-        help="Step a executar: all, collect, consolidate, embed.",
+        help="Data mais recente a sincronizar (YYYY-MM-DD). Default: ontem.",
     ),
     tribunal: str = typer.Option(
         "",
@@ -145,38 +88,27 @@ def run(  # noqa: PLR0913
     ),
     max_items: int = typer.Option(
         0,
-        help="Máximo de uploads por run (0 = sem limite).",
+        help="Máximo de itens por run (0 = sem limite).",
     ),
     deadline_minutes: int = typer.Option(
         45,
         help="Tempo máximo em minutos.",
     ),
+    workers: int = typer.Option(
+        4,
+        help="Workers paralelos.",
+    ),
+    state_file: Path = typer.Option(
+        _DEFAULT_STATE_FILE,
+        help="Path ao arquivo JSON de progresso.",
+    ),
     *,
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Mostrar logs detalhados no console.",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Simular sem executar.",
-    ),
-    continue_on_error: bool = typer.Option(
-        False,
-        "--continue-on-error",
-        help="Continuar pipeline mesmo quando um step falha.",
-    ),
-    use_proxy: bool = typer.Option(
-        False,
-        "--use-proxy",
-        help="Usar proxy Cloud Run para DJEN (necessário fora do Brasil).",
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Logs detalhados."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simular sem executar uploads."),
 ) -> None:
-    """Run the backfill pipeline locally."""
+    """Run the DJEN ZIP backup sync against the Internet Archive."""
     # Load .env if present
-    env_file = Path(__file__).parent.parent.parent.parent.parent / ".env"
+    env_file = Path(__file__).parents[4] / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             line = line.strip()
@@ -187,98 +119,72 @@ def run(  # noqa: PLR0913
     if not dry_run:
         _preflight_checks()
 
-    # Setup logging
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"pipeline-{datetime.now(UTC).date().isoformat()}.log"
-    _setup_backfill_logging(log_file, verbose=verbose)
-
-    # Resolve config
     today = datetime.now(UTC).date()
     end_date = date.fromisoformat(target_date) if target_date else today - timedelta(days=1)
 
     config_lines = [
         f"[bold]Data:[/bold]     {end_date.isoformat()}",
-        f"[bold]Job:[/bold]      {job}",
         f"[bold]Tribunal:[/bold] {tribunal or 'todos'}",
-        f"[bold]Limite:[/bold]   {max_items or 'sem limite'} uploads, {deadline_minutes}min",
-        f"[bold]Log:[/bold]      {log_file}",
+        f"[bold]Limite:[/bold]   {max_items or 'sem limite'} itens, {deadline_minutes}min",
+        f"[bold]Workers:[/bold]  {workers}",
+        f"[bold]State:[/bold]    {state_file}",
     ]
     if dry_run:
         config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run")
+    if verbose:
+        config_lines.append("[dim]Verbose: on[/dim]")
 
     console.print()
     console.print(
         Panel(
             "\n".join(config_lines),
-            title="[bold]Pipeline Run[/bold]",
+            title="[bold]DJEN Backup Run[/bold]",
             border_style="blue",
             padding=(1, 2),
         )
     )
     console.print()
 
-    if job in ("all", "collect"):
-        backfill_config = BackfillConfig(
-            start_date=end_date,
-            lower_bound=None,
-            tribunal=tribunal or None,
-            deadline_minutes=deadline_minutes,
-            max_items=max_items,
-            workers=1,
-            backfill_state_file=Path("data/backfill-state.json"),
-            state_file=Path("data/ia-state.json"),
-            djen_proxy_url=_resolve_djen_url(use_proxy=use_proxy),
-            ia_auth=_resolve_ia_auth(),
-            dry_run=dry_run,
-        )
+    config = SyncConfig(
+        start_date=end_date,
+        lower_bound=None,
+        tribunal=tribunal or None,
+        deadline_minutes=deadline_minutes,
+        max_items=max_items,
+        workers=workers,
+        state_file=state_file if state_file.exists() else None,
+        djen_proxy_url=_resolve_djen_url(),
+        ia_auth=_resolve_ia_auth(dry_run=dry_run),
+        dry_run=dry_run,
+    )
 
-        console.print("  ⏳ Collect...")
-        start = time.time()
-        try:
-            exit_code = asyncio.run(run_backfill(backfill_config))
-            duration = time.time() - start
-            if exit_code == 0:
-                console.print(
-                    f"  [green]✓[/green] Collect         [dim]{_format_duration(duration)}[/dim]"
-                )
-            else:
-                console.print(
-                    f"  [red]✗[/red] Collect         "
-                    f"[dim]{_format_duration(duration)}[/dim]  exit={exit_code}"
-                )
-                if not continue_on_error:
-                    raise typer.Exit(code=exit_code)
-        except Exception as e:
-            duration = time.time() - start
-            console.print(f"  [red]✗[/red] Collect         [dim]{_format_duration(duration)}[/dim]")
-            console.print(
-                Panel(
-                    f"[bold]{type(e).__name__}[/bold]: {e}",
-                    title="[red]Error in Collect[/red]",
-                    border_style="red",
-                    padding=(0, 1),
-                )
-            )
-            if not continue_on_error:
-                raise typer.Exit(code=1) from e
+    start = time.time()
+    exit_code = asyncio.run(run_sync(config))
+    duration = time.time() - start
 
-    console.print(f"\n  [dim]Log: {log_file}[/dim]\n")
+    sym = "[green]✓[/green]" if exit_code == 0 else "[red]✗[/red]"
+    console.print(f"\n  {sym} Sync concluído em {_format_duration(duration)}\n")
+
+    raise typer.Exit(code=exit_code)
 
 
 @app.command()
 def status(
-    backfill_state_file: Path = typer.Option(
-        Path("data/backfill-state.json"),
-        help="Path to backfill progress JSON.",
+    state_file: Path = typer.Option(
+        _DEFAULT_STATE_FILE,
+        help="Path ao arquivo JSON de progresso.",
     ),
 ) -> None:
     """Show per-tribunal backfill progress."""
-    bstate = load_backfill_state(backfill_state_file)
+    if not state_file.exists():
+        console.print(f"[dim]State file não encontrado: {state_file}[/dim]")
+        return
+
+    bstate = SyncState.from_dict(json.loads(state_file.read_text()))
     progress = bstate.get_all_progress()
 
     if not progress:
-        console.print("[dim]No backfill state found.[/dim]")
+        console.print("[dim]Nenhum estado de backfill encontrado.[/dim]")
         return
 
     running = sum(1 for p in progress.values() if not p.stopped)
@@ -306,14 +212,7 @@ def status(
             if streak_style
             else str(prog.empty_streak)
         )
-
-        table.add_row(
-            code,
-            status_str,
-            prog.cursor_date.isoformat(),
-            streak_text,
-            hit_str,
-        )
+        table.add_row(code, status_str, prog.cursor_date.isoformat(), streak_text, hit_str)
 
     console.print()
     console.print(table)
@@ -324,46 +223,51 @@ def status(
 def reset(
     tribunal: str | None = typer.Option(
         None,
-        help="Reset a specific tribunal. Omit for --all.",
+        help="Tribunal a resetar. Omita para usar --all.",
     ),
     *,
-    all: bool = typer.Option(
+    all_tribunals: bool = typer.Option(
         False,
         "--all",
-        help="Reset all stopped tribunals.",
+        help="Resetar todos os tribunais parados.",
     ),
-    backfill_state_file: Path = typer.Option(
-        Path("data/backfill-state.json"),
-        help="Path to backfill progress JSON.",
+    state_file: Path = typer.Option(
+        _DEFAULT_STATE_FILE,
+        help="Path ao arquivo JSON de progresso.",
     ),
 ) -> None:
     """Reset stopped tribunal(s) for re-scanning."""
-    if not tribunal and not all:
+    if not tribunal and not all_tribunals:
         console.print("[red]Error: provide --tribunal CODE or --all[/red]")
         raise typer.Exit(code=1)
 
-    bstate = load_backfill_state(backfill_state_file)
+    if not state_file.exists():
+        console.print(f"[red]State file não encontrado: {state_file}[/red]")
+        raise typer.Exit(code=1)
+
+    bstate = SyncState.from_dict(json.loads(state_file.read_text()))
     progress = bstate.get_all_progress()
 
-    async def _reset() -> int:
-        count = 0
-        if tribunal:
-            if await bstate.reset_tribunal(tribunal):
-                console.print(f"  [green]✓[/green] Reset {tribunal}")
-                count = 1
-            else:
-                console.print(f"  [red]✗[/red] Tribunal {tribunal} not found in state.")
+    count = 0
+    if tribunal:
+        prog = progress.get(tribunal)
+        if prog:
+            prog.stopped = False
+            prog.empty_streak = 0
+            console.print(f"  [green]✓[/green] Reset {tribunal}")
+            count = 1
         else:
-            for code, prog in progress.items():
-                if prog.stopped:
-                    await bstate.reset_tribunal(code)
-                    console.print(f"  [green]✓[/green] Reset {code}")
-                    count += 1
-        return count
+            console.print(f"  [red]✗[/red] Tribunal {tribunal} não encontrado no state.")
+    else:
+        for code, prog in progress.items():
+            if prog.stopped:
+                prog.stopped = False
+                prog.empty_streak = 0
+                console.print(f"  [green]✓[/green] Reset {code}")
+                count += 1
 
-    count = asyncio.run(_reset())
     if count > 0:
-        save_backfill_state(bstate, backfill_state_file)
+        state_file.write_text(json.dumps(bstate.to_dict(), indent=2))
         console.print(f"\n  {count} tribunal(s) reset.")
     else:
-        console.print("  [dim]Nothing to reset.[/dim]")
+        console.print("  [dim]Nada para resetar.[/dim]")
