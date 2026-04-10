@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import os
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -12,11 +11,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import httpx
-import internetarchive as ia
 import structlog
 
 from djen_backup.archive import (
     get_ia_item_id,
+    upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.inventory import ZipInventory
@@ -361,7 +360,11 @@ async def download_to_staging(
 
 
 async def batch_uploader(
-    config: SyncConfig, inventory: ZipInventory, state: SyncState, summary: SyncSummary
+    config: SyncConfig,
+    inventory: ZipInventory,
+    state: SyncState,
+    summary: SyncSummary,
+    upload_client: httpx.AsyncClient,
 ) -> None:
     """Background consumer that uploads batches of files from staging."""
     while True:
@@ -384,33 +387,29 @@ async def batch_uploader(
                     files.append(str(STAGING_DIR / item_id / filename))
 
                 try:
-                    if not config.dry_run:
-                        # IA SDK Upload (Synchronous block, move to thread)
-                        await asyncio.to_thread(
-                            ia.upload,
-                            item_id,
-                            files,
-                            access_key=os.environ.get("IAS3_ACCESS_KEY"),
-                            secret_key=os.environ.get("IAS3_SECRET_KEY"),
-                            metadata={
-                                "collection": "opensource",
-                                "mediatype": "data",
-                                "creator": "CausaGanha",
-                                "subject": "brazilian-law;djen;legal;judiciary",
-                            },
-                            retries=5,
-                        )
-
-                    # Post-upload cleanup (always track locally)
+                    tribunal = item_id.split("-")[1].upper()
                     for d in dates:
-                        await inventory.add(item_id.split("-")[1].upper(), d)
-                        await state.record_hit(item_id.split("-")[1].upper(), d)
-                        await summary.inc_hit()
-
+                        filename = f"djen-{d.isoformat()}-{tribunal}.zip"
+                        path = STAGING_DIR / item_id / filename
                         if not config.dry_run:
-                            # Remove local file
-                            filename = f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
-                            (STAGING_DIR / item_id / filename).unlink(missing_ok=True)
+                            resp = await upload_zip(
+                                upload_client, d, tribunal, path, config.ia_auth
+                            )
+                            if resp.status_code != 200:
+                                log.warning(
+                                    "batch_upload_item_failed",
+                                    item_id=item_id,
+                                    date=d.isoformat(),
+                                    status=resp.status_code,
+                                )
+                                continue  # leave file on disk for retry next tick
+
+                        # post-upload tracking
+                        await inventory.add(tribunal, d)
+                        await state.record_hit(tribunal, d)
+                        await summary.inc_hit()
+                        if not config.dry_run:
+                            path.unlink(missing_ok=True)
 
                     if config.observer:
                         config.observer.on_batch_upload_complete(item_id, len(dates))
@@ -436,120 +435,133 @@ async def run_sync(config: SyncConfig) -> int:
     remote_state_data = await download_state_from_ia(IA_BACKFILL_STATE_FILENAME)
     state = SyncState.from_dict(remote_state_data) if remote_state_data else SyncState()
 
-    # 1. Start Consumer (Uploader)
-    summary = SyncSummary()
-    uploader_task = asyncio.create_task(batch_uploader(config, inventory, state, summary))
+    upload_timeout = httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=10.0)
+    upload_client = httpx.AsyncClient(timeout=upload_timeout, follow_redirects=True)
 
-    # 2. Main Scan (Producers)
-    timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        tribunals = await get_tribunal_list(client, config.djen_proxy_url)
-        if config.tribunal:
-            tribunals = [config.tribunal]
+    try:
+        # 1. Start Consumer (Uploader)
+        summary = SyncSummary()
+        uploader_task = asyncio.create_task(
+            batch_uploader(config, inventory, state, summary, upload_client)
+        )
 
-        for t in tribunals:
-            await state.ensure_cursor_at_least(t, config.start_date)
+        # 2. Main Scan (Producers)
+        timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            tribunals = await get_tribunal_list(client, config.djen_proxy_url)
+            if config.tribunal:
+                tribunals = [config.tribunal.upper()]
 
-        upper = config.start_date
-        lower = config.lower_bound or date(2020, 1, 1)
-        years = sorted(range(lower.year, upper.year + 1), reverse=True)
+            for t in tribunals:
+                await state.ensure_cursor_at_least(t, config.start_date)
 
-        last_ia_sync = time.monotonic()
-        sync_interval_s = 180
+            upper = config.start_date
+            lower = config.lower_bound or date(2020, 1, 1)
+            years = sorted(range(lower.year, upper.year + 1), reverse=True)
 
-        for year in years:
-            if time.monotonic() > deadline - 60:
-                break
-            log.info("sync_year_starting", year=year)
+            last_ia_sync = time.monotonic()
+            sync_interval_s = 180
 
-            tribunal_queue = asyncio.Queue()
-            for t in sorted(tribunals):
-                if not inventory.is_year_complete(t, year, upper, lower):
-                    tribunal_queue.put_nowait(t)
+            for year in years:
+                if time.monotonic() > deadline - 60:
+                    break
+                log.info("sync_year_starting", year=year)
 
-            synced_metadata: set[str] = set()
-            pending_gaps: dict[str, list[date]] = {}
+                tribunal_queue = asyncio.Queue()
+                for t in sorted(tribunals):
+                    if not inventory.is_year_complete(t, year, upper, lower):
+                        tribunal_queue.put_nowait(t)
 
-            async def downloader_task() -> None:
-                nonlocal last_ia_sync
-                while not tribunal_queue.empty():
-                    if time.monotonic() > deadline - 30:
-                        break
+                synced_metadata: set[str] = set()
+                pending_gaps: dict[str, list[date]] = {}
 
-                    # Back-pressure: if staging is too full, wait
-                    while inventory.count_staged() >= MAX_STAGED_FILES:
-                        await asyncio.sleep(30)
+                async def downloader_task() -> None:
+                    nonlocal last_ia_sync
+                    while not tribunal_queue.empty():
                         if time.monotonic() > deadline - 30:
-                            return
+                            break
 
-                    t = await tribunal_queue.get()
-                    try:
-                        if t not in synced_metadata:
-                            from djen_backup.archive import fetch_ia_existing
+                        # Back-pressure: if staging is too full, wait
+                        while inventory.count_staged() >= MAX_STAGED_FILES:
+                            await asyncio.sleep(30)
+                            if time.monotonic() > deadline - 30:
+                                return
 
-                            ia_dates = await fetch_ia_existing(client, t, year)
-                            if ia_dates:
-                                await inventory.add_many(t, set(ia_dates.keys()))
-                            gaps = inventory.gaps_for_year(t, year, upper, lower)
-                            pending_gaps[t] = sorted(gaps, reverse=True)
-                            synced_metadata.add(t)
+                        t = await tribunal_queue.get()
+                        try:
+                            if t not in synced_metadata:
+                                from djen_backup.archive import fetch_ia_existing
 
-                        if pending_gaps.get(t):
-                            d = pending_gaps[t].pop(0)
-                            res = await download_to_staging(
-                                client, t, d, config, state, inventory, summary
+                                ia_dates = await fetch_ia_existing(client, t, year)
+                                if ia_dates:
+                                    await inventory.add_many(t, set(ia_dates.keys()))
+                                gaps = inventory.gaps_for_year(t, year, upper, lower)
+                                pending_gaps[t] = sorted(gaps, reverse=True)
+                                synced_metadata.add(t)
+
+                            if pending_gaps.get(t):
+                                d = pending_gaps[t].pop(0)
+                                res = await download_to_staging(
+                                    client, t, d, config, state, inventory, summary
+                                )
+
+                                if res in ("hit", "empty"):
+                                    await state.advance_cursor(t, d)
+
+                                if pending_gaps[t]:
+                                    tribunal_queue.put_nowait(t)
+
+                            # Periodic sync
+                            if (
+                                not config.dry_run
+                                and time.monotonic() - last_ia_sync > sync_interval_s
+                            ):
+                                last_ia_sync = time.monotonic()
+                                await inventory.upload_to_ia(config.ia_auth)
+                                await upload_state_to_ia(
+                                    IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth
+                                )
+                        finally:
+                            tribunal_queue.task_done()
+
+                # Start downloaders
+                downloaders = [
+                    asyncio.create_task(downloader_task()) for _ in range(config.workers)
+                ]
+                await asyncio.gather(*downloaders)
+
+        # 3. Finalize
+        uploader_task.cancel()  # Stop monitoring, but we need a final flush
+        log.info("final_flush_starting")
+        if not config.dry_run:
+            # Final upload of anything left in staging
+            staged_items = inventory.get_staged_by_item()
+            for item_id, dates in staged_items.items():
+                tribunal = item_id.split("-")[1].upper()
+                try:
+                    for d in dates:
+                        filename = f"djen-{d.isoformat()}-{tribunal}.zip"
+                        path = STAGING_DIR / item_id / filename
+                        resp = await upload_zip(upload_client, d, tribunal, path, config.ia_auth)
+                        if resp.status_code != 200:
+                            log.warning(
+                                "final_flush_item_failed",
+                                item_id=item_id,
+                                date=d.isoformat(),
+                                status=resp.status_code,
                             )
+                            continue
 
-                            if res in ("hit", "empty"):
-                                await state.advance_cursor(t, d)
+                        await inventory.add(tribunal, d)
+                        path.unlink(missing_ok=True)
+                except Exception:
+                    log.exception("final_flush_failed", item_id=item_id)
 
-                            if pending_gaps[t]:
-                                tribunal_queue.put_nowait(t)
+            await inventory.upload_to_ia(config.ia_auth)
+            await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
 
-                        # Periodic sync
-                        if not config.dry_run and time.monotonic() - last_ia_sync > sync_interval_s:
-                            last_ia_sync = time.monotonic()
-                            await inventory.upload_to_ia(config.ia_auth)
-                            await upload_state_to_ia(
-                                IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth
-                            )
-                    finally:
-                        tribunal_queue.task_done()
+        log.info("sync_complete", hits=summary.hits, errors=summary.errors, dry_run=config.dry_run)
+        return 1 if summary.errors > 0 else 0
 
-            # Start downloaders
-            downloaders = [asyncio.create_task(downloader_task()) for _ in range(config.workers)]
-            await asyncio.gather(*downloaders)
-
-    # 3. Finalize
-    uploader_task.cancel()  # Stop monitoring, but we need a final flush
-    log.info("final_flush_starting")
-    if not config.dry_run:
-        # Final upload of anything left in staging
-        staged_items = inventory.get_staged_by_item()
-        for item_id, dates in staged_items.items():
-            files = [
-                str(
-                    STAGING_DIR
-                    / item_id
-                    / f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
-                )
-                for d in dates
-            ]
-            try:
-                await asyncio.to_thread(
-                    ia.upload,
-                    item_id,
-                    files,
-                    access_key=os.environ.get("IAS3_ACCESS_KEY"),
-                    secret_key=os.environ.get("IAS3_SECRET_KEY"),
-                )
-                for d in dates:
-                    await inventory.add(item_id.split("-")[1].upper(), d)
-            except Exception:
-                log.exception("final_flush_failed", item_id=item_id)
-
-        await inventory.upload_to_ia(config.ia_auth)
-        await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
-
-    log.info("sync_complete", hits=summary.hits, errors=summary.errors, dry_run=config.dry_run)
-    return 1 if summary.errors > 0 else 0
+    finally:
+        await upload_client.aclose()

@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from causaganha.pipeline.export_orchestrator import ExportOrchestrator
-from causaganha.pipeline.ia_upload import InternetArchiveUploader, UploadConfig
+from causaganha.pipeline.ia_parquet_uploader import IAS3ParquetUploader
 from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
 from causaganha.storage.connection import get_connection
 
@@ -46,10 +46,13 @@ async def run_daily_export() -> int:
         logger.info("daily_export_starting")
 
         # Initialize components
+        from causaganha.pipeline.repositories import DuckDBExportRepository
+
         con = get_connection()
+        repo = DuckDBExportRepository(con)
         exporter = ParquetExporter(con, ExportConfig())
-        uploader = InternetArchiveUploader(UploadConfig())
-        orchestrator = ExportOrchestrator(con, exporter, uploader)
+        uploader = IAS3ParquetUploader()
+        orchestrator = ExportOrchestrator(repo, exporter, uploader)
 
         # Export yesterday's data
         date = get_yesterday()
@@ -60,30 +63,30 @@ async def run_daily_export() -> int:
         # Log results
         logger.info(
             "daily_export_completed",
-            date=result["date"],
-            total_tribunals=result["total_tribunals"],
-            successful=result["successful"],
-            failed=result["failed"],
-            total_rows=result["total_rows"],
-            total_size_mb=result.get("total_size_mb", 0),
+            date=result.partition_date,
+            total_tribunals=result.total_tribunals,
+            successful=result.successful,
+            failed=result.failed,
+            total_rows=result.total_rows,
+            total_size_mb=result.total_size_mb,
         )
 
         # Determine exit code
-        if result["failed"] == 0:
+        if result.failed == 0:
             logger.info("daily_export_success", message="All tribunals exported successfully")
             exit_code = 0
-        elif result["successful"] > 0:
+        elif result.successful > 0:
             logger.warning(
                 "daily_export_partial_failure",
-                message=f"{result['failed']} tribunals failed",
-                failures=result["failures"],
+                message=f"{result.failed} tribunals failed",
+                failures=result.failures,
             )
             exit_code = 1
         else:
             logger.error(
                 "daily_export_complete_failure",
                 message="No tribunals exported successfully",
-                failures=result["failures"],
+                failures=result.failures,
             )
             exit_code = 2
 
