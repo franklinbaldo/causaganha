@@ -38,7 +38,9 @@ class SyncObserver(Protocol):
     def on_metadata_sync_complete(self, tribunal: str, year: int, found: int) -> None: ...
     def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None: ...
     def on_item_start(self, tribunal: str, d: date) -> None: ...
-    def on_item_complete(self, tribunal: str, d: date, status: str, url: str | None = None) -> None: ...
+    def on_item_complete(
+        self, tribunal: str, d: date, status: str, url: str | None = None
+    ) -> None: ...
     def on_retry(
         self,
         tribunal: str,
@@ -113,7 +115,9 @@ class TribunalProgress:
             stopped=bool(data.get("stopped", False)),
             stop_boundary=stop_boundary,
             last_hit_date=last_hit,
-            last_checked_at=str(data.get("last_checked_at")) if data.get("last_checked_at") else None,
+            last_checked_at=str(data.get("last_checked_at"))
+            if data.get("last_checked_at")
+            else None,
             last_result=str(data.get("last_result")) if data.get("last_result") else None,
         )
 
@@ -356,7 +360,9 @@ async def download_to_staging(
     return "error"
 
 
-async def batch_uploader(config: SyncConfig, inventory: ZipInventory, state: SyncState, summary: SyncSummary) -> None:
+async def batch_uploader(
+    config: SyncConfig, inventory: ZipInventory, state: SyncState, summary: SyncSummary
+) -> None:
     """Background consumer that uploads batches of files from staging."""
     while True:
         staged_items = inventory.get_staged_by_item()
@@ -365,7 +371,9 @@ async def batch_uploader(config: SyncConfig, inventory: ZipInventory, state: Syn
             continue
 
         for item_id, dates in staged_items.items():
-            if len(dates) >= BATCH_SIZE or (len(dates) > 0 and time.monotonic() % 300 < 10): # Batch of 10 or every 5 mins
+            if len(dates) >= BATCH_SIZE or (
+                len(dates) > 0 and time.monotonic() % 300 < 10
+            ):  # Batch of 10 or every 5 mins
                 if config.observer:
                     config.observer.on_batch_upload_start(item_id, len(dates))
 
@@ -389,7 +397,7 @@ async def batch_uploader(config: SyncConfig, inventory: ZipInventory, state: Syn
                             "creator": "CausaGanha",
                             "subject": "brazilian-law;djen;legal;judiciary",
                         },
-                        retries=5
+                        retries=5,
                     )
 
                     # Post-upload cleanup
@@ -476,6 +484,7 @@ async def run_sync(config: SyncConfig) -> int:
                     try:
                         if t not in synced_metadata:
                             from djen_backup.archive import fetch_ia_existing
+
                             ia_dates = await fetch_ia_existing(client, t, year)
                             if ia_dates:
                                 await inventory.add_many(t, set(ia_dates.keys()))
@@ -485,7 +494,9 @@ async def run_sync(config: SyncConfig) -> int:
 
                         if pending_gaps.get(t):
                             d = pending_gaps[t].pop(0)
-                            res = await download_to_staging(client, t, d, config, state, inventory, summary)
+                            res = await download_to_staging(
+                                client, t, d, config, state, inventory, summary
+                            )
 
                             if res in ("hit", "empty"):
                                 await state.advance_cursor(t, d)
@@ -497,7 +508,9 @@ async def run_sync(config: SyncConfig) -> int:
                         if time.monotonic() - last_ia_sync > sync_interval_s:
                             last_ia_sync = time.monotonic()
                             await inventory.upload_to_ia(config.ia_auth)
-                            await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
+                            await upload_state_to_ia(
+                                IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth
+                            )
                     finally:
                         tribunal_queue.task_done()
 
@@ -506,14 +519,23 @@ async def run_sync(config: SyncConfig) -> int:
             await asyncio.gather(*downloaders)
 
     # 3. Finalize
-    uploader_task.cancel() # Stop monitoring, but we need a final flush
+    uploader_task.cancel()  # Stop monitoring, but we need a final flush
     log.info("final_flush_starting")
     # Final upload of anything left in staging
     staged_items = inventory.get_staged_by_item()
     for item_id, dates in staged_items.items():
-        files = [str(STAGING_DIR / item_id / f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip") for d in dates]
+        files = [
+            str(STAGING_DIR / item_id / f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip")
+            for d in dates
+        ]
         try:
-            await asyncio.to_thread(ia.upload, item_id, files, access_key=os.environ.get("IAS3_ACCESS_KEY"), secret_key=os.environ.get("IAS3_SECRET_KEY"))
+            await asyncio.to_thread(
+                ia.upload,
+                item_id,
+                files,
+                access_key=os.environ.get("IAS3_ACCESS_KEY"),
+                secret_key=os.environ.get("IAS3_SECRET_KEY"),
+            )
             for d in dates:
                 await inventory.add(item_id.split("-")[1].upper(), d)
         except Exception:

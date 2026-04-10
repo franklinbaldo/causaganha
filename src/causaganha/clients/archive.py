@@ -136,5 +136,3 @@ class LocalArchiveService:
             # Extra hint for local storage
             "tribunal_code": tribunal,
         }
-
-

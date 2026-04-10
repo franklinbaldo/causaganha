@@ -119,10 +119,14 @@ class RichSyncObserver:
         self.progress.console.log("[green]✓ Periodic sync complete.[/green]")
 
     def on_batch_upload_start(self, item_id: str, count: int) -> None:
-        self.progress.console.log(f"[bold blue]↑ Batch Upload Starting:[/bold blue] {item_id} ({count} files)")
+        self.progress.console.log(
+            f"[bold blue]↑ Batch Upload Starting:[/bold blue] {item_id} ({count} files)"
+        )
 
     def on_batch_upload_complete(self, item_id: str, count: int) -> None:
-        self.progress.console.log(f"[bold green]✓ Batch Upload Complete:[/bold green] {item_id} ({count} files)")
+        self.progress.console.log(
+            f"[bold green]✓ Batch Upload Complete:[/bold green] {item_id} ({count} files)"
+        )
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
