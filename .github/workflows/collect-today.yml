@@ -30,6 +30,7 @@ jobs:
     environment: dev
 
     env:
+      DJEN_USE_PROXY: "1"
       DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
@@ -81,6 +82,7 @@ jobs:
           CMD="$CMD --workers 20"
           CMD="$CMD --state-file data/ia-state.json"
           CMD="$CMD --backfill-state-file data/backfill-state.json"
+          CMD="$CMD --use-proxy"
           # Skip absent markers to avoid IA spam detection
           CMD="$CMD --skip-absent-markers"
           CMD="$CMD --publish-live-status"

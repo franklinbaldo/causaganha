@@ -15,7 +15,9 @@ import httpx
 import structlog
 
 from djen_backup.archive import (
+    get_ia_item_tribunal,
     get_ia_item_id,
+    put_ia_bytes,
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
@@ -235,7 +237,7 @@ async def upload_state_to_ia(filename: str, data: dict, auth: str) -> bool:
     }
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.put(url, content=content, headers=headers)
+            resp = await put_ia_bytes(client, url, content, headers)
             if resp.status_code < 400:
                 log.info("state_uploaded_to_ia", filename=filename)
                 return True
@@ -306,6 +308,12 @@ async def download_to_staging(
     summary: SyncSummary,
 ) -> str:
     """Download a single ZIP from DJEN and place it in staging."""
+    targeted_single_day = (
+        config.tribunal is not None
+        and config.lower_bound is not None
+        and config.lower_bound == config.start_date
+    )
+
     # 1. Check inventory
     status = inventory.get_status(tribunal, d)
     if status == "uploaded":
@@ -313,10 +321,13 @@ async def download_to_staging(
         await summary.inc_cache_hit()
         if config.observer:
             item_id = get_ia_item_id(tribunal, d)
-            url = f"https://archive.org/download/{item_id}"
+            filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
+            url = f"https://archive.org/download/{item_id}/{filename}"
             config.observer.on_item_complete(tribunal, d, "hit", url=url)
         return "hit"
-    if status in ("absent", "staged"):
+    if status == "staged":
+        return status
+    if status == "absent" and not targeted_single_day:
         if status == "absent":
             await state.record_empty(tribunal)
             await summary.inc_empty()
@@ -379,17 +390,12 @@ async def batch_uploader(
             if len(dates) >= BATCH_SIZE or (
                 len(dates) > 0 and time.monotonic() % 300 < 10
             ):  # Batch of 10 or every 5 mins
+                tribunal = get_ia_item_tribunal(item_id)
                 if config.observer:
                     config.observer.on_batch_upload_start(item_id, len(dates))
 
-                # Prepare file list
-                files = []
-                for d in dates:
-                    filename = f"djen-{d.isoformat()}-{item_id.split('-')[1].upper()}.zip"
-                    files.append(str(STAGING_DIR / item_id / filename))
-
                 try:
-                    tribunal = item_id.split("-")[1].upper()
+                    tribunal = get_ia_item_tribunal(item_id)
                     for d in dates:
                         filename = f"djen-{d.isoformat()}-{tribunal}.zip"
                         path = STAGING_DIR / item_id / filename
@@ -426,6 +432,8 @@ async def run_sync(config: SyncConfig) -> int:
     """The unified sync entry point with Producer-Consumer Batching."""
     start_time = time.monotonic()
     deadline = start_time + config.deadline_minutes * 60
+    year_buffer_s = min(60.0, max(10.0, config.deadline_minutes * 10.0))
+    item_buffer_s = min(30.0, max(5.0, config.deadline_minutes * 5.0))
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
     # 0. Initial state & inventory
@@ -482,6 +490,7 @@ async def run_sync(config: SyncConfig) -> int:
                 tribunals = [config.tribunal.upper()]
 
             for t in tribunals:
+                await state.get_or_init(t, config.start_date)
                 await state.ensure_cursor_at_least(t, config.start_date)
 
             upper = config.start_date
@@ -490,14 +499,17 @@ async def run_sync(config: SyncConfig) -> int:
 
             last_ia_sync = time.monotonic()
             sync_interval_s = 180
+            items_processed: dict[str, int] = {t: 0 for t in tribunals}
 
             for year in years:
-                if time.monotonic() > deadline - 60:
+                if time.monotonic() > deadline - year_buffer_s:
                     break
                 log.info("sync_year_starting", year=year)
 
                 tribunal_queue = asyncio.Queue()
                 for t in sorted(tribunals):
+                    if config.max_items and items_processed[t] >= config.max_items:
+                        continue
                     if not inventory.is_year_complete(t, year, upper, lower):
                         tribunal_queue.put_nowait(t)
 
@@ -507,13 +519,13 @@ async def run_sync(config: SyncConfig) -> int:
                 async def downloader_task() -> None:
                     nonlocal last_ia_sync
                     while not tribunal_queue.empty():
-                        if time.monotonic() > deadline - 30:
+                        if time.monotonic() > deadline - item_buffer_s:
                             break
 
                         # Back-pressure: if staging is too full, wait
                         while inventory.count_staged() >= MAX_STAGED_FILES:
                             await asyncio.sleep(30)
-                            if time.monotonic() > deadline - 30:
+                            if time.monotonic() > deadline - item_buffer_s:
                                 return
 
                         t = await tribunal_queue.get()
@@ -533,11 +545,17 @@ async def run_sync(config: SyncConfig) -> int:
                                 res = await download_to_staging(
                                     client, t, d, config, state, inventory, summary
                                 )
+                                if res in ("hit", "empty", "staged", "error"):
+                                    items_processed[t] += 1
 
                                 if res in ("hit", "empty"):
                                     await state.advance_cursor(t, d)
 
-                                if pending_gaps[t]:
+                                has_remaining_capacity = (
+                                    config.max_items == 0
+                                    or items_processed[t] < config.max_items
+                                )
+                                if pending_gaps[t] and has_remaining_capacity:
                                     tribunal_queue.put_nowait(t)
 
                             # Periodic sync
@@ -566,7 +584,7 @@ async def run_sync(config: SyncConfig) -> int:
             # Final upload of anything left in staging
             staged_items = inventory.get_staged_by_item()
             for item_id, dates in staged_items.items():
-                tribunal = item_id.split("-")[1].upper()
+                tribunal = get_ia_item_tribunal(item_id)
                 try:
                     for d in dates:
                         filename = f"djen-{d.isoformat()}-{tribunal}.zip"
@@ -582,6 +600,8 @@ async def run_sync(config: SyncConfig) -> int:
                             continue
 
                         await inventory.add(tribunal, d)
+                        await state.record_hit(tribunal, d)
+                        await summary.inc_hit()
                         path.unlink(missing_ok=True)
                 except Exception:
                     log.exception("final_flush_failed", item_id=item_id)

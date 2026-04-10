@@ -6,6 +6,7 @@ import asyncio
 import os
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path  # noqa: TC003
+from typing import NamedTuple
 
 import structlog
 import typer
@@ -15,7 +16,6 @@ from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
-    SpinnerColumn,
     TaskID,
     TaskProgressColumn,
     TextColumn,
@@ -29,6 +29,14 @@ from djen_backup.engine import (
     SyncState,
     run_sync,
 )
+
+DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
+DJEN_PROXY_FALLBACK_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+
+class EnvLoadResult(NamedTuple):
+    path: Path
+    loaded_keys: list[str]
 
 
 # ── Setup ───────────────────────────────────────────────────────────
@@ -75,7 +83,7 @@ class RichSyncObserver:
             task_id = self.progress.add_task(f"[cyan]{tribunal} {year}", total=count, visible=True)
             self.tribunal_tasks[f"{tribunal}-{year}"] = task_id
         else:
-            self.progress.console.log(f"[green]✓ {tribunal} {year} is up to date.[/green]")
+            self.progress.console.log(f"[green][OK][/green] {tribunal} {year} is up to date.")
 
     def on_item_start(self, tribunal: str, d: date) -> None:
         pass
@@ -84,7 +92,7 @@ class RichSyncObserver:
         # Log successful uploads/hits with URL
         if status == "hit" and url:
             self.progress.console.log(
-                f"[green]✓[/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]"
+                f"[green][OK][/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]"
             )
 
         # Find the task for this tribunal-year
@@ -103,7 +111,7 @@ class RichSyncObserver:
         body: str | None = None,
     ) -> None:
         msg = (
-            f"[bold yellow]⚠ Retry {attempt}[/bold yellow] for {tribunal} {d.isoformat()} "
+            f"[bold yellow][Retry {attempt}][/bold yellow] for {tribunal} {d.isoformat()} "
             f"(Status: {status}). Waiting {wait_s:.1f}s..."
         )
         if body:
@@ -111,22 +119,16 @@ class RichSyncObserver:
         self.progress.console.log(msg)
 
     def on_periodic_sync_start(self) -> None:
-        self.progress.console.log(
-            "[yellow]⟳ Periodic sync to Internet Archive starting...[/yellow]"
-        )
+        self.progress.console.log("[yellow][Sync][/yellow] Periodic sync to Internet Archive starting...")
 
     def on_periodic_sync_complete(self) -> None:
-        self.progress.console.log("[green]✓ Periodic sync complete.[/green]")
+        self.progress.console.log("[green][OK][/green] Periodic sync complete.")
 
     def on_batch_upload_start(self, item_id: str, count: int) -> None:
-        self.progress.console.log(
-            f"[bold blue]↑ Batch Upload Starting:[/bold blue] {item_id} ({count} files)"
-        )
+        self.progress.console.log(f"[bold blue][Upload][/bold blue] {item_id} ({count} files)")
 
     def on_batch_upload_complete(self, item_id: str, count: int) -> None:
-        self.progress.console.log(
-            f"[bold green]✓ Batch Upload Complete:[/bold green] {item_id} ({count} files)"
-        )
+        self.progress.console.log(f"[bold green][OK][/bold green] Batch upload complete: {item_id} ({count} files)")
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
@@ -136,10 +138,35 @@ def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
-def _resolve_proxy_url() -> str:
-    return (
-        os.environ.get("DJEN_PROXY_URL", "").strip() or "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
-    )
+def _load_local_env(path: Path = Path(".env")) -> EnvLoadResult | None:
+    if not path.exists():
+        return None
+
+    loaded_keys: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if not key or key in os.environ:
+            continue
+        os.environ[key] = value
+        loaded_keys.append(key)
+
+    return EnvLoadResult(path=path.resolve(), loaded_keys=loaded_keys)
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _resolve_djen_url(*, use_proxy: bool) -> str:
+    if use_proxy:
+        return os.environ.get("DJEN_PROXY_URL", "").strip() or DJEN_PROXY_FALLBACK_URL
+    return os.environ.get("DJEN_DIRECT_URL", "").strip() or DJEN_DIRECT_URL
 
 
 def _resolve_ia_auth(*, dry_run: bool) -> str:
@@ -150,6 +177,35 @@ def _resolve_ia_auth(*, dry_run: bool) -> str:
             return "LOW dry-run:dry-run"
         console.print(f"[bold red]Error:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
+
+
+def _show_env_hint(env_result: EnvLoadResult | None) -> None:
+    if not env_result:
+        return
+    if env_result.loaded_keys:
+        joined = ", ".join(env_result.loaded_keys)
+        console.print(f"[dim]Loaded environment from {env_result.path} ({joined})[/dim]")
+    else:
+        console.print(f"[dim]Using existing environment; {env_result.path} was not applied[/dim]")
+
+
+def _show_run_summary(exit_code: int, *, dry_run: bool, tribunal: str | None, max_items: int) -> None:
+    title = "Run Complete" if exit_code == 0 else "Run Finished With Errors"
+    border = "green" if exit_code == 0 else "red"
+    rows = Table.grid(padding=(0, 2))
+    rows.add_column(style="bold cyan")
+    rows.add_column()
+    rows.add_row("Status:", "[green]OK[/green]" if exit_code == 0 else "[red]Error[/red]")
+    rows.add_row("Mode:", "Dry run" if dry_run else "Live upload")
+    rows.add_row("Tribunal:", tribunal or "All")
+    rows.add_row("Item Limit:", str(max_items) if max_items else "Unlimited")
+    if exit_code == 0 and not dry_run:
+        rows.add_row("Note:", "Completed cleanly. Zero uploads can still mean nothing new was found.")
+    elif exit_code == 0:
+        rows.add_row("Note:", "Dry run completed cleanly.")
+    else:
+        rows.add_row("Note:", "See warnings above for the failing stage.")
+    console.print(Panel(rows, title=f"[bold white]{title}[/bold white]", border_style=border))
 
 
 def show_banner():
@@ -205,15 +261,24 @@ def main(  # noqa: PLR0913
         "--skip-if-mostly-complete",
         help="Skip collection if today is already mostly complete.",
     ),
+    use_proxy: bool = typer.Option(
+        False,
+        "--use-proxy",
+        help="Use the Cloud Run DJEN proxy. Default is direct access.",
+    ),
 ):
     """Main backup and sync command."""
     if ctx.invoked_subcommand:
         return
+    env_result = _load_local_env()
     show_banner()
+    _show_env_hint(env_result)
 
     today = datetime.now(tz=UTC).date()
     resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
     resolved_start = _parse_date(start_date) if start_date else date(2020, 1, 1)
+    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
+    resolved_djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
 
     resolved_state_file = backfill_state_file or state_file
 
@@ -226,8 +291,12 @@ def main(  # noqa: PLR0913
         "Start Date:", resolved_start.isoformat() if resolved_start else "2013-01-01 (Auto)"
     )
     config_table.add_row("Tribunal:", tribunal or "All")
+    config_table.add_row("Deadline:", f"{deadline_minutes} min")
+    config_table.add_row("Max Items:", str(max_items) if max_items else "Unlimited")
     config_table.add_row("Workers:", str(workers))
     config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
+    config_table.add_row("DJEN Mode:", "Proxy" if resolved_use_proxy else "Direct")
+    config_table.add_row("DJEN URL:", resolved_djen_url)
 
     console.print(
         Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue")
@@ -235,7 +304,6 @@ def main(  # noqa: PLR0913
 
     # Prepare Rich components
     progress = Progress(
-        SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
@@ -254,7 +322,7 @@ def main(  # noqa: PLR0913
         max_items=max_items,
         workers=workers,
         state_file=resolved_state_file,
-        djen_proxy_url=_resolve_proxy_url(),
+        djen_proxy_url=resolved_djen_url,
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
         skip_absent_markers=skip_absent_markers,
@@ -266,6 +334,12 @@ def main(  # noqa: PLR0913
     with Live(Group(progress), console=console, refresh_per_second=4):
         exit_code = asyncio.run(run_sync(config))
 
+    _show_run_summary(
+        exit_code,
+        dry_run=dry_run,
+        tribunal=tribunal,
+        max_items=max_items,
+    )
     raise typer.Exit(code=exit_code)
 
 

@@ -73,7 +73,7 @@ If your change touches archival code, validate the affected path carefully.
 
 ## DJEN access rule
 
-DJEN access can be geo-restricted. The repository supports a Cloud Run proxy through `DJEN_PROXY_URL`. Do not hardcode environment-specific URLs into application logic.
+DJEN direct access is the default for local runs in Brazil. Use the Cloud Run proxy only when `--use-proxy` or `DJEN_USE_PROXY=1` is explicitly set, such as in GitHub Actions. Do not hardcode environment-specific URLs into application logic.
 
 ## Pull requests
 

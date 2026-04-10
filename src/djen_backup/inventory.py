@@ -7,6 +7,8 @@ from pathlib import Path
 
 import structlog
 
+from djen_backup.archive import put_ia_bytes
+
 
 log = structlog.get_logger()
 
@@ -48,7 +50,7 @@ async def upload_text_to_ia(filename: str, content: str, auth: str) -> bool:
     }
     try:
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.put(url, content=content.encode("utf-8"), headers=headers)
+            resp = await put_ia_bytes(client, url, content.encode("utf-8"), headers)
             if resp.status_code < 400:
                 log.info("text_uploaded_to_ia", filename=filename)
                 return True

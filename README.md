@@ -42,7 +42,7 @@ The main GitHub Actions workflows in [.github/workflows](/Users/frank/workspace/
 ## Key constraints
 
 - Internet Archive uploads must use `httpx`-based logic. Do not migrate IA uploads to `boto3`.
-- DJEN access is geo-restricted, so the project supports a Cloud Run proxy through `DJEN_PROXY_URL`.
+- Local runs in Brazil should use direct DJEN access by default. Use the Cloud Run proxy only when `--use-proxy` or `DJEN_USE_PROXY=1` is explicitly set, such as in GitHub Actions.
 - The repository is mid-refactor. Some legacy scripts and older docs still exist, but the source of truth is the current code and workflows in this repo.
 
 ## Quick start
@@ -143,7 +143,9 @@ Start from [.env.example](/Users/frank/workspace/causaganha/.env.example). Commo
 - `GEMINI_API_KEY`
 - `IA_ACCESS_KEY` / `IA_SECRET_KEY`
 - `IAS3_ACCESS_KEY` / `IAS3_SECRET_KEY`
+- `DJEN_DIRECT_URL`
 - `DJEN_PROXY_URL`
+- `DJEN_USE_PROXY`
 - `ENABLED_TRIBUNALS`
 - `LOG_LEVEL`
 
