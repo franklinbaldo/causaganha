@@ -8,9 +8,18 @@
 
   let { filters = $bindable() }: Props = $props();
 
+  function formatLocalDate(d: Date): string {
+    // Format as YYYY-MM-DD in the browser's local timezone so presets don't
+    // shift by a day when the user is ahead/behind UTC.
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   function setDatePreset(preset: 'today' | '7d' | '30d' | 'month') {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const today = formatLocalDate(now);
     const start = new Date(now);
 
     if (preset === 'today') {
@@ -26,7 +35,7 @@
     }
     filters = {
       ...filters,
-      dataDisponibilizacaoInicio: start.toISOString().slice(0, 10),
+      dataDisponibilizacaoInicio: formatLocalDate(start),
       dataDisponibilizacaoFim: today,
     };
   }
