@@ -88,6 +88,7 @@ ignore = [
 
 [lint.per-file-ignores]
 "vulture_whitelist.py" = ["B018", "F821"]
+"src/djen_backup/engine.py" = ["B023"]
 
 [lint.mccabe]
 max-complexity = 10
