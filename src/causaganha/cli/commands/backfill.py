@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from causaganha.config import DJEN_DIRECT_URL, DJEN_PROXY_URL
 from djen_backup.credentials import get_ia_s3_auth
 from djen_backup.engine import SyncConfig, SyncState, run_sync
 
@@ -26,9 +27,6 @@ app = typer.Typer(
 console = Console()
 
 _DEFAULT_STATE_FILE = Path("data/backfill-state.json")
-_DEFAULT_DJEN_PROXY = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
-
-
 def _format_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.1f}s"
@@ -47,8 +45,11 @@ def _resolve_ia_auth(*, dry_run: bool = False) -> str:
         raise
 
 
-def _resolve_djen_url() -> str:
-    return os.environ.get("DJEN_PROXY_URL", _DEFAULT_DJEN_PROXY)
+def _resolve_djen_url(*, use_proxy: bool) -> str:
+    """Get the DJEN URL. Direct by default, proxy when outside Brazil."""
+    if use_proxy:
+        return os.environ.get("DJEN_PROXY_URL", DJEN_PROXY_URL)
+    return os.environ.get("DJEN_DIRECT_URL", DJEN_DIRECT_URL)
 
 
 def _preflight_checks() -> None:
@@ -106,6 +107,11 @@ def run(
     *,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Logs detalhados."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simular sem executar uploads."),
+    use_proxy: bool = typer.Option(
+        False,
+        "--use-proxy",
+        help="Usar proxy Cloud Run para DJEN (necessário fora do Brasil).",
+    ),
 ) -> None:
     """Run the DJEN ZIP backup sync against the Internet Archive."""
     # Load .env if present
@@ -154,7 +160,9 @@ def run(
         max_items=max_items,
         workers=workers,
         state_file=state_file,
-        djen_proxy_url=_resolve_djen_url(),
+        djen_proxy_url=_resolve_djen_url(
+            use_proxy=use_proxy or os.environ.get("DJEN_USE_PROXY", "").lower() in ("1", "true", "yes", "on")
+        ),
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
     )

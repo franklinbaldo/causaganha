@@ -127,7 +127,8 @@ TRIBUNAIS: list[str] = [
     "TRE-TO",
 ]
 
-# DJEN Proxy URL for accessing DJEN communications API
+# DJEN URLs: direct is the default for local runs in Brazil; proxy is opt-in.
+DJEN_DIRECT_URL = os.environ.get("DJEN_DIRECT_URL", "https://comunicaapi.pje.jus.br")
 DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "https://djen-proxy-mhgmawcn3a-rj.a.run.app")
 
 

@@ -98,6 +98,21 @@ def get_ia_item_id(tribunal: str, d: date) -> str:
     return f"djen-{tribunal.lower()}-{d.year}"
 
 
+def get_ia_item_tribunal(item_id: str) -> str:
+    """Extract the tribunal code from ``djen-{tribunal}-{year}`` item ids."""
+    prefix = "djen-"
+    if not item_id.startswith(prefix):
+        msg = f"Invalid IA item id: {item_id!r}"
+        raise ValueError(msg)
+
+    body = item_id[len(prefix) :]
+    tribunal, sep, year = body.rpartition("-")
+    if not sep or not tribunal or not year.isdigit():
+        msg = f"Invalid IA item id: {item_id!r}"
+        raise ValueError(msg)
+    return tribunal.upper()
+
+
 def _content_md5(data: bytes) -> str:
     """Return base64-encoded MD5 digest per the S3 Content-MD5 spec."""
     digest = hashlib.md5(data, usedforsecurity=False).digest()
@@ -120,6 +135,47 @@ def _build_upload_headers(
         "x-archive-meta-creator": "CausaGanha",
         "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary",
     }
+
+
+async def put_ia_bytes(
+    client: httpx.AsyncClient,
+    url: str,
+    content: bytes,
+    headers: dict[str, str],
+    *,
+    max_retries: int = 7,
+) -> httpx.Response:
+    """Upload bytes to IA with the shared write lock and retry policy."""
+    last_resp: httpx.Response | None = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            async with _upload_lock:
+                resp = await client.request("PUT", url, content=content, headers=headers)
+                last_resp = resp
+                if resp.status_code == HTTP_OK or resp.status_code not in RETRIABLE_STATUS_CODES:
+                    await asyncio.sleep(_UPLOAD_COOLDOWN_S)
+                    break
+        except (httpx.TransportError, httpx.TimeoutException):
+            wait = max(5.0, float(2**attempt))
+            if attempt < max_retries:
+                await asyncio.sleep(wait)
+                continue
+            raise
+
+        if attempt < max_retries:
+            body_text = resp.text[:200] if resp.text else "No body"
+            if "SlowDown" in body_text or "bucket_tasks_queued" in body_text:
+                log.warning("upload_bucket_saturated", status=resp.status_code, url=url)
+                return resp
+
+            wait = _backoff(attempt, resp)
+            await asyncio.sleep(wait)
+            continue
+        break
+
+    assert last_resp is not None
+    return last_resp
 
 
 async def upload_zip(
@@ -147,52 +203,20 @@ async def upload_zip(
     log.info("upload_starting", date=d.isoformat(), tribunal=tribunal, size_mb=size_mb)
 
     max_retries = 7
-    last_resp: httpx.Response | None = None
+    try:
+        last_resp = await put_ia_bytes(
+            client,
+            url,
+            content,
+            headers,
+            max_retries=max_retries,
+        )
+    except (httpx.TransportError, httpx.TimeoutException):
+        wait = max(5.0, 1.0)
+        if observer:
+            observer.on_retry(tribunal, d, 1, 0, wait, body="Transport/Timeout")
+        raise
 
-    for attempt in range(max_retries + 1):
-        try:
-            async with _upload_lock:
-                resp = await client.request("PUT", url, content=content, headers=headers)
-                last_resp = resp
-                # If success or non-retriable, we still hold the lock for the cooldown
-                if resp.status_code == HTTP_OK or resp.status_code not in RETRIABLE_STATUS_CODES:
-                    await asyncio.sleep(_UPLOAD_COOLDOWN_S)
-                    break
-        except (httpx.TransportError, httpx.TimeoutException):
-            wait = max(5.0, float(2**attempt))
-            if attempt < max_retries:
-                if observer:
-                    observer.on_retry(tribunal, d, attempt + 1, 0, wait, body="Transport/Timeout")
-                await asyncio.sleep(wait)
-                continue
-            raise
-
-        if attempt < max_retries:
-            body_text = resp.text[:200] if resp.text else "No body"
-
-            # If the error is a specific "Slow Down" or "Bucket Queued" from IA,
-            # we don't just wait; we return so the engine can switch to a different tribunal.
-            if "SlowDown" in body_text or "bucket_tasks_queued" in body_text:
-                log.warning("upload_bucket_saturated", tribunal=tribunal, status=resp.status_code)
-                if observer:
-                    observer.on_retry(
-                        tribunal,
-                        d,
-                        attempt + 1,
-                        resp.status_code,
-                        0,
-                        body="Bucket Saturated - Switching",
-                    )
-                return resp
-
-            wait = _backoff(attempt, resp)
-            if observer:
-                observer.on_retry(tribunal, d, attempt + 1, resp.status_code, wait, body=body_text)
-            await asyncio.sleep(wait)
-            continue
-        break
-
-    assert last_resp is not None
     elapsed = round(time.monotonic() - start_time, 1)
     body = last_resp.content or b""
     if last_resp.status_code == HTTP_OK:
