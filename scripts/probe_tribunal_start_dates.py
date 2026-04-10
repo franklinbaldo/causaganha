@@ -10,7 +10,7 @@ Discovers when each of the 96 DJEN tribunals started publishing data using
 an exponential probe backwards in time, followed by a lateral window check
 to account for holidays and weekends (requiring a 60-day gap to confirm the start).
 
-Outputs to dashboard/public/tribunal_start_dates.json.
+Outputs to web/public/tribunal_start_dates.json.
 """
 
 import argparse
@@ -28,7 +28,7 @@ from causaganha.config import DJEN_PROXY_URL, TRIBUNAIS
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-OUTPUT_FILE = Path("dashboard/public/tribunal_start_dates.json")
+OUTPUT_FILE = Path("web/public/tribunal_start_dates.json")
 
 # Concurrency limits - Increased for faster discovery
 MAX_CONCURRENT_REQUESTS = 10

@@ -1,10 +1,10 @@
-name: Deploy Dashboard
+name: Deploy Web
 
 on:
   push:
     branches: [main]
     paths:
-      - 'dashboard/**'
+      - 'web/**'
       - 'scripts/generate_dashboard_cache.py'
   # No schedule needed — update-catalog.yml triggers this after every successful collect
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: dashboard/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
@@ -40,17 +40,17 @@ jobs:
       - name: Restore pipeline cache (for last_run stats)
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
-          path: dashboard/public/cache
+          path: web/public/cache
           key: dashboard-cache-
           restore-keys: dashboard-cache-
 
       - name: Preserve last_run stats from pipeline
         run: |
-          if [ -f dashboard/public/cache/today.json ]; then
+          if [ -f web/public/cache/today.json ]; then
             python3 -c "
           import json, sys
           try:
-              data = json.load(open('dashboard/public/cache/today.json'))
+              data = json.load(open('web/public/cache/today.json'))
               lr = data.get('last_run')
               if lr:
                   json.dump(lr, open('/tmp/last-run.json', 'w'))
@@ -66,10 +66,10 @@ jobs:
         run: |
           pip install uv
           uv sync --no-dev
-          mkdir -p dashboard/public/cache
+          mkdir -p web/public/cache
           uv run python scripts/generate_dashboard_cache.py
           echo "Cache files generated:"
-          ls -la dashboard/public/cache/
+          ls -la web/public/cache/
         env:
           PIPELINE_RUN_STATS: /tmp/last-run.json
 
@@ -89,16 +89,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: dashboard
+        working-directory: web
 
       - name: Build Astro site
         run: npm run build
-        working-directory: dashboard
+        working-directory: web
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
-          path: dashboard/dist
+          path: web/dist
 
   deploy:
     environment:

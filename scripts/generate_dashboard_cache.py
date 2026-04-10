@@ -23,10 +23,10 @@ Usage:
   python generate_dashboard_cache.py --manifest ./m.parquet  # Use local manifest
 
 Outputs:
-  - dashboard/public/cache/meta.json     # Version and timestamp
-  - dashboard/public/cache/today.json    # Today's metrics and tribunal status
-  - dashboard/public/cache/runs.json     # Recent GitHub Actions runs
-  - dashboard/public/cache/calendar.json # Historical calendar data
+  - web/public/cache/meta.json     # Version and timestamp
+  - web/public/cache/today.json    # Today's metrics and tribunal status
+  - web/public/cache/runs.json     # Recent GitHub Actions runs
+  - web/public/cache/calendar.json # Historical calendar data
 """
 
 import argparse
