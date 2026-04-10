@@ -1,0 +1,142 @@
+---
+interface TribunalStat {
+  tribunal: string;
+  data_rate_pct: number;
+}
+
+interface Props {
+  tribunalStats: TribunalStat[];
+  totalTribunals: number;
+  statsHref: string;
+}
+
+const { tribunalStats, totalTribunals, statsHref } = Astro.props;
+
+// Sort by coverage descending so the greener cells come first
+const sorted = [...tribunalStats].sort((a, b) => b.data_rate_pct - a.data_rate_pct);
+
+function getCellClass(pct: number): string {
+  if (pct >= 80) return 'cell-high';
+  if (pct >= 40) return 'cell-mid';
+  if (pct > 0)   return 'cell-low';
+  return 'cell-none';
+}
+
+const withData = tribunalStats.filter(t => t.data_rate_pct > 0).length;
+const missing = totalTribunals - tribunalStats.length;
+---
+
+<div class="coverage-wrapper">
+  <div class="coverage-header">
+    <span class="coverage-label">Cobertura dos Tribunais</span>
+    <a href={statsHref} class="coverage-link">Ver estatísticas →</a>
+  </div>
+
+  <div class="coverage-grid" aria-label="Grade de cobertura dos tribunais">
+    {sorted.map(t => (
+      <div
+        class={`coverage-cell ${getCellClass(t.data_rate_pct)}`}
+        title={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}%`}
+        aria-label={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}% de cobertura`}
+      />
+    ))}
+    {Array.from({ length: missing }).map(() => (
+      <div class="coverage-cell cell-unknown" title="Tribunal sem dados ainda" />
+    ))}
+  </div>
+
+  <div class="coverage-legend">
+    <span class="legend-item"><span class="legend-dot cell-high"></span> ≥80%</span>
+    <span class="legend-item"><span class="legend-dot cell-mid"></span> 40–79%</span>
+    <span class="legend-item"><span class="legend-dot cell-low"></span> 1–39%</span>
+    <span class="legend-item"><span class="legend-dot cell-none"></span> 0%</span>
+    <span class="legend-item"><span class="legend-dot cell-unknown"></span> Não iniciado</span>
+    <span class="legend-count">{withData} de {totalTribunals} com dados</span>
+  </div>
+</div>
+
+<style>
+  .coverage-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .coverage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .coverage-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+  }
+
+  .coverage-link {
+    font-size: var(--font-size-sm);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .coverage-link:hover {
+    text-decoration: underline;
+  }
+
+  .coverage-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .coverage-cell {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    transition: transform var(--transition-base), opacity var(--transition-base);
+  }
+
+  .coverage-cell:hover {
+    transform: scale(1.3);
+    opacity: 1 !important;
+  }
+
+  .cell-high    { background: var(--color-success); }
+  .cell-mid     { background: var(--color-warning); opacity: 0.85; }
+  .cell-low     { background: var(--color-error);   opacity: 0.7; }
+  .cell-none    { background: var(--color-base-300); }
+  .cell-unknown { background: var(--color-base-200); border: 1px dashed var(--color-base-300); }
+
+  .coverage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    opacity: 0.6;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .legend-count {
+    margin-left: auto;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+</style>

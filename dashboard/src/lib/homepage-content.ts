@@ -5,9 +5,51 @@
  */
 
 export const HOW_IT_WORKS_CARDS = [
-  { title: '1. Coleta Automática', key: 'coleta' },
-  { title: '2. Arquivo Permanente', key: 'arquivo' },
-  { title: '3. Catálogo Indexado', key: 'catalogo' },
+  {
+    title: 'Coleta Automática',
+    icon: '⚡',
+    description: 'A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de todos os tribunais brasileiros via proxy dedicado.',
+    key: 'coleta',
+  },
+  {
+    title: 'Arquivo Permanente',
+    icon: '🗄️',
+    description: 'Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente e preservação histórica dos dados.',
+    key: 'arquivo',
+  },
+  {
+    title: 'Catálogo Indexado',
+    icon: '🔍',
+    description: 'Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas via DuckDB direto no navegador.',
+    key: 'catalogo',
+  },
+] as const;
+
+export const QUICK_ACCESS_CARDS = [
+  {
+    title: 'Publicações',
+    icon: '📋',
+    description: 'Busque publicações judiciais por OAB, número de processo, nome da parte ou texto livre. Dados ao vivo do DJEN.',
+    cta: 'Buscar publicações',
+    href: 'publicacoes',
+    key: 'publicacoes',
+  },
+  {
+    title: 'Advogados / OAB',
+    icon: '⚖️',
+    description: 'Explore a cobertura por tribunal e consulte dados de advogados extraídos das publicações arquivadas.',
+    cta: 'Ver advogados',
+    href: 'advogados',
+    key: 'advogados',
+  },
+  {
+    title: 'Explorador SQL',
+    icon: '💾',
+    description: 'Consulte os dados diretamente no navegador usando DuckDB WASM. Sem servidor, sem cadastro, sem limites.',
+    cta: 'Abrir explorador',
+    href: 'explorador',
+    key: 'explorador',
+  },
 ] as const;
 
 export const AUDIENCE_CARDS = [
