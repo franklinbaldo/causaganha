@@ -23,10 +23,27 @@ from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
 from djen_backup.inventory import ZipInventory
 from djen_backup.tribunais import get_tribunal_list
 
+from typing import TYPE_CHECKING, Protocol
+
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
 log = structlog.get_logger()
+
+# ── Protocols ───────────────────────────────────────────────────────
+
+
+class SyncObserver(Protocol):
+    """Interface for reporting sync progress to the UI."""
+
+    def on_metadata_sync_start(self, tribunal: str, year: int) -> None: ...
+    def on_metadata_sync_complete(self, tribunal: str, year: int, found: int) -> None: ...
+    def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None: ...
+    def on_item_start(self, tribunal: str, d: date) -> None: ...
+    def on_item_complete(self, tribunal: str, d: date, status: str) -> None: ...
+    def on_periodic_sync_start(self) -> None: ...
+    def on_periodic_sync_complete(self) -> None: ...
+
 
 # Constants
 VERSION_EXPECTED = 2
@@ -231,6 +248,7 @@ class SyncConfig:
     skip_absent_markers: bool = False
     publish_live_status: bool = False
     genesis_dates: dict[str, date] = field(default_factory=dict)
+    observer: SyncObserver | None = None
 
 
 @dataclass
@@ -330,8 +348,12 @@ async def process_date(
         await summary.inc_skipped_circuit()
         return "skipped"
 
+    if config.observer:
+        config.observer.on_item_start(tribunal, d)
+
     # 3. Fetch from DJEN
     zip_path: Path | None = None
+    res_status = "error"
     try:
         zip_url = await get_caderno_url(client, config.djen_proxy_url, tribunal, d)
         zip_path = await download_zip(client, zip_url)
@@ -340,14 +362,20 @@ async def process_date(
             await inventory.add_absent(tribunal, d)
             await state.record_empty(tribunal)
             await summary.inc_empty()
-            return "empty"
-        await state.record_error(tribunal)
-        await summary.inc_error()
-        return "error"
+            res_status = "empty"
+        else:
+            await state.record_error(tribunal)
+            await summary.inc_error()
+            res_status = "error"
     except httpx.HTTPError:
         await state.record_error(tribunal)
         await summary.inc_error()
-        return "error"
+        res_status = "error"
+
+    if res_status != "error":
+        if config.observer:
+            config.observer.on_item_complete(tribunal, d, res_status)
+        return res_status
 
     # 4. Upload to IA
     try:
@@ -357,17 +385,24 @@ async def process_date(
             await inventory.add(tribunal, d)
             await state.record_hit(tribunal, d)
             await summary.inc_hit()
-            return "hit"
-        await breaker.record_failure()
+            res_status = "hit"
+        else:
+            await breaker.record_failure()
+            res_status = "error"
     except Exception:
         await breaker.record_failure()
+        res_status = "error"
     finally:
         if zip_path:
             zip_path.unlink(missing_ok=True)
 
-    await state.record_error(tribunal)
-    await summary.inc_ia_error()
-    return "error"
+    if res_status == "error":
+        await state.record_error(tribunal)
+        await summary.inc_ia_error()
+    
+    if config.observer:
+        config.observer.on_item_complete(tribunal, d, res_status)
+    return res_status
 
 
 async def run_sync(config: SyncConfig) -> int:
@@ -379,7 +414,7 @@ async def run_sync(config: SyncConfig) -> int:
     inventory = ZipInventory()
     await inventory.load_from_ia()
     inventory.load_from_disk()
-    inventory.load_from_snapshot()
+    await inventory.load_from_snapshot()
 
     local_state_data = None
     if config.state_file and config.state_file.exists():
@@ -426,13 +461,23 @@ async def run_sync(config: SyncConfig) -> int:
                 prog = await state.get_or_init(t, config.start_date)
                 if prog.stopped: return
 
-                # Metadata sync
+                # Fast check: is this year already finished in our CSV?
+                if inventory.is_year_complete(t, year, upper, lower):
+                    return
+
+                # Metadata sync (only if gaps exist in local CSV)
+                if config.observer:
+                    config.observer.on_metadata_sync_start(t, year)
                 ia_dates = await fetch_ia_existing(client, t, year)
                 if ia_dates:
                     await inventory.add_many(t, set(ia_dates.keys()))
+                if config.observer:
+                    config.observer.on_metadata_sync_complete(t, year, len(ia_dates))
 
                 # Gap processing
                 gaps = inventory.gaps_for_year(t, year, upper, lower)
+                if config.observer:
+                    config.observer.on_gaps_discovered(t, year, len(gaps))
                 if not gaps: return
                 
                 log.info("sync_tribunal_year", tribunal=t, year=year, gaps=len(gaps))
@@ -449,10 +494,14 @@ async def run_sync(config: SyncConfig) -> int:
                     if not config.dry_run and time.monotonic() - last_ia_sync > SYNC_INTERVAL_S:
                         # Update last_ia_sync IMMEDIATELY to prevent other workers from entering
                         last_ia_sync = time.monotonic() 
+                        if config.observer:
+                            config.observer.on_periodic_sync_start()
                         log.info("sync_periodic_upload_starting")
                         await inventory.upload_to_ia(config.ia_auth)
                         await upload_state_to_ia(IA_BACKFILL_STATE_FILENAME, state.to_dict(), config.ia_auth)
                         log.info("sync_periodic_upload_complete")
+                        if config.observer:
+                            config.observer.on_periodic_sync_complete()
 
                     if res == "error":
                         consecutive_errors += 1

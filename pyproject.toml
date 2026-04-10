@@ -62,7 +62,7 @@ dev = [
 
 [project.scripts]
 causaganha = "causaganha.cli:app"
-djen-backup = "djen_backup.__main__:main"
+djen-backup = "djen_backup.__main__:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]

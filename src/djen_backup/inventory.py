@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 from datetime import UTC, date, datetime, timedelta
@@ -194,7 +195,7 @@ class ZipInventory:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.to_csv(), encoding="utf-8")
 
-    def load_from_snapshot(self) -> int:
+    async def load_from_snapshot(self) -> int:
         """Seed from ia-snapshot.json (zero network)."""
         snapshot_path = Path("dashboard/public/ia-snapshot.json")
         if not snapshot_path.exists():
@@ -211,7 +212,7 @@ class ZipInventory:
                     d = date.fromisoformat(date_str)
                 except ValueError:
                     continue
-                self.add(tribunal, d)
+                await self.add(tribunal, d)
         return len(self._entries) - before
 
     def gaps_for_year(
@@ -232,3 +233,26 @@ class ZipInventory:
                 missing.append(current)
             current += timedelta(days=1)
         return missing
+
+    def is_year_complete(
+        self,
+        tribunal: str,
+        year: int,
+        upper: date,
+        lower: date,
+    ) -> bool:
+        """Check if all days for this tribunal/year are already in inventory."""
+        start = max(date(year, 1, 1), lower)
+        end = min(date(year, 12, 31), upper)
+        
+        # If the start is after the end, this year isn't even in our range
+        if start > end:
+            return True
+            
+        t_upper = tribunal.upper()
+        current = start
+        while current <= end:
+            if f"{t_upper}/{current.isoformat()}" not in self._entries:
+                return False
+            current += timedelta(days=1)
+        return True
