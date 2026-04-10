@@ -103,8 +103,6 @@ AnalysisStrategy.NONE
 # Archive service Protocol methods
 ArchiveService.check_item_exists
 ArchiveService.generate_metadata
-InternetArchiveService.check_item_exists
-InternetArchiveService.generate_metadata
 LocalArchiveService.check_item_exists
 LocalArchiveService.generate_metadata
 

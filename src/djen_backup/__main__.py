@@ -67,7 +67,7 @@ class RichSyncObserver:
     def on_metadata_sync_start(self, tribunal: str, year: int) -> None:
         self.progress.console.log(f"[dim]Syncing metadata for {tribunal} ({year})...[/dim]")
 
-    def on_metadata_sync_complete(self, tribunal: str, year: int, found: int) -> None:
+    def on_metadata_sync_complete(self, tribunal: str, year: int, _found: int) -> None:
         pass
 
     def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None:
