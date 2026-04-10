@@ -46,3 +46,12 @@ dashboard/public/tribunal_quality_scores.json
 # Generated/runtime files
 .pending_alert_backfill.json
 analysis_results.txt
+
+# Runtime artifacts (generated locally, not for version control)
+causaganha.db
+*.png
+*.log
+data_*.json
+ia_data.json
+run_stats.json
+logs/
