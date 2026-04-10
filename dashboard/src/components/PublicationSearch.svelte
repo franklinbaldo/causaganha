@@ -74,6 +74,12 @@
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
   async function runSearch() {
+    if (cooldownUntil !== null && Date.now() < cooldownUntil) {
+      // Rate limit is still active — refuse to hit the API so we don't keep
+      // racking up 429s and block recovery.
+      return;
+    }
+
     if (!hasIdentity) {
       status = 'validation';
       errorMsg = 'Informe ao menos um critério: tribunal, texto, parte, advogado, OAB ou processo.';
