@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Self
 
 import structlog
 
-from scripts.pipeline.ia_s3 import (
+from causaganha.pipeline.ia_s3 import (
     create_upload_client,
     get_ia_item_id,
     get_ia_s3_auth,
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     import httpx
 
-    from scripts.pipeline.ia_s3 import CircuitBreaker
+    from causaganha.pipeline.ia_s3 import CircuitBreaker
 
 logger = structlog.get_logger()
 
