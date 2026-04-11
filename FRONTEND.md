@@ -247,6 +247,16 @@ const data = deriveData(null, dashboardData, cacheData, tribunalStartDates, trib
 
 The seed and the live-refresh shape must match exactly — that is why the page derives both through `deriveData()` rather than passing raw JSON. Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable.
 
+> **⚠️ Known inconsistency — source-of-truth drift.** The boilerplate above (hand-picking `readJson()` calls and passing them to `deriveData()`) is fragile: every page must pass the exact same arguments in the same order as `fetchAllData()` in `fetchData.ts`, or the seed shape will silently differ from the live-refresh shape. In practice, `[tribunal].astro` currently reads **6** JSON files while `fetchAllData()` reads **11** — so fields like `stats`, `perfMetrics`, and anything derived from `cache/calendar.json` are missing from the seed. This is a tracked consolidation target. **The correct direction** is a single helper `loadBuildTimeData()` in `fetchData.ts` that does the `readJson()` + `deriveData()` dance in one place and returns the full `DerivedData` shape. Pages should then call:
+> ```astro
+> ---
+> import { loadBuildTimeData } from '../../lib/fetchData';
+> const data = loadBuildTimeData();
+> ---
+> <TribunalDetail initialCoverage={data.tribunalCoverage} ... />
+> ```
+> Until that helper is added, new pages should copy the full argument list from `fetchAllData()` verbatim — do not reinvent the subset.
+
 **1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
 
 **2. Cross-island shared state** — a `writable` store exported from a `.ts` file in `lib/`. Use when two or more Svelte islands on the same page need to read from or write to the same value.
@@ -581,9 +591,13 @@ All data fetching goes through `web/src/lib/fetchData.ts`, which implements retr
 
 The file exports:
 - `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
-- `fetchAllData()` — fetches the full derived dataset (used by `createDataRefresh`)
+- `fetchAllData()` — fetches the full derived dataset (used by `createDataRefresh`). **This is the canonical list of inputs that feed `DerivedData`.** Any build-time seed assembled in an Astro page must pass the same inputs in the same order, or the seed shape will silently drift from the runtime shape.
 - `startLivePolling(onUpdate, intervalMs)` — starts a polling loop, returns a stop function
 - `deriveData(stats, dashboardData, cacheData, tribunalStartDates?, tribunalQualityScores?, perfMetrics?, iaSnapshot?)` — pure transformation that merges multiple data sources into the `DerivedData` shape; used in Astro pages at build time
+
+### Build-time hydration: a single source of truth
+
+The build-time seed pattern (Tier 0 under [Four tiers of state](#four-tiers-of-state)) currently has no central helper — every Astro page reimplements its own `readJson()` boilerplate and hand-assembles the arguments to `deriveData()`. This is fragile. The target is a single `loadBuildTimeData()` helper in `fetchData.ts` that mirrors `fetchAllData()` but uses `readJson()` synchronously and returns `DerivedData`. Pages would then call `loadBuildTimeData()` once and pass slices of its result as `initialXxx` props. Until that helper exists, align any new page with `fetchAllData()`'s input list exactly.
 
 ```ts
 // Correct — use the exported helpers
@@ -787,6 +801,8 @@ These areas are not yet covered by existing infrastructure. Be aware before assu
 - **No end-to-end tests.** Playwright or a similar e2e framework is not set up. BDD tests run in jsdom only and do not test real browser behavior or full page navigation.
 - **No i18n.** All UI strings are hardcoded in Portuguese. There is no translation framework in place.
 - **Accessibility.** Guidelines and known gaps are documented in `web/ACCESSIBILITY.md` and `web/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
+- **Build-time hydration has no central source of truth.** Every Astro page that seeds a Svelte island reimplements its own `readJson()` + `deriveData()` boilerplate, and pages read different subsets of the underlying JSON files. This means the build-time seed shape silently differs from the `fetchAllData()` runtime shape on any page that forgets a source. The fix is a single `loadBuildTimeData()` helper in `fetchData.ts` (see [Data Fetching](#data-fetching)). Until it lands, always pass `deriveData()` the exact same arguments that `fetchAllData()` does.
+- **`DerivedData` is mostly `any`.** See the [TypeScript](#typescript) section's carve-out. Strict typing will be added incrementally as schemas are codified.
 
 ---
 
