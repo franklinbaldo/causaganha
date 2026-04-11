@@ -53,9 +53,24 @@ export const QUICK_ACCESS_CARDS = [
 ] as const;
 
 export const AUDIENCE_CARDS = [
-  { title: 'Pesquisadores', key: 'pesquisadores' },
-  { title: 'LegalTechs', key: 'legaltechs' },
-  { title: 'Jornalistas', key: 'jornalistas' },
+  {
+    title: 'Pesquisadores',
+    icon: '🎓',
+    description: 'Acesse séries históricas completas de publicações judiciais para análises empíricas, estudos de direito e ciência de dados.',
+    key: 'pesquisadores',
+  },
+  {
+    title: 'LegalTechs',
+    icon: '⚙️',
+    description: 'Integre dados abertos do Judiciário em produtos jurídicos. API pública, Parquet e DuckDB WASM prontos para uso.',
+    key: 'legaltechs',
+  },
+  {
+    title: 'Jornalistas',
+    icon: '📰',
+    description: 'Investigue decisões judiciais, acompanhe processos de interesse público e consulte advogados envolvidos em casos relevantes.',
+    key: 'jornalistas',
+  },
 ] as const;
 
 export function formatNumber(n: number): string {
