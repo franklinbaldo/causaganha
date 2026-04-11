@@ -207,25 +207,45 @@ Do not mix the Svelte 4 `$:` reactive statements with Svelte 5 runes in the same
 
 Choose the right tier for each piece of state:
 
-**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()` and pass the result as typed `initialXxx` props to Svelte islands. The island derives live state from a `createDataRefresh` store with a fallback to the seed:
+**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()`, merge it through `deriveData()` to produce the canonical `DerivedData` shape, and pass specific fields of that shape as typed `initialXxx` props to Svelte islands. The island derives live state from a `createDataRefresh` store with a fallback to the seed:
 
-```svelte
-// web/src/pages/[tribunal].astro (runs at BUILD TIME)
-const coverage = readJson<Record<string, string[]> | null>('cache/calendar.json');
+```astro
 ---
-<TribunalDetail initialCoverage={coverage} client:load />
+// web/src/pages/publicacoes/[tribunal].astro (runs at BUILD TIME)
+import { deriveData } from '../../lib/fetchData';
+import { readJson } from '../../lib/readJson';
 
-// web/src/components/TribunalDetail.svelte (runs in the BROWSER)
-let { initialCoverage } = $props();
-const store = createDataRefresh(null, null);
-onMount(() => store.start());
-onDestroy(() => store.stop());
+const dashboardData       = readJson('dashboard-data.json');
+const tribunalStartDates  = readJson('tribunal_start_dates.json');
+const tribunalQualityScores = readJson('tribunal_quality_scores.json');
+const cacheData           = { today: readJson('cache/today.json'), backfill: readJson('cache/backfill.json') };
+const iaSnapshot          = readJson('ia-snapshot.json');
 
-// Falls back to build-time seed until live refresh arrives
-let coverage = $derived($store.data?.tribunalCoverage ?? initialCoverage);
+// deriveData() merges all sources into the DerivedData shape used by the store
+const data = deriveData(null, dashboardData, cacheData, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
+---
+<TribunalDetail
+  client:only="svelte"
+  tribunalCode={tribunalCode}
+  initialCoverage={data?.tribunalCoverage}
+  initialEtas={data?.tribunalEtas}
+/>
 ```
 
-Always pass build-time data as `initialXxx` props. Never leave an island with `null` initial state when the Astro page can pre-populate it — the skeleton flash is user-visible and avoidable.
+```svelte
+<!-- web/src/components/TribunalDetail.svelte (runs in the BROWSER) -->
+<script lang="ts">
+  let { initialCoverage } = $props();
+  const store = createDataRefresh(null, null);
+  onMount(() => store.start());
+  onDestroy(() => store.stop());
+
+  // Falls back to build-time seed until live refresh arrives
+  let coverage = $derived($store.data?.tribunalCoverage ?? initialCoverage);
+</script>
+```
+
+The seed and the live-refresh shape must match exactly — that is why the page derives both through `deriveData()` rather than passing raw JSON. Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable.
 
 **1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
 
@@ -344,10 +364,10 @@ Rules for contributors:
 **Done-state:** The migration is complete when this command returns no matches:
 
 ```sh
-grep -rE 'class="[^"]*(bg-|text-|flex|p-|m-|gap-|grid|items-|justify-)' web/src/components/
+grep -rnE 'class="[^"]*\b(bg-(white|black|[a-z]+-[0-9]+)|text-(xs|sm|base|lg|xl|[0-9]xl|white|black|center|left|right|[a-z]+-[0-9]+)|flex(-(row|col|wrap|nowrap))?\b|grid(-cols-[0-9])?\b|items-(start|center|end|stretch|baseline)|justify-(start|center|end|between|around|evenly)|gap(-[xy])?-[0-9]|p[xytrbl]?-[0-9]|m[xytrbl]?-[0-9])' web/src/components/
 ```
 
-At that point, `web/strip-tailwind-classes.mjs` can be deleted.
+The regex uses word boundaries and requires the telltale Tailwind suffix (color+shade, spacing number, directional keyword) to avoid false positives with custom class names that contain substrings like `grid` or `flex`. It is a heuristic — if you introduce a new class name containing one of these literal tokens, audit the hit manually. At that point, `web/strip-tailwind-classes.mjs` can be deleted.
 
 ### Responsive design
 
