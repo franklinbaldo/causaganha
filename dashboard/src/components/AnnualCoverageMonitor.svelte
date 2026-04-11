@@ -180,7 +180,14 @@ function sortIcon(field: string): string {
                 {/if}
               </td>
               <td>
-                <div class="progress-bar-track">
+                <div
+                  class="progress-bar-track"
+                  role="progressbar"
+                  aria-valuenow={Math.min(100, r.percentage)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="{r.tribunal}: {r.percentage.toFixed(1)}% cobertura"
+                >
                   <div
                     class={`progress-bar-fill ${colors.bg || ''}`}
                     style="width: {Math.min(100, r.percentage)}%"
