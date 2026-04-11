@@ -20,7 +20,7 @@ const { weeklyAverages, lowestDay } = processWeeklyPattern(data);
 const displayOrder = [1, 2, 3, 4, 5, 6, 0];
 const displayWeekly = displayOrder.map(idx => weeklyAverages.find(w => w.dayIdx === idx));
 
-const base = import.meta.env.BASE_URL ?? '/causaganha/';
+const base = import.meta.env.BASE_URL;
 ---
 
 <Layout

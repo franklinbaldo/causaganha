@@ -7,7 +7,7 @@
  * Server-side (Astro build): uses local static files only.
  */
 
-const BASE = import.meta.env.BASE_URL ?? '/causaganha/';
+const BASE = import.meta.env.BASE_URL;
 const IA_BASE: string = 'https://archive.org/download/causaganha-dashboard/';
 
 function resolve(path: string): string {

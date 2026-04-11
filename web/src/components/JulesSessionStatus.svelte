@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { fetchWithRetry } from '../lib/fetchData';
 
-  export let apiKey: string = '';
+  let { apiKey = '' }: { apiKey?: string } = $props();
 
   interface Session {
     name: string; // The full name, typically includes ID
@@ -11,9 +11,9 @@
     createTime: string;
   }
 
-  let sessions: Session[] = [];
-  let loading = false;
-  let error = '';
+  let sessions = $state<Session[]>([]);
+  let loading = $state(false);
+  let error = $state('');
 
   onMount(async () => {
     // If no API key is provided, we try to load it from localStorage for convenience during development

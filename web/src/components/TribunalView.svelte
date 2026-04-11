@@ -36,7 +36,7 @@
   const snapshotItems = $derived(iaSnapshot?.items || {});
   const snapshotByYear = $derived(iaSnapshot?.by_year || {});
 
-  const BASE = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL || '/causaganha/') : '/causaganha/';
+  const BASE = import.meta.env.BASE_URL;
   const baseUrl = BASE.endsWith('/') ? BASE : BASE + '/';
 
   const normalizedQuery = $derived(query.trim().toLowerCase());
