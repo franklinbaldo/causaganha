@@ -77,6 +77,6 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'deploy-dashboard.yml',
+              workflow_id: 'deploy-web.yml',
               ref: 'main'
             });
