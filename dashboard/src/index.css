@@ -572,8 +572,12 @@ small { font-size: var(--font-size-sm); }
    Focus Visibility (Keyboard / Switch Access)
    ═══════════════════════════════════════════ */
 
-/* Remove browser default outline; show only on keyboard navigation */
-:focus { outline: none; }
+/* In browsers that support :focus-visible, suppress the always-on ring
+   so it only appears during keyboard/switch navigation. Browsers without
+   support (older Safari, embedded WebViews) keep their default outline. */
+@supports selector(:focus-visible) {
+  :focus { outline: none; }
+}
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
