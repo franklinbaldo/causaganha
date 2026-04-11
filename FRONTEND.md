@@ -56,7 +56,7 @@ const href = '/causaganha/publicacoes';
 
 - **`trailingSlash: 'never'`** — internal `href` values must not end with `/`. Write `href={BASE_URL + 'publicacoes'}`, not `href={BASE_URL + 'publicacoes/'}`.
 - **Prefetch is on by default (`defaultStrategy: 'hover'`).** Links prefetch on hover automatically. Do not add manual `<link rel="prefetch">` tags.
-- **Live data comes from Internet Archive, not a backend.** After the static page loads, `fetchData.ts` fetches live JSON from `archive.org`. This is the only "API" this project has.
+- **The primary data source is Internet Archive, not a backend.** After the static page loads, `fetchData.ts` fetches live JSON from `archive.org`. Some components also call the GitHub API directly (e.g. `workflowStatusStore.ts`, `PipelineRunHistory.svelte`) for pipeline status — these are valid exceptions, not violations of this rule.
 - **`.ts` endpoint files generate static files at build.** `robots.txt.ts` and `sitemap.xml.ts` run once at build time and output static files. They are not runtime API routes.
 
 ### Anti-patterns — Deployment
@@ -582,24 +582,30 @@ Pair every fetch with a Zod schema parse so that bad data surfaces immediately a
 
 Three reusable components handle these states. Use them consistently — do not invent new patterns per component.
 
-| State | Component | When |
+| State | In `.astro` pages/layouts | In `.svelte` islands |
 |---|---|---|
-| No content | `EmptyState.astro` | Island has no data and nothing to show (empty result set, first load before seed) |
-| Error | `AlertBanner.astro` with `level="error"` | Fetch failures, validation errors surfaced to the user |
-| Loading | Skeleton shimmer (see `web/SKELETON_LOADERS.md`) | Async data is in flight |
+| No content | `<EmptyState title="..." message="..." />` | Inline `<div class="empty-state">` markup |
+| Error | `<AlertBanner level="error" ... />` | Inline `<div class="alert alert-error" role="alert">` markup |
+| Loading | Skeleton shimmer (see `web/SKELETON_LOADERS.md`) | Same — `<div class="skeleton skeleton-card">` |
 
 ### Three-state template
 
 The canonical pattern for any island that fetches data:
+
+> **Important:** `EmptyState.astro` and `AlertBanner.astro` are Astro components — they cannot be imported or rendered inside `.svelte` files. Use inline markup in Svelte islands. These Astro components are for use in `.astro` pages and layouts only.
 
 ```svelte
 {#if $store.loading && !$store.data}
   <!-- Skeleton — mirror the shape of the loaded content, not a generic spinner -->
   <div class="skeleton skeleton-card"></div>
 {:else if $store.error}
-  <AlertBanner level="error" title="Erro ao carregar dados" message={$store.error} />
+  <div class="alert alert-error" role="alert">
+    <strong>Erro ao carregar dados:</strong> {$store.error}
+  </div>
 {:else if !$store.data || Object.keys($store.data).length === 0}
-  <EmptyState title="Sem dados" message="Nenhum resultado encontrado." />
+  <div class="empty-state">
+    <p>Nenhum resultado encontrado.</p>
+  </div>
 {:else}
   <!-- Happy path -->
 {/if}
