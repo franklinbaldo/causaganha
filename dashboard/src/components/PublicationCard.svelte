@@ -608,7 +608,7 @@
     overflow: hidden;
     background:
       radial-gradient(circle at top left, rgba(180, 83, 9, 0.08), transparent 26rem),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 12rem),
+      linear-gradient(180deg, var(--color-surface-raised), transparent 12rem),
       var(--color-base-100);
   }
 
@@ -745,7 +745,7 @@
     padding: 0.65rem 0.8rem;
     border: 1px solid var(--color-base-300);
     border-radius: 0.85rem;
-    background: rgba(255, 255, 255, 0.72);
+    background: var(--color-surface);
     backdrop-filter: blur(6px);
   }
 
@@ -839,7 +839,7 @@
   .sidebar-panel {
     border: 1px solid var(--color-base-300);
     border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.62);
+    background: var(--color-surface);
     backdrop-filter: blur(6px);
     padding: 1rem;
   }

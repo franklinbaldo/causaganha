@@ -4,7 +4,7 @@ import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import { readJson } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
+import { formatNumber, HOW_IT_WORKS_CARDS, QUICK_ACCESS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
 const today = readJson<any>('cache/today.json');
@@ -68,7 +68,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             </div>
             <button type="submit" class="btn btn-primary search-btn">Buscar</button>
           </form>
-          <p class="search-hint">Experimente: <button class="hint-chip" data-example="TJSP">TJSP</button> · <button class="hint-chip" data-example="OAB SP 12345">OAB SP 12345</button> · <button class="hint-chip" data-example="mandado de segurança">mandado de segurança</button></p>
+          <p class="search-hint">Experimente: <button type="button" class="hint-chip" data-example="TJSP">TJSP</button> · <button type="button" class="hint-chip" data-example="OAB SP 12345">OAB SP 12345</button> · <button type="button" class="hint-chip" data-example="mandado de segurança">mandado de segurança</button></p>
 
           <div class="hero-ctas">
             <a href={BASE + 'publicacoes'} class="btn btn-outline">Ver Publicações de Hoje</a>
@@ -154,6 +154,24 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div class="stat-value stat-primary">100<small class="stat-unit">%</small></div>
         <figcaption>Dados Públicos</figcaption>
       </figure>
+    </div>
+  </section>
+
+  <!-- ── PARA QUEM ── -->
+  <section id="para-quem" class="section-full">
+    <div class="section-container">
+      <h2 class="section-title">Para quem é o CausaGanha?</h2>
+      <div class="quick-access-grid">
+        {AUDIENCE_CARDS.map(card => (
+          <div class="card audience-card">
+            <div class="card-body">
+              <div class="qa-icon" aria-hidden="true">{card.icon}</div>
+              <h3 class="qa-title">{card.title}</h3>
+              <p class="qa-desc">{card.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   </section>
 
