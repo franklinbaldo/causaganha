@@ -107,7 +107,7 @@ If you already use Bun locally, `bun install` and `bun run build` also work for 
 ```text
 src/causaganha/          Python package
 src/djen_backup/         ZIP/backfill collection utilities
-dashboard/               Astro + Svelte frontend
+web/                    Astro + Svelte (site completo)
 scripts/                 Operational and pipeline scripts
 tests/                   Pytest and pytest-bdd suites
 .github/workflows/       CI/CD and data workflows
