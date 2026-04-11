@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { createQuery, setQueryClientContext } from '@tanstack/svelte-query';
   import {
     searchDjenComunicacoes,
     DjenValidationError,
@@ -18,6 +19,11 @@
   import SmartSearchInput from './SmartSearchInput.svelte';
   import SearchFilters from './SearchFilters.svelte';
   import RateLimitBadge from './RateLimitBadge.svelte';
+  import { QUERY_KEYS } from '../lib/queryKeys';
+  import { getQueryClient } from '../lib/queryClient';
+
+  // Initialize context for this island (must run during component init, before createQuery)
+  setQueryClientContext(getQueryClient());
 
   type Status =
     | 'idle'
@@ -32,12 +38,9 @@
   let filters = $state<DjenComunicacaoQuery>({ itensPorPagina: 30, pagina: 1 });
   let showFilters = $state(false);
 
-  let results = $state<DjenPublication[]>([]);
-  let totalCount = $state(0);
-  let status = $state<Status>('idle');
-  let errorMsg = $state<string | null>(null);
-  let rateLimit = $state<DjenRateLimit>({ limit: null, remaining: null, resetAt: null });
-  let usedFallback = $state(false);
+  // The query that was actually submitted (debounced or immediate on submit)
+  let submittedQuery = $state<DjenComunicacaoQuery | null>(null);
+
   let cooldownUntil = $state<number | null>(null);
   let cooldownRemaining = $state(0);
 
@@ -63,66 +66,77 @@
         effectiveQuery.itensPorPagina <= 5),
   );
 
+  const resultsHeadingId = 'publication-search-results';
+
+  // TanStack Query for DJEN search.
+  // - `signal` is injected by TanStack; changing `submittedQuery` (key) cancels the previous request.
+  // - `staleTime: 60s` so repeated identical searches are served from cache.
+  // - No auto-retry on rate-limit or validation errors.
+  const searchQuery = createQuery(() => ({
+    queryKey: QUERY_KEYS.djenSearch(submittedQuery as Record<string, unknown>),
+    queryFn: ({ signal }) => searchDjenComunicacoes(submittedQuery!, { signal }),
+    enabled: submittedQuery !== null && hasIdentity && cooldownRemaining === 0,
+    staleTime: 60_000,
+    retry: (failureCount, error) => {
+      if (error instanceof DjenRateLimitError) return false;
+      if (error instanceof DjenValidationError) return false;
+      return failureCount < 2;
+    },
+  }));
+
+  // Derive display state from query result
+  const results = $derived<DjenPublication[]>(searchQuery.data?.items ?? []);
+  const totalCount = $derived(searchQuery.data?.count ?? 0);
+  const rateLimit = $derived<DjenRateLimit>(
+    searchQuery.data?.rateLimit ?? { limit: null, remaining: null, resetAt: null }
+  );
+  const usedFallback = $derived(searchQuery.data?.usedFallback ?? false);
+
+  const status = $derived.by((): Status => {
+    if (searchQuery.isFetching) return 'loading';
+    const err = searchQuery.error;
+    if (err) {
+      if (err instanceof DjenRateLimitError) return 'ratelimited';
+      if (err instanceof DjenValidationError) return 'validation';
+      return 'error';
+    }
+    if (searchQuery.isSuccess) {
+      return results.length === 0 ? 'empty' : 'success';
+    }
+    return 'idle';
+  });
+
+  const errorMsg = $derived.by((): string | null => {
+    const err = searchQuery.error;
+    if (!err) return null;
+    if (err instanceof DjenValidationError) return err.issues.join(' · ');
+    if (err instanceof DjenRateLimitError) return null;
+    return (err as Error).message || 'Erro desconhecido';
+  });
+
   const canSubmit = $derived(
     status !== 'loading' && hasIdentity && cooldownRemaining === 0,
   );
 
-  const resultsHeadingId = 'publication-search-results';
+  // Watch for rate-limit errors and start the cooldown timer
+  $effect(() => {
+    const err = searchQuery.error;
+    if (err instanceof DjenRateLimitError && cooldownUntil === null) {
+      cooldownUntil = Date.now() + err.retryAfterSec * 1000;
+      cooldownRemaining = err.retryAfterSec;
+      startCooldownTick();
+    }
+  });
 
-  let controller: AbortController | null = null;
-  let debounceId: ReturnType<typeof setTimeout> | null = null;
+  // Sync URL when a successful search completes
+  $effect(() => {
+    if (searchQuery.isSuccess && submittedQuery) {
+      pushQueryToUrl(submittedQuery);
+    }
+  });
+
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
-
-  async function runSearch() {
-    if (cooldownUntil !== null && Date.now() < cooldownUntil) {
-      // Rate limit is still active — refuse to hit the API so we don't keep
-      // racking up 429s and block recovery.
-      return;
-    }
-
-    if (!hasIdentity) {
-      status = 'validation';
-      errorMsg = 'Informe ao menos um critério: tribunal, texto, parte, advogado, OAB ou processo.';
-      return;
-    }
-
-    controller?.abort();
-    controller = new AbortController();
-    status = 'loading';
-    errorMsg = null;
-
-    try {
-      const result = await searchDjenComunicacoes(effectiveQuery, {
-        signal: controller.signal,
-      });
-      results = result.items;
-      totalCount = result.count;
-      rateLimit = result.rateLimit;
-      usedFallback = result.usedFallback;
-      status = result.items.length === 0 ? 'empty' : 'success';
-      pushQueryToUrl(effectiveQuery);
-    } catch (err) {
-      if ((err as Error)?.name === 'AbortError') return;
-
-      if (err instanceof DjenValidationError) {
-        status = 'validation';
-        errorMsg = err.issues.join(' · ');
-        return;
-      }
-
-      if (err instanceof DjenRateLimitError) {
-        status = 'ratelimited';
-        cooldownUntil = Date.now() + err.retryAfterSec * 1000;
-        cooldownRemaining = err.retryAfterSec;
-        startCooldownTick();
-        errorMsg = null;
-        return;
-      }
-
-      status = 'error';
-      errorMsg = (err as Error).message || 'Erro desconhecido';
-    }
-  }
+  let debounceId: ReturnType<typeof setTimeout> | null = null;
 
   function startCooldownTick() {
     stopCooldownTick();
@@ -136,7 +150,6 @@
       if (remaining <= 0) {
         cooldownUntil = null;
         stopCooldownTick();
-        if (status === 'ratelimited') status = 'idle';
       }
     }, 1000);
   }
@@ -148,19 +161,24 @@
     }
   }
 
+  function submitSearch() {
+    if (cooldownRemaining > 0 || !hasIdentity) return;
+    submittedQuery = { ...effectiveQuery };
+  }
+
   function handleSubmit() {
     if (debounceId) {
       clearTimeout(debounceId);
       debounceId = null;
     }
-    runSearch();
+    submitSearch();
   }
 
   function handlePageChange(delta: number) {
     const current = filters.pagina ?? 1;
     const next = Math.max(1, current + delta);
     filters = { ...filters, pagina: next };
-    runSearch();
+    submittedQuery = { ...effectiveQuery, pagina: next };
   }
 
   // Debounced reactive trigger
@@ -180,7 +198,7 @@
           pagina: undefined,
         });
         if (trimmed.length >= 3 || hasFilterValues) {
-          runSearch();
+          submitSearch();
         }
       });
     }, 400);

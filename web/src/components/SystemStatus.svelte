@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { createDataRefresh } from '../lib/dataRefreshStore';
+  import QueryProvider from './QueryProvider.svelte';
+  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
 
   const PIPELINE_INTERVAL_MINUTES = 20;
 
@@ -11,15 +11,13 @@
 
   let { initialStats, initialCacheToday }: SystemStatusProps = $props();
 
-  const store = createDataRefresh(null, null);
-  onMount(() => store.start());
-  onDestroy(() => store.stop());
+  const dashboard = useDashboardWithPolling();
 
   let showDetails = $state(false);
 
   // Use refreshed data if available, fall back to initial props
-  let stats = $derived($store.data?.stats ?? initialStats);
-  let cacheToday = $derived($store.data?.cacheData?.today ?? initialCacheToday);
+  let stats = $derived(dashboard.data?.stats ?? initialStats);
+  let cacheToday = $derived(dashboard.data?.cacheData?.today ?? initialCacheToday);
 
   let isSuccess = $derived(stats?.status === 'success');
   let health = $derived(cacheToday?.health);
@@ -59,6 +57,7 @@
   });
 </script>
 
+<QueryProvider>
 <div class="card"><div class="card-body">
   <div class="status-layout">
     <!-- Left: status & stats -->
@@ -236,6 +235,7 @@
     </a>
   </footer>
 </div></div>
+</QueryProvider>
 
 <style>
 

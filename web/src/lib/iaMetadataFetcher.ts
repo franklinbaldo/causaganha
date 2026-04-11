@@ -2,12 +2,12 @@
  * Single-request fetcher for Internet Archive coverage data.
  * Uses the IA Advanced Search API to get all tribunal items for a year
  * in ONE HTTP call instead of 91 individual metadata requests.
+ *
+ * Caching is handled by TanStack Query (staleTime: 30 minutes).
  */
 
 import { TRIBUNAIS } from './tribunais';
 import { fetchWithRetry } from './fetchData';
-
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 // IA system files per item (approximate): _meta.xml, _files.xml,
 // _meta.sqlite, _archive.torrent, __ia_thumb.jpg
@@ -22,11 +22,6 @@ export interface TribunalMetadata {
   error: string | null;
   downloads: number;
   itemSize: number;
-}
-
-interface CacheEntry {
-  timestamp: number;
-  data: TribunalMetadata[];
 }
 
 function isLeapYear(year: number): boolean {
@@ -44,40 +39,6 @@ export function getExpectedDays(year: number): number {
   const jan1 = new Date(year, 0, 1);
   const diffMs = now.getTime() - jan1.getTime();
   return Math.floor(diffMs / 86400000) + 1;
-}
-
-function getCacheKey(year: number): string {
-  return `cg-annual-coverage-${year}`;
-}
-
-function readCache(year: number): TribunalMetadata[] | null {
-  try {
-    const raw = sessionStorage.getItem(getCacheKey(year));
-    if (!raw) return null;
-    const cached: CacheEntry = JSON.parse(raw);
-    if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
-      sessionStorage.removeItem(getCacheKey(year));
-      return null;
-    }
-    return cached.data;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(year: number, data: TribunalMetadata[]): void {
-  try {
-    sessionStorage.setItem(getCacheKey(year), JSON.stringify({
-      timestamp: Date.now(),
-      data,
-    }));
-  } catch { /* quota exceeded — ignore */ }
-}
-
-export function clearCache(year: number): void {
-  try {
-    sessionStorage.removeItem(getCacheKey(year));
-  } catch { /* ignore */ }
 }
 
 /**
@@ -105,7 +66,7 @@ export interface FetchOptions {
  *
  * @param year - Year to check (e.g. 2026)
  * @param onProgress - Callback(done, total, results) — called once when done
- * @param options - { useCache: true, tribunals: TRIBUNAIS }
+ * @param options - { tribunals: TRIBUNAIS }
  * @returns Array of TribunalMetadata
  */
 export async function fetchAllTribunalMetadata(
@@ -113,15 +74,7 @@ export async function fetchAllTribunalMetadata(
   onProgress: OnProgressCallback | undefined,
   options: FetchOptions = {}
 ): Promise<TribunalMetadata[]> {
-  const { useCache = true, tribunals = TRIBUNAIS } = options;
-
-  if (useCache) {
-    const cached = readCache(year);
-    if (cached) {
-      onProgress?.(cached.length, cached.length, cached);
-      return cached;
-    }
-  }
+  const { tribunals = TRIBUNAIS } = options;
 
   const expectedDays = getExpectedDays(year);
 
@@ -180,10 +133,6 @@ export async function fetchAllTribunalMetadata(
   });
 
   onProgress?.(results.length, results.length, results);
-
-  if (useCache && !fetchError) {
-    writeCache(year, results);
-  }
 
   return results;
 }
