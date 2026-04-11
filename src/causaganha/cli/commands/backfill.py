@@ -27,6 +27,8 @@ app = typer.Typer(
 console = Console()
 
 _DEFAULT_STATE_FILE = Path("data/backfill-state.json")
+
+
 def _format_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.1f}s"
@@ -77,7 +79,7 @@ def _preflight_checks() -> None:
 
 
 @app.command()
-def run(
+def run(  # noqa: PLR0913
     target_date: str = typer.Option(
         "",
         "--date",
@@ -161,7 +163,8 @@ def run(
         workers=workers,
         state_file=state_file,
         djen_proxy_url=_resolve_djen_url(
-            use_proxy=use_proxy or os.environ.get("DJEN_USE_PROXY", "").lower() in ("1", "true", "yes", "on")
+            use_proxy=use_proxy
+            or os.environ.get("DJEN_USE_PROXY", "").lower() in ("1", "true", "yes", "on")
         ),
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,

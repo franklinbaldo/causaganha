@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 from typing import NamedTuple
 
 import structlog
@@ -29,6 +29,7 @@ from djen_backup.engine import (
     SyncState,
     run_sync,
 )
+
 
 DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
 DJEN_PROXY_FALLBACK_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
@@ -119,7 +120,9 @@ class RichSyncObserver:
         self.progress.console.log(msg)
 
     def on_periodic_sync_start(self) -> None:
-        self.progress.console.log("[yellow][Sync][/yellow] Periodic sync to Internet Archive starting...")
+        self.progress.console.log(
+            "[yellow][Sync][/yellow] Periodic sync to Internet Archive starting..."
+        )
 
     def on_periodic_sync_complete(self) -> None:
         self.progress.console.log("[green][OK][/green] Periodic sync complete.")
@@ -128,7 +131,9 @@ class RichSyncObserver:
         self.progress.console.log(f"[bold blue][Upload][/bold blue] {item_id} ({count} files)")
 
     def on_batch_upload_complete(self, item_id: str, count: int) -> None:
-        self.progress.console.log(f"[bold green][OK][/bold green] Batch upload complete: {item_id} ({count} files)")
+        self.progress.console.log(
+            f"[bold green][OK][/bold green] Batch upload complete: {item_id} ({count} files)"
+        )
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
@@ -189,7 +194,9 @@ def _show_env_hint(env_result: EnvLoadResult | None) -> None:
         console.print(f"[dim]Using existing environment; {env_result.path} was not applied[/dim]")
 
 
-def _show_run_summary(exit_code: int, *, dry_run: bool, tribunal: str | None, max_items: int) -> None:
+def _show_run_summary(
+    exit_code: int, *, dry_run: bool, tribunal: str | None, max_items: int
+) -> None:
     title = "Run Complete" if exit_code == 0 else "Run Finished With Errors"
     border = "green" if exit_code == 0 else "red"
     rows = Table.grid(padding=(0, 2))
@@ -200,7 +207,9 @@ def _show_run_summary(exit_code: int, *, dry_run: bool, tribunal: str | None, ma
     rows.add_row("Tribunal:", tribunal or "All")
     rows.add_row("Item Limit:", str(max_items) if max_items else "Unlimited")
     if exit_code == 0 and not dry_run:
-        rows.add_row("Note:", "Completed cleanly. Zero uploads can still mean nothing new was found.")
+        rows.add_row(
+            "Note:", "Completed cleanly. Zero uploads can still mean nothing new was found."
+        )
     elif exit_code == 0:
         rows.add_row("Note:", "Dry run completed cleanly.")
     else:
