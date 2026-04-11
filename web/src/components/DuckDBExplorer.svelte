@@ -191,6 +191,7 @@ LIMIT 20`,
         <button
           class="template-btn"
           onclick={() => { sql = tmpl.sql; result = null; error = null; }}
+          disabled={dbStatus !== 'ready'}
         >
           {tmpl.label}
         </button>
