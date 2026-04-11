@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   interface LiveStatusData {
     last_updated: string;
@@ -80,13 +81,15 @@
       const poll = async () => {
         // Try ntfy poll first
         try {
-          const resp = await fetch(NTFY_POLL_URL);
+          const resp = await fetchWithRetry(NTFY_POLL_URL) as Response;
           if (resp.ok) {
             const text = await resp.text();
             const lines = text.trim().split('\n').filter(Boolean);
             if (lines.length > 0) {
-              const last = JSON.parse(lines[lines.length - 1]);
-              applyMessage(last.message);
+              try {
+                const last = JSON.parse(lines[lines.length - 1]);
+                applyMessage(last.message);
+              } catch { /* ignore parse errors */ }
               return;
             }
           }
@@ -94,7 +97,7 @@
 
         // Last resort: IA static file
         try {
-          const resp = await fetch(IA_FALLBACK_URL + '?t=' + performance.now());
+          const resp = await fetchWithRetry(IA_FALLBACK_URL + '?t=' + performance.now()) as Response;
           if (resp.ok) {
             const json: LiveStatusData = await resp.json();
             if (isMounted) {
@@ -112,13 +115,15 @@
     };
 
     // Load latest on mount via ntfy poll (before SSE connects)
-    fetch(NTFY_POLL_URL)
-      .then((r) => r.ok ? r.text() : Promise.reject())
+    fetchWithRetry(NTFY_POLL_URL)
+      .then((r) => (r as Response).ok ? (r as Response).text() : Promise.reject())
       .then((text) => {
         const lines = text.trim().split('\n').filter(Boolean);
         if (lines.length > 0) {
-          const last = JSON.parse(lines[lines.length - 1]);
-          applyMessage(last.message);
+          try {
+            const last = JSON.parse(lines[lines.length - 1]);
+            applyMessage(last.message);
+          } catch { /* ignore parse errors */ }
         }
       })
       .catch(() => {});

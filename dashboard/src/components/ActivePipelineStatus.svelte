@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   interface TodayData {
     tribunal_status: Record<string, { status: string; last_update: string | null; doc_count: number }>;
@@ -28,8 +29,8 @@
     if (!isMounted) return;
     try {
       const [runsRes, todayRes] = await Promise.all([
-        fetch(CACHE_RUNS_URL + '?t=' + Date.now()),
-        fetch(CACHE_TODAY_URL + '?t=' + Date.now()),
+          fetchWithRetry(CACHE_RUNS_URL + '?t=' + Date.now()),
+          fetchWithRetry(CACHE_TODAY_URL + '?t=' + Date.now()),
       ]);
 
       if (runsRes.ok && todayRes.ok) {

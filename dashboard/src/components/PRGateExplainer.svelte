@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fetchWithRetry } from '../lib/fetchData';
+
   interface CheckRun {
     id: number;
     name: string;
@@ -69,8 +71,8 @@
       const repo = "franklinbaldo/causaganha";
 
       const [prRes, reviewsRes] = await Promise.all([
-        fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`),
-        fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}/reviews`)
+        fetchWithRetry(`https://api.github.com/repos/${repo}/pulls/${prNumber}`),
+        fetchWithRetry(`https://api.github.com/repos/${repo}/pulls/${prNumber}/reviews`)
       ]);
 
       if (!prRes.ok) throw new Error("Failed to fetch PR details. Make sure PR number is correct.");
@@ -79,7 +81,7 @@
       const reviews: Review[] = await reviewsRes.json();
 
       const lastCommitSha = prInfo.head.sha;
-      const checkRunsRes = await fetch(`https://api.github.com/repos/${repo}/commits/${lastCommitSha}/check-runs`);
+      const checkRunsRes = await fetchWithRetry(`https://api.github.com/repos/${repo}/commits/${lastCommitSha}/check-runs`);
       const checkRunsData: { check_runs: CheckRun[] } = await checkRunsRes.json();
 
       prData = { prInfo, checkRuns: checkRunsData.check_runs, reviews };

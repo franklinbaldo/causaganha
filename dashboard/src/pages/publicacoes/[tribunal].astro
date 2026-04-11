@@ -91,7 +91,7 @@ const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
     ]} />
 
     <TribunalDetail
-      client:idle
+      client:only="svelte"
       tribunalCode={tribunalCode}
       initialCoverage={data?.tribunalCoverage}
       initialEtas={data?.tribunalEtas}

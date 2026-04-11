@@ -53,7 +53,7 @@ const adminPages = [
     <div class="mt-8">
       <PausedTribunals data={backfillState} client:load />
       <div class="mt-8">
-        <AuditLogExport client:load />
+        <AuditLogExport client:only="svelte" />
       </div>
       <div class="mt-8">
         <OmissionCost omissionStats={omissionStats} client:load />
