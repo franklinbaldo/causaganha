@@ -42,6 +42,23 @@ gha-creds-*.json
 web/public/dashboard-data.json
 web/public/perf-metrics.json
 web/public/tribunal_quality_scores.json
+web/public/ia-snapshot.json
+web/public/cache/backfill.json
+web/public/cache/backfill_state.json
+
+# Generated catalog/inventory data (canonical copy lives on Internet Archive)
+catalog/completed-items.json
+catalog/catalog.duckdb
+catalog/catalog.sql
+catalog/manifest.parquet
+catalog/backfill-needed.parquet
+catalog/consolidate-progress.json
+catalog/consolidate-progress.jsonl
+catalog/omission_stats.json
+src/data/zip-inventory.txt
+
+# Generated dashboard cache (fetched from IA at build/runtime)
+web/public/cache/
 
 # Generated/runtime files
 .pending_alert_backfill.json
