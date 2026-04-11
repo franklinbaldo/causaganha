@@ -291,7 +291,7 @@ def main():
     )
     parser.add_argument(
         "--output",
-        default="dashboard/public/ia-snapshot.json",
+        default="web/public/ia-snapshot.json",
         help="Output path for snapshot JSON",
     )
     args = parser.parse_args()

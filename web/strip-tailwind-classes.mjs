@@ -209,8 +209,8 @@ function processFile(filePath) {
 
 // Main
 const files = [];
-for await (const f of glob('src/**/*.{astro,tsx}', { cwd: '/home/user/causaganha/dashboard' })) {
-  files.push('/home/user/causaganha/dashboard/' + f);
+for await (const f of glob('src/**/*.{astro,tsx}', { cwd: '/home/user/causaganha/web' })) {
+  files.push('/home/user/causaganha/web/' + f);
 }
 
 let totalClasses = 0;
@@ -221,7 +221,7 @@ for (const file of files.sort()) {
   if (removed.length > 0) {
     totalFiles++;
     totalClasses += removed.length;
-    const shortPath = file.replace('/home/user/causaganha/dashboard/', '');
+    const shortPath = file.replace('/home/user/causaganha/web/', '');
     console.log(`${shortPath}: removed ${removed.length} classes`);
     // Show first few unique removed classes
     const unique = [...new Set(removed)].slice(0, 8);

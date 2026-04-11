@@ -23,10 +23,10 @@ Usage:
   python generate_dashboard_cache.py --manifest ./m.parquet  # Use local manifest
 
 Outputs:
-  - dashboard/public/cache/meta.json     # Version and timestamp
-  - dashboard/public/cache/today.json    # Today's metrics and tribunal status
-  - dashboard/public/cache/runs.json     # Recent GitHub Actions runs
-  - dashboard/public/cache/calendar.json # Historical calendar data
+  - web/public/cache/meta.json     # Version and timestamp
+  - web/public/cache/today.json    # Today's metrics and tribunal status
+  - web/public/cache/runs.json     # Recent GitHub Actions runs
+  - web/public/cache/calendar.json # Historical calendar data
 """
 
 import argparse
@@ -49,7 +49,7 @@ import duckdb
 # Configuration
 CALENDAR_DAYS = 120
 GITHUB_REPO = "franklinbaldo/causaganha"
-OUTPUT_DIR = Path(__file__).parent.parent / "dashboard" / "public" / "cache"
+OUTPUT_DIR = Path(__file__).parent.parent / "web" / "public" / "cache"
 MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
 MANIFEST_JSONL_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 BACKFILL_URL = "https://archive.org/download/causaganha-catalog/backfill-needed.parquet"
@@ -642,7 +642,7 @@ def generate_backfill_state_cache() -> dict[str, Any]:
     tribunals_data = state_data.get("tribunals", {})
 
     start_dates_path = (
-        Path(__file__).parent.parent / "dashboard" / "public" / "tribunal_start_dates.json"
+        Path(__file__).parent.parent / "web" / "public" / "tribunal_start_dates.json"
     )
     start_dates = {}
     if start_dates_path.exists():
@@ -843,7 +843,7 @@ def generate_backfill_cache(
 
         # Load start dates from tribunal_start_dates.json if available
         start_dates_path = (
-            Path(__file__).parent.parent / "dashboard" / "public" / "tribunal_start_dates.json"
+            Path(__file__).parent.parent / "web" / "public" / "tribunal_start_dates.json"
         )
         start_dates: dict[str, str | None] = {}
         if start_dates_path.exists():

@@ -221,7 +221,7 @@ class ZipInventory:
 
     async def load_from_snapshot(self) -> int:
         """Seed from ia-snapshot.json (zero network)."""
-        snapshot_path = Path("dashboard/public/ia-snapshot.json")
+        snapshot_path = Path("web/public/ia-snapshot.json")
         if not snapshot_path.exists():
             return 0
         try:

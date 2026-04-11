@@ -113,10 +113,10 @@ Added skeleton loaders to the CausaGanha dashboard to replace generic "Loading..
 ### Network Testing
 ```bash
 # Simulate slow API response
-curl -o dashboard/public/dashboard-data.json http://localhost:4321/causaganha/dashboard-data.json --limit-rate 10k
+curl -o web/public/dashboard-data.json http://localhost:4321/causaganha/dashboard-data.json --limit-rate 10k
 
 # Test 404 error
-mv dashboard/public/dashboard-data.json dashboard/public/dashboard-data.json.bak
+mv web/public/dashboard-data.json web/public/dashboard-data.json.bak
 ```
 
 ### Accessibility
@@ -135,11 +135,11 @@ mv dashboard/public/dashboard-data.json dashboard/public/dashboard-data.json.bak
 
 ## Files Changed
 
-- ✨ `dashboard/src/components/SkeletonLoader.jsx` (new)
-- ✨ `dashboard/src/components/DualProgressCard.jsx` (new)
-- ✨ `dashboard/src/components/DualProgressCard.test.jsx` (new)
-- 📝 `dashboard/src/index.css` (shimmer animation added)
-- 📝 `dashboard/src/components/Dashboard.jsx` (integrated new component)
+- ✨ `web/src/components/SkeletonLoader.jsx` (new)
+- ✨ `web/src/components/DualProgressCard.jsx` (new)
+- ✨ `web/src/components/DualProgressCard.test.jsx` (new)
+- 📝 `web/src/index.css` (shimmer animation added)
+- 📝 `web/src/components/Dashboard.jsx` (integrated new component)
 
 ## Build Status
 

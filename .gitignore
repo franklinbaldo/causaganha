@@ -38,10 +38,10 @@ files_*.json
 .gemini/
 gha-creds-*.json
 
-# Generated dashboard files
-dashboard/public/dashboard-data.json
-dashboard/public/perf-metrics.json
-dashboard/public/tribunal_quality_scores.json
+# Generated web files
+web/public/dashboard-data.json
+web/public/perf-metrics.json
+web/public/tribunal_quality_scores.json
 
 # Generated/runtime files
 .pending_alert_backfill.json

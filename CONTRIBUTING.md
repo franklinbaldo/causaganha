@@ -9,7 +9,7 @@ Requirements:
 - Python 3.12+
 - `uv`
 - `git`
-- Node.js and `npm` for dashboard work
+- Node.js and `npm` for web development
 
 Setup:
 
@@ -32,10 +32,10 @@ uv run ruff check
 uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
 ```
 
-Dashboard checks:
+Frontend checks:
 
 ```bash
-cd dashboard
+cd web
 npm ci
 npm run lint
 npm test
@@ -46,7 +46,7 @@ npm run build
 
 - [src/causaganha](/Users/frank/workspace/causaganha/src/causaganha): main Python package
 - [src/djen_backup](/Users/frank/workspace/causaganha/src/djen_backup): ZIP and backfill utilities
-- [dashboard](/Users/frank/workspace/causaganha/dashboard): Astro + Svelte dashboard
+- [web](/Users/frank/workspace/causaganha/web): Astro + Svelte frontend
 - [scripts](/Users/frank/workspace/causaganha/scripts): operational scripts and pipeline helpers
 - [tests](/Users/frank/workspace/causaganha/tests): pytest and pytest-bdd suites
 - [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows): CI and production workflows
@@ -82,7 +82,7 @@ Before opening a PR:
 - make sure `ruff format --check` passes
 - make sure `ruff check` passes
 - make sure tests relevant to your change pass
-- make sure the dashboard builds if you touched `dashboard/`
+- make sure the frontend builds if you touched `web/`
 - update docs when commands, architecture, or behavior changed
 
 Recommended PR checklist:
@@ -95,7 +95,7 @@ Recommended PR checklist:
 
 ## Adding or changing pipeline behavior
 
-If you change collection, consolidation, catalog, or dashboard deployment behavior:
+If you change collection, consolidation, catalog, or deployment behavior:
 
 - inspect the corresponding workflow in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows)
 - verify the script or CLI entrypoint it invokes still matches

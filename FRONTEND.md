@@ -2,7 +2,7 @@
 
 This document describes our intended tech stack, how to use each technology idiomatically, how to combine them correctly, and the patterns we should follow and avoid.
 
-All frontend code lives under `dashboard/`.
+All frontend code lives under `web/`.
 
 ---
 
@@ -100,7 +100,7 @@ Pass only serializable data (strings, numbers, plain objects) as props. Non-seri
 
 ```astro
 ---
-// dashboard/src/pages/[tribunal].astro
+// web/src/pages/[tribunal].astro
 import HeatmapIsland from '../components/Heatmap.svelte';
 const data = await fetchSomeData();
 ---
@@ -163,7 +163,7 @@ Choose the right tier for each piece of state:
 **2. Cross-island shared state** — a `writable` store exported from a `.ts` file in `lib/`. Use when two or more Svelte islands on the same page need to read from or write to the same value.
 
 ```ts
-// dashboard/src/lib/workflowStatusStore.ts
+// web/src/lib/workflowStatusStore.ts
 import { writable } from 'svelte/store';
 
 export const workflowStatus = writable<string | null>(null);
@@ -182,7 +182,7 @@ The `$` prefix auto-subscribes and auto-unsubscribes. Never manually call `.subs
 **3. Singleton lazy-loader** — module-level `$state` runes inside a `.svelte.ts` file. Use for shared data that should be fetched once and shared reactively across any component that imports it. The file extension **must be `.svelte.ts`** for runes to work outside of `.svelte` components.
 
 ```ts
-// dashboard/src/lib/completedItemsStore.svelte.ts
+// web/src/lib/completedItemsStore.svelte.ts
 let _data = $state<Record<string, any> | null>(null);
 let _loading = $state(true);
 let _initialized = false;
@@ -222,7 +222,7 @@ Any component that imports `myStore` reads reactive state directly — no subscr
 
 Every `.svelte` file scopes its `<style>` block to the component. Do not add global selectors inside a component's `<style>` unless you wrap them in `:global()` explicitly and have a clear reason.
 
-Design token CSS variables (defined in `dashboard/src/index.css`) are available everywhere — use them, do not hardcode colors or spacing values.
+Design token CSS variables (defined in `web/src/index.css`) are available everywhere — use them, do not hardcode colors or spacing values.
 
 ### Anti-patterns — Svelte
 
@@ -237,7 +237,7 @@ Design token CSS variables (defined in `dashboard/src/index.css`) are available 
 
 ## Vanilla CSS and Design Tokens
 
-All global design tokens are in `dashboard/src/index.css`. Every token is a CSS custom property on `:root`.
+All global design tokens are in `web/src/index.css`. Every token is a CSS custom property on `:root`.
 
 ### Use tokens — never hardcode
 
@@ -265,7 +265,7 @@ The theme is applied via `data-theme` on `<html>`. Both `causaganha` (light) and
 
 ### Tailwind migration status
 
-Tailwind has been **removed from the toolchain** — it is not in `package.json`. However, some existing components still contain legacy utility class strings (`bg-*`, `text-*`, `p-*`, `flex`, etc.) from before the migration. A migration script exists at `dashboard/strip-tailwind-classes.mjs`.
+Tailwind has been **removed from the toolchain** — it is not in `package.json`. However, some existing components still contain legacy utility class strings (`bg-*`, `text-*`, `p-*`, `flex`, etc.) from before the migration. A migration script exists at `web/strip-tailwind-classes.mjs`.
 
 Rules for contributors:
 - **Never add new Tailwind/utility classes.** Always write vanilla CSS using design tokens.
@@ -287,7 +287,7 @@ Use a mobile-first approach. Write the default styles for small screens and add 
 
 ## Zod
 
-Zod is used to validate all external data at the boundary — API responses, URL query parameters, JSON files. The canonical patterns are established in `dashboard/src/lib/djen.ts`.
+Zod is used to validate all external data at the boundary — API responses, URL query parameters, JSON files. The canonical patterns are established in `web/src/lib/djen.ts`.
 
 ### Always validate at the boundary
 
@@ -343,7 +343,7 @@ type MyType = z.infer<typeof Schema>;
 
 ## DOMPurify
 
-Judicial publications from the DJEN API arrive as raw HTML strings. They may contain unsafe markup. Before rendering any HTML string with Svelte's `{@html ...}`, always sanitize with DOMPurify. The pattern is established in `dashboard/src/lib/djen.ts`.
+Judicial publications from the DJEN API arrive as raw HTML strings. They may contain unsafe markup. Before rendering any HTML string with Svelte's `{@html ...}`, always sanitize with DOMPurify. The pattern is established in `web/src/lib/djen.ts`.
 
 ```svelte
 <script lang="ts">
@@ -373,11 +373,11 @@ The hardest problem in this architecture is sharing state between Svelte islands
 
 Islands share state by importing the same store module. Because modules are singletons in the browser, both islands read from and write to the same store instance.
 
-See `dashboard/src/lib/workflowStatusStore.ts` for a simple example and `dashboard/src/lib/completedItemsStore.svelte.ts` for the singleton lazy-loader variant.
+See `web/src/lib/workflowStatusStore.ts` for a simple example and `web/src/lib/completedItemsStore.svelte.ts` for the singleton lazy-loader variant.
 
 ### The `createDataRefresh` factory
 
-`dashboard/src/lib/dataRefreshStore.ts` exports a factory for islands that need auto-refreshing data:
+`web/src/lib/dataRefreshStore.ts` exports a factory for islands that need auto-refreshing data:
 
 ```ts
 import { createDataRefresh } from '../lib/dataRefreshStore';
@@ -409,7 +409,7 @@ Use a plain `writable` store when the data is local to one island or managed by 
 
 ## Data Fetching
 
-All data fetching goes through `dashboard/src/lib/fetchData.ts`, which implements retry logic and error handling. Do not call `fetch()` directly in components.
+All data fetching goes through `web/src/lib/fetchData.ts`, which implements retry logic and error handling. Do not call `fetch()` directly in components.
 
 The file exports:
 - `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
@@ -485,10 +485,10 @@ test('shows tribunal name', () => {
 
 ### BDD tests — vitest-cucumber
 
-Feature-level behavior is specified in Gherkin `.feature` files under `dashboard/features/`. Step definitions live separately under `dashboard/src/components/__steps__/`. Keep these two directories separate.
+Feature-level behavior is specified in Gherkin `.feature` files under `web/features/`. Step definitions live separately under `web/src/components/__steps__/`. Keep these two directories separate.
 
 ```
-dashboard/
+web/
 ├── features/
 │   ├── homepage.feature
 │   └── publicacoes.feature   ← .feature files go here
@@ -536,7 +536,7 @@ These areas are not yet covered by existing infrastructure. Be aware before assu
 
 - **No end-to-end tests.** Playwright or a similar e2e framework is not set up. BDD tests run in jsdom only and do not test real browser behavior or full page navigation.
 - **No i18n.** All UI strings are hardcoded in Portuguese. There is no translation framework in place.
-- **Accessibility.** Guidelines and known gaps are documented in `dashboard/ACCESSIBILITY.md` and `dashboard/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
+- **Accessibility.** Guidelines and known gaps are documented in `web/ACCESSIBILITY.md` and `web/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
 
 ---
 

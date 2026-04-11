@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://causaganha.com.br/sitemap.xml
