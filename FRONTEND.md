@@ -41,7 +41,7 @@ All frontend decisions must serve the principles in [`DESIGN.md`](DESIGN.md). Re
 This project is deployed as a **100% static site on GitHub Pages** via `output: 'static'` in `astro.config.mjs`. Key constraints that affect every frontend decision:
 
 - **No server at runtime.** There are no API routes, no SSR, no middleware. Every page is a `.html` file generated at build time.
-- **`readJson()` runs only at build time.** Any data loaded via `readJson()` must be present in the `public/` directory when `astro build` runs. Missing files fail the build, not the page.
+- **`readJson()` runs only at build time and returns `null` on missing or malformed files.** It does not throw — it silently returns `null`. Always handle the null case in Astro pages; never assume the file exists.
 - **All dynamic routes must use `getStaticPaths()`.** There is no server fallback for unknown paths. If a path is not in `getStaticPaths()`, it does not exist.
 - **`404.astro` is the GitHub Pages 404 page.** GitHub Pages serves `404.html` for unknown paths automatically — no extra configuration needed.
 - **Always use `import.meta.env.BASE_URL`, never hardcode `/causaganha/`.** The base path is `/causaganha` in production; hardcoded paths break local dev.
@@ -54,7 +54,7 @@ const href = import.meta.env.BASE_URL + 'publicacoes';
 const href = '/causaganha/publicacoes';
 ```
 
-- **`trailingSlash: 'never'`** — internal `href` values must not end with `/`. Write `href="/causaganha/publicacoes"`, not `href="/causaganha/publicacoes/"`.
+- **`trailingSlash: 'never'`** — internal `href` values must not end with `/`. Write `href={BASE_URL + 'publicacoes'}`, not `href={BASE_URL + 'publicacoes/'}`.
 - **Prefetch is on by default (`defaultStrategy: 'hover'`).** Links prefetch on hover automatically. Do not add manual `<link rel="prefetch">` tags.
 - **Live data comes from Internet Archive, not a backend.** After the static page loads, `fetchData.ts` fetches live JSON from `archive.org`. This is the only "API" this project has.
 - **`.ts` endpoint files generate static files at build.** `robots.txt.ts` and `sitemap.xml.ts` run once at build time and output static files. They are not runtime API routes.
