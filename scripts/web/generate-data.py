@@ -490,7 +490,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
 if __name__ == "__main__":
     db_path = Path("data/causaganha.duckdb")
-    output_path = Path("dashboard/public/dashboard-data.json")
+    output_path = Path("web/public/dashboard-data.json")
 
     # No exit if DB is missing; let get_connection handle it
     generate_dashboard_data(db_path, output_path)

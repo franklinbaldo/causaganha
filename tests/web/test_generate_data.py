@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 
 # Because the script has dashes in the name, we import it dynamically
-script_path = Path("scripts/dashboard/generate-data.py")
+script_path = Path("scripts/web/generate-data.py")
 spec = spec_from_file_location("generate_data", script_path)
 generate_data = module_from_spec(spec)
 sys.modules["generate_data"] = generate_data
