@@ -98,7 +98,7 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 
 | Group | Files |
 |---|---|
-| Core data fetching | `fetchData.ts`, `readJson.ts`, `duckdbSingleton.ts` |
+| Core data fetching | `fetchData.ts`, `readJson.ts`, `buildTimeData.ts`, `duckdbSingleton.ts` |
 | Svelte stores | `dataRefreshStore.ts`, `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
 | Search & query | `djen.ts`, `searchQueryString.ts` |
 | Utilities | `colorUtils.ts`, `dateUtils.ts`, `velocityCalc.ts`, `iaMetadataFetcher.ts`, `stats-processing.ts` |
@@ -212,23 +212,15 @@ Choose the right tier for each piece of state:
 ```astro
 ---
 // web/src/pages/publicacoes/[tribunal].astro (runs at BUILD TIME)
-import { deriveData } from '../../lib/fetchData';
-import { readJson } from '../../lib/readJson';
+import { loadBuildTimeData } from '../../lib/buildTimeData';
 
-const dashboardData       = readJson('dashboard-data.json');
-const tribunalStartDates  = readJson('tribunal_start_dates.json');
-const tribunalQualityScores = readJson('tribunal_quality_scores.json');
-const cacheData           = { today: readJson('cache/today.json'), backfill: readJson('cache/backfill.json') };
-const iaSnapshot          = readJson('ia-snapshot.json');
-
-// deriveData() merges all sources into the DerivedData shape used by the store
-const data = deriveData(null, dashboardData, cacheData, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
+const data = loadBuildTimeData();
 ---
 <TribunalDetail
   client:only="svelte"
   tribunalCode={tribunalCode}
-  initialCoverage={data?.tribunalCoverage}
-  initialEtas={data?.tribunalEtas}
+  initialCoverage={data.tribunalCoverage}
+  initialEtas={data.tribunalEtas}
 />
 ```
 
@@ -247,17 +239,7 @@ const data = deriveData(null, dashboardData, cacheData, tribunalStartDates, trib
 
 The seed and the live-refresh shape must match exactly — that is why the page derives both through `deriveData()` rather than passing raw JSON. Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable.
 
-> **⚠️ Known inconsistency — source-of-truth drift.** The boilerplate above (hand-picking `readJson()` calls and passing them to `deriveData()`) is fragile: every page must pass the exact same arguments in the same order as `fetchAllData()` in `fetchData.ts`, or the seed shape will silently differ from the live-refresh shape. In practice, `[tribunal].astro` currently reads **6** JSON files while `fetchAllData()` reads **11** — so fields like `stats`, `perfMetrics`, and anything derived from `cache/calendar.json` are missing from the seed. This is a tracked consolidation target. **The correct direction** is a single helper `loadBuildTimeData()` that does the `readJson()` + `deriveData()` dance in one place and returns the full `DerivedData` shape.
->
-> **Where the helper must live — and must NOT live.** The helper **cannot** go in `fetchData.ts`. That module is imported by client-side code (`dataRefreshStore.ts`, many `.svelte` components via `fetchWithRetry`), and adding `readJson()` calls there would transitively pull `node:fs` and `node:path` into the browser bundle and break the build. Instead, create a dedicated server-only module, e.g. `web/src/lib/buildTimeData.ts`, that imports `readJson` from `readJson.ts` and `deriveData` from `fetchData.ts`. **Only `.astro` frontmatter may import this module** — never `.svelte` files, never `.svelte.ts` stores, never any `.ts` that is reachable from client code. Pages then call:
-> ```astro
-> ---
-> import { loadBuildTimeData } from '../../lib/buildTimeData';
-> const data = loadBuildTimeData();
-> ---
-> <TribunalDetail initialCoverage={data.tribunalCoverage} ... />
-> ```
-> Until that helper is added, new pages should copy the full argument list from `fetchAllData()` verbatim — do not reinvent the subset.
+> **`buildTimeData.ts` is server-only.** `loadBuildTimeData()` imports `readJson()` which uses `node:fs`. **Only `.astro` frontmatter may import this module** — never `.svelte` files, never `.svelte.ts` stores, never any `.ts` reachable from client code. Adding it to `fetchData.ts` would pull `node:fs` into the browser bundle and break the build.
 
 **1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
 

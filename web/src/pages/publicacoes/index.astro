@@ -3,30 +3,13 @@ import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
-import { deriveData } from '../../lib/fetchData';
 import TribunalView from '../../components/TribunalView.svelte';
 import IASearchBar from '../../components/IASearchBar.svelte';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
-import {
-  readJson,
-  type IaSnapshot,
-  type CacheTodayFile,
-  type CacheBackfillFile,
-} from '../../lib/readJson';
+import { loadBuildTimeData } from '../../lib/buildTimeData';
 
-const dashboardData = readJson('dashboard-data.json');
-const tribunalStartDates = readJson('tribunal_start_dates.json');
-const tribunalQualityScores = readJson('tribunal_quality_scores.json');
-const today = readJson<CacheTodayFile>('cache/today.json');
-const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
-const iaSnapshot = readJson<IaSnapshot>('ia-snapshot.json');
-
-const cacheData: { today?: CacheTodayFile; backfill?: CacheBackfillFile } = {};
-if (today) cacheData.today = today;
-if (backfill) cacheData.backfill = backfill;
-const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
-
-const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
+const data = loadBuildTimeData();
+const iaSnapshot = data.iaSnapshot;
 
 const snap = iaSnapshot?.summary;
 const latestDate = snap?.latest_collection_date;
@@ -60,11 +43,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <PublicationSearch client:idle />
     </section>
 
-    <details class="archive-section">
-      <summary class="archive-summary">
-        <span class="summary-title">Explorador de Arquivos (Internet Archive)</span>
-        <span class="summary-hint">Navegue por tribunal, ano e data nos snapshots arquivados</span>
-      </summary>
+    <section class="archive-section">
+      <header class="archive-header">
+        <h2 class="archive-title">Explorador de Arquivos (Internet Archive)</h2>
+        <p class="archive-hint">Navegue por tribunal, ano e data nos snapshots arquivados</p>
+      </header>
       <div class="overview-card">
         <h3 class="overview-title">Visão Geral do Arquivo</h3>
         <TribunalView
@@ -83,7 +66,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </p>
         <IASearchBar client:idle />
       </section>
-    </details>
+    </section>
 
     <footer class="page-footer">
       <small class="footer-text">Dados do DJEN arquivados no Internet Archive.
@@ -134,41 +117,24 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     margin-bottom: 3rem;
   }
 
-  .archive-summary {
-    list-style: none;
-    cursor: pointer;
+  .archive-header {
     padding: 1rem 0;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
   }
 
-  .archive-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .archive-summary::before {
-    content: '▸';
-    display: inline-block;
-    margin-right: 0.5rem;
-    transition: transform 120ms ease;
-    opacity: 0.6;
-  }
-
-  details[open] > .archive-summary::before {
-    transform: rotate(90deg);
-  }
-
-  .summary-title {
+  .archive-title {
     font-size: var(--font-size-xl);
     font-weight: 700;
     opacity: 0.85;
+    margin: 0;
   }
 
-  .summary-hint {
+  .archive-hint {
     font-size: var(--font-size-sm);
     opacity: 0.6;
-    padding-left: 1.25rem;
+    margin: 0;
   }
 
   .overview-card {

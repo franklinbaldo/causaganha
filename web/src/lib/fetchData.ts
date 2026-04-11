@@ -28,7 +28,7 @@ interface FallbackResponse {
   json: () => Promise<Record<string, never>>;
 }
 
-interface CacheData {
+export interface CacheData {
   today?: any;
   calendar?: any;
   runs?: any;
@@ -54,8 +54,8 @@ export interface DerivedData {
   hasAnyData: boolean;
   effectiveBackfill: any;
   backfillProgress: any;
-  calendarData: any[];
-  timelineData: any[];
+  calendarData: { date: string; count: number }[];
+  timelineData: { date: string; count: number }[];
   progressByYear: any;
   enrichedStats: Record<string, any>;
   tribunalCoverage: Record<string, any>;

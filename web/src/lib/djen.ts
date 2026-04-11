@@ -342,7 +342,7 @@ function hasIdentityParam(query: DjenComunicacaoQuery): boolean {
  */
 export async function searchDjenComunicacoes(
   query: DjenComunicacaoQuery,
-  opts: { signal?: AbortSignal; bypassCache?: boolean } = {},
+  opts: { signal?: AbortSignal } = {},
 ): Promise<DjenSearchResult> {
   const smallPage =
     typeof query.itensPorPagina === "number" &&
@@ -354,12 +354,6 @@ export async function searchDjenComunicacoes(
       "Informe ao menos um de: tribunal, texto, parte, advogado, OAB ou processo.",
     ]);
   }
-
-  // The `bypassCache` flag is preserved for API compatibility but the
-  // library-level LRU cache is gone — TanStack Query now owns all caching
-  // behavior at the component layer. We therefore honor the signature
-  // without doing any caching work ourselves.
-  void opts.bypassCache;
 
   const result: DjenCallResult<DjenSearchPayload> = await searchComunicacoes(query, {
     signal: opts.signal,
@@ -438,4 +432,25 @@ export async function fetchLivePublicationDetail(
  */
 export function clearDjenSearchCache(): void {
   _resetGeoState();
+}
+
+/**
+ * Safely parse a raw JSON payload from an Internet Archive ZIP entry into
+ * a list of normalized publications. Handles both an array at the top level
+ * and an object with an `items` key. Returns an empty array on any failure
+ * so `DateDetail.svelte` can degrade gracefully rather than throwing.
+ */
+export function parseDjenPublicationCollectionSafely(data: unknown): DjenPublication[] {
+  try {
+    const items: unknown[] = Array.isArray(data)
+      ? data
+      : Array.isArray((data as Record<string, unknown>)?.items)
+        ? ((data as Record<string, unknown>).items as unknown[])
+        : [];
+    return items.map((raw) =>
+      normalizePublication(raw as DjenComunicacaoItem & Record<string, unknown>),
+    );
+  } catch {
+    return [];
+  }
 }
