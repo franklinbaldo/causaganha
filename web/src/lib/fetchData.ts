@@ -63,8 +63,8 @@ export interface DerivedData {
   hasAnyData: boolean;
   effectiveBackfill: any;
   backfillProgress: any;
-  calendarData: any[];
-  timelineData: any[];
+  calendarData: { date: string; count: number }[];
+  timelineData: { date: string; count: number }[];
   progressByYear: any;
   enrichedStats: Record<string, any>;
   tribunalCoverage: Record<string, any>;
