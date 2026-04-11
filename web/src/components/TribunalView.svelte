@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { createDataRefresh } from '../lib/dataRefreshStore';
   import { TRIBUNAL_GROUPS } from '../lib/tribunais';
+  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
+  import QueryProvider from './QueryProvider.svelte';
 
   let {
     initialPipeline,
@@ -15,14 +15,12 @@
     initialIaSnapshot: any;
   }>();
 
-  const store = createDataRefresh(null, null);
-  onMount(() => store.start());
-  onDestroy(() => store.stop());
+  const dashboard = useDashboardWithPolling();
 
-  const pipeline = $derived($store.data?.cacheData?.today?.pipeline ?? initialPipeline);
-  const progressByYear = $derived($store.data?.progressByYear ?? initialProgressByYear);
-  const volume = $derived($store.data?.volume ?? initialVolume);
-  const iaSnapshot = $derived($store.data?.iaSnapshot ?? initialIaSnapshot);
+  const pipeline = $derived(dashboard.data?.cacheData?.today?.pipeline ?? initialPipeline);
+  const progressByYear = $derived(dashboard.data?.progressByYear ?? initialProgressByYear);
+  const volume = $derived(dashboard.data?.volume ?? initialVolume);
+  const iaSnapshot = $derived(dashboard.data?.iaSnapshot ?? initialIaSnapshot);
 
   let query = $state('');
 
@@ -68,6 +66,7 @@
   }
 </script>
 
+<QueryProvider>
 <div>
   <!-- Archive Progress -->
   <div class="card card-lg"><div class="card-body">
@@ -219,6 +218,7 @@
     {/each}
   {/if}
 </div>
+</QueryProvider>
 
 <style>
 

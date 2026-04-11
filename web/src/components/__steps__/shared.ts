@@ -1,22 +1,25 @@
 import { vi } from 'vitest';
 import { render as _render } from '@testing-library/svelte/pure';
+import { QueryClient } from '@tanstack/svelte-query';
 
-// Mock dataRefreshStore so components fall back to initial props
-vi.mock('../../lib/dataRefreshStore', () => ({
-  createDataRefresh: () => ({
-    subscribe: (fn: (val: any) => void) => {
-      fn({ data: null, loading: false, error: null });
-      return () => {};
-    },
-    refresh: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
+// Prevent @tanstack/query-devtools from rendering in tests (requires window.matchMedia)
+vi.mock('@tanstack/svelte-query-devtools', () => ({
+  SvelteQueryDevtools: () => null,
+}));
+
+// Provide a fresh QueryClient per test so islands get context without errors.
+// fetchAllData is mocked to return null, so queries complete immediately with null data,
+// and components fall back to their initialXxx props.
+vi.mock('../../lib/queryClient', () => ({
+  getQueryClient: () => new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 0 } },
   }),
 }));
 
 // Mock fetchAllData for components that import it directly
 vi.mock('../../lib/fetchData', () => ({
   fetchAllData: vi.fn().mockResolvedValue(null),
+  fetchWithRetry: vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) }),
 }));
 
 /**

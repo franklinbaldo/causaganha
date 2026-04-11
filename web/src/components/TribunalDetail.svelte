@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { createDataRefresh } from '../lib/dataRefreshStore';
+  import { onMount } from 'svelte';
   import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais';
+  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
+  import QueryProvider from './QueryProvider.svelte';
   import { toDateString } from '../lib/dateUtils';
   import Heatmap from './Heatmap.svelte';
   import { calculateVelocityAndRegression } from '../lib/velocityCalc';
@@ -51,9 +52,7 @@
     initialQualityScores,
   }: TribunalDetailProps = $props();
 
-  const store = createDataRefresh(null, null);
-  onMount(() => store.start());
-  onDestroy(() => store.stop());
+  const dashboard = useDashboardWithPolling();
 
   let selectedTribunal = $state(tribunalCode.toUpperCase());
   let hashState = $state<HashState>({ date: null, page: null, seq: null });
@@ -71,7 +70,7 @@
     };
   });
 
-  let allData = $derived($store.data);
+  let allData = $derived(dashboard.data);
 
   let coverage = $derived(allData?.tribunalCoverage ?? initialCoverage ?? {});
   let absentCoverage = $derived(allData?.tribunalAbsentCoverage ?? {});
@@ -211,6 +210,7 @@
   }
 </script>
 
+<QueryProvider>
 {#if !hashReady && typeof window !== 'undefined'}
   <div class="loading-container"><span class="spinner"></span></div>
 {:else}
@@ -393,6 +393,7 @@
     {/if}
   </div>
 {/if}
+</QueryProvider>
 
 <style>
   /* Loading */

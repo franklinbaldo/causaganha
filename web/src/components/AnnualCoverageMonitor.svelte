@@ -1,37 +1,34 @@
 <script lang="ts">
-import { onMount } from 'svelte';
-import { fetchAllTribunalMetadata, clearCache, getExpectedDays, type TribunalMetadata } from '../lib/iaMetadataFetcher';
+import { createQuery, useQueryClient, setQueryClientContext } from '@tanstack/svelte-query';
+import { fetchAllTribunalMetadata, getExpectedDays, type TribunalMetadata } from '../lib/iaMetadataFetcher';
 import { getCoverageColor } from '../lib/colorUtils';
 import { isLeapYear } from '../lib/dateUtils';
+import { QUERY_KEYS } from '../lib/queryKeys';
+import { getQueryClient } from '../lib/queryClient';
 
+// Initialize context for this island (must run during component init, before createQuery)
+setQueryClientContext(getQueryClient());
+
+const queryClient = useQueryClient();
 const currentYear = new Date().getFullYear();
 const YEARS = [currentYear - 2, currentYear - 1, currentYear];
 
 let year = $state(currentYear);
-let results = $state<TribunalMetadata[]>([]);
-let loading = $state(false);
 let sortBy = $state('percentage');
 let sortDir = $state('desc');
 
-function fetchData(forceRefresh: boolean = false) {
-  loading = true;
+// When year changes, TanStack auto-creates a new query for the new key.
+// Previously-fetched years are served instantly from cache (up to 30min TTL).
+const coverageQuery = createQuery(() => ({
+  queryKey: QUERY_KEYS.iaCoverage(year),
+  queryFn: () => fetchAllTribunalMetadata(year, undefined, { useCache: false }),
+  staleTime: 30 * 60 * 1000,
+  gcTime: 35 * 60 * 1000,
+}));
 
-  if (forceRefresh) clearCache(year);
-
-  fetchAllTribunalMetadata(year, (_done, _total, partial) => {
-    results = [...partial];
-  }, { useCache: !forceRefresh }).then((final) => {
-    results = final;
-    loading = false;
-  }).catch(() => {
-    loading = false;
-  });
+function handleForceRefresh() {
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.iaCoverage(year) });
 }
-
-$effect(() => {
-  // Re-fetch whenever year changes
-  fetchData();
-});
 
 function handleSort(field: string) {
   if (sortBy === field) {
@@ -42,8 +39,11 @@ function handleSort(field: string) {
   }
 }
 
+const results = $derived(coverageQuery.data ?? []);
+const loading = $derived(coverageQuery.isLoading || coverageQuery.isFetching);
+
 const sorted = $derived.by(() => {
-  return [...results].sort((a, b) => {
+  return [...results].sort((a: TribunalMetadata, b: TribunalMetadata) => {
     let cmp = 0;
     if (sortBy === 'tribunal') {
       cmp = a.tribunal.localeCompare(b.tribunal);
@@ -59,10 +59,10 @@ const sorted = $derived.by(() => {
 });
 
 const expectedDays = $derived(getExpectedDays(year));
-const complete = $derived(results.filter(r => r.percentage >= 90).length);
-const partial = $derived(results.filter(r => r.percentage >= 50 && r.percentage < 90).length);
-const low = $derived(results.filter(r => r.percentage > 0 && r.percentage < 50).length);
-const missing = $derived(results.filter(r => r.percentage === 0).length);
+const complete = $derived(results.filter((r: TribunalMetadata) => r.percentage >= 90).length);
+const partial = $derived(results.filter((r: TribunalMetadata) => r.percentage >= 50 && r.percentage < 90).length);
+const low = $derived(results.filter((r: TribunalMetadata) => r.percentage > 0 && r.percentage < 50).length);
+const missing = $derived(results.filter((r: TribunalMetadata) => r.percentage === 0).length);
 
 function sortIcon(field: string): string {
   if (sortBy !== field) return '';
@@ -87,7 +87,7 @@ function sortIcon(field: string): string {
         {/each}
       </div>
       <button
-        onclick={() => fetchData(true)}
+        onclick={() => handleForceRefresh()}
         disabled={loading}
         title="Atualizar dados">
         Refresh

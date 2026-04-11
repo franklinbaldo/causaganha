@@ -1,6 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { createQuery, setQueryClientContext } from '@tanstack/svelte-query';
+  import QueryProvider from './QueryProvider.svelte';
+  import { QUERY_KEYS } from '../lib/queryKeys';
   import { fetchWithRetry } from '../lib/fetchData';
+  import { getQueryClient } from '../lib/queryClient';
+
+  // Initialize context for this island (must run during component init, before createQuery)
+  setQueryClientContext(getQueryClient());
 
   interface TodayData {
     tribunal_status: Record<string, { status: string; last_update: string | null; doc_count: number }>;
@@ -14,91 +20,66 @@
     runs: RunData[];
   }
 
-  let isPipelineActive = $state<boolean>(false);
-  let activeTribunal = $state<string | null>(null);
-  let error = $state<boolean>(false);
-  let isMounted = $state<boolean>(false);
-
   const BASE_URL = import.meta.env.BASE_URL;
-  // In dev/preview, BASE_URL might be different, let's make sure we hit the correct static path.
   const CACHE_RUNS_URL = `${BASE_URL.replace(/\/$/, '')}/cache/runs.json`;
   const CACHE_TODAY_URL = `${BASE_URL.replace(/\/$/, '')}/cache/today.json`;
 
-  const poll = async () => {
-    if (!isMounted) return;
-    try {
-      const [runsRes, todayRes] = await Promise.all([
-          fetchWithRetry(CACHE_RUNS_URL + '?t=' + Date.now()),
-          fetchWithRetry(CACHE_TODAY_URL + '?t=' + Date.now()),
-      ]);
+  const runsQuery = createQuery(() => ({
+    queryKey: QUERY_KEYS.pipelineRuns,
+    queryFn: async () => {
+      const res = await fetchWithRetry(CACHE_RUNS_URL + '?t=' + Date.now());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<RunsResponse>;
+    },
+    refetchInterval: 60_000,
+    staleTime: 50_000,
+  }));
 
-      if (runsRes.ok && todayRes.ok) {
-        const runsData: RunsResponse = await runsRes.json();
-        const todayData: TodayData = await todayRes.json();
+  const todayQuery = createQuery(() => ({
+    queryKey: QUERY_KEYS.pipelineToday,
+    queryFn: async () => {
+      const res = await fetchWithRetry(CACHE_TODAY_URL + '?t=' + Date.now());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<TodayData>;
+    },
+    refetchInterval: 60_000,
+    staleTime: 50_000,
+  }));
 
-        // Determine if pipeline is active
-        if (runsData.runs && runsData.runs.length > 0) {
-          isPipelineActive = runsData.runs[0].status === 'in_progress';
-        } else {
-          isPipelineActive = false;
-        }
-
-        // Determine active tribunal: find any tribunal with status pending
-        // Or if none are pending, but the pipeline is active, we just fallback or look for the most recently updated.
-        // The instructions suggest looking for pending status as the active tribunal, or most recent timestamp.
-        let foundPending = false;
-        let mostRecentTribunal: string | null = null;
-        let maxDocCount = -1; // Fallback to tribunal with most docs today, or we can just show generic active
-
-        for (const [code, info] of Object.entries(todayData.tribunal_status)) {
-          if (info.status === 'pending' || info.status === 'running') {
-            activeTribunal = code;
-            foundPending = true;
-            break;
-          }
-        }
-
-        if (!foundPending) {
-           // If no pending but pipeline active, maybe processing something not in 'pending' status?
-           // or we just show null. The widget will just show "Live" in this case.
-           activeTribunal = null;
-        }
-
-        error = false;
-      } else {
-        error = true;
-      }
-    } catch (e) {
-      error = true;
-    }
-  };
-
-  onMount(() => {
-    isMounted = true;
-    poll();
-    const interval = setInterval(poll, 60000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+  const isPipelineActive = $derived.by(() => {
+    const runs = runsQuery.data?.runs;
+    return Array.isArray(runs) && runs.length > 0 && runs[0].status === 'in_progress';
   });
+
+  const activeTribunal = $derived.by(() => {
+    const status = todayQuery.data?.tribunal_status;
+    if (!status) return null;
+    for (const [code, info] of Object.entries(status)) {
+      if (info.status === 'pending' || info.status === 'running') return code;
+    }
+    return null;
+  });
+
+  const error = $derived(runsQuery.isError || todayQuery.isError);
 </script>
 
-<div class="active-pipeline-widget">
-  {#if error}
-    <span class="status-text muted">Falha ao carregar status</span>
-  {:else if isPipelineActive}
-    <div class="live-indicator">
-      <span class="cg-pulse dot-pulse"></span>
-      <span class="status-text font-bold text-success">Ao Vivo</span>
-    </div>
-    {#if activeTribunal}
-      <span class="tribunal-badge badge badge-primary">{activeTribunal}</span>
+<QueryProvider>
+  <div class="active-pipeline-widget">
+    {#if error}
+      <span class="status-text muted">Falha ao carregar status</span>
+    {:else if isPipelineActive}
+      <div class="live-indicator">
+        <span class="cg-pulse dot-pulse"></span>
+        <span class="status-text font-bold text-success">Ao Vivo</span>
+      </div>
+      {#if activeTribunal}
+        <span class="tribunal-badge badge badge-primary">{activeTribunal}</span>
+      {/if}
+    {:else}
+      <span class="status-text muted">Sistema Ocioso</span>
     {/if}
-  {:else}
-    <span class="status-text muted">Sistema Ocioso</span>
-  {/if}
-</div>
+  </div>
+</QueryProvider>
 
 <style>
   .active-pipeline-widget {
