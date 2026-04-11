@@ -53,6 +53,8 @@ export interface DataRefreshState {
 
 export interface DataRefreshStore extends Readable<DataRefreshState> {
   refresh: (isInitial?: boolean) => Promise<void>;
+  start: () => void;
+  stop: () => void;
 }
 
 /**
@@ -105,10 +107,5 @@ export function createDataRefresh(
     }
   }
 
-  return {
-    subscribe,
-    refresh,
-    start,
-    stop,
-  } as DataRefreshStore & { start: () => void; stop: () => void };
+  return { subscribe, refresh, start, stop };
 }
