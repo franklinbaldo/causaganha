@@ -641,9 +641,7 @@ def generate_backfill_state_cache() -> dict[str, Any]:
 
     tribunals_data = state_data.get("tribunals", {})
 
-    start_dates_path = (
-        Path(__file__).parent.parent / "web" / "public" / "tribunal_start_dates.json"
-    )
+    start_dates_path = Path(__file__).parent.parent / "web" / "public" / "tribunal_start_dates.json"
     start_dates = {}
     if start_dates_path.exists():
         try:
