@@ -155,6 +155,11 @@ def load_absent_coverage_from_ia_state(
     for date_key, tribunals in entries.items():
         if not isinstance(date_key, str) or not isinstance(tribunals, dict):
             continue
+        # Validate date format to prevent ValueError in downstream strptime calls
+        try:
+            datetime.strptime(date_key, "%Y-%m-%d")
+        except ValueError:
+            continue
         for tribunal_code, status in tribunals.items():
             if status != "absent" or not isinstance(tribunal_code, str):
                 continue
@@ -875,18 +880,24 @@ def generate_backfill_cache(
             for t, d in absent_coverage_rows:
                 tribunal_absent_coverage.setdefault(t, []).append(d)
 
-        # Done coverage = any collected artifact (zip/parquet) + absent state entries
+        # Done coverage = any collected artifact (zip/parquet) + absent state entries.
+        # tribunal_coverage (ZIP-only) is kept separate for zip_counts/archive_snapshot;
+        # parquet dates are merged here so progress metrics count them as done.
+        parquet_rows = con.execute("""
+            SELECT tribunal, CAST(date AS VARCHAR) as date_str
+            FROM manifest
+            WHERE file_type = 'parquet'
+            ORDER BY tribunal, date
+        """).fetchall()
         tribunal_done_coverage: dict[str, list[str]] = {}
         for tribunal_code, dates in tribunal_coverage.items():
             tribunal_done_coverage[tribunal_code] = list(dates)
+        for t, d in parquet_rows:
+            tribunal_done_coverage.setdefault(t, []).append(d)
         for tribunal_code, dates in tribunal_absent_coverage.items():
             tribunal_done_coverage.setdefault(tribunal_code, []).extend(dates)
         all_done_dates = sorted(
-            {
-                date_str
-                for dates in tribunal_done_coverage.values()
-                for date_str in dates
-            }
+            {date_str for dates in tribunal_done_coverage.values() for date_str in dates}
         )
         if all_done_dates:
             bf_start = datetime.strptime(all_done_dates[0], "%Y-%m-%d").date()
@@ -961,10 +972,7 @@ def generate_backfill_cache(
         total_days_consolidated = 0
 
         years = sorted(
-            {
-                datetime.strptime(date_str, "%Y-%m-%d").year
-                for date_str in all_done_dates
-            }
+            {datetime.strptime(date_str, "%Y-%m-%d").year for date_str in all_done_dates}
         )
 
         for year in years:
@@ -982,11 +990,7 @@ def generate_backfill_cache(
                 for i in range((year_end - year_start).days + 1)
                 if (year_start + timedelta(days=i)).weekday() < SATURDAY_WEEKDAY
             )
-            unique_days = sum(
-                1
-                for date_str in all_done_dates
-                if date_str.startswith(f"{year}-")
-            )
+            unique_days = sum(1 for date_str in all_done_dates if date_str.startswith(f"{year}-"))
             combos_done = sum(
                 1
                 for dates in tribunal_done_coverage.values()
