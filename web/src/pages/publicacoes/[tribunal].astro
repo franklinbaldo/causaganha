@@ -5,6 +5,7 @@ import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { loadBuildTimeData } from '../../lib/buildTimeData';
+import type { IaSnapshot } from '../../lib/readJson';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -19,7 +20,7 @@ const { tribunalCode } = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 const data = loadBuildTimeData();
-const iaSnapshot = data.iaSnapshot;
+const iaSnapshot = data.iaSnapshot as IaSnapshot | null;
 
 // Snapshot stats for this tribunal
 let zipCount = 0;
@@ -35,7 +36,7 @@ if (iaSnapshot?.items) {
   }
 }
 
-const tribunalNames = {
+const tribunalNames: Record<string, string> = {
   STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justiça', TST: 'Tribunal Superior do Trabalho',
   TSE: 'Tribunal Superior Eleitoral', STM: 'Superior Tribunal Militar', CNJ: 'Conselho Nacional de Justiça',
 };

@@ -1,5 +1,5 @@
-import './shared';
-import { render, cleanup } from '@testing-library/svelte/pure';
+import { render } from './shared';
+import { cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
 import TribunalDetail from '../TribunalDetail.svelte';
 

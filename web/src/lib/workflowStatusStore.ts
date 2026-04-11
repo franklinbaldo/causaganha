@@ -1,4 +1,4 @@
-import { writable, type Readable } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export interface WorkflowStatus {
   isRunning: boolean;

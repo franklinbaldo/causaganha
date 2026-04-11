@@ -10,15 +10,6 @@
 const BASE = import.meta.env.BASE_URL ?? '/causaganha/';
 const IA_BASE: string = 'https://archive.org/download/causaganha-dashboard/';
 
-// Cache file mapping: IA filename -> local path
-const IA_CACHE_FILES: Record<string, string> = {
-  'today.json': 'cache/today.json',
-  'calendar.json': 'cache/calendar.json',
-  'runs.json': 'cache/runs.json',
-  'backfill.json': 'cache/backfill.json',
-  'meta.json': 'cache/meta.json',
-};
-
 function resolve(path: string): string {
   // In Node/build context, fetch from the public dir via relative paths
   if (typeof window === 'undefined') return path;
@@ -315,7 +306,8 @@ export function deriveData(
 
   // Velocity and ETA metrics
   const velocityMetrics = (() => {
-    const dailyStats = backfillProgress?.daily_stats || [];
+    const dailyStats: Array<{ date: string; count: number }> =
+      backfillProgress?.daily_stats || [];
     const now = new Date();
     const fmt = (d: Date): string => d.toISOString().split('T')[0];
     const daysAgo = (n: number): string => fmt(new Date(now.getTime() - n * 86400000));
@@ -323,8 +315,12 @@ export function deriveData(
     const sevenDaysAgo = daysAgo(7);
     const thirtyDaysAgo = daysAgo(30);
 
-    const last7 = dailyStats.filter(d => d.date >= sevenDaysAgo).reduce((s, d) => s + d.count, 0);
-    const last30 = dailyStats.filter(d => d.date >= thirtyDaysAgo).reduce((s, d) => s + d.count, 0);
+    const last7 = dailyStats
+      .filter((d) => d.date >= sevenDaysAgo)
+      .reduce((s, d) => s + d.count, 0);
+    const last30 = dailyStats
+      .filter((d) => d.date >= thirtyDaysAgo)
+      .reduce((s, d) => s + d.count, 0);
     const velocityPerDay = last30 / 30;
 
     const pipelineData = cacheData?.today?.pipeline;

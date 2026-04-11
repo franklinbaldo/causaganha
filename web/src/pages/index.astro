@@ -17,7 +17,6 @@ const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
 
 const filesToday = today?.files_today || 0;
-const tribunalStatusCount = Object.keys(today?.tribunal_status || {}).length;
 
 const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
   (backfill?.tribunal_stats || []).map((t: any) => ({

@@ -1,7 +1,17 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/svelte/pure';
+import { render as _render, screen, fireEvent, waitFor, cleanup } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
 import { vi } from 'vitest';
 import PRGateExplainer from '../PRGateExplainer.svelte';
+
+// The `@astrojs/svelte` integration rewrites `.svelte` default exports to
+// `(_props: PropsWithClientDirectives<Props>) => any`, which no longer matches
+// the modern Svelte 5 `Component<P, E>` signature that `render` expects. Cast
+// here so this file can still pass Astro-shimmed components directly.
+const render = _render as unknown as <P = Record<string, unknown>>(
+  Component: unknown,
+  props?: P,
+  options?: Parameters<typeof _render>[2],
+) => ReturnType<typeof _render>;
 
 const feature = await loadFeature('features/admin-pr-gate.feature');
 
@@ -21,7 +31,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       }
       return Promise.resolve({ ok: false, status: 404 });
     });
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   }
 
   Scenario('Show PR lookup form', ({ When, Then, And }) => {
@@ -41,7 +51,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Show loading state during fetch', ({ Given, When, Then }) => {
     Given('the PR gate page is loaded', () => {
-      globalThis.fetch = vi.fn(() => new Promise(() => {}));
+      globalThis.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
       render(PRGateExplainer);
     });
 
@@ -63,8 +73,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     And('the GitHub API returns an error', () => {
       globalThis.fetch = vi.fn(() =>
-        Promise.resolve({ ok: false, status: 404 })
-      );
+        Promise.resolve({ ok: false, status: 404 }),
+      ) as unknown as typeof fetch;
     });
 
     When('I submit PR number "99999"', async () => {
