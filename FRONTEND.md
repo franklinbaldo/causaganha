@@ -24,7 +24,9 @@ All frontend decisions must serve the principles in [`DESIGN.md`](DESIGN.md). Re
 | Meta-framework | Astro 5 |
 | Component framework | Svelte 5 |
 | Styling | Vanilla CSS with design tokens |
-| State | Svelte stores + Svelte 5 runes |
+| Async state / data fetching | TanStack Query (`@tanstack/svelte-query@^6`) |
+| Local state | Svelte 5 runes (`$state`, `$derived`) |
+| Cross-island shared state | Svelte stores (`writable`) |
 | Build | Vite |
 | Validation | Zod |
 | Data viz | Observable Plot |
@@ -99,8 +101,9 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 | Group | Files |
 |---|---|
 | Core data fetching | `fetchData.ts`, `readJson.ts`, `buildTimeData.ts`, `duckdbSingleton.ts` |
-| Svelte stores | `dataRefreshStore.ts`, `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
-| Search & query | `djen.ts`, `searchQueryString.ts` |
+| TanStack Query / async state | `queryClient.ts`, `queryKeys.ts`, `useDashboard.svelte.ts` |
+| Svelte stores | `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
+| Search & query | `djen.ts`, `djenClient.ts`, `searchQueryString.ts` |
 | Utilities | `colorUtils.ts`, `dateUtils.ts`, `velocityCalc.ts`, `iaMetadataFetcher.ts`, `stats-processing.ts` |
 | Reference data | `tribunais.ts`, `homepage-content.ts` |
 
@@ -207,7 +210,7 @@ Do not mix the Svelte 4 `$:` reactive statements with Svelte 5 runes in the same
 
 Choose the right tier for each piece of state:
 
-**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()`, merge it through `deriveData()` to produce the canonical `DerivedData` shape, and pass specific fields of that shape as typed `initialXxx` props to Svelte islands. The island derives live state from a `createDataRefresh` store with a fallback to the seed:
+**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()`, merge it through `deriveData()` to produce the canonical `DerivedData` shape, and pass specific fields of that shape as typed `initialXxx` props to Svelte islands. The island calls `useDashboardWithPolling()` to get live data via TanStack Query, falling back to the build-time seed until the first fetch completes:
 
 ```astro
 ---
@@ -227,13 +230,13 @@ const data = loadBuildTimeData();
 ```svelte
 <!-- web/src/components/TribunalDetail.svelte (runs in the BROWSER) -->
 <script lang="ts">
+  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
+
   let { initialCoverage } = $props();
-  const store = createDataRefresh(null, null);
-  onMount(() => store.start());
-  onDestroy(() => store.stop());
+  const dashboard = useDashboardWithPolling();  // sets context + creates query
 
   // Falls back to build-time seed until live refresh arrives
-  let coverage = $derived($store.data?.tribunalCoverage ?? initialCoverage);
+  let coverage = $derived(dashboard.data?.tribunalCoverage ?? initialCoverage);
 </script>
 ```
 
@@ -466,29 +469,96 @@ Islands share state by importing the same store module. Because modules are sing
 
 See `web/src/lib/workflowStatusStore.ts` for a simple example and `web/src/lib/completedItemsStore.svelte.ts` for the singleton lazy-loader variant.
 
-### The `createDataRefresh` factory
+### TanStack Query for async state
 
-`web/src/lib/dataRefreshStore.ts` exports a factory for islands that need auto-refreshing data:
+All async data fetching in islands uses [TanStack Query](https://tanstack.com/query) (`@tanstack/svelte-query@^6`). It replaces the old `createDataRefresh` factory and provides deduplication, caching, background refetching, and retries out of the box.
 
-```ts
-import { createDataRefresh } from '../lib/dataRefreshStore';
+#### Astro islands challenge — context per island
 
-// key: the property name in the shared data payload
-// initialData: server-rendered seed data (optional)
-// interval: polling interval in ms (default 60 000)
-const store = createDataRefresh('tribunais', serverData, 60_000);
-store.start(); // fetches immediately, then polls
+Each `client:*` island is an isolated Svelte component tree with no shared top-level provider. TanStack Query needs a `QueryClient` in Svelte context before any `createQuery` call. The solution is:
+
+1. **Singleton QueryClient** (`web/src/lib/queryClient.ts`) — a module-level instance shared via ES module semantics across all islands on the page.
+2. **`setQueryClientContext` in every island** — called synchronously at the top of each island's `<script>` block (before `createQuery`). Because all islands call `getQueryClient()`, they all receive the same instance and share the same cache.
+
+```svelte
+<script lang="ts">
+  import { setQueryClientContext, createQuery } from '@tanstack/svelte-query';
+  import { getQueryClient } from '../lib/queryClient';
+  import { QUERY_KEYS } from '../lib/queryKeys';
+
+  // Must be called before any createQuery
+  setQueryClientContext(getQueryClient());
+
+  // TanStack Query v6: options wrapped in an accessor function
+  const myQuery = createQuery(() => ({
+    queryKey: QUERY_KEYS.dashboard,
+    queryFn: fetchAllData,
+    staleTime: 15_000,
+  }));
+</script>
+
+<!-- Access results directly — no $ prefix (not a Svelte store) -->
+{#if myQuery.isPending}
+  <p>Loading…</p>
+{:else if myQuery.isError}
+  <p>Error: {myQuery.error.message}</p>
+{:else}
+  <p>{myQuery.data?.someField}</p>
+{/if}
 ```
 
-The factory returns a Svelte store with shape `{ data, loading, error }` plus `refresh()`, `start()`, and `stop()` methods.
+> **Important:** TanStack Svelte Query v6 returns a reactive **Proxy**, not a Svelte store. Access result properties as `query.data`, `query.isPending`, etc. — **never** with a `$` prefix.
 
-Internally it maintains `window.__CAUSAGANHA_DATA` — a client-side cache with a 15-second TTL that deduplicates in-flight requests. Multiple islands on the same page that call `createDataRefresh` will share one underlying fetch, not issue parallel requests.
+#### Dashboard queries with meta.json polling
 
-Use `createDataRefresh` when the island needs:
-- Auto-polling with a configurable interval
-- Shared caching across other islands on the page
+Use `useDashboardWithPolling()` from `web/src/lib/useDashboard.svelte.ts` for any island that displays dashboard data. It encapsulates:
 
-Use a plain `writable` store when the data is local to one island or managed by user interaction, not periodic fetch.
+- A lightweight sentinel query that polls `meta.json` every 3 minutes (`staleTime: 0`)
+- The main dashboard query (no self-polling) that is automatically invalidated when `generated_at` changes
+
+```svelte
+<script lang="ts">
+  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
+
+  // Internally calls setQueryClientContext — no need to do it separately
+  const dashboard = useDashboardWithPolling();
+
+  let field = $derived(dashboard.data?.field ?? initialField);
+</script>
+```
+
+Because all islands share the same singleton `QueryClient`, only one polling interval runs per page regardless of how many islands call `useDashboardWithPolling()`.
+
+#### Centralized query keys
+
+All query keys are defined in `web/src/lib/queryKeys.ts`:
+
+```ts
+QUERY_KEYS.dashboard        // ['dashboard']
+QUERY_KEYS.dashboardMeta    // ['dashboard', 'meta']
+QUERY_KEYS.iaCoverage(year) // ['ia-coverage', year]
+QUERY_KEYS.djenSearch(q)    // ['djen-search', q]
+QUERY_KEYS.pipelineRuns     // ['pipeline', 'runs']
+QUERY_KEYS.pipelineToday    // ['pipeline', 'today']
+```
+
+Use these constants everywhere — never write query key arrays inline in components.
+
+#### Force refresh
+
+When the user triggers a manual refresh, invalidate the relevant query key:
+
+```ts
+import { useQueryClient } from '@tanstack/svelte-query';
+import { QUERY_KEYS } from '../lib/queryKeys';
+
+const queryClient = useQueryClient();
+function handleRefresh() {
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.iaCoverage(year) });
+}
+```
+
+Use a plain `writable` store (not TanStack Query) only when the data is entirely local to one island and never fetched from a network endpoint.
 
 ### Anti-patterns — State
 
@@ -575,15 +645,14 @@ All data fetching goes through `web/src/lib/fetchData.ts`, which implements retr
 
 The file exports:
 - `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
-- `fetchAllData()` — fetches the full derived dataset (used by `createDataRefresh`). **This is the canonical list of inputs that feed `DerivedData`.** Any build-time seed assembled in an Astro page must pass the same inputs in the same order, or the seed shape will silently drift from the runtime shape.
-- `startLivePolling(onUpdate, intervalMs)` — starts a polling loop, returns a stop function
+- `fetchAllData()` — fetches the full derived dataset. **This is the canonical list of inputs that feed `DerivedData`** and is used as the TanStack Query `queryFn` for `QUERY_KEYS.dashboard`. Any build-time seed assembled in an Astro page must pass the same inputs in the same order, or the seed shape will silently drift from the runtime shape.
 - `deriveData(stats, dashboardData, cacheData, tribunalStartDates?, tribunalQualityScores?, perfMetrics?, iaSnapshot?)` — pure transformation that merges multiple data sources into the `DerivedData` shape; used in Astro pages at build time
 
 ### Build-time hydration: a single source of truth
 
 The build-time seed pattern (Tier 0 under [Four tiers of state](#four-tiers-of-state)) currently has no central helper — every Astro page reimplements its own `readJson()` boilerplate and hand-assembles the arguments to `deriveData()`. This is fragile. The target is a single `loadBuildTimeData()` helper that mirrors `fetchAllData()` but uses `readJson()` synchronously and returns `DerivedData`. Pages would then call `loadBuildTimeData()` once and pass slices of its result as `initialXxx` props. Until that helper exists, align any new page with `fetchAllData()`'s input list exactly.
 
-**The helper must live in a server-only module — not in `fetchData.ts`.** `fetchData.ts` is imported by client code (`dataRefreshStore.ts` and many `.svelte` components via `fetchWithRetry`), so any `readJson()` call added there would transitively pull `node:fs` / `node:path` into the browser bundle. Create a dedicated file such as `web/src/lib/buildTimeData.ts` that imports `readJson` and `deriveData`, and document in a file-top comment that **it must only be imported from `.astro` frontmatter** (never from `.svelte`, never from a `.svelte.ts` store, never from anything reachable by client code).
+**The helper must live in a server-only module — not in `fetchData.ts`.** `fetchData.ts` is imported by client code (TanStack Query `queryFn`s and many `.svelte` components via `fetchWithRetry`), so any `readJson()` call added there would transitively pull `node:fs` / `node:path` into the browser bundle. Create a dedicated file such as `web/src/lib/buildTimeData.ts` that imports `readJson` and `deriveData`, and document in a file-top comment that **it must only be imported from `.astro` frontmatter** (never from `.svelte`, never from a `.svelte.ts` store, never from anything reachable by client code).
 
 ```ts
 // Correct — use the exported helpers

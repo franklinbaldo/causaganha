@@ -1,16 +1,110 @@
-# React + Vite
+# CausaGanha — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Static dashboard for the [CausaGanha](https://github.com/franklinbaldo/causaganha) judicial data platform. Tracks the collection and archiving of Brazilian DJEN (Diário de Justiça Eletrônico Nacional) publications across 96 courts.
 
-Currently, two official plugins are available:
+Deployed to **GitHub Pages** at `/causaganha/`. All pages are pre-rendered at build time; no server runtime.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## React Compiler
+| Layer | Technology |
+|---|---|
+| Meta-framework | [Astro 5](https://astro.build) (SSG, `output: static`) |
+| Components | [Svelte 5](https://svelte.dev) (runes mode) with `client:*` islands |
+| Data fetching | [TanStack Query](https://tanstack.com/query) (`@tanstack/svelte-query@6`) |
+| In-browser SQL | [DuckDB WASM](https://duckdb.org/docs/api/wasm/overview) |
+| API client | [openapi-fetch](https://openapi-ts.dev/openapi-fetch/) with generated types (`djen.yml`) |
+| Charts | [Observable Plot](https://observablehq.com/plot/) |
+| Validation | [Zod](https://zod.dev) |
+| Sanitization | [DOMPurify](https://github.com/cure53/DOMPurify) |
+| Language | TypeScript (strict) |
+| Build | Vite 7 |
+| Tests | Vitest + Testing Library + vitest-cucumber (BDD) |
+| Lint | ESLint (flat config) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev        # http://localhost:4321/causaganha/
+npm run typecheck  # astro check (includes Svelte diagnostics)
+npm run lint
+npm run test
+npm run build      # output → dist/
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Data fetching architecture
+
+### Build time (Astro SSG)
+
+Astro pages read static JSON files from `public/` at build time via `readJson()` in `src/lib/readJson.ts`. The resulting data is passed to Svelte islands as initial props, so pages render fully without JavaScript.
+
+### Runtime (browser islands)
+
+Each interactive Svelte island uses [TanStack Query](https://tanstack.com/query) to stay fresh after initial load.
+
+**Key files:**
+
+| File | Purpose |
+|---|---|
+| `src/lib/queryClient.ts` | Singleton `QueryClient` shared across all islands on a page |
+| `src/lib/queryKeys.ts` | Centralized query key registry |
+| `src/components/QueryProvider.svelte` | Sets context + renders DevTools in dev mode |
+| `src/lib/useDashboard.svelte.ts` | Dashboard query with meta.json change detection (3-min polling) |
+
+**Data sources:**
+
+- **Internet Archive** (`archive.org/download/causaganha-dashboard/`) — live cache files (`today.json`, `calendar.json`, `runs.json`, `backfill.json`, `ia-snapshot.json`). Fetched client-side with fallback to bundled static files.
+- **DJEN API** (`comunicaapi.pje.jus.br`) — live publication search via `src/lib/djenClient.ts`. Geo-fence aware: routes through a Cloud Run proxy when direct access is blocked.
+- **Static files** (`public/`) — `run-stats.json`, `dashboard-data.json`, tribunal metadata. Embedded at build time and always available.
+
+**Polling strategy:**
+
+A lightweight sentinel query fetches `meta.json` every 3 minutes. When `generated_at` changes, it invalidates the dashboard query — so a full re-fetch only happens when new pipeline data actually exists.
+
+**Astro islands + TanStack context:**
+
+Because each `client:*` island is an isolated Svelte component tree, calling `setQueryClientContext(getQueryClient())` in the island's script block (before any `createQuery` calls) sets context for that island and all its descendants. The singleton `QueryClient` ensures all islands share the same cache.
+
+## API client
+
+The DJEN API client is generated from `../djen.yml`:
+
+```bash
+npm run codegen:djen   # regenerates src/lib/djen-types.gen.ts
+```
+
+This runs automatically before `build`, `test`, and `typecheck`.
+
+## Testing
+
+Tests use BDD-style `.feature` files in `src/components/__steps__/`. Each step file imports from `shared.ts` which mocks `queryClient` (fresh `QueryClient` per test) and `fetchAllData` (returns `null`, so components render with their `initialXxx` props).
+
+```bash
+npm run test          # single run
+npm run test:watch    # watch mode
+```
+
+## Project layout
+
+```
+web/
+├── src/
+│   ├── pages/          # Astro routes (SSG)
+│   ├── components/     # Svelte + Astro components
+│   │   └── __steps__/  # BDD test step definitions
+│   ├── layouts/        # Page layout templates
+│   └── lib/            # Shared utilities, stores, data fetching
+│       ├── queryClient.ts
+│       ├── queryKeys.ts
+│       ├── useDashboard.svelte.ts
+│       ├── fetchData.ts        # fetchAllData, fetchWithRetry, deriveData
+│       ├── djenClient.ts       # typed DJEN API wrapper
+│       ├── iaMetadataFetcher.ts
+│       └── duckdbSingleton.ts
+├── public/
+│   ├── cache/          # Live data files (updated by pipeline)
+│   └── *.json          # Static build-time data
+├── astro.config.mjs
+├── svelte.config.js
+└── package.json
+```
