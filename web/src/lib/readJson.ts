@@ -61,3 +61,8 @@ export function readJson<T = unknown>(relativePath: string): T | null {
     return JSON.parse(fs.readFileSync(fullPath, 'utf-8')) as T;
   } catch { return null; }
 }
+
+export function readArchiveSnapshot<T = unknown>(): T | null {
+  const backfill = readJson<{ archive_snapshot?: T }>('cache/backfill.json');
+  return backfill?.archive_snapshot ?? null;
+}

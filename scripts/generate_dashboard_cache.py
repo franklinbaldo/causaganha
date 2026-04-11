@@ -31,6 +31,7 @@ Outputs:
 
 import argparse
 import contextlib
+import csv
 import json
 import os
 import sys
@@ -40,6 +41,7 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_type
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +62,7 @@ IA_SEARCH_URL = (
     "&rows=10000&output=json"
 )
 IA_STATE_URL = "https://archive.org/download/causaganha-dashboard/ia-state.json"
+IA_ZIP_INVENTORY_URL = "https://archive.org/download/causaganha-dashboard/zip-inventory.txt"
 
 TRIBUNALS = [
     "STF",
@@ -152,6 +155,11 @@ def load_absent_coverage_from_ia_state(
     for date_key, tribunals in entries.items():
         if not isinstance(date_key, str) or not isinstance(tribunals, dict):
             continue
+        # Validate date format to prevent ValueError in downstream strptime calls
+        try:
+            datetime.strptime(date_key, "%Y-%m-%d")
+        except ValueError:
+            continue
         for tribunal_code, status in tribunals.items():
             if status != "absent" or not isinstance(tribunal_code, str):
                 continue
@@ -172,6 +180,111 @@ def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
             return data
     except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
         return None
+
+
+def fetch_text(url: str, timeout: int = 30) -> str | None:
+    """Fetch text from URL with error handling."""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "CausaGanha-Dashboard/3.0"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return response.read().decode()
+    except (UnicodeDecodeError, urllib.error.URLError, urllib.error.HTTPError):
+        return None
+
+
+def load_zip_inventory(
+    inventory_path: Path = Path("data/zip-inventory.txt"),
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Load uploaded/absent coverage from zip inventory, preferring local disk."""
+    inventory_text = None
+    if inventory_path.exists():
+        with contextlib.suppress(OSError):
+            inventory_text = inventory_path.read_text(encoding="utf-8")
+
+    if inventory_text is None:
+        inventory_text = fetch_text(IA_ZIP_INVENTORY_URL)
+
+    if not inventory_text:
+        return {}, {}
+
+    uploaded: dict[str, set[str]] = {}
+    absent: dict[str, set[str]] = {}
+
+    for row in csv.DictReader(StringIO(inventory_text)):
+        tribunal = str(row.get("tribunal", "")).strip().upper()
+        date_str = str(row.get("date", "")).strip()
+        status = str(row.get("status", "")).strip().lower()
+        if not tribunal or not date_str or status not in {"uploaded", "absent"}:
+            continue
+
+        # Validate date format before storing to avoid ValueError in strptime downstream
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            continue
+
+        target = uploaded if status == "uploaded" else absent
+        target.setdefault(tribunal, set()).add(date_str)
+
+    return uploaded, absent
+
+
+def build_archive_snapshot(
+    uploaded_coverage: dict[str, set[str]],
+    total_size_bytes: int,
+    total_parquets: int,
+) -> dict[str, Any]:
+    """Build the former ia-snapshot.json shape from canonical inventory coverage."""
+    items: dict[str, dict[str, Any]] = {}
+    by_year: dict[str, dict[str, int]] = {}
+    all_uploaded_dates: list[str] = []
+
+    for tribunal, dates in uploaded_coverage.items():
+        dates_by_year: dict[int, list[str]] = {}
+        for date_str in sorted(dates):
+            with contextlib.suppress(ValueError):
+                year = datetime.strptime(date_str, "%Y-%m-%d").year
+                dates_by_year.setdefault(year, []).append(date_str)
+
+        for year, year_dates in dates_by_year.items():
+            item_id = f"djen-{tribunal.lower()}-{year}"
+            items[item_id] = {
+                "tribunal": tribunal,
+                "year": year,
+                "zip_count": len(year_dates),
+                "dates": year_dates,
+                "latest_date": year_dates[-1],
+                "earliest_date": year_dates[0],
+            }
+            year_key = str(year)
+            by_year.setdefault(
+                year_key,
+                {"zip_count": 0, "tribunals_with_data": 0, "tribunals_total": len(TRIBUNALS)},
+            )
+            by_year[year_key]["zip_count"] += len(year_dates)
+            by_year[year_key]["tribunals_with_data"] += 1
+            all_uploaded_dates.extend(year_dates)
+
+    tribunals_with_data = sum(1 for dates in uploaded_coverage.values() if dates)
+    latest_date = max(all_uploaded_dates) if all_uploaded_dates else None
+
+    return {
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "items": items,
+        "summary": {
+            "total_items": len(items),
+            "total_zips": sum(len(dates) for dates in uploaded_coverage.values()),
+            "total_size_gb": round(total_size_bytes / (1024**3), 2),
+            "tribunals_with_data": tribunals_with_data,
+            "tribunals_total": len(TRIBUNALS),
+            "latest_collection_date": latest_date,
+            "total_parquets": total_parquets,
+        },
+        "by_year": dict(sorted(by_year.items())),
+    }
 
 
 def load_manifest(con: duckdb.DuckDBPyConnection, manifest_path: str | None) -> bool:
@@ -717,18 +830,7 @@ def generate_backfill_cache(
         return {}
 
     try:
-        # Per-year progress: count distinct date+tribunal combos collected vs expected
-        year_rows = con.execute("""
-            SELECT
-                EXTRACT(YEAR FROM CAST(date AS DATE))::INT as year,
-                COUNT(DISTINCT date) as unique_days,
-                COUNT(DISTINCT date || '|' || tribunal) FILTER (WHERE file_type IN ('zip', 'absent')) as combos_done,
-                COUNT(DISTINCT date || '|' || tribunal) FILTER (WHERE file_type = 'zip') as zips
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent', 'parquet')
-            GROUP BY year
-            ORDER BY year
-        """).fetchall()
+        inventory_uploaded_coverage, inventory_absent_coverage = load_zip_inventory()
 
         # Consolidation per year: dates that have parquet files
         cons_rows = con.execute("""
@@ -744,22 +846,63 @@ def generate_backfill_cache(
 
         num_tribunals = len(TRIBUNALS)
 
-        # Calculate target_days: total weekdays from earliest manifest date to yesterday
-        date_bounds = con.execute("""
-            SELECT MIN(date), MAX(date)
+        # Coverage maps:
+        # - Primary source: zip-inventory.txt (canonical archive inventory)
+        # - Fallback: manifest/ia-state when inventory is missing
+        tribunal_coverage = {
+            tribunal_code: sorted(dates)
+            for tribunal_code, dates in inventory_uploaded_coverage.items()
+        }
+        tribunal_absent_coverage = {
+            tribunal_code: sorted(dates)
+            for tribunal_code, dates in inventory_absent_coverage.items()
+        }
+
+        if not tribunal_coverage:
+            coverage_rows = con.execute("""
+                SELECT tribunal, CAST(date AS VARCHAR) as date_str
+                FROM manifest
+                WHERE file_type = 'zip'
+                ORDER BY tribunal, date
+            """).fetchall()
+            for t, d in coverage_rows:
+                tribunal_coverage.setdefault(t, []).append(d)
+
+        if not tribunal_absent_coverage:
+            tribunal_absent_coverage = load_absent_coverage_from_ia_state()
+        if not tribunal_absent_coverage:
+            absent_coverage_rows = con.execute("""
+                SELECT tribunal, CAST(date AS VARCHAR) as date_str
+                FROM manifest
+                WHERE file_type = 'absent'
+                ORDER BY tribunal, date
+            """).fetchall()
+            for t, d in absent_coverage_rows:
+                tribunal_absent_coverage.setdefault(t, []).append(d)
+
+        # Done coverage = any collected artifact (zip/parquet) + absent state entries.
+        # tribunal_coverage (ZIP-only) is kept separate for zip_counts/archive_snapshot;
+        # parquet dates are merged here so progress metrics count them as done.
+        parquet_rows = con.execute("""
+            SELECT tribunal, CAST(date AS VARCHAR) as date_str
             FROM manifest
-            WHERE file_type IN ('zip', 'absent')
-        """).fetchone()
-        if date_bounds and date_bounds[0]:
-            bf_start = (
-                date_bounds[0]
-                if isinstance(date_bounds[0], date_type)
-                else datetime.strptime(str(date_bounds[0]), "%Y-%m-%d").date()
-            )
+            WHERE file_type = 'parquet'
+            ORDER BY tribunal, date
+        """).fetchall()
+        tribunal_done_coverage: dict[str, list[str]] = {}
+        for tribunal_code, dates in tribunal_coverage.items():
+            tribunal_done_coverage[tribunal_code] = list(dates)
+        for t, d in parquet_rows:
+            tribunal_done_coverage.setdefault(t, []).append(d)
+        for tribunal_code, dates in tribunal_absent_coverage.items():
+            tribunal_done_coverage.setdefault(tribunal_code, []).extend(dates)
+        all_done_dates = sorted(
+            {date_str for dates in tribunal_done_coverage.values() for date_str in dates}
+        )
+        if all_done_dates:
+            bf_start = datetime.strptime(all_done_dates[0], "%Y-%m-%d").date()
             bf_end = min(
-                date_bounds[1]
-                if isinstance(date_bounds[1], date_type)
-                else datetime.strptime(str(date_bounds[1]), "%Y-%m-%d").date(),
+                datetime.strptime(all_done_dates[-1], "%Y-%m-%d").date(),
                 datetime.now(UTC).date() - timedelta(days=1),
             )
             target_days = sum(
@@ -770,74 +913,21 @@ def generate_backfill_cache(
         else:
             target_days = 0
 
-        # Coverage map and ETAs
-        coverage_rows = con.execute("""
-            SELECT tribunal, CAST(date AS VARCHAR) as date_str
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent', 'parquet')
-            ORDER BY tribunal, date
-        """).fetchall()
-
-        tribunal_coverage: dict[str, list[str]] = {}
-        for t, d in coverage_rows:
-            if t not in tribunal_coverage:
-                tribunal_coverage[t] = []
-            tribunal_coverage[t].append(d)
-
-        # Absent-only coverage map:
-        # - Primary source: ia-state.json (authoritative when marker uploads are disabled)
-        # - Legacy fallback: manifest .absent markers only when ia-state is unavailable
-        tribunal_absent_coverage = load_absent_coverage_from_ia_state()
-        if not tribunal_absent_coverage:
-            absent_coverage_rows = con.execute("""
-                SELECT tribunal, CAST(date AS VARCHAR) as date_str
-                FROM manifest
-                WHERE file_type = 'absent'
-                ORDER BY tribunal, date
-            """).fetchall()
-            for t, d in absent_coverage_rows:
-                if t not in tribunal_absent_coverage:
-                    tribunal_absent_coverage[t] = []
-                tribunal_absent_coverage[t].append(d)
-
-        # Done coverage = any collected artifact (zip/parquet) + absent state entries
-        tribunal_done_coverage: dict[str, list[str]] = {}
-        for tribunal_code, dates in tribunal_coverage.items():
-            tribunal_done_coverage[tribunal_code] = list(dates)
-        for tribunal_code, dates in tribunal_absent_coverage.items():
-            tribunal_done_coverage.setdefault(tribunal_code, []).extend(dates)
-        tribunal_coverage_sets = {t: set(dates) for t, dates in tribunal_coverage.items()}
-
         # Velocity over last 14 days
         velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
-        velocity_rows = con.execute(f"""
-            SELECT
-                tribunal,
-                COUNT(DISTINCT date) as velocity_14d
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent', 'parquet')
-              AND CAST(date AS VARCHAR) >= '{velocity_date_limit}'
-            GROUP BY tribunal
-        """).fetchall()
-
-        velocity_map = dict(velocity_rows)
+        velocity_map = {
+            tribunal_code: sum(1 for date_str in set(dates) if date_str >= velocity_date_limit)
+            for tribunal_code, dates in tribunal_done_coverage.items()
+        }
 
         # Per-tribunal zip vs absent counts
-        type_counts = con.execute("""
-            SELECT tribunal, file_type, COUNT(DISTINCT date) as cnt
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent')
-            GROUP BY tribunal, file_type
-        """).fetchall()
-        zip_counts: dict[str, int] = {}
-        absent_counts: dict[str, int] = {}
-        for t, ft, cnt in type_counts:
-            if ft == "zip":
-                zip_counts[t] = cnt
-            elif ft == "absent":
-                absent_counts[t] = cnt
-        for tribunal_code, dates in tribunal_absent_coverage.items():
-            absent_counts[tribunal_code] = len(set(dates))
+        zip_counts = {
+            tribunal_code: len(set(dates)) for tribunal_code, dates in tribunal_coverage.items()
+        }
+        absent_counts = {
+            tribunal_code: len(set(dates))
+            for tribunal_code, dates in tribunal_absent_coverage.items()
+        }
 
         # Load start dates from tribunal_start_dates.json if available
         start_dates_path = (
@@ -881,7 +971,11 @@ def generate_backfill_cache(
         total_expected = 0
         total_days_consolidated = 0
 
-        for year, unique_days, combos_done, zips in year_rows:
+        years = sorted(
+            {datetime.strptime(date_str, "%Y-%m-%d").year for date_str in all_done_dates}
+        )
+
+        for year in years:
             # Calculate expected weekdays for this year
 
             year_start = date_type(year, 1, 1)
@@ -895,6 +989,19 @@ def generate_backfill_cache(
                 1
                 for i in range((year_end - year_start).days + 1)
                 if (year_start + timedelta(days=i)).weekday() < SATURDAY_WEEKDAY
+            )
+            unique_days = sum(1 for date_str in all_done_dates if date_str.startswith(f"{year}-"))
+            combos_done = sum(
+                1
+                for dates in tribunal_done_coverage.values()
+                for date_str in set(dates)
+                if date_str.startswith(f"{year}-")
+            )
+            zips = sum(
+                1
+                for dates in tribunal_coverage.values()
+                for date_str in set(dates)
+                if date_str.startswith(f"{year}-")
             )
             expected = weekdays * num_tribunals
             pct = round(100.0 * combos_done / expected, 1) if expected > 0 else 0.0
@@ -915,34 +1022,18 @@ def generate_backfill_cache(
             total_days_consolidated += days_cons
 
         # Overall dates
-        date_range = con.execute("""
-            SELECT MIN(date), MAX(date)
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent')
-        """).fetchone()
-        oldest_date = date_range[0] if date_range else None
-        newest_date = date_range[1] if date_range else None
+        oldest_date = all_done_dates[0] if all_done_dates else None
+        newest_date = all_done_dates[-1] if all_done_dates else None
 
         total_pct = (
             round(100.0 * total_combos_done / total_expected, 1) if total_expected > 0 else 0.0
         )
 
         # Daily stats: tribunals collected per date (for CalendarHeatmap)
-        daily_rows = con.execute("""
-            SELECT date, COUNT(DISTINCT tribunal) as count
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent')
-            GROUP BY date
-            ORDER BY date
-        """).fetchall()
-        daily_map = {str(row[0]): row[1] for row in daily_rows}
-        for tribunal_code, dates in tribunal_absent_coverage.items():
+        daily_map: dict[str, int] = {}
+        for dates in tribunal_done_coverage.values():
             for date_str in set(dates):
-                if date_str not in daily_map:
-                    daily_map[date_str] = 0
-                # Only increment if this tribunal/date is not already counted via manifest
-                if date_str not in tribunal_coverage_sets.get(tribunal_code, set()):
-                    daily_map[date_str] += 1
+                daily_map[date_str] = daily_map.get(date_str, 0) + 1
         daily_stats = [{"date": day, "count": count} for day, count in sorted(daily_map.items())]
 
         # Recent activity: last 14 days (for TimelineGraph)
@@ -950,39 +1041,16 @@ def generate_backfill_cache(
         recent = [d for d in daily_stats if d["date"] >= cutoff]
 
         # Per-tribunal reliability: coverage ratio
-        tribunal_rows = con.execute("""
-            SELECT
-                tribunal,
-                COUNT(DISTINCT date) FILTER (WHERE file_type = 'zip') as days_with_data,
-                COUNT(DISTINCT date) FILTER (WHERE file_type = 'absent') as days_absent,
-                COUNT(DISTINCT date) as days_total
-            FROM manifest
-            WHERE file_type IN ('zip', 'absent')
-            GROUP BY tribunal
-            ORDER BY days_with_data DESC
-        """).fetchall()
-        tribunal_stats_map = {
-            row[0]: {
-                "tribunal": row[0],
-                "days_with_data": row[1],
-                "days_absent": row[2],
-                "days_total": row[3],
+        tribunal_stats_map = {}
+        for tribunal_code in sorted(set(tribunal_coverage) | set(tribunal_absent_coverage)):
+            days_with_data = len(set(tribunal_coverage.get(tribunal_code, [])))
+            days_absent = len(set(tribunal_absent_coverage.get(tribunal_code, [])))
+            tribunal_stats_map[tribunal_code] = {
+                "tribunal": tribunal_code,
+                "days_with_data": days_with_data,
+                "days_absent": days_absent,
+                "days_total": days_with_data + days_absent,
             }
-            for row in tribunal_rows
-        }
-        for tribunal_code, dates in tribunal_absent_coverage.items():
-            entry = tribunal_stats_map.setdefault(
-                tribunal_code,
-                {
-                    "tribunal": tribunal_code,
-                    "days_with_data": 0,
-                    "days_absent": 0,
-                    "days_total": 0,
-                },
-            )
-            absent_days = len(set(dates))
-            entry["days_absent"] = absent_days
-            entry["days_total"] = entry["days_with_data"] + absent_days
         tribunal_stats = []
         for row in tribunal_stats_map.values():
             days_total = row["days_total"]
@@ -997,6 +1065,17 @@ def generate_backfill_cache(
 
         # Calculate total archived volume from item sizes
         total_volume_bytes = sum((sizes or {}).values())
+        total_parquets_row = con.execute("""
+            SELECT COUNT(*)
+            FROM manifest
+            WHERE file_type = 'parquet'
+        """).fetchone()
+        total_parquets = total_parquets_row[0] if total_parquets_row else 0
+        archive_snapshot = build_archive_snapshot(
+            {tribunal_code: set(dates) for tribunal_code, dates in tribunal_coverage.items()},
+            total_volume_bytes,
+            total_parquets,
+        )
 
         return {
             "progress_by_year": progress_by_year,
@@ -1049,6 +1128,7 @@ def generate_backfill_cache(
                 t: list(set(d)) for t, d in tribunal_absent_coverage.items()
             },
             "tribunal_etas": tribunal_etas,
+            "archive_snapshot": archive_snapshot,
             "volume": {
                 "total_bytes": total_volume_bytes,
                 "total_gb": round(total_volume_bytes / (1024**3), 2),
