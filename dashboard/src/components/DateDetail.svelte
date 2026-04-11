@@ -181,7 +181,7 @@
       if (pubs) {
         publications = [...publications, ...pubs];
         currentPage = next;
-        history.replaceState(null, '', `#${dateStr}/${next}`);
+        history.replaceState(null, '', `#${dateStr}/pg/${next}`);
       }
     } finally {
       loadingMore = false;
@@ -191,8 +191,9 @@
   function handleNavigate(newSeq: number) {
     if (newSeq < 1) return;
     const newPage = Math.ceil(newSeq / PUBS_PER_PAGE);
-    const hash = `${dateStr}/${newPage}/${newSeq}`;
-    history.replaceState(null, '', `#${hash}`);
+    // Use window.location.hash (not replaceState) so this creates a history
+    // entry — back button returns to the publication list view.
+    window.location.hash = `${dateStr}/pg/${newPage}/seq/${newSeq}`;
     (async () => {
       let pubs = publications;
       if (newPage !== featuredPub?.page || pubs.length === 0) {
@@ -229,7 +230,8 @@
 
   function handleDismissFeatured() {
     featuredPub = null;
-    history.replaceState(null, '', `#${dateStr}`);
+    // Use window.location.hash so pressing back restores the featured pub view.
+    window.location.hash = dateStr;
   }
 </script>
 

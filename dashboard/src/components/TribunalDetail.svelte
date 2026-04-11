@@ -19,11 +19,18 @@
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash) return { date: null, page: null, seq: null };
     const parts = hash.split('/');
-    return {
-      date: parts[0] || null,
-      page: parts[1] ? parseInt(parts[1]) : null,
-      seq: parts[2] ? parseInt(parts[2]) : null,
-    };
+    const date = parts[0] || null;
+    let page: number | null = null;
+    let seq: number | null = null;
+    // Named keys: #date/pg/2/seq/1050
+    for (let i = 1; i + 1 < parts.length; i += 2) {
+      if (parts[i] === 'pg')  page = parseInt(parts[i + 1]);
+      if (parts[i] === 'seq') seq  = parseInt(parts[i + 1]);
+    }
+    // Positional fallback for old links: #date/N or #date/N/M
+    if (page === null && parts[1] && /^\d+$/.test(parts[1])) page = parseInt(parts[1]);
+    if (seq  === null && parts[2] && /^\d+$/.test(parts[2])) seq  = parseInt(parts[2]);
+    return { date, page, seq };
   }
 
   interface TribunalDetailProps {
@@ -55,9 +62,13 @@
   onMount(() => {
     hashState = parseHash();
     hashReady = true;
-    const onHashChange = () => { hashState = parseHash(); };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const onNavigate = () => { hashState = parseHash(); };
+    window.addEventListener('hashchange', onNavigate);
+    window.addEventListener('popstate', onNavigate);
+    return () => {
+      window.removeEventListener('hashchange', onNavigate);
+      window.removeEventListener('popstate', onNavigate);
+    };
   });
 
   let allData = $derived($store.data);
