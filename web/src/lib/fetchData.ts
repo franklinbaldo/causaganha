@@ -37,7 +37,7 @@ interface FallbackResponse {
   json: () => Promise<Record<string, never>>;
 }
 
-interface CacheData {
+export interface CacheData {
   today?: any;
   calendar?: any;
   runs?: any;
