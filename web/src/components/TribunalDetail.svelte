@@ -101,7 +101,7 @@
     end: backfillTargetRange?.end || today,
   });
 
-  const BASE = typeof import.meta !== 'undefined' ? (import.meta.env?.BASE_URL || '/causaganha/') : '/causaganha/';
+  const BASE = import.meta.env.BASE_URL;
   const baseUrl = BASE.endsWith('/') ? BASE : BASE + '/';
 
   function handleTribunalChange(e: Event) {

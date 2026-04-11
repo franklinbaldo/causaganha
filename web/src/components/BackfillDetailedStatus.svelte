@@ -1,8 +1,8 @@
 <script lang="ts">
-  export let data: any = null;
+  let { data = null }: { data: any } = $props();
 
-  $: tribunals = data?.tribunals || [];
-  $: updatedAt = data?.updated_at ? new Date(data.updated_at).toLocaleString('pt-BR') : 'N/A';
+  let tribunals = $derived(data?.tribunals || []);
+  let updatedAt = $derived(data?.updated_at ? new Date(data.updated_at).toLocaleString('pt-BR') : 'N/A');
 </script>
 
 <div class="card bg-base-100 shadow-sm border border-base-300">

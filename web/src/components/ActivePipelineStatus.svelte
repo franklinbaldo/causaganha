@@ -19,8 +19,7 @@
   let error = $state<boolean>(false);
   let isMounted = $state<boolean>(false);
 
-  // Need to ensure absolute path from root via BASE_URL
-  const BASE_URL = import.meta.env?.BASE_URL || '/causaganha/';
+  const BASE_URL = import.meta.env.BASE_URL;
   // In dev/preview, BASE_URL might be different, let's make sure we hit the correct static path.
   const CACHE_RUNS_URL = `${BASE_URL.replace(/\/$/, '')}/cache/runs.json`;
   const CACHE_TODAY_URL = `${BASE_URL.replace(/\/$/, '')}/cache/today.json`;
