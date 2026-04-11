@@ -7,8 +7,28 @@ import LatencyHeatmap from '../../components/LatencyHeatmap.svelte';
 import ParquetDensityHeatmap from '../../components/ParquetDensityHeatmap.svelte';
 import { readJson } from '../../lib/readJson';
 
-const perfMetrics = readJson('perf-metrics.json');
-const qualityScores = readJson('tribunal_quality_scores.json');
+interface LatencyEntry {
+  date: string;
+  latency_ms: number;
+}
+interface SlowestTribunal {
+  tribunal: string;
+  velocity_14d: number;
+}
+interface QualityScore {
+  grade: string;
+  [key: string]: unknown;
+}
+interface PerfMetrics {
+  causaganha_collect_latency_ms?: LatencyEntry[];
+  causaganha_upload_success_rate?: number;
+  causaganha_backlog_pending_days?: number;
+  causaganha_active_tribunals?: number;
+  slowest_tribunals?: SlowestTribunal[];
+}
+
+const perfMetrics = readJson<PerfMetrics>('perf-metrics.json');
+const qualityScores = readJson<Record<string, QualityScore>>('tribunal_quality_scores.json');
 ---
 
 <Layout

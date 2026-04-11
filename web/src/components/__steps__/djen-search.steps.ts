@@ -16,15 +16,6 @@ function mockResponse(
   });
 }
 
-// Factory that lazily builds a fresh Response per call because Response bodies
-// can only be consumed once.
-function mockResponseFactory(
-  body: unknown,
-  init: { status?: number; headers?: Record<string, string> } = {},
-) {
-  return () => mockResponse(body, init);
-}
-
 function sampleItem(id: number, extra: Record<string, unknown> = {}) {
   return {
     id,
@@ -36,8 +27,40 @@ function sampleItem(id: number, extra: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * `openapi-fetch` calls the underlying fetch with a single `Request` object
+ * (not a `string, init` pair), so tests that want to inspect the URL must
+ * reach through the Request instance rather than the legacy `init` arg.
+ */
+function firstRequestUrl(fetchMock: ReturnType<typeof vi.fn>): string {
+  const firstCall = fetchMock.mock.calls[0];
+  if (!firstCall) return '';
+  const input = firstCall[0];
+  if (input instanceof Request) return input.url;
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  return String(input);
+}
+
+function callRequestUrl(
+  fetchMock: ReturnType<typeof vi.fn>,
+  callIndex: number,
+): string {
+  const call = fetchMock.mock.calls[callIndex];
+  if (!call) return '';
+  const input = call[0];
+  if (input instanceof Request) return input.url;
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  return String(input);
+}
+
 describe('searchDjenComunicacoes', () => {
   beforeEach(() => {
+    // Reset the geo-fence state machine between scenarios so the direct-first
+    // flow applies to each test. `clearDjenSearchCache()` now just resets the
+    // geo-state (library-level caching was removed when TanStack Query took
+    // over caching at the component layer).
     clearDjenSearchCache();
     vi.restoreAllMocks();
   });
@@ -64,7 +87,7 @@ describe('searchDjenComunicacoes', () => {
     await searchDjenComunicacoes(query);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const urlCalled = fetchMock.mock.calls[0][0] as string;
+    const urlCalled = firstRequestUrl(fetchMock);
     expect(urlCalled).toContain('comunicaapi.pje.jus.br/api/v1/comunicacao?');
     expect(urlCalled).toContain('siglaTribunal=TJSP');
     expect(urlCalled).toContain('texto=contrato');
@@ -126,13 +149,15 @@ describe('searchDjenComunicacoes', () => {
   });
 
   it('falls back to proxy on public network failure and sets usedFallback', async () => {
+    // A geo-block (CORS / DNS / unreachable) surfaces from `fetch` as a
+    // TypeError — the only shape `isGeoBlockShape()` in `djenClient.ts`
+    // classifies as a reason to try the proxy. Plain `Error` instances are
+    // treated as real backend failures and propagate to the caller.
     const fetchMock = vi
       .fn()
-      .mockImplementationOnce(() => Promise.reject(new Error('Network error')))
+      .mockImplementationOnce(() => Promise.reject(new TypeError('Failed to fetch')))
       .mockImplementationOnce(() =>
-        Promise.resolve(
-          mockResponse({ items: [sampleItem(1)], count: 1 }),
-        ),
+        Promise.resolve(mockResponse({ items: [sampleItem(1)], count: 1 })),
       );
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -140,70 +165,45 @@ describe('searchDjenComunicacoes', () => {
 
     expect(result.usedFallback).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const secondUrl = fetchMock.mock.calls[1][0] as string;
+    const secondUrl = callRequestUrl(fetchMock, 1);
     expect(secondUrl).toContain('djen-proxy-mhgmawcn3a-rj.a.run.app');
   });
 
-  it('caches identical consecutive queries (second call does not hit fetch)', async () => {
-    const factory = mockResponseFactory({ items: [sampleItem(1)], count: 1 });
-    const fetchMock = vi.fn().mockImplementation(async () => factory());
+  it('propagates HTTP 5xx without trying the proxy (real backend errors are not masked)', async () => {
+    // 5xx is the key bug-fix over the old implementation: previously any
+    // failure triggered the proxy retry, which silently masked real public-
+    // side backend bugs. The new classifier keeps 5xx as a hard failure.
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockResponse({ message: 'Internal Server Error' }, { status: 502 }),
+    );
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP', texto: 'abc' });
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP', texto: 'abc' });
+    await expect(
+      searchDjenComunicacoes({ siglaTribunal: 'TJSP' }),
+    ).rejects.toMatchObject({ name: 'DjenHttpError', status: 502 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    const urlCalled = firstRequestUrl(fetchMock);
+    expect(urlCalled).toContain('comunicaapi.pje.jus.br');
+    expect(urlCalled).not.toContain('djen-proxy');
   });
 
-  it('bypasses cache when bypassCache: true', async () => {
-    const factory = mockResponseFactory({ items: [sampleItem(1)], count: 1 });
-    const fetchMock = vi.fn().mockImplementation(async () => factory());
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP', texto: 'abc' });
-    await searchDjenComunicacoes(
-      { siglaTribunal: 'TJSP', texto: 'abc' },
-      { bypassCache: true },
-    );
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('cache TTL expires and refetches', async () => {
-    vi.useFakeTimers();
-    try {
-      const factory = mockResponseFactory({ items: [sampleItem(1)], count: 1 });
-      const fetchMock = vi.fn().mockImplementation(async () => factory());
-      global.fetch = fetchMock as unknown as typeof fetch;
-
-      await searchDjenComunicacoes({ siglaTribunal: 'TJSP' });
-      vi.advanceTimersByTime(61_000);
-      await searchDjenComunicacoes({ siglaTribunal: 'TJSP' });
-
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('clearDjenSearchCache() drops all entries', async () => {
-    const factory = mockResponseFactory({ items: [sampleItem(1)], count: 1 });
-    const fetchMock = vi.fn().mockImplementation(async () => factory());
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP' });
-    clearDjenSearchCache();
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP' });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('AbortSignal aborts the in-flight fetch and does not populate cache', async () => {
+  it('AbortSignal aborts the in-flight fetch', async () => {
+    // `openapi-fetch` passes a single `Request` instance to `fetch`, with the
+    // AbortSignal attached to that Request. The mock has to listen to
+    // `request.signal` rather than `init?.signal`.
     const fetchMock = vi.fn().mockImplementation(
-      (_url: string, init: RequestInit | undefined) =>
+      (input: RequestInfo | URL, init?: RequestInit) =>
         new Promise((_resolve, reject) => {
-          const signal = init?.signal;
+          const signal =
+            input instanceof Request ? input.signal : init?.signal;
           if (signal) {
+            if (signal.aborted) {
+              const err = new Error('aborted');
+              err.name = 'AbortError';
+              reject(err);
+              return;
+            }
             signal.addEventListener('abort', () => {
               const err = new Error('aborted');
               err.name = 'AbortError';
@@ -222,11 +222,5 @@ describe('searchDjenComunicacoes', () => {
     controller.abort();
 
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
-
-    // Follow-up call must hit fetch again because the aborted call did not cache.
-    fetchMock.mockResolvedValueOnce(mockResponse({ items: [sampleItem(1)], count: 1 }));
-    await searchDjenComunicacoes({ siglaTribunal: 'TJSP' });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

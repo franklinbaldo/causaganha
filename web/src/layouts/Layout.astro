@@ -1,6 +1,6 @@
 ---
 import '../index.css';
-import { ViewTransitions } from 'astro:transitions';
+import { ClientRouter } from 'astro:transitions';
 import Footer from '../components/Footer.astro';
 import NetworkStatusBanner from '../components/NetworkStatusBanner.astro';
 
@@ -42,7 +42,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href={`${BASE}vite.svg`} />
     <title>{title}</title>
-    <ViewTransitions />
+    <ClientRouter />
     <script is:inline>
       // Apply saved theme before paint to prevent flash
       document.documentElement.setAttribute('data-theme',

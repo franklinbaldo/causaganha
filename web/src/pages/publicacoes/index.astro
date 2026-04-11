@@ -7,16 +7,21 @@ import { deriveData } from '../../lib/fetchData';
 import TribunalView from '../../components/TribunalView.svelte';
 import IASearchBar from '../../components/IASearchBar.svelte';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
-import { readJson } from '../../lib/readJson';
+import {
+  readJson,
+  type IaSnapshot,
+  type CacheTodayFile,
+  type CacheBackfillFile,
+} from '../../lib/readJson';
 
 const dashboardData = readJson('dashboard-data.json');
 const tribunalStartDates = readJson('tribunal_start_dates.json');
 const tribunalQualityScores = readJson('tribunal_quality_scores.json');
-const today = readJson('cache/today.json');
-const backfill = readJson('cache/backfill.json');
-const iaSnapshot = readJson('ia-snapshot.json');
+const today = readJson<CacheTodayFile>('cache/today.json');
+const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
+const iaSnapshot = readJson<IaSnapshot>('ia-snapshot.json');
 
-const cacheData = {};
+const cacheData: { today?: CacheTodayFile; backfill?: CacheBackfillFile } = {};
 if (today) cacheData.today = today;
 if (backfill) cacheData.backfill = backfill;
 const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
@@ -37,7 +42,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <Header variant="page" title="CausaGanha">
     <DatabaseIcon slot="icon" />
     <p slot="subtitle" class="header-subtitle">
-      {snap ? `${snap.total_zips.toLocaleString()} ZIPs · ${snap.tribunals_with_data} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
+      {snap ? `${(snap.total_zips ?? 0).toLocaleString()} ZIPs · ${snap.tribunals_with_data ?? 0} tribunais · última coleta: ${latestDate}` : 'Carregando...'}
     </p>
   </Header>
 

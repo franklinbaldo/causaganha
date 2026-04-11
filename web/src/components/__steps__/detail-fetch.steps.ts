@@ -1,17 +1,36 @@
-import { describe, it, expect, vi } from 'vitest';
-import { fetchLivePublicationDetail } from '../../lib/djen';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fetchLivePublicationDetail, clearDjenSearchCache } from '../../lib/djen';
+
+function mockResponse(
+  body: unknown,
+  init: { status?: number; headers?: Record<string, string> } = {},
+): Response {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers: init.headers,
+  });
+}
 
 describe('fetchLivePublicationDetail', () => {
-  it('should return djen source on success', async () => {
-    // Mock fetch to succeed
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        items: [{ id: 1, numeroComunicacao: 123, siglaTribunal: 'TJSP', texto: 'live data' }]
-      })
-    });
+  beforeEach(() => {
+    clearDjenSearchCache();
+  });
 
-    const mockPub = { numeroComunicacao: 123, siglaTribunal: 'TJSP', texto: 'old data' } as any;
+  it('should return djen source on success', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockResponse({
+        items: [
+          { id: 1, numeroComunicacao: 123, siglaTribunal: 'TJSP', texto: 'live data' },
+        ],
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const mockPub = {
+      numeroComunicacao: 123,
+      siglaTribunal: 'TJSP',
+      texto: 'old data',
+    } as any;
 
     const result = await fetchLivePublicationDetail(mockPub);
     expect(result.source).toBe('djen');
@@ -20,10 +39,20 @@ describe('fetchLivePublicationDetail', () => {
   });
 
   it('should fallback to ia source on fetch failure', async () => {
-    // Mock fetch to fail
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    // TypeError mirrors the shape `fetch` throws on network / CORS failures.
+    // Any non-geo-block error would propagate to the caller, so we use a
+    // TypeError here to match the classification in djenClient.isGeoBlockShape.
+    // The proxy also rejects so the fallback attempt fails and the caller
+    // falls back to the IA copy as the ultimate source.
+    global.fetch = vi
+      .fn()
+      .mockRejectedValue(new TypeError('Network error')) as unknown as typeof fetch;
 
-    const mockPub = { numeroComunicacao: 123, siglaTribunal: 'TJSP', texto: 'old data' } as any;
+    const mockPub = {
+      numeroComunicacao: 123,
+      siglaTribunal: 'TJSP',
+      texto: 'old data',
+    } as any;
 
     const result = await fetchLivePublicationDetail(mockPub);
     expect(result.source).toBe('ia');
@@ -32,15 +61,14 @@ describe('fetchLivePublicationDetail', () => {
   });
 
   it('should fallback to ia source when returning no items', async () => {
-    // Mock fetch to succeed but return empty items
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        items: []
-      })
-    });
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse({ items: [] }));
+    global.fetch = fetchMock as unknown as typeof fetch;
 
-    const mockPub = { numeroComunicacao: 123, siglaTribunal: 'TJSP', texto: 'old data' } as any;
+    const mockPub = {
+      numeroComunicacao: 123,
+      siglaTribunal: 'TJSP',
+      texto: 'old data',
+    } as any;
 
     const result = await fetchLivePublicationDetail(mockPub);
     expect(result.source).toBe('ia');

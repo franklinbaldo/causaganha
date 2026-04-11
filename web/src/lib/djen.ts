@@ -1,68 +1,128 @@
+/**
+ * DJEN public-facing module.
+ *
+ * This file used to hand-write ~200 lines of Zod schemas that replicated
+ * `djen.yml`. Those schemas have been replaced by types generated directly
+ * from the spec (`djen-types.gen.ts`) and consumed by the typed HTTP client
+ * in `djenClient.ts`. What remains here is the runtime knowledge the spec
+ * does NOT capture:
+ *
+ *   - Date normalization (`dd/MM/yyyy` ↔ `YYYY-MM-DD`)
+ *   - Enum coercion for `meio` and `polo` (the live API mixes codes, words
+ *     and accented spellings)
+ *   - HTML sanitization for the `texto` body
+ *   - camelCase/snake_case unification for field names the live API is
+ *     inconsistent about (`siglaTribunal` vs `sigla_tribunal` etc.)
+ *
+ * The module also exposes a backward-compatible `searchDjenComunicacoes`
+ * entry point so the component layer (`PublicationSearch.svelte`) and the
+ * BDD step tests keep working.
+ */
+
 import DOMPurify from "dompurify";
-import { z } from "zod";
+import {
+  DjenRateLimitError,
+  DjenValidationError,
+  _resetGeoState,
+  searchComunicacoes,
+  type DjenCallResult,
+  type DjenComunicacaoItem,
+  type DjenComunicacaoQuery,
+  type DjenRateLimit,
+  type DjenSearchPayload,
+} from "./djenClient";
 
-const optionalString = z.preprocess((value) => {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
+// ---------- re-exports ------------------------------------------------------
 
-  return typeof value === "string" ? value : String(value);
-}, z.string().optional());
+export {
+  DjenRateLimitError,
+  DjenValidationError,
+  type DjenComunicacaoQuery,
+  type DjenRateLimit,
+};
 
-const optionalNumber = z.preprocess((value) => {
-  if (value === null || value === undefined || value === "") {
-    return undefined;
-  }
+// ---------- normalized public type -----------------------------------------
 
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
+export type DjenMeio = "D" | "E";
+export type DjenPolo = "A" | "P" | "T" | "D";
 
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
+export type DjenTextoRender =
+  | { kind: "html"; content: string }
+  | { kind: "text"; content: string };
 
-  return undefined;
-}, z.number().optional());
+export interface DjenDestinatario {
+  nome?: string;
+  polo?: DjenPolo;
+  comunicacao_id?: number;
+  cpf_cnpj?: string;
+  [key: string]: unknown;
+}
 
-const optionalBoolean = z.preprocess((value) => {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
+export interface DjenAdvogado {
+  id?: number;
+  nome?: string;
+  numero_oab?: string;
+  uf_oab?: string;
+  tipo_inscricao?: string;
+  email?: string;
+  [key: string]: unknown;
+}
 
-  if (typeof value === "boolean") {
-    return value;
-  }
+export interface DjenDestinatarioAdvogado {
+  id?: number;
+  comunicacao_id?: number;
+  advogado_id?: number;
+  created_at?: string;
+  updated_at?: string;
+  advogado?: DjenAdvogado;
+  [key: string]: unknown;
+}
 
-  if (typeof value === "string") {
-    if (value.toLowerCase() === "true") {
-      return true;
-    }
+export interface DjenPublication {
+  id?: number;
+  data_disponibilizacao?: string;
+  siglaTribunal?: string;
+  tipoComunicacao?: string;
+  nomeOrgao?: string;
+  idOrgao?: number;
+  texto?: string;
+  numero_processo?: string;
+  meio?: DjenMeio;
+  link?: string;
+  tipoDocumento?: string;
+  nomeClasse?: string;
+  codigoClasse?: string;
+  numeroComunicacao?: number;
+  ativo?: boolean;
+  hash?: string;
+  status?: string;
+  motivo_cancelamento?: string;
+  data_cancelamento?: string;
+  meiocompleto?: string;
+  numeroprocessocommascara?: string;
+  destinatarios?: DjenDestinatario[];
+  destinatarioadvogados?: DjenDestinatarioAdvogado[];
+  textoRender?: DjenTextoRender;
+  [key: string]: unknown;
+}
 
-    if (value.toLowerCase() === "false") {
-      return false;
-    }
-  }
+// ---------- low-level transforms (kept from the old implementation) -------
 
-  return undefined;
-}, z.boolean().optional());
+function normalizeLabel(value: unknown): string {
+  return (typeof value === "string" ? value : String(value))
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-function normalizeDateString(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === "") {
-    return undefined;
-  }
-
+export function normalizeDateString(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
   const raw = typeof value === "string" ? value.trim() : String(value).trim();
-
-  if (!raw) {
-    return undefined;
-  }
+  if (!raw) return undefined;
 
   const isoDateMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (isoDateMatch) {
-    return isoDateMatch[1];
-  }
+  if (isoDateMatch) return isoDateMatch[1];
 
   const brDateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (brDateMatch) {
@@ -79,32 +139,10 @@ function normalizeDateString(value: unknown): string | undefined {
   return raw;
 }
 
-function normalizeLabel(value: unknown): string {
-  return (typeof value === "string" ? value : String(value))
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-const optionalDateString = z.preprocess(
-  normalizeDateString,
-  z
-    .string()
-    .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Expected date in YYYY-MM-DD format")
-    .optional(),
-);
-
-function normalizeMeio(value: unknown): "D" | "E" | undefined {
-  if (value === null || value === undefined || value === "") {
-    return undefined;
-  }
-
+export function normalizeMeio(value: unknown): DjenMeio | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
   const raw = normalizeLabel(value);
-
-  if (!raw) {
-    return undefined;
-  }
+  if (!raw) return undefined;
 
   if (
     raw === "d" ||
@@ -115,41 +153,35 @@ function normalizeMeio(value: unknown): "D" | "E" | undefined {
   ) {
     return "D";
   }
-
   if (raw === "e" || raw === "edital" || raw === "edital eletronico") {
     return "E";
   }
-
   return undefined;
 }
 
-function normalizePolo(value: unknown): "A" | "P" | "T" | "D" | undefined {
-  if (value === null || value === undefined || value === "") {
-    return undefined;
-  }
-
+export function normalizePolo(value: unknown): DjenPolo | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
   const raw = normalizeLabel(value);
+  if (!raw) return undefined;
 
-  if (!raw) {
-    return undefined;
-  }
-
-  if (raw === "a" || raw === "ativo" || raw === "ativa" || raw === "autor" || raw === "autora") {
+  if (
+    raw === "a" ||
+    raw === "ativo" ||
+    raw === "ativa" ||
+    raw === "autor" ||
+    raw === "autora"
+  ) {
     return "A";
   }
-
   if (raw === "p" || raw === "passivo" || raw === "passiva" || raw === "reu" || raw === "re") {
     return "P";
   }
-
   if (raw === "t" || raw === "terceiro" || raw === "terceira") {
     return "T";
   }
-
   if (raw === "d" || raw === "destinatario") {
     return "D";
   }
-
   return undefined;
 }
 
@@ -167,9 +199,7 @@ function escapeHtml(value: string): string {
 }
 
 function sanitizeHtml(value: string): string {
-  if (typeof window === "undefined") {
-    return escapeHtml(value);
-  }
+  if (typeof window === "undefined") return escapeHtml(value);
   return DOMPurify.sanitize(value, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ["script", "style"],
@@ -177,15 +207,10 @@ function sanitizeHtml(value: string): string {
   });
 }
 
-function normalizeExternalUrl(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === "") {
-    return undefined;
-  }
-
+export function normalizeExternalUrl(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
   const raw = typeof value === "string" ? value.trim() : String(value).trim();
-  if (!raw) {
-    return undefined;
-  }
+  if (!raw) return undefined;
 
   try {
     const url = new URL(raw);
@@ -195,343 +220,92 @@ function normalizeExternalUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
-
   return undefined;
 }
 
-export const DjenTextoRenderSchema = z.union([
-  z.object({
-    kind: z.literal("html"),
-    content: z.string(),
-  }),
-  z.object({
-    kind: z.literal("text"),
-    content: z.string(),
-  }),
-]);
+// ---------- publication normalization -------------------------------------
 
-export const DjenMeioSchema = z.enum(["D", "E"]);
-export const DjenPoloSchema = z.enum(["A", "P", "T", "D"]);
-export const DjenTipoComunicacaoCodigoSchema = z.enum(["C", "I", "E", "P", "L", "A"]);
+/**
+ * Convert one raw comunicacao item (as returned by the DJEN API, possibly
+ * with the snake_case / camelCase mix the spec doesn't capture) into the
+ * canonical shape consumed by the UI.
+ */
+export function normalizePublication(
+  raw: DjenComunicacaoItem & Record<string, unknown>,
+): DjenPublication {
+  const pub: DjenPublication = { ...(raw as Record<string, unknown>) };
 
-export const DjenLoginRequestSchema = z.object({
-  login: z.string(),
-  senha: z.string(),
-});
+  const dataDisponibilizacao =
+    (raw as Record<string, unknown>).data_disponibilizacao ??
+    (raw as Record<string, unknown>).datadisponibilizacao ??
+    (raw as Record<string, unknown>).dataDisponibilizacao;
+  pub.data_disponibilizacao = normalizeDateString(dataDisponibilizacao);
 
-export const DjenLoginResponseSchema = z.object({
-  user: z
-    .object({
-      id: z.number().int().optional(),
-      nome: optionalString,
-      email: optionalString,
-      cpf: optionalString,
-    })
-    .optional(),
-  access_token: optionalString,
-});
+  pub.siglaTribunal =
+    ((raw as Record<string, unknown>).siglaTribunal as string | undefined) ??
+    ((raw as Record<string, unknown>).sigla_tribunal as string | undefined);
 
-export const DjenAdvogadoSchema = z
-  .object({
-    id: optionalNumber,
-    nome: optionalString,
-    numero_oab: optionalString,
-    uf_oab: optionalString,
-    tipo_inscricao: optionalString,
-    email: optionalString,
-  })
-  .passthrough();
+  pub.tipoComunicacao =
+    ((raw as Record<string, unknown>).tipoComunicacao as string | undefined) ??
+    ((raw as Record<string, unknown>).tipo_comunicacao as string | undefined);
 
-export const DjenDestinatarioSchema = z
-  .object({
-    nome: optionalString,
-    polo: optionalString,
-    comunicacao_id: optionalNumber,
-    cpf_cnpj: optionalString,
-  })
-  .passthrough()
-  .transform((value) => ({
-    ...value,
-    polo: normalizePolo(value.polo),
-  }));
+  pub.nomeOrgao =
+    ((raw as Record<string, unknown>).nomeOrgao as string | undefined) ??
+    ((raw as Record<string, unknown>).nome_orgao as string | undefined) ??
+    ((raw as Record<string, unknown>).orgao as string | undefined);
 
-export const DjenDestinatarioAdvogadoSchema = z
-  .object({
-    id: optionalNumber,
-    comunicacao_id: optionalNumber,
-    advogado_id: optionalNumber,
-    created_at: optionalString,
-    updated_at: optionalString,
-    advogado: DjenAdvogadoSchema.optional(),
-  })
-  .passthrough();
+  const idOrgaoValue =
+    (raw as Record<string, unknown>).idOrgao ?? (raw as Record<string, unknown>).id_orgao;
+  pub.idOrgao = typeof idOrgaoValue === "number" ? idOrgaoValue : undefined;
 
-const DjenPublicationSourceSchema = z
-  .object({
-    id: optionalNumber,
-    data_disponibilizacao: optionalDateString,
-    datadisponibilizacao: optionalDateString,
-    dataDisponibilizacao: optionalDateString,
-    siglaTribunal: optionalString,
-    sigla_tribunal: optionalString,
-    tipoComunicacao: optionalString,
-    tipo_comunicacao: optionalString,
-    nomeOrgao: optionalString,
-    nome_orgao: optionalString,
-    orgao: optionalString,
-    idOrgao: optionalNumber,
-    id_orgao: optionalNumber,
-    texto: optionalString,
-    numero_processo: optionalString,
-    numeroProcesso: optionalString,
-    meio: optionalString,
-    link: optionalString,
-    tipoDocumento: optionalString,
-    tipo_documento: optionalString,
-    nomeClasse: optionalString,
-    nome_classe: optionalString,
-    codigoClasse: optionalString,
-    codigo_classe: optionalString,
-    numeroComunicacao: optionalNumber,
-    numero_comunicacao: optionalNumber,
-    ativo: optionalBoolean,
-    hash: optionalString,
-    status: optionalString,
-    motivo_cancelamento: optionalString,
-    data_cancelamento: optionalString,
-    meiocompleto: optionalString,
-    numeroprocessocommascara: optionalString,
-    destinatarios: z.array(DjenDestinatarioSchema).optional(),
-    destinatarioadvogados: z.array(DjenDestinatarioAdvogadoSchema).optional(),
-  })
-  .passthrough();
+  pub.numero_processo =
+    ((raw as Record<string, unknown>).numero_processo as string | undefined) ??
+    ((raw as Record<string, unknown>).numeroProcesso as string | undefined);
 
-export const DjenPublicationSchema = DjenPublicationSourceSchema.transform((value) => ({
-  ...value,
-  data_disponibilizacao:
-    value.data_disponibilizacao ?? value.datadisponibilizacao ?? value.dataDisponibilizacao,
-  siglaTribunal: value.siglaTribunal ?? value.sigla_tribunal,
-  tipoComunicacao: value.tipoComunicacao ?? value.tipo_comunicacao,
-  nomeOrgao: value.nomeOrgao ?? value.nome_orgao ?? value.orgao,
-  idOrgao: value.idOrgao ?? value.id_orgao,
-  numero_processo: value.numero_processo ?? value.numeroProcesso,
-  meio: normalizeMeio(value.meio),
-  link: normalizeExternalUrl(value.link),
-  tipoDocumento: value.tipoDocumento ?? value.tipo_documento,
-  nomeClasse: value.nomeClasse ?? value.nome_classe,
-  codigoClasse: value.codigoClasse ?? value.codigo_classe,
-  numeroComunicacao: value.numeroComunicacao ?? value.numero_comunicacao,
-  textoRender: value.texto
-    ? looksLikeHtml(value.texto)
-      ? { kind: "html" as const, content: sanitizeHtml(value.texto) }
-      : { kind: "text" as const, content: value.texto }
-    : undefined,
-}));
+  pub.meio = normalizeMeio((raw as Record<string, unknown>).meio);
+  pub.link = normalizeExternalUrl((raw as Record<string, unknown>).link);
 
-export type DjenPublication = z.infer<typeof DjenPublicationSchema>;
-export type DjenDestinatario = z.infer<typeof DjenDestinatarioSchema>;
-export type DjenDestinatarioAdvogado = z.infer<typeof DjenDestinatarioAdvogadoSchema>;
-export type DjenAdvogado = z.infer<typeof DjenAdvogadoSchema>;
+  pub.tipoDocumento =
+    ((raw as Record<string, unknown>).tipoDocumento as string | undefined) ??
+    ((raw as Record<string, unknown>).tipo_documento as string | undefined);
 
-export const DjenPublicationCollectionSchema = z
-  .union([
-    z.array(DjenPublicationSchema),
-    z.object({ items: z.array(DjenPublicationSchema) }).passthrough(),
-  ])
-  .transform((value) => (Array.isArray(value) ? value : value.items));
+  pub.nomeClasse =
+    ((raw as Record<string, unknown>).nomeClasse as string | undefined) ??
+    ((raw as Record<string, unknown>).nome_classe as string | undefined);
 
-export const DjenComunicacaoQuerySchema = z
-  .object({
-    numeroOab: optionalString,
-    ufOab: optionalString,
-    nomeAdvogado: optionalString,
-    nomeParte: optionalString,
-    numeroProcesso: optionalString,
-    dataDisponibilizacaoInicio: optionalDateString,
-    dataDisponibilizacaoFim: optionalDateString,
-    siglaTribunal: optionalString,
-    numeroComunicacao: optionalNumber,
-    pagina: optionalNumber,
-    itensPorPagina: optionalNumber,
-    orgaoId: optionalNumber,
-    meio: DjenMeioSchema.optional(),
-  })
-  .passthrough();
+  pub.codigoClasse =
+    ((raw as Record<string, unknown>).codigoClasse as string | undefined) ??
+    ((raw as Record<string, unknown>).codigo_classe as string | undefined);
 
-export const DjenComunicacaoListResponseSchema = z.object({
-  status: optionalString,
-  message: optionalString,
-  count: optionalNumber,
-  items: z.array(DjenPublicationSchema).default([]),
-});
+  const numeroComunicacaoValue =
+    (raw as Record<string, unknown>).numeroComunicacao ??
+    (raw as Record<string, unknown>).numero_comunicacao;
+  pub.numeroComunicacao =
+    typeof numeroComunicacaoValue === "number" ? numeroComunicacaoValue : undefined;
 
-export const DjenCreateComunicacaoRequestSchema = z
-  .object({
-    codigo_classe: z.string(),
-    numero_processo: z.string(),
-    sigla_tribunal: z.string(),
-    meio: DjenMeioSchema,
-    link: optionalString,
-    texto: optionalString,
-    tipo_documento: z.string(),
-    orgao: z.string(),
-    data_disponibilizacao: optionalDateString,
-    tipo_comunicacao: DjenTipoComunicacaoCodigoSchema,
-    destinatarios: z.array(
-      z
-        .object({
-          nome: optionalString,
-          cpf_cnpj: optionalString,
-          polo: DjenPoloSchema.optional(),
-        })
-        .passthrough(),
-    ),
-    advogados: z
-      .array(
-        z
-          .object({
-            nome: optionalString,
-            numero_oab: optionalString,
-            uf_oab: optionalString,
-          })
-          .passthrough(),
-      )
-      .optional(),
-  })
-  .passthrough();
-
-export const DjenCreateComunicacaoResponseItemSchema = z
-  .object({
-    tribunal_id: optionalNumber,
-    classe_id: optionalNumber,
-    tipo_documento_id: optionalNumber,
-    orgao_id: optionalNumber,
-    tipo_id: optionalNumber,
-    id: optionalNumber,
-    data_publicacao: optionalDateString,
-    texto: optionalString,
-    numero_processo: optionalString,
-    meio: DjenMeioSchema.optional(),
-    link: optionalString,
-    numero_comunicacao: optionalNumber,
-    ativo: optionalBoolean,
-    hash: optionalString,
-    meiocompleto: optionalString,
-    numeroprocessocommascara: optionalString,
-    destinatarios: z.array(DjenDestinatarioSchema).optional(),
-    destinatarioadvogados: z.array(DjenDestinatarioAdvogadoSchema).optional(),
-  })
-  .passthrough();
-
-export const DjenCreateComunicacaoResponseSchema = z.object({
-  status: optionalString,
-  message: optionalString,
-  items: z.array(DjenCreateComunicacaoResponseItemSchema).default([]),
-});
-
-export const DjenDeleteComunicacaoParamsSchema = z.object({
-  id: z.string(),
-});
-
-export const DjenDeleteComunicacaoRequestSchema = z.object({
-  motivo_cancelamento: z.string(),
-});
-
-export const DjenDeleteComunicacaoResponseSchema = z.object({
-  status: optionalString,
-  message: optionalString,
-});
-
-export const DjenCertidaoParamsSchema = z.object({
-  hash: z.string(),
-});
-
-export const DjenTribunalSchema = z
-  .object({
-    id: optionalNumber,
-    nome: optionalString,
-    sigla: optionalString,
-    jurisdicao: optionalString,
-    endereco: optionalString,
-    telefone: optionalString,
-  })
-  .passthrough();
-
-export const DjenTribunalListSchema = z.array(DjenTribunalSchema);
-
-export const DjenErrorResponseSchema = z.object({
-  status: optionalString,
-  message: optionalString,
-});
-
-export const DjenCadernoParamsSchema = z.object({
-  sigla_tribunal: z.string(),
-  data: optionalDateString,
-  meio: DjenMeioSchema,
-});
-
-export const DjenCadernoSchema = z.object({
-  tribunal: optionalString,
-  sigla_tribunal: optionalString,
-  meio: DjenMeioSchema.optional(),
-  status: optionalString,
-  versao: optionalString,
-  data: optionalDateString,
-  total_comunicacoes: optionalNumber,
-  numero_paginas: optionalNumber,
-  hash: optionalString,
-  url: optionalString,
-});
-
-export function parseDjenPublication(input: unknown): DjenPublication {
-  return DjenPublicationSchema.parse(input);
-}
-
-export function parseDjenPublicationCollection(input: unknown): DjenPublication[] {
-  return DjenPublicationCollectionSchema.parse(input);
-}
-
-export function parseDjenPublicationCollectionSafely(input: unknown): DjenPublication[] {
-  const collectionResult = z
-    .union([
-      z.array(z.unknown()),
-      z.object({ items: z.array(z.unknown()) }).passthrough(),
-    ])
-    .safeParse(input);
-
-  if (!collectionResult.success) {
-    return [];
+  if (typeof raw.texto === "string" && raw.texto.length > 0) {
+    pub.textoRender = looksLikeHtml(raw.texto)
+      ? { kind: "html", content: sanitizeHtml(raw.texto) }
+      : { kind: "text", content: raw.texto };
   }
 
-  const items = Array.isArray(collectionResult.data)
-    ? collectionResult.data
-    : collectionResult.data.items;
-
-  const publications: DjenPublication[] = [];
-
-  for (const item of items) {
-    const parsed = DjenPublicationSchema.safeParse(item);
-    if (parsed.success) {
-      publications.push(parsed.data);
-    }
+  if (Array.isArray((raw as Record<string, unknown>).destinatarios)) {
+    pub.destinatarios = (
+      (raw as Record<string, unknown>).destinatarios as Array<Record<string, unknown>>
+    ).map((d) => ({
+      ...d,
+      nome: typeof d.nome === "string" ? d.nome : undefined,
+      polo: normalizePolo(d.polo),
+      comunicacao_id:
+        typeof d.comunicacao_id === "number" ? d.comunicacao_id : undefined,
+      cpf_cnpj: typeof d.cpf_cnpj === "string" ? d.cpf_cnpj : undefined,
+    }));
   }
 
-  return publications;
+  return pub;
 }
 
-const DJEN_PUBLIC_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao";
-const DJEN_PROXY_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app/api/v1/comunicacao";
-const DJEN_FETCH_TIMEOUT_MS = 10000;
-const DJEN_CACHE_TTL_MS = 60_000;
-const DJEN_CACHE_MAX_ENTRIES = 40;
-
-export type DjenComunicacaoQuery = z.infer<typeof DjenComunicacaoQuerySchema>;
-
-export interface DjenRateLimit {
-  limit: number | null;
-  remaining: number | null;
-  resetAt: number | null;
-}
+// ---------- backward-compatible public API --------------------------------
 
 export interface DjenSearchResult {
   items: DjenPublication[];
@@ -539,26 +313,6 @@ export interface DjenSearchResult {
   rateLimit: DjenRateLimit;
   source: "djen";
   usedFallback: boolean;
-}
-
-export class DjenValidationError extends Error {
-  issues: string[];
-
-  constructor(issues: string[]) {
-    super(`Consulta DJEN inválida: ${issues.join("; ")}`);
-    this.name = "DjenValidationError";
-    this.issues = issues;
-  }
-}
-
-export class DjenRateLimitError extends Error {
-  retryAfterSec: number;
-
-  constructor(retryAfterSec: number) {
-    super(`Limite de requisições atingido. Aguarde ${retryAfterSec}s.`);
-    this.name = "DjenRateLimitError";
-    this.retryAfterSec = retryAfterSec;
-  }
 }
 
 const DJEN_IDENTITY_KEYS = [
@@ -577,210 +331,111 @@ function hasIdentityParam(query: DjenComunicacaoQuery): boolean {
   });
 }
 
-function buildDjenQueryString(query: DjenComunicacaoQuery): string {
-  const params = new URLSearchParams();
-  const entries = Object.entries(query) as [string, unknown][];
-  entries.sort(([a], [b]) => a.localeCompare(b));
-  for (const [key, value] of entries) {
-    if (value === undefined || value === null || value === "") continue;
-    params.set(key, String(value));
-  }
-  return params.toString();
-}
-
-function parseRateLimit(headers: Headers): DjenRateLimit {
-  const limitRaw = headers.get("x-ratelimit-limit");
-  const remainingRaw = headers.get("x-ratelimit-remaining");
-  const retryAfterRaw = headers.get("retry-after");
-
-  const limit = limitRaw !== null ? Number(limitRaw) : NaN;
-  const remaining = remainingRaw !== null ? Number(remainingRaw) : NaN;
-  const retryAfter = retryAfterRaw !== null ? Number(retryAfterRaw) : NaN;
-
-  return {
-    limit: Number.isFinite(limit) ? limit : null,
-    remaining: Number.isFinite(remaining) ? remaining : null,
-    resetAt: Number.isFinite(retryAfter) ? Date.now() + retryAfter * 1000 : null,
-  };
-}
-
-interface DjenCacheEntry {
-  expiresAt: number;
-  result: DjenSearchResult;
-}
-
-const djenSearchCache = new Map<string, DjenCacheEntry>();
-
-export function clearDjenSearchCache(): void {
-  djenSearchCache.clear();
-}
-
-async function attemptDjenSearch(
-  baseUrl: string,
-  queryString: string,
-  signal: AbortSignal | undefined,
-): Promise<DjenSearchResult> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DJEN_FETCH_TIMEOUT_MS);
-
-  const onExternalAbort = () => controller.abort();
-  if (signal) {
-    if (signal.aborted) {
-      controller.abort();
-    } else {
-      signal.addEventListener("abort", onExternalAbort, { once: true });
-    }
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}?${queryString}`, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener("abort", onExternalAbort);
-  }
-
-  const rateLimit = parseRateLimit(res.headers);
-
-  if (res.status === 429) {
-    const retryHeader = Number(res.headers.get("retry-after"));
-    const retryAfterSec = Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : 60;
-    throw new DjenRateLimitError(Math.max(60, retryAfterSec));
-  }
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
-
-  const listParsed = DjenComunicacaoListResponseSchema.safeParse(data);
-  const items = listParsed.success
-    ? listParsed.data.items
-    : parseDjenPublicationCollectionSafely(data);
-  const count = listParsed.success
-    ? (listParsed.data.count ?? items.length)
-    : items.length;
-
-  return {
-    items,
-    count,
-    rateLimit,
-    source: "djen",
-    usedFallback: false,
-  };
-}
-
+/**
+ * Backward-compatible entry point used by `PublicationSearch.svelte` and the
+ * BDD step tests. Thin wrapper around `djenClient.searchComunicacoes` that:
+ *   1. Enforces the CNJ "you must provide an identity parameter OR a small
+ *      page" rule before firing any request.
+ *   2. Normalizes every item via `normalizePublication`.
+ *   3. Preserves the `{ items, count, rateLimit, source, usedFallback }`
+ *      shape the components already consume.
+ */
 export async function searchDjenComunicacoes(
   query: DjenComunicacaoQuery,
   opts: { signal?: AbortSignal; bypassCache?: boolean } = {},
 ): Promise<DjenSearchResult> {
-  const parsed = DjenComunicacaoQuerySchema.safeParse(query);
-  if (!parsed.success) {
-    throw new DjenValidationError(parsed.error.issues.map((issue) => issue.message));
-  }
-
-  const normalizedQuery = parsed.data as DjenComunicacaoQuery;
   const smallPage =
-    typeof normalizedQuery.itensPorPagina === "number" &&
-    normalizedQuery.itensPorPagina > 0 &&
-    normalizedQuery.itensPorPagina <= 5;
+    typeof query.itensPorPagina === "number" &&
+    query.itensPorPagina > 0 &&
+    query.itensPorPagina <= 5;
 
-  if (!hasIdentityParam(normalizedQuery) && !smallPage) {
+  if (!hasIdentityParam(query) && !smallPage) {
     throw new DjenValidationError([
       "Informe ao menos um de: tribunal, texto, parte, advogado, OAB ou processo.",
     ]);
   }
 
-  const queryString = buildDjenQueryString(normalizedQuery);
-  const cacheKey = queryString;
+  // The `bypassCache` flag is preserved for API compatibility but the
+  // library-level LRU cache is gone — TanStack Query now owns all caching
+  // behavior at the component layer. We therefore honor the signature
+  // without doing any caching work ourselves.
+  void opts.bypassCache;
 
-  if (!opts.bypassCache) {
-    const hit = djenSearchCache.get(cacheKey);
-    if (hit && hit.expiresAt > Date.now()) {
-      // Refresh LRU order
-      djenSearchCache.delete(cacheKey);
-      djenSearchCache.set(cacheKey, hit);
-      return hit.result;
-    }
-    if (hit) {
-      djenSearchCache.delete(cacheKey);
-    }
-  }
+  const result: DjenCallResult<DjenSearchPayload> = await searchComunicacoes(query, {
+    signal: opts.signal,
+  });
 
-  let result: DjenSearchResult;
-  try {
-    result = await attemptDjenSearch(DJEN_PUBLIC_URL, queryString, opts.signal);
-  } catch (err) {
-    if (err instanceof DjenRateLimitError) throw err;
-    if (opts.signal?.aborted) throw err;
-    if ((err as Error)?.name === "AbortError") throw err;
-
-    const viaProxy = await attemptDjenSearch(DJEN_PROXY_URL, queryString, opts.signal);
-    result = { ...viaProxy, usedFallback: true };
-  }
-
-  if (djenSearchCache.size >= DJEN_CACHE_MAX_ENTRIES) {
-    const firstKey = djenSearchCache.keys().next().value;
-    if (firstKey !== undefined) djenSearchCache.delete(firstKey);
-  }
-  djenSearchCache.set(cacheKey, { expiresAt: Date.now() + DJEN_CACHE_TTL_MS, result });
-
-  return result;
+  return {
+    items: result.data.items.map((raw) =>
+      normalizePublication(raw as DjenComunicacaoItem & Record<string, unknown>),
+    ),
+    count: result.data.count,
+    rateLimit: result.rateLimit,
+    source: "djen",
+    usedFallback: result.usedFallback,
+  };
 }
 
+/**
+ * Fetch the live detail for a publication that was originally loaded from an
+ * Internet Archive snapshot. The DateDetail component uses this to "hydrate"
+ * a card with the latest DJEN content when the user lands on the date page.
+ */
 export async function fetchLivePublicationDetail(
-  pubFromIa: DjenPublication
-): Promise<{ publication: DjenPublication | null; source: "djen" | "ia"; usedFallback: boolean; error?: string }> {
+  pubFromIa: DjenPublication,
+  opts: { signal?: AbortSignal } = {},
+): Promise<{
+  publication: DjenPublication | null;
+  source: "djen" | "ia";
+  usedFallback: boolean;
+  error?: string;
+}> {
   if (!pubFromIa.numeroComunicacao || !pubFromIa.siglaTribunal) {
-    return { publication: pubFromIa, source: "ia", usedFallback: true, error: "Missing identity fields" };
+    return {
+      publication: pubFromIa,
+      source: "ia",
+      usedFallback: true,
+      error: "Missing identity fields",
+    };
   }
-
-  const queryParams = `?numeroComunicacao=${pubFromIa.numeroComunicacao}&siglaTribunal=${pubFromIa.siglaTribunal}`;
-  const publicUrl = `https://comunicaapi.pje.jus.br/api/v1/comunicacao${queryParams}`;
-  const proxyUrl = `https://djen-proxy-mhgmawcn3a-rj.a.run.app/api/v1/comunicacao${queryParams}`;
-
-  const tryFetch = async (url: string) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    const items = parseDjenPublicationCollectionSafely(data);
-    if (items.length > 0) {
-      return items[0];
-    }
-    return null;
-  };
 
   try {
-    // Try public API first
-    const pub = await tryFetch(publicUrl);
-    if (pub) {
-      return { publication: pub, source: "djen", usedFallback: false };
-    }
-  } catch {
-    // If public API fails (CORS, 403, timeout), try proxy
-    try {
-      const pubProxy = await tryFetch(proxyUrl);
-      if (pubProxy) {
-        return { publication: pubProxy, source: "djen", usedFallback: false };
-      }
-    } catch (proxyErr: unknown) {
+    const result = await searchComunicacoes(
+      {
+        numeroComunicacao: pubFromIa.numeroComunicacao,
+        siglaTribunal: pubFromIa.siglaTribunal,
+      },
+      { signal: opts.signal },
+    );
+    const first = result.data.items[0];
+    if (first) {
       return {
-        publication: pubFromIa,
-        source: "ia",
-        usedFallback: true,
-        error: proxyErr instanceof Error ? proxyErr.message : String(proxyErr)
+        publication: normalizePublication(
+          first as DjenComunicacaoItem & Record<string, unknown>,
+        ),
+        source: "djen",
+        usedFallback: result.usedFallback,
       };
     }
+    return { publication: pubFromIa, source: "ia", usedFallback: true };
+  } catch (err) {
+    if (err instanceof DjenRateLimitError) {
+      throw err;
+    }
+    return {
+      publication: pubFromIa,
+      source: "ia",
+      usedFallback: true,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
+}
 
-  // Fallback if requests complete but return nothing
-  return { publication: pubFromIa, source: "ia", usedFallback: true };
+/**
+ * Reset DJEN client state. With the library-level cache removed, this now
+ * only resets the geo-fence state machine, which is exactly what the BDD
+ * step tests need between runs.
+ */
+export function clearDjenSearchCache(): void {
+  _resetGeoState();
 }

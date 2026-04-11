@@ -5,7 +5,7 @@ import { readJson } from '../lib/readJson';
 const BASE_URL = 'https://franklinbaldo.github.io/causaganha';
 
 export const GET: APIRoute = () => {
-  const sitemapUrls = [];
+  const sitemapUrls: string[] = [];
   const now = new Date().toISOString();
   const backfill = readJson<any>('cache/backfill.json');
 

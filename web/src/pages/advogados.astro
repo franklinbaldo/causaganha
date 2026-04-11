@@ -44,7 +44,7 @@ const avgCoverage = tribunalStats.length
     </section>
 
     <section class="cards-grid">
-      {tribunalStats.map((index) => <LawyerCard index={index} />)}
+      {tribunalStats.map((index: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard index={index} />)}
     </section>
   </div>
 </Layout>

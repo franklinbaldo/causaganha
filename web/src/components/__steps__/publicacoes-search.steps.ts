@@ -1,5 +1,5 @@
-import './shared';
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/svelte/pure';
+import { render } from './shared';
+import { screen, cleanup, waitFor, fireEvent } from '@testing-library/svelte/pure';
 import { loadFeature, describeFeature } from '@amiceli/vitest-cucumber';
 import { expect, vi } from 'vitest';
 import PublicationSearchRaw from '../PublicationSearch.svelte';
