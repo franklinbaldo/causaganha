@@ -3,11 +3,12 @@ import Layout from '../layouts/Layout.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
-import { loadBuildTimeData } from '../lib/buildTimeData';
+import { readJson } from '../lib/readJson';
 import { formatNumber, HOW_IT_WORKS_CARDS, QUICK_ACCESS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
 
-const data = loadBuildTimeData();
-const iaSnapshot = data.iaSnapshot;
+const iaSnapshot = readJson<any>('ia-snapshot.json');
+const today = readJson<any>('cache/today.json');
+const backfill = readJson<any>('cache/backfill.json');
 
 const snap = iaSnapshot?.summary || {};
 const totalZips = snap.total_zips || 0;
@@ -15,11 +16,11 @@ const totalTribunals = snap.tribunals_total || 96;
 const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
 
-const filesToday = data.velocityMetrics.filesToday;
-const tribunalStatusCount = Object.keys(data.cacheData?.today?.tribunal_status ?? {}).length;
+const filesToday = today?.files_today || 0;
+const tribunalStatusCount = Object.keys(today?.tribunal_status || {}).length;
 
 const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
-  (data.tribunalStats ?? []).map((t: any) => ({
+  (backfill?.tribunal_stats || []).map((t: any) => ({
     tribunal: t.tribunal as string,
     data_rate_pct: Number(t.data_rate_pct ?? 0),
   }));
