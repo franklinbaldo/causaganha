@@ -3,25 +3,13 @@ import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
-import { deriveData } from '../../lib/fetchData';
 import TribunalView from '../../components/TribunalView.svelte';
 import IASearchBar from '../../components/IASearchBar.svelte';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
-import { readJson } from '../../lib/readJson';
+import { loadBuildTimeData } from '../../lib/buildTimeData';
 
-const dashboardData = readJson('dashboard-data.json');
-const tribunalStartDates = readJson('tribunal_start_dates.json');
-const tribunalQualityScores = readJson('tribunal_quality_scores.json');
-const today = readJson('cache/today.json');
-const backfill = readJson('cache/backfill.json');
-const iaSnapshot = readJson('ia-snapshot.json');
-
-const cacheData = {};
-if (today) cacheData.today = today;
-if (backfill) cacheData.backfill = backfill;
-const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
-
-const data = deriveData(null, dashboardData, cache, tribunalStartDates, tribunalQualityScores, null, iaSnapshot);
+const data = loadBuildTimeData();
+const iaSnapshot = data.iaSnapshot;
 
 const snap = iaSnapshot?.summary;
 const latestDate = snap?.latest_collection_date;
