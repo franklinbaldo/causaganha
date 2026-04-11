@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getDuckDB } from '../lib/duckdbSingleton';
   import { fade } from 'svelte/transition';
   import CellTooltip from './CellTooltip.svelte';
   import MonthPicker from './MonthPicker.svelte';
@@ -35,26 +36,7 @@
 
     async function initDB() {
       try {
-        const duckdb = await import('@duckdb/duckdb-wasm');
-        const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-        if (!bundle.mainWorker) throw new Error('No mainWorker found for DuckDB.');
-
-        let worker: Worker;
-        try {
-          worker = new Worker(bundle.mainWorker);
-        } catch {
-          const blob = new Blob(
-            [await (await fetch(bundle.mainWorker)).text()],
-            { type: 'application/javascript' }
-          );
-          worker = new Worker(URL.createObjectURL(blob));
-        }
-
-        const dbInstance = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
-        await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
-        const connInstance = await dbInstance.connect();
-        await connInstance.query('INSTALL httpfs; LOAD httpfs;');
-        await connInstance.query('SET enable_http_metadata_cache=true;');
+        const { conn: connInstance } = await getDuckDB();
 
         if (!cancelled) {
           conn = connInstance;

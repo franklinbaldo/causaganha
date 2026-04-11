@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   interface ParquetFile {
     name: string;
@@ -55,7 +56,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     async function fetchFiles() {
       loading = true;
       try {
-        const res = await fetch(`https://archive.org/metadata/${itemId}/files`);
+        const res = await fetchWithRetry(`https://archive.org/metadata/${itemId}/files`) as Response;
         if (!res.ok) return;
         const data = await res.json();
         const files = (data?.result || data || [])

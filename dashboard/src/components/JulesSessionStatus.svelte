@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   export let apiKey: string = '';
 
@@ -32,12 +33,12 @@
     loading = true;
     error = '';
     try {
-      const response = await fetch('https://jules.googleapis.com/v1alpha/sessions', {
+      const response = await fetchWithRetry('https://jules.googleapis.com/v1alpha/sessions', {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         }
-      });
+      }) as Response;
 
       if (!response.ok) {
         throw new Error(`Error: ${response.status} ${response.statusText}`);

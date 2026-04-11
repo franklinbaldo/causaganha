@@ -37,7 +37,7 @@ const qualityScores = readJson('tribunal_quality_scores.json');
 
       <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Parquet Density" />
       <div role="tabpanel" class="tab-content pt-4">
-        <ParquetDensityHeatmap client:idle />
+        <ParquetDensityHeatmap client:only="svelte" />
       </div>
     </div>
   </div>

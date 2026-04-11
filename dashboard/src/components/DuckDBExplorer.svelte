@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { getDuckDB } from '../lib/duckdbSingleton';
 
   const IA_BASE = 'https://archive.org/download';
 
@@ -58,35 +59,7 @@ LIMIT 20`,
 
     async function init() {
       try {
-        const duckdb = await import('@duckdb/duckdb-wasm');
-        console.log('DuckDB components loaded:', !!duckdb);
-
-        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-        console.log('DuckDB bundle selected:', bundle.mainWorker ? 'Worker ready' : 'No worker');
-
-        if (!bundle.mainWorker) {
-          throw new Error('DuckDB bundle selection failed: No mainWorker found.');
-        }
-
-        let worker;
-        try {
-          worker = new Worker(bundle.mainWorker);
-        } catch (workerErr) {
-          console.warn('Direct Worker load failed, attempting Blob fallback...', workerErr);
-          const response = await fetch(bundle.mainWorker);
-          const content = await response.text();
-          const blob = new Blob([content], { type: 'application/javascript' });
-          worker = new Worker(URL.createObjectURL(blob));
-        }
-
-        const logger = new duckdb.ConsoleLogger();
-        const dbInstance = new duckdb.AsyncDuckDB(logger, worker);
-        await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
-
-        const connInstance = await dbInstance.connect();
-        await connInstance.query("INSTALL httpfs; LOAD httpfs;");
-        await connInstance.query("SET enable_http_metadata_cache=true;");
+        const { db: dbInstance, conn: connInstance } = await getDuckDB();
 
         if (!cancelled) {
           db = dbInstance;

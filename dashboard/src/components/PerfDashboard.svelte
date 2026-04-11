@@ -55,13 +55,16 @@
   });
 
   $effect(() => {
+    let chart: HTMLElement | SVGElement | null = null;
+    let pie: HTMLElement | SVGElement | null = null;
+
     if (chartEl && latencies.length > 0) {
       const data = latencies.map((d) => ({
         date: new Date(d.date),
         latency: d.latency_ms / 60000,
       }));
 
-      const chart = Plot.plot({
+      chart = Plot.plot({
         width: 800,
         height: 300,
         y: { label: 'Latency (minutes)', grid: true },
@@ -71,12 +74,11 @@
           Plot.dot(data, { x: 'date', y: 'latency', fill: 'currentColor', r: 4 }),
         ],
       });
-      chartEl.innerHTML = '';
-      chartEl.appendChild(chart);
+      chartEl.replaceChildren(chart);
     }
 
     if (pieEl && gradeData.length > 0) {
-      const pie = Plot.plot({
+      pie = Plot.plot({
         width: 400,
         height: 250,
         x: { label: 'Grade', domain: ['A', 'B', 'C', 'D', 'F'] },
@@ -87,9 +89,13 @@
         },
         marks: [Plot.barY(gradeData, { x: 'grade', y: 'count', fill: 'grade' })],
       });
-      pieEl.innerHTML = '';
-      pieEl.appendChild(pie);
+      pieEl.replaceChildren(pie);
     }
+
+    return () => {
+      if (chart) chart.remove();
+      if (pie) pie.remove();
+    };
   });
 </script>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   let loading = $state(false);
   let status = $state('idle'); // idle, loading-db, ready, error
@@ -18,31 +19,7 @@
     async function init() {
       status = 'loading-db';
       try {
-        const duckdb = await import('@duckdb/duckdb-wasm');
-        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-
-        if (!bundle.mainWorker) {
-          throw new Error('No mainWorker found for DuckDB.');
-        }
-
-        let worker;
-        try {
-          worker = new Worker(bundle.mainWorker);
-        } catch (workerErr) {
-          const response = await fetch(bundle.mainWorker);
-          const content = await response.text();
-          const blob = new Blob([content], { type: 'application/javascript' });
-          worker = new Worker(URL.createObjectURL(blob));
-        }
-
-        const logger = new duckdb.ConsoleLogger();
-        const dbInstance = new duckdb.AsyncDuckDB(logger, worker);
-        await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
-
-        const connInstance = await dbInstance.connect();
-        await connInstance.query("INSTALL httpfs; LOAD httpfs;");
-        await connInstance.query("SET enable_http_metadata_cache=true;");
+        const { db: dbInstance, conn: connInstance } = await import('../lib/duckdbSingleton').then(m => m.getDuckDB());
 
         if (!cancelled) {
           db = dbInstance;

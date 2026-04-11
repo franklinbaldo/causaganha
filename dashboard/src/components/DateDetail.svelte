@@ -5,6 +5,7 @@
     fetchLivePublicationDetail,
     type DjenPublication,
   } from '../lib/djen';
+  import { fetchWithRetry } from '../lib/fetchData';
 
   const PUBS_PER_PAGE = 1000;
 
@@ -50,11 +51,11 @@
       const cache = await caches.open('causaganha-publications');
       const cached = await cache.match(url);
       if (cached) return cached;
-      const res = await fetch(url, { redirect: 'follow' });
+      const res = await fetchWithRetry(url, { redirect: 'follow' }) as Response;
       if (res.ok) cache.put(url, res.clone());
       return res;
     }
-    return fetch(url, { redirect: 'follow' });
+    return fetchWithRetry(url, { redirect: 'follow' }) as Promise<Response>;
   }
 
   interface DateDetailProps {
@@ -108,7 +109,7 @@
       featuredPub = null;
       try {
         // ZIP metadata from IA
-        const metaRes = await fetch(`https://archive.org/metadata/${_itemId}`);
+        const metaRes = await fetchWithRetry(`https://archive.org/metadata/${_itemId}`);
         if (metaRes.ok) {
           const meta = await metaRes.json();
           const files = meta.files || [];
@@ -129,7 +130,7 @@
         const probes = await Promise.all(
           Array.from({ length: 30 }, (_, i) => i + 1).map(async (n) => {
             try {
-              const res = await fetch(jsonUrl(n), { method: 'HEAD', redirect: 'follow' });
+              const res = await fetchWithRetry(jsonUrl(n), { method: 'HEAD', redirect: 'follow' });
               return res.ok ? n : null;
             } catch { return null; }
           })
