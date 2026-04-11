@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import AlertBanner from './AlertBanner.svelte';
+  import EmptyState from './EmptyState.svelte';
 
   interface WorkflowRun {
     id: number;
@@ -48,13 +50,11 @@
 
     {#if loading}
       <div>Loading run history...</div>
-    {/if}
-
-    {#if error}
-      <div>Error: {error}</div>
-    {/if}
-
-    {#if !loading && !error}
+    {:else if error}
+      <AlertBanner level="error" title="Erro ao carregar histórico" message={error} />
+    {:else if runs.length === 0}
+      <EmptyState title="Nenhuma execução encontrada" message="Não foram encontradas execuções recentes do pipeline." />
+    {:else}
       <div class="table-responsive">
         <table class="data-table">
           <thead>
@@ -86,11 +86,6 @@
                 </td>
               </tr>
             {/each}
-            {#if runs.length === 0}
-              <tr>
-                <td colspan="3">No runs found.</td>
-              </tr>
-            {/if}
           </tbody>
         </table>
       </div>
@@ -99,7 +94,6 @@
 </div>
 
 <style>
-
   .table-responsive {
     overflow-x: auto;
   }
