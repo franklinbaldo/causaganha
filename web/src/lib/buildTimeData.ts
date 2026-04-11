@@ -7,7 +7,7 @@
  * does not exist in the browser bundle.
  */
 import { readJson } from './readJson';
-import { deriveData, type DerivedData } from './fetchData';
+import { deriveData, type DerivedData, type CacheData } from './fetchData';
 
 export function loadBuildTimeData(): DerivedData {
   // Static files — mirrors the first Promise.all in fetchAllData()
@@ -24,13 +24,12 @@ export function loadBuildTimeData(): DerivedData {
   const backfill = readJson('cache/backfill.json');
   const iaSnapshot = readJson('ia-snapshot.json');
 
-  const cacheData: { today?: unknown; calendar?: unknown; runs?: unknown; backfill?: unknown } = {};
+  const cacheData: CacheData = {};
   if (today)    cacheData.today    = today;
   if (calendar) cacheData.calendar = calendar;
   if (runs)     cacheData.runs     = runs;
   if (backfill) cacheData.backfill = backfill;
-  const cache = Object.keys(cacheData).length > 0 ? cacheData : null;
+  const cache: CacheData | null = Object.keys(cacheData).length > 0 ? cacheData : null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return deriveData(stats, dashboardData, cache as any, tribunalStartDates, tribunalQualityScores, perfMetrics, iaSnapshot);
+  return deriveData(stats, dashboardData, cache, tribunalStartDates, tribunalQualityScores, perfMetrics, iaSnapshot);
 }
