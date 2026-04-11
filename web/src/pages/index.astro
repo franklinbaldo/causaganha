@@ -4,7 +4,7 @@ import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import { readJson } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, QUICK_ACCESS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
+import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
 const today = readJson<any>('cache/today.json');
@@ -69,9 +69,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </form>
           <p class="search-hint">Experimente: <button type="button" class="hint-chip" data-example="TJSP">TJSP</button> · <button type="button" class="hint-chip" data-example="OAB SP 12345">OAB SP 12345</button> · <button type="button" class="hint-chip" data-example="mandado de segurança">mandado de segurança</button></p>
 
-          <div class="hero-ctas">
-            <a href={BASE + 'publicacoes'} class="btn btn-outline">Ver Publicações de Hoje</a>
-            <a href={BASE + 'explorador'} class="btn btn-outline">Explorar com SQL</a>
+          <div class="mode-trio">
+            <a href={BASE + 'publicacoes'} class="mode-card mode-card--primary">
+              <strong class="mode-card-title">Buscar publicações</strong>
+              <span class="mode-card-desc">Pesquise por OAB, processo ou texto livre no DJEN ao vivo</span>
+            </a>
+            <a href={BASE + 'publicacoes#arquivo'} class="mode-card">
+              <strong class="mode-card-title">Navegar no arquivo</strong>
+              <span class="mode-card-desc">Acervo preservado no Internet Archive por tribunal e data</span>
+            </a>
+            <a href={BASE + 'explorador'} class="mode-card">
+              <strong class="mode-card-title">Consultar com SQL</strong>
+              <span class="mode-card-desc">DuckDB no navegador — consulte arquivos Parquet diretamente</span>
+            </a>
           </div>
         </div>
 
@@ -81,6 +91,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             <div class="card-body">
               <div class="status-header">
                 <span class="status-dot" aria-hidden="true"></span>
+                <span class="sr-only">Sistema ativo — </span>
                 <strong>Coletando agora</strong>
                 <small class="status-freq">a cada 20 min</small>
               </div>
@@ -103,25 +114,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
 
       </div>
-    </div>
-  </section>
-
-  <!-- ── QUICK ACCESS ── -->
-  <section class="section-container" id="explorar">
-    <div class="section-header-row">
-      <h2 class="section-title">O que você pode fazer</h2>
-    </div>
-    <div class="quick-access-grid">
-      {QUICK_ACCESS_CARDS.map(card => (
-        <a href={BASE + card.href} class="qa-card card">
-          <div class="card-body">
-            <div class="qa-icon" aria-hidden="true">{card.icon}</div>
-            <h3 class="qa-title">{card.title}</h3>
-            <p class="qa-desc">{card.description}</p>
-            <span class="qa-cta">{card.cta} →</span>
-          </div>
-        </a>
-      ))}
     </div>
   </section>
 
@@ -401,10 +393,51 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     background: var(--color-base-300);
   }
 
-  .hero-ctas {
+  /* ── Mode trio (decision-tree CTAs) ── */
+  .mode-trio {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+  }
+
+  @media (min-width: 640px) {
+    .mode-trio {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .mode-card {
     display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition-base);
+    min-height: 44px;
+  }
+
+  .mode-card:hover {
+    border-color: var(--color-primary);
+  }
+
+  .mode-card--primary {
+    border-color: var(--color-primary);
+    background: var(--color-base-200);
+  }
+
+  .mode-card-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+
+  .mode-card-desc {
+    font-size: var(--font-size-xs);
+    opacity: 0.65;
+    line-height: 1.4;
   }
 
   /* ── Live Status card ── */

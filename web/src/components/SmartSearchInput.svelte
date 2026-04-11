@@ -1,7 +1,10 @@
 <script lang="ts">
+  import type { SmartParseKind } from '../lib/searchQueryString';
+
   interface Props {
     value: string;
     hint?: string;
+    kind?: SmartParseKind | '';
     placeholder?: string;
     onsubmit?: () => void;
   }
@@ -9,6 +12,7 @@
   let {
     value = $bindable(''),
     hint = '',
+    kind = '',
     placeholder = 'OAB, número do processo ou texto livre...',
     onsubmit,
   }: Props = $props();
@@ -40,7 +44,12 @@
     {/if}
   </label>
   {#if hint}
-    <div class="hint" role="status" aria-live="polite">{hint}</div>
+    <div class="hint" data-kind={kind} role="status" aria-live="polite">
+      <span class="hint-icon" aria-hidden="true">
+        {#if kind === 'oab'}⚖️{:else if kind === 'processo'}📋{:else}🔍{/if}
+      </span>
+      {hint}
+    </div>
   {/if}
 </div>
 
@@ -100,8 +109,27 @@
   }
 
   .hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     font-size: var(--font-size-xs, 0.75rem);
-    opacity: 0.7;
-    padding-left: 0.25rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-sm, 0.25rem);
+    background: var(--color-base-200);
+    border-left: 3px solid var(--color-base-300);
+    transition: border-color var(--transition-base, 200ms ease);
+  }
+
+  .hint[data-kind='oab'] {
+    border-left-color: var(--color-accent);
+  }
+
+  .hint[data-kind='processo'] {
+    border-left-color: var(--color-info);
+  }
+
+  .hint-icon {
+    font-size: 0.8rem;
+    line-height: 1;
   }
 </style>

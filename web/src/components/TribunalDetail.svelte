@@ -228,49 +228,14 @@
       <div class="breadcrumbs">
         <ul>
           <li><a href={`${baseUrl}`}>CausaGanha</a></li>
-          <li><a href={`${baseUrl}publicacoes`}>Publicacoes</a></li>
-          <li>
-            <select
-              id="tribunal-select"
-              value={selectedTribunal}
-              onchange={handleTribunalChange}
-              class="tribunal-select"
-            >
-              {#each TRIBUNAL_GROUPS as group}
-                <optgroup label={group.name}>
-                  {#each group.tribunals as t}
-                    <option value={t}>{t}</option>
-                  {/each}
-                </optgroup>
-              {/each}
-            </select>
-          </li>
+          <li><a href={`${baseUrl}publicacoes`}>Publicações</a></li>
+          <li>{selectedTribunal}</li>
         </ul>
-      </div>
-      <div class="toolbar-actions">
-        <button
-          class="btn btn-sm btn-ghost"
-          onclick={exportCsv}
-          title="Exportar CSV de Cobertura"
-          aria-label="Exportar CSV"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Exportar CSV
-        </button>
-        <button
-          class="btn btn-sm btn-ghost"
-          onclick={shareLink}
-          title="Copiar Link"
-          aria-label="Compartilhar Link"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-          Compartilhar Link
-        </button>
       </div>
     </div>
 
     <div class="title-section">
-      <div>
+      <div class="title-main">
         <h1 class="tribunal-title">{selectedTribunal}</h1>
         {#if qualityScore}
           <span
@@ -280,6 +245,45 @@
             Qualidade: {qualityScore.grade}
           </span>
         {/if}
+      </div>
+      <div class="title-actions">
+        <div class="tribunal-switcher">
+          <label for="tribunal-select" class="switcher-label">Trocar tribunal</label>
+          <select
+            id="tribunal-select"
+            value={selectedTribunal}
+            onchange={handleTribunalChange}
+            class="tribunal-select-title"
+          >
+            {#each TRIBUNAL_GROUPS as group}
+              <optgroup label={group.name}>
+                {#each group.tribunals as t}
+                  <option value={t}>{t}</option>
+                {/each}
+              </optgroup>
+            {/each}
+          </select>
+        </div>
+        <div class="toolbar-actions">
+          <button
+            class="btn btn-sm btn-ghost"
+            onclick={exportCsv}
+            title="Exportar CSV de Cobertura"
+            aria-label="Exportar CSV"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Exportar CSV
+          </button>
+          <button
+            class="btn btn-sm btn-ghost"
+            onclick={shareLink}
+            title="Copiar Link"
+            aria-label="Compartilhar Link"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            Compartilhar Link
+          </button>
+        </div>
       </div>
     </div>
 
@@ -310,8 +314,8 @@
     </div>
 
     <div class="tabs" role="tablist">
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Calendario" id="tab-calendario" checked />
-      <label for="tab-calendario" class="tab-label">Calendario</label>
+      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Calendário" id="tab-calendario" checked />
+      <label for="tab-calendario" class="tab-label">Calendário</label>
       <div role="tabpanel" class="tab-content">
         <Heatmap
           globalStartDateStr={targetRange.start}
@@ -327,8 +331,8 @@
         />
       </div>
 
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Estatisticas & Arquivo" id="tab-stats" />
-      <label for="tab-stats" class="tab-label">Estatisticas & Arquivo</label>
+      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Estatísticas & Arquivo" id="tab-stats" />
+      <label for="tab-stats" class="tab-label">Estatísticas & Arquivo</label>
       <div role="tabpanel" class="tab-content">
         <div class="two-col-grid">
           <div>
@@ -460,14 +464,35 @@
     text-decoration: underline;
   }
 
-  /* Tribunal select */
-  .tribunal-select {
-    border: none;
-    background: transparent;
-    padding: 0.25rem 0.5rem;
+  /* Tribunal switcher (in title area) */
+  .tribunal-switcher {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+  }
+
+  .switcher-label {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tribunal-select-title {
     font-size: var(--font-size-sm);
-    cursor: pointer;
     font-weight: 600;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    background: var(--color-base-100);
+    cursor: pointer;
+    color: var(--color-base-content);
+    min-height: 36px;
+  }
+
+  .tribunal-select-title:hover {
+    border-color: var(--color-base-content);
   }
 
   /* Buttons */
@@ -491,8 +516,23 @@
   .title-section {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: flex-start;
+    gap: 1rem;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .title-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .title-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .tribunal-title {

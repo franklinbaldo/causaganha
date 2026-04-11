@@ -170,18 +170,27 @@ LIMIT 20`,
     {/if}
   </div>
 
-  <!-- Query templates -->
-  <details class="templates-section">
-    <summary class="templates-summary">Consultas de exemplo</summary>
+  <!-- Starter cards -->
+  <div class="starter-cards" aria-label="Consultas de exemplo">
+    {#each QUERY_TEMPLATES.slice(0, 3) as tmpl}
+      <button
+        class="starter-card"
+        onclick={() => { sql = tmpl.sql; result = null; error = null; }}
+        disabled={dbStatus !== 'ready'}
+      >
+        <span class="starter-card-label">{tmpl.label}</span>
+        <span class="starter-card-hint" aria-hidden="true">Clique para carregar →</span>
+      </button>
+    {/each}
+  </div>
+  <!-- Additional templates -->
+  <details class="templates-more">
+    <summary class="templates-more-summary">Ver mais consultas de exemplo</summary>
     <div class="templates-list">
-      {#each QUERY_TEMPLATES as tmpl}
+      {#each QUERY_TEMPLATES.slice(3) as tmpl}
         <button
           class="template-btn"
-          onclick={() => {
-            sql = tmpl.sql;
-            result = null;
-            error = null;
-          }}
+          onclick={() => { sql = tmpl.sql; result = null; error = null; }}
         >
           {tmpl.label}
         </button>
@@ -375,16 +384,70 @@ LIMIT 20`,
     border-color: var(--color-base-content);
   }
 
-  .templates-section {
-    margin-bottom: 1.5rem;
+  /* Starter cards */
+  .starter-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
   }
 
-  .templates-summary {
+  @media (min-width: 640px) {
+    .starter-cards {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .starter-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+    text-align: left;
     cursor: pointer;
+    transition: border-color var(--transition-base), background var(--transition-base);
+    min-height: 5rem;
+  }
+
+  .starter-card:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: var(--color-base-200);
+  }
+
+  .starter-card:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .starter-card-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-base-content);
+  }
+
+  .starter-card-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.45;
+    margin-top: auto;
+  }
+
+  /* Additional templates (collapsed) */
+  .templates-more {
+    margin-bottom: 1rem;
+  }
+
+  .templates-more-summary {
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    opacity: 0.65;
     font-weight: 500;
   }
 
-  .templates-summary:hover {
+  .templates-more-summary:hover {
     text-decoration: underline;
   }
 
