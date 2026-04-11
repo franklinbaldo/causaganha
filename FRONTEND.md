@@ -31,7 +31,40 @@ All frontend decisions must serve the principles in [`DESIGN.md`](DESIGN.md). Re
 | In-browser SQL | DuckDB WASM |
 | Sanitization | DOMPurify |
 | Testing | Vitest + Testing Library + vitest-cucumber |
-| Linting | ESLint (flat config) + TypeScript |
+| Linting | ESLint (flat config) |
+| Language | TypeScript (strict) |
+
+---
+
+## Deployment — GitHub Pages (SSG)
+
+This project is deployed as a **100% static site on GitHub Pages** via `output: 'static'` in `astro.config.mjs`. Key constraints that affect every frontend decision:
+
+- **No server at runtime.** There are no API routes, no SSR, no middleware. Every page is a `.html` file generated at build time.
+- **`readJson()` runs only at build time.** Any data loaded via `readJson()` must be present in the `public/` directory when `astro build` runs. Missing files fail the build, not the page.
+- **All dynamic routes must use `getStaticPaths()`.** There is no server fallback for unknown paths. If a path is not in `getStaticPaths()`, it does not exist.
+- **`404.astro` is the GitHub Pages 404 page.** GitHub Pages serves `404.html` for unknown paths automatically — no extra configuration needed.
+- **Always use `import.meta.env.BASE_URL`, never hardcode `/causaganha/`.** The base path is `/causaganha` in production; hardcoded paths break local dev.
+
+```ts
+// Correct
+const href = import.meta.env.BASE_URL + 'publicacoes';
+
+// Wrong — breaks on local dev, breaks if base path ever changes
+const href = '/causaganha/publicacoes';
+```
+
+- **`trailingSlash: 'never'`** — internal `href` values must not end with `/`. Write `href="/causaganha/publicacoes"`, not `href="/causaganha/publicacoes/"`.
+- **Prefetch is on by default (`defaultStrategy: 'hover'`).** Links prefetch on hover automatically. Do not add manual `<link rel="prefetch">` tags.
+- **Live data comes from Internet Archive, not a backend.** After the static page loads, `fetchData.ts` fetches live JSON from `archive.org`. This is the only "API" this project has.
+- **`.ts` endpoint files generate static files at build.** `robots.txt.ts` and `sitemap.xml.ts` run once at build time and output static files. They are not runtime API routes.
+
+### Anti-patterns — Deployment
+
+- **Do not** use `Astro.request`, `Astro.response`, or server middleware — they require SSR.
+- **Do not** use `client:server-only` or any Astro SSR-only feature.
+- **Do not** expect `readJson()` to work inside Svelte components (browser context). It is build-time only.
+- **Do not** hardcode `/causaganha/` — use `import.meta.env.BASE_URL`.
 
 ---
 
@@ -59,16 +92,32 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 - The code is **framework-agnostic** and could in principle be used by both `.astro` and `.svelte` files.
 - You are defining a **Zod schema**, a **store**, or a **utility function**.
 
+### `lib/` organisation
+
+`lib/` is intentionally flat — specific filenames convey purpose without needing sub-directories. Current logical groups:
+
+| Group | Files |
+|---|---|
+| Core data fetching | `fetchData.ts`, `readJson.ts`, `duckdbSingleton.ts` |
+| Svelte stores | `dataRefreshStore.ts`, `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
+| Search & query | `djen.ts`, `searchQueryString.ts` |
+| Utilities | `colorUtils.ts`, `dateUtils.ts`, `velocityCalc.ts`, `iaMetadataFetcher.ts`, `stats-processing.ts` |
+| Reference data | `tribunais.ts`, `homepage-content.ts` |
+
+New files should fit into one of these groups by name. Sub-directories are not needed unless a group grows past ~6 files.
+
 ### Decision flowchart
 
 ```
 Does it render HTML?
 ├─ No  → lib/ (utility, store, schema)
-└─ Yes → Does it need reactive state after page load?
-         ├─ No  → Is interactivity trivial (one listener, no derived state)?
-         │        ├─ Yes → .astro with plain <script>
-         │        └─ No  → .svelte (client:load or client:visible)
-         └─ Yes → .svelte
+└─ Yes → Does it need ANY client-side JS?
+         ├─ No  → .astro with no <script> (zero JS — preferred default)
+         └─ Yes → Does it need reactive state after page load?
+                  ├─ No  → Is interactivity trivial (one listener, no derived state)?
+                  │        ├─ Yes → .astro with plain <script>
+                  │        └─ No  → .svelte (client:load or client:visible)
+                  └─ Yes → .svelte
 ```
 
 ---
@@ -127,7 +176,7 @@ Forgetting `astro:after-swap` is the most common bug with view transitions.
 - **Do not** add `client:load` to components that have no client-side interactivity. Static components ship zero JS by default; adding a directive breaks that.
 - **Do not** use Astro component `<script>` tags to manage complex state. Reach for Svelte instead.
 - **Do not** import server-only Node modules inside components used with SSG — the build will fail at deploy time.
-- **Do not** use `client:only` unless unavoidable (DuckDB WASM is a valid exception because it requires the browser environment). `client:only` skips server-side rendering entirely and hurts initial load.
+- **Do not** use `client:only` unless unavoidable. `client:only` skips server-side rendering entirely and hurts initial load. When you must use it, always include the framework string: `client:only="svelte"`. DuckDB WASM is the canonical valid exception because it requires the browser environment.
 
 ---
 
@@ -154,9 +203,29 @@ Svelte 5 introduces runes. Use them instead of the legacy `let` + reactive synta
 
 Do not mix the Svelte 4 `$:` reactive statements with Svelte 5 runes in the same component.
 
-### Three tiers of state
+### Four tiers of state
 
 Choose the right tier for each piece of state:
+
+**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()` and pass the result as typed `initialXxx` props to Svelte islands. The island derives live state from a `createDataRefresh` store with a fallback to the seed:
+
+```svelte
+// web/src/pages/[tribunal].astro (runs at BUILD TIME)
+const coverage = readJson<Record<string, string[]> | null>('cache/calendar.json');
+---
+<TribunalDetail initialCoverage={coverage} client:load />
+
+// web/src/components/TribunalDetail.svelte (runs in the BROWSER)
+let { initialCoverage } = $props();
+const store = createDataRefresh(null, null);
+onMount(() => store.start());
+onDestroy(() => store.stop());
+
+// Falls back to build-time seed until live refresh arrives
+let coverage = $derived($store.data?.tribunalCoverage ?? initialCoverage);
+```
+
+Always pass build-time data as `initialXxx` props. Never leave an island with `null` initial state when the Astro page can pre-populate it — the skeleton flash is user-visible and avoidable.
 
 **1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
 
@@ -271,6 +340,14 @@ Rules for contributors:
 - **Never add new Tailwind/utility classes.** Always write vanilla CSS using design tokens.
 - If you are editing a component that still has legacy utility classes, migrate those classes to CSS variables in the same PR. Do not leave mixed styles.
 - If you see `class="bg-gray-100 p-4"` in a file you are touching, replace it with a scoped CSS rule using `var(--color-base-100)` and `var(--space-4)`.
+
+**Done-state:** The migration is complete when this command returns no matches:
+
+```sh
+grep -rE 'class="[^"]*(bg-|text-|flex|p-|m-|gap-|grid|items-|justify-)' web/src/components/
+```
+
+At that point, `web/strip-tailwind-classes.mjs` can be deleted.
 
 ### Responsive design
 
@@ -407,6 +484,77 @@ Use a plain `writable` store when the data is local to one island or managed by 
 
 ---
 
+## URL State and Routing
+
+URL stability is a first-class concern in this project (DESIGN.md principle 8: "Prefer permanence over novelty. Stable URLs"). Every navigable state must be expressible as a URL.
+
+### Query-string state
+
+All search filter state is managed through `web/src/lib/searchQueryString.ts`. The library provides:
+- `queryToSearchParams(q)` — converts a typed filter object to `URLSearchParams`
+- `searchParamsToQuery(sp)` — parses `URLSearchParams` back to a typed filter object
+- `pushQueryToUrl(q)` — writes filter state to the URL via `replaceState` (no history entry)
+- `hasAnyQueryValue(q)` — returns `true` if any meaningful filter is set
+- `smartParseInput(text)` — detects CNJ process numbers and OAB codes from free text
+
+```ts
+import { pushQueryToUrl, searchParamsToQuery } from '../lib/searchQueryString';
+
+// On mount: restore state from URL
+const sp = new URLSearchParams(window.location.search);
+filters = searchParamsToQuery(sp);
+
+// After a successful search: write state to URL
+pushQueryToUrl(effectiveQuery);
+```
+
+Use `replaceState` (which `pushQueryToUrl` does internally) for filter changes — no history clutter. Only use history push when a navigation should create a back-button entry.
+
+Do not duplicate the OAB / CNJ regex logic — reuse `smartParseInput()`.
+
+### Hash-based navigation
+
+Use the URL hash for inline drill-down state within a single page (see `TribunalDetail.svelte` and `DateDetail.svelte`). The canonical format is `#YYYY-MM-DD/pg/2/seq/1050` with named key segments. Assignment to `location.hash` creates a history entry (back-button works). `replaceState` does not.
+
+Always listen to both `hashchange` and `popstate` for full back-button support:
+
+```ts
+onMount(() => {
+  hashState = parseHash();
+  const onNavigate = () => { hashState = parseHash(); };
+  window.addEventListener('hashchange', onNavigate);
+  window.addEventListener('popstate', onNavigate);
+  return () => {
+    window.removeEventListener('hashchange', onNavigate);
+    window.removeEventListener('popstate', onNavigate);
+  };
+});
+```
+
+### Dynamic routes (Astro SSG)
+
+Because this is a static site, all dynamic routes must pre-generate every path with `getStaticPaths()`. There is no server fallback:
+
+```ts
+// web/src/pages/publicacoes/[tribunal].astro
+export function getStaticPaths() {
+  return TRIBUNAIS.map(t => ({
+    params: { tribunal: t.toLowerCase() }, // URL is lowercase
+    props: { tribunalCode: t },             // component receives uppercase
+  }));
+}
+```
+
+### Anti-patterns — URL
+
+- **Do not** sync ephemeral UI state to the URL (accordion state, hover state). Only sync state the user would want to bookmark or share.
+- **Do not** call `pushQueryToUrl` on every keystroke — debounce (400 ms), then push after successful search.
+- **Do not** create history entries for filter changes — `replaceState` only.
+- **Do not** hardcode `/causaganha/` prefix — use `import.meta.env.BASE_URL`.
+- **Do not** duplicate CNJ or OAB parsing logic — reuse `smartParseInput()`.
+
+---
+
 ## Data Fetching
 
 All data fetching goes through `web/src/lib/fetchData.ts`, which implements retry logic and error handling. Do not call `fetch()` directly in components.
@@ -430,13 +578,82 @@ Pair every fetch with a Zod schema parse so that bad data surfaces immediately a
 
 ---
 
+## Loading, Error, and Empty States
+
+Three reusable components handle these states. Use them consistently — do not invent new patterns per component.
+
+| State | Component | When |
+|---|---|---|
+| No content | `EmptyState.astro` | Island has no data and nothing to show (empty result set, first load before seed) |
+| Error | `AlertBanner.astro` with `level="error"` | Fetch failures, validation errors surfaced to the user |
+| Loading | Skeleton shimmer (see `web/SKELETON_LOADERS.md`) | Async data is in flight |
+
+### Three-state template
+
+The canonical pattern for any island that fetches data:
+
+```svelte
+{#if $store.loading && !$store.data}
+  <!-- Skeleton — mirror the shape of the loaded content, not a generic spinner -->
+  <div class="skeleton skeleton-card"></div>
+{:else if $store.error}
+  <AlertBanner level="error" title="Erro ao carregar dados" message={$store.error} />
+{:else if !$store.data || Object.keys($store.data).length === 0}
+  <EmptyState title="Sem dados" message="Nenhum resultado encontrado." />
+{:else}
+  <!-- Happy path -->
+{/if}
+```
+
+### Multi-stage loading
+
+For complex initialisation flows (such as DuckDB), use a typed status enum instead of separate boolean flags:
+
+```ts
+type Status = 'loading-db' | 'loading-data' | 'ready' | 'error';
+let status = $state<Status>('loading-db');
+```
+
+This prevents invalid combinations (`loading: true` and `error` both truthy) and makes control flow explicit.
+
+### Error recovery
+
+Always provide a retry path for transient failures:
+
+```svelte
+{#if status === 'error'}
+  <div class="error-card">
+    <p>{errorMsg}</p>
+    <button onclick={() => { status = 'loading-db'; init(); }}>Tentar novamente</button>
+  </div>
+{/if}
+```
+
+### Anti-patterns — States
+
+- **Do not** show plain "Loading..." text for content that takes longer than ~200 ms. Use a skeleton that mirrors the loaded shape.
+- **Do not** swallow errors silently. Capture and display every failure.
+- **Do not** show `EmptyState` while data is still loading — check `loading` first.
+- **Do not** omit retry buttons on transient network failures.
+- **Do not** show the skeleton again once data has loaded, even during a background refresh — keep the stale data visible and refresh it in place.
+
+---
+
 ## DuckDB WASM
 
 DuckDB runs entirely in the browser via WASM. It is used for the SQL explorer interface and for client-side analytical queries over downloaded datasets.
 
 Because DuckDB requires the browser environment, any component that uses it must be a Svelte island with `client:only="svelte"`. There is no server-side counterpart.
 
-Keep DuckDB initialization in a single place (do not spin up multiple instances). The instance should be created once and shared via a module-level singleton.
+Keep DuckDB initialization in a single place. The singleton is implemented at `web/src/lib/duckdbSingleton.ts`. Import `getDuckDB()` from there — never call DuckDB init directly:
+
+```ts
+import { getDuckDB } from '../lib/duckdbSingleton';
+
+const { db, conn } = await getDuckDB(); // lazy, shared, safe to call multiple times
+```
+
+The singleton uses double-checked locking with an `initializationPromise` to prevent concurrent initialization. It also configures the httpfs extension for querying Parquet files hosted on the Internet Archive.
 
 ---
 
@@ -524,9 +741,16 @@ Keep step definitions thin — they should call the same Testing Library queries
 The project uses strict TypeScript (`astro/tsconfigs/strict`). All `.svelte` files use `<script lang="ts">`.
 
 - Prefer `type` over `interface` for data shapes derived from Zod schemas.
-- Use `interface` for things that may be extended (component prop shapes that other code might augment).
+- Use `interface` for things that may be extended (component prop shapes — including `$props()` declarations — that other code might augment).
 - Never use `any`. Use `unknown` when the type is genuinely unknown and then narrow it.
 - Do not use non-null assertion (`!`) except where the value is structurally guaranteed (e.g., immediately after a null-check guard at the top of a function).
+
+**Exception — data-layer boundary types:** `DerivedData` in `fetchData.ts` and the store state shape currently use `any` because data originates from heterogeneous JSON sources (Internet Archive, static cache files) whose schemas are not yet fully codified. This is a tracked gap; strict typing will replace them incrementally. Rules for working in this layer:
+
+- Do not spread `any` deeper than the boundary. Use `unknown` + type narrowing inside component and store logic.
+- When adding a new field to `DerivedData`, give it the most specific type you can.
+- Add a `// TODO: type this` comment on any new `any` field.
+- Never use `any` in component `$props()` declarations or in store APIs for data you control.
 
 ---
 
