@@ -2,18 +2,25 @@
 interface Props {
   tribunal: string;
   zipCount: number;
+  earliestDate?: string;
   latestDate?: string;
 }
 
-const { tribunal, zipCount, latestDate } = Astro.props;
+const { tribunal, zipCount, earliestDate, latestDate } = Astro.props;
 const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}publicacoes/${tribunal.toLowerCase()}`;
+
+const earliestYear = earliestDate ? earliestDate.slice(0, 4) : null;
+const latestYear = latestDate ? latestDate.slice(0, 4) : null;
+const dateRange = earliestYear && latestYear
+  ? (earliestYear === latestYear ? earliestYear : `${earliestYear} – ${latestYear}`)
+  : (latestDate || null);
 ---
 
 <article class="card">
   <div class="card-body">
     <h3 class="card-title">{tribunal}</h3>
-    <p><strong>{zipCount.toLocaleString('pt-BR')}</strong> ZIPs arquivados</p>
-    <p class="meta">Última data: {latestDate || 'N/D'}</p>
+    {dateRange && <p class="date-range">{dateRange}</p>}
+    <p class="meta">{zipCount.toLocaleString('pt-BR')} ZIPs arquivados</p>
     <div class="card-actions">
       <a href={href} class="btn">Abrir tribunal</a>
     </div>
@@ -21,7 +28,6 @@ const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}publicacoes/${trib
 </article>
 
 <style>
-
   .card-body p {
     margin: 0;
   }
@@ -31,9 +37,15 @@ const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}publicacoes/${trib
     margin: 0;
   }
 
+  .date-range {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    opacity: 0.85;
+  }
+
   .meta {
     font-size: var(--font-size-sm);
-    opacity: 0.7;
+    opacity: 0.6;
   }
 
   .card-actions {
