@@ -5,6 +5,10 @@
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { glob } from 'fs/promises';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Classes to KEEP (project-specific + Pico CSS)
 const KEEP_PREFIXES = [
@@ -209,8 +213,8 @@ function processFile(filePath) {
 
 // Main
 const files = [];
-for await (const f of glob('src/**/*.{astro,tsx}', { cwd: '/home/user/causaganha/web' })) {
-  files.push('/home/user/causaganha/web/' + f);
+for await (const f of glob('src/**/*.{astro,tsx}', { cwd: __dirname })) {
+  files.push(__dirname + '/' + f);
 }
 
 let totalClasses = 0;
@@ -221,7 +225,7 @@ for (const file of files.sort()) {
   if (removed.length > 0) {
     totalFiles++;
     totalClasses += removed.length;
-    const shortPath = file.replace('/home/user/causaganha/web/', '');
+    const shortPath = file.replace(__dirname + '/', '');
     console.log(`${shortPath}: removed ${removed.length} classes`);
     // Show first few unique removed classes
     const unique = [...new Set(removed)].slice(0, 8);

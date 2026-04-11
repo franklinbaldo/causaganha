@@ -13,7 +13,7 @@
 #   export IAS3_SECRET_KEY="..."
 #
 
-.PHONY: help check collect consolidate embed catalog dashboard full analyze clean
+.PHONY: help check collect consolidate embed catalog web full analyze clean
 
 # Default
 help:
@@ -28,7 +28,7 @@ help:
 	@echo "  make -f Makefile.local consolidate   Run CONSOLIDATE (small: 3 zips)"
 	@echo "  make -f Makefile.local embed         Run EMBED (small: 50 decisions)"
 	@echo "  make -f Makefile.local catalog       Run CATALOG (rebuild index)"
-	@echo "  make -f Makefile.local dashboard     Run DASHBOARD (gen cache)"
+	@echo "  make -f Makefile.local web           Run WEB (gen cache)"
 	@echo ""
 	@echo "Full runs:"
 	@echo "  make -f Makefile.local full          Run all steps (small data)"
@@ -71,13 +71,13 @@ catalog: check
 	@mkdir -p pipeline-output
 	cd pipeline-output && uv run python ../scripts/generate_catalog.py
 
-dashboard: check
-	@echo "[DASHBOARD] Generating dashboard cache"
+web: check
+	@echo "[WEB] Generating web cache"
 	@mkdir -p pipeline-output
 	cd pipeline-output && uv run python ../scripts/generate_dashboard_cache.py
 
 # Full runs
-full: check collect consolidate embed catalog dashboard
+full: check collect consolidate embed catalog web
 	@echo ""
 	@echo "✓ Full pipeline completed (small data)"
 	@ls -lh pipeline-output/ | tail -20
@@ -92,7 +92,7 @@ full-large: check
 	cd pipeline-output && uv run python ../scripts/pipeline/embed.py --max-decisions 200
 	@echo "[CATALOG] Building manifest"
 	cd pipeline-output && uv run python ../scripts/catalog/build.py
-	@echo "[DASHBOARD] Generating dashboard cache"
+	@echo "[WEB] Generating web cache"
 	cd pipeline-output && uv run python ../scripts/generate_dashboard_cache.py
 	@echo ""
 	@echo "✓ Full pipeline completed (large data)"

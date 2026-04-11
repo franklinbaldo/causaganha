@@ -1,5 +1,5 @@
 {
-  "name": "dashboard",
+  "name": "web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -21,6 +21,9 @@
     "dompurify": "^3.3.3",
     "svelte": "^5.55.2",
     "zod": "^3.25.76"
+  },
+  "overrides": {
+    "yaml": ">=2.8.0"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",
