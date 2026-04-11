@@ -247,10 +247,12 @@ const data = deriveData(null, dashboardData, cacheData, tribunalStartDates, trib
 
 The seed and the live-refresh shape must match exactly — that is why the page derives both through `deriveData()` rather than passing raw JSON. Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable.
 
-> **⚠️ Known inconsistency — source-of-truth drift.** The boilerplate above (hand-picking `readJson()` calls and passing them to `deriveData()`) is fragile: every page must pass the exact same arguments in the same order as `fetchAllData()` in `fetchData.ts`, or the seed shape will silently differ from the live-refresh shape. In practice, `[tribunal].astro` currently reads **6** JSON files while `fetchAllData()` reads **11** — so fields like `stats`, `perfMetrics`, and anything derived from `cache/calendar.json` are missing from the seed. This is a tracked consolidation target. **The correct direction** is a single helper `loadBuildTimeData()` in `fetchData.ts` that does the `readJson()` + `deriveData()` dance in one place and returns the full `DerivedData` shape. Pages should then call:
+> **⚠️ Known inconsistency — source-of-truth drift.** The boilerplate above (hand-picking `readJson()` calls and passing them to `deriveData()`) is fragile: every page must pass the exact same arguments in the same order as `fetchAllData()` in `fetchData.ts`, or the seed shape will silently differ from the live-refresh shape. In practice, `[tribunal].astro` currently reads **6** JSON files while `fetchAllData()` reads **11** — so fields like `stats`, `perfMetrics`, and anything derived from `cache/calendar.json` are missing from the seed. This is a tracked consolidation target. **The correct direction** is a single helper `loadBuildTimeData()` that does the `readJson()` + `deriveData()` dance in one place and returns the full `DerivedData` shape.
+>
+> **Where the helper must live — and must NOT live.** The helper **cannot** go in `fetchData.ts`. That module is imported by client-side code (`dataRefreshStore.ts`, many `.svelte` components via `fetchWithRetry`), and adding `readJson()` calls there would transitively pull `node:fs` and `node:path` into the browser bundle and break the build. Instead, create a dedicated server-only module, e.g. `web/src/lib/buildTimeData.ts`, that imports `readJson` from `readJson.ts` and `deriveData` from `fetchData.ts`. **Only `.astro` frontmatter may import this module** — never `.svelte` files, never `.svelte.ts` stores, never any `.ts` that is reachable from client code. Pages then call:
 > ```astro
 > ---
-> import { loadBuildTimeData } from '../../lib/fetchData';
+> import { loadBuildTimeData } from '../../lib/buildTimeData';
 > const data = loadBuildTimeData();
 > ---
 > <TribunalDetail initialCoverage={data.tribunalCoverage} ... />
@@ -374,10 +376,10 @@ Rules for contributors:
 **Done-state:** The migration is complete when this command returns no matches:
 
 ```sh
-grep -rnE 'class="[^"]*\b(bg-(white|black|[a-z]+-[0-9]+)|text-(xs|sm|base|lg|xl|[0-9]xl|white|black|center|left|right|[a-z]+-[0-9]+)|flex(-(row|col|wrap|nowrap))?\b|grid(-cols-[0-9])?\b|items-(start|center|end|stretch|baseline)|justify-(start|center|end|between|around|evenly)|gap(-[xy])?-[0-9]|p[xytrbl]?-[0-9]|m[xytrbl]?-[0-9])' web/src/components/
+rg -nP 'class="(?:[^"]*\s)?(bg-(?:white|black|[a-z]+-[0-9]+)|text-(?:xs|sm|base|lg|xl|[0-9]xl|white|black|center|left|right|[a-z]+-[0-9]+)|flex(?:-(?:row|col|wrap|nowrap))?|grid(?:-cols-[0-9]+)?|items-(?:start|center|end|stretch|baseline)|justify-(?:start|center|end|between|around|evenly)|gap(?:-[xy])?-[0-9]+|[pm][xytrbl]?-[0-9]+)(?=\s|")' web/src/components/
 ```
 
-The regex uses word boundaries and requires the telltale Tailwind suffix (color+shade, spacing number, directional keyword) to avoid false positives with custom class names that contain substrings like `grid` or `flex`. It is a heuristic — if you introduce a new class name containing one of these literal tokens, audit the hit manually. At that point, `web/strip-tailwind-classes.mjs` can be deleted.
+The regex uses PCRE (`rg -P`) with an explicit left boundary — the utility must be at the start of `class="..."` or preceded by whitespace — and a lookahead requiring whitespace or the closing quote on the right. This is what rules out custom class names that merely contain the substrings `grid`, `flex`, `items-...`, etc. (for example `mp-grid`, `summary-grid`, `story-grid` are correctly ignored). If you introduce a legitimate one-off class whose name collides with this pattern, audit the hit manually. Once the command returns zero matches, `web/strip-tailwind-classes.mjs` can be deleted.
 
 ### Responsive design
 
@@ -597,7 +599,9 @@ The file exports:
 
 ### Build-time hydration: a single source of truth
 
-The build-time seed pattern (Tier 0 under [Four tiers of state](#four-tiers-of-state)) currently has no central helper — every Astro page reimplements its own `readJson()` boilerplate and hand-assembles the arguments to `deriveData()`. This is fragile. The target is a single `loadBuildTimeData()` helper in `fetchData.ts` that mirrors `fetchAllData()` but uses `readJson()` synchronously and returns `DerivedData`. Pages would then call `loadBuildTimeData()` once and pass slices of its result as `initialXxx` props. Until that helper exists, align any new page with `fetchAllData()`'s input list exactly.
+The build-time seed pattern (Tier 0 under [Four tiers of state](#four-tiers-of-state)) currently has no central helper — every Astro page reimplements its own `readJson()` boilerplate and hand-assembles the arguments to `deriveData()`. This is fragile. The target is a single `loadBuildTimeData()` helper that mirrors `fetchAllData()` but uses `readJson()` synchronously and returns `DerivedData`. Pages would then call `loadBuildTimeData()` once and pass slices of its result as `initialXxx` props. Until that helper exists, align any new page with `fetchAllData()`'s input list exactly.
+
+**The helper must live in a server-only module — not in `fetchData.ts`.** `fetchData.ts` is imported by client code (`dataRefreshStore.ts` and many `.svelte` components via `fetchWithRetry`), so any `readJson()` call added there would transitively pull `node:fs` / `node:path` into the browser bundle. Create a dedicated file such as `web/src/lib/buildTimeData.ts` that imports `readJson` and `deriveData`, and document in a file-top comment that **it must only be imported from `.astro` frontmatter** (never from `.svelte`, never from a `.svelte.ts` store, never from anything reachable by client code).
 
 ```ts
 // Correct — use the exported helpers
@@ -801,7 +805,7 @@ These areas are not yet covered by existing infrastructure. Be aware before assu
 - **No end-to-end tests.** Playwright or a similar e2e framework is not set up. BDD tests run in jsdom only and do not test real browser behavior or full page navigation.
 - **No i18n.** All UI strings are hardcoded in Portuguese. There is no translation framework in place.
 - **Accessibility.** Guidelines and known gaps are documented in `web/ACCESSIBILITY.md` and `web/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
-- **Build-time hydration has no central source of truth.** Every Astro page that seeds a Svelte island reimplements its own `readJson()` + `deriveData()` boilerplate, and pages read different subsets of the underlying JSON files. This means the build-time seed shape silently differs from the `fetchAllData()` runtime shape on any page that forgets a source. The fix is a single `loadBuildTimeData()` helper in `fetchData.ts` (see [Data Fetching](#data-fetching)). Until it lands, always pass `deriveData()` the exact same arguments that `fetchAllData()` does.
+- **Build-time hydration has no central source of truth.** Every Astro page that seeds a Svelte island reimplements its own `readJson()` + `deriveData()` boilerplate, and pages read different subsets of the underlying JSON files. This means the build-time seed shape silently differs from the `fetchAllData()` runtime shape on any page that forgets a source. The fix is a single `loadBuildTimeData()` helper in a dedicated **server-only** module (e.g. `web/src/lib/buildTimeData.ts`) — **not** in `fetchData.ts`, which is imported by client code and would leak `node:fs` into the browser bundle (see [Data Fetching](#data-fetching)). Until it lands, always pass `deriveData()` the exact same arguments that `fetchAllData()` does.
 - **`DerivedData` is mostly `any`.** See the [TypeScript](#typescript) section's carve-out. Strict typing will be added incrementally as schemas are codified.
 
 ---
