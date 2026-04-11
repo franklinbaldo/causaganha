@@ -37,7 +37,7 @@ else
 fi
 
 if ! command -v node &>/dev/null; then
-    warn "node not found — dashboard dev will not work. Install Node.js 22+ for dashboard development."
+    warn "node not found — web dev will not work. Install Node.js 22+ for web development."
 else
     info "Node $(node --version) detected"
 fi
@@ -70,10 +70,10 @@ else
     info ".env already exists, skipping."
 fi
 
-# --- Dashboard (optional) ---------------------------------------------------
-if command -v node &>/dev/null && [ -d dashboard ]; then
-    info "Installing dashboard dependencies..."
-    (cd dashboard && npm install)
+# --- Web (optional) ---------------------------------------------------------
+if command -v node &>/dev/null && [ -d web ]; then
+    info "Installing web dependencies..."
+    (cd web && npm install)
 fi
 
 # --- Verify -----------------------------------------------------------------

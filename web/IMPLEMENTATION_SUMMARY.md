@@ -167,13 +167,13 @@ npm run test:coverage
 2. **Error State**
    ```bash
    # Rename data file to simulate 404
-   mv dashboard/public/dashboard-data.json dashboard/public/dashboard-data.json.bak
+   mv web/public/dashboard-data.json web/public/dashboard-data.json.bak
    
    # Reload → verify error message + retry button
    # Click retry → should show error again
    
    # Restore file
-   mv dashboard/public/dashboard-data.json.bak dashboard/public/dashboard-data.json
+   mv web/public/dashboard-data.json.bak web/public/dashboard-data.json
    ```
 
 3. **Success State**

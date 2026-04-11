@@ -820,7 +820,7 @@ def generate_omission_stats(manifest: list[dict], end_date: date) -> dict:
     logger.info("generating_omission_stats", end_date=end_date)
 
     start_dates = {}
-    start_dates_path = Path("dashboard/public/tribunal_start_dates.json")
+    start_dates_path = Path("web/public/tribunal_start_dates.json")
     if start_dates_path.exists():
         with contextlib.suppress(json.JSONDecodeError):
             start_dates = json.loads(start_dates_path.read_text())

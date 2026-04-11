@@ -1,7 +1,7 @@
 # CausaGanha
 
 ![Collect ZIPs](https://github.com/franklinbaldo/causaganha/actions/workflows/collect-zips.yml/badge.svg)
-![Deploy Dashboard](https://github.com/franklinbaldo/causaganha/actions/workflows/deploy-dashboard.yml/badge.svg)
+![Deploy Web](https://github.com/franklinbaldo/causaganha/actions/workflows/deploy-web.yml/badge.svg)
 ![Status](https://img.shields.io/badge/status-alpha-orange?style=for-the-badge)
 
 CausaGanha is a judicial data platform focused on the Brazilian DJEN ecosystem. The project collects judicial communications, archives raw ZIPs on Internet Archive, consolidates them into analytics-friendly Parquet datasets, and serves a public dashboard with coverage and publication views.
@@ -14,21 +14,21 @@ Live dashboard: [https://franklinbaldo.github.io/causaganha/](https://franklinba
 - Consolidates daily raw data into structured Parquet tables.
 - Maintains a catalog and dashboard cache for public browsing.
 - Includes Python workflows for collection, analysis, scoring, archival, and backfill.
-- Ships an Astro + Svelte dashboard for public exploration.
+- Ships an Astro + Svelte frontend for public exploration.
 
 ## Current architecture
 
 The repository currently has two main runtime surfaces:
 
 - Python backend and CLI in [src/causaganha](/Users/frank/workspace/causaganha/src/causaganha)
-- Dashboard frontend in [dashboard](/Users/frank/workspace/causaganha/dashboard)
+- Web frontend in [web](/Users/frank/workspace/causaganha/web)
 
 High-level flow:
 
 1. `Collect ZIPs` downloads DJEN ZIPs and uploads them to Internet Archive.
 2. `Consolidate Parquet` converts complete daily ZIP batches into Parquet tables.
 3. `Update Catalog` refreshes metadata used by downstream consumers.
-4. `Deploy Dashboard` publishes the Astro site to GitHub Pages.
+4. `Deploy Web` publishes the Astro site to GitHub Pages.
 
 The main GitHub Actions workflows in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows) are:
 
@@ -36,7 +36,7 @@ The main GitHub Actions workflows in [.github/workflows](/Users/frank/workspace/
 - [collect-today.yml](/Users/frank/workspace/causaganha/.github/workflows/collect-today.yml)
 - [consolidate-parquet.yml](/Users/frank/workspace/causaganha/.github/workflows/consolidate-parquet.yml)
 - [update-catalog.yml](/Users/frank/workspace/causaganha/.github/workflows/update-catalog.yml)
-- [deploy-dashboard.yml](/Users/frank/workspace/causaganha/.github/workflows/deploy-dashboard.yml)
+- [deploy-web.yml](/Users/frank/workspace/causaganha/.github/workflows/deploy-web.yml)
 - [test.yml](/Users/frank/workspace/causaganha/.github/workflows/test.yml)
 
 ## Key constraints
@@ -78,9 +78,9 @@ Inspect the current CLI surface with:
 uv run causaganha --help
 ```
 
-## Dashboard
+## Web frontend
 
-The dashboard lives in [dashboard](/Users/frank/workspace/causaganha/dashboard) and uses:
+The frontend lives in [web](/Users/frank/workspace/causaganha/web) and uses:
 
 - Astro 5
 - Svelte 5
@@ -92,7 +92,7 @@ The dashboard lives in [dashboard](/Users/frank/workspace/causaganha/dashboard) 
 Useful commands:
 
 ```bash
-cd dashboard
+cd web
 npm ci
 npm run dev
 npm run lint
@@ -107,7 +107,7 @@ If you already use Bun locally, `bun install` and `bun run build` also work for 
 ```text
 src/causaganha/          Python package
 src/djen_backup/         ZIP/backfill collection utilities
-dashboard/               Astro + Svelte frontend
+web/                     Astro + Svelte frontend
 scripts/                 Operational and pipeline scripts
 tests/                   Pytest and pytest-bdd suites
 .github/workflows/       CI/CD and data workflows
@@ -133,7 +133,7 @@ uv run pytest -q
 uv run ruff format --check
 uv run ruff check
 uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
-cd dashboard && npm ci && npm run lint && npm test && npm run build
+cd web && npm ci && npm run lint && npm test && npm run build
 ```
 
 ## Environment
@@ -156,7 +156,7 @@ The main CI workflow is [test.yml](/Users/frank/workspace/causaganha/.github/wor
 1. Python formatting and lint checks
 2. Dead code check with `vulture`
 3. Python tests
-4. Dashboard lint, test, and build
+4. Frontend lint, test, and build
 
 ## Documentation status
 
