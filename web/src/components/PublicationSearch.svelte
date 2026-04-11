@@ -212,7 +212,15 @@
 <section class="search-root" aria-labelledby="publication-search-heading">
   <h2 id="publication-search-heading" class="visually-hidden">Busca de publicações</h2>
 
-  <SmartSearchInput bind:value={rawInput} hint={smart.label} onsubmit={handleSubmit} />
+  <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} />
+  {#if !rawInput}
+    <div class="example-chips">
+      <span class="chips-label">Experimente:</span>
+      <button type="button" class="hint-chip" onclick={() => (rawInput = 'OAB SP 12345')}>OAB SP 12345</button>
+      <button type="button" class="hint-chip" onclick={() => (rawInput = 'TJSP')}>TJSP</button>
+      <button type="button" class="hint-chip" onclick={() => (rawInput = 'mandado de segurança')}>mandado de segurança</button>
+    </div>
+  {/if}
 
   <div class="search-toolbar">
     <button
@@ -325,6 +333,35 @@
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+  }
+
+  .example-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .chips-label {
+    opacity: 0.55;
+  }
+
+  .hint-chip {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-full);
+    background: transparent;
+    padding: 0.2rem 0.6rem;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    color: var(--color-base-content);
+    transition: background var(--transition-base), border-color var(--transition-base);
+    min-height: 28px;
+  }
+
+  .hint-chip:hover {
+    background: var(--color-base-200);
+    border-color: var(--color-primary);
   }
 
   .search-toolbar {

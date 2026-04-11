@@ -28,20 +28,23 @@ function isActive(href: string): boolean {
   return currentPath.startsWith(normalized);
 }
 
-const mainLinks = [
-  { href: BASE + 'publicacoes', label: 'Publicações' },
-  { href: BASE + 'advogados', label: 'Advogados' },
-  { href: BASE + 'comparador', label: 'Comparador' },
-  { href: BASE + 'explorador', label: 'Explorador' },
-  { href: BASE + 'dados', label: 'Dados' },
-  { href: BASE + 'stats', label: 'Estatísticas' },
+const primaryLinks = [
+  { href: BASE + 'publicacoes', label: 'Buscar' },
+  { href: BASE + 'explorador', label: 'SQL' },
+  { href: BASE + 'stats', label: 'Indicadores' },
+  { href: BASE + 'sobre', label: 'Projeto' },
 ];
 
-const secondaryLinks = [
+const ferramentasLinks = [
+  { href: BASE + 'advogados', label: 'Advogados' },
+  { href: BASE + 'comparador', label: 'Comparador' },
+  { href: BASE + 'dados', label: 'Dados' },
+];
+
+const recursosLinks = [
   { href: BASE + 'consultas', label: 'Consultas' },
   { href: BASE + 'dicionario', label: 'Dicionário' },
   { href: BASE + 'changelog', label: 'Changelog' },
-  { href: BASE + 'sobre', label: 'Sobre' },
 ];
 ---
 
@@ -52,11 +55,7 @@ const secondaryLinks = [
     </div>
     <div class="navbar-center desktop-only">
       <ul class="menu menu-horizontal">
-        <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-        <li><a href={BASE + '#resumo'}>Resumo</a></li>
-        <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-        <div class="divider-vertical"></div>
-        {mainLinks.map(link => (
+        {primaryLinks.map(link => (
           <li>
             <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
               {link.label}
@@ -65,9 +64,17 @@ const secondaryLinks = [
         ))}
         <li>
           <details>
-            <summary>Recursos</summary>
+            <summary aria-haspopup="true">Ferramentas</summary>
             <ul class="dropdown-menu">
-              {secondaryLinks.map(link => (
+              {ferramentasLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+              <li class="dropdown-divider"></li>
+              {recursosLinks.map(link => (
                 <li>
                   <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                     {link.label}
@@ -98,13 +105,17 @@ const secondaryLinks = [
         <div class="drawer-side">
           <label for="mobile-drawer-home" aria-label="close sidebar" class="drawer-overlay"></label>
           <ul class="drawer-menu">
-            <li class="menu-title">Projeto</li>
-            <li><a href={BASE + '#como-funciona'}>Como Funciona</a></li>
-            <li><a href={BASE + '#resumo'}>Resumo</a></li>
-            <li><a href={BASE + '#para-quem'}>Para Quem</a></li>
-            <div class="divider-horizontal"></div>
             <li class="menu-title">Principal</li>
-            {mainLinks.map(link => (
+            {primaryLinks.map(link => (
+              <li>
+                <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                  {link.label}
+                </a>
+              </li>
+            ))}
+            <div class="divider-horizontal"></div>
+            <li class="menu-title">Ferramentas</li>
+            {ferramentasLinks.map(link => (
               <li>
                 <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                   {link.label}
@@ -113,7 +124,7 @@ const secondaryLinks = [
             ))}
             <div class="divider-horizontal"></div>
             <li class="menu-title">Recursos</li>
-            {secondaryLinks.map(link => (
+            {recursosLinks.map(link => (
               <li>
                 <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                   {link.label}
@@ -151,7 +162,7 @@ const secondaryLinks = [
           <ActivePipelineStatus client:load />
         </div>
         <ul class="menu menu-horizontal">
-          {mainLinks.map(link => (
+          {primaryLinks.map(link => (
             <li>
               <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                 {link.label}
@@ -160,9 +171,17 @@ const secondaryLinks = [
           ))}
           <li>
             <details>
-              <summary>Recursos</summary>
+              <summary aria-haspopup="true">Ferramentas</summary>
               <ul class="dropdown-menu">
-                {secondaryLinks.map(link => (
+                {ferramentasLinks.map(link => (
+                  <li>
+                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+                <li class="dropdown-divider"></li>
+                {recursosLinks.map(link => (
                   <li>
                     <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                       {link.label}
@@ -198,7 +217,16 @@ const secondaryLinks = [
               <li><a href={BASE}>Início</a></li>
               <div class="divider-horizontal"></div>
               <li class="menu-title">Principal</li>
-              {mainLinks.map(link => (
+              {primaryLinks.map(link => (
+                <li>
+                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+              <div class="divider-horizontal"></div>
+              <li class="menu-title">Ferramentas</li>
+              {ferramentasLinks.map(link => (
                 <li>
                   <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                     {link.label}
@@ -207,7 +235,7 @@ const secondaryLinks = [
               ))}
               <div class="divider-horizontal"></div>
               <li class="menu-title">Recursos</li>
-              {secondaryLinks.map(link => (
+              {recursosLinks.map(link => (
                 <li>
                   <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
                     {link.label}
@@ -342,6 +370,13 @@ const secondaryLinks = [
 
   .dropdown-menu a:hover {
     background: var(--color-base-200);
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--color-base-300);
+    margin: var(--space-1) 0;
+    padding: 0;
   }
 
   /* Dividers */

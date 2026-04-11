@@ -592,3 +592,24 @@ small { font-size: var(--font-size-sm); }
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
+
+/* ═══════════════════════════════════════════
+   Touch Target Minimums (WCAG 2.5.5)
+   ═══════════════════════════════════════════ */
+
+@media (pointer: coarse) {
+  .btn,
+  .btn-outline,
+  .btn-primary,
+  .btn-outline-secondary,
+  .hint-chip,
+  .menu a,
+  .menu summary,
+  .drawer-menu a,
+  .mode-tab-label,
+  .tab-label {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
