@@ -4,10 +4,10 @@ import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import TribunalCompareCard from '../components/TribunalCompareCard.astro';
 import EmptyState from '../components/EmptyState.astro';
-import { readJson } from '../lib/readJson';
+import { loadBuildTimeData } from '../lib/buildTimeData';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const iaSnapshot = readJson<any>('ia-snapshot.json');
+const { iaSnapshot } = loadBuildTimeData();
 
 const grouped = new Map<string, { tribunal: string; zipCount: number; latestDate?: string }>();
 
