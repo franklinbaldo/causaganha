@@ -6,6 +6,7 @@ on:
     paths:
       - 'web/**'
       - 'scripts/generate_dashboard_cache.py'
+      - 'scripts/generate_ia_snapshot.py'
   # No schedule needed — update-catalog.yml triggers this after every successful collect
   workflow_dispatch:
 
@@ -66,8 +67,10 @@ jobs:
         run: |
           pip install uv
           uv sync --no-dev
+          mkdir -p web/public
           mkdir -p web/public/cache
           uv run python scripts/generate_dashboard_cache.py
+          uv run python scripts/generate_ia_snapshot.py --output web/public/ia-snapshot.json
           echo "Cache files generated:"
           ls -la web/public/cache/
         env:
