@@ -36,7 +36,7 @@ export interface CacheData {
 }
 
 function getArchiveSnapshot(backfill: any | null): any | null {
-  return backfill?.archive_snapshot || null;
+  return backfill?.archive_snapshot ?? null;
 }
 
 interface VelocityMetrics {

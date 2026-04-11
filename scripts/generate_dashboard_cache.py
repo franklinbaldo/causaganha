@@ -215,6 +215,12 @@ def load_zip_inventory(
         if not tribunal or not date_str or status not in {"uploaded", "absent"}:
             continue
 
+        # Validate date format before storing to avoid ValueError in strptime downstream
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            continue
+
         target = uploaded if status == "uploaded" else absent
         target.setdefault(tribunal, set()).add(date_str)
 
@@ -851,7 +857,7 @@ def generate_backfill_cache(
             coverage_rows = con.execute("""
                 SELECT tribunal, CAST(date AS VARCHAR) as date_str
                 FROM manifest
-                WHERE file_type IN ('zip', 'parquet')
+                WHERE file_type = 'zip'
                 ORDER BY tribunal, date
             """).fetchall()
             for t, d in coverage_rows:
