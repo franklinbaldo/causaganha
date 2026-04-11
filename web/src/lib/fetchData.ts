@@ -35,6 +35,10 @@ export interface CacheData {
   backfill?: any;
 }
 
+function getArchiveSnapshot(backfill: any | null): any | null {
+  return backfill?.archive_snapshot || null;
+}
+
 interface VelocityMetrics {
   filesToday: number;
   last7: number;
@@ -161,22 +165,20 @@ export async function fetchAllData(): Promise<DerivedData> {
     ]);
 
   // Cache files: browser fetches from IA (live), build-time reads from filesystem
-  let today: any, calendar: any, runs: any, backfill: any, iaSnapshot: any;
+  let today: any, calendar: any, runs: any, backfill: any;
   if (isBrowser) {
-    [today, calendar, runs, backfill, iaSnapshot] = await Promise.all([
+    [today, calendar, runs, backfill] = await Promise.all([
       safeFetch(resolveIA('today.json')).then(d => d || safeFetch(resolve('cache/today.json'))),
       safeFetch(resolveIA('calendar.json')).then(d => d || safeFetch(resolve('cache/calendar.json'))),
       safeFetch(resolveIA('runs.json')).then(d => d || safeFetch(resolve('cache/runs.json'))),
       safeFetch(resolveIA('backfill.json')).then(d => d || safeFetch(resolve('cache/backfill.json'))),
-      safeFetch(resolveIA('ia-snapshot.json')).then(d => d || safeFetch(resolve('ia-snapshot.json'))),
     ]);
   } else {
-    [today, calendar, runs, backfill, iaSnapshot] = await Promise.all([
+    [today, calendar, runs, backfill] = await Promise.all([
       safeFetch(resolve('cache/today.json')),
       safeFetch(resolve('cache/calendar.json')),
       safeFetch(resolve('cache/runs.json')),
       safeFetch(resolve('cache/backfill.json')),
-      safeFetch(resolve('ia-snapshot.json')),
     ]);
   }
 
@@ -187,6 +189,7 @@ export async function fetchAllData(): Promise<DerivedData> {
   if (backfill) cacheData.backfill = backfill;
 
   const cache: CacheData | null = Object.keys(cacheData).length > 0 ? cacheData : null;
+  const iaSnapshot = getArchiveSnapshot(backfill);
 
   return deriveData(stats, dashboardData, cache, tribunalStartDates, tribunalQualityScores,
     perfMetrics, iaSnapshot);

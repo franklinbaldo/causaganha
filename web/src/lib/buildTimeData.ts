@@ -6,7 +6,7 @@
  * any .ts reachable from client code — readJson() pulls in node:fs which
  * does not exist in the browser bundle.
  */
-import { readJson } from './readJson';
+import { readArchiveSnapshot, readJson } from './readJson';
 import { deriveData, type DerivedData, type CacheData } from './fetchData';
 
 export function loadBuildTimeData(): DerivedData {
@@ -22,7 +22,7 @@ export function loadBuildTimeData(): DerivedData {
   const calendar = readJson('cache/calendar.json');
   const runs     = readJson('cache/runs.json');
   const backfill = readJson('cache/backfill.json');
-  const iaSnapshot = readJson('ia-snapshot.json');
+  const iaSnapshot = readArchiveSnapshot();
 
   const cacheData: CacheData = {};
   if (today)    cacheData.today    = today;

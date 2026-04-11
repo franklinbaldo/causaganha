@@ -3,10 +3,10 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import DatabaseCloudIcon from '../components/icons/DatabaseCloudIcon.astro';
-import { readJson, type IaSnapshot } from '../lib/readJson';
+import { readArchiveSnapshot } from '../lib/readJson';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const iaSnapshot = readJson<IaSnapshot>('ia-snapshot.json');
+const iaSnapshot = readArchiveSnapshot();
 const snap = iaSnapshot?.summary;
 ---
 
