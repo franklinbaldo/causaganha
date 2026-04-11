@@ -87,11 +87,17 @@
                     <td>{absentCount}</td>
                     <td class={total === 0 ? undefined : textClass}>{pct.toFixed(1)}%</td>
                     <td>
-                      <div class="progress-bar-track">
+                      <div
+                        class="progress-bar-track"
+                        role="progressbar"
+                        aria-valuenow={Math.min(100, pct)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label="{displayDate}: {pct.toFixed(1)}% cobertura"
+                      >
                         <div
                           class="progress-bar-fill {total === 0 ? '' : bgClass}"
                           style="width:{Math.min(100, pct)}%"
-                          title="{pct.toFixed(1)}%"
                         ></div>
                       </div>
                     </td>

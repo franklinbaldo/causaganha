@@ -64,7 +64,7 @@
   );
 
   const canSubmit = $derived(
-    status !== 'loading' && hasIdentity && (cooldownUntil === null || Date.now() >= cooldownUntil),
+    status !== 'loading' && hasIdentity && cooldownRemaining === 0,
   );
 
   const resultsHeadingId = 'publication-search-results';
@@ -225,7 +225,7 @@
       {showFilters ? 'Ocultar filtros' : 'Filtros avançados'}
     </button>
     <button type="button" class="submit-btn" disabled={!canSubmit} onclick={handleSubmit}>
-      {status === 'loading' ? 'Buscando…' : 'Buscar'}
+      {status === 'loading' ? 'Buscando…' : cooldownRemaining > 0 ? `Aguarde ${cooldownRemaining}s` : 'Buscar'}
     </button>
     <div class="toolbar-spacer"></div>
     <RateLimitBadge limit={rateLimit.limit} remaining={rateLimit.remaining} {usedFallback} />

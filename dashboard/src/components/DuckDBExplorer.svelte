@@ -53,30 +53,30 @@ LIMIT 20`,
   let db = null;
   let conn = null;
   let textareaEl;
+  let cancelled = false;
 
-  onMount(() => {
-    let cancelled = false;
+  async function init() {
+    dbStatus = 'loading';
+    try {
+      const { db: dbInstance, conn: connInstance } = await getDuckDB();
 
-    async function init() {
-      try {
-        const { db: dbInstance, conn: connInstance } = await getDuckDB();
-
-        if (!cancelled) {
-          db = dbInstance;
-          conn = connInstance;
-          dbStatus = 'ready';
-          console.log('DuckDB-WASM fully initialized.');
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('DuckDB init failed:', err);
-          dbStatus = 'error';
-          const msg = err instanceof Error ? err.message : String(err);
-          error = `Falha ao inicializar DuckDB: ${msg}. Verifique se seu navegador bloqueia Workers ou WASM externos.`;
-        }
+      if (!cancelled) {
+        db = dbInstance;
+        conn = connInstance;
+        dbStatus = 'ready';
+        console.log('DuckDB-WASM fully initialized.');
+      }
+    } catch (err) {
+      if (!cancelled) {
+        console.error('DuckDB init failed:', err);
+        dbStatus = 'error';
+        const msg = err instanceof Error ? err.message : String(err);
+        error = `Falha ao inicializar DuckDB: ${msg}`;
       }
     }
+  }
 
+  onMount(() => {
     init();
     return () => { cancelled = true; };
   });
@@ -157,9 +157,16 @@ LIMIT 20`,
       </small>
     {/if}
     {#if dbStatus === 'error'}
-      <small class="status-error">
-        Erro ao carregar DuckDB-WASM
-      </small>
+      <div class="status-error-card">
+        <p class="status-error-msg">{error ?? 'Falha ao inicializar DuckDB-WASM.'}</p>
+        <p class="status-error-hint">
+          Tente recarregar a página. Se o problema persistir, verifique se seu navegador
+          suporta WebAssembly e se extensões de bloqueio não estão impedindo Workers externos.
+        </p>
+        <button class="retry-btn" onclick={() => { error = null; init(); }}>
+          Tentar novamente
+        </button>
+      </div>
     {/if}
   </div>
 
@@ -324,6 +331,48 @@ LIMIT 20`,
     display: block;
     white-space: normal;
     line-height: 1.4;
+  }
+
+  .status-error-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-box);
+    background: color-mix(in srgb, var(--color-error) 8%, var(--color-base-100));
+  }
+
+  .status-error-msg {
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
+    font-family: monospace;
+    margin: 0;
+    word-break: break-word;
+  }
+
+  .status-error-hint {
+    font-size: var(--font-size-sm);
+    opacity: 0.75;
+    margin: 0;
+  }
+
+  .retry-btn {
+    align-self: flex-start;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-base-content);
+    background: transparent;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: background var(--transition-base), border-color var(--transition-base);
+  }
+
+  .retry-btn:hover {
+    background: var(--color-base-200);
+    border-color: var(--color-base-content);
   }
 
   .templates-section {

@@ -112,8 +112,11 @@
               <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
             </svg>
             <span>Health:</span>
-            <span class={health >= 70 ? 'text-success' : 'text-error'}>
-              {health}%
+            <span
+              class={health >= 70 ? 'text-success' : health >= 40 ? 'text-warning' : 'text-error'}
+              aria-label={`Saúde: ${health}% — ${health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}`}
+            >
+              {health}% <span class="health-label">{health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}</span>
             </span>
           </div>
         {/if}
@@ -326,6 +329,12 @@
     width: 1rem;
     height: 1rem;
     opacity: 0.6;
+  }
+
+  .health-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    opacity: 0.8;
   }
 
   .text-success {
