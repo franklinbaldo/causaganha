@@ -43,7 +43,7 @@ def test_item_id_round_trip_preserves_hyphenated_tribunal() -> None:
 
 
 def test_item_id_parser_rejects_invalid_value() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid IA item id"):
         get_ia_item_tribunal("backup-djen-2024-01-01")
 
 
@@ -55,6 +55,9 @@ async def test_run_sync_respects_max_items_per_tribunal(monkeypatch: pytest.Monk
         return 0
 
     async def _load_from_snapshot(self: ZipInventory) -> int:
+        return 0
+
+    def _load_from_disk(self: ZipInventory) -> int:
         return 0
 
     async def _fetch_ia_existing(
@@ -84,7 +87,7 @@ async def test_run_sync_respects_max_items_per_tribunal(monkeypatch: pytest.Monk
         return "hit"
 
     monkeypatch.setattr(ZipInventory, "load_from_ia", _load_from_ia)
-    monkeypatch.setattr(ZipInventory, "load_from_disk", lambda self: 0)
+    monkeypatch.setattr(ZipInventory, "load_from_disk", _load_from_disk)
     monkeypatch.setattr(ZipInventory, "load_from_snapshot", _load_from_snapshot)
     monkeypatch.setattr(engine_module, "download_state_from_ia", _download_state_from_ia)
     monkeypatch.setattr(engine_module, "get_tribunal_list", _get_tribunal_list)
@@ -111,7 +114,9 @@ async def test_run_sync_respects_max_items_per_tribunal(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
-async def test_single_day_targeted_run_ignores_absent_inventory(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_single_day_targeted_run_ignores_absent_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     inventory = ZipInventory()
     await inventory.add_absent("TRF3", date(2024, 12, 26))
     state = engine_module.SyncState()
@@ -135,9 +140,12 @@ async def test_single_day_targeted_run_ignores_absent_inventory(monkeypatch: pyt
     async def _to_thread(fn, *args):
         return fn(*args)
 
+    def _move(_src: str, _dst: str) -> None:
+        return None
+
     monkeypatch.setattr(engine_module, "get_caderno_url", _get_caderno_url)
     monkeypatch.setattr(engine_module, "download_zip", _download_zip)
-    monkeypatch.setattr(engine_module.shutil, "move", lambda src, dst: None)
+    monkeypatch.setattr(engine_module.shutil, "move", _move)
     monkeypatch.setattr(engine_module.asyncio, "to_thread", _to_thread)
 
     config = engine_module.SyncConfig(

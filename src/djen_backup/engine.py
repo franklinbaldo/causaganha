@@ -15,8 +15,8 @@ import httpx
 import structlog
 
 from djen_backup.archive import (
-    get_ia_item_tribunal,
     get_ia_item_id,
+    get_ia_item_tribunal,
     put_ia_bytes,
     upload_zip,
 )
@@ -499,7 +499,7 @@ async def run_sync(config: SyncConfig) -> int:
 
             last_ia_sync = time.monotonic()
             sync_interval_s = 180
-            items_processed: dict[str, int] = {t: 0 for t in tribunals}
+            items_processed: dict[str, int] = dict.fromkeys(tribunals, 0)
 
             for year in years:
                 if time.monotonic() > deadline - year_buffer_s:
@@ -552,8 +552,7 @@ async def run_sync(config: SyncConfig) -> int:
                                     await state.advance_cursor(t, d)
 
                                 has_remaining_capacity = (
-                                    config.max_items == 0
-                                    or items_processed[t] < config.max_items
+                                    config.max_items == 0 or items_processed[t] < config.max_items
                                 )
                                 if pending_gaps[t] and has_remaining_capacity:
                                     tribunal_queue.put_nowait(t)

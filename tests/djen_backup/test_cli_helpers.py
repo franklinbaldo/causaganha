@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from djen_backup.__main__ import (
     DJEN_DIRECT_URL,
@@ -9,6 +9,10 @@ from djen_backup.__main__ import (
     _load_local_env,
     _resolve_djen_url,
 )
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_load_local_env_reads_missing_keys_only(tmp_path: Path, monkeypatch) -> None:
