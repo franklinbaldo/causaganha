@@ -87,16 +87,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
               </div>
               <ul class="status-list">
                 <li class="status-item">
-                  <span class="status-num">{tribunalStatusCount}</span>
-                  <span class="status-desc">tribunais ativos hoje</span>
+                  <span class="status-num">{tribunalsWithData}<small class="unit">/{totalTribunals}</small></span>
+                  <span class="status-desc">tribunais com dados arquivados</span>
                 </li>
                 <li class="status-item">
-                  <span class="status-num">{filesToday > 0 ? formatNumber(filesToday) : formatNumber(totalZips)}</span>
-                  <span class="status-desc">{filesToday > 0 ? 'arquivos coletados hoje' : 'ZIPs no arquivo total'}</span>
+                  <span class="status-num">{formatNumber(totalZips)}{filesToday > 0 && <small class="unit"> (+{formatNumber(filesToday)} hoje)</small>}</span>
+                  <span class="status-desc">ZIPs no arquivo total</span>
                 </li>
                 <li class="status-item">
                   <span class="status-num">{totalGB.toFixed(1)}<small class="unit">GB</small></span>
-                  <span class="status-desc">preservados no Internet Archive</span>
+                  <span class="status-desc">preservados · última coleta: {snap.latest_collection_date ?? '—'}</span>
                 </li>
               </ul>
             </div>

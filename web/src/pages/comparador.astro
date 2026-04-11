@@ -9,13 +9,16 @@ import { readJson } from '../lib/readJson';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const iaSnapshot = readJson<any>('ia-snapshot.json');
 
-const grouped = new Map<string, { tribunal: string; zipCount: number; latestDate?: string }>();
+const grouped = new Map<string, { tribunal: string; zipCount: number; earliestDate: string; latestDate: string }>();
 
 if (iaSnapshot?.items) {
   for (const item of Object.values<any>(iaSnapshot.items)) {
     if (!item.tribunal) continue;
-    const previous = grouped.get(item.tribunal) ?? { tribunal: item.tribunal, zipCount: 0, latestDate: '' };
+    const previous = grouped.get(item.tribunal) ?? { tribunal: item.tribunal, zipCount: 0, earliestDate: '', latestDate: '' };
     previous.zipCount += item.zip_count ?? 0;
+    if (!previous.earliestDate || (item.earliest_date && item.earliest_date < previous.earliestDate)) {
+      previous.earliestDate = item.earliest_date;
+    }
     if (!previous.latestDate || (item.latest_date && item.latest_date > previous.latestDate)) {
       previous.latestDate = item.latest_date;
     }
@@ -23,11 +26,18 @@ if (iaSnapshot?.items) {
   }
 }
 
-const tribunais = Array.from(grouped.values()).sort((a, b) => b.zipCount - a.zipCount).slice(0, 12);
+// Sort by date span (longest archive first) — volume alone is a misleading proxy for usefulness
+const tribunais = Array.from(grouped.values()).sort((a, b) => {
+  const spanA = a.earliestDate && a.latestDate
+    ? new Date(a.latestDate).getTime() - new Date(a.earliestDate).getTime() : 0;
+  const spanB = b.earliestDate && b.latestDate
+    ? new Date(b.latestDate).getTime() - new Date(b.earliestDate).getTime() : 0;
+  return spanB - spanA;
+}).slice(0, 12);
 ---
 
 <Layout title="Comparador de Tribunais - CausaGanha" description="Compare cobertura e volume de publicações entre tribunais.">
-  <Header variant="page" title="Comparador de Tribunais" subtitle="Visão lado a lado dos tribunais com maior volume" backHref={BASE + 'publicacoes'} backLabel="Publicações" />
+  <Header variant="page" title="Comparador de Tribunais" subtitle="Tribunais com maior cobertura histórica — do mais antigo ao mais recente" backHref={BASE + 'publicacoes'} backLabel="Publicações" />
 
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Comparador' }]} />

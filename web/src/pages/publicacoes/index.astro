@@ -43,11 +43,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <PublicationSearch client:idle />
     </section>
 
-    <details class="archive-section">
-      <summary class="archive-summary">
-        <span class="summary-title">Explorador de Arquivos (Internet Archive)</span>
-        <span class="summary-hint">Navegue por tribunal, ano e data nos snapshots arquivados</span>
-      </summary>
+    <section class="archive-section">
+      <header class="archive-header">
+        <h2 class="archive-title">Explorador de Arquivos (Internet Archive)</h2>
+        <p class="archive-hint">Navegue por tribunal, ano e data nos snapshots arquivados</p>
+      </header>
       <div class="overview-card">
         <h3 class="overview-title">Visão Geral do Arquivo</h3>
         <TribunalView
@@ -66,7 +66,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </p>
         <IASearchBar client:idle />
       </section>
-    </details>
+    </section>
 
     <footer class="page-footer">
       <small class="footer-text">Dados do DJEN arquivados no Internet Archive.
@@ -117,41 +117,24 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     margin-bottom: 3rem;
   }
 
-  .archive-summary {
-    list-style: none;
-    cursor: pointer;
+  .archive-header {
     padding: 1rem 0;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
   }
 
-  .archive-summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .archive-summary::before {
-    content: '▸';
-    display: inline-block;
-    margin-right: 0.5rem;
-    transition: transform 120ms ease;
-    opacity: 0.6;
-  }
-
-  details[open] > .archive-summary::before {
-    transform: rotate(90deg);
-  }
-
-  .summary-title {
+  .archive-title {
     font-size: var(--font-size-xl);
     font-weight: 700;
     opacity: 0.85;
+    margin: 0;
   }
 
-  .summary-hint {
+  .archive-hint {
     font-size: var(--font-size-sm);
     opacity: 0.6;
-    padding-left: 1.25rem;
+    margin: 0;
   }
 
   .overview-card {
