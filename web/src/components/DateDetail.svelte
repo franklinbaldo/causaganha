@@ -77,6 +77,7 @@
   let loading = $state<boolean>(true);
   let loadingMore = $state<boolean>(false);
   let error = $state<string | null>(null);
+  let expandedSeq = $state<number | null>(null);
   let featuredPub = $state<FeaturedPub | null>(null);
 
   let tribunal = $derived(tribunalCode.toUpperCase());
@@ -219,13 +220,24 @@
   }
 
   let shareLinkCopied = $state(false);
+  let shareTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    };
+  });
 
   function handleShareClick(e: MouseEvent) {
     e.preventDefault();
     const url = `${window.location.origin}${window.location.pathname}#${dateStr}`;
     navigator.clipboard?.writeText(url);
+    if (shareTimeoutId) clearTimeout(shareTimeoutId);
     shareLinkCopied = true;
-    setTimeout(() => shareLinkCopied = false, 2000);
+    shareTimeoutId = setTimeout(() => {
+      shareLinkCopied = false;
+      shareTimeoutId = null;
+    }, 2000);
   }
 
   function handleDismissFeatured() {
@@ -322,7 +334,11 @@
           seq={i + 1}
           dateStr={dateStr}
           page={Math.floor(i / PUBS_PER_PAGE) + 1}
-          compact
+          compact={expandedSeq !== i + 1}
+          totalSeq={publications.length}
+          onExpand={() => (expandedSeq = i + 1)}
+          onCollapse={() => (expandedSeq = null)}
+          onNavigate={(newSeq) => (expandedSeq = newSeq)}
         />
       {/each}
     </div>
@@ -330,7 +346,7 @@
 
   {#if currentPage < totalPages && !loading}
     <div class="load-more-row">
-      <button onclick={handleLoadMore} disabled={loadingMore} class="btn btn--secondary" aria-busy={loadingMore}>
+      <button onclick={handleLoadMore} disabled={loadingMore} class="btn btn-secondary" aria-busy={loadingMore}>
         {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
       </button>
     </div>
@@ -429,7 +445,7 @@
     opacity: 0.5;
   }
 
-  .btn--secondary {
+  .btn-secondary {
     background: var(--color-secondary);
     color: var(--color-secondary-content);
   }

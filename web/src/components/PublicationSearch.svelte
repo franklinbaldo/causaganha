@@ -162,6 +162,10 @@
     }
   }
 
+  $effect(() => {
+    return () => stopCooldownTick();
+  });
+
   function submitSearch() {
     if (cooldownRemaining > 0 || !hasIdentity) return;
     submittedQuery = { ...effectiveQuery };
