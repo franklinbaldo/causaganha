@@ -16,7 +16,6 @@ from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
-    TaskID,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
@@ -24,11 +23,8 @@ from rich.progress import (
 from rich.table import Table
 
 from djen_backup.credentials import get_ia_s3_auth
-from djen_backup.engine import (
-    SyncConfig,
-    SyncState,
-    run_sync,
-)
+from djen_backup.engine import SyncConfig, run_sync
+from djen_backup.manifest import ManifestCounts, SyncManifest
 
 
 DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
@@ -67,73 +63,72 @@ structlog.configure(
 # ── Rich Observer ───────────────────────────────────────────────────
 
 
-class RichSyncObserver:
-    def __init__(self, progress: Progress):
+class RichManifestObserver:
+    """Rich-based observer for the manifest-driven sync engine."""
+
+    def __init__(self, progress: Progress) -> None:
         self.progress = progress
-        self.tribunal_tasks: dict[str, TaskID] = {}
-        self.main_task = self.progress.add_task("[bold blue]Overall Progress", total=None)
+        self.main_task = self.progress.add_task("[bold blue]Initializing...", total=None)
+        self._start_time: float | None = None
+        self._start_uploaded: int = 0
+        self._start_available: int = 0
+        self._start_absent: int = 0
+        self._start_unknown: int = 0
 
-    def on_metadata_sync_start(self, tribunal: str, year: int) -> None:
-        self.progress.console.log(f"[dim]Syncing metadata for {tribunal} ({year})...[/dim]")
+    def on_phase(self, phase: str) -> None:
+        self.progress.console.log(f"[bold cyan]Phase:[/bold cyan] {phase}")
 
-    def on_metadata_sync_complete(self, tribunal: str, year: int, _found: int) -> None:
-        pass
+    @staticmethod
+    def _vel(delta: int, elapsed_min: float) -> str:
+        if elapsed_min < 0.1:
+            return ""
+        v = int(delta / elapsed_min)
+        if v > 0:
+            return f" +{v}/m"
+        if v < 0:
+            return f" {v}/m"
+        return ""
 
-    def on_gaps_discovered(self, tribunal: str, year: int, count: int) -> None:
-        if count > 0:
-            task_id = self.progress.add_task(f"[cyan]{tribunal} {year}", total=count, visible=True)
-            self.tribunal_tasks[f"{tribunal}-{year}"] = task_id
-        else:
-            self.progress.console.log(f"[green][OK][/green] {tribunal} {year} is up to date.")
+    def on_counts_updated(self, counts: ManifestCounts) -> None:
+        import time
 
-    def on_item_start(self, tribunal: str, d: date) -> None:
-        pass
+        resolved = counts.uploaded + counts.available + counts.absent
+        t = counts.total or 1
 
-    def on_item_complete(self, tribunal: str, d: date, status: str, url: str | None = None) -> None:
-        # Log successful uploads/hits with URL
-        if status == "hit" and url:
-            self.progress.console.log(
-                f"[green][OK][/green] {tribunal} {d.isoformat()} [dim]({url})[/dim]"
-            )
+        now = time.monotonic()
+        if self._start_time is None:
+            self._start_time = now
+            self._start_uploaded = counts.uploaded
+            self._start_available = counts.available
+            self._start_absent = counts.absent
+            self._start_unknown = counts.unknown
 
-        # Find the task for this tribunal-year
-        task_key = f"{tribunal}-{d.year}"
-        if task_key in self.tribunal_tasks:
-            self.progress.advance(self.tribunal_tasks[task_key])
-            self.progress.advance(self.main_task)
+        elapsed_min = (now - self._start_time) / 60.0
 
-    def on_retry(
-        self,
-        tribunal: str,
-        d: date,
-        attempt: int,
-        status: int,
-        wait_s: float,
-        body: str | None = None,
-    ) -> None:
-        msg = (
-            f"[bold yellow][Retry {attempt}][/bold yellow] for {tribunal} {d.isoformat()} "
-            f"(Status: {status}). Waiting {wait_s:.1f}s..."
+        total_available = counts.uploaded + counts.available
+        v_avail = self._vel(
+            total_available - (self._start_uploaded + self._start_available), elapsed_min
         )
-        if body:
-            msg += f" [dim]Reason: {body}[/dim]"
-        self.progress.console.log(msg)
+        v_uploaded = self._vel(counts.uploaded - self._start_uploaded, elapsed_min)
+        v_absent = self._vel(counts.absent - self._start_absent, elapsed_min)
+        v_unknown = self._vel(counts.unknown - self._start_unknown, elapsed_min)
 
-    def on_periodic_sync_start(self) -> None:
-        self.progress.console.log(
-            "[yellow][Sync][/yellow] Periodic sync to Internet Archive starting..."
+        desc = (
+            f"[green]Available: {total_available} ({total_available * 100 // t}%){v_avail}[/green]  "
+            f"[bold green]On IA: {counts.uploaded}{v_uploaded}[/bold green]  "
+            f"[yellow]Pending: {counts.available}[/yellow]  "
+            f"[dim]Absent: {counts.absent} ({counts.absent * 100 // t}%){v_absent}[/dim]  "
+            f"[red]Unknown: {counts.unknown} ({counts.unknown * 100 // t}%){v_unknown}[/red]"
+        )
+        self.progress.update(
+            self.main_task,
+            description=desc,
+            completed=resolved,
+            total=counts.total,
         )
 
-    def on_periodic_sync_complete(self) -> None:
-        self.progress.console.log("[green][OK][/green] Periodic sync complete.")
-
-    def on_batch_upload_start(self, item_id: str, count: int) -> None:
-        self.progress.console.log(f"[bold blue][Upload][/bold blue] {item_id} ({count} files)")
-
-    def on_batch_upload_complete(self, item_id: str, count: int) -> None:
-        self.progress.console.log(
-            f"[bold green][OK][/bold green] Batch upload complete: {item_id} ({count} files)"
-        )
+    def on_log(self, message: str) -> None:
+        self.progress.console.log(message)
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────
@@ -195,7 +190,7 @@ def _show_env_hint(env_result: EnvLoadResult | None) -> None:
 
 
 def _show_run_summary(
-    exit_code: int, *, dry_run: bool, tribunal: str | None, max_items: int
+    exit_code: int, *, dry_run: bool, tribunal: str | None, counts: ManifestCounts
 ) -> None:
     title = "Run Complete" if exit_code == 0 else "Run Finished With Errors"
     border = "green" if exit_code == 0 else "red"
@@ -205,15 +200,10 @@ def _show_run_summary(
     rows.add_row("Status:", "[green]OK[/green]" if exit_code == 0 else "[red]Error[/red]")
     rows.add_row("Mode:", "Dry run" if dry_run else "Live upload")
     rows.add_row("Tribunal:", tribunal or "All")
-    rows.add_row("Item Limit:", str(max_items) if max_items else "Unlimited")
-    if exit_code == 0 and not dry_run:
-        rows.add_row(
-            "Note:", "Completed cleanly. Zero uploads can still mean nothing new was found."
-        )
-    elif exit_code == 0:
-        rows.add_row("Note:", "Dry run completed cleanly.")
-    else:
-        rows.add_row("Note:", "See warnings above for the failing stage.")
+    rows.add_row("Uploaded:", str(counts.uploaded))
+    rows.add_row("Available:", str(counts.available))
+    rows.add_row("Absent:", str(counts.absent))
+    rows.add_row("Unknown:", str(counts.unknown))
     console.print(Panel(rows, title=f"[bold white]{title}[/bold white]", border_style=border))
 
 
@@ -226,7 +216,7 @@ def show_banner():
 / /___/ /_/ / /_/ (__  ) /_/ / /  / /_/ / /_/ / /_/ / / / / / / / /_/ /
 \____/\__,_/\__,_/____/\__,_/_/   \__,_/\____/\__,_/ / /_/_/ /_/\__,_/
 [/bold green]
-[bold white]DJEN Backup Engine v2.0 - Unified Sync Module[/bold white]
+[bold white]DJEN Backup Engine v3.0 - Manifest-Driven Sync[/bold white]
 """
     console.print(Panel(banner, border_style="green"))
 
@@ -248,19 +238,18 @@ def main(  # noqa: PLR0913
     ),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
     max_items: int = typer.Option(
-        0, "--max-items", help="Max dates per tribunal per run (0 = unlimited)."
+        0, "--max-items", help="Max downloads per run (0 = unlimited)."
     ),
     workers: int = typer.Option(4, "--workers", help="Parallel workers."),
-    backfill_state_file: Path | None = typer.Option(
-        None, "--backfill-state-file", help="Path to backfill progress JSON."
-    ),
-    state_file: Path | None = typer.Option(
-        None, "--state-file", help="Path to IA state cache JSON (obsolete)."
+    manifest_file: Path = typer.Option(
+        Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
     *,
     dry_run: bool = typer.Option(False, "--dry-run", help="Log actions without uploading."),
-    skip_absent_markers: bool = typer.Option(
-        False, "--skip-absent-markers", help="Skip uploading absent markers."
+    fail_fast: bool = typer.Option(
+        True,
+        "--fail-fast/--no-fail-fast",
+        help="Stop on first error. Use --no-fail-fast to continue past failures.",
     ),
     publish_live_status: bool = typer.Option(
         False, "--publish-live-status", help="Publish live status to IA."
@@ -289,21 +278,19 @@ def main(  # noqa: PLR0913
     resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
     resolved_djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
 
-    resolved_state_file = backfill_state_file or state_file
-
     # Show config panel
     config_table = Table.grid(padding=(0, 2))
     config_table.add_column(style="bold cyan")
     config_table.add_column()
     config_table.add_row("End Date:", resolved_end.isoformat())
-    config_table.add_row(
-        "Start Date:", resolved_start.isoformat() if resolved_start else "2013-01-01 (Auto)"
-    )
+    config_table.add_row("Start Date:", resolved_start.isoformat())
     config_table.add_row("Tribunal:", tribunal or "All")
     config_table.add_row("Deadline:", f"{deadline_minutes} min")
     config_table.add_row("Max Items:", str(max_items) if max_items else "Unlimited")
     config_table.add_row("Workers:", str(workers))
     config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
+    config_table.add_row("Fail Fast:", "[red]Yes[/red]" if fail_fast else "[green]No[/green]")
+    config_table.add_row("Manifest:", str(manifest_file))
     config_table.add_row("DJEN Mode:", "Proxy" if resolved_use_proxy else "Direct")
     config_table.add_row("DJEN URL:", resolved_djen_url)
 
@@ -321,7 +308,7 @@ def main(  # noqa: PLR0913
         expand=True,
     )
 
-    observer = RichSyncObserver(progress)
+    observer = RichManifestObserver(progress)
 
     config = SyncConfig(
         start_date=resolved_end,
@@ -330,24 +317,33 @@ def main(  # noqa: PLR0913
         deadline_minutes=deadline_minutes,
         max_items=max_items,
         workers=workers,
-        state_file=resolved_state_file,
+        manifest_file=manifest_file,
         djen_proxy_url=resolved_djen_url,
         ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
-        skip_absent_markers=skip_absent_markers,
+        fail_fast=fail_fast,
         publish_live_status=publish_live_status,
         skip_if_mostly_complete=skip_if_mostly_complete,
         observer=observer,
     )
 
-    with Live(Group(progress), console=console, refresh_per_second=4):
-        exit_code = asyncio.run(run_sync(config))
+    try:
+        with Live(Group(progress), console=console, refresh_per_second=4):
+            exit_code = asyncio.run(run_sync(config))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
+        exit_code = 1
+
+    # Read final counts for summary
+    final_manifest = SyncManifest()
+    final_manifest.load_from_disk(manifest_file)
+    final_counts = final_manifest.counts()
 
     _show_run_summary(
         exit_code,
         dry_run=dry_run,
         tribunal=tribunal,
-        max_items=max_items,
+        counts=final_counts,
     )
     raise typer.Exit(code=exit_code)
 
@@ -356,57 +352,35 @@ def main(  # noqa: PLR0913
 def reset(
     tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
     *,
-    reset_all: bool = typer.Option(False, "--all", help="Reset all stopped tribunals."),
-    backfill_state_file: Path | None = typer.Option(
-        None, "--backfill-state-file", exists=True, help="Path to state JSON."
-    ),
-    set_cursor: str | None = typer.Option(
-        None, "--set-cursor", help="Set the cursor to this date (YYYY-MM-DD)."
+    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),
+    manifest_file: Path = typer.Option(
+        Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
 ):
-    """Reset stopped tribunal(s) for re-scanning."""
-    import json
-
+    """Reset manifest entries for a tribunal (clears djen_status and ia_status)."""
     if not tribunal and not reset_all:
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
         raise typer.Exit(code=1)
 
-    if not backfill_state_file or not backfill_state_file.exists():
-        console.print("[bold red]Error:[/bold red] state file not found.")
+    manifest = SyncManifest()
+    manifest.load_from_disk(manifest_file)
+
+    if not manifest:
+        console.print("[bold red]Error:[/bold red] manifest file not found or empty.")
         raise typer.Exit(code=1)
 
-    state_data = json.loads(backfill_state_file.read_text())
-    bstate = SyncState.from_dict(state_data)
+    # Reset entries by rebuilding without the targeted entries
+    count = 0
+    for k, entry in list(manifest._entries.items()):
+        if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
+            entry.ia_status = ""
+            entry.djen_status = ""
+            entry.updated_at = ""
+            count += 1
 
-    async def _reset() -> int:
-        count = 0
-        if tribunal:
-            prog = bstate.get_all_progress().get(tribunal)
-            if prog:
-                if set_cursor:
-                    target_date = date.fromisoformat(set_cursor)
-                    await bstate.ensure_cursor_at_least(tribunal, target_date)
-                    console.print(
-                        f"[green]Reset {tribunal} and set cursor to {target_date}[/green]"
-                    )
-                else:
-                    prog.stopped = False
-                    prog.empty_streak = 0
-                    console.print(f"[green]Reset {tribunal}[/green]")
-                count = 1
-        elif reset_all:
-            for code, prog in bstate.get_all_progress().items():
-                if prog.stopped:
-                    prog.stopped = False
-                    prog.empty_streak = 0
-                    console.print(f"[green]Reset {code}[/green]")
-                    count += 1
-        return count
-
-    count = asyncio.run(_reset())
     if count > 0:
-        backfill_state_file.write_text(json.dumps(bstate.to_dict(), indent=2))
-        console.print(f"\n[bold green]{count} tribunal(s) reset.[/bold green]")
+        manifest.save_to_disk(manifest_file)
+        console.print(f"[green]Reset {count} entries.[/green]")
     else:
         console.print("[yellow]Nothing to reset.[/yellow]")
 

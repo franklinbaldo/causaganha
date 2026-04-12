@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import time
 from datetime import UTC, date, datetime, timedelta
@@ -16,7 +15,8 @@ from rich.table import Table
 
 from causaganha.config import DJEN_DIRECT_URL, DJEN_PROXY_URL
 from djen_backup.credentials import get_ia_s3_auth
-from djen_backup.engine import SyncConfig, SyncState, run_sync
+from djen_backup.engine import SyncConfig, run_sync
+from djen_backup.manifest import SyncManifest
 
 
 app = typer.Typer(
@@ -26,7 +26,7 @@ app = typer.Typer(
 
 console = Console()
 
-_DEFAULT_STATE_FILE = Path("data/backfill-state.json")
+_DEFAULT_MANIFEST_FILE = Path("data/sync-manifest.csv")
 
 
 def _format_duration(seconds: float) -> str:
@@ -101,10 +101,10 @@ def run(  # noqa: PLR0913
         4,
         help="Workers paralelos.",
     ),
-    state_file: Path = typer.Option(
-        _DEFAULT_STATE_FILE,
-        "--backfill-state-file",
-        help="Path ao arquivo JSON de progresso.",
+    manifest_file: Path = typer.Option(
+        _DEFAULT_MANIFEST_FILE,
+        "--manifest-file",
+        help="Path ao arquivo CSV do manifesto.",
     ),
     *,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Logs detalhados."),
@@ -136,7 +136,7 @@ def run(  # noqa: PLR0913
         f"[bold]Tribunal:[/bold] {tribunal or 'todos'}",
         f"[bold]Limite:[/bold]   {max_items or 'sem limite'} itens, {deadline_minutes}min",
         f"[bold]Workers:[/bold]  {workers}",
-        f"[bold]State:[/bold]    {state_file}",
+        f"[bold]Manifest:[/bold] {manifest_file}",
     ]
     if dry_run:
         config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run")
@@ -161,7 +161,7 @@ def run(  # noqa: PLR0913
         deadline_minutes=deadline_minutes,
         max_items=max_items,
         workers=workers,
-        state_file=state_file,
+        manifest_file=manifest_file,
         djen_proxy_url=_resolve_djen_url(
             use_proxy=use_proxy
             or os.environ.get("DJEN_USE_PROXY", "").lower() in ("1", "true", "yes", "on")
@@ -182,50 +182,29 @@ def run(  # noqa: PLR0913
 
 @app.command()
 def status(
-    state_file: Path = typer.Option(
-        _DEFAULT_STATE_FILE,
-        "--backfill-state-file",
-        help="Path to backfill progress JSON.",
+    manifest_file: Path = typer.Option(
+        _DEFAULT_MANIFEST_FILE,
+        "--manifest-file",
+        help="Path to manifest CSV.",
     ),
 ) -> None:
-    """Show per-tribunal backfill progress."""
-    if not state_file.exists():
-        console.print("[dim]No backfill state found.[/dim]")
+    """Show manifest summary."""
+    manifest = SyncManifest()
+    loaded = manifest.load_from_disk(manifest_file)
+    if not loaded:
+        console.print("[dim]No manifest found.[/dim]")
         return
 
-    bstate = SyncState.from_dict(json.loads(state_file.read_text()))
-    progress = bstate.get_all_progress()
+    counts = manifest.counts()
 
-    if not progress:
-        console.print("[dim]No backfill state found.[/dim]")
-        return
-
-    running = sum(1 for p in progress.values() if not p.stopped)
-    stopped = sum(1 for p in progress.values() if p.stopped)
-
-    table = Table(
-        title=f"Backfill Progress — {len(progress)} tribunais ({running} running, {stopped} stopped)",
-        border_style="dim",
-    )
-    table.add_column("Tribunal", style="bold")
-    table.add_column("Status")
-    table.add_column("Cursor")
-    table.add_column("Streak", justify="right")
-    table.add_column("Last Hit")
-
-    for code in sorted(progress):
-        prog = progress[code]
-        status_str = "[red]STOPPED[/red]" if prog.stopped else "[green]running[/green]"
-        hit_str = prog.last_hit_date.isoformat() if prog.last_hit_date else "[dim]never[/dim]"
-        streak_style = (
-            "red" if prog.empty_streak > 30 else "yellow" if prog.empty_streak > 10 else ""
-        )
-        streak_text = (
-            f"[{streak_style}]{prog.empty_streak}[/{streak_style}]"
-            if streak_style
-            else str(prog.empty_streak)
-        )
-        table.add_row(code, status_str, prog.cursor_date.isoformat(), streak_text, hit_str)
+    table = Table(title="Manifest Summary", border_style="dim")
+    table.add_column("Metric", style="bold")
+    table.add_column("Count", justify="right")
+    table.add_row("Total entries", str(counts.total))
+    table.add_row("[green]Uploaded[/green]", str(counts.uploaded))
+    table.add_row("[yellow]Available[/yellow]", str(counts.available))
+    table.add_row("[dim]Absent[/dim]", str(counts.absent))
+    table.add_row("[red]Unknown[/red]", str(counts.unknown))
 
     console.print()
     console.print(table)
@@ -242,49 +221,32 @@ def reset(
     all_tribunals: bool = typer.Option(
         False,
         "--all",
-        help="Reset all stopped tribunals.",
+        help="Reset all entries.",
     ),
-    state_file: Path = typer.Option(
-        _DEFAULT_STATE_FILE,
-        "--backfill-state-file",
-        help="Path to backfill progress JSON.",
+    manifest_file: Path = typer.Option(
+        _DEFAULT_MANIFEST_FILE,
+        "--manifest-file",
+        help="Path to manifest CSV.",
     ),
 ) -> None:
-    """Reset stopped tribunal(s) for re-scanning."""
+    """Reset manifest entries for re-scanning."""
     if not tribunal and not all_tribunals:
         console.print("[red]Error: provide --tribunal CODE or --all[/red]")
         raise typer.Exit(code=1)
 
-    if not state_file.exists():
-        console.print(f"[red]State file not found: {state_file}[/red]")
-        raise typer.Exit(code=1)
-
-    bstate = SyncState.from_dict(json.loads(state_file.read_text()))
-    progress = bstate.get_all_progress()
+    manifest = SyncManifest()
+    manifest.load_from_disk(manifest_file)
 
     count = 0
-    if tribunal:
-        prog = progress.get(tribunal)
-        if prog:
-            prog.stopped = False
-            prog.empty_streak = 0
-            console.print(f"  [green]✓[/green] Reset {tribunal}")
-            count = 1
-        else:
-            console.print(f"  [red]✗[/red] Tribunal {tribunal} not found in state.")
-            console.print("  [dim]Nothing to reset.[/dim]")
-    else:
-        for code, prog in progress.items():
-            if prog.stopped:
-                prog.stopped = False
-                prog.empty_streak = 0
-                console.print(f"  [green]✓[/green] Reset {code}")
-                count += 1
+    for entry in manifest._entries.values():
+        if all_tribunals or (tribunal and entry.tribunal == tribunal.upper()):
+            entry.ia_status = ""
+            entry.djen_status = ""
+            entry.updated_at = ""
+            count += 1
 
     if count > 0:
-        state_file.write_text(json.dumps(bstate.to_dict(), indent=2))
-        console.print(f"\n  {count} tribunal(s) reset.")
-    elif tribunal:
-        pass  # message already printed above
+        manifest.save_to_disk(manifest_file)
+        console.print(f"  [green]✓[/green] Reset {count} entries.")
     else:
         console.print("  [dim]Nothing to reset.[/dim]")

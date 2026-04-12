@@ -47,13 +47,12 @@ async def get_tribunal_list(
     client: httpx.AsyncClient,
     base_url: str,
 ) -> list[str]:
-    """Return merged (union) tribunal list: hardcoded + API."""
+    """Return tribunal list: API (preferred) with hardcoded fallback."""
     api_codes = await fetch_tribunal_list_from_api(client, base_url)
-    merged = sorted(set(TRIBUNAIS) | set(api_codes))
-    log.info(
-        "tribunal_list_loaded",
-        hardcoded=len(TRIBUNAIS),
-        from_api=len(api_codes),
-        merged=len(merged),
-    )
-    return merged
+    if api_codes:
+        result = sorted(set(api_codes))
+        log.info("tribunal_list_loaded", source="api", count=len(result))
+        return result
+    result = sorted(TRIBUNAIS)
+    log.info("tribunal_list_loaded", source="hardcoded_fallback", count=len(result))
+    return result

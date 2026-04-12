@@ -63,13 +63,12 @@ async def get_caderno_url(
         "GET",
         url,
         max_retries=2,
-        retry_djen_400=True,
     )
 
-    # 404 and 403 from DJEN both mean "no publication for this date"
-    # 404 = typical for weekends on some tribunals
-    # 403 = CloudFront rejection for weekends on other tribunals (TJRO, TJRR, etc.)
-    if resp.status_code in (HTTP_NOT_FOUND, 403):
+    # 404 = no publication for this date
+    # 400 = holiday/non-publication day (DJEN returns 400 instead of 404 for some tribunals)
+    # 403 could be rate-limiting, IP block, or WAF — don't treat as absent
+    if resp.status_code in (HTTP_NOT_FOUND, 400):
         raise DJENNotFoundError(status_code=resp.status_code, reason="Not Found")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError

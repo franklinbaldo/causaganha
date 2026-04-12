@@ -196,8 +196,8 @@ async def _perform_upload(
     client: httpx.AsyncClient, url: str, file_path: Path, headers: dict[str, str]
 ) -> None:
     """Perform single upload attempt; retries are handled by tenacity."""
-    with file_path.open("rb") as f:
-        response = await client.put(url, content=f, headers=headers)
+    content = file_path.read_bytes()
+    response = await client.put(url, content=content, headers=headers)
     response.raise_for_status()
 
 

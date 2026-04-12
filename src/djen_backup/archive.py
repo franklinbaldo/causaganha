@@ -129,6 +129,25 @@ def get_ia_item_tribunal(item_id: str) -> str:
     return tribunal.upper()
 
 
+# ── IA existence check ───────────────────────────────────────────────
+
+
+async def check_ia_file_exists(
+    client: httpx.AsyncClient,
+    tribunal: str,
+    d: date,
+) -> bool:
+    """HEAD-check whether a ZIP already exists on IA for this tribunal+date."""
+    item_id = get_ia_item_id(tribunal, d)
+    filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
+    url = f"https://archive.org/download/{item_id}/{filename}"
+    try:
+        resp = await client.head(url)
+        return resp.status_code == HTTP_OK
+    except Exception:
+        return False
+
+
 # ── IA S3 upload ─────────────────────────────────────────────────────
 
 
