@@ -60,11 +60,23 @@ jobs:
       - name: Validate CLI flags
         run: |
           echo "Validating CLI flags..."
-          HELP_OUTPUT=$(uv run --no-dev python -m djen_backup --help)
+          HELP_OUTPUT=$(uv run --no-dev python -m djen_backup --help 2>&1)
+          if [ $? -ne 0 ]; then
+            echo "❌ Error: djen_backup --help failed to run"
+            echo "--- captured output ---"
+            echo "$HELP_OUTPUT"
+            exit 1
+          fi
+          if [ -z "$HELP_OUTPUT" ]; then
+            echo "❌ Error: djen_backup --help produced no output"
+            exit 1
+          fi
           FLAGS=("--workers" "--backfill-state-file" "--state-file" "--start-date" "--end-date")
           for FLAG in "${FLAGS[@]}"; do
             if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
               echo "❌ Error: Required flag $FLAG is missing from djen_backup CLI!"
+              echo "--- actual help output ---"
+              echo "$HELP_OUTPUT"
               exit 1
             fi
           done
