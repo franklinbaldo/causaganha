@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
 import time
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -12,6 +10,8 @@ from typing import TYPE_CHECKING
 import httpx
 import structlog
 
+from causaganha.pipeline import ia_s3
+from djen_backup.rate_limit import TokenBucket
 from djen_backup.retry import RETRIABLE_STATUS_CODES, _backoff, request_with_retry
 
 
@@ -19,16 +19,39 @@ if TYPE_CHECKING:
     from datetime import date
     from pathlib import Path
 
-    from djen_backup.engine import SyncObserver
-
 log = structlog.get_logger()
 
 # ── HTTP status constants ────────────────────────────────────────────
 
 HTTP_OK = 200
-HTTP_BAD_REQUEST = 400
 HTTP_NOT_FOUND = 404
-HTTP_SERVICE_UNAVAILABLE = 503
+
+# ── Per-item upload locks ────────────────────────────────────────────
+#
+# IA serializes writes per *item* (yearly bucket), not per access key.
+# Two concurrent PUTs to the same item race; PUTs to different items
+# are safe in parallel. We keep one lock per item_id so that distinct
+# tribunal-year buckets upload in parallel while the same bucket stays
+# serial.
+
+_item_locks: dict[str, asyncio.Lock] = {}
+_item_locks_guard = asyncio.Lock()
+
+# Token bucket: steady-state ~1 upload / 2 s, burst of 4.
+# Controls the global IA-wide rate without holding any per-item lock
+# during the wait, so multiple workers can progress concurrently.
+_IA_RATE_LIMITER = TokenBucket(rate_per_sec=0.5, burst=4)
+
+
+async def _lock_for(item_id: str) -> asyncio.Lock:
+    """Return (creating if necessary) the per-item asyncio.Lock."""
+    async with _item_locks_guard:
+        lock = _item_locks.get(item_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _item_locks[item_id] = lock
+        return lock
+
 
 # ── IA metadata ──────────────────────────────────────────────────────
 
@@ -83,14 +106,7 @@ async def fetch_ia_existing(
     return result
 
 
-# ── IA S3 upload ─────────────────────────────────────────────────────
-
-IA_S3_URL = "https://s3.us.archive.org/{item}/{filename}"
-
-# Module-level upload lock: IA rate-limits to ~1 upload/second per access key.
-# This lock serializes uploads across all workers; downloads from DJEN run in parallel.
-_upload_lock = asyncio.Lock()
-_UPLOAD_COOLDOWN_S = 5.0
+# ── Item naming helpers ───────────────────────────────────────────────
 
 
 def get_ia_item_id(tribunal: str, d: date) -> str:
@@ -113,28 +129,7 @@ def get_ia_item_tribunal(item_id: str) -> str:
     return tribunal.upper()
 
 
-def _content_md5(data: bytes) -> str:
-    """Return base64-encoded MD5 digest per the S3 Content-MD5 spec."""
-    digest = hashlib.md5(data, usedforsecurity=False).digest()
-    return base64.b64encode(digest).decode("ascii")
-
-
-def _build_upload_headers(
-    d: date,
-    content_md5: str,
-    content_type: str,
-    auth: str,
-) -> dict[str, str]:
-    return {
-        "Authorization": auth,
-        "Content-MD5": content_md5,
-        "Content-Type": content_type,
-        "x-amz-auto-make-bucket": "1",
-        "x-archive-meta-mediatype": "data",
-        "x-archive-meta-collection": "opensource",
-        "x-archive-meta-creator": "CausaGanha",
-        "x-archive-meta-subject": "brazilian-law;djen;legal;judiciary",
-    }
+# ── IA S3 upload ─────────────────────────────────────────────────────
 
 
 async def put_ia_bytes(
@@ -145,17 +140,19 @@ async def put_ia_bytes(
     *,
     max_retries: int = 7,
 ) -> httpx.Response:
-    """Upload bytes to IA with the shared write lock and retry policy."""
+    """Upload bytes to IA S3 with retry policy.
+
+    Used for small JSON state files (no rate-limiting needed).
+    For ZIP uploads use :func:`upload_zip` instead.
+    """
     last_resp: httpx.Response | None = None
 
     for attempt in range(max_retries + 1):
         try:
-            async with _upload_lock:
-                resp = await client.request("PUT", url, content=content, headers=headers)
-                last_resp = resp
-                if resp.status_code == HTTP_OK or resp.status_code not in RETRIABLE_STATUS_CODES:
-                    await asyncio.sleep(_UPLOAD_COOLDOWN_S)
-                    break
+            resp = await client.request("PUT", url, content=content, headers=headers)
+            last_resp = resp
+            if resp.status_code == HTTP_OK or resp.status_code not in RETRIABLE_STATUS_CODES:
+                break
         except (httpx.TransportError, httpx.TimeoutException):
             wait = max(5.0, float(2**attempt))
             if attempt < max_retries:
@@ -180,73 +177,58 @@ async def put_ia_bytes(
 
 async def upload_zip(
     client: httpx.AsyncClient,
-    d: date,
-    tribunal: str,
+    item_id: str,
     zip_path: Path,
-    auth: str,
-    observer: SyncObserver | None = None,
-) -> httpx.Response:
-    """Upload a ZIP file to IA S3 with fine-grained locking and retries.
+    *,
+    circuit_breaker: CircuitBreaker | None = None,
+) -> bool:
+    """Upload a ZIP file to IA S3.
 
-    Releases the global upload lock during retry backoff periods to prevent
-    blocking the entire queue when one item is rate-limited.
+    Applies a per-item lock (serialises PUTs to the same yearly bucket)
+    and the global token-bucket rate limiter (respects IA's write rate).
+    Delegates the actual HTTP PUT and tenacity retry to
+    :func:`causaganha.pipeline.ia_s3.upload_to_ia`.
+
+    Returns ``True`` on success, ``False`` on failure or open circuit.
     """
-    start_time = time.monotonic()
-    content = await asyncio.to_thread(zip_path.read_bytes)
-    size_mb = round(len(content) / 1024 / 1024, 1)
-    filename = f"djen-{d.isoformat()}-{tribunal.upper()}.zip"
-    item_id = get_ia_item_id(tribunal, d)
-    url = IA_S3_URL.format(item=item_id, filename=filename)
-    md5 = _content_md5(content)
-    headers = _build_upload_headers(d, md5, "application/zip", auth)
+    if circuit_breaker is not None and not await circuit_breaker.allow_request():
+        log.warning("upload_skipped_circuit_open", item_id=item_id)
+        return False
 
-    log.info("upload_starting", date=d.isoformat(), tribunal=tribunal, size_mb=size_mb)
+    # Extract date string from filename: djen-YYYY-MM-DD-TRIBUNAL.zip
+    stem_parts = zip_path.stem.split("-")
+    date_str = f"{stem_parts[1]}-{stem_parts[2]}-{stem_parts[3]}" if len(stem_parts) >= 4 else ""
 
-    max_retries = 7
-    try:
-        last_resp = await put_ia_bytes(
-            client,
-            url,
-            content,
-            headers,
-            max_retries=max_retries,
-        )
-    except (httpx.TransportError, httpx.TimeoutException):
-        wait = max(5.0, 1.0)
-        if observer:
-            observer.on_retry(tribunal, d, 1, 0, wait, body="Transport/Timeout")
-        raise
-
-    elapsed = round(time.monotonic() - start_time, 1)
-    body = last_resp.content or b""
-    if last_resp.status_code == HTTP_OK:
-        log.info(
-            "upload_complete",
-            date=d.isoformat(),
-            tribunal=tribunal,
-            size_mb=size_mb,
-            elapsed_s=elapsed,
-        )
-    else:
-        body_preview = body[:500].decode("utf-8", errors="replace") if body else "<empty>"
-        if b"appears to be spam" in body:
-            log.warning(
-                "upload_spam_rejected",
-                date=d.isoformat(),
-                tribunal=tribunal,
-                status=last_resp.status_code,
-                body=body_preview,
-            )
-        else:
-            log.error(
-                "upload_failed",
-                date=d.isoformat(),
-                tribunal=tribunal,
-                status=last_resp.status_code,
+    lock = await _lock_for(item_id)
+    async with lock:
+        await _IA_RATE_LIMITER.acquire()
+        start = time.monotonic()
+        log.info("upload_starting", item_id=item_id, file=zip_path.name)
+        try:
+            ok = await ia_s3.upload_to_ia(client, item_id, zip_path, date_str)
+        except Exception as exc:
+            elapsed = round(time.monotonic() - start, 1)
+            log.exception(
+                "upload_exception",
+                item_id=item_id,
+                file=zip_path.name,
                 elapsed_s=elapsed,
-                body=body_preview,
+                error=str(exc),
             )
-    return last_resp
+            if circuit_breaker is not None:
+                await circuit_breaker.record_failure()
+            return False
+
+    elapsed = round(time.monotonic() - start, 1)
+    if ok:
+        log.info("upload_complete", item_id=item_id, file=zip_path.name, elapsed_s=elapsed)
+        if circuit_breaker is not None:
+            await circuit_breaker.record_success()
+    else:
+        log.warning("upload_failed", item_id=item_id, file=zip_path.name, elapsed_s=elapsed)
+        if circuit_breaker is not None:
+            await circuit_breaker.record_failure()
+    return ok
 
 
 # ── Circuit breaker ──────────────────────────────────────────────────
