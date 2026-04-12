@@ -233,6 +233,97 @@ class SyncManifest:
     def get_status(self, tribunal: str, d: date) -> ManifestEntry | None:
         return self._entries.get(self._key(tribunal, d))
 
+    def to_summary(self) -> dict:
+        """Generate compact summary for the webapp.
+
+        Returns a dict with per-tribunal and per-year breakdowns,
+        suitable for JSON serialization and client-side rendering.
+        """
+        from collections import defaultdict
+
+        by_tribunal: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"uploaded": 0, "available": 0, "absent": 0, "unknown": 0, "total": 0}
+        )
+        by_year: dict[int, dict[str, int]] = defaultdict(
+            lambda: {"uploaded": 0, "available": 0, "absent": 0, "unknown": 0, "total": 0}
+        )
+        # Per tribunal: earliest and latest uploaded dates
+        tribunal_dates: dict[str, dict[str, str]] = defaultdict(
+            lambda: {"earliest": "", "latest": ""}
+        )
+
+        for e in self._entries.values():
+            if e.ia_status == "uploaded":
+                cat = "uploaded"
+            elif e.djen_status == "available":
+                cat = "available"
+            elif e.djen_status == "absent":
+                cat = "absent"
+            else:
+                cat = "unknown"
+
+            by_tribunal[e.tribunal][cat] += 1
+            by_tribunal[e.tribunal]["total"] += 1
+            by_year[e.date.year][cat] += 1
+            by_year[e.date.year]["total"] += 1
+
+            if e.ia_status == "uploaded":
+                d_str = e.date.isoformat()
+                td = tribunal_dates[e.tribunal]
+                if not td["earliest"] or d_str < td["earliest"]:
+                    td["earliest"] = d_str
+                if not td["latest"] or d_str > td["latest"]:
+                    td["latest"] = d_str
+
+        counts = self.counts()
+
+        tribunals_list = []
+        for t in sorted(by_tribunal):
+            s = by_tribunal[t]
+            td = tribunal_dates.get(t, {"earliest": "", "latest": ""})
+            pct = round(s["uploaded"] * 100 / s["total"], 1) if s["total"] else 0
+            tribunals_list.append({
+                "tribunal": t,
+                "uploaded": s["uploaded"],
+                "available": s["available"],
+                "absent": s["absent"],
+                "unknown": s["unknown"],
+                "total": s["total"],
+                "coverage_pct": pct,
+                "earliest_upload": td["earliest"],
+                "latest_upload": td["latest"],
+            })
+
+        years_list = []
+        for y in sorted(by_year):
+            s = by_year[y]
+            pct = round(s["uploaded"] * 100 / s["total"], 1) if s["total"] else 0
+            years_list.append({
+                "year": y,
+                "uploaded": s["uploaded"],
+                "available": s["available"],
+                "absent": s["absent"],
+                "unknown": s["unknown"],
+                "total": s["total"],
+                "coverage_pct": pct,
+            })
+
+        return {
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "totals": {
+                "uploaded": counts.uploaded,
+                "available": counts.available,
+                "absent": counts.absent,
+                "unknown": counts.unknown,
+                "total": counts.total,
+                "coverage_pct": round(counts.uploaded * 100 / counts.total, 1)
+                if counts.total
+                else 0,
+            },
+            "tribunals": tribunals_list,
+            "years": years_list,
+        }
+
     # ── CSV serialization ────────────────────────────────────────────
 
     def to_csv(self) -> str:
@@ -418,4 +509,31 @@ class SyncManifest:
                 log.warning("manifest_upload_failed", status=resp.status_code)
         except Exception as exc:
             log.warning("manifest_upload_error", error=str(exc))
+        return False
+
+    async def upload_summary_to_ia(self, auth: str) -> bool:
+        """Upload compact JSON summary for the webapp."""
+        import json
+
+        import httpx
+
+        from djen_backup.archive import put_ia_bytes
+
+        url = _IA_S3_URL.format("manifest-summary.json")
+        content = json.dumps(self.to_summary(), indent=2).encode("utf-8")
+        headers = {
+            "Authorization": auth,
+            "Content-Type": "application/json",
+            "x-amz-auto-make-bucket": "1",
+            "x-archive-meta-mediatype": "data",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await put_ia_bytes(client, url, content, headers)
+                if resp.status_code < 400:
+                    log.info("manifest_summary_uploaded_to_ia", size=len(content))
+                    return True
+                log.warning("manifest_summary_upload_failed", status=resp.status_code)
+        except Exception as exc:
+            log.warning("manifest_summary_upload_error", error=str(exc))
         return False

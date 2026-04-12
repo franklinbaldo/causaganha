@@ -492,6 +492,7 @@ async def run_sync(config: SyncConfig) -> int:
         manifest.save_to_disk(config.manifest_file)
         if not config.dry_run and not interrupted:
             await manifest.upload_to_ia(config.ia_auth)
+            await manifest.upload_summary_to_ia(config.ia_auth)
 
     counts = manifest.counts()
     log.info(

@@ -1,44 +1,14 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
-import StatCard from '../../components/StatCard.astro';
-import EmptyState from '../../components/EmptyState.astro';
-import AlertBanner from '../../components/AlertBanner.astro';
-import BackfillDetailedStatus from '../../components/BackfillDetailedStatus.svelte';
-import { readJson } from '../../lib/readJson';
-
-const backfill = readJson<any>('cache/backfill.json');
-const backfillState = readJson<any>('cache/backfill_state.json');
-const progressPct = backfill?.progress_pct ?? 0;
-const completed = backfill?.completed ?? backfill?.backfill_done ?? 0;
-const total = backfill?.total ?? backfill?.backfill_total ?? 0;
+import ManifestStatus from '../../components/ManifestStatus.svelte';
 ---
 
 <Layout title="Admin - Backfill" description="Progresso de backfill e cobertura histórica do pipeline.">
-  <Header variant="page" title="Backfill Progress" subtitle="Monitoramento do preenchimento histórico" />
+  <Header variant="page" title="Manifest Status" subtitle="Cobertura do backup por tribunal e ano" />
 
   <div class="page-container">
-    <AlertBanner level="info" title="Fonte de dados" message="Este painel lê diretamente public/cache/backfill.json no build." />
-
-    {backfill ? (
-      <>
-        <section class="stats-row">
-          <StatCard title="Progresso" value={`${progressPct}%`} tone="info" />
-          <StatCard title="Itens concluídos" value={completed.toLocaleString('pt-BR')} tone="success" />
-          <StatCard title="Total planejado" value={total.toLocaleString('pt-BR')} />
-        </section>
-
-        <progress class="progress-bar" value={progressPct} max="100"></progress>
-
-        <div class="mt-8">
-          <BackfillDetailedStatus data={backfillState} client:load />
-        </div>
-
-        <pre class="raw-json"><code>{JSON.stringify(backfill, null, 2)}</code></pre>
-      </>
-    ) : (
-      <EmptyState title="Sem snapshot de backfill" message="Não foi possível carregar cache/backfill.json." />
-    )}
+    <ManifestStatus client:load />
   </div>
 </Layout>
 
@@ -49,50 +19,5 @@ const total = backfill?.total ?? backfill?.backfill_total ?? 0;
     margin-right: auto;
     padding-left: var(--space-md);
     padding-right: var(--space-md);
-  }
-
-  .stats-row {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-md);
-    margin-bottom: 1.5rem;
-  }
-
-  @media (min-width: 768px) {
-    .stats-row {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  .progress-bar {
-    width: 100%;
-    height: 0.5rem;
-    appearance: none;
-    border-radius: 9999px;
-    border: none;
-  }
-
-  .progress-bar::-webkit-progress-bar {
-    background: var(--color-base-300);
-    border-radius: 9999px;
-  }
-
-  .progress-bar::-webkit-progress-value {
-    background: var(--color-primary);
-    border-radius: 9999px;
-  }
-
-  .progress-bar::-moz-progress-bar {
-    background: var(--color-primary);
-    border-radius: 9999px;
-  }
-
-  .raw-json {
-    background: var(--color-base-200);
-    border-radius: var(--radius-box);
-    padding: var(--space-md);
-    margin-top: 1.5rem;
-    font-size: var(--font-size-xs);
-    overflow-x: auto;
   }
 </style>
