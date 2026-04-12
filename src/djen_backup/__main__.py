@@ -19,6 +19,7 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 from rich.table import Table
 
@@ -304,6 +305,7 @@ def main(  # noqa: PLR0913
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
+        TimeRemainingColumn(),
         console=console,
         expand=True,
     )

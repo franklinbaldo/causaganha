@@ -51,6 +51,10 @@ class SyncManifest:
     def __init__(self) -> None:
         self._entries: dict[str, ManifestEntry] = {}
         self._lock = asyncio.Lock()
+        # Cached counts — invalidated on any mark_* call
+        self._counts_cache: ManifestCounts | None = None
+        # Cache of (tribunal, year) pairs that have uploaded entries
+        self._uploaded_items: set[tuple[str, int]] | None = None
 
     def __len__(self) -> int:
         """Return number of manifest entries."""
@@ -85,7 +89,13 @@ class SyncManifest:
                         self._entries[k] = ManifestEntry(tribunal=t_upper, date=current)
                         added += 1
                 current += timedelta(days=1)
+        if added:
+            self._invalidate_caches()
         return added
+
+    def _invalidate_caches(self) -> None:
+        self._counts_cache = None
+        self._uploaded_items = None
 
     def prune(self) -> int:
         """Remove weekend entries (unless already uploaded). Returns count removed."""
@@ -95,6 +105,8 @@ class SyncManifest:
         ]
         for k in to_remove:
             del self._entries[k]
+        if to_remove:
+            self._invalidate_caches()
         return len(to_remove)
 
     # ── Mark methods (async, lock-protected) ─────────────────────────
@@ -111,14 +123,12 @@ class SyncManifest:
                     entry.ia_status = "uploaded"
                     entry.updated_at = now
                     changed += 1
+            if changed:
+                self._invalidate_caches()
         return changed
 
     async def mark_ia_checked(self, tribunal: str, year: int, found_dates: set[date]) -> None:
-        """After fetching IA metadata for a tribunal+year, mark found as uploaded.
-
-        Does NOT mark missing ones — they stay unknown for ia_status
-        (they might exist but not be in metadata yet).
-        """
+        """After fetching IA metadata for a tribunal+year, mark found as uploaded."""
         await self.mark_ia_uploaded(tribunal, found_dates)
 
     async def mark_djen_available(self, tribunal: str, d: date) -> None:
@@ -128,6 +138,7 @@ class SyncManifest:
             if entry:
                 entry.djen_status = "available"
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
+                self._invalidate_caches()
 
     async def mark_djen_absent(self, tribunal: str, d: date) -> None:
         async with self._lock:
@@ -136,6 +147,7 @@ class SyncManifest:
             if entry:
                 entry.djen_status = "absent"
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
+                self._invalidate_caches()
 
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
         """After successful upload to IA."""
@@ -145,18 +157,23 @@ class SyncManifest:
             if entry:
                 entry.ia_status = "uploaded"
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
+                self._invalidate_caches()
 
     # ── Query methods ────────────────────────────────────────────────
 
     def has_uploaded_entries(self, tribunal: str, year: int) -> bool:
         """Check if any entries for this tribunal+year are already marked uploaded."""
-        t_upper = tribunal.upper()
-        return any(
-            e.tribunal == t_upper and e.date.year == year and e.ia_status == "uploaded"
-            for e in self._entries.values()
-        )
+        if self._uploaded_items is None:
+            self._uploaded_items = {
+                (e.tribunal, e.date.year)
+                for e in self._entries.values()
+                if e.ia_status == "uploaded"
+            }
+        return (tribunal.upper(), year) in self._uploaded_items
 
     def counts(self) -> ManifestCounts:
+        if self._counts_cache is not None:
+            return self._counts_cache
         uploaded = 0
         available = 0
         absent = 0
@@ -170,13 +187,14 @@ class SyncManifest:
                 absent += 1
             else:
                 unknown += 1
-        return ManifestCounts(
+        self._counts_cache = ManifestCounts(
             total=len(self._entries),
             uploaded=uploaded,
             available=available,
             absent=absent,
             unknown=unknown,
         )
+        return self._counts_cache
 
     def items_needing_ia_check(self) -> list[tuple[str, int]]:
         """Return (tribunal, year) pairs that have fully unknown entries.
@@ -360,7 +378,10 @@ class SyncManifest:
             elif len(parts) >= 4:
                 self._load_manifest_line(parts, overwrite=overwrite)
 
-        return len(self._entries) - before
+        loaded = len(self._entries) - before
+        if loaded:
+            self._invalidate_caches()
+        return loaded
 
     def _load_legacy_line(self, parts: list[str]) -> None:
         """Parse old zip-inventory.txt format: timestamp,tribunal,date,status,url.

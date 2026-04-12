@@ -17,6 +17,7 @@ import structlog
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
     CircuitBreaker,
+    check_ia_file_exists,
     fetch_ia_existing,
     get_ia_item_id,
     upload_zip,
@@ -152,14 +153,14 @@ async def run_pipeline(
     # Track which (tribunal, year) items already had their IA metadata fetched
     ia_checked_items: set[tuple[str, int]] = set()
 
-    # Per (tribunal, year): remaining entries to DJEN-check (sorted desc by date)
-    pending_djen: dict[tuple[str, int], list[ManifestEntry]] = {}
-
     def _notify_counts() -> None:
         if config.observer:
             config.observer.on_counts_updated(manifest.counts())
 
     # ── Checker workers ──────────────────────────────────────────
+    # Each checker grabs an entire (tribunal, year) item and processes
+    # ALL its entries before returning it. This eliminates heap contention
+    # and shared-list race conditions — each worker owns its batch.
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save
         while True:
@@ -168,7 +169,7 @@ async def run_pipeline(
             if time.monotonic() > deadline:
                 return
 
-            # Pop the tribunal with the shortest absent streak
+            # Grab the tribunal+year with the shortest absent streak
             async with check_lock:
                 if not check_heap:
                     return
@@ -191,42 +192,37 @@ async def run_pipeline(
                         _notify_counts()
                     ia_checked_items.add(item_key)
 
-                # 2. Get or initialize pending entries for this item
-                if item_key not in pending_djen and not config.dry_run:
-                    pending_djen[item_key] = manifest.entries_needing_djen_check(tribunal, year)
-
-                entries = pending_djen.get(item_key, [])
+                # 2. Get entries to DJEN-check (this worker owns this batch)
+                if config.dry_run:
+                    continue
+                entries = manifest.entries_needing_djen_check(tribunal, year)
                 if not entries:
                     continue
 
-                # 3. Process ONE entry, then re-enqueue with updated streak
-                entry = entries.pop(0)
+                # 3. Process ALL entries for this tribunal+year
+                for entry in entries:
+                    if abort_event.is_set() or time.monotonic() > deadline:
+                        return
 
-                try:
-                    await get_caderno_url(
-                        client, config.djen_proxy_url, tribunal, entry.date
-                    )
-                    await manifest.mark_djen_available(tribunal, entry.date)
-                    absent_streaks[tribunal] = 0
-                    await download_queue.put(entry)
-                except DJENNotFoundError:
-                    await manifest.mark_djen_absent(tribunal, entry.date)
-                    absent_streaks[tribunal] = absent_streaks.get(tribunal, 0) + 1
-                except Exception as exc:
-                    log.warning(
-                        "djen_check_skipped",
-                        tribunal=tribunal,
-                        date=entry.date.isoformat(),
-                        error=str(exc),
-                    )
+                    try:
+                        await get_caderno_url(
+                            client, config.djen_proxy_url, tribunal, entry.date
+                        )
+                        await manifest.mark_djen_available(tribunal, entry.date)
+                        absent_streaks[tribunal] = 0
+                        await download_queue.put(entry)
+                    except DJENNotFoundError:
+                        await manifest.mark_djen_absent(tribunal, entry.date)
+                        absent_streaks[tribunal] = absent_streaks.get(tribunal, 0) + 1
+                    except Exception as exc:
+                        log.warning(
+                            "djen_check_skipped",
+                            tribunal=tribunal,
+                            date=entry.date.isoformat(),
+                            error=str(exc),
+                        )
 
-                _notify_counts()
-
-                # Re-enqueue with current streak as priority
-                if entries:
-                    streak = absent_streaks.get(tribunal, 0)
-                    async with check_lock:
-                        heapq.heappush(check_heap, (streak, tribunal, year))
+                    _notify_counts()
 
                 # Periodic save
                 now = time.monotonic()
@@ -316,6 +312,19 @@ async def run_pipeline(
                 return
             failed = False
             try:
+                # Quick HEAD check — skip if already on IA
+                if await check_ia_file_exists(upload_client, item.tribunal, item.d):
+                    await manifest.mark_uploaded(item.tribunal, item.d)
+                    await summary.inc_upload()
+                    item.path.unlink(missing_ok=True)
+                    _notify_counts()
+                    if config.observer:
+                        config.observer.on_log(
+                            f"[dim]Already on IA[/dim] {item.tribunal} {item.d.isoformat()}"
+                        )
+                    upload_queue.task_done()
+                    continue
+
                 ok = await upload_zip(
                     upload_client,
                     item.item_id,
@@ -386,24 +395,34 @@ async def run_pipeline(
 
         feeder_task = asyncio.create_task(feed_available())
 
-        # Start upload workers
+        # Worker allocation:
+        # - Checkers: most workers (lightweight DJEN API calls, need parallelism)
+        # - Downloaders: few (fast downloads, bottlenecked by upload queue)
+        # - Uploaders: fixed (IA rate-limited, more workers don't help)
+        checker_count = config.workers
+        dl_count = max(1, config.workers // 4) if not config.dry_run else 0
+
         upload_tasks = [
             asyncio.create_task(upload_worker(upload_client))
             for _ in range(UPLOAD_WORKERS)
         ]
 
-        # Start download workers (fewer than checkers — downloads are heavier)
-        dl_worker_count = max(1, config.workers // 2) if not config.dry_run else 0
         dl_tasks = [
             asyncio.create_task(download_worker(dl_client))
-            for _ in range(dl_worker_count)
+            for _ in range(dl_count)
         ]
 
-        # Start checker workers
         checker_tasks = [
             asyncio.create_task(checker_worker(check_client))
-            for _ in range(config.workers)
+            for _ in range(checker_count)
         ]
+
+        log.info(
+            "workers_started",
+            checkers=checker_count,
+            downloaders=dl_count,
+            uploaders=UPLOAD_WORKERS,
+        )
 
         # Wait for checkers and feeder to finish
         await asyncio.gather(*checker_tasks, feeder_task, return_exceptions=True)
