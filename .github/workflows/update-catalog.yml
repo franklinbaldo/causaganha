@@ -34,15 +34,7 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Download state from Internet Archive
-        run: |
-          mkdir -p data
-          curl -sSfL -o data/ia-state.json \
-            "https://archive.org/download/causaganha-dashboard/ia-state.json" || echo '{}' > data/ia-state.json
-          curl -sSfL -o data/backfill-state.json \
-            "https://archive.org/download/causaganha-dashboard/backfill-state.json" || echo '{}' > data/backfill-state.json
-          echo "State files:"
-          ls -lh data/
+      - uses: ./.github/actions/download-state
 
       - name: Append to JSONL manifest
         id: append

@@ -76,17 +76,9 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Download state from Internet Archive
-        run: |
-          mkdir -p data
-          curl -sSfL -o data/ia-state.json \
-            "https://archive.org/download/causaganha-dashboard/ia-state.json" || echo '{}' > data/ia-state.json
-          curl -sSfL -o data/backfill-state.json \
-            "https://archive.org/download/causaganha-dashboard/backfill-state.json" || echo '{}' > data/backfill-state.json
-          curl -sSfL -o data/zip-inventory.txt \
-            "https://archive.org/download/causaganha-dashboard/zip-inventory.txt" || echo 'timestamp,tribunal,date,status,url' > data/zip-inventory.txt
-          echo "State files:"
-          ls -lh data/
+      - uses: ./.github/actions/download-state
+        with:
+          inventory: "true"
 
       - name: Reset stopped tribunals (manual only)
         if: ${{ github.event.inputs.reset_stopped == 'true' }}
@@ -100,31 +92,6 @@ jobs:
           else
             echo "No backfill state yet — nothing to reset"
           fi
-
-      - name: Validate CLI flags
-        run: |
-          echo "Validating CLI flags..."
-          HELP_OUTPUT=$(uv run --no-dev python -m djen_backup --help 2>&1)
-          if [ $? -ne 0 ]; then
-            echo "❌ Error: djen_backup --help failed to run"
-            echo "--- captured output ---"
-            echo "$HELP_OUTPUT"
-            exit 1
-          fi
-          if [ -z "$HELP_OUTPUT" ]; then
-            echo "❌ Error: djen_backup --help produced no output"
-            exit 1
-          fi
-          FLAGS=("--deadline-minutes" "--workers" "--backfill-state-file" "--state-file" "--start-date")
-          for FLAG in "${FLAGS[@]}"; do
-            if ! echo "$HELP_OUTPUT" | grep -q -- "$FLAG"; then
-              echo "❌ Error: Required flag $FLAG is missing from djen_backup CLI!"
-              echo "--- actual help output ---"
-              echo "$HELP_OUTPUT"
-              exit 1
-            fi
-          done
-          echo "✅ All required CLI flags are present in djen_backup CLI."
 
       - name: Record Start Time
         run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
@@ -167,46 +134,31 @@ jobs:
           echo "Collection completed in $DURATION seconds"
           echo "duration=$DURATION" >> $GITHUB_OUTPUT
 
-      - name: Collection Summary
+      - name: Resolve uploaded count
+        id: resolve-uploaded
         if: success() || failure()
         run: |
           UPLOADED="${{ steps.collect.outputs.uploaded }}"
-          ERRORS="${{ steps.collect.outputs.errors }}"
-
           if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
             UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
           fi
+          echo "count=${UPLOADED:-0}" >> $GITHUB_OUTPUT
 
-          if [ -z "$UPLOADED" ]; then
-            UPLOADED=0
-          fi
-
-          DURATION="${{ steps.collect.outputs.duration }}"
-
+      - name: Collection Summary
+        if: success() || failure()
+        run: |
           echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Duration: $DURATION seconds, ZIPs collected: $UPLOADED" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: ${{ steps.collect.outputs.duration }} seconds, ZIPs collected: ${{ steps.resolve-uploaded.outputs.count }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Smoke test (check for zero ZIPs)
         if: success() || failure()
         run: |
-          UPLOADED="${{ steps.collect.outputs.uploaded }}"
+          UPLOADED=${{ steps.resolve-uploaded.outputs.count }}
           ERRORS="${{ steps.collect.outputs.errors }}"
-
-          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
-          fi
-
-          if [ -z "$UPLOADED" ]; then
-            UPLOADED=0
-          fi
-
           if [ -z "$ERRORS" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            ERRORS=$(grep -oP '❌ Errors \|\s*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
+            ERRORS=$(grep -oP '❌ Errors \|\s*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "0")
           fi
-
-          if [ -z "$ERRORS" ]; then
-            ERRORS=0
-          fi
+          ERRORS=${ERRORS:-0}
 
           echo "ZIPs uploaded in this run: $UPLOADED"
           echo "Errors encountered in this run: $ERRORS"
@@ -226,16 +178,7 @@ jobs:
       - name: Global Zero Collection Check
         if: success() || failure()
         run: |
-          UPLOADED="${{ steps.collect.outputs.uploaded }}"
-
-          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
-          fi
-
-          if [ -z "$UPLOADED" ]; then
-            UPLOADED=0
-          fi
-
+          UPLOADED=${{ steps.resolve-uploaded.outputs.count }}
           echo "Running zero collection check for UPLOADED=$UPLOADED"
           if ! uv run --no-dev python scripts/check_zero_collection.py "$UPLOADED"; then
             echo "CRITICAL: Zero ZIPs collected on a business day!"
