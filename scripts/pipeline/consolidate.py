@@ -1656,9 +1656,7 @@ def consolidate_date(
                 )
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
-                        logger.exception(
-                            "table_export_error", table=table_name, error=str(result)
-                        )
+                        logger.exception("table_export_error", table=table_name, error=str(result))
                     else:
                         success, size_mb, uploaded = result
                         if success:
