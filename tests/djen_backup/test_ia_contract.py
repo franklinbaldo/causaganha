@@ -73,14 +73,16 @@ async def test_run_sync_respects_max_items_per_tribunal(monkeypatch: pytest.Monk
     async def _get_tribunal_list(client: httpx.AsyncClient, url: str) -> list[str]:
         return ["TJSP"]
 
-    async def _download_to_staging(
+    async def _process_date(
         client: httpx.AsyncClient,
+        ia_client: httpx.AsyncClient,
         tribunal: str,
         d: date,
         config: engine_module.SyncConfig,
         state: engine_module.SyncState,
         inventory: ZipInventory,
         summary: engine_module.SyncSummary,
+        circuit: object,
     ) -> str:
         calls.append(d)
         await summary.inc_hit()
@@ -91,8 +93,8 @@ async def test_run_sync_respects_max_items_per_tribunal(monkeypatch: pytest.Monk
     monkeypatch.setattr(ZipInventory, "load_from_snapshot", _load_from_snapshot)
     monkeypatch.setattr(engine_module, "download_state_from_ia", _download_state_from_ia)
     monkeypatch.setattr(engine_module, "get_tribunal_list", _get_tribunal_list)
-    monkeypatch.setattr(archive_module, "fetch_ia_existing", _fetch_ia_existing)
-    monkeypatch.setattr(engine_module, "download_to_staging", _download_to_staging)
+    monkeypatch.setattr(engine_module, "fetch_ia_existing", _fetch_ia_existing)
+    monkeypatch.setattr(engine_module, "process_date", _process_date)
 
     config = engine_module.SyncConfig(
         start_date=date(2024, 1, 3),
@@ -122,6 +124,7 @@ async def test_single_day_targeted_run_ignores_absent_inventory(
     state = engine_module.SyncState()
     await state.get_or_init("TRF3", date(2024, 12, 26))
     summary = engine_module.SyncSummary()
+    circuit = archive_module.CircuitBreaker()
 
     calls: list[date] = []
 
@@ -134,19 +137,17 @@ async def test_single_day_targeted_run_ignores_absent_inventory(
         calls.append(d)
         return "https://example.invalid/fake.zip"
 
-    async def _download_zip(client: httpx.AsyncClient, url: str) -> str:
-        return str(Path("C:/tmp/fake.zip"))
+    async def _download_zip(client: httpx.AsyncClient, url: str) -> Path:
+        p = Path("/tmp/fake.zip")
+        p.touch()
+        return p
 
-    async def _to_thread(fn, *args):
-        return fn(*args)
-
-    def _move(_src: str, _dst: str) -> None:
-        return None
+    async def _upload_zip(client, item_id, zip_path, *, circuit_breaker=None) -> bool:
+        return True
 
     monkeypatch.setattr(engine_module, "get_caderno_url", _get_caderno_url)
     monkeypatch.setattr(engine_module, "download_zip", _download_zip)
-    monkeypatch.setattr(engine_module.shutil, "move", _move)
-    monkeypatch.setattr(engine_module.asyncio, "to_thread", _to_thread)
+    monkeypatch.setattr(engine_module, "upload_zip", _upload_zip)
 
     config = engine_module.SyncConfig(
         start_date=date(2024, 12, 26),
@@ -162,9 +163,10 @@ async def test_single_day_targeted_run_ignores_absent_inventory(
     )
 
     async with httpx.AsyncClient() as client:
-        result = await engine_module.download_to_staging(
-            client, "TRF3", date(2024, 12, 26), config, state, inventory, summary
+        result = await engine_module.process_date(
+            client, client, "TRF3", date(2024, 12, 26),
+            config, state, inventory, summary, circuit,
         )
 
-    assert result == "staged"
+    assert result == "hit"
     assert calls == [date(2024, 12, 26)]
