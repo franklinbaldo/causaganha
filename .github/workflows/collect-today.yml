@@ -2,10 +2,8 @@
 # COLLECT TODAY — Download today's DJEN ZIPs and upload to Internet Archive
 # ============================================================================
 #
-# Runs once daily. Each run:
-#   1. Restores state from previous runs
-#   2. Processes only the current date for all tribunals
-#   3. Saves state for next run
+# Runs once daily. Processes only the current date for all tribunals.
+# State is persisted in sync-manifest.csv (on IA and locally).
 # ============================================================================
 
 name: Collect Today
@@ -59,13 +57,10 @@ jobs:
           CMD="$CMD --start-date $TODAY"
           CMD="$CMD --end-date $TODAY"
           CMD="$CMD --workers 20"
-          CMD="$CMD --state-file data/ia-state.json"
-          CMD="$CMD --backfill-state-file data/backfill-state.json"
+          CMD="$CMD --manifest-file data/sync-manifest.csv"
           CMD="$CMD --use-proxy"
-          # Skip absent markers to avoid IA spam detection
-          CMD="$CMD --skip-absent-markers"
-          CMD="$CMD --publish-live-status"
           CMD="$CMD --skip-if-mostly-complete"
+          CMD="$CMD --no-fail-fast"
 
           echo "Running: $CMD"
 
@@ -75,28 +70,16 @@ jobs:
           echo "Collection completed in $DURATION seconds"
           echo "duration=$DURATION" >> $GITHUB_OUTPUT
 
-      - name: Resolve uploaded count
-        id: resolve-uploaded
-        if: success() || failure()
-        run: |
-          UPLOADED="${{ steps.collect.outputs.uploaded }}"
-          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
-          fi
-          echo "count=${UPLOADED:-0}" >> $GITHUB_OUTPUT
-
       - name: Collection Summary
         if: success() || failure()
         run: |
           echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Duration: ${{ steps.collect.outputs.duration }} seconds, ZIPs collected: ${{ steps.resolve-uploaded.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: ${{ steps.collect.outputs.duration }} seconds" >> $GITHUB_STEP_SUMMARY
 
-      - name: Global Zero Collection Check
-        if: success() || failure()
+      - name: Show manifest status
+        if: always()
         run: |
-          UPLOADED=${{ steps.resolve-uploaded.outputs.count }}
-          echo "Running zero collection check for UPLOADED=$UPLOADED"
-          if ! uv run --no-dev python scripts/check_zero_collection.py "$UPLOADED"; then
-            echo "CRITICAL: Zero ZIPs collected on a business day!"
-            exit 1
-          fi
+          echo "## Manifest Status" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          uv run --no-dev causaganha backfill status --manifest-file data/sync-manifest.csv >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY

@@ -2,7 +2,7 @@ name: Download State
 description: "Download pipeline state files from Internet Archive"
 inputs:
   inventory:
-    description: "Also download zip-inventory.txt"
+    description: "Also download zip-inventory.txt (legacy)"
     required: false
     default: "false"
 runs:
@@ -11,6 +11,11 @@ runs:
     - shell: bash
       run: |
         mkdir -p data
+        # Download the manifest (primary state file)
+        curl -sSfL -o data/sync-manifest.csv \
+          "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
+          || echo 'tribunal,date,ia_status,djen_status,updated_at' > data/sync-manifest.csv
+        # Legacy state files (for other scripts that may still use them)
         curl -sSfL -o data/ia-state.json \
           "https://archive.org/download/causaganha-dashboard/ia-state.json" || echo '{}' > data/ia-state.json
         curl -sSfL -o data/backfill-state.json \

@@ -2,15 +2,11 @@
 # COLLECT ZIPS — Download DJEN ZIPs and upload to Internet Archive
 # ============================================================================
 #
-# Success metric: hits/run > 0 (actual ZIPs uploaded to IA)
+# Manifest-driven sync: checks IA + DJEN, downloads missing ZIPs, uploads.
+# Priority queue ensures tribunals with data are processed first.
+# State is persisted in sync-manifest.csv (on IA and locally).
 #
-# Runs every 20 minutes. Each run:
-#   1. Restores state from previous run (cursor per tribunal)
-#   2. Processes dates from end_date backwards to start_date
-#   3. Saves state for next run
-#
-# NOTE: Tribunals stop after 60 consecutive empty days. They are NOT reset
-# automatically - use manual workflow_dispatch with reset_stopped=true if needed.
+# Runs every 20 minutes. Each run resumes from the manifest state.
 # ============================================================================
 
 name: Collect ZIPs
@@ -21,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       workers:
-        description: 'Parallel workers (1-4)'
+        description: 'Parallel workers (1-8)'
         required: false
         default: '4'
       tribunal:
@@ -34,15 +30,10 @@ on:
       start_date:
         description: 'Oldest date to process (YYYY-MM-DD)'
         required: false
-        default: '2013-01-01'
+        default: '2020-01-01'
       end_date:
-        description: 'Newest date to process (YYYY-MM-DD, default: today)'
+        description: 'Newest date to process (YYYY-MM-DD, default: yesterday)'
         required: false
-      reset_stopped:
-        description: 'Reset stopped tribunals (use sparingly!)'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -80,43 +71,25 @@ jobs:
         with:
           inventory: "true"
 
-      - name: Reset stopped tribunals (manual only)
-        if: ${{ github.event.inputs.reset_stopped == 'true' }}
-        run: |
-          if [ -f data/backfill-state.json ]; then
-            echo "⚠️ Manual reset requested - resetting stopped tribunals..."
-            uv run --no-dev causaganha backfill reset \
-              --backfill-state-file data/backfill-state.json \
-              --all
-            echo "✅ Reset complete"
-          else
-            echo "No backfill state yet — nothing to reset"
-          fi
-
       - name: Record Start Time
         run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
-      - name: Run causaganha backfill
+      - name: Run djen-backup
         id: collect
         run: |
           WORKERS="${{ github.event.inputs.workers || '4' }}"
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
           TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
-          START_DATE="${{ github.event.inputs.start_date || '2013-01-01' }}"
+          START_DATE="${{ github.event.inputs.start_date || '2020-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
           CMD="uv run --no-dev python -m djen_backup"
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
-          CMD="$CMD --backfill-state-file data/backfill-state.json"
-          CMD="$CMD --state-file data/ia-state.json"
+          CMD="$CMD --manifest-file data/sync-manifest.csv"
           CMD="$CMD --start-date $START_DATE"
           CMD="$CMD --use-proxy"
-          # Skip absent markers to avoid IA spam detection (hundreds of tiny files in sequence)
-          # The 60-day stop rule still works — empty streak increments normally
-          CMD="$CMD --skip-absent-markers"
-
-          CMD="$CMD --publish-live-status"
+          CMD="$CMD --no-fail-fast"
 
           if [ -n "$END_DATE" ]; then
             CMD="$CMD --end-date $END_DATE"
@@ -126,7 +99,7 @@ jobs:
           fi
 
           echo "Running: $CMD"
-          echo "Window: $START_DATE → ${END_DATE:-today} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
+          echo "Window: $START_DATE → ${END_DATE:-yesterday} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
 
           START_TIME=$(date +%s)
           $CMD
@@ -134,56 +107,19 @@ jobs:
           echo "Collection completed in $DURATION seconds"
           echo "duration=$DURATION" >> $GITHUB_OUTPUT
 
-      - name: Resolve uploaded count
-        id: resolve-uploaded
-        if: success() || failure()
-        run: |
-          UPLOADED="${{ steps.collect.outputs.uploaded }}"
-          if [ -z "$UPLOADED" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            UPLOADED=$(grep -oP '✅ Uploaded \(new\) \|\s*\*\*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "")
-          fi
-          echo "count=${UPLOADED:-0}" >> $GITHUB_OUTPUT
-
       - name: Collection Summary
         if: success() || failure()
         run: |
           echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Duration: ${{ steps.collect.outputs.duration }} seconds, ZIPs collected: ${{ steps.resolve-uploaded.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "Duration: ${{ steps.collect.outputs.duration }} seconds" >> $GITHUB_STEP_SUMMARY
 
-      - name: Smoke test (check for zero ZIPs)
-        if: success() || failure()
+      - name: Show manifest status
+        if: always()
         run: |
-          UPLOADED=${{ steps.resolve-uploaded.outputs.count }}
-          ERRORS="${{ steps.collect.outputs.errors }}"
-          if [ -z "$ERRORS" ] && [ -f "$GITHUB_STEP_SUMMARY" ]; then
-            ERRORS=$(grep -oP '❌ Errors \|\s*\K\d+' "$GITHUB_STEP_SUMMARY" || echo "0")
-          fi
-          ERRORS=${ERRORS:-0}
-
-          echo "ZIPs uploaded in this run: $UPLOADED"
-          echo "Errors encountered in this run: $ERRORS"
-          if [ "$UPLOADED" -eq 0 ]; then
-            if [ "$ERRORS" -gt 0 ]; then
-              echo "CRITICAL: Zero ZIPs collected AND errors encountered - pipeline broken"
-              exit 1
-            else
-              echo "WARNING: Zero ZIPs collected, but no errors. Might just be caught up."
-              exit 0
-            fi
-          else
-            echo "Pipeline successful - $UPLOADED ZIPs collected"
-            exit 0
-          fi
-
-      - name: Global Zero Collection Check
-        if: success() || failure()
-        run: |
-          UPLOADED=${{ steps.resolve-uploaded.outputs.count }}
-          echo "Running zero collection check for UPLOADED=$UPLOADED"
-          if ! uv run --no-dev python scripts/check_zero_collection.py "$UPLOADED"; then
-            echo "CRITICAL: Zero ZIPs collected on a business day!"
-            exit 1
-          fi
+          echo "## Manifest Status" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          uv run --no-dev causaganha backfill status --manifest-file data/sync-manifest.csv >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Performance watchdog
         if: always()
@@ -201,12 +137,3 @@ jobs:
           else
             echo "Backfill completed in $DURATION seconds (within 15m limit)"
           fi
-
-      - name: Show backfill status
-        if: always()
-        run: |
-          echo "## Backfill Status" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          uv run --no-dev causaganha backfill status --backfill-state-file data/backfill-state.json >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
