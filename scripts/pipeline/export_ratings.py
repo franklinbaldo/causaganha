@@ -12,15 +12,15 @@ Usage:
 """
 
 import argparse
+import asyncio
 import sys
 import tempfile
 from pathlib import Path
 
 import duckdb
-import httpx
 import structlog
 
-from scripts.pipeline.ia_s3 import get_ia_s3_auth, upload_to_ia
+from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
 
 
 logger = structlog.get_logger()
@@ -29,7 +29,7 @@ CATALOG_ITEM = "causaganha-catalog"
 TABLES = ["lawyer_ratings", "ratings_history"]
 
 
-def export_ratings(
+async def export_ratings(
     db_path: str = "catalog/catalog.duckdb",
     *,
     dry_run: bool = False,
@@ -50,14 +50,13 @@ def export_ratings(
     existing = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
 
     ia_auth = get_ia_s3_auth()
-    upload_headers = {"Authorization": ia_auth} if ia_auth else {}
     if not ia_auth and not dry_run:
         logger.warning("ia_credentials_not_found")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
 
-        with httpx.Client(timeout=300, headers=upload_headers) as client:
+        async with create_upload_client(ia_auth or "") as client:
             for table in TABLES:
                 if table not in existing:
                     logger.info("table_not_found", table=table)
@@ -79,7 +78,7 @@ def export_ratings(
                 )
 
                 if not dry_run and ia_auth:
-                    success = upload_to_ia(client, CATALOG_ITEM, output_path, "ratings")
+                    success = await upload_to_ia(client, CATALOG_ITEM, output_path, "ratings")
                     if success:
                         logger.info("uploaded", table=table)
                     else:
@@ -101,7 +100,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
     args = parser.parse_args()
 
-    stats = export_ratings(args.db, dry_run=args.dry_run)
+    stats = asyncio.run(export_ratings(args.db, dry_run=args.dry_run))
 
     if stats:
         logger.info("export_complete", tables=stats)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Self
 
 import structlog
@@ -38,10 +37,10 @@ class IAS3ParquetUploader:
 
         self._cb = circuit_breaker
         self._timeout = timeout
-        self._client: httpx.Client | None = None
+        self._client: httpx.AsyncClient | None = None
 
-    def _get_client(self) -> httpx.Client:
-        """Lazily initialize the shared upload client."""
+    def _get_client(self) -> httpx.AsyncClient:
+        """Lazily initialize the shared async upload client."""
         if self._client is None:
             self._client = create_upload_client(self._auth, timeout=self._timeout)
         return self._client
@@ -86,8 +85,7 @@ class IAS3ParquetUploader:
 
         client = self._get_client()
 
-        success = await asyncio.to_thread(
-            upload_to_ia,
+        success = await upload_to_ia(
             client,
             item_id,
             file_path,
@@ -102,10 +100,10 @@ class IAS3ParquetUploader:
 
         return f"https://archive.org/details/{item_id}"
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         """Close the underlying HTTP client."""
         if self._client is not None:
-            self._client.close()
+            await self._client.aclose()
             self._client = None
 
     async def __aenter__(self) -> Self:
@@ -114,4 +112,4 @@ class IAS3ParquetUploader:
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         """Exit context and clean up client."""
-        self.close()
+        await self.aclose()

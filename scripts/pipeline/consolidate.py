@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import decimal
 import json
 import os
@@ -75,6 +76,7 @@ from causaganha.storage.djen_schema import (
 )
 from scripts.pipeline.ia_s3 import (
     CircuitBreaker,
+    create_upload_client,
     get_ia_item_id,
     get_ia_s3_auth,
     parse_deadline,
@@ -978,8 +980,8 @@ _CONSOLIDATION_META_OVERRIDES = {
 }
 
 
-def _upload_consolidated(
-    client: httpx.Client,
+async def _upload_consolidated(
+    client: httpx.AsyncClient,
     item_id: str,
     file_path: Path,
     date_str: str,
@@ -987,7 +989,7 @@ def _upload_consolidated(
 ) -> bool:
     """Upload consolidated file to IA with consolidation-specific metadata."""
     overrides = {k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()}
-    return upload_to_ia(
+    return await upload_to_ia(
         client,
         item_id,
         file_path,
@@ -997,7 +999,7 @@ def _upload_consolidated(
     )
 
 
-def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
+async def _upload_marker(client: httpx.AsyncClient, item_id: str, date_str: str) -> bool:
     """Upload consolidation marker to Internet Archive.
 
     Creates empty _consolidated.marker file to signal that this date
@@ -1011,7 +1013,7 @@ def _upload_marker(client: httpx.Client, item_id: str, date_str: str) -> bool:
             # Empty file - existence is the signal
 
         logger.info("uploading_marker", item_id=item_id)
-        success = _upload_consolidated(client, item_id, marker_path, date_str)
+        success = await _upload_consolidated(client, item_id, marker_path, date_str)
 
         # Cleanup temp file
         with contextlib.suppress(Exception):
@@ -1378,30 +1380,51 @@ def find_next_unconsolidated(
     return None
 
 
-def _export_and_upload_table(
+def _export_table_sync(
+    table_name: str,
+    con: ibis.BaseBackend,
+    output_dir: Path,
+) -> tuple[Path, float, int] | None:
+    """Export a single table to Parquet (blocking DuckDB work).
+
+    Returns (output_path, size_mb, row_count) or None when table is empty.
+    Intended to be called via asyncio.to_thread so it doesn't block the loop.
+    """
+    t = con.table(table_name)
+    count = t.count().to_pandas()
+    if count == 0:
+        return None
+    output_path = output_dir / f"{table_name}.parquet"
+    con.raw_sql(
+        f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+    )
+    size_mb = output_path.stat().st_size / (1024 * 1024)
+    return output_path, size_mb, int(count)
+
+
+async def _export_and_upload_table(
     table_name: str,
     con: ibis.BaseBackend,
     output_dir: Path,
     item_id: str,
-    client: httpx.Client,
+    client: httpx.AsyncClient,
     date_str: str,
     *,
     dry_run: bool,
     circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[bool, float, int]:
-    """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count)."""
-    size_mb = 0.0
+    """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count).
+
+    The blocking DuckDB export runs in a thread via asyncio.to_thread so that
+    asyncio.gather can run multiple table exports truly in parallel (same
+    behaviour as the previous ThreadPoolExecutor path).
+    """
     try:
-        t = con.table(table_name)
-        count = t.count().to_pandas()
-        if count == 0:
+        export_result = await asyncio.to_thread(_export_table_sync, table_name, con, output_dir)
+        if export_result is None:
             return False, 0.0, 0
 
-        output_path = output_dir / f"{table_name}.parquet"
-        con.raw_sql(
-            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-        )
-        size_mb = output_path.stat().st_size / (1024 * 1024)
+        output_path, size_mb, count = export_result
         logger.info(
             "parquet_created",
             table=table_name,
@@ -1411,7 +1434,7 @@ def _export_and_upload_table(
 
         # Upload if not dry run
         uploaded = 0
-        if not dry_run and _upload_consolidated(
+        if not dry_run and await _upload_consolidated(
             client,
             item_id,
             output_path,
@@ -1624,52 +1647,53 @@ def consolidate_date(
 
         # Resolve IA S3 credentials for upload client
         ia_auth = get_ia_s3_auth()
-        upload_headers = {"Authorization": ia_auth} if ia_auth else {}
         if not ia_auth and not dry_run:
             logger.warning(
                 "ia_credentials_not_found",
                 hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
             )
 
-        # Create httpx client for uploads (connection pooling across parallel uploads)
         ia_circuit_breaker = CircuitBreaker(threshold=5)
-        with httpx.Client(timeout=300, headers=upload_headers) as client:
-            # Parallel export + upload with ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = {
-                    executor.submit(
-                        _export_and_upload_table,
-                        table_name,
-                        con,
-                        output_dir,
-                        item_id,
-                        client,
-                        date,
-                        dry_run=dry_run,
-                        circuit_breaker=ia_circuit_breaker,
-                    ): table_name
-                    for table_name in TABLES
-                }
 
-                for future in as_completed(futures):
-                    table_name = futures[future]
-                    try:
-                        success, size_mb, uploaded = future.result()
+        async def _run_upload_phase() -> None:
+            """Phase 3+4: parallel Parquet export/upload then marker upload."""
+            async with create_upload_client(ia_auth or "") as client:
+                # Parallel export + upload with asyncio.gather
+                results = await asyncio.gather(
+                    *[
+                        _export_and_upload_table(
+                            table_name,
+                            con,
+                            output_dir,
+                            item_id,
+                            client,
+                            date,
+                            dry_run=dry_run,
+                            circuit_breaker=ia_circuit_breaker,
+                        )
+                        for table_name in TABLES
+                    ],
+                    return_exceptions=True,
+                )
+                for table_name, result in zip(TABLES, results, strict=True):
+                    if isinstance(result, Exception):
+                        logger.exception("table_export_error", table=table_name, error=str(result))
+                    else:
+                        success, size_mb, uploaded = result
                         if success:
                             stats["parquets_created"] += 1
                             stats["uploaded"] += uploaded
                             stats["uploaded_mb"] += size_mb
-                    except Exception as e:
-                        logger.exception("table_export_error", table=table_name, error=str(e))
 
-            # Phase 4: Upload consolidation marker
-            if stats["parquets_created"] > 0 and not dry_run:
-                if _upload_marker(client, item_id, date):
-                    logger.info("marker_uploaded", item_id=item_id)
-                    # Mark date as complete in checkpoint
-                    mark_date_complete(date)
-                else:
-                    logger.warning("marker_upload_failed", item_id=item_id)
+                # Phase 4: Upload consolidation marker
+                if stats["parquets_created"] > 0 and not dry_run:
+                    if await _upload_marker(client, item_id, date):
+                        logger.info("marker_uploaded", item_id=item_id)
+                        mark_date_complete(date)
+                    else:
+                        logger.warning("marker_upload_failed", item_id=item_id)
+
+        asyncio.run(_run_upload_phase())
 
     return stats
 

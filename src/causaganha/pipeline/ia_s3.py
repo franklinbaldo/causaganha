@@ -28,6 +28,12 @@ logger = structlog.get_logger()
 HTTP_500_INTERNAL_SERVER_ERROR = 500
 _IA_S3_URL = "https://s3.us.archive.org"
 
+# Status codes worth retrying:
+#   408 = request timeout, 429 = rate limit
+#   500/502/503/504 = transient server errors (503 most common on IA during item lock,
+#   502 Bad Gateway from IA's edge layer is also transient)
+_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
 
 # ---------------------------------------------------------------------------
 # Credential resolution
@@ -140,25 +146,31 @@ class CircuitBreaker:
 def create_upload_client(
     auth: str,
     timeout: int = 300,
-    max_connections: int = 10,
-) -> httpx.Client:
-    """Create a properly configured httpx client WITH auth headers.
+    max_connections: int = 25,
+) -> httpx.AsyncClient:
+    """Create a properly configured async httpx client WITH auth headers.
+
+    The returned client supports ``async with`` and should be used as an
+    async context manager so connections are properly closed.
 
     Args:
         auth: ``"LOW access:secret"`` authorization string.
         timeout: Request timeout in seconds.
-        max_connections: Connection pool size.
+        max_connections: Connection pool size. Default 25 saturates most
+            uplinks without triggering IA 503 rate-limiting.
 
     Returns:
-        An ``httpx.Client`` ready for IA S3 PUT requests.
+        An ``httpx.AsyncClient`` ready for IA S3 PUT requests.
     """
-    return httpx.Client(
+    return httpx.AsyncClient(
         timeout=timeout,
         limits=httpx.Limits(
             max_connections=max_connections,
             max_keepalive_connections=max_connections,
         ),
         headers={"Authorization": auth},
+        # IA S3 occasionally issues 307 redirects; follow them automatically.
+        follow_redirects=True,
     )
 
 
@@ -168,29 +180,29 @@ def create_upload_client(
 
 
 def _is_retryable_upload_error(exception: Exception) -> bool:
-    """Retry on network errors or 5xx server errors."""
+    """Retry on network errors or retryable HTTP status codes."""
     if isinstance(exception, httpx.HTTPStatusError):
-        return exception.response.status_code >= HTTP_500_INTERNAL_SERVER_ERROR
+        return exception.response.status_code in _RETRYABLE_STATUS_CODES
     return isinstance(exception, httpx.RequestError)
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=8),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=1, max=30),
     retry=retry_if_exception(_is_retryable_upload_error),
     reraise=True,
 )
-def _perform_upload(
-    client: httpx.Client, url: str, file_path: Path, headers: dict[str, str]
+async def _perform_upload(
+    client: httpx.AsyncClient, url: str, file_path: Path, headers: dict[str, str]
 ) -> None:
-    """Perform single upload attempt with no internal retry logic (handled by tenacity)."""
+    """Perform single upload attempt; retries are handled by tenacity."""
     with file_path.open("rb") as f:
-        response = client.put(url, content=f, headers=headers)
+        response = await client.put(url, content=f, headers=headers)
     response.raise_for_status()
 
 
-def upload_to_ia(
-    client: httpx.Client,
+async def upload_to_ia(
+    client: httpx.AsyncClient,
     item_id: str,
     file_path: Path,
     date_str: str,
@@ -276,7 +288,7 @@ def upload_to_ia(
         headers.update(metadata_overrides)
 
     try:
-        _perform_upload(client, url, file_path, headers)
+        await _perform_upload(client, url, file_path, headers)
         if circuit_breaker is not None:
             circuit_breaker.record_success()
     except Exception as e:
