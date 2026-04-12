@@ -135,15 +135,16 @@ jobs:
         run: |
           if [ -f data/consolidate-checkpoint.json ]; then
             uv run python -c "
-          import httpx, os
-          from scripts.pipeline.ia_s3 import get_ia_s3_auth, upload_to_ia
+          import asyncio
+          from pathlib import Path
+          from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
           auth = get_ia_s3_auth()
-          if auth:
-              headers = {'Authorization': auth}
-              with httpx.Client(timeout=60, headers=headers) as client:
-                  from pathlib import Path
-                  upload_to_ia(client, 'causaganha-dashboard', Path('data/consolidate-checkpoint.json'), 'checkpoint')
+          async def _upload():
+              async with create_upload_client(auth) as client:
+                  await upload_to_ia(client, 'causaganha-dashboard', Path('data/consolidate-checkpoint.json'), 'checkpoint')
                   print('Checkpoint uploaded to IA')
+          if auth:
+              asyncio.run(_upload())
           else:
               print('No IA credentials — skipping checkpoint upload')
           "
