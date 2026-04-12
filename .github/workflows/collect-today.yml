@@ -3,7 +3,7 @@
 # ============================================================================
 #
 # Runs once daily. Processes only the current date for all tribunals.
-# State is persisted in sync-manifest.csv (on IA and locally).
+# State persisted in sync-manifest.csv (cached between runs + uploaded to IA).
 # ============================================================================
 
 name: Collect Today
@@ -28,8 +28,6 @@ jobs:
     environment: dev
 
     env:
-      DJEN_USE_PROXY: "1"
-      DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
 
@@ -40,46 +38,29 @@ jobs:
         with:
           dev: "false"
 
-      - uses: ./.github/actions/configure-ia
+      - name: Restore manifest cache
+        uses: actions/cache/restore@v4
         with:
-          access-key: ${{ secrets.IA_ACCESS_KEY }}
-          secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - uses: ./.github/actions/download-state
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}
+          restore-keys: sync-manifest-
 
       - name: Collect today
-        id: collect
         run: |
           TODAY=$(date -u +%Y-%m-%d)
-          echo "Running collection for today: $TODAY"
+          echo "Collecting for: $TODAY"
 
-          CMD="uv run --no-dev python -m djen_backup"
-          CMD="$CMD --start-date $TODAY"
-          CMD="$CMD --end-date $TODAY"
-          CMD="$CMD --workers 20"
-          CMD="$CMD --manifest-file data/sync-manifest.csv"
-          CMD="$CMD --use-proxy"
-          CMD="$CMD --skip-if-mostly-complete"
-          CMD="$CMD --no-fail-fast"
+          uv run --no-dev djen-backup \
+            --start-date "$TODAY" \
+            --end-date "$TODAY" \
+            --workers 20 \
+            --use-proxy \
+            --skip-if-mostly-complete \
+            --no-fail-fast
 
-          echo "Running: $CMD"
-
-          START_TIME=$(date +%s)
-          $CMD
-          DURATION=$(($(date +%s) - START_TIME))
-          echo "Collection completed in $DURATION seconds"
-          echo "duration=$DURATION" >> $GITHUB_OUTPUT
-
-      - name: Collection Summary
-        if: success() || failure()
-        run: |
-          echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Duration: ${{ steps.collect.outputs.duration }} seconds" >> $GITHUB_STEP_SUMMARY
-
-      - name: Show manifest status
+      - name: Save manifest cache
         if: always()
-        run: |
-          echo "## Manifest Status" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          uv run --no-dev causaganha backfill status --manifest-file data/sync-manifest.csv >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
+        uses: actions/cache/save@v4
+        with:
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}

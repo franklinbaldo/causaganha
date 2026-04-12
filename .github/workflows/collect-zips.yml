@@ -3,10 +3,7 @@
 # ============================================================================
 #
 # Manifest-driven sync: checks IA + DJEN, downloads missing ZIPs, uploads.
-# Priority queue ensures tribunals with data are processed first.
-# State is persisted in sync-manifest.csv (on IA and locally).
-#
-# Runs every 20 minutes. Each run resumes from the manifest state.
+# State persisted in sync-manifest.csv (cached between runs + uploaded to IA).
 # ============================================================================
 
 name: Collect ZIPs
@@ -50,32 +47,24 @@ jobs:
     environment: dev
 
     env:
-      DJEN_USE_PROXY: "1"
-      DJEN_PROXY_URL: https://djen-proxy-mhgmawcn3a-rj.a.run.app
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/setup
         with:
           dev: "false"
 
-      - uses: ./.github/actions/configure-ia
+      - name: Restore manifest cache
+        uses: actions/cache/restore@v4
         with:
-          access-key: ${{ secrets.IA_ACCESS_KEY }}
-          secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - uses: ./.github/actions/download-state
-        with:
-          inventory: "true"
-
-      - name: Record Start Time
-        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}
+          restore-keys: sync-manifest-
 
       - name: Run djen-backup
-        id: collect
         run: |
           WORKERS="${{ github.event.inputs.workers || '4' }}"
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
@@ -83,10 +72,9 @@ jobs:
           START_DATE="${{ github.event.inputs.start_date || '2020-01-01' }}"
           END_DATE="${{ github.event.inputs.end_date || '' }}"
 
-          CMD="uv run --no-dev python -m djen_backup"
+          CMD="uv run --no-dev djen-backup"
           CMD="$CMD --deadline-minutes $DEADLINE"
           CMD="$CMD --workers $WORKERS"
-          CMD="$CMD --manifest-file data/sync-manifest.csv"
           CMD="$CMD --start-date $START_DATE"
           CMD="$CMD --use-proxy"
           CMD="$CMD --no-fail-fast"
@@ -99,41 +87,11 @@ jobs:
           fi
 
           echo "Running: $CMD"
-          echo "Window: $START_DATE → ${END_DATE:-yesterday} | Workers: $WORKERS | Deadline: ${DEADLINE}m"
-
-          START_TIME=$(date +%s)
           $CMD
-          DURATION=$(($(date +%s) - START_TIME))
-          echo "Collection completed in $DURATION seconds"
-          echo "duration=$DURATION" >> $GITHUB_OUTPUT
 
-      - name: Collection Summary
-        if: success() || failure()
-        run: |
-          echo "## Collection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Duration: ${{ steps.collect.outputs.duration }} seconds" >> $GITHUB_STEP_SUMMARY
-
-      - name: Show manifest status
+      - name: Save manifest cache
         if: always()
-        run: |
-          echo "## Manifest Status" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          uv run --no-dev causaganha backfill status --manifest-file data/sync-manifest.csv >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Performance watchdog
-        if: always()
-        run: |
-          if [ -z "$START_TIME" ]; then
-            echo "START_TIME not set, skipping performance watchdog"
-            exit 0
-          fi
-
-          CURRENT_TIME=$(date +%s)
-          DURATION=$((CURRENT_TIME - START_TIME))
-
-          if [ "$DURATION" -gt 900 ]; then
-            echo "⚠️ Backfill running slow (> 15m). Duration: $DURATION seconds"
-          else
-            echo "Backfill completed in $DURATION seconds (within 15m limit)"
-          fi
+        uses: actions/cache/save@v4
+        with:
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}
