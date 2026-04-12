@@ -1380,6 +1380,28 @@ def find_next_unconsolidated(
     return None
 
 
+def _export_table_sync(
+    table_name: str,
+    con: ibis.BaseBackend,
+    output_dir: Path,
+) -> tuple[Path, float, int] | None:
+    """Export a single table to Parquet (blocking DuckDB work).
+
+    Returns (output_path, size_mb, row_count) or None when table is empty.
+    Intended to be called via asyncio.to_thread so it doesn't block the loop.
+    """
+    t = con.table(table_name)
+    count = t.count().to_pandas()
+    if count == 0:
+        return None
+    output_path = output_dir / f"{table_name}.parquet"
+    con.raw_sql(
+        f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+    )
+    size_mb = output_path.stat().st_size / (1024 * 1024)
+    return output_path, size_mb, int(count)
+
+
 async def _export_and_upload_table(
     table_name: str,
     con: ibis.BaseBackend,
@@ -1391,19 +1413,18 @@ async def _export_and_upload_table(
     dry_run: bool,
     circuit_breaker: CircuitBreaker | None = None,
 ) -> tuple[bool, float, int]:
-    """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count)."""
-    size_mb = 0.0
+    """Export single table to Parquet and upload. Returns (success, size_mb, uploaded_count).
+
+    The blocking DuckDB export runs in a thread via asyncio.to_thread so that
+    asyncio.gather can run multiple table exports truly in parallel (same
+    behaviour as the previous ThreadPoolExecutor path).
+    """
     try:
-        t = con.table(table_name)
-        count = t.count().to_pandas()
-        if count == 0:
+        export_result = await asyncio.to_thread(_export_table_sync, table_name, con, output_dir)
+        if export_result is None:
             return False, 0.0, 0
 
-        output_path = output_dir / f"{table_name}.parquet"
-        con.raw_sql(
-            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-        )
-        size_mb = output_path.stat().st_size / (1024 * 1024)
+        output_path, size_mb, count = export_result
         logger.info(
             "parquet_created",
             table=table_name,
