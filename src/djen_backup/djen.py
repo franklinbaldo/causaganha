@@ -66,9 +66,9 @@ async def get_caderno_url(
     )
 
     # 404 = no publication for this date
-    # 400 = holiday/non-publication day (DJEN returns 400 instead of 404 for some tribunals)
-    # 403 could be rate-limiting, IP block, or WAF — don't treat as absent
-    if resp.status_code in (HTTP_NOT_FOUND, 400):
+    # 400 = holiday/non-publication day (DJEN returns 400 instead of 404)
+    # 403 = tribunal doesn't publish via DJEN (e.g. CNJ, SEEU)
+    if resp.status_code in (HTTP_NOT_FOUND, 400, 403):
         raise DJENNotFoundError(status_code=resp.status_code, reason="Not Found")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError

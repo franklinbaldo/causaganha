@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 — used at runtime in save/load methods
 from typing import NamedTuple
 
 import structlog
@@ -42,29 +42,6 @@ class ManifestEntry:
     updated_at: str = ""
 
 
-_GENESIS_CSV = Path(__file__).parent / "tribunal_genesis.csv"
-
-
-def load_genesis_dates(path: Path = _GENESIS_CSV) -> dict[str, date]:
-    """Load per-tribunal first-available dates from CSV."""
-    if not path.exists():
-        log.warning("genesis_csv_not_found", path=str(path))
-        return {}
-    result: dict[str, date] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("tribunal"):
-            continue
-        parts = line.split(",", 1)
-        if len(parts) == 2:
-            try:
-                result[parts[0].upper()] = date.fromisoformat(parts[1])
-            except ValueError:
-                continue
-    log.info("genesis_dates_loaded", count=len(result))
-    return result
-
-
 class SyncManifest:
     """The single source of truth for all (tribunal, date) pairs.
 
@@ -91,18 +68,8 @@ class SyncManifest:
 
     # ── Build ────────────────────────────────────────────────────────
 
-    def build(
-        self,
-        tribunals: list[str],
-        default_start: date,
-        end: date,
-        genesis: dict[str, date] | None = None,
-    ) -> int:
-        """Phase 1: populate all (tribunal, date) pairs.
-
-        Uses per-tribunal genesis dates when available, otherwise
-        falls back to ``default_start``. Tribunals not in the genesis
-        map are skipped (they have no known data on DJEN).
+    def build(self, tribunals: list[str], start: date, end: date) -> int:
+        """Phase 1: populate all (tribunal, date) weekday pairs.
 
         Only adds entries that don't already exist (preserves loaded state).
         Returns count of new entries added.
@@ -110,10 +77,8 @@ class SyncManifest:
         added = 0
         for t in tribunals:
             t_upper = t.upper()
-            start = genesis.get(t_upper, default_start) if genesis else default_start
             current = start
             while current <= end:
-                # Skip weekends — courts don't publish on Sat/Sun
                 if current.weekday() < 5:
                     k = self._key(t_upper, current)
                     if k not in self._entries:
@@ -122,22 +87,12 @@ class SyncManifest:
                 current += timedelta(days=1)
         return added
 
-    def prune(self, genesis: dict[str, date]) -> int:
-        """Remove entries before each tribunal's genesis date and on weekends.
-
-        Also removes tribunals not in genesis (no known data).
-        Returns count of entries removed.
-        """
-        to_remove = []
-        for k, e in self._entries.items():
-            # Remove weekends
-            if e.date.weekday() >= 5 and e.ia_status != "uploaded":
-                to_remove.append(k)
-                continue
-            # Remove entries before genesis (unless already uploaded)
-            genesis_date = genesis.get(e.tribunal)
-            if genesis_date and e.date < genesis_date and e.ia_status != "uploaded":
-                to_remove.append(k)
+    def prune(self) -> int:
+        """Remove weekend entries (unless already uploaded). Returns count removed."""
+        to_remove = [
+            k for k, e in self._entries.items()
+            if e.date.weekday() >= 5 and e.ia_status != "uploaded"
+        ]
         for k in to_remove:
             del self._entries[k]
         return len(to_remove)

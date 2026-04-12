@@ -22,7 +22,7 @@ from djen_backup.archive import (
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
-from djen_backup.manifest import ManifestCounts, ManifestEntry, SyncManifest, load_genesis_dates
+from djen_backup.manifest import ManifestCounts, ManifestEntry, SyncManifest
 from djen_backup.tribunais import get_tribunal_list
 
 
@@ -462,9 +462,8 @@ async def run_sync(config: SyncConfig) -> int:
 
     upper = config.start_date
     lower = config.lower_bound or date(2020, 1, 1)
-    genesis = load_genesis_dates()
-    added = manifest.build(tribunals, lower, upper, genesis=genesis)
-    pruned = manifest.prune(genesis)
+    added = manifest.build(tribunals, lower, upper)
+    pruned = manifest.prune()
     counts = manifest.counts()
     log.info(
         "manifest_built",
