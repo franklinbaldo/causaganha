@@ -200,6 +200,8 @@
     compact = false,
     totalSeq,
     onNavigate,
+    onExpand,
+    onCollapse,
     source,
     usedFallback,
   }: {
@@ -210,6 +212,8 @@
     compact?: boolean;
     totalSeq?: number;
     onNavigate?: (newSeq: number) => void;
+    onExpand?: () => void;
+    onCollapse?: () => void;
     source?: "djen" | "ia";
     usedFallback?: boolean;
   } = $props();
@@ -277,7 +281,24 @@
 {/snippet}
 
 {#if compact}
-  <div class="card publication-card compact-card" id={`pub-${seq}`}>
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div
+    class="card publication-card compact-card"
+    class:expandable={!!onExpand}
+    id={`pub-${seq}`}
+    role={onExpand ? "button" : undefined}
+    tabindex={onExpand ? 0 : undefined}
+    onclick={(e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest("a, button")) return;
+      onExpand?.();
+    }}
+    onkeydown={(e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onExpand?.();
+      }
+    }}
+  >
     <div class="card-body compact-body">
       <header class="card-header">
         <div class="header-left-stack">
@@ -477,6 +498,15 @@
         </div>
 
         <div class="header-actions" aria-label="Ações de navegação e leitura">
+          {#if onCollapse}
+            <button
+              class="btn btn-outline-secondary"
+              onclick={onCollapse}
+              title="Fechar detalhes"
+            >
+              Fechar
+            </button>
+          {/if}
           <button
             class="btn btn-outline-primary"
             onclick={() => (isReaderMode = true)}
@@ -599,6 +629,16 @@
 
   .compact-card {
     margin-bottom: 1rem;
+  }
+
+  .expandable {
+    cursor: pointer;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .expandable:hover {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
   }
 
   .compact-body {
