@@ -72,7 +72,6 @@ class RichManifestObserver:
         self.main_task = self.progress.add_task("[bold blue]Initializing...", total=None)
         self._start_time: float | None = None
         self._start_uploaded: int = 0
-        self._start_available: int = 0
         self._start_absent: int = 0
         self._start_unknown: int = 0
 
@@ -100,23 +99,17 @@ class RichManifestObserver:
         if self._start_time is None:
             self._start_time = now
             self._start_uploaded = counts.uploaded
-            self._start_available = counts.available
             self._start_absent = counts.absent
             self._start_unknown = counts.unknown
 
         elapsed_min = (now - self._start_time) / 60.0
 
-        total_available = counts.uploaded + counts.available
-        v_avail = self._vel(
-            total_available - (self._start_uploaded + self._start_available), elapsed_min
-        )
         v_uploaded = self._vel(counts.uploaded - self._start_uploaded, elapsed_min)
         v_absent = self._vel(counts.absent - self._start_absent, elapsed_min)
         v_unknown = self._vel(counts.unknown - self._start_unknown, elapsed_min)
 
         desc = (
-            f"[green]Available: {total_available} ({total_available * 100 // t}%){v_avail}[/green]  "
-            f"[bold green]On IA: {counts.uploaded}{v_uploaded}[/bold green]  "
+            f"[bold green]On IA: {counts.uploaded} ({counts.uploaded * 100 // t}%){v_uploaded}[/bold green]  "
             f"[yellow]Pending: {counts.available}[/yellow]  "
             f"[dim]Absent: {counts.absent} ({counts.absent * 100 // t}%){v_absent}[/dim]  "
             f"[red]Unknown: {counts.unknown} ({counts.unknown * 100 // t}%){v_unknown}[/red]"

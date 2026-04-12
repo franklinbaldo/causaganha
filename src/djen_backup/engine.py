@@ -32,7 +32,7 @@ log = structlog.get_logger()
 # ── Constants ────────────────────────────────────────────────────────
 
 STAGING_DIR = Path("data/staging")
-MAX_STAGED_FILES = 30
+MAX_STAGED_FILES = 3
 UPLOAD_WORKERS = 4
 
 # ── Protocols ────────────────────────────────────────────────────────
@@ -146,6 +146,7 @@ async def run_pipeline(
     first_error: list[str] = []
     last_save = time.monotonic()
     save_interval = 180.0
+    checkers_done = asyncio.Event()
 
     # Per-tribunal absent streak (global across years)
     absent_streaks: dict[str, int] = {}
@@ -210,7 +211,6 @@ async def run_pipeline(
                         )
                         await manifest.mark_djen_available(tribunal, entry.date)
                         absent_streaks[tribunal] = 0
-                        await download_queue.put(entry)
                     except DJENNotFoundError:
                         await manifest.mark_djen_absent(tribunal, entry.date)
                         absent_streaks[tribunal] = absent_streaks.get(tribunal, 0) + 1
@@ -281,8 +281,14 @@ async def run_pipeline(
                 )
 
             except DJENNotFoundError:
-                await manifest.mark_djen_absent(entry.tribunal, entry.date)
-                _notify_counts()
+                # Don't mark absent — checker already confirmed it exists.
+                # The URL just expired or DJEN is temporarily returning 404.
+                # Leave as available for next run to retry.
+                log.warning(
+                    "download_not_found_skipped",
+                    tribunal=entry.tribunal,
+                    date=entry.date.isoformat(),
+                )
 
             except Exception as exc:
                 log.warning(
@@ -379,19 +385,31 @@ async def run_pipeline(
         httpx.AsyncClient(timeout=timeout, follow_redirects=True) as dl_client,
         create_upload_client(config.ia_auth) as upload_client,
     ):
-        # Feeder: push already-available entries into download queue (from previous runs).
-        # Runs as a task so it can await on a full queue without blocking startup.
+        # Feeder: continuously pushes available entries into download queue.
+        # Checkers mark entries as available; this feeder picks them up.
+        # Polls every 2s for new available entries until checkers are done.
         async def feed_available() -> None:
             if config.dry_run:
                 return
-            entries = manifest.entries_needing_upload()
-            if not entries:
-                return
-            log.info("feeding_available_entries", count=len(entries))
-            for entry in entries:
-                if abort_event.is_set():
+            seen: set[str] = set()
+            while not abort_event.is_set():
+                entries = manifest.entries_needing_upload()
+                fed = 0
+                for entry in entries:
+                    if abort_event.is_set():
+                        return
+                    key = f"{entry.tribunal}/{entry.date.isoformat()}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    await download_queue.put(entry)
+                    fed += 1
+                if fed:
+                    log.info("feeder_dispatched", count=fed)
+                # If checkers are done and no more entries, stop
+                if checkers_done.is_set() and not entries:
                     return
-                await download_queue.put(entry)
+                await asyncio.sleep(2)
 
         feeder_task = asyncio.create_task(feed_available())
 
@@ -424,8 +442,10 @@ async def run_pipeline(
             uploaders=UPLOAD_WORKERS,
         )
 
-        # Wait for checkers and feeder to finish
-        await asyncio.gather(*checker_tasks, feeder_task, return_exceptions=True)
+        # Wait for checkers to finish, then signal feeder
+        await asyncio.gather(*checker_tasks, return_exceptions=True)
+        checkers_done.set()
+        await asyncio.gather(feeder_task, return_exceptions=True)
 
         # Signal download workers: no more work coming
         for _ in dl_tasks:
