@@ -100,7 +100,8 @@ class SyncManifest:
     def prune(self) -> int:
         """Remove weekend entries (unless already uploaded). Returns count removed."""
         to_remove = [
-            k for k, e in self._entries.items()
+            k
+            for k, e in self._entries.items()
             if e.date.weekday() >= 5 and e.ia_status != "uploaded"
         ]
         for k in to_remove:
@@ -300,31 +301,35 @@ class SyncManifest:
             s = by_tribunal[t]
             td = tribunal_dates.get(t, {"earliest": "", "latest": ""})
             pct = round(s["uploaded"] * 100 / s["total"], 1) if s["total"] else 0
-            tribunals_list.append({
-                "tribunal": t,
-                "uploaded": s["uploaded"],
-                "available": s["available"],
-                "absent": s["absent"],
-                "unknown": s["unknown"],
-                "total": s["total"],
-                "coverage_pct": pct,
-                "earliest_upload": td["earliest"],
-                "latest_upload": td["latest"],
-            })
+            tribunals_list.append(
+                {
+                    "tribunal": t,
+                    "uploaded": s["uploaded"],
+                    "available": s["available"],
+                    "absent": s["absent"],
+                    "unknown": s["unknown"],
+                    "total": s["total"],
+                    "coverage_pct": pct,
+                    "earliest_upload": td["earliest"],
+                    "latest_upload": td["latest"],
+                }
+            )
 
         years_list = []
         for y in sorted(by_year):
             s = by_year[y]
             pct = round(s["uploaded"] * 100 / s["total"], 1) if s["total"] else 0
-            years_list.append({
-                "year": y,
-                "uploaded": s["uploaded"],
-                "available": s["available"],
-                "absent": s["absent"],
-                "unknown": s["unknown"],
-                "total": s["total"],
-                "coverage_pct": pct,
-            })
+            years_list.append(
+                {
+                    "year": y,
+                    "uploaded": s["uploaded"],
+                    "available": s["available"],
+                    "absent": s["absent"],
+                    "unknown": s["unknown"],
+                    "total": s["total"],
+                    "coverage_pct": pct,
+                }
+            )
 
         return {
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -349,8 +354,7 @@ class SyncManifest:
         rows = sorted(self._entries.values(), key=lambda e: (e.tribunal, e.date))
         for e in rows:
             lines.append(
-                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},"
-                f"{e.updated_at}"
+                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},{e.updated_at}"
             )
         return "\n".join(lines) + "\n"
 

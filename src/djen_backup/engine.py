@@ -184,9 +184,7 @@ async def run_pipeline(
                     if not manifest.has_uploaded_entries(tribunal, year):
                         ia_dates = await fetch_ia_existing(client, tribunal, year)
                         if ia_dates:
-                            await manifest.mark_ia_checked(
-                                tribunal, year, set(ia_dates.keys())
-                            )
+                            await manifest.mark_ia_checked(tribunal, year, set(ia_dates.keys()))
                             log.info(
                                 "ia_checked", tribunal=tribunal, year=year, found=len(ia_dates)
                             )
@@ -206,9 +204,7 @@ async def run_pipeline(
                         return
 
                     try:
-                        await get_caderno_url(
-                            client, config.djen_proxy_url, tribunal, entry.date
-                        )
+                        await get_caderno_url(client, config.djen_proxy_url, tribunal, entry.date)
                         await manifest.mark_djen_available(tribunal, entry.date)
                         absent_streaks[tribunal] = 0
                     except DJENNotFoundError:
@@ -276,9 +272,7 @@ async def run_pipeline(
                 log.info("staged", tribunal=entry.tribunal, date=entry.date.isoformat())
 
                 # Enqueue for upload
-                await upload_queue.put(
-                    StagedItem(item_id, entry.date, entry.tribunal, final_path)
-                )
+                await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
 
             except DJENNotFoundError:
                 # Don't mark absent — checker already confirmed it exists.
@@ -368,9 +362,7 @@ async def run_pipeline(
                 )
                 if config.fail_fast:
                     if not first_error:
-                        first_error.append(
-                            f"Upload exception: {item.item_id} {item.d.isoformat()}"
-                        )
+                        first_error.append(f"Upload exception: {item.item_id} {item.d.isoformat()}")
                     abort_event.set()
             finally:
                 upload_queue.task_done()
@@ -421,18 +413,13 @@ async def run_pipeline(
         dl_count = max(1, config.workers // 4) if not config.dry_run else 0
 
         upload_tasks = [
-            asyncio.create_task(upload_worker(upload_client))
-            for _ in range(UPLOAD_WORKERS)
+            asyncio.create_task(upload_worker(upload_client)) for _ in range(UPLOAD_WORKERS)
         ]
 
-        dl_tasks = [
-            asyncio.create_task(download_worker(dl_client))
-            for _ in range(dl_count)
-        ]
+        dl_tasks = [asyncio.create_task(download_worker(dl_client)) for _ in range(dl_count)]
 
         checker_tasks = [
-            asyncio.create_task(checker_worker(check_client))
-            for _ in range(checker_count)
+            asyncio.create_task(checker_worker(check_client)) for _ in range(checker_count)
         ]
 
         log.info(

@@ -37,6 +37,7 @@
   let rawInput = $state('');
   let filters = $state<DjenComunicacaoQuery>({ itensPorPagina: 30, pagina: 1 });
   let showFilters = $state(false);
+  let expandedSeq = $state<number | null>(null);
 
   // The query that was actually submitted (debounced or immediate on submit)
   let submittedQuery = $state<DjenComunicacaoQuery | null>(null);
@@ -164,6 +165,7 @@
   function submitSearch() {
     if (cooldownRemaining > 0 || !hasIdentity) return;
     submittedQuery = { ...effectiveQuery };
+    expandedSeq = null;
   }
 
   function handleSubmit() {
@@ -319,9 +321,13 @@
               {pub}
               seq={i + 1}
               dateStr={pub.data_disponibilizacao ?? ''}
-              compact
+              compact={expandedSeq !== i + 1}
+              totalSeq={results.length}
               source="djen"
               {usedFallback}
+              onExpand={() => (expandedSeq = i + 1)}
+              onCollapse={() => (expandedSeq = null)}
+              onNavigate={(newSeq) => (expandedSeq = newSeq)}
             />
           </li>
         {/each}

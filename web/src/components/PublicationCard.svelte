@@ -102,7 +102,7 @@
 
   function summarizeMedium(pub: DjenPublication): string | null {
     if (pub.meiocompleto) return pub.meiocompleto;
-    if (pub.meio === "D") return "Di\u00e1rio Eletr\u00f4nico";
+    if (pub.meio === "D") return "Diário Eletrônico";
     if (pub.meio === "E") return "Edital";
     return null;
   }
@@ -126,16 +126,15 @@
   function buildMetaChips(pub: DjenPublication): MetaChip[] {
     const chips: MetaChip[] = [];
     const statusChip = summarizeStatus(pub);
+    const medium = summarizeMedium(pub);
 
     if (statusChip) chips.push(statusChip);
     if (pub.siglaTribunal) chips.push({ label: "Tribunal", value: pub.siglaTribunal });
-    if (summarizeMedium(pub)) {
-      chips.push({ label: "Meio", value: summarizeMedium(pub)!, tone: "accent" });
-    }
+    if (medium) chips.push({ label: "Meio", value: medium, tone: "accent" });
     if (pub.nomeClasse) chips.push({ label: "Classe", value: pub.nomeClasse });
     if (pub.tipoDocumento) chips.push({ label: "Documento", value: pub.tipoDocumento });
     if (pub.numeroComunicacao != null) {
-      chips.push({ label: "Comunica\u00e7\u00e3o", value: String(pub.numeroComunicacao) });
+      chips.push({ label: "Comunicação", value: String(pub.numeroComunicacao) });
     }
 
     return chips;
@@ -145,10 +144,10 @@
     const rows: MetaChip[] = [];
 
     if (pub.data_disponibilizacao) {
-      rows.push({ label: "Disponibiliza\u00e7\u00e3o", value: pub.data_disponibilizacao });
+      rows.push({ label: "Disponibilização", value: pub.data_disponibilizacao });
     }
     if (pub.codigoClasse) {
-      rows.push({ label: "C\u00f3digo da classe", value: pub.codigoClasse });
+      rows.push({ label: "Código da classe", value: pub.codigoClasse });
     }
     if (pub.hash) {
       rows.push({ label: "Hash", value: pub.hash.slice(0, 16) });
@@ -201,6 +200,8 @@
     compact = false,
     totalSeq,
     onNavigate,
+    onExpand,
+    onCollapse,
     source,
     usedFallback,
   }: {
@@ -211,14 +212,21 @@
     compact?: boolean;
     totalSeq?: number;
     onNavigate?: (newSeq: number) => void;
+    onExpand?: () => void;
+    onCollapse?: () => void;
     source?: "djen" | "ia";
     usedFallback?: boolean;
   } = $props();
 
   let isReaderMode = $state(false);
-  let shareCopied = $state(false);
-  let shareCopiedReader = $state(false);
-  let shareCopiedCompact = $state(false);
+  let activeCopied = $state<"main" | "reader" | "compact" | null>(null);
+  let shareTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    };
+  });
 
   const processNumber = $derived(formatProcessNumber(pub.numero_processo));
   const textParts = $derived(pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : []);
@@ -233,10 +241,8 @@
   const identityRows = $derived(buildIdentityRows(pub));
   const parties = $derived(uniquePartyNames(pub));
   const lawyers = $derived(uniqueLawyers(pub));
-  const partyCount = $derived(parties.length);
-  const lawyerCount = $derived(lawyers.length);
 
-  function handleShare(e: MouseEvent, copiedSetter: "main" | "reader" | "compact") {
+  function handleShare(e: MouseEvent, context: "main" | "reader" | "compact") {
     e.preventDefault();
     e.stopPropagation();
     const base = window.location.pathname;
@@ -245,17 +251,12 @@
     if (seq) hash += `/${seq}`;
     const url = `${window.location.origin}${base}#${hash}`;
     navigator.clipboard?.writeText(url);
-
-    if (copiedSetter === "main") {
-      shareCopied = true;
-      setTimeout(() => (shareCopied = false), 2000);
-    } else if (copiedSetter === "reader") {
-      shareCopiedReader = true;
-      setTimeout(() => (shareCopiedReader = false), 2000);
-    } else {
-      shareCopiedCompact = true;
-      setTimeout(() => (shareCopiedCompact = false), 2000);
-    }
+    if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    activeCopied = context;
+    shareTimeoutId = setTimeout(() => {
+      activeCopied = null;
+      shareTimeoutId = null;
+    }, 2000);
   }
 </script>
 
@@ -272,6 +273,17 @@
   </svg>
 {/snippet}
 
+{#snippet sourceBadge()}
+  {#if source}
+    <span
+      class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}"
+      title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}
+    >
+      Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
+    </span>
+  {/if}
+{/snippet}
+
 {#snippet chip(meta: MetaChip)}
   <span class={`meta-chip ${meta.tone ?? "default"}`}>
     <small>{meta.label}</small>
@@ -280,7 +292,24 @@
 {/snippet}
 
 {#if compact}
-  <div class="card publication-card compact-card" id={`pub-${seq}`}>
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div
+    class="card publication-card compact-card"
+    class:expandable={!!onExpand}
+    id={`pub-${seq}`}
+    role={onExpand ? "button" : undefined}
+    tabindex={onExpand ? 0 : undefined}
+    onclick={(e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest("a, button")) return;
+      onExpand?.();
+    }}
+    onkeydown={(e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onExpand?.();
+      }
+    }}
+  >
     <div class="card-body compact-body">
       <header class="card-header">
         <div class="header-left-stack">
@@ -289,11 +318,7 @@
             {#if pub.tipoComunicacao}
               <span class="badge publication-badge">{pub.tipoComunicacao}</span>
             {/if}
-            {#if source}
-              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
-                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-              </span>
-            {/if}
+            {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
@@ -313,7 +338,7 @@
             title="Copiar link"
           >
             {@render shareIcon()}
-            {shareCopiedCompact ? "Copiado!" : "Link"}
+            {activeCopied === "compact" ? "Copiado!" : "Link"}
           </button>
         </div>
       </header>
@@ -337,11 +362,11 @@
       {/if}
 
       <div class="summary-bar">
-        {#if partyCount > 0}
-          <span>{partyCount} parte{partyCount > 1 ? "s" : ""}</span>
+        {#if parties.length > 0}
+          <span>{parties.length} parte{parties.length > 1 ? "s" : ""}</span>
         {/if}
-        {#if lawyerCount > 0}
-          <span>{lawyerCount} advogado{lawyerCount > 1 ? "s" : ""}</span>
+        {#if lawyers.length > 0}
+          <span>{lawyers.length} advogado{lawyers.length > 1 ? "s" : ""}</span>
         {/if}
       </div>
 
@@ -362,11 +387,7 @@
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
             <span class="badge publication-badge">Modo Leitura</span>
-            {#if source}
-              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
-                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-              </span>
-            {/if}
+            {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
@@ -376,7 +397,7 @@
             <p class="orgao-name-reader">{pub.nomeOrgao}</p>
           {/if}
         </div>
-        <div class="header-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o e leitura"}>
+        <div class="header-actions" aria-label="Ações de navegação e leitura">
           <button
             class="btn btn-outline-secondary"
             onclick={() => (isReaderMode = false)}
@@ -396,7 +417,7 @@
             title="Copiar link"
           >
             {@render shareIcon()}
-            {shareCopiedReader ? "Copiado!" : "Compartilhar"}
+            {activeCopied === "reader" ? "Copiado!" : "Compartilhar"}
           </button>
         </div>
       </header>
@@ -476,11 +497,7 @@
             {#if pub.tipoComunicacao}
               <span class="badge publication-badge">{pub.tipoComunicacao}</span>
             {/if}
-            {#if source}
-              <span class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}" title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}>
-                Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-              </span>
-            {/if}
+            {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
@@ -491,9 +508,18 @@
           {/if}
         </div>
 
-        <div class="header-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o e leitura"}>
+        <div class="header-actions" aria-label="Ações de navegação e leitura">
+          {#if onCollapse}
+            <button
+              class="btn btn-outline-secondary"
+              onclick={onCollapse}
+              title="Fechar detalhes"
+            >
+              Fechar
+            </button>
+          {/if}
           <button
-            class="btn-outline-primary"
+            class="btn btn-outline-primary"
             onclick={() => (isReaderMode = true)}
             title="Abrir Modo Leitura"
           >
@@ -505,7 +531,7 @@
               Inteiro teor
             </a>
           {/if}
-          <div class="nav-actions" aria-label={"A\u00e7\u00f5es de navega\u00e7\u00e3o"}>
+          <div class="nav-actions" aria-label="Ações de navegação">
             {#if onNavigate}
               <button
                 class="btn btn-outline-secondary"
@@ -519,7 +545,7 @@
                 onclick={() => onNavigate(seq + 1)}
                 disabled={totalSeq != null && seq >= totalSeq}
               >
-                {"Pr\u00f3xima"}
+                Próxima
               </button>
             {/if}
             <button
@@ -528,7 +554,7 @@
               title="Copiar link"
             >
               {@render shareIcon()}
-              {shareCopied ? "Copiado!" : "Compartilhar"}
+              {activeCopied === "main" ? "Copiado!" : "Compartilhar"}
             </button>
           </div>
         </div>
@@ -562,23 +588,23 @@
         </section>
 
         <aside class="detail-panel">
-          <div class="sidebar-panel">
-            <strong class="sidebar-title">{"Identifica\u00e7\u00e3o"}</strong>
-            <dl class="identity-list">
-              {#if identityRows.length > 0}
+          {#if identityRows.length > 0}
+            <div class="sidebar-panel">
+              <strong class="sidebar-title">Identificação</strong>
+              <dl class="identity-list">
                 {#each identityRows as item}
                   <div class="identity-row">
                     <dt>{item.label}</dt>
                     <dd>{item.value}</dd>
                   </div>
                 {/each}
-              {/if}
-            </dl>
-          </div>
+              </dl>
+            </div>
+          {/if}
 
           {#if parties.length > 0}
             <div class="sidebar-panel">
-              <strong class="sidebar-title">{"Destinat\u00e1rios"}</strong>
+              <strong class="sidebar-title">Destinatários</strong>
               <div class="sidebar-tags">
                 {#each parties as party}
                   <span class="badge name-pill">{party}</span>
@@ -616,13 +642,18 @@
     margin-bottom: 1rem;
   }
 
-  .compact-body {
-    padding: 1.25rem;
+  .expandable {
+    cursor: pointer;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
 
-  .reader-body,
-  .featured-body {
-    padding: 1.5rem;
+  .expandable:hover {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
+  }
+
+  .compact-body {
+    padding: 1.25rem;
   }
 
   .card-header {
@@ -939,10 +970,6 @@
 
   .html-content-reader {
     font-size: 1.08rem;
-  }
-
-  .html-content-compact {
-    font-size: var(--font-size-sm);
   }
 
   .html-content-featured {

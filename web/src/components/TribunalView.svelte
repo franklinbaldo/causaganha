@@ -51,6 +51,11 @@
       .filter(group => group.tribunals.length > 0)
   );
 
+  function formatDate(iso: string): string {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
   function getTribunalStats(t: string) {
     let totalZips = 0;
     let latestDate: string | null = null;
@@ -75,7 +80,7 @@
         <h2 class="section-title">Progresso do Arquivo</h2>
         {#if latestDate}
           <span class="meta-text">
-            Ultima coleta: {latestDate}
+            Última coleta: {latestDate}
             {#if snapshotAge}
               <span> · {new Date(snapshotAge).toLocaleString('pt-BR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} UTC</span>
             {/if}
@@ -193,24 +198,28 @@
             {@const stats = getTribunalStats(t)}
             <a
               href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
-              style="text-decoration: none; color: inherit">
-              <div class="card tribunal-card"><div class="card-body-sm">
-                <div class="tribunal-card-header">
-                  <strong class="small-text">{t}</strong>
-                  <span class={stats.hasData ? "badge badge-success badge-sm" : "badge badge-error badge-sm"}>{stats.hasData ? "Online" : "Offline"}</span>
+              class="tribunal-link"
+            >
+              <div class="card tribunal-card" class:offline={!stats.hasData}>
+                <div class="card-body-sm">
+                  <div class="tribunal-card-header">
+                    <strong class="small-text">{t}</strong>
+                    <span class={stats.hasData ? "badge badge-success badge-sm" : "badge badge-error badge-sm"}>
+                      {stats.hasData ? "Online" : "Offline"}
+                    </span>
+                  </div>
+                  <div class="tribunal-card-meta">
+                    {#if stats.hasData}
+                      {stats.totalZips.toLocaleString()} publicações
+                    {:else}
+                      Sem dados processados
+                    {/if}
+                    {#if stats.latestDate}
+                      <span class="latest-date">Última: {formatDate(stats.latestDate)}</span>
+                    {/if}
+                  </div>
                 </div>
-                <div class="tribunal-card-meta">
-                  {#if stats.hasData}
-                    {stats.totalZips.toLocaleString()} publicacoes
-                  {:else}
-                    Sem dados processados
-                  {/if}
-                  {#if stats.latestDate}
-                    <span class="latest-date">Ultima: {stats.latestDate}</span>
-                  {/if}
-                </div>
-                <progress class={`progress-bar ${stats.hasData ? 'progress-success' : 'progress-error'}`} value={stats.hasData ? 100 : 0} max="100"></progress>
-              </div></div>
+              </div>
             </a>
           {/each}
         </div>
@@ -229,10 +238,9 @@
   .header-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
-    align-items: center;
   }
 
   /* Stats */
@@ -311,10 +319,6 @@
     margin-bottom: 0.5rem;
   }
 
-  .text-sm {
-    font-size: var(--font-size-sm);
-  }
-
   .mono-value {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
@@ -342,16 +346,6 @@
 
   .progress-primary::-webkit-progress-value {
     background: var(--color-primary);
-    border-radius: var(--radius-full);
-  }
-
-  .progress-success::-webkit-progress-value {
-    background: var(--color-success);
-    border-radius: var(--radius-full);
-  }
-
-  .progress-error::-webkit-progress-value {
-    background: var(--color-error);
     border-radius: var(--radius-full);
   }
 
@@ -421,10 +415,6 @@
     margin-bottom: 1rem;
   }
 
-  .mb-0 {
-    margin-bottom: 0;
-  }
-
   /* Group sections */
   .group-section {
     margin-bottom: 4rem;
@@ -442,13 +432,25 @@
   }
 
   /* Tribunal cards */
-  .tribunal-card {
+  .tribunal-link {
+    display: block;
     height: 100%;
-    transition: box-shadow var(--transition-base);
+    text-decoration: none;
+    color: inherit;
   }
 
-  .tribunal-card:hover {
+  .tribunal-link:hover .tribunal-card {
+    border-color: var(--color-accent);
     box-shadow: var(--shadow-md);
+  }
+
+  .tribunal-card {
+    height: 100%;
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .tribunal-card.offline {
+    opacity: 0.6;
   }
 
   .tribunal-card-header {
@@ -461,7 +463,6 @@
   .tribunal-card-meta {
     font-size: var(--font-size-xs);
     opacity: 0.7;
-    margin-bottom: 0.5rem;
   }
 
   .latest-date {
