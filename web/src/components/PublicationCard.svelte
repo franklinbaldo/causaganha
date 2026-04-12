@@ -220,6 +220,13 @@
 
   let isReaderMode = $state(false);
   let activeCopied = $state<"main" | "reader" | "compact" | null>(null);
+  let shareTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    };
+  });
 
   const processNumber = $derived(formatProcessNumber(pub.numero_processo));
   const textParts = $derived(pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : []);
@@ -244,8 +251,12 @@
     if (seq) hash += `/${seq}`;
     const url = `${window.location.origin}${base}#${hash}`;
     navigator.clipboard?.writeText(url);
+    if (shareTimeoutId) clearTimeout(shareTimeoutId);
     activeCopied = context;
-    setTimeout(() => (activeCopied = null), 2000);
+    shareTimeoutId = setTimeout(() => {
+      activeCopied = null;
+      shareTimeoutId = null;
+    }, 2000);
   }
 </script>
 
