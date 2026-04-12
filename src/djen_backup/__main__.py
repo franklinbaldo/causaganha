@@ -231,9 +231,7 @@ def main(  # noqa: PLR0913
         None, "--tribunal", help="Process a single tribunal (e.g. TJSP)."
     ),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
-    max_items: int = typer.Option(
-        0, "--max-items", help="Max downloads per run (0 = unlimited)."
-    ),
+    max_items: int = typer.Option(0, "--max-items", help="Max downloads per run (0 = unlimited)."),
     workers: int = typer.Option(4, "--workers", help="Parallel workers."),
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
