@@ -11,7 +11,7 @@ import structlog
 # Ensure we can import from the root
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth
+from scripts.pipeline.ia_s3 import get_ia_s3_auth
 
 
 logger = structlog.get_logger()
@@ -67,7 +67,8 @@ def cleanup_deprecated_items():
         return
 
     # Create client with auth if available, else anonymous for public audit
-    client = create_upload_client(auth) if auth else httpx.Client(timeout=30)
+    auth_headers = {"Authorization": auth} if auth else {}
+    client = httpx.Client(timeout=30, headers=auth_headers, follow_redirects=True)
 
     # 1. Find all djen items
     search_url = "https://archive.org/advancedsearch.php"
