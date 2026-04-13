@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- CausaGanha favicon — simplified Athos Bulcão home tile -->
+  <rect width="32" height="32" rx="4" fill="#FAFAF5"/>
+  <!-- Center diamond -->
+  <polygon points="16,5 27,16 16,27 5,16" fill="#1A6B3C"/>
+  <!-- Corner accents -->
+  <polygon points="0,0 10,0 0,10" fill="#C5972C"/>
+  <polygon points="32,0 32,10 22,0" fill="#1A6B3C" opacity="0.6"/>
+  <polygon points="32,32 22,32 32,22" fill="#C5972C"/>
+  <polygon points="0,32 0,22 10,32" fill="#1A6B3C" opacity="0.6"/>
+  <!-- Center highlight -->
+  <rect x="13" y="13" width="6" height="6" fill="#FAFAF5"/>
+</svg>
