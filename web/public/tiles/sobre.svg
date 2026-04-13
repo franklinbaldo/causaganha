@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Sobre/Projeto: Interlocking L-shapes — building blocks, construction -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- L-shape 1 (top-left) -->
+  <path d="M10,10 h60 v30 h-30 v30 h-30 z" fill="#1A6B3C"/>
+  <!-- L-shape 2 (top-right, rotated) -->
+  <path d="M190,10 v60 h-30 v-30 h-30 v-30 z" fill="#C5972C"/>
+  <!-- L-shape 3 (center) -->
+  <path d="M70,80 h60 v30 h-30 v30 h-30 z" fill="#1A6B3C" opacity="0.6"/>
+  <!-- L-shape 4 (center-right) -->
+  <path d="M140,70 h30 v60 h-30 v-30 h-30 v-30 h30 z" fill="#C5972C" opacity="0.7"/>
+  <!-- L-shape 5 (bottom-left) -->
+  <path d="M10,140 h30 v30 h30 v30 h-60 z" fill="#C5972C" opacity="0.5"/>
+  <!-- L-shape 6 (bottom-right) -->
+  <path d="M130,140 h60 v60 h-60 v-30 h30 v-30 z" fill="#1A6B3C" opacity="0.5"/>
+</svg>

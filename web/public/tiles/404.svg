@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- 404: Broken/scattered tiles — something missing, fragmented -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Intact tiles (faded) -->
+  <rect x="10" y="10" width="40" height="40" fill="#1A6B3C" opacity="0.15"/>
+  <rect x="60" y="10" width="40" height="40" fill="#C5972C" opacity="0.15"/>
+  <rect x="110" y="10" width="40" height="40" fill="#1A6B3C" opacity="0.15"/>
+  <rect x="10" y="60" width="40" height="40" fill="#C5972C" opacity="0.15"/>
+  <rect x="110" y="60" width="40" height="40" fill="#C5972C" opacity="0.15"/>
+  <rect x="10" y="110" width="40" height="40" fill="#1A6B3C" opacity="0.15"/>
+  <rect x="60" y="110" width="40" height="40" fill="#C5972C" opacity="0.15"/>
+  <!-- Missing center tile (gap) -->
+  <rect x="62" y="62" width="36" height="36" fill="none" stroke="#C5972C" stroke-width="2" stroke-dasharray="4,4" opacity="0.5"/>
+  <!-- Scattered fragments -->
+  <polygon points="160,30 185,25 175,55" fill="#1A6B3C" opacity="0.5" transform="rotate(15,170,37)"/>
+  <polygon points="160,90 190,85 180,115" fill="#C5972C" opacity="0.4" transform="rotate(-10,175,95)"/>
+  <rect x="150" y="140" width="30" height="20" fill="#1A6B3C" opacity="0.3" transform="rotate(8,165,150)"/>
+  <!-- Bottom intact row (hope) -->
+  <rect x="10" y="165" width="30" height="30" fill="#1A6B3C" opacity="0.35"/>
+  <rect x="45" y="165" width="30" height="30" fill="#C5972C" opacity="0.35"/>
+  <rect x="80" y="165" width="30" height="30" fill="#1A6B3C" opacity="0.35"/>
+  <rect x="115" y="165" width="30" height="30" fill="#C5972C" opacity="0.35"/>
+</svg>

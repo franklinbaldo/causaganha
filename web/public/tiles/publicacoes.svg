@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Publicações: Stacked horizontal bands — layers of publications/documents -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <rect x="0" y="0" width="200" height="28" fill="#1A6B3C"/>
+  <rect x="0" y="34" width="140" height="20" fill="#C5972C"/>
+  <rect x="0" y="60" width="200" height="28" fill="#1A6B3C" opacity="0.7"/>
+  <rect x="60" y="94" width="140" height="20" fill="#C5972C" opacity="0.8"/>
+  <rect x="0" y="120" width="200" height="28" fill="#1A6B3C" opacity="0.5"/>
+  <rect x="0" y="154" width="100" height="20" fill="#C5972C" opacity="0.6"/>
+  <rect x="110" y="154" width="90" height="20" fill="#1A6B3C" opacity="0.3"/>
+  <rect x="0" y="180" width="200" height="20" fill="#1A6B3C" opacity="0.35"/>
+</svg>

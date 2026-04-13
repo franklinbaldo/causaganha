@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Stats/Indicadores: Rising bars with triangular caps — chart/growth metaphor -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Bar 1 -->
+  <rect x="15" y="130" width="24" height="60" fill="#1A6B3C" opacity="0.4"/>
+  <polygon points="15,130 27,110 39,130" fill="#1A6B3C" opacity="0.4"/>
+  <!-- Bar 2 -->
+  <rect x="47" y="90" width="24" height="100" fill="#C5972C" opacity="0.6"/>
+  <polygon points="47,90 59,70 71,90" fill="#C5972C" opacity="0.6"/>
+  <!-- Bar 3 -->
+  <rect x="79" y="60" width="24" height="130" fill="#1A6B3C" opacity="0.7"/>
+  <polygon points="79,60 91,38 103,60" fill="#1A6B3C" opacity="0.7"/>
+  <!-- Bar 4 -->
+  <rect x="111" y="40" width="24" height="150" fill="#C5972C"/>
+  <polygon points="111,40 123,18 135,40" fill="#C5972C"/>
+  <!-- Bar 5 -->
+  <rect x="143" y="20" width="24" height="170" fill="#1A6B3C"/>
+  <polygon points="143,20 155,0 167,20" fill="#1A6B3C"/>
+  <!-- Baseline -->
+  <line x1="10" y1="192" x2="190" y2="192" stroke="#1A6B3C" stroke-width="2" opacity="0.3"/>
+  <!-- Small decorative tiles -->
+  <rect x="175" y="170" width="18" height="18" fill="#C5972C" opacity="0.25"/>
+  <rect x="175" y="145" width="18" height="18" fill="#1A6B3C" opacity="0.2"/>
+</svg>

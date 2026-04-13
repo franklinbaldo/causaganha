@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Dicionário: Typographic grid — letters/columns as in a dictionary page -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Column dividers -->
+  <line x1="66" y1="10" x2="66" y2="190" stroke="#E0DDD4" stroke-width="1"/>
+  <line x1="133" y1="10" x2="133" y2="190" stroke="#E0DDD4" stroke-width="1"/>
+  <!-- Key letters -->
+  <text x="25" y="50" font-family="Georgia,serif" font-size="38" font-weight="bold" fill="#1A6B3C" text-anchor="middle">A</text>
+  <text x="100" y="50" font-family="Georgia,serif" font-size="38" font-weight="bold" fill="#C5972C" text-anchor="middle">D</text>
+  <text x="166" y="50" font-family="Georgia,serif" font-size="38" font-weight="bold" fill="#1A6B3C" opacity="0.6" text-anchor="middle">P</text>
+  <!-- Definition bars -->
+  <rect x="8" y="65" width="50" height="4" fill="#1A6B3C" opacity="0.3"/>
+  <rect x="8" y="78" width="40" height="4" fill="#1A6B3C" opacity="0.2"/>
+  <rect x="8" y="91" width="50" height="4" fill="#C5972C" opacity="0.2"/>
+  <rect x="75" y="65" width="50" height="4" fill="#C5972C" opacity="0.3"/>
+  <rect x="75" y="78" width="40" height="4" fill="#C5972C" opacity="0.2"/>
+  <rect x="75" y="91" width="50" height="4" fill="#1A6B3C" opacity="0.2"/>
+  <rect x="141" y="65" width="50" height="4" fill="#1A6B3C" opacity="0.3"/>
+  <rect x="141" y="78" width="35" height="4" fill="#1A6B3C" opacity="0.2"/>
+  <rect x="141" y="91" width="50" height="4" fill="#C5972C" opacity="0.2"/>
+  <!-- Decorative tile mosaic at bottom -->
+  <g opacity="0.35">
+    <rect x="10" y="120" width="25" height="25" fill="#1A6B3C"/>
+    <rect x="40" y="120" width="25" height="25" fill="#C5972C"/>
+    <rect x="70" y="120" width="25" height="25" fill="#1A6B3C"/>
+    <rect x="100" y="120" width="25" height="25" fill="#C5972C"/>
+    <rect x="130" y="120" width="25" height="25" fill="#1A6B3C"/>
+    <rect x="160" y="120" width="25" height="25" fill="#C5972C"/>
+    <rect x="10" y="150" width="25" height="25" fill="#C5972C"/>
+    <rect x="40" y="150" width="25" height="25" fill="#1A6B3C"/>
+    <rect x="70" y="150" width="25" height="25" fill="#C5972C"/>
+    <rect x="100" y="150" width="25" height="25" fill="#1A6B3C"/>
+    <rect x="130" y="150" width="25" height="25" fill="#C5972C"/>
+    <rect x="160" y="150" width="25" height="25" fill="#1A6B3C"/>
+  </g>
+</svg>

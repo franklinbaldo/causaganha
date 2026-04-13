@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Advogados: Balance/scales motif — justice, symmetrical triangles -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Central pillar -->
+  <rect x="95" y="30" width="10" height="140" fill="#1A6B3C"/>
+  <!-- Beam -->
+  <rect x="20" y="45" width="160" height="6" fill="#1A6B3C"/>
+  <!-- Left pan -->
+  <polygon points="40,60 20,120 60,120" fill="#C5972C"/>
+  <line x1="50" y1="48" x2="40" y2="60" stroke="#1A6B3C" stroke-width="3"/>
+  <!-- Right pan -->
+  <polygon points="160,60 140,120 180,120" fill="#C5972C" opacity="0.7"/>
+  <line x1="150" y1="48" x2="160" y2="60" stroke="#1A6B3C" stroke-width="3"/>
+  <!-- Base -->
+  <polygon points="70,170 130,170 115,145 85,145" fill="#1A6B3C"/>
+  <!-- Decorative tiles at bottom -->
+  <rect x="10" y="180" width="25" height="15" fill="#C5972C" opacity="0.4"/>
+  <rect x="45" y="180" width="25" height="15" fill="#1A6B3C" opacity="0.3"/>
+  <rect x="80" y="180" width="25" height="15" fill="#C5972C" opacity="0.4"/>
+  <rect x="115" y="180" width="25" height="15" fill="#1A6B3C" opacity="0.3"/>
+  <rect x="150" y="180" width="25" height="15" fill="#C5972C" opacity="0.4"/>
+</svg>
