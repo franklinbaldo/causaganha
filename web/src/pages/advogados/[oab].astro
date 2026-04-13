@@ -37,7 +37,7 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
 ---
 
 <Layout title={`${key} - Advogados - CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
-  <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
+  <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
 
   <div class="container">
     <Breadcrumbs crumbs={[

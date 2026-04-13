@@ -8,6 +8,7 @@ interface Props {
   subtitle?: string;
   backHref?: string;
   backLabel?: string;
+  tile?: string;
 }
 
 const {
@@ -16,6 +17,7 @@ const {
   subtitle,
   backHref = import.meta.env.BASE_URL,
   backLabel = 'Back',
+  tile,
 } = Astro.props;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -145,6 +147,10 @@ const recursosLinks = [
           <div class="icon-slot">
             <slot name="icon" />
           </div>
+        ) : tile ? (
+          <a href={backHref} aria-label={backLabel} class="tile-icon-link">
+            <img src={`${BASE}tiles/${tile}.svg`} alt="" width="40" height="40" class="tile-icon" />
+          </a>
         ) : (
           <a href={backHref} aria-label={backLabel} class="btn-back">
             <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -538,6 +544,26 @@ const recursosLinks = [
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .tile-icon-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: opacity var(--transition-base);
+  }
+
+  .tile-icon-link:hover {
+    opacity: 0.7;
+  }
+
+  .tile-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
   }
 
   .title-group {
