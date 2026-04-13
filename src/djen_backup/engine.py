@@ -275,13 +275,13 @@ async def run_pipeline(
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
 
             except DJENNotFoundError:
-                # Don't mark absent — checker already confirmed it exists.
-                # The URL just expired or DJEN is temporarily returning 404.
-                # Leave as available for next run to retry.
+                # Checker confirmed available but downloader got 404 —
+                # DJEN is inconsistent. Leave as available for retry.
                 log.warning(
-                    "download_not_found_skipped",
+                    "download_inconsistent",
                     tribunal=entry.tribunal,
                     date=entry.date.isoformat(),
+                    msg="checker confirmed available but download got 404",
                 )
 
             except Exception as exc:
@@ -322,8 +322,7 @@ async def run_pipeline(
                         config.observer.on_log(
                             f"[dim]Already on IA[/dim] {item.tribunal} {item.d.isoformat()}"
                         )
-                    upload_queue.task_done()
-                    continue
+                    continue  # finally handles task_done()
 
                 ok = await upload_zip(
                     upload_client,
