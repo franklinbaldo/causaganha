@@ -226,8 +226,13 @@
       itensPorPagina: hydrated.itensPorPagina ?? 30,
       pagina: hydrated.pagina ?? 1,
     };
+    // Reconstruct rawInput so the search field shows what was searched
     if (typeof hydrated.texto === 'string' && hydrated.texto) {
       rawInput = hydrated.texto;
+    } else if (hydrated.ufOab && hydrated.numeroOab) {
+      rawInput = `OAB ${hydrated.ufOab} ${hydrated.numeroOab}`;
+    } else if (hydrated.numeroProcesso) {
+      rawInput = hydrated.numeroProcesso;
     }
     // debounced effect will fire the search
   });
