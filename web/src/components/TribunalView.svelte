@@ -190,7 +190,7 @@
     {#each filteredGroups as group}
       <section class="group-section">
         <div class="group-header">
-          <h3 class="group-title" style="margin-bottom: 0.25rem">{group.name}</h3>
+          <h3 class="group-title">{group.name}</h3>
           <small class="meta-text">{group.tribunals.length} tribunais</small>
         </div>
         <div class="auto-grid">
@@ -432,7 +432,7 @@
 
   .group-title {
     font-size: var(--font-size-xl, 1.25rem);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
   /* Tribunal cards */
