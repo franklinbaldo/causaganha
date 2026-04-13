@@ -150,6 +150,17 @@ class SyncManifest:
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._invalidate_caches()
 
+    async def mark_unknown(self, tribunal: str, d: date) -> None:
+        """Reset entry back to unknown (both statuses cleared)."""
+        async with self._lock:
+            k = self._key(tribunal, d)
+            entry = self._entries.get(k)
+            if entry:
+                entry.ia_status = ""
+                entry.djen_status = ""
+                entry.updated_at = ""
+                self._invalidate_caches()
+
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
         """After successful upload to IA."""
         async with self._lock:

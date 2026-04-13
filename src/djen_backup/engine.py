@@ -275,14 +275,15 @@ async def run_pipeline(
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
 
             except DJENNotFoundError:
-                # Checker confirmed available but downloader got 404 —
-                # DJEN is inconsistent. Leave as available for retry.
+                # Checker confirmed available but fresh URL returned 404.
+                # Reset to unknown so next run's checker re-verifies.
+                await manifest.mark_unknown(entry.tribunal, entry.date)
                 log.warning(
-                    "download_inconsistent",
+                    "download_reset_to_unknown",
                     tribunal=entry.tribunal,
                     date=entry.date.isoformat(),
-                    msg="checker confirmed available but download got 404",
                 )
+                _notify_counts()
 
             except Exception as exc:
                 log.warning(
