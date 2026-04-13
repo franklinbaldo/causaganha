@@ -32,6 +32,13 @@
   let searched = $state(false);
 
   let searchSubmitBtn: HTMLButtonElement;
+  let suggestionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (suggestionTimeoutId) clearTimeout(suggestionTimeoutId);
+    };
+  });
 
   async function handleSearch() {
     const q = query.trim().toUpperCase();
@@ -117,7 +124,11 @@
         <button class="suggestion-badge"
             onclick={() => {
               query = tag;
-              setTimeout(() => searchSubmitBtn?.click(), 50);
+              if (suggestionTimeoutId) clearTimeout(suggestionTimeoutId);
+              suggestionTimeoutId = setTimeout(() => {
+                searchSubmitBtn?.click();
+                suggestionTimeoutId = null;
+              }, 50);
             }}>
           {tag}
         </button>

@@ -96,11 +96,11 @@
         <p class="stat-title">ZIPs no IA</p>
       </div>
       <div class="stat">
-        <div class="stat-value value-warning">{totalGB.toFixed(1)}<small class="unit-suffix" style="font-size: 0.4em; margin-left: 0.15em">GB</small></div>
+        <div class="stat-value value-warning">{totalGB.toFixed(1)}<small class="unit-suffix">GB</small></div>
         <p class="stat-title">Volume</p>
       </div>
       <div class="stat">
-        <div class="stat-value value-success">{tribunalsWithData}<small class="fraction-suffix" style="font-size: 0.4em; margin-left: 0.15em">/ {snap?.tribunals_total || 96}</small></div>
+        <div class="stat-value value-success">{tribunalsWithData}<small class="fraction-suffix">/ {snap?.tribunals_total || 96}</small></div>
         <p class="stat-title">Tribunais</p>
       </div>
       <div class="stat">
@@ -295,11 +295,15 @@
   }
 
   .unit-suffix {
+    font-size: 0.4em;
     font-weight: 500;
+    margin-left: 0.15em;
   }
 
   .fraction-suffix {
+    font-size: 0.4em;
     font-weight: 400;
+    margin-left: 0.15em;
     opacity: 0.5;
     color: var(--color-base-content);
   }

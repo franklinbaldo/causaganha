@@ -101,7 +101,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     <!-- DuckDB catalog query -->
     <section>
       <div>
-        <span>Consulta via Catalogo (DuckDB)</span>
+        <span>Consulta via Catálogo (DuckDB)</span>
         <button
           class="btn btn-outline"
           onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
