@@ -17,6 +17,18 @@ with no side effects. All state is immutable (frozen dataclasses).
 from dataclasses import dataclass, field
 
 
+def _validate_partition_date(date_str: str) -> None:
+    """Validate YYYY-MM-DD format. Raises ValueError on invalid input."""
+    parts = date_str.split("-")
+    if len(parts) != DATE_PARTS_COUNT:
+        msg = "Invalid date format"
+        raise ValueError(msg)
+    year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+    if not (MIN_YEAR <= year <= MAX_YEAR and 1 <= month <= MAX_MONTH and 1 <= day <= MAX_DAY_OF_MONTH):
+        msg = "Invalid date values"
+        raise ValueError(msg)
+
+
 @dataclass(frozen=True)
 class ExportPlan:
     """Pure: What needs to be exported (immutable plan)."""
@@ -37,18 +49,7 @@ class ExportPlan:
 
         # Validate date format (YYYY-MM-DD)
         try:
-            parts = self.partition_date.split("-")
-            if len(parts) != DATE_PARTS_COUNT:
-                msg = "Invalid date format"
-                raise ValueError(msg)
-            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-            if not (
-                MIN_YEAR <= year <= MAX_YEAR
-                and 1 <= month <= MAX_MONTH
-                and 1 <= day <= MAX_DAY_OF_MONTH
-            ):
-                msg = "Invalid date values"
-                raise ValueError(msg)
+            _validate_partition_date(self.partition_date)
         except (ValueError, AttributeError) as e:
             msg = f"ExportPlan: invalid date format '{self.partition_date}': {e}"
             raise ValueError(msg) from e

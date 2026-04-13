@@ -31,6 +31,12 @@ def _raise_not_found(status_code: int, reason: str) -> None:
     raise DJENNotFoundError(status_code=status_code, reason=reason)
 
 
+def _raise_server_error(status_code: int) -> None:
+    """Helper to raise httpx.HTTPError for server errors (satisfies TRY301)."""
+    msg = f"Server error on download: {status_code}"
+    raise httpx.HTTPError(msg)
+
+
 # HTTP status constants
 HTTP_NOT_FOUND = 404
 
@@ -224,8 +230,7 @@ async def _download_simple(
         if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
             tmp.close()
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            msg = f"Server error on download: {resp.status_code}"
-            raise httpx.HTTPError(msg)
+            _raise_server_error(resp.status_code)
 
         resp.raise_for_status()
 

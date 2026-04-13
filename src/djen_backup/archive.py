@@ -143,9 +143,10 @@ async def check_ia_file_exists(
     url = f"https://archive.org/download/{item_id}/{filename}"
     try:
         resp = await client.head(url)
-        return resp.status_code == HTTP_OK
     except Exception:
         return False
+    else:
+        return resp.status_code == HTTP_OK
 
 
 # ── IA S3 upload ─────────────────────────────────────────────────────

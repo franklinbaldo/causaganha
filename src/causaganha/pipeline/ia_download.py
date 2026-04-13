@@ -21,6 +21,12 @@ import internetarchive as ia
 logger = logging.getLogger(__name__)
 
 
+def _raise_checksum_error(expected: str, actual: str) -> None:
+    """Raise OSError for checksum mismatch (satisfies TRY301)."""
+    msg = f"Checksum mismatch: expected {expected}, got {actual}"
+    raise OSError(msg)
+
+
 @dataclass
 class DownloadConfig:
     """Configuration for Internet Archive downloads."""
@@ -353,10 +359,7 @@ class IAParquetDownloader:
                 actual_md5 = await self._calculate_md5(file_path)
 
                 if actual_md5 != expected_md5:
-                    msg = f"Checksum mismatch: expected {expected_md5}, got {actual_md5}"
-                    raise OSError(
-                        msg,
-                    )
+                    _raise_checksum_error(expected_md5, actual_md5)
 
                 logger.debug("Checksum verified: %s", actual_md5)
 

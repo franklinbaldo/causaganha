@@ -17,6 +17,30 @@ HTTP_SERVICE_UNAVAILABLE = 503
 RETRIABLE_STATUS_CODES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})
 
 
+def _should_retry(
+    resp: httpx.Response,
+    attempt: int,
+    max_retries: int,
+    *,
+    retry_djen_400: bool,
+    retry_404: bool,
+) -> float | None:
+    """Return wait time if this response should be retried, else None."""
+    if attempt >= max_retries:
+        return None
+
+    if resp.status_code in RETRIABLE_STATUS_CODES:
+        return _backoff(attempt, resp)
+
+    if retry_djen_400 and resp.status_code == HTTP_BAD_REQUEST:
+        return _backoff(attempt, resp)
+
+    if retry_404 and resp.status_code == 404:
+        return _backoff(attempt, resp)
+
+    return None
+
+
 async def request_with_retry(
     client: httpx.AsyncClient,
     method: str,
@@ -47,64 +71,9 @@ async def request_with_retry(
                 content=content,
                 headers=headers,
             )
-
-            if resp.status_code in RETRIABLE_STATUS_CODES:
-                wait = _backoff(attempt, resp)
-                if attempt < max_retries:
-                    log.warning(
-                        "http_retry",
-                        url=url,
-                        status=resp.status_code,
-                        attempt=attempt + 1,
-                        wait_s=wait,
-                    )
-                    await asyncio.sleep(wait)
-                    continue
-                # Final attempt exhausted — log response body for diagnosis
-                body_preview = resp.text[:500] if resp.text else "<empty>"
-                log.error(
-                    "http_retries_exhausted",
-                    url=url,
-                    status=resp.status_code,
-                    body=body_preview,
-                )
-            # The DJEN proxy occasionally returns HTTP 400 for valid
-            # requests under transient load — treat as retriable when the
-            # caller opts in via retry_djen_400=True.
-            elif retry_djen_400 and resp.status_code == HTTP_BAD_REQUEST:
-                wait = _backoff(attempt, resp)
-                if attempt < max_retries:
-                    log.warning(
-                        "djen_400_retry",
-                        url=url,
-                        attempt=attempt + 1,
-                        wait_s=wait,
-                    )
-                    await asyncio.sleep(wait)
-                    continue
-
-            # Treat 404 as retriable when explicitly opted-in (e.g. for proxy endpoints that flake)
-            elif retry_404 and resp.status_code == 404:
-                wait = _backoff(attempt, resp)
-                if attempt < max_retries:
-                    log.warning(
-                        "http_404_retry",
-                        url=url,
-                        attempt=attempt + 1,
-                        wait_s=wait,
-                    )
-                    await asyncio.sleep(wait)
-                    continue
-
-            # Either it was a success, a non-retriable error, or retries are exhausted.
-            # Just return the response and let the caller handle it.
-            return resp
-
         except (httpx.TransportError, httpx.TimeoutException) as exc:
             last_exc = exc
             if attempt < max_retries:
-                # Use a fixed 5s delay for timeout/transport errors if not using exponential backoff strictly
-                # But here we default to exponential if we just want 5s we can do max(5.0, float(2**attempt))
                 wait = max(5.0, float(2**attempt))
                 log.warning(
                     "http_transport_retry",
@@ -114,8 +83,28 @@ async def request_with_retry(
                     wait_s=wait,
                 )
                 await asyncio.sleep(wait)
-            else:
-                raise
+                continue
+            raise
+        else:
+            wait = _should_retry(
+                resp,
+                attempt,
+                max_retries,
+                retry_djen_400=retry_djen_400,
+                retry_404=retry_404,
+            )
+            if wait is not None:
+                log.warning(
+                    "http_retry",
+                    url=url,
+                    status=resp.status_code,
+                    attempt=attempt + 1,
+                    wait_s=wait,
+                )
+                await asyncio.sleep(wait)
+                continue
+
+            return resp
 
     # Should not reach here, but satisfy the type checker
     if last_exc is not None:
