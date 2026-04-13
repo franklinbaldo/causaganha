@@ -212,12 +212,22 @@ export function normalizeExternalUrl(value: unknown): string | undefined {
   const raw = typeof value === "string" ? value.trim() : String(value).trim();
   if (!raw) return undefined;
 
+  // Absolute URL
   try {
     const url = new URL(raw);
     if (url.protocol === "http:" || url.protocol === "https:") {
       return url.toString();
     }
   } catch {
+    // Relative path from the DJEN API — resolve against the public base
+    if (raw.startsWith("/")) {
+      try {
+        const resolved = new URL(raw, "https://comunicaapi.pje.jus.br");
+        return resolved.toString();
+      } catch {
+        return undefined;
+      }
+    }
     return undefined;
   }
   return undefined;

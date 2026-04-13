@@ -322,7 +322,12 @@
             <small class="date-label">{dateStr}</small>
           </div>
           {#if processNumber}
-            <span class="process-number process-number-lg">{processNumber}</span>
+            <button
+              type="button"
+              class="process-number process-number-lg process-link"
+              onclick={(e: MouseEvent) => { e.stopPropagation(); onExpand?.(); }}
+              title="Abrir detalhes da publicação"
+            >{processNumber}</button>
           {/if}
         </div>
         <div class="header-actions">
@@ -724,6 +729,22 @@
     font-weight: 700;
     font-family: var(--font-mono);
     letter-spacing: -0.03em;
+  }
+
+  .process-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.15em;
+    transition: text-decoration-color var(--transition-base), color var(--transition-base);
+  }
+
+  .process-link:hover {
+    color: var(--color-primary);
+    text-decoration-color: var(--color-primary);
   }
 
   .process-number-lg {
