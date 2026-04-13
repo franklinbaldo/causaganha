@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Tribunal detail: Courthouse columns with tiled pediment -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Pediment triangle -->
+  <polygon points="20,70 100,20 180,70" fill="#1A6B3C"/>
+  <!-- Tiled frieze -->
+  <g opacity="0.6">
+    <rect x="20" y="72" width="26" height="12" fill="#C5972C"/>
+    <rect x="49" y="72" width="26" height="12" fill="#1A6B3C"/>
+    <rect x="78" y="72" width="26" height="12" fill="#C5972C"/>
+    <rect x="107" y="72" width="26" height="12" fill="#1A6B3C"/>
+    <rect x="136" y="72" width="26" height="12" fill="#C5972C"/>
+    <rect x="155" y="72" width="26" height="12" fill="#1A6B3C"/>
+  </g>
+  <!-- Columns -->
+  <rect x="35" y="88" width="14" height="90" fill="#1A6B3C" opacity="0.7"/>
+  <rect x="65" y="88" width="14" height="90" fill="#1A6B3C" opacity="0.7"/>
+  <rect x="95" y="88" width="14" height="90" fill="#1A6B3C" opacity="0.7"/>
+  <rect x="125" y="88" width="14" height="90" fill="#1A6B3C" opacity="0.7"/>
+  <rect x="155" y="88" width="14" height="90" fill="#1A6B3C" opacity="0.7"/>
+  <!-- Base -->
+  <rect x="15" y="178" width="170" height="14" fill="#1A6B3C" opacity="0.5"/>
+  <!-- Inner pediment accent -->
+  <circle cx="100" cy="50" r="10" fill="#FAFAF5" opacity="0.5"/>
+</svg>

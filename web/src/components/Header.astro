@@ -29,10 +29,10 @@ function isActive(href: string): boolean {
 }
 
 const primaryLinks = [
-  { href: BASE + 'publicacoes', label: 'Buscar' },
-  { href: BASE + 'explorador', label: 'SQL' },
-  { href: BASE + 'stats', label: 'Indicadores' },
-  { href: BASE + 'sobre', label: 'Projeto' },
+  { href: BASE + 'publicacoes', label: 'Jurisprudência' },
+  { href: BASE + 'explorador', label: 'Tribunais' },
+  { href: BASE + 'sobre', label: 'Metodologia' },
+  { href: BASE + 'dados', label: 'API' },
 ];
 
 const ferramentasLinks = [
@@ -90,6 +90,7 @@ const recursosLinks = [
       <div class="desktop-only mr-2 widget-wrapper">
         <ActivePipelineStatus client:load />
       </div>
+      <a href={BASE + 'publicacoes'} class="btn btn-primary btn-enter desktop-only">Entrar</a>
       <ThemeToggle />
       <div class="drawer drawer-end mobile-only">
         <input id="mobile-drawer-home" type="checkbox" class="drawer-toggle" />
@@ -286,17 +287,25 @@ const recursosLinks = [
     background: transparent;
     border: none;
     padding: var(--space-2) var(--space-3);
+    font-family: var(--font-serif);
     font-size: var(--font-size-lg);
-    font-weight: 800;
-    letter-spacing: -0.025em;
+    font-weight: 400;
+    letter-spacing: 0;
     text-decoration: none;
     color: var(--color-base-content);
-    border-radius: var(--radius-btn);
+    border-radius: var(--radius-sm);
     cursor: pointer;
   }
 
   .brand-link:hover {
     background: var(--color-base-200);
+  }
+
+  /* Enter button */
+  .btn-enter {
+    padding: 0.4rem 1.25rem;
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-full);
   }
 
   /* Menu */

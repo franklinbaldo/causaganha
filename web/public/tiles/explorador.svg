@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Explorador SQL: Grid of cells — database/spreadsheet metaphor -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <g fill="#1A6B3C">
+    <rect x="5" y="5" width="40" height="40"/>
+    <rect x="55" y="5" width="40" height="40" opacity="0.5"/>
+    <rect x="105" y="5" width="40" height="40"/>
+    <rect x="155" y="5" width="40" height="40" opacity="0.5"/>
+    <rect x="5" y="55" width="40" height="40" opacity="0.5"/>
+    <rect x="105" y="55" width="40" height="40" opacity="0.5"/>
+  </g>
+  <g fill="#C5972C">
+    <rect x="55" y="55" width="40" height="40"/>
+    <rect x="155" y="55" width="40" height="40"/>
+    <rect x="5" y="105" width="40" height="40"/>
+    <rect x="155" y="105" width="40" height="40"/>
+    <rect x="55" y="155" width="40" height="40"/>
+    <rect x="155" y="155" width="40" height="40" opacity="0.5"/>
+  </g>
+  <g fill="#1A6B3C" opacity="0.3">
+    <rect x="55" y="105" width="40" height="40"/>
+    <rect x="105" y="105" width="40" height="40"/>
+    <rect x="5" y="155" width="40" height="40"/>
+    <rect x="105" y="155" width="40" height="40"/>
+  </g>
+</svg>

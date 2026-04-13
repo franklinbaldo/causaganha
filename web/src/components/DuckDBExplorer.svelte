@@ -64,7 +64,6 @@ LIMIT 20`,
         db = dbInstance;
         conn = connInstance;
         dbStatus = 'ready';
-        console.log('DuckDB-WASM fully initialized.');
       }
     } catch (err) {
       if (!cancelled) {
@@ -222,7 +221,7 @@ LIMIT 20`,
       {loading ? 'Executando...' : 'Executar (Ctrl+Enter)'}
     </button>
     {#if result}
-      <button class="btn btn--outline" onclick={exportCsv}>
+      <button class="btn btn-outline" onclick={exportCsv}>
         Exportar CSV
       </button>
       <small class="result-meta">
@@ -509,13 +508,13 @@ LIMIT 20`,
     margin-top: 0.75rem;
   }
 
-  .btn--outline {
+  .btn-outline {
     background: transparent;
     border-color: var(--color-primary);
     color: var(--color-primary);
   }
 
-  .btn--outline:hover {
+  .btn-outline:hover {
     background: var(--color-primary);
     color: var(--color-primary-content);
   }

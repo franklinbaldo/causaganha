@@ -6,22 +6,22 @@
 
 export const HOW_IT_WORKS_CARDS = [
   {
-    title: 'Coleta Automática',
-    icon: '⚡',
-    description: 'A cada 20 minutos, o GitHub Actions coleta publicações do DJEN de todos os tribunais brasileiros via proxy dedicado.',
-    key: 'coleta',
+    title: 'Extração Ética',
+    icon: '01.',
+    description: 'Nossos crawlers respeitam as políticas de cada tribunal, coletando apenas dados públicos oficiais.',
+    key: 'extracao',
   },
   {
-    title: 'Arquivo Permanente',
-    icon: '🗄️',
-    description: 'Cada ZIP é enviado ao Internet Archive, garantindo acesso público permanente e preservação histórica dos dados.',
-    key: 'arquivo',
+    title: 'Normalização',
+    icon: '02.',
+    description: 'Limpeza e estruturação dos dados em um formato JSON padronizado para facilitar o consumo.',
+    key: 'normalizacao',
   },
   {
-    title: 'Catálogo Indexado',
-    icon: '🔍',
-    description: 'Um catálogo em Parquet é gerado automaticamente, permitindo consultas rápidas via DuckDB direto no navegador.',
-    key: 'catalogo',
+    title: 'Acesso Livre',
+    icon: '03.',
+    description: 'Disponibilizamos tudo via API ou downloads em massa, sem custos ou barreiras.',
+    key: 'acesso',
   },
 ] as const;
 

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Comparador: Split composition — two mirrored halves for comparison -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Left half -->
+  <rect x="10" y="10" width="85" height="40" fill="#1A6B3C"/>
+  <rect x="10" y="60" width="60" height="30" fill="#1A6B3C" opacity="0.6"/>
+  <rect x="10" y="100" width="85" height="25" fill="#C5972C" opacity="0.5"/>
+  <rect x="10" y="135" width="45" height="25" fill="#1A6B3C" opacity="0.4"/>
+  <rect x="10" y="170" width="85" height="20" fill="#C5972C" opacity="0.3"/>
+  <!-- Divider -->
+  <line x1="100" y1="5" x2="100" y2="195" stroke="#1A6B3C" stroke-width="2" stroke-dasharray="6,4"/>
+  <!-- Right half (mirrored, different lengths) -->
+  <rect x="105" y="10" width="85" height="40" fill="#C5972C"/>
+  <rect x="130" y="60" width="60" height="30" fill="#C5972C" opacity="0.6"/>
+  <rect x="105" y="100" width="85" height="25" fill="#1A6B3C" opacity="0.5"/>
+  <rect x="145" y="135" width="45" height="25" fill="#C5972C" opacity="0.4"/>
+  <rect x="105" y="170" width="85" height="20" fill="#1A6B3C" opacity="0.3"/>
+</svg>

@@ -37,129 +37,91 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- ── HERO ── -->
   <section class="hero">
     <div class="hero-content">
-      <div class="hero-grid">
+      <p class="hero-eyebrow">Acervo Editorial</p>
+      <h1 class="hero-h1">Dados do judiciário <em>brasileiro,</em> abertos para todos.</h1>
 
-        <!-- Left: headline + search -->
-        <div class="hero-text">
-          <p class="hero-eyebrow">100% Aberto · 100% Gratuito · Open Source</p>
-          <h1 class="hero-h1">Dados do judiciário brasileiro, abertos para todos.</h1>
-          <p class="hero-description">
-            Coletamos publicações de <strong>{totalTribunals} tribunais</strong> a cada 20 minutos
-            e arquivamos permanentemente no Internet Archive.
-          </p>
-
-          <!-- Search form -->
-          <form class="search-form" id="home-search-form" action={BASE + 'publicacoes'} method="get">
-            <div class="search-input-wrapper">
-              <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                id="home-search-input"
-                name="texto"
-                type="search"
-                class="search-input"
-                placeholder="Buscar por OAB (SP 123456), processo ou texto…"
-                autocomplete="off"
-                autocorrect="off"
-                spellcheck="false"
-              />
-            </div>
-            <button type="submit" class="btn btn-primary search-btn">Buscar</button>
-          </form>
-          <p class="search-hint">Experimente: <button type="button" class="hint-chip" data-example="TJSP">TJSP</button> · <button type="button" class="hint-chip" data-example="OAB SP 12345">OAB SP 12345</button> · <button type="button" class="hint-chip" data-example="mandado de segurança">mandado de segurança</button></p>
-
-          <div class="mode-trio">
-            <a href={BASE + 'publicacoes'} class="mode-card mode-card--primary">
-              <strong class="mode-card-title">Buscar publicações</strong>
-              <span class="mode-card-desc">Pesquise por OAB, processo ou texto livre no DJEN ao vivo</span>
-            </a>
-            <a href={BASE + 'publicacoes#arquivo'} class="mode-card">
-              <strong class="mode-card-title">Navegar no arquivo</strong>
-              <span class="mode-card-desc">Acervo preservado no Internet Archive por tribunal e data</span>
-            </a>
-            <a href={BASE + 'explorador'} class="mode-card">
-              <strong class="mode-card-title">Consultar com SQL</strong>
-              <span class="mode-card-desc">DuckDB no navegador — consulte arquivos Parquet diretamente</span>
-            </a>
-          </div>
+      <!-- Search form -->
+      <form class="search-form" id="home-search-form" action={BASE + 'publicacoes'} method="get">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input
+            id="home-search-input"
+            name="texto"
+            type="search"
+            class="search-input"
+            placeholder="Busque por processo, tribunal ou palavra-chave..."
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="search-submit" aria-label="Buscar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
         </div>
+      </form>
+    </div>
+  </section>
 
-        <!-- Right: live status -->
-        <div class="hero-status">
-          <div class="card status-card">
-            <div class="card-body">
-              <div class="status-header">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span class="sr-only">Sistema ativo — </span>
-                <strong>Coletando agora</strong>
-                <small class="status-freq">a cada 20 min</small>
-              </div>
-              <ul class="status-list">
-                <li class="status-item">
-                  <span class="status-num">{tribunalsWithData}<small class="unit">/{totalTribunals}</small></span>
-                  <span class="status-desc">tribunais com dados arquivados</span>
-                </li>
-                <li class="status-item">
-                  <span class="status-num">{formatNumber(totalZips)}{filesToday > 0 && <small class="unit"> (+{formatNumber(filesToday)} hoje)</small>}</span>
-                  <span class="status-desc">ZIPs no arquivo total</span>
-                </li>
-                <li class="status-item">
-                  <span class="status-num">{totalGB.toFixed(1)}<small class="unit">GB</small></span>
-                  <span class="status-desc">preservados · última coleta: {snap.latest_collection_date ?? '—'}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
+  <!-- ── STATS ROW ── -->
+  <section class="section-container">
+    <div class="stats-row">
+      <figure>
+        <span class="stats-label">Coletados anual</span>
+        <div class="stats-value">{formatNumber(totalZips)}<small class="stats-unit">lotes</small></div>
+      </figure>
+      <figure>
+        <span class="stats-label">Tribunais mapeados</span>
+        <div class="stats-value">{tribunalsWithData}<small class="stats-unit">fontes</small></div>
+      </figure>
+      <figure>
+        <span class="stats-label">Volume acumulado</span>
+        <div class="stats-value">{totalGB.toFixed(1)}<small class="stats-unit">Petabytes</small></div>
+      </figure>
+      <figure>
+        <span class="stats-label">Dados públicos</span>
+        <div class="stats-value">1.2B<small class="stats-unit">Registros</small></div>
+      </figure>
+    </div>
+  </section>
 
+  <!-- ── COVERAGE MAP / MALHA ── -->
+  <section class="section-container">
+    <div class="malha-grid">
+      <div class="malha-visual">
+        <TribunalCoverageGrid
+          tribunalStats={tribunalStats}
+          totalTribunals={totalTribunals}
+          statsHref={BASE + 'stats'}
+        />
+      </div>
+      <div class="malha-text">
+        <h2 class="malha-title">Uma malha de dados que cobre o território nacional.</h2>
+        <p class="malha-desc">
+          Mapeamos cada tribunal, da instância federal às comarcas estaduais,
+          transformando o caos burocrático em estruturas de dados consumíveis e transparentes.
+        </p>
+        <a href={BASE + 'stats'} class="cta-link">
+          Explorar mapa judicial
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
       </div>
     </div>
   </section>
 
-  <!-- ── TRIBUNAL COVERAGE ── -->
-  <section class="section-container" id="cobertura">
-    <TribunalCoverageGrid
-      tribunalStats={tribunalStats}
-      totalTribunals={totalTribunals}
-      statsHref={BASE + 'stats'}
-    />
-  </section>
-
-  <!-- ── STATS ── -->
-  <section id="resumo" class="section-container">
-    <div class="stats-grid">
-      <figure>
-        <div class="stat-value stat-info">{formatNumber(totalZips)}</div>
-        <figcaption>ZIPs Arquivados</figcaption>
-      </figure>
-      <figure>
-        <div class="stat-value stat-success">{tribunalsWithData}</div>
-        <figcaption>Tribunais com Dados</figcaption>
-      </figure>
-      <figure>
-        <div class="stat-value stat-warning">{totalGB.toFixed(0)}<small class="stat-unit">GB</small></div>
-        <figcaption>Volume Arquivado</figcaption>
-      </figure>
-      <figure>
-        <div class="stat-value stat-primary">100<small class="stat-unit">%</small></div>
-        <figcaption>Dados Públicos</figcaption>
-      </figure>
-    </div>
-  </section>
-
   <!-- ── PARA QUEM ── -->
-  <section id="para-quem" class="section-full">
+  <section class="section-alt">
     <div class="section-container">
-      <h2 class="section-title">Para quem é o CausaGanha?</h2>
-      <div class="quick-access-grid">
+      <h2 class="section-heading">Para quem construímos?</h2>
+      <div class="audience-grid">
         {AUDIENCE_CARDS.map(card => (
-          <div class="card audience-card">
-            <div class="card-body">
-              <div class="qa-icon" aria-hidden="true">{card.icon}</div>
-              <h3 class="qa-title">{card.title}</h3>
-              <p class="qa-desc">{card.description}</p>
-            </div>
+          <div class="audience-card">
+            <span class="audience-icon" aria-hidden="true">{card.icon}</span>
+            <h3 class="audience-title">{card.title}</h3>
+            <p class="audience-desc">{card.description}</p>
           </div>
         ))}
       </div>
@@ -167,44 +129,42 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- ── HOW IT WORKS ── -->
-  <section id="como-funciona" class="section-full">
-    <div class="section-container">
-      <h2 class="section-title how-title">Como Funciona</h2>
-      <div class="steps-grid">
-        {HOW_IT_WORKS_CARDS.map(step => (
-          <div class="card step-card">
-            <div class="card-body">
-              <span class="step-icon" aria-hidden="true">{step.icon}</span>
-              <h3 class="card-title">{step.title}</h3>
-              <p class="step-desc">{step.description}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+  <section class="section-container">
+    <h2 class="section-heading how-heading">Como o dado chega até você.</h2>
+    <div class="steps-grid">
+      {HOW_IT_WORKS_CARDS.map(step => (
+        <div class="step-card">
+          <span class="step-number">{step.icon}</span>
+          <h3 class="step-title">{step.title}</h3>
+          <p class="step-desc">{step.description}</p>
+        </div>
+      ))}
     </div>
   </section>
 
-  <!-- ── OPEN SOURCE ── -->
-  <section class="section-full">
-    <div class="section-container">
-      <div class="card open-card">
-        <div class="card-body open-body">
-          <div class="open-text">
-            <h2 class="open-title">100% Aberto e Gratuito, para sempre.</h2>
-            <p class="open-desc">
-              Todos os dados coletados pelo CausaGanha são e sempre serão públicos e gratuitos.
-              Código 100% open source. Infraestrutura: GitHub Actions + Internet Archive + DuckDB.
-            </p>
-          </div>
-          <div class="open-actions">
-            <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-primary">
-              <GitHubIcon /> Ver no GitHub
-            </a>
-            <a href={BASE + 'sobre'} class="btn btn-outline">
-              Sobre o Projeto
-            </a>
-          </div>
+  <!-- ── GREEN CTA BANNER ── -->
+  <section class="cta-banner">
+    <div class="cta-inner">
+      <div class="cta-text">
+        <h2 class="cta-title">100% Aberto e Gratuito. Sempre.</h2>
+        <p class="cta-desc">
+          Acreditamos que a transparência é o pilar da democracia.
+          Nosso código é aberto e nossos dados são seus.
+        </p>
+        <div class="cta-actions">
+          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-outline-light">
+            <GitHubIcon /> Contribuir no GitHub
+          </a>
+          <a href={BASE + 'dados'} class="btn btn-outline-light">
+            Ler documentação
+          </a>
         </div>
+      </div>
+      <div class="cta-deco" aria-hidden="true">
+        <svg viewBox="0 0 200 200" width="200" height="200" fill="none">
+          <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+          <path d="M100 20 C140 60, 160 100, 100 180 C40 100, 60 60, 100 20Z" fill="rgba(255,255,255,0.08)"/>
+        </svg>
       </div>
     </div>
   </section>
@@ -241,17 +201,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
       window.location.href = `${base}?${params.toString()}`;
     });
-
-    // Hint chips pre-fill the input
-    document.querySelectorAll<HTMLButtonElement>('.hint-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        input.value = btn.dataset.example || '';
-        input.focus();
-      });
-    });
   }
 
-  // Setup on initial load and after view transitions swap the page back in
   setupSearchHandlers();
   document.addEventListener('astro:after-swap', setupSearchHandlers);
 </script>
@@ -260,97 +211,68 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   /* ── Hero ── */
   .hero {
     background: var(--color-base-100);
-    border-bottom: 1px solid var(--color-base-300);
+    padding: var(--space-3xl) var(--space-md) var(--space-xl);
   }
 
   .hero-content {
-    width: 100%;
-    max-width: 72rem;
+    max-width: 52rem;
     margin: 0 auto;
-    padding: var(--space-lg) var(--space-md);
-  }
-
-  .hero-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2.5rem;
-    align-items: start;
-  }
-
-  @media (min-width: 768px) {
-    .hero-grid {
-      grid-template-columns: 3fr 2fr;
-      align-items: center;
-    }
-  }
-
-  .hero-text {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
   }
 
   .hero-eyebrow {
     font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    opacity: 0.5;
-    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--color-content-tertiary);
     margin: 0;
   }
 
   .hero-h1 {
-    font-size: var(--font-size-4xl);
-    font-weight: 800;
-    letter-spacing: -0.03em;
+    font-family: var(--font-serif);
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-weight: 400;
+    letter-spacing: -0.02em;
     line-height: 1.1;
     margin: 0;
-    max-width: 22ch;
+    max-width: 18ch;
+    color: var(--color-base-content);
   }
 
-  @media (min-width: 768px) {
-    .hero-h1 {
-      font-size: var(--font-size-5xl, 3.8rem);
-    }
+  .hero-h1 em {
+    font-style: italic;
+    color: var(--color-primary);
   }
 
-  .hero-description {
-    font-size: var(--font-size-lg);
-    opacity: 0.7;
-    margin: 0;
-    max-width: 52ch;
-  }
-
-  /* ── Search form ── */
+  /* ── Search ── */
   .search-form {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
+    margin-top: var(--space-sm);
+    max-width: 36rem;
   }
 
   .search-input-wrapper {
     position: relative;
-    flex: 1;
-    min-width: 0;
+    display: flex;
+    align-items: center;
   }
 
   .search-icon {
     position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 1rem;
     pointer-events: none;
-    opacity: 0.4;
+    opacity: 0.35;
   }
 
   .search-input {
     width: 100%;
-    padding: 0.625rem 0.75rem 0.625rem 2.5rem;
+    padding: 0.75rem 3.5rem 0.75rem 2.75rem;
     font-size: var(--font-size-base);
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius-field);
-    background: var(--color-surface, #fff);
+    background: var(--color-surface);
     color: var(--color-base-content);
     outline: none;
     transition: border-color var(--transition-base), box-shadow var(--transition-base);
@@ -358,140 +280,58 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   .search-input:focus {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(30, 41, 59, 0.12);
+    box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.12);
   }
 
-  .search-btn {
-    padding: 0.625rem 1.25rem;
-    white-space: nowrap;
-    font-size: var(--font-size-base);
-  }
-
-  .search-hint {
-    font-size: var(--font-size-xs);
-    opacity: 0.5;
-    margin: 0;
+  .search-submit {
+    position: absolute;
+    right: 0.375rem;
+    width: 2.5rem;
+    height: 2.5rem;
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    flex-wrap: wrap;
-  }
-
-  .hint-chip {
-    background: var(--color-base-200);
-    border: 1px solid var(--color-base-300);
+    justify-content: center;
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+    border: none;
     border-radius: var(--radius-full);
-    padding: 0.1rem 0.5rem;
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
     cursor: pointer;
-    color: inherit;
     transition: background var(--transition-base);
   }
 
-  .hint-chip:hover {
-    background: var(--color-base-300);
+  .search-submit:hover {
+    background: #155731;
   }
 
-  /* ── Mode trio (decision-tree CTAs) ── */
-  .mode-trio {
+  /* ── Stats Row ── */
+  .stats-row {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
-    margin-top: var(--space-md);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--color-border);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
   }
 
-  @media (min-width: 640px) {
-    .mode-trio {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  .mode-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    padding: var(--space-sm) var(--space-md);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    text-decoration: none;
-    color: inherit;
-    transition: border-color var(--transition-base);
-    min-height: 44px;
-  }
-
-  .mode-card:hover {
-    border-color: var(--color-primary);
-  }
-
-  .mode-card--primary {
-    border-color: var(--color-primary);
-    background: var(--color-base-200);
-  }
-
-  .mode-card-title {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-  }
-
-  .mode-card-desc {
-    font-size: var(--font-size-xs);
-    opacity: 0.65;
-    line-height: 1.4;
-  }
-
-  /* ── Live Status card ── */
-  .status-card {
-    border-left: 3px solid var(--color-success);
-  }
-
-  .status-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--color-base-300);
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-success);
-    flex-shrink: 0;
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(0.85); }
-  }
-
-  .status-freq {
-    margin-left: auto;
-    font-size: var(--font-size-xs);
-    opacity: 0.4;
-    font-family: var(--font-mono);
-  }
-
-  .status-list {
-    list-style: none;
-    padding: 0;
+  .stats-row figure {
     margin: 0;
+    padding: var(--space-md) var(--space-sm);
+    background: var(--color-base-100);
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.25rem;
   }
 
-  .status-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
+  .stats-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-content-tertiary);
   }
 
-  .status-num {
-    font-size: var(--font-size-2xl);
+  .stats-value {
+    font-size: var(--font-size-3xl);
     font-weight: 800;
     font-family: var(--font-mono);
     letter-spacing: -0.03em;
@@ -499,19 +339,74 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     color: var(--color-base-content);
   }
 
-  .unit {
-    font-size: 0.5em;
+  .stats-unit {
+    font-size: 0.35em;
     font-weight: 500;
-    margin-left: 0.1em;
-    opacity: 0.7;
+    margin-left: 0.25em;
+    opacity: 0.5;
+    vertical-align: baseline;
+    text-transform: none;
+    letter-spacing: 0;
   }
 
-  .status-desc {
-    font-size: var(--font-size-xs);
-    opacity: 0.5;
+  @media (max-width: 768px) {
+    .stats-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* ── Coverage Map / Malha ── */
+  .malha-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+    align-items: center;
+    padding: var(--space-xl) 0;
+  }
+
+  @media (min-width: 768px) {
+    .malha-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .malha-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .malha-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .malha-desc {
+    font-size: var(--font-size-base);
+    color: var(--color-content-secondary);
+    line-height: 1.7;
+    margin: 0;
+    max-width: 40ch;
+  }
+
+  .cta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
+    text-decoration: none;
+    margin-top: var(--space-xs);
+  }
+
+  .cta-link:hover {
+    text-decoration: underline;
   }
 
   /* ── Sections ── */
@@ -521,129 +416,62 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     padding: var(--space-lg) var(--space-md);
   }
 
-  .section-full {
-    border-top: 1px solid var(--color-base-300);
+  .section-alt {
+    background: var(--color-base-200);
+    padding: var(--space-xl) 0;
   }
 
-  .section-header-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
+  .section-heading {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-2xl);
+    font-weight: 400;
+    margin: 0 0 var(--space-lg);
   }
 
-  .section-title {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    margin: 0;
-  }
-
-  /* ── Quick Access cards ── */
-  .quick-access-grid {
+  /* ── Audience Cards ── */
+  .audience-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.25rem;
   }
 
   @media (min-width: 640px) {
-    .quick-access-grid {
+    .audience-grid {
       grid-template-columns: repeat(3, 1fr);
     }
   }
 
-  .qa-card {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-    transition: box-shadow var(--transition-base), transform var(--transition-base);
+  .audience-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .qa-card:hover {
-    text-decoration: none;
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-  }
-
-  .qa-icon {
-    font-size: 1.75rem;
-    margin-bottom: 0.5rem;
+  .audience-icon {
+    font-size: 1.5rem;
     line-height: 1;
   }
 
-  .qa-title {
+  .audience-title {
     font-size: var(--font-size-lg);
     font-weight: 700;
-    margin: 0 0 0.4rem;
-  }
-
-  .qa-desc {
-    font-size: var(--font-size-sm);
-    opacity: 0.65;
-    margin: 0 0 1rem;
-    line-height: 1.5;
-  }
-
-  .qa-cta {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-accent);
-  }
-
-  /* ── Stats grid ── */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-md);
-    text-align: center;
-    padding: var(--space-lg) 0;
-    border-top: 1px solid var(--color-border);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .stats-grid figure {
     margin: 0;
-    padding: var(--space-md) 0;
   }
 
-  .stats-grid figcaption {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.5rem;
-    opacity: 0.5;
+  .audience-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-secondary);
+    line-height: 1.6;
+    margin: 0;
   }
 
-  @media (max-width: 768px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  .stat-value {
-    font-size: var(--font-size-3xl);
-    font-weight: 800;
-    font-family: var(--font-mono);
-    letter-spacing: -0.03em;
-    line-height: 1;
-  }
-
-  .stat-unit {
-    font-size: 0.45em;
-    font-weight: 500;
-    margin-left: 0.1em;
-    opacity: 0.7;
-    vertical-align: middle;
-  }
-
-  .stat-info    { color: var(--color-info); }
-  .stat-success { color: var(--color-success); }
-  .stat-warning { color: var(--color-warning); }
-  .stat-primary { color: var(--color-primary); }
-
-  /* ── How it works ── */
-  .how-title {
-    margin-bottom: 1.5rem;
+  /* ── Steps ── */
+  .how-heading {
+    margin-bottom: var(--space-lg);
   }
 
   .steps-grid {
@@ -659,87 +487,130 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   .step-card {
-    height: 100%;
+    border-top: 3px solid var(--color-accent);
+    padding: var(--space-md) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .step-icon {
-    font-size: 1.5rem;
-    display: block;
-    margin-bottom: 0.5rem;
+  .step-number {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-xl);
+    color: var(--color-accent);
+    font-weight: 400;
   }
 
-  .card-title {
+  .step-title {
     font-size: var(--font-size-lg);
     font-weight: 700;
-    margin: 0 0 0.5rem;
+    margin: 0;
   }
 
   .step-desc {
     font-size: var(--font-size-sm);
-    opacity: 0.7;
+    color: var(--color-content-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ── Green CTA Banner ── */
+  .cta-banner {
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+    margin-top: var(--space-xl);
+  }
+
+  .cta-inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: var(--space-2xl) var(--space-md);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xl);
+  }
+
+  .cta-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    max-width: 36rem;
+  }
+
+  .cta-title {
+    font-family: var(--font-serif);
+    font-size: var(--font-size-3xl);
+    font-weight: 400;
+    margin: 0;
+    line-height: 1.15;
+    color: var(--color-primary-content);
+  }
+
+  .cta-desc {
+    font-size: var(--font-size-base);
+    opacity: 0.85;
     margin: 0;
     line-height: 1.6;
   }
 
-  /* ── Open Source card ── */
-  .open-card {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-primary-content);
-  }
-
-  .open-body {
+  .cta-actions {
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 2.5rem 1.5rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: var(--space-xs);
   }
 
-  @media (min-width: 768px) {
-    .open-body {
-      flex-direction: row;
+  .btn-outline-light {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: var(--radius-btn);
+    color: var(--color-primary-content);
+    background: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-outline-light:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.8);
+    text-decoration: none;
+  }
+
+  .cta-deco {
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  @media (max-width: 768px) {
+    .cta-inner {
+      flex-direction: column;
+      text-align: center;
       align-items: center;
-      justify-content: space-between;
+    }
+
+    .cta-deco {
+      display: none;
     }
   }
 
-  .open-title {
-    font-size: var(--font-size-xl);
-    font-weight: 800;
-    margin: 0 0 0.5rem;
-  }
+  /* ── Responsive hero ── */
+  @media (max-width: 640px) {
+    .hero {
+      padding: var(--space-xl) var(--space-md) var(--space-lg);
+    }
 
-  .open-desc {
-    font-size: var(--font-size-sm);
-    opacity: 0.75;
-    margin: 0;
-    max-width: 60ch;
-    line-height: 1.6;
-  }
-
-  .open-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-
-  .open-actions .btn-primary {
-    background: var(--color-primary-content);
-    color: var(--color-primary);
-    border-color: var(--color-primary-content);
-  }
-
-  .open-actions .btn-primary:hover {
-    opacity: 0.9;
-  }
-
-  .open-actions .btn-outline {
-    border-color: rgba(255,255,255,0.4);
-    color: var(--color-primary-content);
-  }
-
-  .open-actions .btn-outline:hover {
-    background: rgba(255,255,255,0.1);
+    .hero-h1 {
+      font-size: 2rem;
+      line-height: 1.15;
+    }
   }
 </style>

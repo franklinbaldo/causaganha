@@ -126,7 +126,7 @@ function sortIcon(field: string): string {
 
   <!-- Expected days info -->
   <div>
-    Esperado: {expectedDays} dias ({year === currentYear ? 'dias decorridos ate hoje' : `ano ${isLeapYear(year) ? 'bissexto' : 'normal'}`})
+    Esperado: {expectedDays} dias ({year === currentYear ? 'dias decorridos até hoje' : `ano ${isLeapYear(year) ? 'bissexto' : 'normal'}`})
   </div>
 
   <!-- Table -->
@@ -199,7 +199,7 @@ function sortIcon(field: string): string {
           {#if results.length === 0 && !loading}
             <tr>
               <td colspan="6">
-                Nenhum dado disponivel.
+                Nenhum dado disponível.
               </td>
             </tr>
           {/if}

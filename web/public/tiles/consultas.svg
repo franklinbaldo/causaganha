@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Consultas: Overlapping circles — Venn diagram / query intersections -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <circle cx="75" cy="80" r="55" fill="#1A6B3C" opacity="0.3"/>
+  <circle cx="125" cy="80" r="55" fill="#C5972C" opacity="0.3"/>
+  <circle cx="100" cy="130" r="55" fill="#1A6B3C" opacity="0.2"/>
+  <!-- Intersection highlights -->
+  <circle cx="100" cy="80" r="12" fill="#1A6B3C" opacity="0.6"/>
+  <circle cx="85" cy="110" r="8" fill="#C5972C" opacity="0.5"/>
+  <circle cx="115" cy="110" r="8" fill="#C5972C" opacity="0.5"/>
+  <!-- Small tile accents -->
+  <rect x="5" y="175" width="20" height="20" fill="#1A6B3C" opacity="0.2"/>
+  <rect x="30" y="175" width="20" height="20" fill="#C5972C" opacity="0.2"/>
+  <rect x="150" y="175" width="20" height="20" fill="#C5972C" opacity="0.2"/>
+  <rect x="175" y="175" width="20" height="20" fill="#1A6B3C" opacity="0.2"/>
+</svg>

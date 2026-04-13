@@ -158,7 +158,7 @@
   });
 
   let etaText = $derived.by(() => {
-    if (actualMissingDays === 0 && expectedDays > 0) return "Concluido";
+    if (actualMissingDays === 0 && expectedDays > 0) return "Concluído";
     if (dynamicEtaDays) {
       if (dynamicEtaDays < 30) return `~${dynamicEtaDays} dias`;
       const months = Math.round(dynamicEtaDays / 30);
@@ -176,7 +176,7 @@
   let totalForBar = $derived(actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0));
   let absentCount = $derived(selectedEtaData.absent_days_count || 0);
   let syncedPct = $derived(totalForBar > 0 ? (selectedCoverage.size / totalForBar) * 100 : 0);
-  let completionStatusText = $derived(isComplete ? "Concluido" : "Em andamento");
+  let completionStatusText = $derived(isComplete ? "Concluído" : "Em andamento");
 
   let hasFeaturedPub = $derived(hashState.seq != null);
 
@@ -204,9 +204,23 @@
     URL.revokeObjectURL(url);
   }
 
+  let shareLinkCopied = $state(false);
+  let shareTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    };
+  });
+
   function shareLink() {
     navigator.clipboard.writeText(window.location.href);
-    alert("Link copiado para a area de transferencia.");
+    if (shareTimeoutId) clearTimeout(shareTimeoutId);
+    shareLinkCopied = true;
+    shareTimeoutId = setTimeout(() => {
+      shareLinkCopied = false;
+      shareTimeoutId = null;
+    }, 2000);
   }
 </script>
 
@@ -240,7 +254,7 @@
         {#if qualityScore}
           <span
             class={`badge quality-badge ${qualityBadgeClass}`}
-            title={`Completude: ${qualityScore.completeness}%\nRecencia: ${qualityScore.recency}%\nConsistencia: ${qualityScore.consistency}%`}
+            title={`Completude: ${qualityScore.completeness}%\nRecência: ${qualityScore.recency}%\nConsistência: ${qualityScore.consistency}%`}
           >
             Qualidade: {qualityScore.grade}
           </span>
@@ -281,7 +295,7 @@
             aria-label="Compartilhar Link"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            Compartilhar Link
+            {shareLinkCopied ? 'Copiado!' : 'Compartilhar Link'}
           </button>
         </div>
       </div>
@@ -336,7 +350,7 @@
       <div role="tabpanel" class="tab-content">
         <div class="two-col-grid">
           <div>
-            <h3 class="subsection-title">Informacoes do Pipeline</h3>
+            <h3 class="subsection-title">Informações do Pipeline</h3>
             <div class="info-stack">
               <div>
                 <small class="field-label">Data inicial do tribunal</small>
@@ -352,7 +366,7 @@
 
               {#if isStopped}
                 <div class="alert alert-error">
-                  <span>Pipeline interrompido (60 dias sem publicacoes identificadas).</span>
+                  <span>Pipeline interrompido (60 dias sem publicações identificadas).</span>
                 </div>
               {/if}
             </div>
@@ -367,10 +381,10 @@
                 rel="noopener noreferrer"
                 class="btn btn-outline btn-sm"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1.25rem; height: 1.25rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-                Ver colecao de {iaYear} no IA
+                Ver coleção de {iaYear} no IA
               </a>
               <div class="data-access-wrapper">
                 <DataAccessPanel
@@ -742,6 +756,8 @@
     color: var(--color-error-content, #fff);
   }
 
-  @media (min-width: 640px) {
+  .icon-sm {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 </style>

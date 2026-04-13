@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Home: Radial mosaic — converging tiles symbolizing data flowing to one place -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <g fill="none" stroke-width="0">
+    <!-- Center diamond -->
+    <polygon points="100,40 160,100 100,160 40,100" fill="#1A6B3C"/>
+    <!-- Corner triangles -->
+    <polygon points="0,0 80,0 0,80" fill="#C5972C"/>
+    <polygon points="200,0 200,80 120,0" fill="#1A6B3C" opacity="0.6"/>
+    <polygon points="200,200 120,200 200,120" fill="#C5972C"/>
+    <polygon points="0,200 0,120 80,200" fill="#1A6B3C" opacity="0.6"/>
+    <!-- Mid accent bars -->
+    <rect x="85" y="85" width="30" height="30" fill="#FAFAF5"/>
+    <rect x="0" y="90" width="35" height="20" fill="#1A6B3C" opacity="0.3"/>
+    <rect x="165" y="90" width="35" height="20" fill="#1A6B3C" opacity="0.3"/>
+    <rect x="90" y="0" width="20" height="35" fill="#C5972C" opacity="0.3"/>
+    <rect x="90" y="165" width="20" height="35" fill="#C5972C" opacity="0.3"/>
+  </g>
+</svg>

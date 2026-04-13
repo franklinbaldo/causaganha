@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Dados/API: Concentric arcs and dots — data flowing outward, API endpoints -->
+  <rect width="200" height="200" fill="#FAFAF5"/>
+  <!-- Concentric quarter-arcs from bottom-left -->
+  <path d="M0,200 A40,40 0 0,1 40,160" stroke="#1A6B3C" stroke-width="8" fill="none"/>
+  <path d="M0,200 A80,80 0 0,1 80,120" stroke="#C5972C" stroke-width="6" fill="none"/>
+  <path d="M0,200 A120,120 0 0,1 120,80" stroke="#1A6B3C" stroke-width="8" fill="none" opacity="0.6"/>
+  <path d="M0,200 A160,160 0 0,1 160,40" stroke="#C5972C" stroke-width="6" fill="none" opacity="0.5"/>
+  <path d="M0,200 A195,195 0 0,1 195,5" stroke="#1A6B3C" stroke-width="4" fill="none" opacity="0.3"/>
+  <!-- Endpoint dots -->
+  <circle cx="40" cy="160" r="6" fill="#1A6B3C"/>
+  <circle cx="80" cy="120" r="6" fill="#C5972C"/>
+  <circle cx="120" cy="80" r="6" fill="#1A6B3C" opacity="0.7"/>
+  <circle cx="160" cy="40" r="6" fill="#C5972C" opacity="0.6"/>
+  <!-- Small grid accent top-right -->
+  <rect x="160" y="140" width="15" height="15" fill="#1A6B3C" opacity="0.2"/>
+  <rect x="180" y="140" width="15" height="15" fill="#C5972C" opacity="0.2"/>
+  <rect x="160" y="160" width="15" height="15" fill="#C5972C" opacity="0.2"/>
+  <rect x="180" y="160" width="15" height="15" fill="#1A6B3C" opacity="0.2"/>
+</svg>
