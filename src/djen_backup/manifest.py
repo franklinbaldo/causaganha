@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path  # noqa: TC003 — used at runtime in save/load methods
 from typing import NamedTuple
 
+import httpx
 import structlog
 
 
@@ -491,8 +492,6 @@ class SyncManifest:
 
     async def load_from_ia(self) -> int:
         """Download manifest from IA. Falls back to legacy zip-inventory.txt."""
-        import httpx
-
         # Try new manifest first
         for filename in (IA_MANIFEST_FILENAME, "zip-inventory.txt"):
             url = _IA_DOWNLOAD_URL.format(filename)
@@ -508,14 +507,12 @@ class SyncManifest:
                             loaded=count,
                         )
                         return count
-            except Exception as exc:
+            except (httpx.HTTPError, httpx.RequestError) as exc:
                 log.warning("manifest_download_failed", filename=filename, error=str(exc))
         return 0
 
     async def upload_to_ia(self, auth: str) -> bool:
         """Merge-then-upload: re-download remote, merge, upload."""
-        import httpx
-
         from djen_backup.archive import put_ia_bytes
 
         # Re-download and merge to prevent race conditions
@@ -525,7 +522,7 @@ class SyncManifest:
                 resp = await client.get(url_dl)
                 if resp.status_code == 200:
                     self.load_from_csv(resp.text)
-        except Exception as exc:
+        except (httpx.HTTPError, httpx.RequestError) as exc:
             log.warning("manifest_merge_download_failed", error=str(exc))
 
         url_up = _IA_S3_URL.format(IA_MANIFEST_FILENAME)
@@ -543,15 +540,13 @@ class SyncManifest:
                     log.info("manifest_uploaded_to_ia", entries=len(self._entries))
                     return True
                 log.warning("manifest_upload_failed", status=resp.status_code)
-        except Exception as exc:
+        except (httpx.HTTPError, httpx.RequestError) as exc:
             log.warning("manifest_upload_error", error=str(exc))
         return False
 
     async def upload_summary_to_ia(self, auth: str) -> bool:
         """Upload compact JSON summary for the webapp."""
         import json
-
-        import httpx
 
         from djen_backup.archive import put_ia_bytes
 
@@ -570,6 +565,6 @@ class SyncManifest:
                     log.info("manifest_summary_uploaded_to_ia", size=len(content))
                     return True
                 log.warning("manifest_summary_upload_failed", status=resp.status_code)
-        except Exception as exc:
+        except (httpx.HTTPError, httpx.RequestError) as exc:
             log.warning("manifest_summary_upload_error", error=str(exc))
         return False

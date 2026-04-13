@@ -154,14 +154,28 @@ async def run_pipeline(
     # Track which (tribunal, year) items already had their IA metadata fetched
     ia_checked_items: set[tuple[str, int]] = set()
 
+    last_stats_log = time.monotonic()
+    stats_log_interval = 30.0  # log stats every 30s for CI/pipes
+
     def _notify_counts() -> None:
+        nonlocal last_stats_log
         if config.observer:
             config.observer.on_counts_updated(manifest.counts())
+        # Periodic stats for non-TTY (CI, pipes)
+        now = time.monotonic()
+        if now - last_stats_log > stats_log_interval:
+            last_stats_log = now
+            c = manifest.counts()
+            log.info(
+                "progress",
+                uploaded=c.uploaded,
+                pending=c.available,
+                absent=c.absent,
+                unknown=c.unknown,
+                total=c.total,
+            )
 
     # ── Checker workers ──────────────────────────────────────────
-    # Each checker grabs an entire (tribunal, year) item and processes
-    # ALL its entries before returning it. This eliminates heap contention
-    # and shared-list race conditions — each worker owns its batch.
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save
         while True:
@@ -170,7 +184,6 @@ async def run_pipeline(
             if time.monotonic() > deadline:
                 return
 
-            # Grab the tribunal+year with the shortest absent streak
             async with check_lock:
                 if not check_heap:
                     return
@@ -184,9 +197,8 @@ async def run_pipeline(
                     if not manifest.has_uploaded_entries(tribunal, year):
                         ia_dates = await fetch_ia_existing(client, tribunal, year)
                         if ia_dates:
-                            await manifest.mark_ia_checked(tribunal, year, set(ia_dates.keys()))
-                            log.info(
-                                "ia_checked", tribunal=tribunal, year=year, found=len(ia_dates)
+                            await manifest.mark_ia_checked(
+                                tribunal, year, set(ia_dates.keys())
                             )
                         _notify_counts()
                     ia_checked_items.add(item_key)
@@ -198,27 +210,38 @@ async def run_pipeline(
                 if not entries:
                     continue
 
-                # 3. Process ALL entries for this tribunal+year
+                # 3. Process ALL entries — log summary per batch
+                found = 0
+                absent_count = 0
+                skipped = 0
                 for entry in entries:
                     if abort_event.is_set() or time.monotonic() > deadline:
                         return
 
                     try:
-                        await get_caderno_url(client, config.djen_proxy_url, tribunal, entry.date)
+                        await get_caderno_url(
+                            client, config.djen_proxy_url, tribunal, entry.date
+                        )
                         await manifest.mark_djen_available(tribunal, entry.date)
                         absent_streaks[tribunal] = 0
+                        found += 1
                     except DJENNotFoundError:
                         await manifest.mark_djen_absent(tribunal, entry.date)
                         absent_streaks[tribunal] = absent_streaks.get(tribunal, 0) + 1
-                    except Exception as exc:
-                        log.warning(
-                            "djen_check_skipped",
-                            tribunal=tribunal,
-                            date=entry.date.isoformat(),
-                            error=str(exc),
-                        )
+                        absent_count += 1
+                    except (httpx.HTTPError, httpx.RequestError) as exc:
+                        log.debug("djen_check_skipped", tribunal=tribunal, error=str(exc))
+                        skipped += 1
 
-                    _notify_counts()
+                _notify_counts()
+                log.info(
+                    "checked",
+                    tribunal=tribunal,
+                    year=year,
+                    found=found,
+                    absent=absent_count,
+                    skipped=skipped,
+                )
 
                 # Periodic save
                 now = time.monotonic()
@@ -226,7 +249,7 @@ async def run_pipeline(
                     last_save = now
                     manifest.save_to_disk(config.manifest_file)
 
-            except Exception as exc:
+            except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
                 log.warning(
                     "checker_error",
                     tribunal=tribunal,
@@ -269,7 +292,7 @@ async def run_pipeline(
                 await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
 
                 await summary.inc_download()
-                log.info("staged", tribunal=entry.tribunal, date=entry.date.isoformat())
+                log.debug("staged", tribunal=entry.tribunal, date=entry.date.isoformat())
 
                 # Enqueue for upload
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
@@ -278,14 +301,14 @@ async def run_pipeline(
                 # Checker confirmed available but fresh URL returned 404.
                 # Reset to unknown so next run's checker re-verifies.
                 await manifest.mark_unknown(entry.tribunal, entry.date)
-                log.warning(
+                log.debug(
                     "download_reset_to_unknown",
                     tribunal=entry.tribunal,
                     date=entry.date.isoformat(),
                 )
                 _notify_counts()
 
-            except Exception as exc:
+            except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
                 log.warning(
                     "download_failed",
                     tribunal=entry.tribunal,

@@ -5,6 +5,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import httpx
 import structlog
 
 from djen_backup.archive import put_ia_bytes
@@ -22,8 +23,6 @@ _IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
 
 async def download_text_from_ia(filename: str) -> str | None:
     """Download a text file from IA. Returns content string or None."""
-    import httpx
-
     url = _IA_DOWNLOAD_URL.format(filename)
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
@@ -32,15 +31,13 @@ async def download_text_from_ia(filename: str) -> str | None:
                 log.info("text_downloaded_from_ia", filename=filename, size=len(resp.text))
                 return resp.text
             log.info("text_not_found_on_ia", filename=filename, status=resp.status_code)
-    except Exception as exc:
+    except (httpx.HTTPError, httpx.RequestError) as exc:
         log.warning("text_download_failed", filename=filename, error=str(exc))
     return None
 
 
 async def upload_text_to_ia(filename: str, content: str, auth: str) -> bool:
     """Upload a text file to IA. Returns True on success."""
-    import httpx
-
     url = _IA_S3_URL.format(filename)
     headers = {
         "Authorization": auth,
@@ -55,7 +52,7 @@ async def upload_text_to_ia(filename: str, content: str, auth: str) -> bool:
                 log.info("text_uploaded_to_ia", filename=filename)
                 return True
             log.warning("text_upload_failed", filename=filename, status=resp.status_code)
-    except Exception as exc:
+    except (httpx.HTTPError, httpx.RequestError) as exc:
         log.warning("text_upload_error", filename=filename, error=str(exc))
     return False
 

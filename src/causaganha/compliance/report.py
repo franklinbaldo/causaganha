@@ -116,7 +116,7 @@ def _get_access_logs(year: int, month: int) -> str:
 
         return "\n".join(formatted_logs)
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return f"Failed to retrieve access logs: {e}"
 
 

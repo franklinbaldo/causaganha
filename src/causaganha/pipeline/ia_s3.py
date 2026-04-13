@@ -291,7 +291,7 @@ async def upload_to_ia(
         await _perform_upload(client, url, file_path, headers)
         if circuit_breaker is not None:
             circuit_breaker.record_success()
-    except Exception as e:
+    except (httpx.HTTPError, httpx.RequestError, OSError) as e:
         logger.warning(
             "upload_failed",
             item_id=item_id,

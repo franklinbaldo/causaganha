@@ -7,79 +7,80 @@ line-length = 100
 [lint]
 select = ["ALL"]
 ignore = [
-    "COM812",
-    "ISC001",
-    "A002",
-    "ANN001",
-    "ANN002",
-    "ANN201",
-    "ANN202",
-    "ANN204",
-    "ANN401",
-    "ARG001",
-    "ARG002",
+    # ── Formatter-incompatible (required by ruff format) ──
+    "COM812",   # trailing commas
+    "ISC001",   # implicit string concatenation
+
+    # ── Accepted patterns in this codebase ──
+    "ANN001",   # missing type annotation for function argument
+    "ANN002",   # missing type annotation for *args
+    "ANN201",   # missing return type for public function
+    "ANN202",   # missing return type for private function
+    "ANN204",   # missing return type for __init__
+    "ANN401",   # dynamically typed expressions (Any)
+    "ARG001",   # unused function argument (callbacks, protocols)
+    "ARG002",   # unused method argument
     "ASYNC230",
-    "ASYNC240",
-    "B007",
-    "B008",
-    "B904",
-    "BLE001",
-    "C901",
-    "D100",
-    "D101",
-    "D102",
-    "D103",
-    "D104",
-    "D107",
-    "D205",
+    "ASYNC240", # blocking path methods in async (acceptable for small ops)
+    "B007",     # unused loop variable
+    "B008",     # function call in default argument
+    "B904",     # raise without from inside except
+    "C901",     # complex structure (mccabe)
+    "D100",     # undocumented public module
+    "D101",     # undocumented public class
+    "D102",     # undocumented public method
+    "D103",     # undocumented public function
+    "D104",     # undocumented public package
+    "D107",     # undocumented __init__
+    "D205",     # blank line after summary
     "DTZ007",
-    "E402",
-    "E501",
-    "ERA001",
+    "E402",     # module import not at top
+    "E501",     # line too long (formatter handles most)
+    "ERA001",   # commented-out code
     "EXE001",
     "EXE005",
     "F811",
-    "FBT003",
-    "FIX002",
+    "FBT003",   # boolean positional value in call
+    "FIX002",   # line contains TODO
     "G004",
     "INP001",
     "PD004",
-    "PERF401",
+    "PERF401",  # manual list comprehension
     "PGH003",
-    "PLC0415",
-    "PLR0911",
-    "PLR0912",
-    "PLR0915",
-    "PLR2004",
+    "PLC0415",  # import outside top level (lazy imports)
+    "PLR0911",  # too many return statements
+    "PLR0912",  # too many branches
+    "PLR0915",  # too many statements
+    "PLR2004",  # magic value comparison
     "PLW1510",
-    "PLW2901",
+    "PLW2901",  # redefined loop variable
     "PT028",
     "PTH100",
-    "PTH107",
+    "PTH107",   # os.remove
     "PTH108",
-    "PTH110",
+    "PTH110",   # os.path.exists
     "PTH118",
     "PTH119",
     "PTH120",
     "RUF003",
     "RUF006",
     "RUF059",
-    "S101",
+    "S101",     # assert
     "S104",
-    "S108",
+    "S108",     # hardcoded temp file
     "S110",
     "S112",
     "S310",
-    "S324",
+    "S324",     # hashlib insecure hash (MD5 for checksums, not crypto)
     "S603",
     "S607",
-    "S608",
+    "S608",     # SQL injection (parameterized in practice)
     "SIM102",
     "SIM108",
     "SIM113",
-    "SIM115",
-    "SLF001",
-    "T201",
+    "SIM115",   # open file with context handler
+    "SLF001",   # private member access
+    "T201",     # print
     "T203",
 ]
 

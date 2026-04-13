@@ -143,7 +143,7 @@ async def check_ia_file_exists(
     url = f"https://archive.org/download/{item_id}/{filename}"
     try:
         resp = await client.head(url)
-    except Exception:
+    except (httpx.HTTPError, httpx.RequestError):
         return False
     else:
         return resp.status_code == HTTP_OK
