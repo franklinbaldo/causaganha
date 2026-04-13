@@ -1,8 +1,27 @@
 # CausaGanha — Frontend
 
-Static dashboard for the [CausaGanha](https://github.com/franklinbaldo/causaganha) judicial data platform. Tracks the collection and archiving of Brazilian DJEN (Diário de Justiça Eletrônico Nacional) publications across 96 courts.
+Static site for the [CausaGanha](https://github.com/franklinbaldo/causaganha) judicial data platform. Tracks the collection and archiving of Brazilian DJEN (Diário de Justiça Eletrônico Nacional) publications across 96 courts.
 
 Deployed to **GitHub Pages** at `/causaganha/`. All pages are pre-rendered at build time; no server runtime.
+
+## Design System
+
+**Brazilian Modernist** — inspired by Athos Bulcão's geometric tiles and Brazilian editorial typography.
+
+| Token | Value | Usage |
+|---|---|---|
+| Primary | `#1A6B3C` (forest green) | Links, buttons, accents |
+| Accent | `#C5972C` (Brazilian gold) | Highlights, warnings, step borders |
+| Background | `#FAFAF5` (warm white) | Page background |
+| Surface | `#F2EFE8` (cream) | Cards, sections |
+| Content | `#1C1C1C` (near-black) | Body text |
+| Serif font | DM Serif Display | h1, h2 headings |
+| Sans font | Inter | Body text, UI elements |
+| Mono font | JetBrains Mono | Code, stats, numbers |
+
+Buttons and search fields use pill shapes (`border-radius: 2rem`). Dark theme uses deep forest green tones (`#0F1A14` base).
+
+All tokens are CSS custom properties defined in `src/index.css`.
 
 ## Stack
 
@@ -100,6 +119,7 @@ web/
 │       ├── fetchData.ts        # fetchAllData, fetchWithRetry, deriveData
 │       ├── djenClient.ts       # typed DJEN API wrapper
 │       ├── iaMetadataFetcher.ts
+│       ├── homepage-content.ts # shared constants for homepage + tests
 │       └── duckdbSingleton.ts
 ├── public/
 │   ├── cache/          # Live data files (updated by pipeline)
