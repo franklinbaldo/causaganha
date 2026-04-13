@@ -102,7 +102,7 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-neutral-content: #FAFAF5;
 
   /* Feedback */
-  --color-info: #2B6CB0;
+  --color-info: #1A6B5C;
   --color-info-content: #ffffff;
   --color-success: #1A6B3C;
   --color-success-content: #ffffff;
@@ -148,7 +148,7 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-neutral: #F2EFE8;
   --color-neutral-content: #0F1A14;
 
-  --color-info: #5A9BD5;
+  --color-info: #4DA58E;
   --color-info-content: #0F1A14;
   --color-success: #3DA568;
   --color-success-content: #0F1A14;

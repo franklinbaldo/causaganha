@@ -50,17 +50,17 @@ const base = import.meta.env.BASE_URL;
         </div>
         <div class="coverage-grid">
           <figure>
-            <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small style="font-size: 0.5em; font-weight: 500;">%</small></div>
+            <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
             <figcaption>Média de Coleta</figcaption>
             <small class="muted">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
           </figure>
           <figure>
-            <div class="stat-value color-success">{bestCount}<small style="font-size: 0.5em; font-weight: 400; opacity: 0.5;"> / 91</small></div>
+            <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / 91</small></div>
             <figcaption>Melhor Dia</figcaption>
             <small class="muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
           </figure>
           <figure>
-            <div class="stat-value color-error">{worstCount === 999 ? 0 : worstCount}<small style="font-size: 0.6em; font-weight: 600; opacity: 0.7;"> / 91</small></div>
+            <div class="stat-value color-error">{worstCount === 999 ? 0 : worstCount}<small class="stat-fraction"> / 91</small></div>
             <figcaption>Pior Dia</figcaption>
             <small class="muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
           </figure>
@@ -211,6 +211,17 @@ const base = import.meta.env.BASE_URL;
     margin-top: 0.5rem;
     opacity: 0.6;
     font-size: var(--font-size-sm);
+  }
+
+  .stat-unit {
+    font-size: 0.5em;
+    font-weight: 500;
+  }
+
+  .stat-fraction {
+    font-size: 0.5em;
+    font-weight: 400;
+    opacity: 0.5;
   }
 
   .color-success {
