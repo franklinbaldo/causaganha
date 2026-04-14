@@ -1,0 +1,22 @@
+---
+title: "Sync Totals"
+description: "Overall sync metrics across all tribunals and dates."
+output: /data/totals.json
+format: object
+---
+
+Totais agregados: quantas entries temos, quantas no IA, quantas pendentes,
+absent, unknown, e percentual de cobertura geral.
+
+```{sql}
+SELECT
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE ia_status = 'uploaded') AS uploaded,
+  COUNT(*) FILTER (WHERE djen_status = 'available' AND ia_status != 'uploaded') AS pending,
+  COUNT(*) FILTER (WHERE djen_status = 'absent') AS absent,
+  COUNT(*) FILTER (WHERE djen_status = '' AND ia_status != 'uploaded') AS unknown,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE ia_status = 'uploaded') / COUNT(*), 1) AS coverage_pct,
+  COUNT(DISTINCT tribunal) AS tribunals_total,
+  COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS tribunals_with_data
+FROM manifest;
+```

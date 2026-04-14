@@ -1,0 +1,20 @@
+---
+title: "Daily Uploads"
+description: "Daily upload counts for velocity and heatmap (last 120 days)."
+output: /data/daily_uploads.json
+format: array
+---
+
+Histórico diário de uploads nos últimos 120 dias — usado pelo velocity
+ticker e heatmap de atividade.
+
+```{sql}
+SELECT
+  date,
+  COUNT(*) AS count
+FROM manifest
+WHERE ia_status = 'uploaded'
+  AND date >= CURRENT_DATE - INTERVAL 120 DAY
+GROUP BY date
+ORDER BY date;
+```

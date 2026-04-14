@@ -33,6 +33,7 @@ dependencies = [
     "fpdf>=1.7.2",
     "numpy>=2.0.0",
     "holidays>=0.40.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]

@@ -64,19 +64,20 @@ jobs:
           "
           fi
 
-      - name: Generate web cache from sync-manifest
+      - name: Generate web data from query contracts
         run: |
           pip install uv
           uv sync --no-dev
-          mkdir -p web/public/cache
+          mkdir -p web/public/cache web/public/data
+          # Render .qmd query contracts → JSON in web/public/data/
+          uv run python scripts/render_queries.py
+          # Legacy caches — kept during migration to .qmd contracts
           uv run python scripts/generate_cache_from_manifest.py
-          # Homepage widgets (activity strip, top tribunais 30d, top advogados).
-          # Non-fatal: if generation fails, the JSON is absent and index.astro degrades.
           uv run python scripts/generate_homepage_widgets.py \
             --output web/public/cache/homepage-widgets.json \
             || echo "homepage-widgets generation failed (non-fatal)"
-          echo "Cache files generated:"
-          ls -la web/public/cache/ web/public/ia-snapshot.json
+          echo "Data files generated:"
+          ls -la web/public/data/ web/public/cache/ web/public/ia-snapshot.json
 
       - name: Download DuckDB artifact
         id: download-db

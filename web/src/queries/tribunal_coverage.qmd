@@ -1,0 +1,25 @@
+---
+title: "Tribunal Coverage"
+description: "Per-tribunal upload coverage with date ranges."
+output: /data/tribunal_coverage.json
+format: array
+---
+
+Coverage de uploads ao Internet Archive por tribunal, incluindo contagens
+de pendentes/ausentes e intervalos de datas uploaded.
+
+```{sql}
+SELECT
+  tribunal,
+  COUNT(*) FILTER (WHERE ia_status = 'uploaded') AS uploaded,
+  COUNT(*) FILTER (WHERE djen_status = 'available' AND ia_status != 'uploaded') AS pending,
+  COUNT(*) FILTER (WHERE djen_status = 'absent') AS absent,
+  COUNT(*) FILTER (WHERE djen_status = '' AND ia_status != 'uploaded') AS unknown,
+  COUNT(*) AS total,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE ia_status = 'uploaded') / COUNT(*), 1) AS coverage_pct,
+  MIN(date) FILTER (WHERE ia_status = 'uploaded') AS earliest_upload,
+  MAX(date) FILTER (WHERE ia_status = 'uploaded') AS latest_upload
+FROM manifest
+GROUP BY tribunal
+ORDER BY coverage_pct DESC, tribunal;
+```
