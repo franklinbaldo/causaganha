@@ -77,6 +77,12 @@ jobs:
             || echo '{"current_date":null,"processed_zips":[],"completed_dates":[]}' > data/consolidate-checkpoint.json
           echo "Checkpoint state:"
           cat data/consolidate-checkpoint.json | python3 -m json.tool 2>/dev/null || cat data/consolidate-checkpoint.json
+          # Download sync-manifest.csv so consolidate.py can discover ZIPs without
+          # requiring a fresh manifest.parquet (avoids slow per-tribunal IA API fallback)
+          curl -sSfL -o data/sync-manifest.csv \
+            "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
+            || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
+          echo "Sync manifest entries: $(tail -n +2 data/sync-manifest.csv | wc -l)"
 
       - name: Run consolidation
         id: consolidate

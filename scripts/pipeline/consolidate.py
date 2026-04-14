@@ -104,6 +104,73 @@ class ConsolidationContext:
 # Checkpoint state file path
 _CHECKPOINT_STATE_FILE = Path("data/consolidate-checkpoint.json")
 
+# Sync manifest path (written by djen-backup/engine.py)
+_SYNC_MANIFEST_FILE = Path("data/sync-manifest.csv")
+
+
+def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[str, Any]]]:
+    """Load sync-manifest.csv into a by-date lookup.
+
+    The sync-manifest is the canonical state written by djen-backup/engine.py.
+    Using it as an intermediate source avoids the slow IA metadata API fallback
+    in list_zips_for_date() when manifest.parquet has not yet been regenerated.
+
+    Returns:
+        Dict mapping date_str → list of entries with keys:
+        ``tribunal``, ``item_id``, ``filename``, ``absent``.
+        Includes BOTH uploaded (ia_status=uploaded) and confirmed-absent
+        (djen_status=absent) entries so that present_count in list_zips_for_date()
+        correctly mirrors the manifest.parquet behaviour (which counts .absent files
+        as "present" for the completeness check).
+        Empty dict if file does not exist.
+    """
+    if not path.exists():
+        logger.info("sync_manifest_not_found", path=str(path))
+        return {}
+
+    by_date: dict[str, list[dict[str, Any]]] = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
+                continue
+            parts = line.split(",")
+            if len(parts) < 3:
+                continue
+            tribunal = parts[0].upper()
+            date_str = parts[1]
+            ia_status = parts[2]
+            djen_status = parts[3] if len(parts) > 3 else ""
+
+            if ia_status == "uploaded":
+                year = date_str[:4]
+                item_id = f"djen-{tribunal.lower()}-{year}"
+                filename = f"djen-{date_str}-{tribunal}.zip"
+                by_date.setdefault(date_str, []).append(
+                    {
+                        "tribunal": tribunal,
+                        "item_id": item_id,
+                        "filename": filename,
+                        "absent": False,
+                    }
+                )
+            elif djen_status == "absent":
+                # Tribunal confirmed no publication on this date — counts as "present"
+                # for the completeness check but produces no ZIP to download.
+                by_date.setdefault(date_str, []).append(
+                    {"tribunal": tribunal, "item_id": "", "filename": "", "absent": True}
+                )
+    except Exception as e:
+        logger.warning("sync_manifest_load_failed", path=str(path), error=str(e))
+        return {}
+
+    total_zips = sum(1 for v in by_date.values() for e in v if not e["absent"])
+    total_absent = sum(1 for v in by_date.values() for e in v if e["absent"])
+    logger.info(
+        "sync_manifest_loaded", dates=len(by_date), total_zips=total_zips, total_absent=total_absent
+    )
+    return by_date
+
 
 def load_checkpoint_state() -> dict[str, Any]:
     """Load checkpoint state from disk.
@@ -234,23 +301,29 @@ def fetch_manifest_records() -> list[dict]:
         return records
 
 
-def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[str]:
-    """Fetch dates needing consolidation from catalog manifest.
+def fetch_consolidation_candidates(
+    manifest: list[dict] | None = None,
+    sync_manifest: dict[str, list[dict[str, Any]]] | None = None,
+) -> list[str]:
+    """Fetch dates needing consolidation.
 
-    If manifest is provided (in-memory), queries it using DuckDB.
-    Otherwise, downloads it from IA first.
-    Returns dates sorted by date descending (newest first).
+    Priority order:
+      1. manifest.parquet (in-memory or downloaded from IA) — authoritative,
+         knows exactly which dates have ZIPs and which already have Parquets.
+      2. sync-manifest.csv (local file) — fast fallback: dates with uploaded
+         ZIPs that are not yet in the consolidation checkpoint.
+    Returns dates sorted descending (newest first).
     """
-    if manifest is None:
-        manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
-        logger.info("fetching_consolidation_candidates_from_url", url=manifest_url)
-        # For simplicity in this case, we use the URL directly in DuckDB
+    # 1a. In-memory manifest (already fetched)
+    if manifest is not None:
+        logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
         con = duckdb.connect()
-        con.execute("INSTALL httpfs; LOAD httpfs;")
         try:
+            df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
+            df = pd.DataFrame(df_data)  # noqa: F841
             query = """
                 SELECT date
-                FROM read_parquet('https://archive.org/download/causaganha-catalog/manifest.parquet')
+                FROM df
                 GROUP BY date
                 HAVING SUM(CASE WHEN file_type='zip' THEN 1 ELSE 0 END) > 0
                    AND SUM(CASE WHEN file_type='parquet' THEN 1 ELSE 0 END) = 0
@@ -259,36 +332,52 @@ def fetch_consolidation_candidates(manifest: list[dict] | None = None) -> list[s
             result = con.execute(query).fetchall()
             return [str(r[0]) for r in result]
         except Exception as e:
-            logger.warning("fetch_candidates_failed", error=str(e))
+            logger.warning("fetch_candidates_failed_memory", error=str(e))
             return []
         finally:
             con.close()
 
-    # Use in-memory manifest
-    logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
+    # 1b. Download manifest.parquet from IA and query it
+    manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+    logger.info("fetching_consolidation_candidates_from_url", url=manifest_url)
     con = duckdb.connect()
     try:
-        # Load manifest list into a DuckDB table
-        # We only need date and file_type
-        df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-
-        df = pd.DataFrame(df_data)  # noqa: F841
-
+        con.execute("INSTALL httpfs; LOAD httpfs;")
         query = """
             SELECT date
-            FROM df
+            FROM read_parquet('https://archive.org/download/causaganha-catalog/manifest.parquet')
             GROUP BY date
             HAVING SUM(CASE WHEN file_type='zip' THEN 1 ELSE 0 END) > 0
                AND SUM(CASE WHEN file_type='parquet' THEN 1 ELSE 0 END) = 0
             ORDER BY date DESC
         """
         result = con.execute(query).fetchall()
-        return [str(r[0]) for r in result]
+        candidates = [str(r[0]) for r in result]
+        if candidates:
+            logger.info("candidates_from_manifest_parquet", count=len(candidates))
+            return candidates
     except Exception as e:
-        logger.warning("fetch_candidates_failed_memory", error=str(e))
-        return []
+        logger.warning("fetch_candidates_from_manifest_parquet_failed", error=str(e))
     finally:
         con.close()
+
+    # 2. Fallback: sync-manifest.csv — dates uploaded but not yet consolidated
+    if sync_manifest:
+        checkpoint = load_checkpoint_state()
+        completed = set(checkpoint.get("completed_dates", []))
+        candidates = sorted(
+            (d for d in sync_manifest if d not in completed),
+            reverse=True,
+        )
+        logger.info(
+            "candidates_from_sync_manifest",
+            total_dates=len(sync_manifest),
+            completed=len(completed),
+            candidates=len(candidates),
+        )
+        return candidates
+
+    return []
 
 
 class CheckpointManager:
@@ -378,16 +467,21 @@ def list_local_zips(directory: str) -> tuple[list[dict[str, Any]], int]:
 
 
 def list_zips_for_date(
-    date: str, manifest: list[dict] | None = None
+    date: str,
+    manifest: list[dict] | None = None,
+    sync_manifest: dict[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Find all ZIP files for a specific date on IA.
 
-    If manifest is provided, use it (fast). Otherwise use IA metadata API (slow).
+    Priority order (fastest → slowest):
+      1. manifest.parquet records (in-memory, already fetched)
+      2. sync-manifest.csv records (local file, O(1) lookup)
+      3. IA metadata API per tribunal (slow — 40+ HTTP calls, avoid)
     """
     logger.info("listing_zips", date=date)
     zips: list[dict[str, Any]] = []
 
-    # 1. Use manifest if available (fast)
+    # 1. manifest.parquet (fast, already in memory)
     if manifest:
         files = [m for m in manifest if m["date"] == date]
         present = set()
@@ -400,12 +494,29 @@ def list_zips_for_date(
                             "filename": f["file_name"],
                             "tribunal": f["tribunal"],
                             "item_id": f["ia_item"],
-                            "size": 0,  # manifest doesn't have size currently
+                            "size": 0,
                         }
                     )
         return zips, len(present)
 
-    # 2. Use IA metadata API (slow fallback)
+    # 2. sync-manifest.csv (fast, avoids per-tribunal IA API calls)
+    if sync_manifest is not None:
+        entries = sync_manifest.get(date, [])
+        present_count = len(entries)  # includes both uploaded ZIPs and confirmed-absent
+        for e in entries:
+            if not e["absent"]:
+                zips.append(
+                    {
+                        "filename": e["filename"],
+                        "tribunal": e["tribunal"],
+                        "item_id": e["item_id"],
+                        "size": 0,
+                    }
+                )
+        logger.info("zips_from_sync_manifest", date=date, zips=len(zips), present=present_count)
+        return zips, present_count
+
+    # 3. IA metadata API per tribunal (slow fallback — only used if both sources absent)
     present = set()
     for tribunal in TRIBUNAIS:
         item_id = get_ia_item_id(tribunal, date)
@@ -437,7 +548,7 @@ def list_zips_for_date(
         except Exception as e:
             logger.warning("metadata_fetch_failed", item_id=item_id, error=str(e))
 
-    logger.info("zips_found", count=len(zips), date=date)
+    logger.info("zips_found_via_api", count=len(zips), date=date)
     return zips, len(present)
 
 
@@ -1301,11 +1412,12 @@ def find_next_unconsolidated(
     manifest: list[dict] | None = None,
     checkpoint_file: Path | None = None,
     ctx: ConsolidationContext | None = None,
+    sync_manifest: dict[str, list[dict[str, Any]]] | None = None,
 ) -> str | None:
     """Find the most recent date needing consolidation.
 
     First tries to fetch candidates from the catalog manifest (fast).
-    Falls back to walking backward from today (slow) if manifest is unavailable.
+    Falls back to sync-manifest.csv, then to walking backward from today (slow).
 
     Returns the date string or None if everything is consolidated.
     """
@@ -1314,7 +1426,7 @@ def find_next_unconsolidated(
 
     # 1. Try manifest-based discovery (fast, minimal API calls)
     if ctx.consolidation_candidates is None:
-        ctx.consolidation_candidates = fetch_consolidation_candidates(manifest)
+        ctx.consolidation_candidates = fetch_consolidation_candidates(manifest, sync_manifest)
 
     if ctx.consolidation_candidates:
         while ctx.consolidation_candidates:
@@ -1518,6 +1630,7 @@ def consolidate_date(
     date: str,
     manifest: list[dict] | None = None,
     *,
+    sync_manifest: dict[str, list[dict[str, Any]]] | None = None,
     dry_run: bool = False,
     force: bool = False,
     local_zips: str | None = None,
@@ -1528,7 +1641,8 @@ def consolidate_date(
 
     Args:
         date: Date string in YYYY-MM-DD format.
-        manifest: In-memory manifest of IA files.
+        manifest: In-memory manifest.parquet records (fastest source).
+        sync_manifest: In-memory sync-manifest.csv records (fast fallback).
         dry_run: If True, skip uploading to Internet Archive.
         force: If True, consolidate even if the day is incomplete.
         local_zips: Local directory containing ZIPs (for testing).
@@ -1558,7 +1672,7 @@ def consolidate_date(
         zips, present_count = list_local_zips(local_zips)
         logger.info("using_local_zips", directory=local_zips, count=len(zips))
     else:
-        zips, present_count = list_zips_for_date(date, manifest)
+        zips, present_count = list_zips_for_date(date, manifest, sync_manifest)
 
     # Filter out already processed ZIPs
     original_count = len(zips)
@@ -1750,14 +1864,14 @@ def main() -> int:
         "uploaded_mb": 0.0,
     }
 
-    # Fetch manifest once if in backfill mode or scanning needed
+    # Load sync-manifest.csv (written by djen-backup, available after download-state step)
+    # Used as fallback when manifest.parquet is unavailable or stale.
+    sync_manifest = load_sync_manifest()
+
+    # Fetch manifest.parquet once if in backfill mode or scanning needed
     manifest = None
     if args.backfill or not args.date:
         manifest = fetch_manifest_records()
-        if manifest:
-            pass
-        else:
-            pass
 
     if args.date:
         # Explicit date — existing behaviour
@@ -1765,6 +1879,7 @@ def main() -> int:
             stats = consolidate_date(
                 args.date,
                 manifest,
+                sync_manifest=sync_manifest,
                 dry_run=args.dry_run,
                 force=args.force,
                 local_zips=args.local_zips,
@@ -1776,7 +1891,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-
             traceback.print_exc()
             return 1
 
@@ -1792,7 +1906,9 @@ def main() -> int:
                 if elapsed > deadline_sec - 120:
                     break
 
-            target_date_or_none = find_next_unconsolidated(manifest, ctx=ctx)
+            target_date_or_none = find_next_unconsolidated(
+                manifest, ctx=ctx, sync_manifest=sync_manifest
+            )
             if target_date_or_none is None:
                 break
 
@@ -1802,6 +1918,7 @@ def main() -> int:
                 stats = consolidate_date(
                     target_date,
                     manifest,
+                    sync_manifest=sync_manifest,
                     dry_run=args.dry_run,
                     force=args.force,
                     local_zips=args.local_zips,
@@ -1814,7 +1931,6 @@ def main() -> int:
                 dates_processed += 1
             except Exception as e:
                 logger.exception("consolidation_aborted", date=target_date, error=str(e))
-
                 traceback.print_exc()
                 # Continue to next date instead of aborting the entire run
                 dates_processed += 1
@@ -1826,6 +1942,7 @@ def main() -> int:
             stats = consolidate_date(
                 target_date,
                 manifest,
+                sync_manifest=sync_manifest,
                 dry_run=args.dry_run,
                 force=args.force,
                 local_zips=args.local_zips,
@@ -1837,7 +1954,6 @@ def main() -> int:
                 total_stats[k] += stats.get(k, 0)
         except Exception as e:
             logger.exception("consolidation_aborted", error=str(e))
-
             traceback.print_exc()
             return 1
 
