@@ -51,6 +51,8 @@ DJEN_START_DATE = date(2024, 1, 1)
 
 IA_CATALOG_ITEM = "causaganha-catalog"
 
+SYNC_MANIFEST_PATH = Path("data/sync-manifest.csv")
+
 # Known table names from consolidation output
 KNOWN_TABLE_NAMES = {
     "comunicacoes",
@@ -62,6 +64,7 @@ KNOWN_TABLE_NAMES = {
     "advogado_nomes",
     "processos",
     "representacoes",
+    "classificacoes",
 }
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)
@@ -111,31 +114,53 @@ def run_ia_command(args: list[str], timeout: int = 300) -> str:
         return output
 
 
-def get_items_from_ia_state(state_file: Path | str = "data/ia-state.json") -> list[str]:
-    """Get list of item IDs modified in the current run from ia-state.json."""
-    path = Path(state_file)
-    if not path.exists():
-        logger.info("ia_state_not_found", path=str(path))
+def get_items_from_sync_manifest(
+    manifest_path: Path = SYNC_MANIFEST_PATH,
+) -> list[str]:
+    """Get IA item IDs from sync-manifest.csv (uploaded entries only).
+
+    Replaces the old get_items_from_ia_state() which read the deprecated
+    ia-state.json. The new djen-backup engine writes to sync-manifest.csv
+    using the canonical item format djen-{tribunal.lower()}-{year}.
+    """
+    if not manifest_path.exists():
+        logger.info("sync_manifest_not_found", path=str(manifest_path))
         return []
 
+    item_ids: set[str] = set()
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        entries = data.get("entries", {})
-        items = [f"djen-{date_str}" for date_str in entries]
-        logger.info("loaded_items_from_ia_state", count=len(items))
-        return items
+        for line in manifest_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
+                continue
+            parts = line.split(",")
+            if len(parts) < 3:
+                continue
+            tribunal = parts[0].lower()
+            date_str = parts[1]
+            ia_status = parts[2]
+            if ia_status == "uploaded" and len(date_str) >= 4:
+                item_ids.add(f"djen-{tribunal}-{date_str[:4]}")
     except Exception as e:
-        logger.warning("failed_to_parse_ia_state", error=str(e))
+        logger.warning("failed_to_parse_sync_manifest", error=str(e))
         return []
+
+    items = sorted(item_ids)
+    logger.info("loaded_items_from_sync_manifest", count=len(items))
+    return items
 
 
 def list_ia_items() -> list[str]:
     """List all djen-* items from Internet Archive.
 
+    Covers both item formats:
+      - New: djen-{tribunal}-{year}  (e.g. djen-tjro-2025)
+      - Old: djen-{YYYY-MM-DD}       (e.g. djen-2026-01-15)
+
     Returns empty list on error - caller should handle gracefully.
     """
     logger.info("listing_ia_items")
-    output = run_ia_command(["search", "identifier:djen-20*", "--itemlist"])
+    output = run_ia_command(["search", "identifier:djen-*", "--itemlist"])
 
     if not output:
         logger.warning("no_items_found_or_error")
@@ -247,51 +272,40 @@ def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
         return set()
 
 
-def generate_collect_progress(con: duckdb.DuckDBPyConnection) -> dict:
+def generate_collect_progress(
+    sync_manifest_path: Path = SYNC_MANIFEST_PATH,
+) -> dict:
     """Generate download (collect) progress metrics for dashboard.
 
-    Based on djen_state.coverage table (what was downloaded/attempted).
+    Reads sync-manifest.csv (written by djen-backup/engine.py) instead of the
+    old djen_state.coverage DuckDB table which is no longer populated.
     """
-    # Check if table exists
-    try:
-        con.execute("SELECT 1 FROM djen_state.coverage LIMIT 1")
-    except duckdb.CatalogException:
-        # Table doesn't exist, return empty stats
-        return {
-            "oldest_date": None,
-            "newest_date": None,
-            "unique_days": 0,
-            "total_items": 0,
-            "target_range": {"start": "2024-01-01", "end": "2026-02-03", "total_days": 764},
-            "progress_pct": 0.0,
-            "last_updated": datetime.now(UTC).isoformat(),
-        }
-
-    result = con.execute("""
-        SELECT
-            MIN(date) as oldest_date,
-            MAX(date) as newest_date,
-            COUNT(DISTINCT date) as unique_days,
-            COUNT(*) as total_items
-        FROM djen_state.coverage
-    """).fetchone()
-
     target_start = date(2024, 1, 1)
-    target_end = date(2026, 2, 3)
+    target_end = date.today()
     target_days = (target_end - target_start).days + 1
 
-    oldest_date = result[0] or None
-    newest_date = result[1] or None
-    unique_days = result[2] or 0
-    total_items = result[3] or 0
+    uploaded_dates: set[str] = set()
+    if sync_manifest_path.exists():
+        try:
+            for line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("tribunal"):
+                    continue
+                parts = line.split(",")
+                if len(parts) >= 3 and parts[2] == "uploaded":
+                    uploaded_dates.add(parts[1])
+        except Exception as e:
+            logger.warning("collect_progress_manifest_read_failed", error=str(e))
 
-    progress_pct = (unique_days / target_days * 100) if unique_days > 0 else 0
+    unique_days = len(uploaded_dates)
+    dates_sorted = sorted(uploaded_dates) if uploaded_dates else []
+    progress_pct = (unique_days / target_days * 100) if unique_days > 0 else 0.0
 
     return {
-        "oldest_date": str(oldest_date) if oldest_date else None,
-        "newest_date": str(newest_date) if newest_date else None,
+        "oldest_date": dates_sorted[0] if dates_sorted else None,
+        "newest_date": dates_sorted[-1] if dates_sorted else None,
         "unique_days": unique_days,
-        "total_items": total_items,
+        "total_items": unique_days,
         "target_range": {
             "start": str(target_start),
             "end": str(target_end),
@@ -657,13 +671,22 @@ def load_existing_manifest() -> list[dict]:
 
 
 def get_item_date(item_id: str) -> date | None:
-    """Extract date from item identifier (e.g. djen-2026-01-06)."""
+    """Extract date from item identifier.
+
+    Handles two formats:
+      - Old: djen-2026-01-06  → returns 2026-01-06
+      - New: djen-tjro-2025   → returns None (no specific date in ID)
+    """
     if not item_id.startswith("djen-"):
         return None
     try:
-        # djen-YYYY-MM-DD
-        date_str = item_id.replace("djen-", "")[:10]
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
+        suffix = item_id[len("djen-"):]
+        # Old format: suffix starts with a digit (year)
+        if suffix[:1].isdigit():
+            date_str = suffix[:10]
+            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
+        # New format: djen-{tribunal}-{year} — no specific date available
+        return None
     except Exception:
         return None
 
@@ -1272,7 +1295,7 @@ def main() -> int:
             # Infer existing items from the manifest
             existing_items = {m.get("ia_item") for m in existing_manifest if m.get("ia_item")}
             # Add new items modified in the current run
-            new_items = set(get_items_from_ia_state())
+            new_items = set(get_items_from_sync_manifest())
             # We must pass all known items to generate_manifest so it preserves
             # the unchanged ones while processing the new/modified ones
             items = list(existing_items | new_items)
@@ -1347,30 +1370,21 @@ def main() -> int:
     # Generate backfill progress metrics for dashboard
     logger.info("generating_backfill_progress")
 
-    # We need to connect to the main DB to get coverage stats
-    # It might not exist if running fresh, handle gracefully
-    main_db_path = Path("data/causaganha.duckdb")
-    # Generate collect progress (downloads)
+    # Generate collect progress (downloads) from sync-manifest.csv
     collect_progress_path = None
-    if main_db_path.exists():
-        try:
-            # Open read-only
-            con = duckdb.connect(str(main_db_path), read_only=True)
-            collect_data = generate_collect_progress(con)
-            con.close()
+    try:
+        collect_data = generate_collect_progress()
 
-            # Save current state (JSON)
-            collect_progress_path = output_dir / "collect-progress.json"
-            collect_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
-            logger.info("collect_progress_saved", path=str(collect_progress_path))
+        # Save current state (JSON)
+        collect_progress_path = output_dir / "collect-progress.json"
+        collect_progress_path.write_text(json.dumps(collect_data, ensure_ascii=False, indent=2))
+        logger.info("collect_progress_saved", path=str(collect_progress_path))
 
-            # Append to history (JSONL)
-            collect_history_path = output_dir / "collect-progress.jsonl"
-            append_progress_jsonl(collect_history_path, collect_data)
-        except Exception as e:
-            logger.exception("collect_progress_failed", error=str(e))
-    else:
-        logger.warning("main_db_not_found", path=str(main_db_path))
+        # Append to history (JSONL)
+        collect_history_path = output_dir / "collect-progress.jsonl"
+        append_progress_jsonl(collect_history_path, collect_data)
+    except Exception as e:
+        logger.exception("collect_progress_failed", error=str(e))
 
     # Generate consolidate progress (parquets)
     consolidate_data = generate_consolidate_progress(manifest)

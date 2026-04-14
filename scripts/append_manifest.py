@@ -17,7 +17,7 @@ logger = structlog.get_logger()
 IA_CATALOG_ITEM = "causaganha-catalog"
 FALLBACK_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 LOCAL_MANIFEST_PATH = Path("data/manifest.jsonl")
-IA_STATE_PATH = Path("data/ia-state.json")
+SYNC_MANIFEST_PATH = Path("data/sync-manifest.csv")
 
 
 def download_existing_manifest() -> list[dict]:
@@ -41,45 +41,48 @@ def download_existing_manifest() -> list[dict]:
 
 
 def get_new_uploads() -> list[dict]:
-    """Extract newly uploaded ZIPs from ia-state.json."""
-    if not IA_STATE_PATH.exists():
-        logger.warning("ia_state_not_found", path=str(IA_STATE_PATH))
+    """Extract uploaded ZIPs from sync-manifest.csv.
+
+    Reads the canonical state file written by djen-backup/engine.py.
+    Returns all entries with ia_status=uploaded, deduplication is handled
+    by the caller via (date, tribunal) keying.
+    """
+    if not SYNC_MANIFEST_PATH.exists():
+        logger.warning("sync_manifest_not_found", path=str(SYNC_MANIFEST_PATH))
         return []
 
-    try:
-        data = json.loads(IA_STATE_PATH.read_text(encoding="utf-8"))
-    except Exception as e:
-        logger.exception("error_reading_ia_state", error=str(e))
-        return []
-
-    entries = data.get("entries", {})
-    new_rows = []
+    rows = []
     now_str = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
-    for date_str, item_data in entries.items():
-        if isinstance(item_data, dict):
-            for tribunal, status_data in item_data.items():
-                status = status_data
-                duration_s = None
-                if isinstance(status_data, dict):
-                    status = status_data.get("status")
-                    duration_s = status_data.get("duration_s")
+    try:
+        for line in SYNC_MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
+                continue
+            parts = line.split(",")
+            if len(parts) < 3:
+                continue
+            tribunal = parts[0].upper()
+            date_str = parts[1]
+            ia_status = parts[2]
+            if ia_status != "uploaded":
+                continue
+            updated_at = parts[5] if len(parts) > 5 else now_str
+            year = date_str[:4]
+            filename = f"djen-{date_str}-{tribunal}.zip"
+            item_id = f"djen-{tribunal.lower()}-{year}"
+            rows.append({
+                "date": date_str,
+                "tribunal": tribunal,
+                "zip_url": f"https://archive.org/download/{item_id}/{filename}",
+                "downloaded_at": updated_at,
+            })
+    except Exception as e:
+        logger.exception("error_reading_sync_manifest", error=str(e))
+        return []
 
-                if status == "uploaded":
-                    year = date_str[:4]
-                    filename = f"djen-{date_str}-{tribunal.upper()}.zip"
-                    item_id = f"djen-{tribunal.lower()}-{year}"
-                    row = {
-                        "date": date_str,
-                        "tribunal": tribunal.upper(),
-                        "zip_url": f"https://archive.org/download/{item_id}/{filename}",
-                        "downloaded_at": now_str,
-                    }
-                    if duration_s is not None:
-                        row["duration_s"] = duration_s
-                    new_rows.append(row)
-
-    return new_rows
+    logger.info("new_uploads_from_sync_manifest", count=len(rows))
+    return rows
 
 
 def main() -> int:
