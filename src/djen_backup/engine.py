@@ -34,7 +34,6 @@ log = structlog.get_logger()
 
 STAGING_DIR = Path("data/staging")
 MAX_STAGED_FILES = 3
-UPLOAD_WORKERS = 4
 
 # ── Protocols ────────────────────────────────────────────────────────
 
@@ -492,15 +491,16 @@ async def run_pipeline(
 
         feeder_task = asyncio.create_task(feed_available())
 
-        # Worker allocation:
-        # - Checkers: most workers (lightweight DJEN API calls, need parallelism)
-        # - Downloaders: few (fast downloads, bottlenecked by upload queue)
-        # - Uploaders: fixed (IA rate-limited, more workers don't help)
+        # Worker allocation (all independent task pools):
+        # - Checkers: --workers (lightweight DJEN API calls, need parallelism)
+        # - Downloaders: --workers / 4 (fast but bottlenecked by upload queue)
+        # - Uploaders: --workers (IA rate-limited globally by TokenBucket)
         checker_count = config.workers
         dl_count = max(1, config.workers // 4) if not config.dry_run else 0
+        upload_count = config.workers
 
         upload_tasks = [
-            asyncio.create_task(upload_worker(upload_client)) for _ in range(UPLOAD_WORKERS)
+            asyncio.create_task(upload_worker(upload_client)) for _ in range(upload_count)
         ]
 
         dl_tasks = [asyncio.create_task(download_worker(dl_client)) for _ in range(dl_count)]
@@ -513,7 +513,7 @@ async def run_pipeline(
             "workers_started",
             checkers=checker_count,
             downloaders=dl_count,
-            uploaders=UPLOAD_WORKERS,
+            uploaders=upload_count,
         )
 
         # Wait for checkers to finish, then signal feeder
