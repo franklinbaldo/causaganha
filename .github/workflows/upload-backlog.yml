@@ -15,7 +15,7 @@ concurrency:
 jobs:
   upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 18
     environment: dev
     env:
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
@@ -23,4 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: astral-sh/setup-uv@v5
-      - run: uv run --no-dev djen-backup upload --workers 4 --deadline-minutes 10 --use-proxy --no-fail-fast
+      - name: Restore manifest cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}
+          restore-keys: sync-manifest-
+      - run: uv run --no-dev djen-backup upload --workers 6 --deadline-minutes 14 --use-proxy --no-fail-fast
+      - name: Save manifest cache
+        if: always()
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: data/sync-manifest.csv
+          key: sync-manifest-${{ github.run_id }}
