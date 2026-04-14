@@ -4,20 +4,24 @@
 
   const IA_BASE = 'https://archive.org/download';
 
+  // Per-(tribunal, year) IA items hold the consolidated parquets.
+  // Pick any tribunal/year — TJRO 2026 used here as a demo.
+  const ITEM = 'djen-tjro-2026';
+
   const QUERY_TEMPLATES = [
     {
-      label: 'Comunicações por tribunal (últimos 30 dias)',
-      sql: `SELECT tribunal, COUNT(*) as total
-FROM read_parquet('${IA_BASE}/djen-2026-04-01/comunicacoes.parquet')
-GROUP BY tribunal
+      label: 'Comunicações por órgão (TJRO 2026)',
+      sql: `SELECT nome_orgao, COUNT(*) as total
+FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')
+GROUP BY nome_orgao
 ORDER BY total DESC
 LIMIT 20`,
     },
     {
-      label: 'Advogados mais ativos',
+      label: 'Advogados mais ativos (TJRO 2026)',
       sql: `SELECT nome, numero_oab, uf_oab, COUNT(*) as comunicacoes
-FROM read_parquet('${IA_BASE}/djen-2026-04-01/advogados.parquet') a
-JOIN read_parquet('${IA_BASE}/djen-2026-04-01/comunicacao_advogados.parquet') ca
+FROM read_parquet('${IA_BASE}/${ITEM}/advogados.parquet') a
+JOIN read_parquet('${IA_BASE}/${ITEM}/comunicacao_advogados.parquet') ca
   ON a.id = ca.advogado_id
 GROUP BY nome, numero_oab, uf_oab
 ORDER BY comunicacoes DESC
@@ -26,21 +30,18 @@ LIMIT 20`,
     {
       label: 'Classificações de resultado (keyword_v1)',
       sql: `SELECT outcome, decision_type, COUNT(*) as total, ROUND(AVG(confidence), 2) as avg_confidence
-FROM read_parquet('${IA_BASE}/djen-2026-04-01/classificacoes.parquet')
+FROM read_parquet('${IA_BASE}/${ITEM}/classificacoes.parquet')
 GROUP BY outcome, decision_type
 ORDER BY total DESC`,
     },
     {
-      label: 'Processos por tribunal',
-      sql: `SELECT tribunal, COUNT(DISTINCT numero_processo) as processos
-FROM read_parquet('${IA_BASE}/djen-2026-04-01/processos.parquet')
-GROUP BY tribunal
-ORDER BY processos DESC
-LIMIT 20`,
+      label: 'Processos distintos (TJRO 2026)',
+      sql: `SELECT COUNT(DISTINCT numero_processo) as processos
+FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     },
     {
       label: 'Schema das tabelas',
-      sql: `DESCRIBE SELECT * FROM read_parquet('${IA_BASE}/djen-2026-04-01/comunicacoes.parquet') LIMIT 0`,
+      sql: `DESCRIBE SELECT * FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet') LIMIT 0`,
     },
   ];
 
@@ -205,7 +206,7 @@ LIMIT 20`,
     bind:value={sql}
     onkeydown={handleKeyDown}
     rows="10"
-    placeholder="SELECT * FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet') LIMIT 10"
+    placeholder="SELECT * FROM read_parquet('https://archive.org/download/djen-tjro-2026/comunicacoes.parquet') LIMIT 10"
     disabled={dbStatus !== 'ready'}
     aria-label="Editor SQL"
   ></textarea>

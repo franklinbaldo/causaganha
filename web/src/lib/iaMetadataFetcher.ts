@@ -43,7 +43,7 @@ export function getExpectedDays(year: number): number {
 
 /**
  * Extract tribunal code from an IA item identifier.
- * "djen-tjsp-2026" -> "TJSP"
+ * "djen-tjro-2026" -> "TJSP"
  * "djen-tre-ac-2026" -> "TRE-AC"
  */
 function tribunalFromItemId(identifier: string, year: number): string | null {

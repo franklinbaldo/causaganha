@@ -79,9 +79,9 @@ if (topTribunaisLive.length > 0) {
 }
 const topTribunaisHeader = topTribunais[0]?.label ?? 'Lotes';
 
-const PROOF_QUERY_SQL = `SELECT tribunal, COUNT(*) as total
-FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet')
-GROUP BY tribunal
+const PROOF_QUERY_SQL = `SELECT nome_orgao, COUNT(*) as total
+FROM read_parquet('https://archive.org/download/djen-tjro-2026/comunicacoes.parquet')
+GROUP BY nome_orgao
 ORDER BY total DESC
 LIMIT 5`;
 
