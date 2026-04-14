@@ -7,6 +7,7 @@ on:
       - 'web/**'
       - 'scripts/generate_dashboard_cache.py'
       - 'scripts/generate_ia_snapshot.py'
+      - 'scripts/generate_homepage_widgets.py'
   # No schedule needed — update-catalog.yml triggers this after every successful collect
   workflow_dispatch:
 
@@ -71,6 +72,12 @@ jobs:
           mkdir -p web/public/cache
           uv run python scripts/generate_dashboard_cache.py
           uv run python scripts/generate_ia_snapshot.py --output web/public/ia-snapshot.json
+          # Homepage widgets (activity strip, top tribunais 30d, top advogados).
+          # Non-fatal: if generation fails, a prior cached JSON (if any) is
+          # used, and index.astro degrades gracefully when the JSON is absent.
+          uv run python scripts/generate_homepage_widgets.py \
+            --output web/public/cache/homepage-widgets.json \
+            || echo "homepage-widgets generation failed (non-fatal)"
           echo "Cache files generated:"
           ls -la web/public/cache/
         env:

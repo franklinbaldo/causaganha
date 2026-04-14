@@ -6,11 +6,25 @@ import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import WorkflowStatusBadge from '../components/WorkflowStatusBadge.astro';
 import DataSourceIndicator from '../components/DataSourceIndicator.astro';
 import QueryCard from '../components/QueryCard.astro';
-import { readJson } from '../lib/readJson';
+import { readJson, type HomepageWidgets } from '../lib/readJson';
 import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
 const backfill = readJson<any>('cache/backfill.json');
+const widgets = readJson<HomepageWidgets>('cache/homepage-widgets.json');
+
+const activitySummary = widgets?.activity_summary ?? null;
+const topAdvogados = widgets?.top_advogados_atividade ?? [];
+const topTribunaisLive = widgets?.top_tribunais_30d ?? [];
+
+const activityPeriodoLabel = activitySummary?.periodo
+  ? (() => {
+      const [y, m] = activitySummary.periodo.split('-').map(Number);
+      if (!y || !m) return activitySummary.periodo;
+      const d = new Date(Date.UTC(y, m - 1, 1));
+      return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    })()
+  : null;
 
 const snap = iaSnapshot?.summary || {};
 const totalZips = snap.total_zips || 0;
@@ -40,25 +54,41 @@ const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
     data_rate_pct: Number(t.data_rate_pct ?? 0),
   }));
 
-// Top 5 tribunais por volume arquivado — used by the proof block to show
-// real, build-time-derived numbers next to the example query.
-const tribunalVolume = new Map<string, number>();
-if (iaSnapshot?.items) {
-  for (const item of Object.values<any>(iaSnapshot.items)) {
-    if (!item?.tribunal) continue;
-    tribunalVolume.set(item.tribunal, (tribunalVolume.get(item.tribunal) ?? 0) + (item.zip_count ?? 0));
+// Top 5 tribunais por movimento — prefer the daily-generated widget (real
+// communications in the last 30 days). Falls back to ZIP-lot counts when the
+// widget JSON isn't available yet, so the page still renders during setup.
+let topTribunais: { tribunal: string; lotes: number; label: string }[] = [];
+if (topTribunaisLive.length > 0) {
+  topTribunais = topTribunaisLive.map(row => ({
+    tribunal: row.tribunal,
+    lotes: row.comunicacoes,
+    label: 'Comunicações (30d)',
+  }));
+} else {
+  const tribunalVolume = new Map<string, number>();
+  if (iaSnapshot?.items) {
+    for (const item of Object.values<any>(iaSnapshot.items)) {
+      if (!item?.tribunal) continue;
+      tribunalVolume.set(item.tribunal, (tribunalVolume.get(item.tribunal) ?? 0) + (item.zip_count ?? 0));
+    }
   }
+  topTribunais = Array.from(tribunalVolume.entries())
+    .map(([tribunal, lotes]) => ({ tribunal, lotes, label: 'Lotes' }))
+    .sort((a, b) => b.lotes - a.lotes)
+    .slice(0, 5);
 }
-const topTribunais = Array.from(tribunalVolume.entries())
-  .map(([tribunal, lotes]) => ({ tribunal, lotes }))
-  .sort((a, b) => b.lotes - a.lotes)
-  .slice(0, 5);
+const topTribunaisHeader = topTribunais[0]?.label ?? 'Lotes';
 
 const PROOF_QUERY_SQL = `SELECT tribunal, COUNT(*) as total
 FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet')
 GROUP BY tribunal
 ORDER BY total DESC
 LIMIT 5`;
+
+function formatPctLabel(pct: number | undefined): string {
+  if (typeof pct !== 'number' || Number.isNaN(pct)) return '–';
+  return `${Math.round(pct * 100)}%`;
+}
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
@@ -148,6 +178,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 
+  {activitySummary && activitySummary.intimacoes && (
+    <!-- ── ACTIVITY STRIP: movimento do último mês fechado ── -->
+    <section class="section-container activity-strip-section">
+      <p class="activity-strip">
+        <span class="activity-label">Movimento em {activityPeriodoLabel ?? activitySummary.periodo}:</span>
+        <strong>{formatNumber(activitySummary.intimacoes)}</strong> intimações ·
+        <strong>{formatNumber(activitySummary.oabs_unicas ?? 0)}</strong> OABs únicas ·
+        <strong>{formatNumber(activitySummary.processos ?? 0)}</strong> processos ·
+        <strong>{formatNumber(activitySummary.tribunais ?? 0)}</strong> tribunais ativos
+      </p>
+    </section>
+  )}
+
   <!-- ── TRUST STRIP: live status + freshness + gaps ── -->
   <section class="section-container trust-strip-section">
     <div class="trust-strip">
@@ -185,6 +228,52 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 
+  {topAdvogados.length > 0 && (
+    <!-- ── TOP ADVOGADOS POR ATIVIDADE (nominal, descritivo) ── -->
+    <section class="section-container">
+      <h2 class="section-heading">Advogados mais ativos em {widgets?.year ?? new Date().getFullYear()}.</h2>
+      <p class="activity-disclaimer">
+        Ranking <strong>descritivo</strong> por volume de atuação. <em>Não</em> é medida de qualidade ou resultado —
+        um advogado aparece no topo simplesmente por atuar em mais processos.
+        Metodologia em <a href={BASE + 'sobre'}>/sobre</a>.
+      </p>
+      <div class="table-wrap">
+        <table class="lawyers-table">
+          <thead>
+            <tr>
+              <th scope="col" class="rank-col">#</th>
+              <th scope="col">OAB</th>
+              <th scope="col">Nome</th>
+              <th scope="col" class="num-col">Comunicações</th>
+              <th scope="col">Tribunal principal</th>
+              <th scope="col" class="num-col">% Autor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topAdvogados.map((adv, i) => (
+              <tr>
+                <td class="rank-col">{i + 1}</td>
+                <td class="mono">
+                  <a href={`${BASE}publicacoes?ufOab=${encodeURIComponent(adv.uf)}&numeroOab=${encodeURIComponent(adv.oab)}`}>
+                    {adv.oab}/{adv.uf}
+                  </a>
+                </td>
+                <td>{adv.nome ?? '—'}</td>
+                <td class="num-col mono">{formatNumber(adv.comunicacoes)}</td>
+                <td class="mono">{adv.tribunal_principal ?? '—'}</td>
+                <td class="num-col mono">{formatPctLabel(adv.polos?.A)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="activity-footnote">
+        Atualizado diariamente · filtro mínimo de 10 comunicações ·
+        <a href={BASE + 'advogados'}>mais em /advogados</a>
+      </p>
+    </section>
+  )}
+
   <!-- ── PARA QUEM ── -->
   <section class="section-alt">
     <div class="section-container">
@@ -213,11 +302,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         />
       </div>
       <div class="proof-result">
-        <h3 class="proof-result-title">Top 5 tribunais por volume arquivado</h3>
+        <h3 class="proof-result-title">Top 5 tribunais por movimento</h3>
         {topTribunais.length > 0 ? (
           <table class="proof-table">
             <thead>
-              <tr><th scope="col">Tribunal</th><th scope="col">Lotes</th></tr>
+              <tr><th scope="col">Tribunal</th><th scope="col">{topTribunaisHeader}</th></tr>
             </thead>
             <tbody>
               {topTribunais.map(row => (
@@ -552,6 +641,100 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .stats-row {
       grid-template-columns: repeat(2, 1fr);
     }
+  }
+
+  /* ── Activity strip (widget 1) ── */
+  .activity-strip-section {
+    padding-top: var(--space-sm);
+    padding-bottom: 0;
+  }
+
+  .activity-strip {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    color: var(--color-content-secondary);
+  }
+
+  .activity-strip strong {
+    color: var(--color-base-content);
+    font-family: var(--font-mono);
+    font-weight: 700;
+  }
+
+  .activity-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-content-tertiary);
+    margin-right: 0.5rem;
+  }
+
+  /* ── Top advogados table (widget 3) ── */
+  .activity-disclaimer {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-secondary);
+    line-height: 1.6;
+    margin: 0 0 var(--space-md);
+    max-width: 56rem;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+  }
+
+  .lawyers-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+  }
+
+  .lawyers-table th,
+  .lawyers-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: baseline;
+  }
+
+  .lawyers-table thead th {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-content-tertiary);
+    font-weight: 600;
+    background: var(--color-base-200);
+  }
+
+  .lawyers-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .lawyers-table tbody tr:hover {
+    background: var(--color-base-200);
+  }
+
+  .lawyers-table .rank-col {
+    width: 2.5rem;
+    color: var(--color-content-tertiary);
+    font-family: var(--font-mono);
+  }
+
+  .lawyers-table .num-col {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .lawyers-table .mono {
+    font-family: var(--font-mono);
+  }
+
+  .activity-footnote {
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
   }
 
   /* ── Trust strip ── */

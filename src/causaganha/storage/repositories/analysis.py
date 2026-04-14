@@ -4,7 +4,6 @@ import json
 from typing import Any
 from uuid import UUID
 
-from ibis import _
 from ibis.backends.duckdb import Backend
 
 from causaganha.analysis.models import DecisionAnalysis
@@ -75,24 +74,61 @@ def store_analysis(
     )
 
 
+# Outcomes that actually produce a winner/loser and therefore can update
+# OpenSkill ratings. "unknown" and non-ratable outcomes are excluded so the
+# rating isn't polluted by cases the classifier couldn't resolve.
+RATABLE_OUTCOMES = ("procedente", "parcialmente procedente", "improcedente")
+
+# Decision types that we do NOT feed into the rating system. Interim orders
+# (decisões interlocutórias) are procedural and rarely mark a definitive
+# winner; dropping them reduces noise in the OpenSkill updates.
+EXCLUDED_DECISION_TYPES = ("decisão interlocutória",)
+
+
 def get_unrated_analyses(
     con: Backend,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     """Get analyses that haven't been processed for ratings yet.
 
+    Joins with ``intimations`` so callers can segment ratings per tribunal
+    (``sigla_tribunal`` is included in the returned dicts). Also filters out
+    non-ratable outcomes and interim orders upfront so the rating pipeline
+    never has to re-check those conditions.
+
     Args:
         con: Database connection.
         limit: Max number of records to return.
 
     Returns:
-        List of analysis records.
+        List of analysis records, each augmented with ``sigla_tribunal``.
     """
     analysis = con.table("decision_analysis")
+    intimations = con.table("intimations")
+
+    joined = analysis.join(
+        intimations,
+        analysis.intimation_id == intimations.id,
+    )
 
     result = (
-        analysis.filter(_.rated == False)  # noqa: E712
-        .order_by(_.created_at.asc())
+        joined.filter(analysis.rated == False)  # noqa: E712
+        .filter(analysis.outcome.isin(RATABLE_OUTCOMES))
+        .filter(analysis.decision_type.notin(EXCLUDED_DECISION_TYPES))
+        .select(
+            id=analysis.id,
+            intimation_id=analysis.intimation_id,
+            winner_lawyer_oab=analysis.winner_lawyer_oab,
+            winner_lawyer_state=analysis.winner_lawyer_state,
+            loser_lawyer_oab=analysis.loser_lawyer_oab,
+            loser_lawyer_state=analysis.loser_lawyer_state,
+            decision_type=analysis.decision_type,
+            outcome=analysis.outcome,
+            confidence_score=analysis.confidence_score,
+            created_at=analysis.created_at,
+            sigla_tribunal=intimations.sigla_tribunal,
+        )
+        .order_by(analysis.created_at.asc())
         .limit(limit)
     )
 
