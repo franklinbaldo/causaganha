@@ -12,7 +12,6 @@
   const NTFY_TOPIC = 'causaganha-a7f3b2e9c1d4';
   const NTFY_SSE_URL = `https://ntfy.sh/${NTFY_TOPIC}/sse`;
   const NTFY_POLL_URL = `https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=1h`;
-  const IA_FALLBACK_URL = 'https://archive.org/download/causaganha-live-status/status.json';
 
   let data = $state<LiveStatusData | null>(null);
   let error = $state<boolean>(false);
@@ -79,7 +78,6 @@
       source = 'polling';
 
       const poll = async () => {
-        // Try ntfy poll first
         try {
           const resp = await fetchWithRetry(NTFY_POLL_URL) as Response;
           if (resp.ok) {
@@ -91,18 +89,6 @@
                 applyMessage(last.message);
               } catch { /* ignore parse errors */ }
               return;
-            }
-          }
-        } catch { /* ignore poll errors */ }
-
-        // Last resort: IA static file
-        try {
-          const resp = await fetchWithRetry(IA_FALLBACK_URL + '?t=' + performance.now()) as Response;
-          if (resp.ok) {
-            const json: LiveStatusData = await resp.json();
-            if (isMounted) {
-              data = json;
-              error = false;
             }
           }
         } catch {

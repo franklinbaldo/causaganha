@@ -23,4 +23,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv run --no-dev djen-backup upload --workers 4 --deadline-minutes 12 --use-proxy --no-fail-fast
+      - run: uv run --no-dev djen-backup upload --workers 4 --deadline-minutes 10 --use-proxy --no-fail-fast

@@ -255,7 +255,7 @@ export function deriveData(
   const tribunalAbsentCoverage = effectiveBackfill?.tribunal_absent_coverage || {};
   const tribunalEtas = effectiveBackfill?.tribunal_etas || {};
   const today = new Date().toISOString().split('T')[0];
-  const targetRange = effectiveBackfill?.target_range || { start: "2024-01-01", end: today };
+  const targetRange = effectiveBackfill?.target_range || { start: "2020-01-01", end: today };
 
   // Derive calendar heatmap data
   const calendarData = (() => {
