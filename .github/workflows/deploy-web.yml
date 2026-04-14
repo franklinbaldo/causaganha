@@ -79,20 +79,6 @@ jobs:
           echo "Data files generated:"
           ls -la web/public/data/ web/public/cache/ web/public/ia-snapshot.json
 
-      - name: Download DuckDB artifact
-        id: download-db
-        uses: actions/download-artifact@v4
-        with:
-          name: causaganha-db
-          path: data/
-        continue-on-error: true  # Artifact may not exist on manual/dispatch runs
-
-      - name: Generate web data (requires DuckDB artifact)
-        if: steps.download-db.outcome == 'success'
-        run: |
-          pip install duckdb httpx
-          python scripts/web/generate-data.py
-
       - name: Install dependencies
         run: npm ci
         working-directory: web

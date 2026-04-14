@@ -3,7 +3,7 @@ name: Update Catalog
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Collect ZIPs", "Collect Today"]
+    workflows: ["Consolidate Parquet"]
     types: [completed]
 
 permissions:

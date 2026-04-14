@@ -2,11 +2,9 @@
 # CONSOLIDATE PARQUET — Convert daily DJEN ZIPs into structured Parquet tables
 # ============================================================================
 #
-# Runs after Collect ZIPs or Collect Today succeeds. Downloads all ZIPs for
-# complete days, consolidates into 10 Parquet tables (comunicacoes, advogados,
-# classificacoes, etc.), and uploads to Internet Archive.
-#
-# Also runs daily at 07:00 UTC to catch any missed consolidations.
+# Runs daily at 07:00 UTC. Downloads all ZIPs for complete days, consolidates
+# into 10 Parquet tables (comunicacoes, advogados, classificacoes, etc.), and
+# uploads to Internet Archive.
 # ============================================================================
 
 name: Consolidate Parquet
@@ -14,9 +12,6 @@ name: Consolidate Parquet
 on:
   schedule:
     - cron: '0 7 * * *'
-  workflow_run:
-    workflows: ["Collect ZIPs", "Collect Today"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       date:
@@ -48,7 +43,6 @@ concurrency:
 jobs:
   consolidate:
     name: Consolidate ZIPs → Parquet
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: dev
@@ -164,6 +158,6 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'generate-catalog.yml',
+              workflow_id: 'update-catalog.yml',
               ref: 'main'
             });
