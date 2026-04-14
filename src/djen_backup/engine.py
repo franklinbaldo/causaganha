@@ -17,6 +17,7 @@ import structlog
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
     CircuitBreaker,
+    ItemBusyError,
     check_ia_file_exists,
     fetch_ia_existing,
     get_ia_item_id,
@@ -401,12 +402,21 @@ async def run_pipeline(
                         )
                     continue  # finally handles task_done()
 
-                ok = await upload_zip(
-                    upload_client,
-                    item.item_id,
-                    item.path,
-                    circuit_breaker=circuit_breaker,
-                )
+                # Try to acquire item lock — if another worker is uploading
+                # to this item, re-queue and grab another instead of blocking
+                try:
+                    ok = await upload_zip(
+                        upload_client,
+                        item.item_id,
+                        item.path,
+                        circuit_breaker=circuit_breaker,
+                        try_lock=True,
+                    )
+                except ItemBusyError:
+                    # Another worker has this item — send to back of queue
+                    await upload_queue.put(item)
+                    await asyncio.sleep(0.1)  # yield to avoid busy-spinning
+                    continue  # finally handles task_done()
                 if not ok:
                     log.warning(
                         "upload_failed",

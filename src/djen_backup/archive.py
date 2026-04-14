@@ -195,19 +195,26 @@ async def put_ia_bytes(
     return last_resp
 
 
+class ItemBusyError(Exception):
+    """Raised when the target IA item is currently locked by another worker."""
+
+
 async def upload_zip(
     client: httpx.AsyncClient,
     item_id: str,
     zip_path: Path,
     *,
     circuit_breaker: CircuitBreaker | None = None,
+    try_lock: bool = False,
 ) -> bool:
     """Upload a ZIP file to IA S3.
 
     Applies a per-item lock (serialises PUTs to the same yearly bucket)
     and the global token-bucket rate limiter (respects IA's write rate).
-    Delegates the actual HTTP PUT and tenacity retry to
-    :func:`causaganha.pipeline.ia_s3.upload_to_ia`.
+
+    When ``try_lock=True``, raises :class:`ItemBusyError` if the item
+    lock is held — caller can re-queue and process another item instead
+    of blocking.
 
     Returns ``True`` on success, ``False`` on failure or open circuit.
     """
@@ -220,6 +227,8 @@ async def upload_zip(
     date_str = f"{stem_parts[1]}-{stem_parts[2]}-{stem_parts[3]}" if len(stem_parts) >= 4 else ""
 
     lock = await _lock_for(item_id)
+    if try_lock and lock.locked():
+        raise ItemBusyError(item_id)
     async with lock:
         await _IA_RATE_LIMITER.acquire()
         start = time.monotonic()
