@@ -1,0 +1,25 @@
+---
+title: "Stats — 30-day coverage overview"
+description: "Average coverage and best/worst day in the last 30 days."
+output: /data/stats_coverage.json
+format: object
+---
+
+Cobertura média + melhor/pior dia nos últimos 30 dias. Cada "cobertura" =
+número de tribunais distintos com `ia_status='uploaded'` naquela data.
+
+```{sql}
+WITH daily AS (
+  SELECT date, COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS collected
+  FROM manifest
+  WHERE date >= CURRENT_DATE - INTERVAL 30 DAY
+  GROUP BY date
+)
+SELECT
+  ROUND(AVG(collected), 2)::DOUBLE AS avg_coverage,
+  MAX(collected) AS best_count,
+  CAST(ARG_MAX(date, collected) AS VARCHAR) AS best_day,
+  MIN(collected) AS worst_count,
+  CAST(ARG_MIN(date, collected) AS VARCHAR) AS worst_day
+FROM daily;
+```
