@@ -1,0 +1,33 @@
+---
+title: "Stats — Court reliability ranking"
+description: "Per-tribunal collection rate (uploaded vs absent)."
+output: /data/court_reliability.json
+format: array
+---
+
+Confiabilidade por tribunal: razão de dias `uploaded` sobre o total de dias
+em que sabemos o status (uploaded + absent). Usado para os rankings Top 5
+mais/menos confiáveis na página de indicadores.
+
+```{sql}
+WITH known AS (
+  SELECT
+    tribunal,
+    COUNT(*) FILTER (WHERE ia_status = 'uploaded') AS collected,
+    COUNT(*) FILTER (WHERE djen_status = 'absent') AS absent
+  FROM manifest
+  GROUP BY tribunal
+)
+SELECT
+  tribunal AS court,
+  collected,
+  absent,
+  collected + absent AS total,
+  CASE WHEN collected + absent > 0
+    THEN ROUND(1.0 * collected / (collected + absent), 4)::DOUBLE
+    ELSE 0
+  END AS rate
+FROM known
+WHERE collected + absent > 0
+ORDER BY rate DESC, total DESC;
+```

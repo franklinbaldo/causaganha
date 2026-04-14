@@ -2,26 +2,22 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import { processCoverageOverview, processCourtReliability, processWeeklyPattern } from '../lib/stats-processing';
 import totals from '../../public/data/totals.json';
+import statsCoverage from '../../public/data/stats_coverage.json';
+import courtReliability from '../../public/data/court_reliability.json';
+import weeklyPattern from '../../public/data/weekly_pattern.json';
 
-let data = {};
-try {
-  const response = await fetch(`https://archive.org/download/causaganha-catalog/completed-items.json?t=${Date.now()}`);
-  const catalog = await response.json();
-  data = catalog.completed_items || {};
-} catch {
-  // Network unavailable at build time
-}
-
-// Tribunal count comes from the manifest via totals.qmd → totals.json (single source of truth).
+// All aggregations come from .qmd query contracts rendered against the manifest.
+// See web/src/queries/{stats_coverage,court_reliability,weekly_pattern}.qmd
 const totalTribunals = totals.tribunals_total ?? 1;
-const { avgPct: avgCoverage30Pct, avgCoverage: avgCoverage30, bestDay, bestCount, worstDay, worstCount } = processCoverageOverview(data, 30, totalTribunals);
-const { top5, bottom5 } = processCourtReliability(data);
-const { weeklyAverages, lowestDay } = processWeeklyPattern(data, totalTribunals);
+const { avg_coverage: avgCoverage30, best_count: bestCount, best_day: bestDay, worst_count: worstCount, worst_day: worstDay } = statsCoverage;
+const avgCoverage30Pct = (avgCoverage30 / totalTribunals) * 100;
+const top5 = courtReliability.slice(0, 5);
+const bottom5 = [...courtReliability].sort((a, b) => a.rate - b.rate || b.total - a.total).slice(0, 5);
 
 const displayOrder = [1, 2, 3, 4, 5, 6, 0];
-const displayWeekly = displayOrder.map(idx => weeklyAverages.find(w => w.dayIdx === idx));
+const displayWeekly = displayOrder.map(idx => weeklyPattern.find(w => w.day_idx === idx));
+const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).sort((a, b) => a.avg - b.avg)[0] ?? null;
 
 const base = import.meta.env.BASE_URL;
 ---
@@ -61,12 +57,12 @@ const base = import.meta.env.BASE_URL;
           <figure>
             <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
             <figcaption>Melhor Dia</figcaption>
-            <small class="muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
+            <small class="muted">{bestDay ?? '--'}</small>
           </figure>
           <figure>
-            <div class="stat-value color-error">{worstCount === 999 ? 0 : worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+            <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
             <figcaption>Pior Dia</figcaption>
-            <small class="muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
+            <small class="muted">{worstDay ?? '--'}</small>
           </figure>
         </div>
       </div>
@@ -135,13 +131,14 @@ const base = import.meta.env.BASE_URL;
         <div class="weekly-grid">
           {displayWeekly.map(w => {
             if (!w) return null;
-            const isLowest = lowestDay && w.dayIdx === lowestDay.dayIdx;
+            const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
+            const avgPct = (w.avg / totalTribunals) * 100;
             return (
               <div class="weekly-card">
                 <div class="weekly-card-body">
                   <span class="day-name">{w.name.slice(0, 3)}</span>
                   <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
-                    {w.avgPct.toFixed(0)}%
+                    {avgPct.toFixed(0)}%
                   </div>
                   <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
                   {isLowest && (

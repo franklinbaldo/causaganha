@@ -33,6 +33,29 @@ export interface DailyUpload {
   count: number;
 }
 
+export interface StatsCoverage {
+  avg_coverage: number;
+  best_count: number;
+  best_day: string;
+  worst_count: number;
+  worst_day: string;
+}
+
+export interface CourtReliabilityRow {
+  court: string;
+  collected: number;
+  absent: number;
+  total: number;
+  rate: number;
+}
+
+export interface WeeklyPatternRow {
+  day_idx: number;
+  name: string;
+  avg: number;
+  days_count: number;
+}
+
 const IA_BASE = 'https://archive.org/download/causaganha-dashboard';
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -50,5 +73,14 @@ export const loadTotals = (): Promise<Totals> =>
 
 export const loadDailyUploads = (): Promise<DailyUpload[]> =>
   fetchJson<DailyUpload[]>('/data/daily_uploads.json');
+
+export const loadStatsCoverage = (): Promise<StatsCoverage> =>
+  fetchJson<StatsCoverage>('/data/stats_coverage.json');
+
+export const loadCourtReliability = (): Promise<CourtReliabilityRow[]> =>
+  fetchJson<CourtReliabilityRow[]>('/data/court_reliability.json');
+
+export const loadWeeklyPattern = (): Promise<WeeklyPatternRow[]> =>
+  fetchJson<WeeklyPatternRow[]>('/data/weekly_pattern.json');
 
 export { IA_BASE };

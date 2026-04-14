@@ -1,0 +1,38 @@
+---
+title: "Stats — Weekly coverage pattern"
+description: "Average coverage per day of week (Sun=0..Sat=6)."
+output: /data/weekly_pattern.json
+format: array
+---
+
+Média de cobertura por dia da semana — útil para detectar quedas
+estruturais (ex.: domingos sem publicação).
+
+```{sql}
+WITH daily AS (
+  SELECT
+    date,
+    COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS collected
+  FROM manifest
+  GROUP BY date
+)
+SELECT
+  dow AS day_idx,
+  CASE dow
+    WHEN 0 THEN 'Sunday'
+    WHEN 1 THEN 'Monday'
+    WHEN 2 THEN 'Tuesday'
+    WHEN 3 THEN 'Wednesday'
+    WHEN 4 THEN 'Thursday'
+    WHEN 5 THEN 'Friday'
+    WHEN 6 THEN 'Saturday'
+  END AS name,
+  ROUND(AVG(collected), 2)::DOUBLE AS avg,
+  COUNT(*) AS days_count
+FROM (
+  SELECT EXTRACT(DOW FROM date)::INTEGER AS dow, collected
+  FROM daily
+)
+GROUP BY dow
+ORDER BY dow;
+```
