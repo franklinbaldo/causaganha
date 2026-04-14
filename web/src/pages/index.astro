@@ -10,7 +10,6 @@ import { readJson } from '../lib/readJson';
 import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
-const today = readJson<any>('cache/today.json');
 const backfill = readJson<any>('cache/backfill.json');
 
 const snap = iaSnapshot?.summary || {};
@@ -34,8 +33,6 @@ const latestCollectionLabel = latestCollectionDate
 const snapshotGeneratedLabel = snapshotGeneratedAt
   ? new Date(snapshotGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : null;
-
-const filesToday = today?.files_today || 0;
 
 const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
   (backfill?.tribunal_stats || []).map((t: any) => ({
