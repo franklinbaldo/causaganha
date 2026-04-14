@@ -13,6 +13,7 @@ from typing import NamedTuple, Protocol
 
 import httpx
 import structlog
+import tenacity
 
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
@@ -472,19 +473,17 @@ async def run_pipeline(
                     continue
 
                 # Fetch fresh URL with retries — DJEN is inconsistent and
-                # sometimes returns 404 on a date that IS available moments later
-                url = None
-                for attempt in range(4):
-                    try:
+                # sometimes returns 404 on a date that IS available moments later.
+                async for attempt in tenacity.AsyncRetrying(
+                    stop=tenacity.stop_after_attempt(4),
+                    wait=tenacity.wait_exponential(multiplier=1, min=1, max=4),
+                    retry=tenacity.retry_if_exception_type(DJENNotFoundError),
+                    reraise=True,
+                ):
+                    with attempt:
                         url = await get_caderno_url(
                             client, config.djen_proxy_url, entry.tribunal, entry.date
                         )
-                        break
-                    except DJENNotFoundError:
-                        if attempt >= 3:
-                            raise
-                        await asyncio.sleep(2**attempt)  # 1s, 2s, 4s
-                assert url is not None
                 zip_path = await download_zip(client, url)
 
                 # Stage
