@@ -62,13 +62,14 @@ async def get_caderno_url(
     Raises :class:`DJENNotFoundError` when the caderno is unavailable.
     """
     url = f"{base_url}/api/v1/caderno/{tribunal}/{d.isoformat()}/D"
-    # Timeout of 30s is enforced by the client timeout configuration
-    # in the caller, but can be overridden here if needed.
+    # No retries — we record the raw response and let the next run
+    # re-verify. Retrying wastes API budget on transient errors that
+    # would be caught next run anyway.
     resp = await request_with_retry(
         client,
         "GET",
         url,
-        max_retries=2,
+        max_retries=0,
     )
 
     # 404 = no publication for this date (genuine "not found")
