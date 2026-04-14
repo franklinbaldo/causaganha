@@ -122,10 +122,46 @@ async def run_pipeline(
     hitting long absent tails are naturally deprioritized.
     No fixed stop threshold — the min-streak strategy handles it.
     """
-    # Build a shuffled flat queue of ALL unknown entries across all tribunals.
-    # Workers grab one entry at a time, maximum parallelism.
     import random
 
+    # ── Phase 0: Sync IA metadata upfront ────────────────────────
+    # Fetch IA metadata for every (tribunal, year) pair that has
+    # unknown or available entries. This catches files already on IA
+    # from other runners, preventing wasteful re-downloads.
+    items_to_sync = {
+        (e.tribunal, e.date.year)
+        for e in manifest._entries.values()
+        if e.ia_status != "uploaded"
+    }
+    if items_to_sync:
+        log.info("ia_sync_starting", items=len(items_to_sync))
+        timeout = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            sem = asyncio.Semaphore(config.workers * 2)
+
+            async def _sync_item(tribunal: str, year: int) -> int:
+                async with sem:
+                    try:
+                        ia_dates = await fetch_ia_existing(client, tribunal, year)
+                    except (httpx.HTTPError, httpx.RequestError):
+                        return 0
+                    if ia_dates:
+                        return await manifest.mark_ia_uploaded(
+                            tribunal, set(ia_dates.keys())
+                        )
+                    return 0
+
+            results = await asyncio.gather(
+                *[_sync_item(t, y) for t, y in items_to_sync],
+                return_exceptions=True,
+            )
+            total_new = sum(r for r in results if isinstance(r, int))
+            log.info("ia_sync_complete", items=len(items_to_sync), newly_marked=total_new)
+        if config.observer:
+            config.observer.on_counts_updated(manifest.counts())
+
+    # Build a shuffled flat queue of ALL unknown entries across all tribunals.
+    # Workers grab one entry at a time, maximum parallelism.
     unknown_entries: list[ManifestEntry] = [
         e for e in manifest._entries.values()
         if e.ia_status == "" and e.djen_status == ""
@@ -153,9 +189,6 @@ async def run_pipeline(
     save_interval = 180.0
     checkers_done = asyncio.Event()
 
-    # IA metadata cached per (tribunal, year) — fetched once across all workers
-    ia_checked_items: set[tuple[str, int]] = set()
-    ia_check_lock = asyncio.Lock()
 
     last_stats_log = time.monotonic()
     stats_log_interval = 30.0  # log stats every 30s for CI/pipes
@@ -196,30 +229,10 @@ async def run_pipeline(
                 return
 
             try:
-                item_key = (entry.tribunal, entry.date.year)
-
-                # 1. Lazy IA check — once per (tribunal, year), shared across workers
-                if item_key not in ia_checked_items:
-                    async with ia_check_lock:
-                        if item_key not in ia_checked_items:
-                            if not manifest.has_uploaded_entries(*item_key):
-                                ia_dates = await fetch_ia_existing(client, *item_key)
-                                if ia_dates:
-                                    await manifest.mark_ia_checked(
-                                        entry.tribunal, entry.date.year, set(ia_dates.keys())
-                                    )
-                                _notify_counts()
-                            ia_checked_items.add(item_key)
-
-                    # Entry might now be uploaded (if IA had it) — skip
-                    current = manifest.get_status(entry.tribunal, entry.date)
-                    if current and current.ia_status == "uploaded":
-                        continue
-
                 if config.dry_run:
                     continue
 
-                # 2. DJEN check — one API call for this entry
+                # DJEN check — one API call for this entry
                 try:
                     await get_caderno_url(
                         client, config.djen_proxy_url, entry.tribunal, entry.date
