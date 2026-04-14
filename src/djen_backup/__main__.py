@@ -184,14 +184,29 @@ def _show_env_hint(env_result: EnvLoadResult | None) -> None:
 
 
 def _show_run_summary(
-    exit_code: int, *, dry_run: bool, tribunal: str | None, counts: ManifestCounts
+    exit_code: int,
+    *,
+    dry_run: bool,
+    tribunal: str | None,
+    counts: ManifestCounts,
+    interrupted: bool = False,
 ) -> None:
-    title = "Run Complete" if exit_code == 0 else "Run Finished With Errors"
-    border = "green" if exit_code == 0 else "red"
+    if interrupted:
+        title = "Run Interrupted"
+        border = "yellow"
+        status = "[yellow]Interrupted[/yellow]"
+    elif exit_code == 0:
+        title = "Run Complete"
+        border = "green"
+        status = "[green]OK[/green]"
+    else:
+        title = "Run Finished With Errors"
+        border = "red"
+        status = "[red]Error[/red]"
     rows = Table.grid(padding=(0, 2))
     rows.add_column(style="bold cyan")
     rows.add_column()
-    rows.add_row("Status:", "[green]OK[/green]" if exit_code == 0 else "[red]Error[/red]")
+    rows.add_row("Status:", status)
     rows.add_row("Mode:", "Dry run" if dry_run else "Live upload")
     rows.add_row("Tribunal:", tribunal or "All")
     rows.add_row("Uploaded:", str(counts.uploaded))
@@ -320,12 +335,14 @@ def main(  # noqa: PLR0913
         observer=observer,
     )
 
+    interrupted = False
     try:
         with Live(Group(progress), console=console, refresh_per_second=4):
             exit_code = asyncio.run(run_sync(config))
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
-        exit_code = 1
+        exit_code = 130
+        interrupted = True
 
     # Read final counts for summary
     final_manifest = SyncManifest()
@@ -337,6 +354,7 @@ def main(  # noqa: PLR0913
         dry_run=dry_run,
         tribunal=tribunal,
         counts=final_counts,
+        interrupted=interrupted,
     )
     raise typer.Exit(code=exit_code)
 

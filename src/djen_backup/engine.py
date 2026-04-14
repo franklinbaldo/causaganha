@@ -298,15 +298,14 @@ async def run_pipeline(
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
 
             except DJENNotFoundError:
-                # Checker confirmed available but fresh URL returned 404.
-                # Reset to unknown so next run's checker re-verifies.
-                await manifest.mark_unknown(entry.tribunal, entry.date)
-                log.debug(
-                    "download_reset_to_unknown",
+                # Checker said available, but fresh URL now returns 404.
+                # Leave as available — feeder's `seen` set prevents retry
+                # this run; next run's checker will re-verify.
+                log.warning(
+                    "download_skipped_404",
                     tribunal=entry.tribunal,
                     date=entry.date.isoformat(),
                 )
-                _notify_counts()
 
             except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
                 log.warning(
