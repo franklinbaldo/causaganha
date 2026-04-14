@@ -57,11 +57,17 @@ The engine periodically (every 10 min) uploads the manifest and a compact `manif
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Download DJEN ZIPs → upload to IA |
-| [collect-today.yml](.github/workflows/collect-today.yml) | Daily | Today's publications |
-| [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Manual | Convert ZIPs → Parquet |
-| [update-catalog.yml](.github/workflows/update-catalog.yml) | Manual | Refresh catalog metadata |
-| [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to web/ | Build + deploy dashboard |
+| [collect-today.yml](.github/workflows/collect-today.yml) | Daily 06:00 UTC | Today's publications |
+| [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Daily 07:00 UTC + after collect | Convert ZIPs → Parquet |
+| [update-catalog.yml](.github/workflows/update-catalog.yml) | After collect | Refresh catalog metadata |
+| [update-ia-snapshot.yml](.github/workflows/update-ia-snapshot.yml) | Hourly | Snapshot manifest state from IA |
+| [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to `web/` | Build + deploy dashboard |
 | [test.yml](.github/workflows/test.yml) | PR / push | Lint, test, build |
+
+## Gotchas
+
+- **Internet Archive uploads must use `httpx`, not `boto3`.** IA's S3-compatible endpoint expects `x-archive-meta-*` headers; `boto3` sends `x-amz-meta-*` and the metadata is silently dropped.
+- **403 from DJEN ≠ absent.** CloudFront returns 403 when rate-limiting. Only `404` (plus `400` for holidays) is a genuine absence; `403`/`5xx`/`timeout` must be treated as unknown and retried.
 
 ## Quick start
 
