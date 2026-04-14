@@ -1,0 +1,31 @@
+name: Render Manifest Parquet
+
+# Read-optimized companion to sync-manifest.csv. Engine writes go to the CSV;
+# this workflow renders a column-compressed Parquet (~22× smaller) and uploads
+# to IA so dashboards + the upload-backlog drain can fetch via DuckDB httpfs
+# without downloading the full 8MB CSV every cold start.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-manifest-parquet
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: dev
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run --no-dev python scripts/render_manifest_parquet.py
