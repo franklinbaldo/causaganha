@@ -14,6 +14,7 @@ from typing import NamedTuple, Protocol
 import httpx
 import structlog
 import tenacity
+from aiolimiter import AsyncLimiter
 
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
@@ -74,6 +75,7 @@ def _save_safe_concurrency(value: int, *, reason: str) -> None:
             indent=2,
         )
     )
+
 
 # ── Protocols ────────────────────────────────────────────────────────
 
@@ -177,8 +179,10 @@ async def run_pipeline(
 
     ia_sync_sentinel = Path("data/.ia-sync-timestamp")
     sync_skip_window = timedelta(hours=6)
-    should_sync_ia = True
-    if ia_sync_sentinel.exists():
+    should_sync_ia = not config.upload_only
+    if not should_sync_ia:
+        log.info("ia_sync_skipped", reason="upload_only")
+    if should_sync_ia and ia_sync_sentinel.exists():
         try:
             last_sync = datetime.fromisoformat(ia_sync_sentinel.read_text().strip())
             if datetime.now(UTC) - last_sync < sync_skip_window:
@@ -240,9 +244,7 @@ async def run_pipeline(
                             if config.observer:
                                 config.observer.on_subtask_advance("IA sync")
                         if ia_dates:
-                            return await manifest.mark_ia_uploaded(
-                                tribunal, set(ia_dates.keys())
-                            )
+                            return await manifest.mark_ia_uploaded(tribunal, set(ia_dates.keys()))
                         return 0
 
                 results = await asyncio.gather(
@@ -344,11 +346,39 @@ async def run_pipeline(
     # Adaptive throttle via CircuitBreaker — same pattern used for IA uploads.
     # Trips after 5 consecutive 403 CloudFront blocks, opens for 30s,
     # doubles timeout on repeated failure (capped at 5 min).
-    # Longer recovery (120s) — CloudFront blocks need real cooldown time.
-    # Lower threshold means we back off faster when we hit the wall.
-    djen_breaker = CircuitBreaker(threshold=3, recovery_timeout=120.0)
+    djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
+
+    # Adaptive DJEN rate limiter — probe up while healthy, lock in on first trip.
+    # Start at 3/sec; every 2 minutes without a breaker trip bump +1. On the
+    # first trip back off 1 and hold that "cruise rate" for the rest of the run.
+    _djen_rate = 3
+    _djen_cruise_rate: int | None = None
+    _djen_last_rate_change = time.monotonic()
+    _djen_probe_interval = 120.0
+    djen_limiter = AsyncLimiter(max_rate=_djen_rate, time_period=1)
     _breaker_trips = 0
     _last_trip_save = 0.0
+
+    def _djen_rate_probe_up() -> None:
+        nonlocal _djen_rate, _djen_last_rate_change, djen_limiter
+        if _djen_cruise_rate is not None:
+            return
+        if time.monotonic() - _djen_last_rate_change < _djen_probe_interval:
+            return
+        _djen_rate += 1
+        _djen_last_rate_change = time.monotonic()
+        djen_limiter = AsyncLimiter(max_rate=_djen_rate, time_period=1)
+        log.info("djen_rate_probe_up", rate=_djen_rate)
+
+    def _djen_rate_lock_cruise() -> None:
+        nonlocal _djen_rate, _djen_cruise_rate, _djen_last_rate_change, djen_limiter
+        if _djen_cruise_rate is not None:
+            return
+        _djen_cruise_rate = max(1, _djen_rate - 1)
+        _djen_rate = _djen_cruise_rate
+        _djen_last_rate_change = time.monotonic()
+        djen_limiter = AsyncLimiter(max_rate=_djen_rate, time_period=1)
+        log.warning("djen_rate_cruise_locked", cruise_rate=_djen_cruise_rate)
 
     async def _check_djen_breaker() -> bool:
         """Wait for the DJEN circuit breaker, return True if we can proceed."""
@@ -357,6 +387,7 @@ async def run_pipeline(
         while not await djen_breaker.allow_request():
             if waited == 0:
                 _breaker_trips += 1
+                _djen_rate_lock_cruise()
                 # If the breaker trips repeatedly, the current concurrency is too high.
                 # Persist a halved safe_concurrency so future runs start lower.
                 now = time.monotonic()
@@ -435,6 +466,8 @@ async def run_pipeline(
             except asyncio.QueueEmpty:
                 return
 
+            _djen_rate_probe_up()
+
             try:
                 if config.dry_run:
                     continue
@@ -447,7 +480,10 @@ async def run_pipeline(
                 # ANY exception here just gets recorded as raw; worker never dies.
                 raw_status = "error"
                 try:
-                    await get_caderno_url(client, config.djen_proxy_url, entry.tribunal, entry.date)
+                    async with djen_limiter:
+                        await get_caderno_url(
+                            client, config.djen_proxy_url, entry.tribunal, entry.date
+                        )
                     raw_status = "200"
                 except DJENNotFoundError as exc:
                     raw_status = str(exc.status_code)
