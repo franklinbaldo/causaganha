@@ -395,16 +395,17 @@ async def run_pipeline(
                         config.observer.on_log(
                             f"[green]Uploaded[/green] {item.tribunal} {item.d.isoformat()}"
                         )
-            except Exception:
-                log.exception(
+            except (httpx.HTTPError, httpx.RequestError, RuntimeError, OSError) as exc:
+                # RuntimeError catches "client has been closed" cascade during shutdown
+                log.warning(
                     "upload_exception",
                     item_id=item.item_id,
                     date=item.d.isoformat(),
+                    error=str(exc),
                 )
-                if config.fail_fast:
-                    if not first_error:
-                        first_error.append(f"Upload exception: {item.item_id} {item.d.isoformat()}")
-                    abort_event.set()
+                # Don't fail-fast on upload exceptions — they're often transient
+                # (IA rate-limit, network glitches, client cascade during shutdown).
+                # Next run will retry.
             finally:
                 upload_queue.task_done()
             if abort_event.is_set():
