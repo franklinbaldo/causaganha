@@ -34,6 +34,27 @@ log = structlog.get_logger()
 
 STAGING_DIR = Path("data/staging")
 MAX_STAGED_FILES = 3
+DJEN_SAFE_CONCURRENCY_FILE = Path("data/djen-safe-concurrency.json")
+DEFAULT_DJEN_CONCURRENCY = 4  # fallback when stress test hasn't been run
+
+
+def load_djen_safe_concurrency() -> int:
+    """Return the discovered-safe DJEN concurrency, or fallback default.
+
+    The value is produced by ``scripts/stress_test_djen.py`` and persisted
+    in ``data/djen-safe-concurrency.json``. Re-run the stress test periodically
+    to refresh it as DJEN's rate limiting changes.
+    """
+    if not DJEN_SAFE_CONCURRENCY_FILE.exists():
+        return DEFAULT_DJEN_CONCURRENCY
+    try:
+        import json
+
+        data = json.loads(DJEN_SAFE_CONCURRENCY_FILE.read_text())
+        value = int(data.get("safe_concurrency", DEFAULT_DJEN_CONCURRENCY))
+        return max(1, value)
+    except (OSError, ValueError, KeyError, TypeError):
+        return DEFAULT_DJEN_CONCURRENCY
 
 # ── Protocols ────────────────────────────────────────────────────────
 

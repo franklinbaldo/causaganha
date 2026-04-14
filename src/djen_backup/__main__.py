@@ -24,12 +24,15 @@ from rich.progress import (
 from rich.table import Table
 
 from djen_backup.credentials import get_ia_s3_auth
-from djen_backup.engine import SyncConfig, run_sync
+from djen_backup.engine import SyncConfig, load_djen_safe_concurrency, run_sync
 from djen_backup.manifest import ManifestCounts, SyncManifest
 
 
 DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
 DJEN_PROXY_FALLBACK_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
+
+# Default worker count — discovered via scripts/stress_test_djen.py
+DEFAULT_WORKERS = load_djen_safe_concurrency()
 
 
 class EnvLoadResult(NamedTuple):
@@ -365,7 +368,7 @@ def main(  # noqa: PLR0913
     ),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
     max_items: int = typer.Option(0, "--max-items", help="Max downloads per run (0 = unlimited)."),
-    workers: int = typer.Option(4, "--workers", help="Parallel workers."),
+    workers: int = typer.Option(DEFAULT_WORKERS, "--workers", help="Parallel workers (default: discovered safe limit)."),
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
@@ -416,7 +419,7 @@ def check(
     end_date: str | None = typer.Option(None, "--end-date"),
     tribunal: str | None = typer.Option(None, "--tribunal"),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes"),
-    workers: int = typer.Option(4, "--workers"),
+    workers: int = typer.Option(DEFAULT_WORKERS, "--workers"),
     manifest_file: Path = typer.Option(Path("data/sync-manifest.csv"), "--manifest-file"),
     *,
     fail_fast: bool = typer.Option(True, "--fail-fast/--no-fail-fast"),
@@ -446,7 +449,7 @@ def upload(
     tribunal: str | None = typer.Option(None, "--tribunal"),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes"),
     max_items: int = typer.Option(0, "--max-items"),
-    workers: int = typer.Option(4, "--workers"),
+    workers: int = typer.Option(DEFAULT_WORKERS, "--workers"),
     manifest_file: Path = typer.Option(Path("data/sync-manifest.csv"), "--manifest-file"),
     *,
     fail_fast: bool = typer.Option(True, "--fail-fast/--no-fail-fast"),
