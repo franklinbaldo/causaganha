@@ -3,6 +3,8 @@ import Layout from '../layouts/Layout.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
+import WorkflowStatusBadge from '../components/WorkflowStatusBadge.astro';
+import DataSourceIndicator from '../components/DataSourceIndicator.astro';
 import { readJson } from '../lib/readJson';
 import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
@@ -124,6 +126,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <span class="stats-label">Última coleta</span>
         <div class="stats-value">{latestCollectionLabel}</div>
       </figure>
+    </div>
+  </section>
+
+  <!-- ── TRUST STRIP: live status + freshness + gaps ── -->
+  <section class="section-container trust-strip-section">
+    <div class="trust-strip">
+      <WorkflowStatusBadge />
+      <DataSourceIndicator />
+      <small class="trust-fact">
+        Próxima coleta: diária · Tribunais com lacunas:
+        <strong>{Math.max(0, totalTribunals - tribunalsWithData)}</strong>
+        de {totalTribunals}
+      </small>
     </div>
   </section>
 
@@ -480,6 +495,31 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .stats-row {
       grid-template-columns: repeat(2, 1fr);
     }
+  }
+
+  /* ── Trust strip ── */
+  .trust-strip-section {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+  }
+
+  .trust-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+  }
+
+  .trust-fact {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+  }
+
+  .trust-fact strong {
+    color: var(--color-base-content);
+    font-weight: 700;
   }
 
   /* ── Coverage Map / Malha ── */
