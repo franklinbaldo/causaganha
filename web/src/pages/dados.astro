@@ -229,9 +229,9 @@ con = duckdb.connect()
 
 # Consulta remota (sem download)
 con.sql("""
-    SELECT tribunal, COUNT(*) as total
-    FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet')
-    GROUP BY tribunal
+    SELECT nome_orgao, COUNT(*) as total
+    FROM read_parquet('https://archive.org/download/djen-tjro-2026/comunicacoes.parquet')
+    GROUP BY nome_orgao
     ORDER BY total DESC
 """).show()
 
@@ -244,7 +244,7 @@ con.sql("""
         <div class="code-block">
           <pre><code>duckdb -c "
   SELECT nome, numero_oab, uf_oab
-  FROM read_parquet('https://archive.org/download/djen-2026-04-01/advogados.parquet')
+  FROM read_parquet('https://archive.org/download/djen-tjro-2026/advogados.parquet')
   LIMIT 10
 "</code></pre>
         </div>
@@ -258,7 +258,7 @@ const conn = await db.connect();
 
 const result = await conn.run(`
   SELECT outcome, COUNT(*) as total
-  FROM read_parquet('https://archive.org/download/djen-2026-04-01/classificacoes.parquet')
+  FROM read_parquet('https://archive.org/download/djen-tjro-2026/classificacoes.parquet')
   GROUP BY outcome
 `);</code></pre>
         </div>
