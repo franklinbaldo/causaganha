@@ -5,6 +5,7 @@ import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import WorkflowStatusBadge from '../components/WorkflowStatusBadge.astro';
 import DataSourceIndicator from '../components/DataSourceIndicator.astro';
+import QueryCard from '../components/QueryCard.astro';
 import { readJson } from '../lib/readJson';
 import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
@@ -41,6 +42,26 @@ const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
     tribunal: t.tribunal as string,
     data_rate_pct: Number(t.data_rate_pct ?? 0),
   }));
+
+// Top 5 tribunais por volume arquivado — used by the proof block to show
+// real, build-time-derived numbers next to the example query.
+const tribunalVolume = new Map<string, number>();
+if (iaSnapshot?.items) {
+  for (const item of Object.values<any>(iaSnapshot.items)) {
+    if (!item?.tribunal) continue;
+    tribunalVolume.set(item.tribunal, (tribunalVolume.get(item.tribunal) ?? 0) + (item.zip_count ?? 0));
+  }
+}
+const topTribunais = Array.from(tribunalVolume.entries())
+  .map(([tribunal, lotes]) => ({ tribunal, lotes }))
+  .sort((a, b) => b.lotes - a.lotes)
+  .slice(0, 5);
+
+const PROOF_QUERY_SQL = `SELECT tribunal, COUNT(*) as total
+FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet')
+GROUP BY tribunal
+ORDER BY total DESC
+LIMIT 5`;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
@@ -180,6 +201,44 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         ))}
       </div>
     </div>
+  </section>
+
+  <!-- ── PROOF: example query + real top-5 + caveats ── -->
+  <section class="section-container">
+    <h2 class="section-heading">Exemplo concreto.</h2>
+    <div class="proof-grid">
+      <div class="proof-query">
+        <QueryCard
+          title="Comunicações por tribunal (últimos 30 dias)"
+          description="Roda direto no navegador via DuckDB WASM, sem servidor. Copie, ajuste, execute em /explorador."
+          sql={PROOF_QUERY_SQL}
+        />
+      </div>
+      <div class="proof-result">
+        <h3 class="proof-result-title">Top 5 tribunais por volume arquivado</h3>
+        {topTribunais.length > 0 ? (
+          <table class="proof-table">
+            <thead>
+              <tr><th scope="col">Tribunal</th><th scope="col">Lotes</th></tr>
+            </thead>
+            <tbody>
+              {topTribunais.map(row => (
+                <tr>
+                  <td><a href={BASE + 'publicacoes/' + row.tribunal.toLowerCase()}>{row.tribunal}</a></td>
+                  <td class="proof-num">{formatNumber(row.lotes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p class="proof-empty">Snapshot indisponível — disponível na próxima geração.</p>
+        )}
+      </div>
+    </div>
+    <p class="proof-caveat">
+      <strong>O que não está incluído:</strong> apêndices, audiências sigilosas e tribunais militares.
+      Cobertura completa em <a href={BASE + 'stats'}>Mapa judicial →</a>.
+    </p>
   </section>
 
   <!-- ── HOW IT WORKS ── -->
@@ -593,6 +652,76 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     font-size: var(--font-size-2xl);
     font-weight: 400;
     margin: 0 0 var(--space-lg);
+  }
+
+  /* ── Proof block ── */
+  .proof-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    align-items: start;
+  }
+
+  @media (min-width: 768px) {
+    .proof-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .proof-result {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+    padding: var(--space-md);
+  }
+
+  .proof-result-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin: 0 0 var(--space-sm);
+  }
+
+  .proof-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+  }
+
+  .proof-table th,
+  .proof-table td {
+    text-align: left;
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .proof-table th {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-content-tertiary);
+    font-weight: 600;
+  }
+
+  .proof-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .proof-num {
+    font-family: var(--font-mono);
+    text-align: right;
+  }
+
+  .proof-empty {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-tertiary);
+    margin: 0;
+  }
+
+  .proof-caveat {
+    margin-top: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-content-secondary);
+    line-height: 1.6;
   }
 
   /* ── Audience Cards ── */
