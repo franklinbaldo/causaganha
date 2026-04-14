@@ -12,16 +12,22 @@ and generates the legacy cache files that the webapp still expects:
 
 Usage:
     uv run python scripts/generate_cache_from_manifest.py
+    uv run python scripts/generate_cache_from_manifest.py --upload
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import subprocess
 import urllib.request
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+
+IA_DASHBOARD_ITEM = "causaganha-dashboard"
 
 
 MANIFEST_SUMMARY_URL = (
@@ -300,18 +306,67 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     print(f"  → {path.relative_to(OUTPUT_DIR.parent.parent)} ({path.stat().st_size:,} bytes)")
 
 
+def upload_to_ia(paths: list[Path]) -> bool:
+    """Upload generated JSONs to Internet Archive item causaganha-dashboard."""
+    print(f"\nUploading {len(paths)} files to IA item {IA_DASHBOARD_ITEM}...")
+    try:
+        result = subprocess.run(
+            [
+                "ia",
+                "upload",
+                IA_DASHBOARD_ITEM,
+                *[str(p) for p in paths],
+                "--metadata=collection:opensource",
+                "--metadata=mediatype:data",
+                "--metadata=title:CausaGanha Dashboard Cache",
+                "--metadata=description:Live cache JSONs for the CausaGanha dashboard.",
+                "--metadata=subject:causaganha;dashboard;cache",
+                "--metadata=creator:CausaGanha",
+                "--retries=3",
+                "--no-derive",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        print("  Upload timed out")
+        return False
+    if result.returncode != 0:
+        print(f"  Upload failed: {result.stderr}")
+        return False
+    print("  Upload complete")
+    return True
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help=f"Upload generated JSONs to IA item {IA_DASHBOARD_ITEM}",
+    )
+    args = parser.parse_args()
+
     summary = fetch_summary()
     rows = fetch_manifest_csv()
 
     print("\nGenerating cache files...")
-    write_json(CACHE_DIR / "backfill.json", generate_backfill_json(summary, rows))
-    write_json(CACHE_DIR / "today.json", generate_today_json(summary, rows))
-    write_json(CACHE_DIR / "calendar.json", generate_calendar_json(rows))
-    write_json(CACHE_DIR / "meta.json", generate_meta_json(summary))
-    write_json(OUTPUT_DIR / "ia-snapshot.json", generate_ia_snapshot(summary, rows))
-    # Empty runs.json — webapp fetches from GitHub API at runtime
-    write_json(CACHE_DIR / "runs.json", {"runs": [], "updated_at": summary["generated_at"]})
+    written: list[Path] = []
+    for rel, data in (
+        (CACHE_DIR / "backfill.json", generate_backfill_json(summary, rows)),
+        (CACHE_DIR / "today.json", generate_today_json(summary, rows)),
+        (CACHE_DIR / "calendar.json", generate_calendar_json(rows)),
+        (CACHE_DIR / "meta.json", generate_meta_json(summary)),
+        (OUTPUT_DIR / "ia-snapshot.json", generate_ia_snapshot(summary, rows)),
+        (CACHE_DIR / "runs.json", {"runs": [], "updated_at": summary["generated_at"]}),
+    ):
+        write_json(rel, data)
+        written.append(rel)
+
+    if args.upload and not upload_to_ia(written):
+        raise SystemExit(1)
 
     print("\nDone.")
 

@@ -5,8 +5,8 @@ on:
     branches: [main]
     paths:
       - 'web/**'
-      - 'scripts/generate_dashboard_cache.py'
-      - 'scripts/generate_ia_snapshot.py'
+      - 'scripts/generate_cache_from_manifest.py'
+      - 'scripts/render_queries.py'
       - 'scripts/generate_homepage_widgets.py'
   # No schedule needed — update-catalog.yml triggers this after every successful collect
   workflow_dispatch:

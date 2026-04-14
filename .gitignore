@@ -60,6 +60,12 @@ src/data/zip-inventory.txt
 # Generated dashboard cache (fetched from IA at build/runtime)
 web/public/cache/
 
+# Generated query contract outputs (rendered from .qmd at build time)
+web/public/data/
+
+# DuckDB spill/temp directory (local runtime only)
+.tmp/
+
 # Generated/runtime files
 .pending_alert_backfill.json
 analysis_results.txt

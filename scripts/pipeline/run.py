@@ -201,7 +201,7 @@ def main() -> None:
         )
         execute_step(
             "dashboard",
-            ["uv", "run", "python", f"{repo_root}/scripts/generate_dashboard_cache.py"],
+            ["uv", "run", "python", f"{repo_root}/scripts/generate_cache_from_manifest.py"],
             repo_root,
         )
 

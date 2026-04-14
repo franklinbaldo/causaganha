@@ -15,28 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: pip install httpx
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
 
-      - name: Generate IA snapshot
-        run: python scripts/generate_ia_snapshot.py --output ia-snapshot.json
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Configure IA credentials
+      - name: Generate and upload cache + ia-snapshot
         run: |
-          mkdir -p ~/.config/internetarchive
-          cat > ~/.config/internetarchive/ia.ini << EOF
-          [s3]
-          access = ${{ secrets.IAS3_ACCESS_KEY }}
-          secret = ${{ secrets.IAS3_SECRET_KEY }}
-          EOF
-
-      - name: Upload snapshot to Internet Archive
-        run: |
-          curl -s -X PUT \
-            -H "Authorization: LOW ${{ secrets.IAS3_ACCESS_KEY }}:${{ secrets.IAS3_SECRET_KEY }}" \
-            -H "Content-Type: application/json" \
-            -H "x-archive-meta-mediatype: data" \
-            -H "x-amz-auto-make-bucket: 1" \
-            --data-binary @ia-snapshot.json \
-            "https://s3.us.archive.org/causaganha-dashboard/ia-snapshot.json"
-          echo "Uploaded ia-snapshot.json to causaganha-dashboard item"
+          uv run python scripts/generate_cache_from_manifest.py --upload

@@ -352,7 +352,7 @@ def main() -> int:
                     "uv",
                     "run",
                     "python",
-                    "scripts/generate_dashboard_cache.py",
+                    "scripts/generate_cache_from_manifest.py",
                 ],
                 output_dir,
                 [".json", ".xml"],

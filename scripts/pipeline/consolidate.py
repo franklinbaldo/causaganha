@@ -1593,9 +1593,12 @@ def process_zip_entry(
         except Exception as e:
             logger.warning("local_copy_failed", filename=filename, error=str(e))
             return 0, 0
-    elif not download_zip(item_id, filename, zip_path):
-        logger.warning("download_failed", filename=filename)
-        return 0, 0
+    else:
+        # Prefer per-entry item_id (canonical tribunal-year item) when provided.
+        download_item = str(zip_entry.get("item_id") or item_id)
+        if not download_zip(download_item, filename, zip_path):
+            logger.warning("download_failed", filename=filename)
+            return 0, 0
 
     # Extract
     records = extract_json_from_zip(zip_path)
@@ -1624,6 +1627,200 @@ def process_zip_entry(
         zip_path.unlink()
 
     return 1, len(records)
+
+
+def list_zips_for_tribunal_year(
+    tribunal: str,
+    year: int,
+    sync_manifest: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Find all uploaded ZIPs for (tribunal, year) from sync-manifest.
+
+    Each returned entry has: filename, tribunal, item_id, date, size (0).
+    """
+    tribunal_upper = tribunal.upper()
+    year_prefix = f"{year:04d}-"
+    zips: list[dict[str, Any]] = []
+
+    for date_str, entries in sync_manifest.items():
+        if not date_str.startswith(year_prefix):
+            continue
+        for entry in entries:
+            if entry["absent"]:
+                continue
+            if entry["tribunal"] != tribunal_upper:
+                continue
+            zips.append(
+                {
+                    "filename": entry["filename"],
+                    "tribunal": tribunal_upper,
+                    "item_id": entry["item_id"],
+                    "date": date_str,
+                    "size": 0,
+                },
+            )
+
+    zips.sort(key=lambda z: z["date"])
+    logger.info(
+        "zips_for_tribunal_year",
+        tribunal=tribunal_upper,
+        year=year,
+        zips=len(zips),
+    )
+    return zips
+
+
+def check_tribunal_year_consolidated(item_id: str) -> bool:
+    """Check if a tribunal-year item already has the consolidation marker."""
+    url = f"https://archive.org/metadata/{item_id}"
+    try:
+        with httpx.Client() as client:
+            resp = client.get(url, timeout=30, follow_redirects=True)
+            if resp.status_code != HTTP_200_OK:
+                return False
+            files = resp.json().get("files", [])
+            return any(f.get("name") == "_consolidated.marker" for f in files)
+    except httpx.HTTPError:
+        return False
+
+
+def consolidate_tribunal_year(
+    tribunal: str,
+    year: int,
+    sync_manifest: dict[str, list[dict[str, Any]]],
+    *,
+    dry_run: bool = False,
+    local_zips: str | None = None,
+    max_zips: int = 0,
+    workers: int = 16,
+) -> dict[str, int | float]:
+    """Consolidate all ZIPs for a (tribunal, year) pair into Parquet files.
+
+    Output parquets are uploaded to the canonical per-tribunal-year item
+    ``djen-{tribunal_lower}-{year}``, alongside the raw ZIPs.
+    """
+    stats: dict[str, int | float] = {
+        "zips_processed": 0,
+        "records": 0,
+        "parquets_created": 0,
+        "uploaded": 0,
+        "uploaded_mb": 0.0,
+    }
+    tribunal_upper = tribunal.upper()
+    item_id = f"djen-{tribunal_upper.lower()}-{year}"
+    date_tag = f"{year}-01-01"  # metadata date stamp for upload headers
+
+    if local_zips:
+        zips, _ = list_local_zips(local_zips)
+        zips = [z for z in zips if z["tribunal"].upper() == tribunal_upper]
+        logger.info(
+            "using_local_zips",
+            directory=local_zips,
+            count=len(zips),
+            tribunal=tribunal_upper,
+        )
+    else:
+        zips = list_zips_for_tribunal_year(tribunal_upper, year, sync_manifest)
+
+    if max_zips > 0 and len(zips) > max_zips:
+        logger.info("limiting_zips", total=len(zips), max_zips=max_zips)
+        zips = zips[:max_zips]
+
+    if not zips:
+        logger.info("nothing_to_consolidate", tribunal=tribunal_upper, year=year)
+        return stats
+
+    con = get_connection(":memory:")
+    init_tables(con)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        ndjson_dir = tmp_path / "ndjson"
+        ndjson_dir.mkdir()
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(
+                    process_zip_entry,
+                    zip_entry,
+                    tmp_path,
+                    ndjson_dir,
+                    item_id,
+                    local_zips,
+                ): zip_entry
+                for zip_entry in zips
+            }
+            for future in as_completed(futures):
+                zip_entry = futures[future]
+                try:
+                    success_cnt, records_cnt = future.result()
+                    stats["zips_processed"] += success_cnt
+                    stats["records"] += records_cnt
+                except Exception as e:
+                    logger.exception(
+                        "zip_processing_error",
+                        zip=zip_entry["filename"],
+                        error=str(e),
+                    )
+
+        if stats["records"] > 0:
+            table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            logger.info("transform_complete", tables=table_counts)
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        logger.info("exporting_parquets", table_count=len(TABLES), item=item_id)
+
+        ia_auth = get_ia_s3_auth()
+        if not ia_auth and not dry_run:
+            logger.warning(
+                "ia_credentials_not_found",
+                hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY or run `ia configure`",
+            )
+
+        ia_circuit_breaker = CircuitBreaker(threshold=5)
+
+        async def _run_upload_phase() -> None:
+            async with create_upload_client(ia_auth or "") as client:
+                results = await asyncio.gather(
+                    *[
+                        _export_and_upload_table(
+                            table_name,
+                            con,
+                            output_dir,
+                            item_id,
+                            client,
+                            date_tag,
+                            dry_run=dry_run,
+                            circuit_breaker=ia_circuit_breaker,
+                        )
+                        for table_name in TABLES
+                    ],
+                    return_exceptions=True,
+                )
+                for table_name, result in zip(TABLES, results, strict=True):
+                    if isinstance(result, Exception):
+                        logger.exception(
+                            "table_export_error",
+                            table=table_name,
+                            error=str(result),
+                        )
+                        continue
+                    success, size_mb, uploaded = result
+                    if success:
+                        stats["parquets_created"] += 1
+                        stats["uploaded"] += uploaded
+                        stats["uploaded_mb"] += size_mb
+
+                if stats["parquets_created"] > 0 and not dry_run:
+                    if await _upload_marker(client, item_id, date_tag):
+                        logger.info("marker_uploaded", item_id=item_id)
+                    else:
+                        logger.warning("marker_upload_failed", item_id=item_id)
+
+        asyncio.run(_run_upload_phase())
+
+    return stats
 
 
 def consolidate_date(
@@ -1819,6 +2016,12 @@ def _print_stats(stats: dict[str, int]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Consolidate DJEN ZIPs to daily Parquets")
     parser.add_argument("--date", help="Date to consolidate (YYYY-MM-DD)")
+    parser.add_argument(
+        "--tribunal",
+        help="Tribunal code (e.g. TJRO). Requires --year. "
+        "Consolidates all ZIPs for that (tribunal, year) into the IA item djen-{tribunal}-{year}.",
+    )
+    parser.add_argument("--year", type=int, help="Year for --tribunal mode (e.g. 2026)")
     parser.add_argument("--dry-run", action="store_true", help="Don't upload to IA")
     parser.add_argument(
         "--force",
@@ -1873,7 +2076,29 @@ def main() -> int:
     if args.backfill or not args.date:
         manifest = fetch_manifest_records()
 
-    if args.date:
+    if args.tribunal or args.year:
+        if not (args.tribunal and args.year):
+            logger.error("tribunal_year_requires_both", tribunal=args.tribunal, year=args.year)
+            return 2
+        try:
+            stats = consolidate_tribunal_year(
+                args.tribunal,
+                args.year,
+                sync_manifest,
+                dry_run=args.dry_run,
+                local_zips=args.local_zips,
+                max_zips=args.max_zips,
+                workers=args.workers,
+            )
+            _print_stats(stats)
+            for k in total_stats:
+                total_stats[k] += stats.get(k, 0)
+        except Exception as e:
+            logger.exception("consolidation_aborted", error=str(e))
+            traceback.print_exc()
+            return 1
+
+    elif args.date:
         # Explicit date — existing behaviour
         try:
             stats = consolidate_date(
