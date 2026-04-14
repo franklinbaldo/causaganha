@@ -248,7 +248,9 @@ async def run_pipeline(
     circuit_breaker = CircuitBreaker()
     first_error: list[str] = []
     last_save = time.monotonic()
-    save_interval = 180.0
+    last_ia_upload = time.monotonic()
+    save_interval = 180.0  # save to disk every 3 min
+    ia_upload_interval = 600.0  # upload to IA every 10 min — protects against crashes
     checkers_done = asyncio.Event()
 
     last_stats_log = time.monotonic()
@@ -268,6 +270,27 @@ async def run_pipeline(
             if abort_event.is_set() or time.monotonic() > deadline:
                 return False
         return True
+
+    # Background upload — runs without blocking workers
+    _ia_upload_running = False
+
+    async def _upload_manifest_background() -> None:
+        nonlocal _ia_upload_running
+        if _ia_upload_running:
+            return  # already one in flight
+        _ia_upload_running = True
+        try:
+            log.info("periodic_ia_upload_start")
+            ok = await manifest.upload_to_ia(config.ia_auth)
+            if ok:
+                await manifest.upload_summary_to_ia(config.ia_auth)
+                log.info("periodic_ia_upload_done")
+            else:
+                log.warning("periodic_ia_upload_failed")
+        except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
+            log.warning("periodic_ia_upload_error", error=str(exc))
+        finally:
+            _ia_upload_running = False
 
     def _notify_counts() -> None:
         nonlocal last_stats_log, last_notify
@@ -295,7 +318,7 @@ async def run_pipeline(
     # Maximum parallelism: 8 workers = 8 concurrent DJEN calls for 8
     # different (tribunal, date) pairs.
     async def checker_worker(client: httpx.AsyncClient) -> None:
-        nonlocal last_save
+        nonlocal last_save, last_ia_upload
         while True:
             if abort_event.is_set():
                 return
@@ -349,11 +372,15 @@ async def run_pipeline(
 
                 _notify_counts()
 
-                # Periodic save
+                # Periodic save to disk + upload to IA (protect against crashes)
                 now = time.monotonic()
                 if now - last_save > save_interval:
                     last_save = now
                     manifest.save_to_disk(config.manifest_file)
+                if now - last_ia_upload > ia_upload_interval and not config.dry_run:
+                    last_ia_upload = now
+                    # Don't block the worker; fire and forget
+                    asyncio.create_task(_upload_manifest_background())
 
             except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
                 log.warning(
