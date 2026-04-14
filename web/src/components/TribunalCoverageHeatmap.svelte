@@ -23,7 +23,8 @@
       const cleaned = key.replace('djen-', ''); // "YYYY-MM-DD"
       const monthKey = cleaned.substring(0, 7);  // "YYYY-MM"
       const item = data[key];
-      const pct = Math.min(1, (item.tribunal_count || 0) / 91);
+      const dayTotal = (item.tribunal_count || 0) + (item.absent_count || 0);
+      const pct = dayTotal > 0 ? Math.min(1, (item.tribunal_count || 0) / dayTotal) : 0;
       if (!acc[monthKey]) acc[monthKey] = { sum: 0, count: 0 };
       acc[monthKey].sum += pct;
       acc[monthKey].count += 1;
@@ -76,7 +77,7 @@
                   {@const tribunalCount = item.tribunal_count || 0}
                   {@const absentCount = item.absent_count || 0}
                   {@const total = tribunalCount + absentCount}
-                  {@const pct = Math.min(100, (tribunalCount / 91) * 100)}
+                  {@const pct = total > 0 ? Math.min(100, (tribunalCount / total) * 100) : 0}
                   {@const displayDate = dateKey.replace('djen-', '')}
                   {@const colorClasses = getCoverageColorClass(pct)}
                   {@const textClass = colorClasses.split(' ')[0]}

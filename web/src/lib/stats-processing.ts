@@ -41,7 +41,8 @@ function parseDateKey(dateStr: string): Date | null {
 
 export function processCoverageOverview(
   data: Record<string, CompletedItem>,
-  recentDays = 30
+  recentDays = 30,
+  totalTribunals = 1
 ): {
   avgPct: number;
   avgCoverage: number;
@@ -67,7 +68,7 @@ export function processCoverageOverview(
   }
 
   const avgCoverage = recent.length > 0 ? totalCoverage / recent.length : 0;
-  const avgPct = (avgCoverage / 91) * 100;
+  const avgPct = (avgCoverage / totalTribunals) * 100;
 
   return { avgPct, avgCoverage, bestDay, bestCount, worstDay, worstCount };
 }
@@ -104,7 +105,8 @@ export function processCourtReliability(
 }
 
 export function processWeeklyPattern(
-  data: Record<string, CompletedItem>
+  data: Record<string, CompletedItem>,
+  totalTribunals = 1
 ): { weeklyAverages: WeeklyAverage[]; lowestDay: WeeklyAverage | null } {
   const sortedDates = Object.keys(data).sort((a, b) => b.localeCompare(a));
   const weekdayStats: Record<number, { totalCount: number; days: number }> = {};
@@ -127,7 +129,7 @@ export function processWeeklyPattern(
       dayIdx: i,
       name,
       avg,
-      avgPct: (avg / 91) * 100,
+      avgPct: (avg / totalTribunals) * 100,
       daysCount: stats.days,
     };
   });
