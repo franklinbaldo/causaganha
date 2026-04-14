@@ -4,7 +4,7 @@ import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
 import { readJson } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
+import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
 const today = readJson<any>('cache/today.json');
@@ -78,6 +78,25 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </button>
         </div>
       </form>
+
+      <!-- Task-first entry points: three blunt actions someone can take right now. -->
+      <ul class="quick-access" aria-label="Ações rápidas">
+        {QUICK_ACCESS_CARDS.map(card => (
+          <li>
+            <a href={BASE + card.href} class="quick-access-item">
+              <span class="quick-access-icon" aria-hidden="true">{card.icon}</span>
+              <span class="quick-access-body">
+                <span class="quick-access-title">{card.title}</span>
+                <span class="quick-access-desc">{card.description}</span>
+              </span>
+              <span class="quick-access-cta" aria-hidden="true">
+                {card.cta}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   </section>
 
@@ -321,6 +340,86 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   .search-submit:hover {
     background: #155731;
+  }
+
+  /* ── Quick access (task-first hero strip) ── */
+  .quick-access {
+    list-style: none;
+    margin: var(--space-md) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+  }
+
+  .quick-access-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    text-decoration: none;
+    transition: border-color var(--transition-base), background var(--transition-base), transform var(--transition-base);
+    height: 100%;
+  }
+
+  .quick-access-item:hover,
+  .quick-access-item:focus-visible {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    text-decoration: none;
+  }
+
+  .quick-access-icon {
+    font-size: 1.25rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .quick-access-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .quick-access-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-base-content);
+  }
+
+  .quick-access-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-secondary);
+    line-height: 1.5;
+  }
+
+  .quick-access-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-primary);
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  @media (max-width: 768px) {
+    .quick-access {
+      grid-template-columns: 1fr;
+    }
+
+    .quick-access-cta {
+      align-self: flex-start;
+    }
   }
 
   /* ── Stats Row ── */
