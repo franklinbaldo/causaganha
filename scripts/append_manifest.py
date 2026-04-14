@@ -94,13 +94,20 @@ def main() -> int:
     new_rows = get_new_uploads()
     logger.info("new_rows_from_state", count=len(new_rows))
 
+    # Only entries NOT yet in the existing manifest are truly new.
+    # sync-manifest.csv accumulates all historical uploads, so comparing
+    # against the existing manifest.jsonl avoids spurious has_new_uploads=true.
+    existing_keys = {(r.get("date"), r.get("tribunal")) for r in existing_rows}
+    truly_new = [r for r in new_rows if (r.get("date"), r.get("tribunal")) not in existing_keys]
+    logger.info("truly_new_uploads", count=len(truly_new))
+
     if os_env := os.environ.get("GITHUB_OUTPUT"):
         with Path(os_env).open("a", encoding="utf-8") as out:
-            out.write(f"has_new_uploads={'true' if new_rows else 'false'}\n")
+            out.write(f"has_new_uploads={'true' if truly_new else 'false'}\n")
 
-    if not new_rows:
+    if not truly_new:
         logger.info("no_new_rows_to_append")
-        # Even if no new rows, we should ensure local manifest exists for downstream
+        # Even if no new rows, ensure local manifest exists for downstream steps
         if not LOCAL_MANIFEST_PATH.exists() and existing_rows:
             LOCAL_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
             with LOCAL_MANIFEST_PATH.open("w", encoding="utf-8") as f:
