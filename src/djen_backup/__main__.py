@@ -248,6 +248,109 @@ def show_banner():
 # ── Commands ────────────────────────────────────────────────────────
 
 
+def _run_pipeline(  # noqa: PLR0913
+    *,
+    start_date: str | None,
+    end_date: str | None,
+    tribunal: str | None,
+    deadline_minutes: int,
+    max_items: int,
+    workers: int,
+    manifest_file: Path,
+    dry_run: bool,
+    fail_fast: bool,
+    publish_live_status: bool,
+    skip_if_mostly_complete: bool,
+    use_proxy: bool,
+    check_only: bool = False,
+    upload_only: bool = False,
+    mode_label: str = "Sync",
+) -> None:
+    """Shared pipeline runner for main/check/upload subcommands."""
+    env_result = _load_local_env()
+    show_banner()
+    _show_env_hint(env_result)
+
+    today = datetime.now(tz=UTC).date()
+    resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
+    resolved_start = _parse_date(start_date) if start_date else date(2020, 1, 1)
+    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
+    resolved_djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
+
+    config_table = Table.grid(padding=(0, 2))
+    config_table.add_column(style="bold cyan")
+    config_table.add_column()
+    config_table.add_row("Mode:", f"[bold magenta]{mode_label}[/bold magenta]")
+    config_table.add_row("End Date:", resolved_end.isoformat())
+    config_table.add_row("Start Date:", resolved_start.isoformat())
+    config_table.add_row("Tribunal:", tribunal or "All")
+    config_table.add_row("Deadline:", f"{deadline_minutes} min")
+    config_table.add_row("Max Items:", str(max_items) if max_items else "Unlimited")
+    config_table.add_row("Workers:", str(workers))
+    config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
+    config_table.add_row("Fail Fast:", "[red]Yes[/red]" if fail_fast else "[green]No[/green]")
+    config_table.add_row("Manifest:", str(manifest_file))
+    config_table.add_row("DJEN Mode:", "Proxy" if resolved_use_proxy else "Direct")
+    config_table.add_row("DJEN URL:", resolved_djen_url)
+
+    console.print(
+        Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue")
+    )
+
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        expand=True,
+    )
+
+    observer = RichManifestObserver(progress)
+
+    config = SyncConfig(
+        start_date=resolved_end,
+        lower_bound=resolved_start,
+        tribunal=tribunal,
+        deadline_minutes=deadline_minutes,
+        max_items=max_items,
+        workers=workers,
+        manifest_file=manifest_file,
+        djen_proxy_url=resolved_djen_url,
+        ia_auth=_resolve_ia_auth(dry_run=dry_run),
+        dry_run=dry_run,
+        fail_fast=fail_fast,
+        publish_live_status=publish_live_status,
+        skip_if_mostly_complete=skip_if_mostly_complete,
+        check_only=check_only,
+        upload_only=upload_only,
+        observer=observer,
+    )
+
+    interrupted = False
+    try:
+        with Live(Group(progress), console=console, refresh_per_second=4):
+            exit_code = asyncio.run(run_sync(config))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
+        exit_code = 130
+        interrupted = True
+
+    final_manifest = SyncManifest()
+    final_manifest.load_from_disk(manifest_file)
+    final_counts = final_manifest.counts()
+
+    _show_run_summary(
+        exit_code,
+        dry_run=dry_run,
+        tribunal=tribunal,
+        counts=final_counts,
+        interrupted=interrupted,
+    )
+    raise typer.Exit(code=exit_code)
+
+
 @app.callback(invoke_without_command=True)
 def main(  # noqa: PLR0913
     ctx: typer.Context,
@@ -287,91 +390,85 @@ def main(  # noqa: PLR0913
         help="Use the Cloud Run DJEN proxy. Default is direct access.",
     ),
 ):
-    """Main backup and sync command."""
+    """Main backup and sync command (check + download + upload)."""
     if ctx.invoked_subcommand:
         return
-    env_result = _load_local_env()
-    show_banner()
-    _show_env_hint(env_result)
-
-    today = datetime.now(tz=UTC).date()
-    resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
-    resolved_start = _parse_date(start_date) if start_date else date(2020, 1, 1)
-    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
-    resolved_djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
-
-    # Show config panel
-    config_table = Table.grid(padding=(0, 2))
-    config_table.add_column(style="bold cyan")
-    config_table.add_column()
-    config_table.add_row("End Date:", resolved_end.isoformat())
-    config_table.add_row("Start Date:", resolved_start.isoformat())
-    config_table.add_row("Tribunal:", tribunal or "All")
-    config_table.add_row("Deadline:", f"{deadline_minutes} min")
-    config_table.add_row("Max Items:", str(max_items) if max_items else "Unlimited")
-    config_table.add_row("Workers:", str(workers))
-    config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
-    config_table.add_row("Fail Fast:", "[red]Yes[/red]" if fail_fast else "[green]No[/green]")
-    config_table.add_row("Manifest:", str(manifest_file))
-    config_table.add_row("DJEN Mode:", "Proxy" if resolved_use_proxy else "Direct")
-    config_table.add_row("DJEN URL:", resolved_djen_url)
-
-    console.print(
-        Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue")
-    )
-
-    # Prepare Rich components
-    progress = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        TimeRemainingColumn(),
-        console=console,
-        expand=True,
-    )
-
-    observer = RichManifestObserver(progress)
-
-    config = SyncConfig(
-        start_date=resolved_end,
-        lower_bound=resolved_start,
+    _run_pipeline(
+        start_date=start_date,
+        end_date=end_date,
         tribunal=tribunal,
         deadline_minutes=deadline_minutes,
         max_items=max_items,
         workers=workers,
         manifest_file=manifest_file,
-        djen_proxy_url=resolved_djen_url,
-        ia_auth=_resolve_ia_auth(dry_run=dry_run),
         dry_run=dry_run,
         fail_fast=fail_fast,
         publish_live_status=publish_live_status,
         skip_if_mostly_complete=skip_if_mostly_complete,
-        observer=observer,
+        use_proxy=use_proxy,
+        mode_label="Full Sync",
     )
 
-    interrupted = False
-    try:
-        with Live(Group(progress), console=console, refresh_per_second=4):
-            exit_code = asyncio.run(run_sync(config))
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
-        exit_code = 130
-        interrupted = True
 
-    # Read final counts for summary
-    final_manifest = SyncManifest()
-    final_manifest.load_from_disk(manifest_file)
-    final_counts = final_manifest.counts()
-
-    _show_run_summary(
-        exit_code,
-        dry_run=dry_run,
+@app.command()
+def check(
+    start_date: str | None = typer.Option(None, "--start-date"),
+    end_date: str | None = typer.Option(None, "--end-date"),
+    tribunal: str | None = typer.Option(None, "--tribunal"),
+    deadline_minutes: int = typer.Option(45, "--deadline-minutes"),
+    workers: int = typer.Option(4, "--workers"),
+    manifest_file: Path = typer.Option(Path("data/sync-manifest.csv"), "--manifest-file"),
+    *,
+    fail_fast: bool = typer.Option(True, "--fail-fast/--no-fail-fast"),
+    use_proxy: bool = typer.Option(False, "--use-proxy"),
+) -> None:
+    """Check-only: verify DJEN availability of unknown entries. No downloads."""
+    _run_pipeline(
+        start_date=start_date,
+        end_date=end_date,
         tribunal=tribunal,
-        counts=final_counts,
-        interrupted=interrupted,
+        deadline_minutes=deadline_minutes,
+        max_items=0,
+        workers=workers,
+        manifest_file=manifest_file,
+        dry_run=False,
+        fail_fast=fail_fast,
+        publish_live_status=False,
+        skip_if_mostly_complete=False,
+        use_proxy=use_proxy,
+        check_only=True,
+        mode_label="Check Only",
     )
-    raise typer.Exit(code=exit_code)
+
+
+@app.command()
+def upload(
+    tribunal: str | None = typer.Option(None, "--tribunal"),
+    deadline_minutes: int = typer.Option(45, "--deadline-minutes"),
+    max_items: int = typer.Option(0, "--max-items"),
+    workers: int = typer.Option(4, "--workers"),
+    manifest_file: Path = typer.Option(Path("data/sync-manifest.csv"), "--manifest-file"),
+    *,
+    fail_fast: bool = typer.Option(True, "--fail-fast/--no-fail-fast"),
+    use_proxy: bool = typer.Option(False, "--use-proxy"),
+) -> None:
+    """Upload-only: download and upload already-available entries. No checks."""
+    _run_pipeline(
+        start_date=None,
+        end_date=None,
+        tribunal=tribunal,
+        deadline_minutes=deadline_minutes,
+        max_items=max_items,
+        workers=workers,
+        manifest_file=manifest_file,
+        dry_run=False,
+        fail_fast=fail_fast,
+        publish_live_status=False,
+        skip_if_mostly_complete=False,
+        use_proxy=use_proxy,
+        upload_only=True,
+        mode_label="Upload Only",
+    )
 
 
 @app.command()

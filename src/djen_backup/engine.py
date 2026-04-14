@@ -78,6 +78,8 @@ class SyncConfig:
     fail_fast: bool = True
     publish_live_status: bool = False
     skip_if_mostly_complete: bool = False
+    check_only: bool = False  # Only run DJEN checkers (no download/upload)
+    upload_only: bool = False  # Only process already-available entries
     observer: ManifestObserver | None = None
 
 
@@ -491,13 +493,18 @@ async def run_pipeline(
 
         feeder_task = asyncio.create_task(feed_available())
 
-        # Worker allocation (all independent task pools):
-        # - Checkers: --workers (lightweight DJEN API calls, need parallelism)
-        # - Downloaders: --workers / 4 (fast but bottlenecked by upload queue)
-        # - Uploaders: --workers (IA rate-limited globally by TokenBucket)
-        checker_count = config.workers
-        dl_count = max(1, config.workers // 4) if not config.dry_run else 0
-        upload_count = config.workers
+        # Worker allocation — respects --check-only and --upload-only flags
+        if config.upload_only:
+            checker_count = 0
+        else:
+            checker_count = config.workers
+
+        if config.check_only or config.dry_run:
+            dl_count = 0
+            upload_count = 0
+        else:
+            dl_count = max(1, config.workers // 4)
+            upload_count = config.workers
 
         upload_tasks = [
             asyncio.create_task(upload_worker(upload_client)) for _ in range(upload_count)
