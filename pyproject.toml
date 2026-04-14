@@ -34,6 +34,7 @@ dependencies = [
     "numpy>=2.0.0",
     "holidays>=0.40.0",
     "pyyaml>=6.0.3",
+    "aiolimiter>=1.2.1",
 ]
 
 [project.optional-dependencies]

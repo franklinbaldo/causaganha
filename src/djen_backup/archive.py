@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 
 import httpx
 import structlog
+from aiolimiter import AsyncLimiter
 
 from causaganha.pipeline import ia_s3
-from djen_backup.rate_limit import TokenBucket
 from djen_backup.retry import RETRIABLE_STATUS_CODES, _backoff, request_with_retry
 
 
@@ -37,10 +37,9 @@ HTTP_NOT_FOUND = 404
 _item_locks: dict[str, asyncio.Lock] = {}
 _item_locks_guard = asyncio.Lock()
 
-# Token bucket: steady-state ~1 upload / 2 s, burst of 4.
-# Controls the global IA-wide rate without holding any per-item lock
-# during the wait, so multiple workers can progress concurrently.
-_IA_RATE_LIMITER = TokenBucket(rate_per_sec=0.5, burst=4)
+# Rate limit: ~1 upload / 2 s steady-state, burst of 4.
+# aiolimiter's leaky bucket: max_rate uploads per time_period.
+_IA_RATE_LIMITER = AsyncLimiter(max_rate=4, time_period=8)
 
 
 async def _lock_for(item_id: str) -> asyncio.Lock:
@@ -230,7 +229,7 @@ async def upload_zip(
     if try_lock and lock.locked():
         raise ItemBusyError(item_id)
     async with lock:
-        await _IA_RATE_LIMITER.acquire()
+        await _IA_RATE_LIMITER.acquire()  # aiolimiter supports .acquire() or async with
         start = time.monotonic()
         log.info("upload_starting", item_id=item_id, file=zip_path.name)
         try:
