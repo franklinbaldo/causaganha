@@ -218,17 +218,22 @@ async def run_pipeline(
 
 
     last_stats_log = time.monotonic()
+    last_notify = time.monotonic()
     stats_log_interval = 30.0  # log stats every 30s for CI/pipes
+    notify_interval = 0.5  # throttle observer updates to 2 Hz
 
     def _notify_counts() -> None:
-        nonlocal last_stats_log
-        if config.observer:
-            config.observer.on_counts_updated(manifest.counts())
-        # Periodic stats for non-TTY (CI, pipes)
+        nonlocal last_stats_log, last_notify
         now = time.monotonic()
+        # Throttle — counts() scans 157K entries, blocks event loop
+        if now - last_notify < notify_interval:
+            return
+        last_notify = now
+        c = manifest.counts()
+        if config.observer:
+            config.observer.on_counts_updated(c)
         if now - last_stats_log > stats_log_interval:
             last_stats_log = now
-            c = manifest.counts()
             log.info(
                 "progress",
                 uploaded=c.uploaded,
