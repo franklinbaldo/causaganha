@@ -9,6 +9,6 @@ runs:
         # Download the manifest (primary state file)
         curl -sSfL -o data/sync-manifest.csv \
           "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
-          || echo 'tribunal,date,ia_status,djen_status,updated_at' > data/sync-manifest.csv
+          || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
         echo "State files:"
         ls -lh data/
