@@ -116,9 +116,12 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
     in list_zips_for_date() when manifest.parquet has not yet been regenerated.
 
     Returns:
-        Dict mapping date_str → list of ZIP entries with keys:
-        ``tribunal``, ``item_id``, ``filename``.
-        Only ``ia_status=uploaded`` entries are included.
+        Dict mapping date_str → list of entries with keys:
+        ``tribunal``, ``item_id``, ``filename``, ``absent``.
+        Includes BOTH uploaded (ia_status=uploaded) and confirmed-absent
+        (djen_status=absent) entries so that present_count in list_zips_for_date()
+        correctly mirrors the manifest.parquet behaviour (which counts .absent files
+        as "present" for the completeness check).
         Empty dict if file does not exist.
     """
     if not path.exists():
@@ -137,20 +140,28 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
             tribunal = parts[0].upper()
             date_str = parts[1]
             ia_status = parts[2]
-            if ia_status != "uploaded":
-                continue
-            year = date_str[:4]
-            item_id = f"djen-{tribunal.lower()}-{year}"
-            filename = f"djen-{date_str}-{tribunal}.zip"
-            by_date.setdefault(date_str, []).append(
-                {"tribunal": tribunal, "item_id": item_id, "filename": filename}
-            )
+            djen_status = parts[3] if len(parts) > 3 else ""
+
+            if ia_status == "uploaded":
+                year = date_str[:4]
+                item_id = f"djen-{tribunal.lower()}-{year}"
+                filename = f"djen-{date_str}-{tribunal}.zip"
+                by_date.setdefault(date_str, []).append(
+                    {"tribunal": tribunal, "item_id": item_id, "filename": filename, "absent": False}
+                )
+            elif djen_status == "absent":
+                # Tribunal confirmed no publication on this date — counts as "present"
+                # for the completeness check but produces no ZIP to download.
+                by_date.setdefault(date_str, []).append(
+                    {"tribunal": tribunal, "item_id": "", "filename": "", "absent": True}
+                )
     except Exception as e:
         logger.warning("sync_manifest_load_failed", path=str(path), error=str(e))
         return {}
 
-    total = sum(len(v) for v in by_date.values())
-    logger.info("sync_manifest_loaded", dates=len(by_date), total_zips=total)
+    total_zips = sum(1 for v in by_date.values() for e in v if not e["absent"])
+    total_absent = sum(1 for v in by_date.values() for e in v if e["absent"])
+    logger.info("sync_manifest_loaded", dates=len(by_date), total_zips=total_zips, total_absent=total_absent)
     return by_date
 
 
@@ -484,17 +495,19 @@ def list_zips_for_date(
     # 2. sync-manifest.csv (fast, avoids per-tribunal IA API calls)
     if sync_manifest is not None:
         entries = sync_manifest.get(date, [])
+        present_count = len(entries)  # includes both uploaded ZIPs and confirmed-absent
         for e in entries:
-            zips.append(
-                {
-                    "filename": e["filename"],
-                    "tribunal": e["tribunal"],
-                    "item_id": e["item_id"],
-                    "size": 0,
-                }
-            )
-        logger.info("zips_from_sync_manifest", date=date, count=len(zips))
-        return zips, len(zips)
+            if not e["absent"]:
+                zips.append(
+                    {
+                        "filename": e["filename"],
+                        "tribunal": e["tribunal"],
+                        "item_id": e["item_id"],
+                        "size": 0,
+                    }
+                )
+        logger.info("zips_from_sync_manifest", date=date, zips=len(zips), present=present_count)
+        return zips, present_count
 
     # 3. IA metadata API per tribunal (slow fallback — only used if both sources absent)
     present = set()
