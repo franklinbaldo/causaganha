@@ -265,10 +265,53 @@ async def run_pipeline(
 
     # Build a shuffled flat queue of ALL unknown entries across all tribunals.
     # Workers grab one entry at a time, maximum parallelism.
-    unknown_entries: list[ManifestEntry] = [
-        e for e in manifest._entries.values() if e.ia_status == "" and e.djen_status == ""
-    ]
-    random.shuffle(unknown_entries)
+    #
+    # Optimization: prioritize entries ADJACENT to already-uploaded dates.
+    # A date 30+ business days from any upload for its tribunal is unlikely
+    # to have data (the tribunal probably wasn't publishing then).
+    from collections import defaultdict
+    from datetime import timedelta
+
+    uploaded_by_tribunal: dict[str, list[date]] = defaultdict(list)
+    for e in manifest._entries.values():
+        if e.ia_status == "uploaded":
+            uploaded_by_tribunal[e.tribunal].append(e.date)
+    for dates in uploaded_by_tribunal.values():
+        dates.sort()
+
+    def _is_adjacent(entry: ManifestEntry, window_days: int = 30) -> bool:
+        """True if ``entry.date`` is within window_days of any uploaded date."""
+        uploads = uploaded_by_tribunal.get(entry.tribunal)
+        if not uploads:
+            return False
+        # binary-ish: dates sorted, check nearest above/below
+        d = entry.date
+        for up in uploads:
+            if abs((up - d).days) <= window_days:
+                return True
+            if up > d:
+                break
+        return False
+
+    adjacent_entries: list[ManifestEntry] = []
+    isolated_entries: list[ManifestEntry] = []
+    for e in manifest._entries.values():
+        if e.ia_status != "" or e.djen_status != "":
+            continue
+        if _is_adjacent(e):
+            adjacent_entries.append(e)
+        else:
+            isolated_entries.append(e)
+
+    random.shuffle(adjacent_entries)
+    random.shuffle(isolated_entries)
+    # Adjacent dates first — higher hit rate, better use of API quota
+    unknown_entries: list[ManifestEntry] = adjacent_entries + isolated_entries
+    log.info(
+        "check_priority",
+        adjacent=len(adjacent_entries),
+        isolated=len(isolated_entries),
+    )
 
     if not unknown_entries:
         entries_to_upload = manifest.entries_needing_upload()
@@ -301,7 +344,9 @@ async def run_pipeline(
     # Adaptive throttle via CircuitBreaker — same pattern used for IA uploads.
     # Trips after 5 consecutive 403 CloudFront blocks, opens for 30s,
     # doubles timeout on repeated failure (capped at 5 min).
-    djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
+    # Longer recovery (120s) — CloudFront blocks need real cooldown time.
+    # Lower threshold means we back off faster when we hit the wall.
+    djen_breaker = CircuitBreaker(threshold=3, recovery_timeout=120.0)
     _breaker_trips = 0
     _last_trip_save = 0.0
 
