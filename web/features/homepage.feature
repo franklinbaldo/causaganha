@@ -17,9 +17,9 @@ Feature: Homepage
 
   Scenario: Display all how-it-works cards
     When the homepage loads
-    Then I should see "Coleta Automática"
-    And I should see "Arquivo Permanente"
-    And I should see "Catálogo Indexado"
+    Then I should see "Coleta diária"
+    And I should see "Parquet pronto para análise"
+    And I should see "Download em massa"
 
   Scenario: Display all audience cards
     When the homepage loads

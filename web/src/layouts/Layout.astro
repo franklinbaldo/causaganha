@@ -9,9 +9,13 @@ interface Props {
   description?: string;
   ogImage?: string;
   fullWidth?: boolean;
+  /** Mount the global NetworkStatusBanner. Set false on pages that hydrate
+   *  entirely from build-time JSON, so transient IA polling failures do not
+   *  flash a red banner over the hero. Defaults to true. */
+  showNetworkBanner?: boolean;
 }
 
-const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage, fullWidth = false } = Astro.props;
+const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -54,7 +58,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <a href="#main-content" class="sr-only">
       Skip to main content
     </a>
-    <NetworkStatusBanner />
+    {showNetworkBanner && <NetworkStatusBanner />}
     <main id="main-content" class:list={[{ container: !fullWidth }]}>
       <slot />
     </main>

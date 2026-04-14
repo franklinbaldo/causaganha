@@ -147,11 +147,11 @@ async def run_pipeline(
         except (ValueError, OSError):
             pass
 
-    items_to_sync = {
-        (e.tribunal, e.date.year)
-        for e in manifest._entries.values()
-        if e.ia_status != "uploaded"
-    } if should_sync_ia else set()
+    items_to_sync = (
+        {(e.tribunal, e.date.year) for e in manifest._entries.values() if e.ia_status != "uploaded"}
+        if should_sync_ia
+        else set()
+    )
 
     if items_to_sync:
         log.info("ia_sync_starting", items=len(items_to_sync))
@@ -171,9 +171,7 @@ async def run_pipeline(
                         if config.observer:
                             config.observer.on_subtask_advance("IA sync")
                     if ia_dates:
-                        return await manifest.mark_ia_uploaded(
-                            tribunal, set(ia_dates.keys())
-                        )
+                        return await manifest.mark_ia_uploaded(tribunal, set(ia_dates.keys()))
                     return 0
 
             results = await asyncio.gather(
@@ -192,8 +190,7 @@ async def run_pipeline(
     # Build a shuffled flat queue of ALL unknown entries across all tribunals.
     # Workers grab one entry at a time, maximum parallelism.
     unknown_entries: list[ManifestEntry] = [
-        e for e in manifest._entries.values()
-        if e.ia_status == "" and e.djen_status == ""
+        e for e in manifest._entries.values() if e.ia_status == "" and e.djen_status == ""
     ]
     random.shuffle(unknown_entries)
 
@@ -217,7 +214,6 @@ async def run_pipeline(
     last_save = time.monotonic()
     save_interval = 180.0
     checkers_done = asyncio.Event()
-
 
     last_stats_log = time.monotonic()
     last_notify = time.monotonic()
@@ -287,9 +283,7 @@ async def run_pipeline(
                 # ANY exception here just gets recorded as raw; worker never dies.
                 raw_status = "error"
                 try:
-                    await get_caderno_url(
-                        client, config.djen_proxy_url, entry.tribunal, entry.date
-                    )
+                    await get_caderno_url(client, config.djen_proxy_url, entry.tribunal, entry.date)
                     raw_status = "200"
                 except DJENNotFoundError as exc:
                     raw_status = str(exc.status_code)

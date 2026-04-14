@@ -3,11 +3,13 @@ import Layout from '../layouts/Layout.astro';
 import GitHubIcon from '../components/icons/GitHubIcon.astro';
 import Header from '../components/Header.astro';
 import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
+import WorkflowStatusBadge from '../components/WorkflowStatusBadge.astro';
+import DataSourceIndicator from '../components/DataSourceIndicator.astro';
+import QueryCard from '../components/QueryCard.astro';
 import { readJson } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS } from '../lib/homepage-content';
+import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
-const today = readJson<any>('cache/today.json');
 const backfill = readJson<any>('cache/backfill.json');
 
 const snap = iaSnapshot?.summary || {};
@@ -15,14 +17,48 @@ const totalZips = snap.total_zips || 0;
 const totalTribunals = snap.tribunals_total || 96;
 const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
+const latestCollectionDate = snap.latest_collection_date;
+const snapshotGeneratedAt = iaSnapshot?.generated_at;
 
-const filesToday = today?.files_today || 0;
+// Volume: render GB up to 999, switch to TB above that. total_size_gb is always in GB.
+const volumeValue = totalGB >= 1000 ? (totalGB / 1000).toFixed(1) : totalGB.toFixed(1);
+const volumeUnit = totalGB >= 1000 ? 'TB' : 'GB';
+
+// "Última coleta" — short date in Brazilian Portuguese, falls back gracefully when missing.
+const latestCollectionLabel = latestCollectionDate
+  ? new Date(latestCollectionDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+  : 'em breve';
+
+// Provenance caption for the stats row.
+const snapshotGeneratedLabel = snapshotGeneratedAt
+  ? new Date(snapshotGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  : null;
 
 const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
   (backfill?.tribunal_stats || []).map((t: any) => ({
     tribunal: t.tribunal as string,
     data_rate_pct: Number(t.data_rate_pct ?? 0),
   }));
+
+// Top 5 tribunais por volume arquivado — used by the proof block to show
+// real, build-time-derived numbers next to the example query.
+const tribunalVolume = new Map<string, number>();
+if (iaSnapshot?.items) {
+  for (const item of Object.values<any>(iaSnapshot.items)) {
+    if (!item?.tribunal) continue;
+    tribunalVolume.set(item.tribunal, (tribunalVolume.get(item.tribunal) ?? 0) + (item.zip_count ?? 0));
+  }
+}
+const topTribunais = Array.from(tribunalVolume.entries())
+  .map(([tribunal, lotes]) => ({ tribunal, lotes }))
+  .sort((a, b) => b.lotes - a.lotes)
+  .slice(0, 5);
+
+const PROOF_QUERY_SQL = `SELECT tribunal, COUNT(*) as total
+FROM read_parquet('https://archive.org/download/djen-2026-04-01/comunicacoes.parquet')
+GROUP BY tribunal
+ORDER BY total DESC
+LIMIT 5`;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
@@ -31,13 +67,13 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   title="CausaGanha — Dados do Judiciário Brasileiro"
   description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
   fullWidth={true}
+  showNetworkBanner={false}
 >
   <Header variant="home" />
 
   <!-- ── HERO ── -->
   <section class="hero">
     <div class="hero-content">
-      <p class="hero-eyebrow">Acervo Editorial</p>
       <h1 class="hero-h1">Dados do judiciário <em>brasileiro,</em> abertos para todos.</h1>
 
       <!-- Search form -->
@@ -63,14 +99,38 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </button>
         </div>
       </form>
+
+      <!-- Task-first entry points: three blunt actions someone can take right now. -->
+      <ul class="quick-access" aria-label="Ações rápidas">
+        {QUICK_ACCESS_CARDS.map(card => (
+          <li>
+            <a href={BASE + card.href} class="quick-access-item">
+              <span class="quick-access-icon" aria-hidden="true">{card.icon}</span>
+              <span class="quick-access-body">
+                <span class="quick-access-title">{card.title}</span>
+                <span class="quick-access-desc">{card.description}</span>
+              </span>
+              <span class="quick-access-cta" aria-hidden="true">
+                {card.cta}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   </section>
 
   <!-- ── STATS ROW ── -->
   <section class="section-container">
+    {snapshotGeneratedLabel && (
+      <p class="stats-provenance">
+        Dados do snapshot de {snapshotGeneratedLabel} · fonte: Internet Archive
+      </p>
+    )}
     <div class="stats-row">
       <figure>
-        <span class="stats-label">Coletados anual</span>
+        <span class="stats-label">Lotes arquivados</span>
         <div class="stats-value">{formatNumber(totalZips)}<small class="stats-unit">lotes</small></div>
       </figure>
       <figure>
@@ -78,13 +138,26 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div class="stats-value">{tribunalsWithData}<small class="stats-unit">fontes</small></div>
       </figure>
       <figure>
-        <span class="stats-label">Volume acumulado</span>
-        <div class="stats-value">{totalGB.toFixed(1)}<small class="stats-unit">Petabytes</small></div>
+        <span class="stats-label">Volume arquivado</span>
+        <div class="stats-value">{volumeValue}<small class="stats-unit">{volumeUnit}</small></div>
       </figure>
       <figure>
-        <span class="stats-label">Dados públicos</span>
-        <div class="stats-value">1.2B<small class="stats-unit">Registros</small></div>
+        <span class="stats-label">Última coleta</span>
+        <div class="stats-value">{latestCollectionLabel}</div>
       </figure>
+    </div>
+  </section>
+
+  <!-- ── TRUST STRIP: live status + freshness + gaps ── -->
+  <section class="section-container trust-strip-section">
+    <div class="trust-strip">
+      <WorkflowStatusBadge />
+      <DataSourceIndicator />
+      <small class="trust-fact">
+        Próxima coleta: diária · Tribunais com lacunas:
+        <strong>{Math.max(0, totalTribunals - tribunalsWithData)}</strong>
+        de {totalTribunals}
+      </small>
     </div>
   </section>
 
@@ -126,6 +199,44 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         ))}
       </div>
     </div>
+  </section>
+
+  <!-- ── PROOF: example query + real top-5 + caveats ── -->
+  <section class="section-container">
+    <h2 class="section-heading">Exemplo concreto.</h2>
+    <div class="proof-grid">
+      <div class="proof-query">
+        <QueryCard
+          title="Comunicações por tribunal (últimos 30 dias)"
+          description="Roda direto no navegador via DuckDB WASM, sem servidor. Copie, ajuste, execute em /explorador."
+          sql={PROOF_QUERY_SQL}
+        />
+      </div>
+      <div class="proof-result">
+        <h3 class="proof-result-title">Top 5 tribunais por volume arquivado</h3>
+        {topTribunais.length > 0 ? (
+          <table class="proof-table">
+            <thead>
+              <tr><th scope="col">Tribunal</th><th scope="col">Lotes</th></tr>
+            </thead>
+            <tbody>
+              {topTribunais.map(row => (
+                <tr>
+                  <td><a href={BASE + 'publicacoes/' + row.tribunal.toLowerCase()}>{row.tribunal}</a></td>
+                  <td class="proof-num">{formatNumber(row.lotes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p class="proof-empty">Snapshot indisponível — disponível na próxima geração.</p>
+        )}
+      </div>
+    </div>
+    <p class="proof-caveat">
+      <strong>O que não está incluído:</strong> apêndices, audiências sigilosas e tribunais militares.
+      Cobertura completa em <a href={BASE + 'stats'}>Mapa judicial →</a>.
+    </p>
   </section>
 
   <!-- ── HOW IT WORKS ── -->
@@ -303,7 +414,95 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     background: #155731;
   }
 
+  /* ── Quick access (task-first hero strip) ── */
+  .quick-access {
+    list-style: none;
+    margin: var(--space-md) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+  }
+
+  .quick-access-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    text-decoration: none;
+    transition: border-color var(--transition-base), background var(--transition-base), transform var(--transition-base);
+    height: 100%;
+  }
+
+  .quick-access-item:hover,
+  .quick-access-item:focus-visible {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    text-decoration: none;
+  }
+
+  .quick-access-icon {
+    font-size: 1.25rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .quick-access-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .quick-access-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-base-content);
+  }
+
+  .quick-access-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-secondary);
+    line-height: 1.5;
+  }
+
+  .quick-access-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-primary);
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  @media (max-width: 768px) {
+    .quick-access {
+      grid-template-columns: 1fr;
+    }
+
+    .quick-access-cta {
+      align-self: flex-start;
+    }
+  }
+
   /* ── Stats Row ── */
+  .stats-provenance {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+    margin: 0 0 var(--space-xs);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
   .stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -353,6 +552,31 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .stats-row {
       grid-template-columns: repeat(2, 1fr);
     }
+  }
+
+  /* ── Trust strip ── */
+  .trust-strip-section {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+  }
+
+  .trust-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+  }
+
+  .trust-fact {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+  }
+
+  .trust-fact strong {
+    color: var(--color-base-content);
+    font-weight: 700;
   }
 
   /* ── Coverage Map / Malha ── */
@@ -426,6 +650,76 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     font-size: var(--font-size-2xl);
     font-weight: 400;
     margin: 0 0 var(--space-lg);
+  }
+
+  /* ── Proof block ── */
+  .proof-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    align-items: start;
+  }
+
+  @media (min-width: 768px) {
+    .proof-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .proof-result {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+    padding: var(--space-md);
+  }
+
+  .proof-result-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin: 0 0 var(--space-sm);
+  }
+
+  .proof-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+  }
+
+  .proof-table th,
+  .proof-table td {
+    text-align: left;
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .proof-table th {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-content-tertiary);
+    font-weight: 600;
+  }
+
+  .proof-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .proof-num {
+    font-family: var(--font-mono);
+    text-align: right;
+  }
+
+  .proof-empty {
+    font-size: var(--font-size-sm);
+    color: var(--color-content-tertiary);
+    margin: 0;
+  }
+
+  .proof-caveat {
+    margin-top: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-content-secondary);
+    line-height: 1.6;
   }
 
   /* ── Audience Cards ── */
