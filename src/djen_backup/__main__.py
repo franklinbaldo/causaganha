@@ -368,7 +368,9 @@ def main(  # noqa: PLR0913
     ),
     deadline_minutes: int = typer.Option(45, "--deadline-minutes", help="Time budget in minutes."),
     max_items: int = typer.Option(0, "--max-items", help="Max downloads per run (0 = unlimited)."),
-    workers: int = typer.Option(DEFAULT_WORKERS, "--workers", help="Parallel workers (default: discovered safe limit)."),
+    workers: int = typer.Option(
+        DEFAULT_WORKERS, "--workers", help="Parallel workers (default: discovered safe limit)."
+    ),
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
@@ -471,6 +473,57 @@ def upload(
         use_proxy=use_proxy,
         upload_only=True,
         mode_label="Upload Only",
+    )
+
+
+@app.command()
+def drain(
+    workers: int = typer.Option(6, "--workers", help="Concurrent download+upload workers."),
+    batch_size: int = typer.Option(100, "--batch-size", help="Pending entries fetched per batch."),
+    deadline_minutes: int = typer.Option(
+        14, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
+    ),
+    *,
+    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
+) -> None:
+    """Batched upload-only drain via remote sync-manifest.parquet (no full manifest load)."""
+    from djen_backup.drain import PARQUET_URL
+    from djen_backup.drain import drain as _drain
+
+    env_result = _load_local_env()
+    show_banner()
+    _show_env_hint(env_result)
+
+    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
+    djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
+    auth = _resolve_ia_auth(dry_run=False)
+
+    config_table = Table.grid(padding=(0, 2))
+    config_table.add_column(style="bold cyan")
+    config_table.add_column()
+    config_table.add_row("Mode:", "[bold magenta]Drain (remote parquet)[/bold magenta]")
+    config_table.add_row("Workers:", str(workers))
+    config_table.add_row("Batch size:", str(batch_size))
+    config_table.add_row("Deadline:", f"{deadline_minutes} min")
+    config_table.add_row("Parquet:", PARQUET_URL)
+    config_table.add_row("DJEN URL:", djen_url)
+    console.print(
+        Panel(
+            config_table, title="[bold white]Drain Configuration[/bold white]", border_style="blue"
+        )
+    )
+
+    uploads = asyncio.run(
+        _drain(
+            workers=workers,
+            batch_size=batch_size,
+            deadline_seconds=deadline_minutes * 60,
+            djen_proxy_url=djen_url,
+            ia_auth=auth,
+        )
+    )
+    console.print(
+        Panel(f"[bold green]Uploads completed:[/bold green] {uploads}", border_style="green")
     )
 
 
