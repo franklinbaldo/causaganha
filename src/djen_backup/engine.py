@@ -122,8 +122,17 @@ async def run_pipeline(
     hitting long absent tails are naturally deprioritized.
     No fixed stop threshold — the min-streak strategy handles it.
     """
-    items = manifest.items_needing_ia_check()
-    if not items:
+    # Build a shuffled flat queue of ALL unknown entries across all tribunals.
+    # Workers grab one entry at a time, maximum parallelism.
+    import random
+
+    unknown_entries: list[ManifestEntry] = [
+        e for e in manifest._entries.values()
+        if e.ia_status == "" and e.djen_status == ""
+    ]
+    random.shuffle(unknown_entries)
+
+    if not unknown_entries:
         entries_to_upload = manifest.entries_needing_upload()
         if not entries_to_upload:
             log.info("pipeline_nothing_to_do")
@@ -131,13 +140,9 @@ async def run_pipeline(
 
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Priority queue: (streak, tribunal, year) — lowest streak checked first
-    import heapq
-
-    check_heap: list[tuple[int, str, int]] = []
-    for tribunal, year in items:
-        heapq.heappush(check_heap, (0, tribunal, year))
-    check_lock = asyncio.Lock()
+    check_queue: asyncio.Queue[ManifestEntry] = asyncio.Queue()
+    for entry in unknown_entries:
+        check_queue.put_nowait(entry)
 
     download_queue: asyncio.Queue[ManifestEntry | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
     upload_queue: asyncio.Queue[StagedItem | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
@@ -148,11 +153,9 @@ async def run_pipeline(
     save_interval = 180.0
     checkers_done = asyncio.Event()
 
-    # Per-tribunal absent streak (global across years)
-    absent_streaks: dict[str, int] = {}
-
-    # Track which (tribunal, year) items already had their IA metadata fetched
+    # IA metadata cached per (tribunal, year) — fetched once across all workers
     ia_checked_items: set[tuple[str, int]] = set()
+    ia_check_lock = asyncio.Lock()
 
     last_stats_log = time.monotonic()
     stats_log_interval = 30.0  # log stats every 30s for CI/pipes
@@ -176,6 +179,9 @@ async def run_pipeline(
             )
 
     # ── Checker workers ──────────────────────────────────────────
+    # Each worker grabs ONE entry from the shuffled queue and checks it.
+    # Maximum parallelism: 8 workers = 8 concurrent DJEN calls for 8
+    # different (tribunal, date) pairs.
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save
         while True:
@@ -184,64 +190,52 @@ async def run_pipeline(
             if time.monotonic() > deadline:
                 return
 
-            async with check_lock:
-                if not check_heap:
-                    return
-                _streak, tribunal, year = heapq.heappop(check_heap)
+            try:
+                entry = check_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
 
             try:
-                item_key = (tribunal, year)
+                item_key = (entry.tribunal, entry.date.year)
 
-                # 1. Lazy IA check — once per (tribunal, year)
+                # 1. Lazy IA check — once per (tribunal, year), shared across workers
                 if item_key not in ia_checked_items:
-                    if not manifest.has_uploaded_entries(tribunal, year):
-                        ia_dates = await fetch_ia_existing(client, tribunal, year)
-                        if ia_dates:
-                            await manifest.mark_ia_checked(
-                                tribunal, year, set(ia_dates.keys())
-                            )
-                        _notify_counts()
-                    ia_checked_items.add(item_key)
+                    async with ia_check_lock:
+                        if item_key not in ia_checked_items:
+                            if not manifest.has_uploaded_entries(*item_key):
+                                ia_dates = await fetch_ia_existing(client, *item_key)
+                                if ia_dates:
+                                    await manifest.mark_ia_checked(
+                                        entry.tribunal, entry.date.year, set(ia_dates.keys())
+                                    )
+                                _notify_counts()
+                            ia_checked_items.add(item_key)
 
-                # 2. Get entries to DJEN-check (this worker owns this batch)
+                    # Entry might now be uploaded (if IA had it) — skip
+                    current = manifest.get_status(entry.tribunal, entry.date)
+                    if current and current.ia_status == "uploaded":
+                        continue
+
                 if config.dry_run:
                     continue
-                entries = manifest.entries_needing_djen_check(tribunal, year)
-                if not entries:
-                    continue
 
-                # 3. Process ALL entries — log summary per batch
-                found = 0
-                absent_count = 0
-                skipped = 0
-                for entry in entries:
-                    if abort_event.is_set() or time.monotonic() > deadline:
-                        return
-
-                    try:
-                        await get_caderno_url(
-                            client, config.djen_proxy_url, tribunal, entry.date
-                        )
-                        await manifest.mark_djen_available(tribunal, entry.date)
-                        absent_streaks[tribunal] = 0
-                        found += 1
-                    except DJENNotFoundError:
-                        await manifest.mark_djen_absent(tribunal, entry.date)
-                        absent_streaks[tribunal] = absent_streaks.get(tribunal, 0) + 1
-                        absent_count += 1
-                    except (httpx.HTTPError, httpx.RequestError) as exc:
-                        log.debug("djen_check_skipped", tribunal=tribunal, error=str(exc))
-                        skipped += 1
+                # 2. DJEN check — one API call for this entry
+                try:
+                    await get_caderno_url(
+                        client, config.djen_proxy_url, entry.tribunal, entry.date
+                    )
+                    await manifest.mark_djen_available(entry.tribunal, entry.date)
+                except DJENNotFoundError:
+                    await manifest.mark_djen_absent(entry.tribunal, entry.date)
+                except (httpx.HTTPError, httpx.RequestError) as exc:
+                    log.debug(
+                        "djen_check_skipped",
+                        tribunal=entry.tribunal,
+                        date=entry.date.isoformat(),
+                        error=str(exc),
+                    )
 
                 _notify_counts()
-                log.info(
-                    "checked",
-                    tribunal=tribunal,
-                    year=year,
-                    found=found,
-                    absent=absent_count,
-                    skipped=skipped,
-                )
 
                 # Periodic save
                 now = time.monotonic()
@@ -252,13 +246,15 @@ async def run_pipeline(
             except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
                 log.warning(
                     "checker_error",
-                    tribunal=tribunal,
-                    year=year,
+                    tribunal=entry.tribunal,
+                    date=entry.date.isoformat(),
                     error=str(exc),
                 )
                 if config.fail_fast:
                     if not first_error:
-                        first_error.append(f"Checker error: {tribunal} {year}")
+                        first_error.append(
+                            f"Checker error: {entry.tribunal} {entry.date.isoformat()}"
+                        )
                     abort_event.set()
                     return
 
@@ -277,10 +273,20 @@ async def run_pipeline(
                     download_queue.task_done()
                     continue
 
-                # Always fetch a fresh URL (pre-signed URLs expire quickly)
-                url = await get_caderno_url(
-                    client, config.djen_proxy_url, entry.tribunal, entry.date
-                )
+                # Fetch fresh URL with retries — DJEN is inconsistent and
+                # sometimes returns 404 on a date that IS available moments later
+                url = None
+                for attempt in range(4):
+                    try:
+                        url = await get_caderno_url(
+                            client, config.djen_proxy_url, entry.tribunal, entry.date
+                        )
+                        break
+                    except DJENNotFoundError:
+                        if attempt >= 3:
+                            raise
+                        await asyncio.sleep(2**attempt)  # 1s, 2s, 4s
+                assert url is not None
                 zip_path = await download_zip(client, url)
 
                 # Stage
