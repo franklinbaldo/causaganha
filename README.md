@@ -56,7 +56,8 @@ The engine periodically (every 10 min) uploads the manifest and a compact `manif
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Download DJEN ZIPs → upload to IA |
+| [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Check DJEN + download + upload to IA |
+| [upload-backlog.yml](.github/workflows/upload-backlog.yml) | Every 15 min | Drain confirmed-available ZIPs (no DJEN checks) |
 | [collect-today.yml](.github/workflows/collect-today.yml) | Daily 06:00 UTC | Today's publications |
 | [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Daily 07:00 UTC | Convert ZIPs → Parquet |
 | [update-catalog.yml](.github/workflows/update-catalog.yml) | After consolidate | Refresh catalog metadata |
