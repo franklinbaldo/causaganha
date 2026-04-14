@@ -18,17 +18,29 @@ Live dashboard: [https://franklinbaldo.github.io/causaganha/](https://franklinba
 
 ## Current architecture
 
-The repository currently has two main runtime surfaces:
+The repository has two main runtime surfaces:
 
-- Python backend and CLI in [src/causaganha](/Users/frank/workspace/causaganha/src/causaganha)
-- Web frontend in [web](/Users/frank/workspace/causaganha/web)
+- Python backend and CLI in [src/causaganha](src/causaganha) and [src/djen_backup](src/djen_backup)
+- Web frontend in [web](web)
 
 High-level flow:
 
-1. `Collect ZIPs` downloads DJEN ZIPs and uploads them to Internet Archive.
-2. `Consolidate Parquet` converts complete daily ZIP batches into Parquet tables.
-3. `Update Catalog` refreshes metadata used by downstream consumers.
-4. `Deploy Web` publishes the Astro site to GitHub Pages.
+1. **djen-backup** — manifest-driven sync engine. Tracks every `(tribunal, date)` pair in a single CSV (`sync-manifest.csv`) stored on Internet Archive. Workers check DJEN availability, download ZIPs, upload to IA, and record raw response codes (404, 400, 403, timeout, etc.) for accurate status tracking.
+2. **Consolidate Parquet** — converts complete daily ZIP batches into Parquet tables.
+3. **Update Catalog** — refreshes metadata used by downstream consumers.
+4. **Deploy Web** — renders query contracts (`.qmd` files in `web/src/queries/`) to JSON and publishes the Astro site to GitHub Pages.
+
+### Sync manifest
+
+The source of truth for what's been archived is `sync-manifest.csv` at `https://archive.org/download/causaganha-dashboard/sync-manifest.csv`. Each row:
+
+```csv
+tribunal,date,ia_status,djen_status,djen_raw,updated_at
+TJSP,2025-01-15,uploaded,,200,2026-04-14T10:00:00
+TJSP,2025-01-16,,absent,404,2026-04-14T10:01:00
+```
+
+The engine periodically (every 10 min) uploads the manifest and a compact `manifest-summary.json` to IA, so progress is never lost to crashes.
 
 The main GitHub Actions workflows in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows) are:
 
@@ -54,25 +66,36 @@ uv run pre-commit install
 uv run pytest -q
 ```
 
-## Python CLI
+## Python CLIs
 
-The installed CLI entrypoint is `causaganha`.
+Two CLI entrypoints:
 
-Available top-level commands currently include:
+### `djen-backup` — sync engine
 
-- `collect`
-- `analyze`
-- `score`
-- `db`
-- `export-parquet`
-- `export-status`
-- `backfill`
-- `archival`
-- `groundtruth`
-- `parquet`
-- `catalog`
+```bash
+# Full sync (check DJEN + download + upload to IA)
+uv run djen-backup --workers 8
 
-Inspect the current CLI surface with:
+# Only verify DJEN availability, no downloads
+uv run djen-backup check --workers 8
+
+# Only download+upload entries already marked available
+uv run djen-backup upload --workers 4
+```
+
+Subcommand modes:
+
+| Mode    | Checkers | Downloaders | Uploaders |
+|---------|----------|-------------|-----------|
+| default | ✓        | ✓           | ✓         |
+| check   | ✓        | ✗           | ✗         |
+| upload  | ✗        | ✓           | ✓         |
+
+All modes persist the manifest to IA every 10 minutes. See `uv run djen-backup --help`.
+
+### `causaganha` — data pipeline CLI
+
+Available top-level commands include: `collect`, `analyze`, `score`, `db`, `export-parquet`, `backfill`, `archival`, `groundtruth`, `parquet`, `catalog`.
 
 ```bash
 uv run causaganha --help
@@ -80,7 +103,7 @@ uv run causaganha --help
 
 ## Web frontend
 
-The frontend lives in [web](/Users/frank/workspace/causaganha/web) and uses:
+The frontend lives in [web](web) and uses:
 
 - Astro 5
 - Svelte 5
@@ -88,6 +111,18 @@ The frontend lives in [web](/Users/frank/workspace/causaganha/web) and uses:
 - Vitest
 - ESLint
 - Zod
+
+### Query contracts
+
+The frontend declares its data needs via Quarto-compatible `.qmd` files in [web/src/queries/](web/src/queries/). Each file has YAML frontmatter (output path + format) plus a SQL code block that runs against the manifest. The backend executes these during deploy and publishes JSON to `web/public/data/`.
+
+To add a new view:
+
+1. Create `web/src/queries/my_view.qmd` with frontmatter and a SQL block
+2. Add a typed loader in [web/src/lib/queryData.ts](web/src/lib/queryData.ts)
+3. `uv run python scripts/render_queries.py` generates the JSON
+
+See [web/src/queries/README.md](web/src/queries/README.md) for the full contract.
 
 Useful commands:
 
