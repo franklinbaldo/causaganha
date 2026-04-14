@@ -224,6 +224,44 @@ async def run_pipeline(
     stats_log_interval = 30.0  # log stats every 30s for CI/pipes
     notify_interval = 0.5  # throttle observer updates to 2 Hz
 
+    # Adaptive throttle: when DJEN starts returning 403 CloudFront blocks,
+    # pause all checkers for a while to let the WAF cool down.
+    throttle_until = 0.0
+    throttle_lock = asyncio.Lock()
+    throttle_count = 0  # consecutive 403s triggering throttle
+    throttle_threshold = 5  # after N 403s in a row, throttle
+    throttle_base_seconds = 30.0
+
+    async def _maybe_throttle(status: str) -> None:
+        """Track 403 rate and pause all workers if threshold hit."""
+        nonlocal throttle_until, throttle_count
+        async with throttle_lock:
+            if status == "403":
+                throttle_count += 1
+                if throttle_count >= throttle_threshold:
+                    # Exponential backoff: 30s, 60s, 120s, 240s, capped at 600s
+                    pause_factor = min(2 ** (throttle_count // throttle_threshold - 1), 20)
+                    pause = min(throttle_base_seconds * pause_factor, 600.0)
+                    new_until = time.monotonic() + pause
+                    if new_until > throttle_until:
+                        throttle_until = new_until
+                        log.warning(
+                            "throttle_activated",
+                            reason="cloudfront_blocks",
+                            pause_seconds=pause,
+                            consecutive_403s=throttle_count,
+                        )
+            elif status in ("200", "404", "400"):
+                # Successful or legitimate response — reset counter
+                throttle_count = 0
+
+    async def _wait_if_throttled() -> None:
+        """Await the throttle if active."""
+        now = time.monotonic()
+        if now < throttle_until:
+            wait_s = throttle_until - now
+            await asyncio.sleep(wait_s)
+
     def _notify_counts() -> None:
         nonlocal last_stats_log, last_notify
         now = time.monotonic()
@@ -266,32 +304,37 @@ async def run_pipeline(
                 if config.dry_run:
                     continue
 
+                # Wait if throttled due to CloudFront blocks
+                await _wait_if_throttled()
+
                 # DJEN check — record the raw response code.
                 # ANY exception here just gets recorded as raw; worker never dies.
+                raw_status = "error"
                 try:
                     await get_caderno_url(
                         client, config.djen_proxy_url, entry.tribunal, entry.date
                     )
-                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "200")
+                    raw_status = "200"
                 except DJENNotFoundError as exc:
-                    await manifest.mark_djen_raw(
-                        entry.tribunal, entry.date, str(exc.status_code)
-                    )
+                    raw_status = str(exc.status_code)
                 except httpx.HTTPStatusError as exc:
-                    await manifest.mark_djen_raw(
-                        entry.tribunal, entry.date, str(exc.response.status_code)
-                    )
+                    raw_status = str(exc.response.status_code)
                 except httpx.TimeoutException:
-                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "timeout")
+                    raw_status = "timeout"
                 except (httpx.HTTPError, httpx.RequestError, RuntimeError) as exc:
-                    # Covers: network errors, exhausted retries, unexpected runtime errors
-                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "error")
-                    log.debug(
-                        "djen_check_error",
-                        tribunal=entry.tribunal,
-                        date=entry.date.isoformat(),
-                        error=str(exc),
-                    )
+                    error_str = str(exc)
+                    if "403" in error_str or "CloudFront" in error_str:
+                        raw_status = "403"
+                    else:
+                        log.debug(
+                            "djen_check_error",
+                            tribunal=entry.tribunal,
+                            date=entry.date.isoformat(),
+                            error=error_str,
+                        )
+
+                await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
+                await _maybe_throttle(raw_status)
 
                 _notify_counts()
 
