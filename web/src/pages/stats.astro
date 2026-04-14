@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { processCoverageOverview, processCourtReliability, processWeeklyPattern } from '../lib/stats-processing';
+import totals from '../../public/data/totals.json';
 
 let data = {};
 try {
@@ -13,9 +14,11 @@ try {
   // Network unavailable at build time
 }
 
-const { avgPct: avgCoverage30Pct, avgCoverage: avgCoverage30, bestDay, bestCount, worstDay, worstCount } = processCoverageOverview(data, 30);
+// Tribunal count comes from the manifest via totals.qmd → totals.json (single source of truth).
+const totalTribunals = totals.tribunals_total ?? 1;
+const { avgPct: avgCoverage30Pct, avgCoverage: avgCoverage30, bestDay, bestCount, worstDay, worstCount } = processCoverageOverview(data, 30, totalTribunals);
 const { top5, bottom5 } = processCourtReliability(data);
-const { weeklyAverages, lowestDay } = processWeeklyPattern(data);
+const { weeklyAverages, lowestDay } = processWeeklyPattern(data, totalTribunals);
 
 const displayOrder = [1, 2, 3, 4, 5, 6, 0];
 const displayWeekly = displayOrder.map(idx => weeklyAverages.find(w => w.dayIdx === idx));
@@ -53,15 +56,15 @@ const base = import.meta.env.BASE_URL;
           <figure>
             <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
             <figcaption>Média de Coleta</figcaption>
-            <small class="muted">{avgCoverage30.toFixed(1)} / 91 tribunais por dia</small>
+            <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
           </figure>
           <figure>
-            <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / 91</small></div>
+            <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
             <figcaption>Melhor Dia</figcaption>
             <small class="muted">{bestDay ? bestDay.replace('djen-', '') : '--'}</small>
           </figure>
           <figure>
-            <div class="stat-value color-error">{worstCount === 999 ? 0 : worstCount}<small class="stat-fraction"> / 91</small></div>
+            <div class="stat-value color-error">{worstCount === 999 ? 0 : worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
             <figcaption>Pior Dia</figcaption>
             <small class="muted">{worstDay ? worstDay.replace('djen-', '') : '--'}</small>
           </figure>
@@ -140,7 +143,7 @@ const base = import.meta.env.BASE_URL;
                   <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
                     {w.avgPct.toFixed(0)}%
                   </div>
-                  <small class="muted">{w.avg.toFixed(1)} / 91</small>
+                  <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
                   {isLowest && (
                     <div class="badge-wrapper"><span class="badge-error">Menor</span></div>
                   )}
