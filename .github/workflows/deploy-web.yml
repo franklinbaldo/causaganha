@@ -64,24 +64,19 @@ jobs:
           "
           fi
 
-      - name: Generate web cache from catalog manifest
+      - name: Generate web cache from sync-manifest
         run: |
           pip install uv
           uv sync --no-dev
-          mkdir -p web/public
           mkdir -p web/public/cache
-          uv run python scripts/generate_dashboard_cache.py
-          uv run python scripts/generate_ia_snapshot.py --output web/public/ia-snapshot.json
+          uv run python scripts/generate_cache_from_manifest.py
           # Homepage widgets (activity strip, top tribunais 30d, top advogados).
-          # Non-fatal: if generation fails, a prior cached JSON (if any) is
-          # used, and index.astro degrades gracefully when the JSON is absent.
+          # Non-fatal: if generation fails, the JSON is absent and index.astro degrades.
           uv run python scripts/generate_homepage_widgets.py \
             --output web/public/cache/homepage-widgets.json \
             || echo "homepage-widgets generation failed (non-fatal)"
           echo "Cache files generated:"
-          ls -la web/public/cache/
-        env:
-          PIPELINE_RUN_STATS: /tmp/last-run.json
+          ls -la web/public/cache/ web/public/ia-snapshot.json
 
       - name: Download DuckDB artifact
         id: download-db
