@@ -24,7 +24,9 @@ def _validate_partition_date(date_str: str) -> None:
         msg = "Invalid date format"
         raise ValueError(msg)
     year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
-    if not (MIN_YEAR <= year <= MAX_YEAR and 1 <= month <= MAX_MONTH and 1 <= day <= MAX_DAY_OF_MONTH):
+    if not (
+        MIN_YEAR <= year <= MAX_YEAR and 1 <= month <= MAX_MONTH and 1 <= day <= MAX_DAY_OF_MONTH
+    ):
         msg = "Invalid date values"
         raise ValueError(msg)
 

@@ -263,7 +263,8 @@ class SyncManifest:
         import random
 
         result = [
-            e for e in self._entries.values()
+            e
+            for e in self._entries.values()
             if e.djen_status == "available" and e.ia_status != "uploaded"
         ]
         random.shuffle(result)
