@@ -266,7 +266,8 @@ async def run_pipeline(
                 if config.dry_run:
                     continue
 
-                # DJEN check — record the raw response code
+                # DJEN check — record the raw response code.
+                # ANY exception here just gets recorded as raw; worker never dies.
                 try:
                     await get_caderno_url(
                         client, config.djen_proxy_url, entry.tribunal, entry.date
@@ -282,8 +283,15 @@ async def run_pipeline(
                     )
                 except httpx.TimeoutException:
                     await manifest.mark_djen_raw(entry.tribunal, entry.date, "timeout")
-                except (httpx.HTTPError, httpx.RequestError):
-                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "network")
+                except (httpx.HTTPError, httpx.RequestError, RuntimeError) as exc:
+                    # Covers: network errors, exhausted retries, unexpected runtime errors
+                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "error")
+                    log.debug(
+                        "djen_check_error",
+                        tribunal=entry.tribunal,
+                        date=entry.date.isoformat(),
+                        error=str(exc),
+                    )
 
                 _notify_counts()
 
@@ -458,11 +466,14 @@ async def run_pipeline(
                 return
 
     # ── Launch all workers concurrently ──────────────────────────
-    timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
+    # Short timeout for check (cheap API calls) — long timeout for download
+    # (heavy transfers). If a check hangs, worker won't block for 2 minutes.
+    check_timeout = httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=10.0)
+    dl_timeout = httpx.Timeout(connect=10.0, read=120.0, write=120.0, pool=10.0)
 
     async with (
-        httpx.AsyncClient(timeout=timeout, follow_redirects=True) as check_client,
-        httpx.AsyncClient(timeout=timeout, follow_redirects=True) as dl_client,
+        httpx.AsyncClient(timeout=check_timeout, follow_redirects=True) as check_client,
+        httpx.AsyncClient(timeout=dl_timeout, follow_redirects=True) as dl_client,
         create_upload_client(config.ia_auth) as upload_client,
     ):
         # Feeder: continuously pushes available entries into download queue.
