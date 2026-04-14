@@ -55,6 +55,33 @@ export interface CacheBackfillFile {
   [key: string]: unknown;
 }
 
+/**
+ * Widgets rendered on the homepage. Generated once per day by
+ * `scripts/generate_homepage_widgets.py` and committed to
+ * `web/public/cache/homepage-widgets.json` via CI.
+ */
+export interface HomepageWidgets {
+  schema_version?: number;
+  generated_at?: string;
+  year?: number;
+  activity_summary?: {
+    periodo?: string;
+    intimacoes?: number;
+    oabs_unicas?: number;
+    processos?: number;
+    tribunais?: number;
+  };
+  top_tribunais_30d?: Array<{ tribunal: string; comunicacoes: number }>;
+  top_advogados_atividade?: Array<{
+    oab: string;
+    uf: string;
+    nome?: string | null;
+    comunicacoes: number;
+    tribunal_principal?: string | null;
+    polos?: { A?: number; P?: number };
+  }>;
+}
+
 export function readJson<T = unknown>(relativePath: string): T | null {
   try {
     const fullPath = path.resolve('./public', relativePath);

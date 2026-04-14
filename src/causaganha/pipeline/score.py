@@ -25,6 +25,34 @@ from causaganha.storage.repositories.rating import (
 logger = structlog.get_logger()
 
 
+# Confidence thresholds that gate how the OpenSkill rating is updated.
+# - below CONFIDENCE_FLOOR: skip entirely (don't trust the classifier).
+# - CONFIDENCE_FLOOR <= c < CONFIDENCE_FULL: interpolate towards the new rating
+#   with weight ``c``, so low-confidence matches nudge ratings less.
+# - at or above CONFIDENCE_FULL: apply the full OpenSkill delta.
+CONFIDENCE_FLOOR = 0.6
+CONFIDENCE_FULL = 0.8
+
+
+def _interpolate_rating(
+    old_rating: Any,
+    new_rating: Any,
+    weight: float,
+    model: Any,
+) -> Any:
+    """Blend an updated rating with the prior based on classifier confidence.
+
+    Weight of 1.0 returns ``new_rating`` unchanged; weight of 0.0 returns the
+    prior. Values in between produce a rating whose mu/sigma are the linear
+    blend of the two endpoints, which is the simplest honest way to propagate
+    classifier uncertainty without forking the OpenSkill library.
+    """
+    w = max(0.0, min(1.0, float(weight)))
+    mu = old_rating.mu + w * (new_rating.mu - old_rating.mu)
+    sigma = old_rating.sigma + w * (new_rating.sigma - old_rating.sigma)
+    return create_rating(model, mu=mu, sigma=sigma)
+
+
 async def calculate_ratings(
     batch_size: int = 100,
 ) -> dict[str, Any]:
@@ -43,6 +71,8 @@ async def calculate_ratings(
 
     processed = 0
     failed = 0
+    skipped_low_confidence = 0
+    skipped_missing_oab = 0
 
     try:
         # Get unrated analyses
@@ -53,6 +83,8 @@ async def calculate_ratings(
             return {
                 "processed": 0,
                 "failed": 0,
+                "skipped_low_confidence": 0,
+                "skipped_missing_oab": 0,
                 "status": "success",
             }
 
@@ -65,9 +97,36 @@ async def calculate_ratings(
                 loser_oab = analysis["loser_lawyer_oab"]
                 loser_state = analysis["loser_lawyer_state"]
 
-                # Get current ratings
-                winner_data = get_lawyer_rating(con, winner_oab, winner_state)
-                loser_data = get_lawyer_rating(con, loser_oab, loser_state)
+                # Identity is strictly (oab, state); rows missing either are
+                # unusable for rating. Mark them as rated so they don't block
+                # the queue forever, but count them separately.
+                if not winner_oab or not winner_state or not loser_oab or not loser_state:
+                    skipped_missing_oab += 1
+                    mark_analysis_as_rated(con, analysis["id"])
+                    continue
+
+                # Tribunal-segmented rating: each sigla_tribunal is its own
+                # "league" so top lawyers at TJSP aren't inflated by wins at
+                # a smaller jurisdiction with weaker opposition.
+                tribunal = analysis.get("sigla_tribunal") or "GLOBAL"
+
+                # Low-confidence gate: skip matches the classifier isn't
+                # sure about; keep the queue moving by marking as rated.
+                confidence = analysis.get("confidence_score")
+                if confidence is not None and float(confidence) < CONFIDENCE_FLOOR:
+                    skipped_low_confidence += 1
+                    mark_analysis_as_rated(con, analysis["id"])
+                    continue
+
+                # Weight for partial/full updates based on confidence.
+                if confidence is None or float(confidence) >= CONFIDENCE_FULL:
+                    update_weight = 1.0
+                else:
+                    update_weight = float(confidence)
+
+                # Get current ratings (per tribunal)
+                winner_data = get_lawyer_rating(con, winner_oab, winner_state, tribunal=tribunal)
+                loser_data = get_lawyer_rating(con, loser_oab, loser_state, tribunal=tribunal)
 
                 # Resolve names
                 winner_name = winner_data.get("lawyer_name") if winner_data else None
@@ -114,30 +173,42 @@ async def calculate_ratings(
                     result="win_a",
                 )
 
-                # Update ratings in DB
+                # Apply confidence-weighted interpolation for mid-confidence
+                # matches. At full confidence this is a no-op; at lower
+                # confidence the rating moves only partway to the OpenSkill
+                # update, reflecting our uncertainty about the outcome label.
+                effective_winner = _interpolate_rating(
+                    winner_rating, new_winner[0], update_weight, model
+                )
+                effective_loser = _interpolate_rating(
+                    loser_rating, new_loser[0], update_weight, model
+                )
+
+                # Update ratings in DB (per tribunal)
                 # Winner
                 update_lawyer_rating(
                     con,
                     oab_number=winner_oab,
                     oab_state=winner_state,
                     lawyer_name=winner_name,
-                    mu=new_winner[0].mu,
-                    sigma=new_winner[0].sigma,
+                    mu=effective_winner.mu,
+                    sigma=effective_winner.sigma,
                     wins=winner_wins + 1,
                     losses=winner_losses,
+                    tribunal=tribunal,
                 )
 
                 # Record winner snapshot
                 insert_rating_snapshot(
                     con,
-                    advogado_id=f"{winner_oab}:{winner_state}",
+                    advogado_id=f"{winner_oab}:{winner_state}:{tribunal}",
                     comunicacao_id=str(analysis["id"]),
                     oab_number=winner_oab,
                     oab_state=winner_state,
                     mu_before=winner_rating.mu,
                     sigma_before=winner_rating.sigma,
-                    mu_after=new_winner[0].mu,
-                    sigma_after=new_winner[0].sigma,
+                    mu_after=effective_winner.mu,
+                    sigma_after=effective_winner.sigma,
                     wins=winner_wins + 1,
                     losses=winner_losses,
                 )
@@ -148,23 +219,24 @@ async def calculate_ratings(
                     oab_number=loser_oab,
                     oab_state=loser_state,
                     lawyer_name=loser_name,
-                    mu=new_loser[0].mu,
-                    sigma=new_loser[0].sigma,
+                    mu=effective_loser.mu,
+                    sigma=effective_loser.sigma,
                     wins=loser_wins,
                     losses=loser_losses + 1,
+                    tribunal=tribunal,
                 )
 
                 # Record loser snapshot
                 insert_rating_snapshot(
                     con,
-                    advogado_id=f"{loser_oab}:{loser_state}",
+                    advogado_id=f"{loser_oab}:{loser_state}:{tribunal}",
                     comunicacao_id=str(analysis["id"]),
                     oab_number=loser_oab,
                     oab_state=loser_state,
                     mu_before=loser_rating.mu,
                     sigma_before=loser_rating.sigma,
-                    mu_after=new_loser[0].mu,
-                    sigma_after=new_loser[0].sigma,
+                    mu_after=effective_loser.mu,
+                    sigma_after=effective_loser.sigma,
                     wins=loser_wins,
                     losses=loser_losses + 1,
                 )
@@ -181,12 +253,16 @@ async def calculate_ratings(
             "rating_calculation_complete",
             processed=processed,
             failed=failed,
+            skipped_low_confidence=skipped_low_confidence,
+            skipped_missing_oab=skipped_missing_oab,
         )
     except Exception as e:
         logger.exception("rating_pipeline_failed", error=str(e))
         return {
             "processed": processed,
             "failed": failed,
+            "skipped_low_confidence": skipped_low_confidence,
+            "skipped_missing_oab": skipped_missing_oab,
             "status": "failed",
             "error": str(e),
         }
@@ -194,5 +270,7 @@ async def calculate_ratings(
         return {
             "processed": processed,
             "failed": failed,
+            "skipped_low_confidence": skipped_low_confidence,
+            "skipped_missing_oab": skipped_missing_oab,
             "status": "success",
         }
