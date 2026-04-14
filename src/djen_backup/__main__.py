@@ -70,6 +70,7 @@ class RichManifestObserver:
     def __init__(self, progress: Progress) -> None:
         self.progress = progress
         self.main_task = self.progress.add_task("[bold blue]Initializing...", total=None)
+        self._subtasks: dict[str, int] = {}  # name -> task_id
         self._start_time: float | None = None
         self._start_uploaded: int = 0
         self._start_absent: int = 0
@@ -123,6 +124,20 @@ class RichManifestObserver:
 
     def on_log(self, message: str) -> None:
         self.progress.console.log(message)
+
+    def on_subtask(self, name: str, total: int) -> None:
+        task_id = self.progress.add_task(f"[cyan]{name}", total=total)
+        self._subtasks[name] = task_id
+
+    def on_subtask_advance(self, name: str, delta: int = 1) -> None:
+        task_id = self._subtasks.get(name)
+        if task_id is not None:
+            self.progress.advance(task_id, delta)
+
+    def on_subtask_done(self, name: str) -> None:
+        task_id = self._subtasks.pop(name, None)
+        if task_id is not None:
+            self.progress.remove_task(task_id)
 
 
 # ── CLI Helpers ─────────────────────────────────────────────────────

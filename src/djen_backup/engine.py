@@ -44,6 +44,9 @@ class ManifestObserver(Protocol):
     def on_phase(self, phase: str) -> None: ...
     def on_counts_updated(self, counts: ManifestCounts) -> None: ...
     def on_log(self, message: str) -> None: ...
+    def on_subtask(self, name: str, total: int) -> None: ...
+    def on_subtask_advance(self, name: str, delta: int = 1) -> None: ...
+    def on_subtask_done(self, name: str) -> None: ...
 
 
 # ── Data structures ──────────────────────────────────────────────────
@@ -135,6 +138,8 @@ async def run_pipeline(
     }
     if items_to_sync:
         log.info("ia_sync_starting", items=len(items_to_sync))
+        if config.observer:
+            config.observer.on_subtask("IA sync", len(items_to_sync))
         timeout = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             sem = asyncio.Semaphore(config.workers * 2)
@@ -145,6 +150,9 @@ async def run_pipeline(
                         ia_dates = await fetch_ia_existing(client, tribunal, year)
                     except (httpx.HTTPError, httpx.RequestError):
                         return 0
+                    finally:
+                        if config.observer:
+                            config.observer.on_subtask_advance("IA sync")
                     if ia_dates:
                         return await manifest.mark_ia_uploaded(
                             tribunal, set(ia_dates.keys())
@@ -158,6 +166,7 @@ async def run_pipeline(
             total_new = sum(r for r in results if isinstance(r, int))
             log.info("ia_sync_complete", items=len(items_to_sync), newly_marked=total_new)
         if config.observer:
+            config.observer.on_subtask_done("IA sync")
             config.observer.on_counts_updated(manifest.counts())
 
     # Build a shuffled flat queue of ALL unknown entries across all tribunals.
