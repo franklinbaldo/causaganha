@@ -9,8 +9,10 @@
 name: Collect ZIPs
 
 on:
-  schedule:
-    - cron: '*/20 * * * *'
+  # DISABLED 2026-04-14: manifest data-loss incident. Re-enable after
+  # sync-manifest.csv is restored + overwrite source is identified.
+  # schedule:
+  #   - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       workers:

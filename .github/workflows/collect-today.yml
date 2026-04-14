@@ -9,8 +9,10 @@
 name: Collect Today
 
 on:
-  schedule:
-    - cron: '0 6 * * *'
+  # DISABLED 2026-04-14: manifest data-loss incident. Re-enable after
+  # sync-manifest.csv is restored + overwrite source is identified.
+  # schedule:
+  #   - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:
