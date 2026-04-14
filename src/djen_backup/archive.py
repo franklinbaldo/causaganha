@@ -338,6 +338,7 @@ class CircuitBreaker:
         """Record a failed request and update circuit state accordingly."""
         async with self._lock:
             self._failure_count += 1
+            was_open = self._state == CircuitState.OPEN
             if self._state_locked() == CircuitState.HALF_OPEN:
                 # Test request failed — reopen with increased timeout
                 self._recovery_timeout = min(self._recovery_timeout * 2, 300.0)
@@ -347,7 +348,7 @@ class CircuitBreaker:
                     "circuit_breaker_reopen",
                     next_retry_s=self._recovery_timeout,
                 )
-            elif self._failure_count >= self._threshold:
+            elif self._failure_count >= self._threshold and not was_open:
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
                 log.error(

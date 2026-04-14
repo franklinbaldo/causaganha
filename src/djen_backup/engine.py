@@ -56,6 +56,24 @@ def load_djen_safe_concurrency() -> int:
     except (OSError, ValueError, KeyError, TypeError):
         return DEFAULT_DJEN_CONCURRENCY
 
+
+def _save_safe_concurrency(value: int, *, reason: str) -> None:
+    """Persist a new safe concurrency (from auto-adjust or stress test)."""
+    import json
+    from datetime import UTC, datetime
+
+    DJEN_SAFE_CONCURRENCY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DJEN_SAFE_CONCURRENCY_FILE.write_text(
+        json.dumps(
+            {
+                "safe_concurrency": value,
+                "reason": reason,
+                "measured_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            },
+            indent=2,
+        )
+    )
+
 # ── Protocols ────────────────────────────────────────────────────────
 
 
@@ -283,11 +301,31 @@ async def run_pipeline(
     # Trips after 5 consecutive 403 CloudFront blocks, opens for 30s,
     # doubles timeout on repeated failure (capped at 5 min).
     djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
+    _breaker_trips = 0
+    _last_trip_save = 0.0
 
     async def _check_djen_breaker() -> bool:
         """Wait for the DJEN circuit breaker, return True if we can proceed."""
+        nonlocal _breaker_trips, _last_trip_save
+        waited = 0
         while not await djen_breaker.allow_request():
+            if waited == 0:
+                _breaker_trips += 1
+                # If the breaker trips repeatedly, the current concurrency is too high.
+                # Persist a halved safe_concurrency so future runs start lower.
+                now = time.monotonic()
+                if _breaker_trips >= 3 and now - _last_trip_save > 60:
+                    _last_trip_save = now
+                    new_safe = max(1, config.workers // 2)
+                    _save_safe_concurrency(new_safe, reason="breaker_trips")
+                    log.warning(
+                        "auto_reduced_safe_concurrency",
+                        previous=config.workers,
+                        new_safe=new_safe,
+                        trips=_breaker_trips,
+                    )
             await asyncio.sleep(5.0)
+            waited += 1
             if abort_event.is_set() or time.monotonic() > deadline:
                 return False
         return True

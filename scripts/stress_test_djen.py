@@ -136,18 +136,18 @@ def print_result(
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tribunal", help="Single tribunal (default: mix of 15)")
-    parser.add_argument("--min", type=int, default=1, help="Min concurrency")
-    parser.add_argument("--max", type=int, default=64, help="Max concurrency")
+    parser.add_argument("--min", type=int, default=2, help="Min concurrency")
+    parser.add_argument("--max", type=int, default=32, help="Max concurrency")
     parser.add_argument(
         "--reqs-per-level",
         type=int,
-        default=50,
-        help="Requests per concurrency level",
+        default=200,
+        help="Requests per concurrency level (need enough to surface 403s)",
     )
     parser.add_argument(
         "--err-threshold",
         type=float,
-        default=0.3,
+        default=0.1,
         help="Stop when error rate exceeds this (0.0-1.0)",
     )
     parser.add_argument(
