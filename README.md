@@ -6,6 +6,8 @@
 
 CausaGanha is a judicial data platform focused on the Brazilian DJEN ecosystem. The project collects judicial communications, archives raw ZIPs on Internet Archive, consolidates them into analytics-friendly Parquet datasets, and serves a public dashboard with coverage and publication views.
 
+DJEN (Diário de Justiça Eletrônico Nacional) is the official electronic gazette for Brazilian courts. It publishes daily judicial communications — summons, rulings, and process updates — that have legal weight. CausaGanha preserves these ephemeral publications on Internet Archive so they remain accessible even after court portals go offline or restrict access.
+
 Live dashboard: [https://franklinbaldo.github.io/causaganha/](https://franklinbaldo.github.io/causaganha/)
 
 ## What the project does
@@ -23,7 +25,15 @@ The repository has two main runtime surfaces:
 - Python backend and CLI in [src/causaganha](src/causaganha) and [src/djen_backup](src/djen_backup)
 - Web frontend in [web](web)
 
-High-level flow:
+```mermaid
+flowchart LR
+    DJEN[DJEN API] -->|ZIP files| djenbackup["djen-backup\nsync engine"]
+    djenbackup -->|uploads| IA[("Internet Archive\nsync-manifest.csv")]
+    IA -->|ZIPs| consolidate[consolidate-parquet]
+    consolidate -->|Parquet tables| catalog[update-catalog]
+    catalog -->|JSON data| web["Deploy Web\nAstro + Svelte"]
+    web -->|GitHub Pages| dashboard[Public Dashboard]
+```
 
 1. **djen-backup** — manifest-driven sync engine. Tracks every `(tribunal, date)` pair in a single CSV (`sync-manifest.csv`) stored on Internet Archive. Workers check DJEN availability, download ZIPs, upload to IA, and record raw response codes (404, 400, 403, timeout, etc.) for accurate status tracking.
 2. **Consolidate Parquet** — converts complete daily ZIP batches into Parquet tables.
@@ -42,22 +52,26 @@ TJSP,2025-01-16,,absent,404,2026-04-14T10:01:00
 
 The engine periodically (every 10 min) uploads the manifest and a compact `manifest-summary.json` to IA, so progress is never lost to crashes.
 
-The main GitHub Actions workflows in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows) are:
+### GitHub Actions workflows
 
-- [collect-zips.yml](/Users/frank/workspace/causaganha/.github/workflows/collect-zips.yml)
-- [collect-today.yml](/Users/frank/workspace/causaganha/.github/workflows/collect-today.yml)
-- [consolidate-parquet.yml](/Users/frank/workspace/causaganha/.github/workflows/consolidate-parquet.yml)
-- [update-catalog.yml](/Users/frank/workspace/causaganha/.github/workflows/update-catalog.yml)
-- [deploy-web.yml](/Users/frank/workspace/causaganha/.github/workflows/deploy-web.yml)
-- [test.yml](/Users/frank/workspace/causaganha/.github/workflows/test.yml)
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Download DJEN ZIPs → upload to IA |
+| [collect-today.yml](.github/workflows/collect-today.yml) | Daily 06:00 UTC | Today's publications |
+| [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Daily 07:00 UTC + after collect | Convert ZIPs → Parquet |
+| [update-catalog.yml](.github/workflows/update-catalog.yml) | After collect | Refresh catalog metadata |
+| [update-ia-snapshot.yml](.github/workflows/update-ia-snapshot.yml) | Hourly | Snapshot manifest state from IA |
+| [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to `web/` | Build + deploy dashboard |
+| [test.yml](.github/workflows/test.yml) | PR / push | Lint, test, build |
 
-## Key constraints
+## Gotchas
 
-- Internet Archive uploads must use `httpx`-based logic. Do not migrate IA uploads to `boto3`.
-- Local runs in Brazil should use direct DJEN access by default. Use the Cloud Run proxy only when `--use-proxy` or `DJEN_USE_PROXY=1` is explicitly set, such as in GitHub Actions.
-- The repository is mid-refactor. Some legacy scripts and older docs still exist, but the source of truth is the current code and workflows in this repo.
+- **Internet Archive uploads must use `httpx`, not `boto3`.** IA's S3-compatible endpoint expects `x-archive-meta-*` headers; `boto3` sends `x-amz-meta-*` and the metadata is silently dropped.
+- **403 from DJEN ≠ absent.** CloudFront returns 403 when rate-limiting. Only `404` (plus `400` for holidays) is a genuine absence; `403`/`5xx`/`timeout` must be treated as unknown and retried.
 
 ## Quick start
+
+Prerequisites: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), Node.js 20+
 
 ```bash
 uv sync --dev
@@ -150,14 +164,14 @@ tests/                   Pytest and pytest-bdd suites
 
 Important Python package areas:
 
-- [src/causaganha/analysis](/Users/frank/workspace/causaganha/src/causaganha/analysis)
-- [src/causaganha/archival](/Users/frank/workspace/causaganha/src/causaganha/archival)
-- [src/causaganha/catalog](/Users/frank/workspace/causaganha/src/causaganha/catalog)
-- [src/causaganha/clients](/Users/frank/workspace/causaganha/src/causaganha/clients)
-- [src/causaganha/compliance](/Users/frank/workspace/causaganha/src/causaganha/compliance)
-- [src/causaganha/pipeline](/Users/frank/workspace/causaganha/src/causaganha/pipeline)
-- [src/causaganha/scoring](/Users/frank/workspace/causaganha/src/causaganha/scoring)
-- [src/causaganha/storage](/Users/frank/workspace/causaganha/src/causaganha/storage)
+- [src/causaganha/analysis](src/causaganha/analysis)
+- [src/causaganha/archival](src/causaganha/archival)
+- [src/causaganha/catalog](src/causaganha/catalog)
+- [src/causaganha/clients](src/causaganha/clients)
+- [src/causaganha/compliance](src/causaganha/compliance)
+- [src/causaganha/pipeline](src/causaganha/pipeline)
+- [src/causaganha/scoring](src/causaganha/scoring)
+- [src/causaganha/storage](src/causaganha/storage)
 
 ## Development commands
 
@@ -173,7 +187,7 @@ cd web && npm ci && npm run lint && npm test && npm run build
 
 ## Environment
 
-Start from [.env.example](/Users/frank/workspace/causaganha/.env.example). Common variables include:
+Start from [.env.example](.env.example). Common variables include:
 
 - `GEMINI_API_KEY`
 - `IA_ACCESS_KEY` / `IA_SECRET_KEY`
@@ -186,20 +200,18 @@ Start from [.env.example](/Users/frank/workspace/causaganha/.env.example). Commo
 
 ## Testing and CI
 
-The main CI workflow is [test.yml](/Users/frank/workspace/causaganha/.github/workflows/test.yml). It currently runs:
+The main CI workflow is [test.yml](.github/workflows/test.yml). It currently runs:
 
 1. Python formatting and lint checks
 2. Dead code check with `vulture`
 3. Python tests
 4. Frontend lint, test, and build
 
-## Documentation status
+## Documentation
 
-This repository had stale documentation. The files in the project root are now the main source of truth:
-
-- [README.md](/Users/frank/workspace/causaganha/README.md)
-- [CONTRIBUTING.md](/Users/frank/workspace/causaganha/CONTRIBUTING.md)
-- [src/causaganha/README.md](/Users/frank/workspace/causaganha/src/causaganha/README.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — setup, rules, PR checklist
+- [FRONTEND.md](FRONTEND.md) — frontend design system and architecture
+- [web/src/queries/README.md](web/src/queries/README.md) — query contract spec
 
 If a doc disagrees with code or workflow files, trust the code and update the doc in the same change.
 
