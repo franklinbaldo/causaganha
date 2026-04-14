@@ -15,6 +15,22 @@ const totalZips = snap.total_zips || 0;
 const totalTribunals = snap.tribunals_total || 96;
 const tribunalsWithData = snap.tribunals_with_data || 0;
 const totalGB = snap.total_size_gb || 0;
+const latestCollectionDate = snap.latest_collection_date;
+const snapshotGeneratedAt = iaSnapshot?.generated_at;
+
+// Volume: render GB up to 999, switch to TB above that. total_size_gb is always in GB.
+const volumeValue = totalGB >= 1000 ? (totalGB / 1000).toFixed(1) : totalGB.toFixed(1);
+const volumeUnit = totalGB >= 1000 ? 'TB' : 'GB';
+
+// "Última coleta" — short date in Brazilian Portuguese, falls back gracefully when missing.
+const latestCollectionLabel = latestCollectionDate
+  ? new Date(latestCollectionDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+  : 'em breve';
+
+// Provenance caption for the stats row.
+const snapshotGeneratedLabel = snapshotGeneratedAt
+  ? new Date(snapshotGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  : null;
 
 const filesToday = today?.files_today || 0;
 
@@ -37,7 +53,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- ── HERO ── -->
   <section class="hero">
     <div class="hero-content">
-      <p class="hero-eyebrow">Acervo Editorial</p>
       <h1 class="hero-h1">Dados do judiciário <em>brasileiro,</em> abertos para todos.</h1>
 
       <!-- Search form -->
@@ -68,9 +83,14 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   <!-- ── STATS ROW ── -->
   <section class="section-container">
+    {snapshotGeneratedLabel && (
+      <p class="stats-provenance">
+        Dados do snapshot de {snapshotGeneratedLabel} · fonte: Internet Archive
+      </p>
+    )}
     <div class="stats-row">
       <figure>
-        <span class="stats-label">Coletados anual</span>
+        <span class="stats-label">Lotes arquivados</span>
         <div class="stats-value">{formatNumber(totalZips)}<small class="stats-unit">lotes</small></div>
       </figure>
       <figure>
@@ -78,12 +98,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <div class="stats-value">{tribunalsWithData}<small class="stats-unit">fontes</small></div>
       </figure>
       <figure>
-        <span class="stats-label">Volume acumulado</span>
-        <div class="stats-value">{totalGB.toFixed(1)}<small class="stats-unit">Petabytes</small></div>
+        <span class="stats-label">Volume arquivado</span>
+        <div class="stats-value">{volumeValue}<small class="stats-unit">{volumeUnit}</small></div>
       </figure>
       <figure>
-        <span class="stats-label">Dados públicos</span>
-        <div class="stats-value">1.2B<small class="stats-unit">Registros</small></div>
+        <span class="stats-label">Última coleta</span>
+        <div class="stats-value">{latestCollectionLabel}</div>
       </figure>
     </div>
   </section>
@@ -304,6 +324,14 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   /* ── Stats Row ── */
+  .stats-provenance {
+    font-size: var(--font-size-xs);
+    color: var(--color-content-tertiary);
+    margin: 0 0 var(--space-xs);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
   .stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

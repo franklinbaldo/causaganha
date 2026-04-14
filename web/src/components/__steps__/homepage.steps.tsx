@@ -81,16 +81,16 @@ describeFeature(feature, ({ Scenario }) => {
       rendered.sections = HOW_IT_WORKS_CARDS.map(c => c.title);
     });
 
-    Then('I should see "Coleta Automática"', () => {
-      expect(rendered.sections).toContain('Coleta Automática');
+    Then('I should see "Coleta diária"', () => {
+      expect(rendered.sections).toContain('Coleta diária');
     });
 
-    And('I should see "Arquivo Permanente"', () => {
-      expect(rendered.sections).toContain('Arquivo Permanente');
+    And('I should see "Parquet pronto para análise"', () => {
+      expect(rendered.sections).toContain('Parquet pronto para análise');
     });
 
-    And('I should see "Catálogo Indexado"', () => {
-      expect(rendered.sections).toContain('Catálogo Indexado');
+    And('I should see "Download em massa"', () => {
+      expect(rendered.sections).toContain('Download em massa');
     });
   });
 

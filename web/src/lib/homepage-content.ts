@@ -6,22 +6,22 @@
 
 export const HOW_IT_WORKS_CARDS = [
   {
-    title: 'Extração Ética',
+    title: 'Coleta diária',
     icon: '01.',
-    description: 'Nossos crawlers respeitam as políticas de cada tribunal, coletando apenas dados públicos oficiais.',
-    key: 'extracao',
+    description: 'Baixamos cada DJ oficial todo dia útil, sem raspagem invasiva e sem autenticação de usuário.',
+    key: 'coleta',
   },
   {
-    title: 'Normalização',
+    title: 'Parquet pronto para análise',
     icon: '02.',
-    description: 'Limpeza e estruturação dos dados em um formato JSON padronizado para facilitar o consumo.',
-    key: 'normalizacao',
+    description: 'Tudo vira Parquet e fica consultável via DuckDB WASM no navegador, sem instalar nada.',
+    key: 'parquet',
   },
   {
-    title: 'Acesso Livre',
+    title: 'Download em massa',
     icon: '03.',
-    description: 'Disponibilizamos tudo via API ou downloads em massa, sem custos ou barreiras.',
-    key: 'acesso',
+    description: 'Arquivos no Internet Archive com URLs permanentes. Sem rate limit, sem cadastro.',
+    key: 'download',
   },
 ] as const;
 
