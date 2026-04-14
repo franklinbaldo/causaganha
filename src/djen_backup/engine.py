@@ -224,43 +224,18 @@ async def run_pipeline(
     stats_log_interval = 30.0  # log stats every 30s for CI/pipes
     notify_interval = 0.5  # throttle observer updates to 2 Hz
 
-    # Adaptive throttle: when DJEN starts returning 403 CloudFront blocks,
-    # pause all checkers for a while to let the WAF cool down.
-    throttle_until = 0.0
-    throttle_lock = asyncio.Lock()
-    throttle_count = 0  # consecutive 403s triggering throttle
-    throttle_threshold = 5  # after N 403s in a row, throttle
-    throttle_base_seconds = 30.0
+    # Adaptive throttle via CircuitBreaker — same pattern used for IA uploads.
+    # Trips after 5 consecutive 403 CloudFront blocks, opens for 30s,
+    # doubles timeout on repeated failure (capped at 5 min).
+    djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
 
-    async def _maybe_throttle(status: str) -> None:
-        """Track 403 rate and pause all workers if threshold hit."""
-        nonlocal throttle_until, throttle_count
-        async with throttle_lock:
-            if status == "403":
-                throttle_count += 1
-                if throttle_count >= throttle_threshold:
-                    # Exponential backoff: 30s, 60s, 120s, 240s, capped at 600s
-                    pause_factor = min(2 ** (throttle_count // throttle_threshold - 1), 20)
-                    pause = min(throttle_base_seconds * pause_factor, 600.0)
-                    new_until = time.monotonic() + pause
-                    if new_until > throttle_until:
-                        throttle_until = new_until
-                        log.warning(
-                            "throttle_activated",
-                            reason="cloudfront_blocks",
-                            pause_seconds=pause,
-                            consecutive_403s=throttle_count,
-                        )
-            elif status in ("200", "404", "400"):
-                # Successful or legitimate response — reset counter
-                throttle_count = 0
-
-    async def _wait_if_throttled() -> None:
-        """Await the throttle if active."""
-        now = time.monotonic()
-        if now < throttle_until:
-            wait_s = throttle_until - now
-            await asyncio.sleep(wait_s)
+    async def _check_djen_breaker() -> bool:
+        """Wait for the DJEN circuit breaker, return True if we can proceed."""
+        while not await djen_breaker.allow_request():
+            await asyncio.sleep(5.0)
+            if abort_event.is_set() or time.monotonic() > deadline:
+                return False
+        return True
 
     def _notify_counts() -> None:
         nonlocal last_stats_log, last_notify
@@ -304,8 +279,9 @@ async def run_pipeline(
                 if config.dry_run:
                     continue
 
-                # Wait if throttled due to CloudFront blocks
-                await _wait_if_throttled()
+                # Wait for circuit breaker (opens when DJEN rate-limits us)
+                if not await _check_djen_breaker():
+                    return
 
                 # DJEN check — record the raw response code.
                 # ANY exception here just gets recorded as raw; worker never dies.
@@ -334,7 +310,12 @@ async def run_pipeline(
                         )
 
                 await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-                await _maybe_throttle(raw_status)
+
+                # Feed circuit breaker: 403/timeout = failure, others = success
+                if raw_status in ("403", "timeout", "error"):
+                    await djen_breaker.record_failure()
+                else:
+                    await djen_breaker.record_success()
 
                 _notify_counts()
 
