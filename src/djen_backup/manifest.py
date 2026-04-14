@@ -255,28 +255,18 @@ class SyncManifest:
         return result
 
     def entries_needing_upload(self) -> list[ManifestEntry]:
-        """Entries where djen=available and ia!=uploaded, interleaved by tribunal.
+        """Entries where djen=available and ia!=uploaded, shuffled randomly.
 
-        Round-robins across tribunals so download workers spread across
-        different tribunals rather than draining one tribunal at a time.
+        Shuffling distributes entries across different items (tribunal+year)
+        so upload workers rarely collide on the same per-item lock.
         """
-        from itertools import zip_longest
+        import random
 
-        by_tribunal: dict[str, list[ManifestEntry]] = {}
-        for e in self._entries.values():
-            if e.djen_status == "available" and e.ia_status != "uploaded":
-                by_tribunal.setdefault(e.tribunal, []).append(e)
-
-        # Sort each tribunal's entries by date descending (most recent first)
-        for entries in by_tribunal.values():
-            entries.sort(key=lambda e: e.date, reverse=True)
-
-        # Interleave: one from each tribunal in turn
-        result: list[ManifestEntry] = []
-        for batch in zip_longest(*by_tribunal.values()):
-            for entry in batch:
-                if entry is not None:
-                    result.append(entry)
+        result = [
+            e for e in self._entries.values()
+            if e.djen_status == "available" and e.ia_status != "uploaded"
+        ]
+        random.shuffle(result)
         return result
 
     def get_status(self, tribunal: str, d: date) -> ManifestEntry | None:
