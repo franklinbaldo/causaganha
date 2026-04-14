@@ -147,39 +147,75 @@ async def run_pipeline(
         except (ValueError, OSError):
             pass
 
-    items_to_sync = (
-        {(e.tribunal, e.date.year) for e in manifest._entries.values() if e.ia_status != "uploaded"}
-        if should_sync_ia
-        else set()
-    )
-
-    if items_to_sync:
-        log.info("ia_sync_starting", items=len(items_to_sync))
-        if config.observer:
-            config.observer.on_subtask("IA sync", len(items_to_sync))
+    if should_sync_ia:
+        log.info("ia_sync_starting")
         timeout = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
+
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            sem = asyncio.Semaphore(config.workers * 2)
+            # Step 1: ONE call to discover which djen-* items exist on IA
+            # This avoids fetching metadata for items that don't exist at all.
+            existing_items: set[tuple[str, int]] = set()
+            try:
+                resp = await client.get(
+                    "https://archive.org/advancedsearch.php",
+                    params={
+                        "q": "identifier:djen-*-*",
+                        "fl[]": "identifier",
+                        "rows": "2000",
+                        "output": "json",
+                    },
+                )
+                docs = resp.json()["response"]["docs"]
+                for d in docs:
+                    ident = d["identifier"]
+                    # Pattern: djen-{tribunal}-{year}
+                    parts = ident.rsplit("-", 1)
+                    if len(parts) == 2 and parts[1].isdigit() and len(parts[1]) == 4:
+                        tribunal = parts[0][5:].upper()  # strip "djen-" prefix
+                        year = int(parts[1])
+                        if tribunal and 2000 < year < 2100:
+                            existing_items.add((tribunal, year))
+                log.info("ia_items_discovered", count=len(existing_items))
+            except (httpx.HTTPError, httpx.RequestError, KeyError, ValueError) as exc:
+                log.warning("ia_search_failed_fallback", error=str(exc))
+                existing_items = {
+                    (e.tribunal, e.date.year)
+                    for e in manifest._entries.values()
+                    if e.ia_status != "uploaded"
+                }
 
-            async def _sync_item(tribunal: str, year: int) -> int:
-                async with sem:
-                    try:
-                        ia_dates = await fetch_ia_existing(client, tribunal, year)
-                    except (httpx.HTTPError, httpx.RequestError):
+            # Step 2: Only sync items that actually exist, with high concurrency
+            if existing_items:
+                if config.observer:
+                    config.observer.on_subtask("IA sync", len(existing_items))
+                sem = asyncio.Semaphore(50)  # IA metadata API handles this fine
+
+                async def _sync_item(tribunal: str, year: int) -> int:
+                    async with sem:
+                        try:
+                            ia_dates = await fetch_ia_existing(client, tribunal, year)
+                        except (httpx.HTTPError, httpx.RequestError):
+                            return 0
+                        finally:
+                            if config.observer:
+                                config.observer.on_subtask_advance("IA sync")
+                        if ia_dates:
+                            return await manifest.mark_ia_uploaded(
+                                tribunal, set(ia_dates.keys())
+                            )
                         return 0
-                    finally:
-                        if config.observer:
-                            config.observer.on_subtask_advance("IA sync")
-                    if ia_dates:
-                        return await manifest.mark_ia_uploaded(tribunal, set(ia_dates.keys()))
-                    return 0
 
-            results = await asyncio.gather(
-                *[_sync_item(t, y) for t, y in items_to_sync],
-                return_exceptions=True,
-            )
-            total_new = sum(r for r in results if isinstance(r, int))
-            log.info("ia_sync_complete", items=len(items_to_sync), newly_marked=total_new)
+                results = await asyncio.gather(
+                    *[_sync_item(t, y) for t, y in existing_items],
+                    return_exceptions=True,
+                )
+                total_new = sum(r for r in results if isinstance(r, int))
+                log.info(
+                    "ia_sync_complete",
+                    items=len(existing_items),
+                    newly_marked=total_new,
+                )
+
         # Write sentinel timestamp so subsequent runs skip IA sync
         ia_sync_sentinel.parent.mkdir(parents=True, exist_ok=True)
         ia_sync_sentinel.write_text(datetime.now(UTC).isoformat())
