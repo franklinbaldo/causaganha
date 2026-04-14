@@ -1,45 +1,45 @@
-import json
 import tempfile
 from datetime import date
 from pathlib import Path
 
 from scripts.generate_catalog import (
     calculate_completed_items,
-    get_items_from_ia_state,
+    get_items_from_sync_manifest,
     is_complete,
     needs_listing,
     parse_filename,
 )
 
 
-def test_get_items_from_ia_state() -> None:
+def test_get_items_from_sync_manifest() -> None:
     # 1. Missing file
-    res = get_items_from_ia_state("non_existent_file.json")
+    res = get_items_from_sync_manifest(Path("non_existent_sync_manifest.csv"))
     assert res == []
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        state_file = Path(tmpdir) / "ia-state.json"
+        manifest_file = Path(tmpdir) / "sync-manifest.csv"
 
-        # 2. Valid file with multiple entries
-        state_data = {
-            "version": 2,
-            "entries": {
-                "2026-01-01": {"TJSP": "uploaded"},
-                "2026-01-02": {"TJMG": "uploaded"},
-            },
-        }
-        state_file.write_text(json.dumps(state_data))
-        res = get_items_from_ia_state(state_file)
-        assert sorted(res) == ["djen-2026-01-01", "djen-2026-01-02"]
+        # 2. Valid CSV with multiple uploaded entries across tribunals/years
+        manifest_file.write_text(
+            "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
+            "TJSP,2026-01-01,uploaded,available,200,2026-01-01T10:00:00Z\n"
+            "TJMG,2026-01-02,uploaded,available,200,2026-01-02T10:00:00Z\n"
+            "TJRO,2025-12-31,uploaded,available,200,2025-12-31T10:00:00Z\n"
+        )
+        res = get_items_from_sync_manifest(manifest_file)
+        assert sorted(res) == ["djen-tjmg-2026", "djen-tjro-2025", "djen-tjsp-2026"]
 
-        # 3. Invalid JSON file
-        state_file.write_text("invalid json")
-        res = get_items_from_ia_state(state_file)
+        # 3. Only non-uploaded entries → empty
+        manifest_file.write_text(
+            "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
+            "TJSP,2026-01-01,pending,available,200,2026-01-01T10:00:00Z\n"
+        )
+        res = get_items_from_sync_manifest(manifest_file)
         assert res == []
 
-        # 4. Valid JSON but missing entries
-        state_file.write_text(json.dumps({"version": 2}))
-        res = get_items_from_ia_state(state_file)
+        # 4. Empty file (header only) → empty
+        manifest_file.write_text("tribunal,date,ia_status,djen_status,djen_raw,updated_at\n")
+        res = get_items_from_sync_manifest(manifest_file)
         assert res == []
 
 

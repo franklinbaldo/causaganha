@@ -281,7 +281,7 @@ def generate_collect_progress(
     old djen_state.coverage DuckDB table which is no longer populated.
     """
     target_start = date(2024, 1, 1)
-    target_end = date.today()
+    target_end = datetime.now(tz=UTC).date()
     target_days = (target_end - target_start).days + 1
 
     uploaded_dates: set[str] = set()
