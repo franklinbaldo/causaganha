@@ -19,7 +19,30 @@ IA_MANIFEST_FILENAME = "sync-manifest.csv"
 _IA_DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
 _IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
 
-HEADER = "tribunal,date,ia_status,djen_status,updated_at"
+HEADER = "tribunal,date,ia_status,djen_status,djen_raw,updated_at"
+
+
+# ── DJEN status interpretation ───────────────────────────────────────
+# djen_raw stores the actual response code/reason. We derive djen_status
+# from it via interpret_djen_raw() — lets us reclassify later without
+# re-querying DJEN.
+
+# Codes we consider "truly absent" (no data will ever be there)
+ABSENT_CODES = {"404", "400", "no_publications"}
+# Codes we consider transient/retriable (should re-check)
+TRANSIENT_CODES = {"403", "500", "502", "503", "504", "timeout", "network"}
+
+
+def interpret_djen_raw(djen_raw: str) -> str:
+    """Derive djen_status from djen_raw. Returns 'available', 'absent', or ''."""
+    if not djen_raw:
+        return ""
+    if djen_raw == "200" or djen_raw.startswith("200:"):
+        return "available"
+    if djen_raw in ABSENT_CODES:
+        return "absent"
+    # Everything else (403, 5xx, timeouts, etc.) — transient, leave unknown
+    return ""
 
 
 class ManifestCounts(NamedTuple):
@@ -34,12 +57,17 @@ class ManifestCounts(NamedTuple):
 
 @dataclass
 class ManifestEntry:
-    """A single (tribunal, date) pair with its sync status."""
+    """A single (tribunal, date) pair with its sync status.
+
+    djen_raw stores the raw DJEN response (HTTP code or error tag).
+    djen_status is derived from djen_raw via interpret_djen_raw().
+    """
 
     tribunal: str
     date: date
     ia_status: str = ""  # "" (unknown) | "uploaded"
     djen_status: str = ""  # "" (unknown) | "available" | "absent"
+    djen_raw: str = ""  # raw response: "200", "404", "403", "500", "timeout", etc.
     updated_at: str = ""
 
 
@@ -133,23 +161,24 @@ class SyncManifest:
         """After fetching IA metadata for a tribunal+year, mark found as uploaded."""
         await self.mark_ia_uploaded(tribunal, found_dates)
 
-    async def mark_djen_available(self, tribunal: str, d: date) -> None:
+    async def mark_djen_raw(self, tribunal: str, d: date, raw: str) -> None:
+        """Record raw DJEN response and derive djen_status from it."""
         async with self._lock:
             k = self._key(tribunal, d)
             entry = self._entries.get(k)
             if entry:
-                entry.djen_status = "available"
+                entry.djen_raw = raw
+                entry.djen_status = interpret_djen_raw(raw)
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._invalidate_caches()
 
+    async def mark_djen_available(self, tribunal: str, d: date) -> None:
+        """Shortcut: mark djen_raw=200 → status=available."""
+        await self.mark_djen_raw(tribunal, d, "200")
+
     async def mark_djen_absent(self, tribunal: str, d: date) -> None:
-        async with self._lock:
-            k = self._key(tribunal, d)
-            entry = self._entries.get(k)
-            if entry:
-                entry.djen_status = "absent"
-                entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
-                self._invalidate_caches()
+        """Shortcut: mark djen_raw=404 → status=absent."""
+        await self.mark_djen_raw(tribunal, d, "404")
 
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
         """After successful upload to IA."""
@@ -355,7 +384,8 @@ class SyncManifest:
         rows = sorted(self._entries.values(), key=lambda e: (e.tribunal, e.date))
         for e in rows:
             lines.append(
-                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},{e.updated_at}"
+                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},"
+                f"{e.djen_raw},{e.updated_at}"
             )
         return "\n".join(lines) + "\n"
 
@@ -418,14 +448,14 @@ class SyncManifest:
             )
 
     def _load_manifest_line(self, parts: list[str], *, overwrite: bool = False) -> None:
-        """Parse new manifest format: tribunal,date,ia_status,djen_status,updated_at.
+        """Parse manifest CSV format.
 
-        In merge mode (overwrite=False, used for IA): only trusts ``ia_status=uploaded``
-        (file physically exists on IA). Ignores ``djen_status=absent`` — that's our own
-        unverified claim that may be wrong.
+        Supports:
+        - New 6-col: tribunal,date,ia_status,djen_status,djen_raw,updated_at
+        - Old 5-col: tribunal,date,ia_status,djen_status,updated_at (no djen_raw)
 
-        In overwrite mode (used for local disk): trusts everything — local is always
-        the freshest source, including intentional resets.
+        In merge mode (overwrite=False, used for IA): only trusts ``ia_status=uploaded``.
+        In overwrite mode (used for local disk): trusts everything.
         """
         tribunal = parts[0].upper()
         try:
@@ -435,8 +465,15 @@ class SyncManifest:
 
         ia_status = parts[2] if len(parts) > 2 else ""
         djen_status = parts[3] if len(parts) > 3 else ""
-        # Support both old 6-column (with djen_url) and new 5-column format
-        updated_at = parts[5] if len(parts) > 5 else (parts[4] if len(parts) > 4 else "")
+
+        # Detect format by column count. Old formats lack djen_raw.
+        if len(parts) >= 6:
+            djen_raw = parts[4]
+            updated_at = parts[5]
+        else:
+            # Old format — derive djen_raw from status if possible
+            djen_raw = "200" if djen_status == "available" else ""
+            updated_at = parts[4] if len(parts) > 4 else ""
 
         k = self._key(tribunal, d)
         existing = self._entries.get(k)
@@ -444,6 +481,7 @@ class SyncManifest:
         if existing and overwrite:
             existing.ia_status = ia_status
             existing.djen_status = djen_status
+            existing.djen_raw = djen_raw
             existing.updated_at = updated_at
         elif existing:
             # Merge: only trust uploaded (verified fact)
@@ -454,9 +492,11 @@ class SyncManifest:
             # New entry from IA: only keep uploaded, discard absent claims
             if not overwrite:
                 djen_status = "" if djen_status == "absent" else djen_status
+                djen_raw = "" if djen_status == "" else djen_raw
             self._entries[k] = ManifestEntry(
                 tribunal=tribunal,
                 date=d,
+                djen_raw=djen_raw,
                 ia_status=ia_status,
                 djen_status=djen_status,
                 updated_at=updated_at,

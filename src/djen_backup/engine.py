@@ -127,15 +127,30 @@ async def run_pipeline(
     """
     import random
 
-    # ── Phase 0: Sync IA metadata upfront ────────────────────────
+    # ── Phase 0: Sync IA metadata upfront (skip if done recently) ──
     # Fetch IA metadata for every (tribunal, year) pair that has
-    # unknown or available entries. This catches files already on IA
-    # from other runners, preventing wasteful re-downloads.
+    # unknown or available entries. Skip if synced within the last
+    # 6 hours (tracked via data/.ia-sync-timestamp).
+    from datetime import UTC, datetime, timedelta
+
+    ia_sync_sentinel = Path("data/.ia-sync-timestamp")
+    sync_skip_window = timedelta(hours=6)
+    should_sync_ia = True
+    if ia_sync_sentinel.exists():
+        try:
+            last_sync = datetime.fromisoformat(ia_sync_sentinel.read_text().strip())
+            if datetime.now(UTC) - last_sync < sync_skip_window:
+                should_sync_ia = False
+                log.info("ia_sync_skipped", last_sync=last_sync.isoformat())
+        except (ValueError, OSError):
+            pass
+
     items_to_sync = {
         (e.tribunal, e.date.year)
         for e in manifest._entries.values()
         if e.ia_status != "uploaded"
-    }
+    } if should_sync_ia else set()
+
     if items_to_sync:
         log.info("ia_sync_starting", items=len(items_to_sync))
         if config.observer:
@@ -165,6 +180,9 @@ async def run_pipeline(
             )
             total_new = sum(r for r in results if isinstance(r, int))
             log.info("ia_sync_complete", items=len(items_to_sync), newly_marked=total_new)
+        # Write sentinel timestamp so subsequent runs skip IA sync
+        ia_sync_sentinel.parent.mkdir(parents=True, exist_ok=True)
+        ia_sync_sentinel.write_text(datetime.now(UTC).isoformat())
         if config.observer:
             config.observer.on_subtask_done("IA sync")
             config.observer.on_counts_updated(manifest.counts())
@@ -241,21 +259,24 @@ async def run_pipeline(
                 if config.dry_run:
                     continue
 
-                # DJEN check — one API call for this entry
+                # DJEN check — record the raw response code
                 try:
                     await get_caderno_url(
                         client, config.djen_proxy_url, entry.tribunal, entry.date
                     )
-                    await manifest.mark_djen_available(entry.tribunal, entry.date)
-                except DJENNotFoundError:
-                    await manifest.mark_djen_absent(entry.tribunal, entry.date)
-                except (httpx.HTTPError, httpx.RequestError) as exc:
-                    log.debug(
-                        "djen_check_skipped",
-                        tribunal=entry.tribunal,
-                        date=entry.date.isoformat(),
-                        error=str(exc),
+                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "200")
+                except DJENNotFoundError as exc:
+                    await manifest.mark_djen_raw(
+                        entry.tribunal, entry.date, str(exc.status_code)
                     )
+                except httpx.HTTPStatusError as exc:
+                    await manifest.mark_djen_raw(
+                        entry.tribunal, entry.date, str(exc.response.status_code)
+                    )
+                except httpx.TimeoutException:
+                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "timeout")
+                except (httpx.HTTPError, httpx.RequestError):
+                    await manifest.mark_djen_raw(entry.tribunal, entry.date, "network")
 
                 _notify_counts()
 
