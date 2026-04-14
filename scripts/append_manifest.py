@@ -71,12 +71,14 @@ def get_new_uploads() -> list[dict]:
             year = date_str[:4]
             filename = f"djen-{date_str}-{tribunal}.zip"
             item_id = f"djen-{tribunal.lower()}-{year}"
-            rows.append({
-                "date": date_str,
-                "tribunal": tribunal,
-                "zip_url": f"https://archive.org/download/{item_id}/{filename}",
-                "downloaded_at": updated_at,
-            })
+            rows.append(
+                {
+                    "date": date_str,
+                    "tribunal": tribunal,
+                    "zip_url": f"https://archive.org/download/{item_id}/{filename}",
+                    "downloaded_at": updated_at,
+                }
+            )
     except Exception as e:
         logger.exception("error_reading_sync_manifest", error=str(e))
         return []

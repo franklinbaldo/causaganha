@@ -147,7 +147,12 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
                 item_id = f"djen-{tribunal.lower()}-{year}"
                 filename = f"djen-{date_str}-{tribunal}.zip"
                 by_date.setdefault(date_str, []).append(
-                    {"tribunal": tribunal, "item_id": item_id, "filename": filename, "absent": False}
+                    {
+                        "tribunal": tribunal,
+                        "item_id": item_id,
+                        "filename": filename,
+                        "absent": False,
+                    }
                 )
             elif djen_status == "absent":
                 # Tribunal confirmed no publication on this date — counts as "present"
@@ -161,7 +166,9 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
 
     total_zips = sum(1 for v in by_date.values() for e in v if not e["absent"])
     total_absent = sum(1 for v in by_date.values() for e in v if e["absent"])
-    logger.info("sync_manifest_loaded", dates=len(by_date), total_zips=total_zips, total_absent=total_absent)
+    logger.info(
+        "sync_manifest_loaded", dates=len(by_date), total_zips=total_zips, total_absent=total_absent
+    )
     return by_date
 
 
@@ -1899,7 +1906,9 @@ def main() -> int:
                 if elapsed > deadline_sec - 120:
                     break
 
-            target_date_or_none = find_next_unconsolidated(manifest, ctx=ctx, sync_manifest=sync_manifest)
+            target_date_or_none = find_next_unconsolidated(
+                manifest, ctx=ctx, sync_manifest=sync_manifest
+            )
             if target_date_or_none is None:
                 break
 

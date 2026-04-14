@@ -680,7 +680,7 @@ def get_item_date(item_id: str) -> date | None:
     if not item_id.startswith("djen-"):
         return None
     try:
-        suffix = item_id[len("djen-"):]
+        suffix = item_id[len("djen-") :]
         # Old format: suffix starts with a digit (year)
         if suffix[:1].isdigit():
             date_str = suffix[:10]
