@@ -1,10 +1,5 @@
 name: Download State
 description: "Download pipeline state files from Internet Archive"
-inputs:
-  inventory:
-    description: "Also download zip-inventory.txt (legacy)"
-    required: false
-    default: "false"
 runs:
   using: composite
   steps:
@@ -15,14 +10,5 @@ runs:
         curl -sSfL -o data/sync-manifest.csv \
           "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
           || echo 'tribunal,date,ia_status,djen_status,updated_at' > data/sync-manifest.csv
-        # Legacy state files (for other scripts that may still use them)
-        curl -sSfL -o data/ia-state.json \
-          "https://archive.org/download/causaganha-dashboard/ia-state.json" || echo '{}' > data/ia-state.json
-        curl -sSfL -o data/backfill-state.json \
-          "https://archive.org/download/causaganha-dashboard/backfill-state.json" || echo '{}' > data/backfill-state.json
-        if [ "${{ inputs.inventory }}" = "true" ]; then
-          curl -sSfL -o data/zip-inventory.txt \
-            "https://archive.org/download/causaganha-dashboard/zip-inventory.txt" || echo 'timestamp,tribunal,date,status,url' > data/zip-inventory.txt
-        fi
         echo "State files:"
         ls -lh data/

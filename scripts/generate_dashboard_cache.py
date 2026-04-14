@@ -31,7 +31,6 @@ Outputs:
 
 import argparse
 import contextlib
-import csv
 import json
 import os
 import sys
@@ -41,7 +40,6 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_type
-from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -61,8 +59,7 @@ IA_SEARCH_URL = (
     "&fl[]=identifier&fl[]=item_size"
     "&rows=10000&output=json"
 )
-IA_STATE_URL = "https://archive.org/download/causaganha-dashboard/ia-state.json"
-IA_ZIP_INVENTORY_URL = "https://archive.org/download/causaganha-dashboard/zip-inventory.txt"
+SYNC_MANIFEST_PATH = Path("data/sync-manifest.csv")
 
 TRIBUNALS = [
     "STF",
@@ -132,38 +129,33 @@ TRIBUNALS = [
 
 
 def load_absent_coverage_from_ia_state(
-    state_path: Path = Path("data/ia-state.json"),
+    sync_manifest_path: Path = SYNC_MANIFEST_PATH,
 ) -> dict[str, list[str]]:
-    """Load absent coverage from ia-state.json (local file or IA download URL)."""
-    state_data: dict[str, Any] | None = None
-
-    if state_path.exists():
-        with contextlib.suppress(OSError, json.JSONDecodeError):
-            state_data = json.loads(state_path.read_text(encoding="utf-8"))
-
-    if state_data is None:
-        state_data = fetch_json(IA_STATE_URL)
-
-    if not state_data:
-        return {}
-
-    entries = state_data.get("entries")
-    if not isinstance(entries, dict):
+    """Load absent coverage from sync-manifest.csv (replaces ia-state.json)."""
+    if not sync_manifest_path.exists():
         return {}
 
     absent_coverage: dict[str, list[str]] = {}
-    for date_key, tribunals in entries.items():
-        if not isinstance(date_key, str) or not isinstance(tribunals, dict):
-            continue
-        # Validate date format to prevent ValueError in downstream strptime calls
-        try:
-            datetime.strptime(date_key, "%Y-%m-%d")
-        except ValueError:
-            continue
-        for tribunal_code, status in tribunals.items():
-            if status != "absent" or not isinstance(tribunal_code, str):
+    try:
+        for line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
                 continue
-            absent_coverage.setdefault(tribunal_code, []).append(date_key)
+            parts = line.split(",")
+            if len(parts) < 4:
+                continue
+            tribunal = parts[0].strip().upper()
+            date_str = parts[1].strip()
+            djen_status = parts[3].strip()
+            if not tribunal or not date_str or djen_status != "absent":
+                continue
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                continue
+            absent_coverage.setdefault(tribunal, []).append(date_str)
+    except OSError:
+        return {}
 
     return absent_coverage
 
@@ -182,52 +174,40 @@ def fetch_json(url: str, timeout: int = 30) -> dict[str, Any] | None:
         return None
 
 
-def fetch_text(url: str, timeout: int = 30) -> str | None:
-    """Fetch text from URL with error handling."""
-    try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "CausaGanha-Dashboard/3.0"},
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode()
-    except (UnicodeDecodeError, urllib.error.URLError, urllib.error.HTTPError):
-        return None
-
-
 def load_zip_inventory(
-    inventory_path: Path = Path("data/zip-inventory.txt"),
+    sync_manifest_path: Path = SYNC_MANIFEST_PATH,
 ) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
-    """Load uploaded/absent coverage from zip inventory, preferring local disk."""
-    inventory_text = None
-    if inventory_path.exists():
-        with contextlib.suppress(OSError):
-            inventory_text = inventory_path.read_text(encoding="utf-8")
-
-    if inventory_text is None:
-        inventory_text = fetch_text(IA_ZIP_INVENTORY_URL)
-
-    if not inventory_text:
+    """Load uploaded/absent coverage from sync-manifest.csv (replaces zip-inventory.txt)."""
+    if not sync_manifest_path.exists():
         return {}, {}
 
     uploaded: dict[str, set[str]] = {}
     absent: dict[str, set[str]] = {}
 
-    for row in csv.DictReader(StringIO(inventory_text)):
-        tribunal = str(row.get("tribunal", "")).strip().upper()
-        date_str = str(row.get("date", "")).strip()
-        status = str(row.get("status", "")).strip().lower()
-        if not tribunal or not date_str or status not in {"uploaded", "absent"}:
-            continue
-
-        # Validate date format before storing to avoid ValueError in strptime downstream
-        try:
-            datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            continue
-
-        target = uploaded if status == "uploaded" else absent
-        target.setdefault(tribunal, set()).add(date_str)
+    try:
+        for line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
+                continue
+            parts = line.split(",")
+            if len(parts) < 4:
+                continue
+            tribunal = parts[0].strip().upper()
+            date_str = parts[1].strip()
+            ia_status = parts[2].strip()
+            djen_status = parts[3].strip()
+            if not tribunal or not date_str:
+                continue
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                continue
+            if ia_status == "uploaded":
+                uploaded.setdefault(tribunal, set()).add(date_str)
+            elif djen_status == "absent":
+                absent.setdefault(tribunal, set()).add(date_str)
+    except OSError:
+        return {}, {}
 
     return uploaded, absent
 
