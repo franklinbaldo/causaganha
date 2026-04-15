@@ -49,6 +49,8 @@ class DecisionAnalyzer:
         • "parcialmente procedente" - claim partially granted -> plaintiff wins
           (even partial victories count as wins for rating purposes)
         • "improcedente"          - claim denied -> defendant wins
+        • "acordo"                - parties settled, judge homologated ("homologação de acordo", "transação") -> draw
+        • "extinto sem mérito"    - dismissed without prejudice (Art. 485 CPC) -> nobody wins
         • "unknown"               - cannot determine from the text
 
         Set plaintiff_won=True for "procedente" or "parcialmente procedente",

@@ -166,13 +166,17 @@ async def calculate_ratings(
                     loser_wins = 0
                     loser_losses = 0
 
-                # Calculate new ratings (Win for A)
-                # outcome "procedente" -> Winner won (Team A)
+                # Calculate new ratings
+                # "acordo" -> Draw
+                # outcome "procedente" or "parcialmente procedente" -> Winner won (Team A)
+                # outcome "improcedente" -> Winner won (Defendant won, assigned to Team A)
+                match_result = "draw" if analysis["outcome"] == "acordo" else "win_a"
+
                 new_winner, new_loser = rate_teams(
                     model,
                     [winner_rating],
                     [loser_rating],
-                    result="win_a",
+                    result=match_result,
                 )
 
                 # Apply confidence-weighted interpolation for mid-confidence

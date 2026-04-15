@@ -688,6 +688,8 @@ def groundtruth_search(
                     if outcome == "LOSS"
                     else typer.colors.YELLOW
                     if outcome == "PARTIAL"
+                    else typer.colors.BLUE
+                    if outcome == "SETTLEMENT"
                     else typer.colors.WHITE
                 )
 

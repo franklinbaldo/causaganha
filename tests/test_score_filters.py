@@ -94,8 +94,10 @@ def test_ratable_outcomes_are_sentence_level() -> None:
     assert "procedente" in RATABLE_OUTCOMES
     assert "improcedente" in RATABLE_OUTCOMES
     assert "parcialmente procedente" in RATABLE_OUTCOMES
+    assert "acordo" in RATABLE_OUTCOMES
     # Procedural labels must not leak into the rating pipeline
     assert "unknown" not in RATABLE_OUTCOMES
+    assert "extinto sem mérito" not in RATABLE_OUTCOMES
 
 
 def test_interlocutorias_are_excluded() -> None:

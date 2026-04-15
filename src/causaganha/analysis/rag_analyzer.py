@@ -34,6 +34,17 @@ OUTCOME_PHRASES = {
         "defiro em parte",
         "procedência parcial",
     ],
+    "SETTLEMENT": [
+        "homologo por sentença o acordo",
+        "homologação de acordo",
+        "homologo a transação",
+        "as partes transigiram",
+    ],
+    "EXTINTO_SEM_MERITO": [
+        "extingo o processo sem resolução de mérito",
+        "julgo extinto o processo sem julgamento de mérito",
+        "extinção sem mérito",
+    ],
     "UNKNOWN": [
         "despacho processual",
         "intimação para manifestação",
