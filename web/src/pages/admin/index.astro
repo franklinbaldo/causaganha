@@ -44,19 +44,19 @@ const adminPages = [
       <!-- Right Column: Jules Sessions Widget -->
       <div class="lg:col-span-1">
         <h2 class="text-xl font-bold mb-4">Jules Assistant</h2>
-        <JulesSessionStatus client:load />
+        <JulesSessionStatus client:idle />
       </div>
 
     </div>
 
     <!-- Bottom Section: Paused Tribunals -->
     <div class="mt-8">
-      <PausedTribunals data={backfillState} client:load />
+      <PausedTribunals data={backfillState} client:idle />
       <div class="mt-8">
         <AuditLogExport client:only="svelte" />
       </div>
       <div class="mt-8">
-        <OmissionCost omissionStats={omissionStats} client:load />
+        <OmissionCost omissionStats={omissionStats} client:idle />
       </div>
     </div>
 
