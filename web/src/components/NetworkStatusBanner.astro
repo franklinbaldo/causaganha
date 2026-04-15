@@ -77,7 +77,7 @@
     }
 
     const handleSlow = () => {
-      if (status === 'error' || status === 'retrying') return;
+      if (status === 'error' || status === 'retrying' || status === 'slow') return;
       const elapsed = Date.now() - loadedAt;
       if (elapsed < 3000) {
         // Debounce: only show after the page has been interactive for 3 s to
@@ -85,7 +85,7 @@
         if (slowTimer) return;
         slowTimer = window.setTimeout(() => {
           slowTimer = null;
-          if (status !== 'error' && status !== 'retrying') {
+          if (status !== 'error' && status !== 'retrying' && status !== 'slow') {
             status = 'slow';
             updateView();
           }
