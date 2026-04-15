@@ -28,7 +28,10 @@ const missing = totalTribunals - tribunalStats.length;
 
 <div class="coverage-wrapper">
   <div class="coverage-header">
-    <span class="coverage-label">Cobertura dos Tribunais</span>
+    <div class="coverage-header-text">
+      <span class="coverage-label">Cobertura dos Tribunais</span>
+      <span class="coverage-count">{withData} de {totalTribunals} com dados</span>
+    </div>
     <a href={statsHref} class="coverage-link">Ver estatísticas →</a>
   </div>
 
@@ -65,7 +68,14 @@ const missing = totalTribunals - tribunalStats.length;
   .coverage-header {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .coverage-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
   }
 
   .coverage-label {
@@ -74,6 +84,13 @@ const missing = totalTribunals - tribunalStats.length;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     opacity: 0.5;
+  }
+
+  .coverage-count {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--color-content-secondary);
+    opacity: 0.75;
   }
 
   .coverage-link {

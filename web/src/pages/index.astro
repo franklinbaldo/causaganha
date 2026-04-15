@@ -35,13 +35,14 @@ const latestCollectionDate = snap.latest_collection_date;
 const snapshotGeneratedAt = iaSnapshot?.generated_at;
 
 // Volume: render GB up to 999, switch to TB above that. total_size_gb is always in GB.
-const volumeValue = totalGB >= 1000 ? (totalGB / 1000).toFixed(1) : totalGB.toFixed(1);
-const volumeUnit = totalGB >= 1000 ? 'TB' : 'GB';
+// Show "–" when zero to avoid displaying "0.0 GB" which looks broken rather than empty.
+const volumeValue = totalGB === 0 ? '–' : totalGB >= 1000 ? (totalGB / 1000).toFixed(1) : totalGB.toFixed(1);
+const volumeUnit = totalGB === 0 ? '' : totalGB >= 1000 ? 'TB' : 'GB';
 
-// "Última coleta" — short date in Brazilian Portuguese, falls back gracefully when missing.
+// "Última coleta" — short date in Brazilian Portuguese, falls back to "–" when missing.
 const latestCollectionLabel = latestCollectionDate
   ? new Date(latestCollectionDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-  : 'em breve';
+  : '–';
 
 // Provenance caption for the stats row.
 const snapshotGeneratedLabel = snapshotGeneratedAt
@@ -130,6 +131,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </div>
       </form>
 
+      <!-- Search hint chips — clickable examples that pre-fill the search input. -->
+      <p class="search-hints" aria-label="Exemplos de busca">
+        <span class="search-hints-label">Exemplos:</span>
+        {['OAB SP 12345', 'TJSP mandado de segurança', 'TRF3 2026', 'STJ 2025'].map(hint => (
+          <button
+            type="button"
+            class="search-hint-chip"
+            data-hint={hint}
+            aria-label={`Buscar por ${hint}`}
+          >{hint}</button>
+        ))}
+      </p>
+
       <!-- Task-first entry points: three blunt actions someone can take right now. -->
       <ul class="quick-access" aria-label="Ações rápidas">
         {QUICK_ACCESS_CARDS.map(card => (
@@ -178,9 +192,9 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 
-  {activitySummary && activitySummary.intimacoes && (
-    <!-- ── ACTIVITY STRIP: movimento do último mês fechado ── -->
-    <section class="section-container activity-strip-section">
+  <!-- ── ACTIVITY STRIP: movimento do último mês fechado ── -->
+  <section class="section-container activity-strip-section">
+    {activitySummary && activitySummary.intimacoes ? (
       <p class="activity-strip">
         <span class="activity-label">Movimento em {activityPeriodoLabel ?? activitySummary.periodo}:</span>
         <strong>{formatNumber(activitySummary.intimacoes)}</strong> intimações ·
@@ -188,8 +202,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <strong>{formatNumber(activitySummary.processos ?? 0)}</strong> processos ·
         <strong>{formatNumber(activitySummary.tribunais ?? 0)}</strong> tribunais ativos
       </p>
-    </section>
-  )}
+    ) : (
+      <p class="activity-strip activity-strip--empty">
+        Dados de atividade mensal disponíveis após a próxima geração do painel.
+      </p>
+    )}
+  </section>
 
   <!-- ── TRUST STRIP: live status + freshness + gaps ── -->
   <section class="section-container trust-strip-section">
@@ -405,6 +423,20 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   setupSearchHandlers();
   document.addEventListener('astro:after-swap', setupSearchHandlers);
+
+  function setupHintChips() {
+    const input = document.getElementById('home-search-input') as HTMLInputElement | null;
+    if (!input) return;
+    document.querySelectorAll<HTMLButtonElement>('.search-hint-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        input.value = chip.dataset.hint ?? '';
+        input.focus();
+      });
+    });
+  }
+
+  setupHintChips();
+  document.addEventListener('astro:after-swap', setupHintChips);
 </script>
 
 <style>
@@ -501,6 +533,46 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   .search-submit:hover {
     background: #155731;
+  }
+
+  /* ── Search hints ── */
+  .search-hints {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-content-secondary);
+    max-width: 36rem;
+  }
+
+  .search-hints-label {
+    margin-right: 0.125rem;
+    opacity: 0.6;
+  }
+
+  .search-hint-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-content-secondary);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
+    white-space: nowrap;
+  }
+
+  .search-hint-chip:hover,
+  .search-hint-chip:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(26, 107, 60, 0.06);
+    outline: none;
   }
 
   /* ── Quick access (task-first hero strip) ── */
@@ -660,6 +732,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     color: var(--color-base-content);
     font-family: var(--font-mono);
     font-weight: 700;
+  }
+
+  .activity-strip--empty {
+    opacity: 0.4;
+    font-style: italic;
   }
 
   .activity-label {

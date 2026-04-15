@@ -12,7 +12,10 @@ const data = loadBuildTimeData();
 const iaSnapshot = data.iaSnapshot;
 
 const snap = iaSnapshot?.summary;
-const latestDate = snap?.latest_collection_date;
+const latestDateRaw = snap?.latest_collection_date;
+const latestDate = latestDateRaw
+  ? new Date(latestDateRaw).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  : '–';
 const snapshotTime = iaSnapshot?.generated_at;
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
