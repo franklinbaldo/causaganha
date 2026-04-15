@@ -725,10 +725,7 @@ async def run_pipeline(
         feeder_task = asyncio.create_task(feed_available())
 
         # Worker allocation — respects --check-only and --upload-only flags
-        if config.upload_only:
-            checker_count = 0
-        else:
-            checker_count = config.workers
+        checker_count = 0 if config.upload_only else config.workers
 
         if config.check_only or config.dry_run:
             dl_count = 0

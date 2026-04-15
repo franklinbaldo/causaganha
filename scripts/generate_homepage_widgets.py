@@ -272,10 +272,7 @@ def _top_advogados_atividade(
     for row in rows:
         oab, uf, nome, n, trib, pct_autor = row
         # pct_autor may be NULL if polo is always other values; clamp to [0,1].
-        if pct_autor is None:
-            autor_pct = 0.0
-        else:
-            autor_pct = max(0.0, min(1.0, float(pct_autor)))
+        autor_pct = 0.0 if pct_autor is None else max(0.0, min(1.0, float(pct_autor)))
         results.append(
             {
                 "oab": oab,
