@@ -12,6 +12,8 @@ class Outcome(StrEnum):
     PROCEDENTE = "procedente"
     IMPROCEDENTE = "improcedente"
     PARCIALMENTE_PROCEDENTE = "parcialmente procedente"
+    ACORDO = "acordo"
+    EXTINTO_SEM_MERITO = "extinto sem mérito"
     UNKNOWN = "unknown"  # Fallback
 
 
@@ -108,7 +110,8 @@ class DecisionAnalysis(BaseModel):
         description=(
             "Outcome of the decision: 'procedente' (granted in full), "
             "'improcedente' (denied), 'parcialmente procedente' (partially granted), "
-            "or simplified: WIN, LOSS, PARTIAL, UNKNOWN"
+            "'acordo' (settlement), 'extinto sem mérito' (dismissed without prejudice), "
+            "or simplified: WIN, LOSS, PARTIAL, SETTLEMENT, UNKNOWN"
         ),
     )
 
@@ -178,7 +181,7 @@ class DecisionAnalysis(BaseModel):
         v_upper = v_stripped.upper()
 
         # Preserve RAG's simplified English terms (uppercase)
-        if v_upper in ["WIN", "LOSS", "PARTIAL", "UNKNOWN"]:
+        if v_upper in ["WIN", "LOSS", "PARTIAL", "SETTLEMENT", "UNKNOWN"]:
             return v_upper
 
         # Normalize LLM's Portuguese terms to lowercase

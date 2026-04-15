@@ -77,7 +77,7 @@ def store_analysis(
 # Outcomes that actually produce a winner/loser and therefore can update
 # OpenSkill ratings. "unknown" and non-ratable outcomes are excluded so the
 # rating isn't polluted by cases the classifier couldn't resolve.
-RATABLE_OUTCOMES = ("procedente", "parcialmente procedente", "improcedente")
+RATABLE_OUTCOMES = ("procedente", "parcialmente procedente", "improcedente", "acordo")
 
 # Decision types that we do NOT feed into the rating system. Interim orders
 # (decisões interlocutórias) are procedural and rarely mark a definitive
