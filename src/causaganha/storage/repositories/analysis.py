@@ -112,7 +112,7 @@ def get_unrated_analyses(
     )
 
     result = (
-        joined.filter(analysis.rated == False)  # noqa: E712
+        joined.filter(~analysis.rated)
         .filter(analysis.outcome.isin(RATABLE_OUTCOMES))
         .filter(analysis.decision_type.notin(EXCLUDED_DECISION_TYPES))
         .select(

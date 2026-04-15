@@ -79,7 +79,7 @@ def _preflight_checks() -> None:
 
 
 @app.command()
-def run(  # noqa: PLR0913
+def run(
     target_date: str = typer.Option(
         "",
         "--date",
@@ -107,7 +107,6 @@ def run(  # noqa: PLR0913
         help="Path ao arquivo CSV do manifesto.",
     ),
     *,
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Logs detalhados."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simular sem executar uploads."),
     use_proxy: bool = typer.Option(
         False,
@@ -140,8 +139,6 @@ def run(  # noqa: PLR0913
     ]
     if dry_run:
         config_lines.append("[yellow bold]Modo:[/yellow bold]     dry-run")
-    if verbose:
-        config_lines.append("[dim]Verbose: on[/dim]")
 
     console.print()
     console.print(
