@@ -18,6 +18,7 @@ import hashlib
 import os
 from pathlib import Path
 
+import anyio
 import httpx
 import structlog
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
@@ -196,7 +197,7 @@ async def _perform_upload(
     client: httpx.AsyncClient, url: str, file_path: Path, headers: dict[str, str]
 ) -> None:
     """Perform single upload attempt; retries are handled by tenacity."""
-    content = file_path.read_bytes()
+    content = await anyio.Path(file_path).read_bytes()
     response = await client.put(url, content=content, headers=headers)
     response.raise_for_status()
 

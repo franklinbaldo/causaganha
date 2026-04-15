@@ -5,6 +5,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import anyio
 import httpx
 import structlog
 
@@ -218,11 +219,11 @@ class ZipInventory:
 
     async def load_from_snapshot(self) -> int:
         """Seed from ia-snapshot.json (zero network)."""
-        snapshot_path = Path("web/public/ia-snapshot.json")
-        if not snapshot_path.exists():
+        snapshot_path = anyio.Path("web/public/ia-snapshot.json")
+        if not await snapshot_path.exists():
             return 0
         try:
-            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            snapshot = json.loads(await snapshot_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return 0
         before = len(self._entries)

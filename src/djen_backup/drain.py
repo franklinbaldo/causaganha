@@ -19,6 +19,7 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import anyio
 import duckdb
 import httpx
 import structlog
@@ -147,7 +148,8 @@ async def _drain_worker(
 
 
 async def upload_delta(delta_path: Path, ia_auth: str) -> bool:
-    if delta_path.stat().st_size <= 50:  # only header
+    stat = await anyio.Path(delta_path).stat()
+    if stat.st_size <= 50:  # only header
         return False
     target = f"upload-deltas/{delta_path.name}"
     async with create_upload_client(ia_auth) as client:

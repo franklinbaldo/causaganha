@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import NamedTuple, Protocol
 
+import anyio
 import httpx
 import structlog
 import tenacity
@@ -177,14 +178,14 @@ async def run_pipeline(
     # 6 hours (tracked via data/.ia-sync-timestamp).
     from datetime import UTC, datetime, timedelta
 
-    ia_sync_sentinel = Path("data/.ia-sync-timestamp")
+    ia_sync_sentinel = anyio.Path("data/.ia-sync-timestamp")
     sync_skip_window = timedelta(hours=6)
     should_sync_ia = not config.upload_only
     if not should_sync_ia:
         log.info("ia_sync_skipped", reason="upload_only")
-    if should_sync_ia and ia_sync_sentinel.exists():
+    if should_sync_ia and await ia_sync_sentinel.exists():
         try:
-            last_sync = datetime.fromisoformat(ia_sync_sentinel.read_text().strip())
+            last_sync = datetime.fromisoformat((await ia_sync_sentinel.read_text()).strip())
             if datetime.now(UTC) - last_sync < sync_skip_window:
                 should_sync_ia = False
                 log.info("ia_sync_skipped", last_sync=last_sync.isoformat())
@@ -259,8 +260,8 @@ async def run_pipeline(
                 )
 
         # Write sentinel timestamp so subsequent runs skip IA sync
-        ia_sync_sentinel.parent.mkdir(parents=True, exist_ok=True)
-        ia_sync_sentinel.write_text(datetime.now(UTC).isoformat())
+        await ia_sync_sentinel.parent.mkdir(parents=True, exist_ok=True)
+        await ia_sync_sentinel.write_text(datetime.now(UTC).isoformat())
         if config.observer:
             config.observer.on_subtask_done("IA sync")
             config.observer.on_counts_updated(manifest.counts())
@@ -321,7 +322,7 @@ async def run_pipeline(
             log.info("pipeline_nothing_to_do")
             return
 
-    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+    await anyio.Path(STAGING_DIR).mkdir(parents=True, exist_ok=True)
 
     check_queue: asyncio.Queue[ManifestEntry] = asyncio.Queue()
     for entry in unknown_entries:
