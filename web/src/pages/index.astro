@@ -105,6 +105,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- ── HERO ── -->
   <section class="hero">
     <div class="hero-content">
+      <p class="hero-eyebrow">Arquivo público do Judiciário Nacional</p>
       <h1 class="hero-h1">Dados do judiciário <em>brasileiro,</em> abertos para todos.</h1>
 
       <!-- Search form -->
@@ -195,13 +196,27 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <!-- ── ACTIVITY STRIP: movimento do último mês fechado ── -->
   <section class="section-container activity-strip-section">
     {activitySummary && activitySummary.intimacoes ? (
-      <p class="activity-strip">
-        <span class="activity-label">Movimento em {activityPeriodoLabel ?? activitySummary.periodo}:</span>
-        <strong>{formatNumber(activitySummary.intimacoes)}</strong> intimações ·
-        <strong>{formatNumber(activitySummary.oabs_unicas ?? 0)}</strong> OABs únicas ·
-        <strong>{formatNumber(activitySummary.processos ?? 0)}</strong> processos ·
-        <strong>{formatNumber(activitySummary.tribunais ?? 0)}</strong> tribunais ativos
-      </p>
+      <div class="activity-metrics">
+        <span class="activity-period-label">Movimento em {activityPeriodoLabel ?? activitySummary.periodo}</span>
+        <div class="activity-metrics-grid">
+          <div class="activity-metric">
+            <span class="activity-metric-label">Intimações</span>
+            <span class="activity-metric-value">{formatNumber(activitySummary.intimacoes)}</span>
+          </div>
+          <div class="activity-metric">
+            <span class="activity-metric-label">OABs únicas</span>
+            <span class="activity-metric-value">{formatNumber(activitySummary.oabs_unicas ?? 0)}</span>
+          </div>
+          <div class="activity-metric">
+            <span class="activity-metric-label">Processos</span>
+            <span class="activity-metric-value">{formatNumber(activitySummary.processos ?? 0)}</span>
+          </div>
+          <div class="activity-metric">
+            <span class="activity-metric-label">Tribunais ativos</span>
+            <span class="activity-metric-value">{formatNumber(activitySummary.tribunais ?? 0)}</span>
+          </div>
+        </div>
+      </div>
     ) : (
       <p class="activity-strip activity-strip--empty">
         Dados de atividade mensal disponíveis após a próxima geração do painel.
@@ -604,6 +619,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     border-color: var(--color-primary);
     background: var(--color-surface);
     text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
 
   .quick-access-icon {
@@ -680,6 +697,13 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    border-top: 3px solid transparent;
+    transition: border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .stats-row figure:hover {
+    border-top-color: var(--color-primary);
+    background: var(--color-surface);
   }
 
   .stats-label {
@@ -721,30 +745,66 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     padding-bottom: 0;
   }
 
-  .activity-strip {
+  .activity-strip--empty {
     margin: 0;
     font-size: var(--font-size-sm);
     line-height: 1.6;
     color: var(--color-content-secondary);
-  }
-
-  .activity-strip strong {
-    color: var(--color-base-content);
-    font-family: var(--font-mono);
-    font-weight: 700;
-  }
-
-  .activity-strip--empty {
     opacity: 0.4;
     font-style: italic;
   }
 
-  .activity-label {
+  .activity-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .activity-period-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-content-tertiary);
-    margin-right: 0.5rem;
+  }
+
+  .activity-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+    overflow: hidden;
+  }
+
+  .activity-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-base-100);
+  }
+
+  .activity-metric-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-content-tertiary);
+  }
+
+  .activity-metric-value {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--color-base-content);
+    line-height: 1;
+  }
+
+  @media (max-width: 640px) {
+    .activity-metrics-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   /* ── Top advogados table (widget 3) ── */
@@ -998,11 +1058,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .audience-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
+    border-top: 3px solid var(--color-border);
     border-radius: var(--radius-box);
     padding: var(--space-md);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    transition: border-color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .audience-card:hover {
+    border-top-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
   }
 
   .audience-icon {
