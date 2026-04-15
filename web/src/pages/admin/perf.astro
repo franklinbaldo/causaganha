@@ -42,17 +42,17 @@ const qualityScores = readJson<Record<string, QualityScore>>('tribunal_quality_s
   />
 
   <div class="page-container space-y-6">
-    <PerfDashboard client:idle perfMetrics={perfMetrics} qualityScores={qualityScores} />
+    <PerfDashboard client:visible perfMetrics={perfMetrics} qualityScores={qualityScores} />
 
     <div role="tablist" class="tabs tabs-bordered w-full sm:w-auto overflow-x-auto mb-4">
       <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Coverage Heatmap" checked="checked" />
       <div role="tabpanel" class="tab-content pt-4">
-        <TribunalCoverageHeatmap client:idle />
+        <TribunalCoverageHeatmap client:visible />
       </div>
 
       <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Latency Heatmap" />
       <div role="tabpanel" class="tab-content pt-4">
-        <LatencyHeatmap client:idle />
+        <LatencyHeatmap client:visible />
       </div>
 
       <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Parquet Density" />
