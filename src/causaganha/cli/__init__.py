@@ -15,6 +15,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import anyio
 import duckdb
 import httpx
 import structlog
@@ -1175,8 +1176,8 @@ def download_catalog(
                 "catalog.duckdb",
             ]
 
-            output_dir = Path(output)
-            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = anyio.Path(output)
+            await output_dir.mkdir(parents=True, exist_ok=True)
 
             typer.echo("Downloading catalog from Internet Archive...")
             typer.echo(f"  Item: {ia_catalog_item}")

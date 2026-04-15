@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+import anyio
 import structlog
 
 from causaganha.pipeline.ia_s3 import (
@@ -62,7 +63,7 @@ class IAS3ParquetUploader:
             ValueError: If the file does not exist.
             OSError: If the upload fails or circuit breaker is open.
         """
-        if not file_path.exists():
+        if not await anyio.Path(file_path).exists():
             msg = f"File not found: {file_path}"
             raise ValueError(msg)
 

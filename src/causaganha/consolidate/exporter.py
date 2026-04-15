@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import anyio
 import httpx
 import structlog
 
@@ -145,7 +146,7 @@ async def upload_marker(
         )
 
         with contextlib.suppress(OSError):
-            marker_path.unlink()
+            await anyio.Path(marker_path).unlink()
 
     except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
         log.exception("marker_upload_failed", item_id=item_id, error=str(exc))

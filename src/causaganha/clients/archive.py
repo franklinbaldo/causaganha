@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+import anyio
 import structlog
 
 from causaganha.clients.constants import (
@@ -63,7 +64,7 @@ class LocalArchiveService:
         metadata: dict[str, Any] | None = None,
     ) -> str | None:
         """Upload a file to local filesystem archive."""
-        if not file_path.exists():
+        if not await anyio.Path(file_path).exists():
             logger.error("file_not_found", path=str(file_path))
             return None
 

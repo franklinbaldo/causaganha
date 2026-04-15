@@ -10,15 +10,48 @@ ignore = [
     # ── Formatter-incompatible (required by ruff format) ──
     "COM812",   # trailing commas
     "ISC001",   # implicit string concatenation
+
+    # ── Development hygiene: TODOs are tracked in issues ──
+    "FIX002",   # line-contains-todo
 ]
 
 [lint.per-file-ignores]
 "vulture_whitelist.py" = ["B018", "F821"]
-"src/djen_backup/engine.py" = ["B023"]
+
 # generate-data.py: filename uses a dash (required by existing callers); both
 # functions are intentionally monolithic data-generation routines that would
 # need substantial refactoring to reduce cyclomatic complexity.
 "scripts/web/generate-data.py" = ["N999", "C901", "PLR0912", "PLR0915"]
+
+# ── djen_backup engine ────────────────────────────────────────────────────
+# run_pipeline/checker_worker/upload_worker are intentionally monolithic
+# (acknowledged in CLAUDE.md). PLC0415: conditional/lazy imports are used
+# for optional deps (rich, tqdm). SLF001: engine accesses manifest internals
+# by design. ERA001: one commented-out debug line; acceptable in pipeline code.
+# B023: loop var captured in closure (existing suppression kept).
+"src/djen_backup/engine.py" = ["B023", "C901", "PLR0912", "PLR0915", "PLC0415", "SLF001", "ERA001"]
+
+# ── djen_backup __main__ ──────────────────────────────────────────────────
+# B008: typer.Option() in default args is the idiomatic Typer pattern.
+"src/djen_backup/__main__.py" = ["B008"]
+
+# ── causaganha CLI ────────────────────────────────────────────────────────
+# E402: lazy imports for fast CLI startup (import-heavy deps deferred).
+# C901/PLR0912/PLR0915: large CLI dispatch functions; refactor deferred.
+"src/causaganha/cli/__init__.py" = ["E402", "C901", "PLR0912", "PLR0915"]
+"src/causaganha/cli/commands/backfill.py" = ["B008"]
+
+# ── Lazy / conditional imports in library modules ─────────────────────────
+# These modules defer expensive imports to avoid slowing every process start.
+"src/causaganha/pipeline/ia_s3.py" = ["E402"]
+"src/causaganha/pipeline/collect.py" = ["E402"]
+"src/causaganha/pipeline/score.py" = ["E402"]
+"src/causaganha/clients/archive.py" = ["E402"]
+"src/causaganha/consolidate/transforms.py" = ["E402"]
+"src/causaganha/consolidate/candidates.py" = ["E402"]
+"src/causaganha/pipeline/models.py" = ["E402"]
+"src/causaganha/storage/migrations.py" = ["E402"]
+"src/djen_backup/djen.py" = ["E402"]
 
 # ── Tests ──────────────────────────────────────────────────────────────────
 # assert is idiomatic pytest; no docstrings/type-hints required; private access
@@ -53,6 +86,8 @@ ignore = [
     "SLF001",           # private member access
     "EXE001",           # shebang not executable (CI runs via uv run, not directly)
     "PLW1510",          # subprocess.run without explicit check=
+    "ASYNC240",         # blocking-path-method-in-async-function (scripts: one-shot jobs, overhead fine)
+    "ASYNC230",         # blocking-open-call-in-async-function (same reason)
 ]
 
 # ── Experiments ────────────────────────────────────────────────────────────
