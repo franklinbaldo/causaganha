@@ -89,7 +89,7 @@ const recursosLinks = [
     </div>
     <div class="navbar-end">
       <div class="desktop-only mr-2 widget-wrapper">
-        <ActivePipelineStatus client:load />
+        <ActivePipelineStatus client:idle />
       </div>
       <a href={BASE + 'publicacoes'} class="btn btn-primary btn-enter desktop-only">Entrar</a>
       <ThemeToggle />
@@ -165,7 +165,7 @@ const recursosLinks = [
       </div>
       <div class="navbar-end desktop-only">
         <div class="mr-2 widget-wrapper">
-          <ActivePipelineStatus client:load />
+          <ActivePipelineStatus client:idle />
         </div>
         <ul class="menu menu-horizontal">
           {primaryLinks.map(link => (
@@ -203,7 +203,7 @@ const recursosLinks = [
       </div>
       <div class="navbar-end-mobile mobile-only">
         <div class="mr-2 widget-wrapper">
-          <ActivePipelineStatus client:load />
+          <ActivePipelineStatus client:idle />
         </div>
         <ThemeToggle />
         <div class="drawer drawer-end">
