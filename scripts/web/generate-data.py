@@ -1,10 +1,17 @@
+#!/usr/bin/env python3
+"""Generate dashboard-data.json from DuckDB catalog."""
+
+import contextlib
+import json
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+
+import httpx
 
 from causaganha.config import TRIBUNAIS
+from causaganha.storage.connection import get_connection
 
-
-#!/usr/bin/env python3
 
 logger = logging.getLogger(__name__)
 
@@ -16,17 +23,6 @@ EXCELLENT_SCORE_THRESHOLD = 90
 MAX_GAP_DAYS = 7
 MIN_DISTINCT_DATES = 2
 MIN_DAYS_OLD_FOR_CATEGORY = 30
-
-"""Generate dashboard-data.json from DuckDB catalog."""
-
-import contextlib
-import json
-from datetime import timedelta
-from pathlib import Path
-
-import httpx
-
-from causaganha.storage.connection import get_connection
 
 
 def calculate_quality_scores(
