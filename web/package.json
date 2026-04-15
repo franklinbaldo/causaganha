@@ -12,9 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "codegen:djen": "openapi-typescript ../djen.yml -o src/lib/djen-types.gen.ts",
-    "prebuild": "npm run codegen:djen",
-    "pretest": "npm run codegen:djen",
-    "pretypecheck": "npm run codegen:djen"
+    "codegen:djen-zod": "orval --config orval.config.ts",
+    "prebuild": "npm run codegen:djen && npm run codegen:djen-zod",
+    "pretest": "npm run codegen:djen && npm run codegen:djen-zod",
+    "pretypecheck": "npm run codegen:djen && npm run codegen:djen-zod"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
@@ -25,7 +26,8 @@
     "astro": "^5.18.1",
     "dompurify": "^3.3.3",
     "openapi-fetch": "^0.17.0",
-    "svelte": "^5.55.2"
+    "svelte": "^5.55.2",
+    "zod": "^4.0.0"
   },
   "overrides": {
     "yaml": ">=2.8.0"
@@ -41,6 +43,7 @@
     "globals": "^16.5.0",
     "jsdom": "^26.0.0",
     "openapi-typescript": "^7.13.0",
+    "orval": "^7.10.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.3.2",
