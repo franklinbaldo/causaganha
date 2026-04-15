@@ -41,7 +41,7 @@ jobs:
           echo "--- status counts (top 10) ---"
           awk -F',' 'NR>1 {key=$3"|"$4; c[key]++} END {for (k in c) print c[k], k}' data/sync-manifest.csv | sort -rn | head -10
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sync-manifest-recovered
           path: data/sync-manifest.csv
