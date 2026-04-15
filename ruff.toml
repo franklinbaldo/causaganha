@@ -15,6 +15,10 @@ ignore = [
 [lint.per-file-ignores]
 "vulture_whitelist.py" = ["B018", "F821"]
 "src/djen_backup/engine.py" = ["B023"]
+# generate-data.py: filename uses a dash (required by existing callers); both
+# functions are intentionally monolithic data-generation routines that would
+# need substantial refactoring to reduce cyclomatic complexity.
+"scripts/web/generate-data.py" = ["N999", "C901", "PLR0912", "PLR0915"]
 
 [lint.mccabe]
 max-complexity = 10

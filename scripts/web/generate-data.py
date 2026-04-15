@@ -28,7 +28,7 @@ MIN_DAYS_OLD_FOR_CATEGORY = 30
 def calculate_quality_scores(
     tribunal_coverage: dict, tribunal_start_dates: dict, end_date_str: str
 ) -> dict:
-    """Calculate data quality scores per tribunal based on completeness, recency, and consistency."""
+    """Calculate quality scores per tribunal based on completeness, recency, and consistency."""
     scores = {}
 
     end_date_obj = datetime.strptime(end_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
@@ -136,7 +136,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     try:
         backend = get_connection(str(db_path), read_only=True)
         con = backend.con
-    except Exception as e:
+    except RuntimeError as e:
         logger.warning("Failed to get database connection: %s", e)
         con = None
 
@@ -162,7 +162,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                 newest_date = str(result[1]) if result[1] else None
                 unique_days = result[2] or 0
                 total_items = result[3] or 0
-        except Exception as e:
+        except RuntimeError as e:
             logger.warning("Failed to fetch coverage statistics from database: %s", e)
 
     target_days = 764  # 2024-01-01 to 2026-02-03
@@ -194,15 +194,18 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
             # Recent Activity (last 7 days) for TimelineGraph
             recent_date_limit = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
-            recent_activity = con.execute(f"""
+            recent_activity = con.execute(
+                """
                 SELECT
                     date,
                     COUNT(*) as count
                 FROM djen_state.coverage
-                WHERE date >= '{recent_date_limit}'
+                WHERE date >= ?
                 GROUP BY date
                 ORDER BY date
-            """).fetchall()
+            """,
+                [recent_date_limit],
+            ).fetchall()
 
             # Per-tribunal coverage and stats
             coverage_rows = con.execute("""
@@ -215,16 +218,19 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
 
             # Velocity over last 14 days
             velocity_date_limit = (datetime.now(UTC) - timedelta(days=14)).strftime("%Y-%m-%d")
-            velocity_rows = con.execute(f"""
+            velocity_rows = con.execute(
+                """
                 SELECT
                     tribunal,
                     COUNT(DISTINCT date) as velocity_14d
                 FROM djen_state.coverage
-                WHERE date >= '{velocity_date_limit}'
+                WHERE date >= ?
                 GROUP BY tribunal
                 ORDER BY tribunal
-            """).fetchall()
-        except Exception as e:
+            """,
+                [velocity_date_limit],
+            ).fetchall()
+        except RuntimeError as e:
             logger.warning("Failed to fetch coverage data from database: %s", e)
 
     tribunal_coverage = {}
@@ -248,7 +254,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                     "stopped": info.get("stopped", False),
                     "empty_streak": info.get("empty_streak", 0),
                 }
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("Failed to read backfill state from %s: %s", backfill_state_path, e)
 
     # Read backfill state from state.json (authoritative for both uploaded and absent)
@@ -269,7 +275,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                             tribunal_coverage[tcode] = []
                         if date_key not in tribunal_coverage[tcode]:
                             tribunal_coverage[tcode].append(date_key)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("Failed to read tribunal state from %s: %s", state_json_path, e)
 
     # --- RECALCULATE GLOBAL STATS FROM MERGED COVERAGE ---
@@ -292,7 +298,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
     date(2026, 2, 3)  # Based on target range end 2026-02-03
     start_date_obj = date(2024, 1, 1)
     # The true count of expected days is `target_days` (764)
-    # Actually, we should count missing days within the date range from target_start to today, or just total target_days
+    # Actually, we count missing days within the target date range, using total target_days.
 
     # The set of tribunals to report on: either from DB or from the canonical list
     all_tribunals = {t for t, _ in coverage_rows} if coverage_rows else set(backfill_cursors.keys())
@@ -326,7 +332,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             start_date_obj = (
                 datetime.strptime(start_date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
             )
-        except Exception:
+        except ValueError:
             start_date_obj = date(2024, 1, 1)
 
         total_days_since_genesis = (today - start_date_obj).days + 1
@@ -397,10 +403,8 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
             latencies = []
             for r in runs:
                 if r.get("createdAt"):
-                    # Mock latency using fixed times or skip if updatedAt missing.
-                    # As run_stats.json does not contain 'updatedAt', we mock it based on conclusion.
-                    # Or we skip latency if 'updatedAt' is missing, but for performance dashboard
-                    # we can use a generated mock latency if real one isn't present for demonstration.
+                    # Mock latency: run_stats.json lacks 'updatedAt', so use fixed values
+                    # based on conclusion when the field is absent.
                     if r.get("updatedAt"):
                         start = datetime.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ").replace(
                             tzinfo=UTC
@@ -424,7 +428,7 @@ def generate_dashboard_data(db_path: Path, output_path: Path) -> None:
                         )
             if latencies:
                 perf_metrics["causaganha_collect_latency_ms"] = latencies
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("Failed to read performance metrics from %s: %s", run_stats_path, e)
 
     metrics_path.write_text(json.dumps(perf_metrics, ensure_ascii=False, indent=2))
