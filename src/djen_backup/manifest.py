@@ -5,8 +5,11 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path  # noqa: TC003 — used at runtime in save/load methods
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import httpx
 import structlog

@@ -1,5 +1,6 @@
 """Rating storage repository."""
 
+from dataclasses import dataclass
 from typing import Any
 
 import duckdb
@@ -15,6 +16,36 @@ logger = structlog.get_logger()
 # on any public leaderboard. Below this threshold the OpenSkill sigma is still
 # too wide to produce a meaningful ordering.
 MIN_MATCHES_FOR_LEADERBOARD = 20
+
+
+@dataclass
+class LawyerRatingUpdate:
+    """Data required to update or insert a lawyer's rating."""
+
+    oab_number: str
+    oab_state: str
+    lawyer_name: str | None
+    mu: float
+    sigma: float
+    wins: int
+    losses: int
+    tribunal: str = "GLOBAL"
+
+
+@dataclass
+class RatingSnapshot:
+    """Data required to record a rating history snapshot."""
+
+    advogado_id: str
+    comunicacao_id: str
+    oab_number: str
+    oab_state: str
+    mu_before: float
+    sigma_before: float
+    mu_after: float
+    sigma_after: float
+    wins: int
+    losses: int
 
 
 def get_lawyer_rating(
@@ -50,38 +81,16 @@ def get_lawyer_rating(
     return result.iloc[0].to_dict()
 
 
-def update_lawyer_rating(  # noqa: PLR0913
-    con: Backend,
-    oab_number: str,
-    oab_state: str,
-    lawyer_name: str | None,
-    mu: float,
-    sigma: float,
-    wins: int,
-    losses: int,
-    tribunal: str = "GLOBAL",
-) -> None:
+def update_lawyer_rating(con: Backend, update: LawyerRatingUpdate) -> None:
     """Update or insert lawyer rating.
 
     Args:
         con: Database connection.
-        oab_number: Lawyer OAB.
-        oab_state: Lawyer OAB state.
-        lawyer_name: Lawyer name.
-        mu: OpenSkill mu.
-        sigma: OpenSkill sigma.
-        wins: Total wins.
-        losses: Total losses.
-        tribunal: Optional tribunal code.
+        update: Rating data to write.
     """
-    total_cases = wins + losses
-    rating = mu - 3 * sigma
-    win_rate = (float(wins) / total_cases) if total_cases > 0 else 0.0
-
-    # We use parameter substitution. 'GLOBAL' is default in Python arg,
-    # but we should pass it explicitly if None to match schema default logic if needed,
-    # or rely on the function caller passing the default.
-    # Since we declare it as default arg "GLOBAL", it won't be None unless explicitly passed as None.
+    total_cases = update.wins + update.losses
+    rating = update.mu - 3 * update.sigma
+    win_rate = (float(update.wins) / total_cases) if total_cases > 0 else 0.0
 
     con.con.execute(
         """
@@ -106,17 +115,17 @@ def update_lawyer_rating(  # noqa: PLR0913
             last_updated = NOW()
         """,
         [
-            oab_number,
-            oab_state,
-            lawyer_name,
-            mu,
-            sigma,
+            update.oab_number,
+            update.oab_state,
+            update.lawyer_name,
+            update.mu,
+            update.sigma,
             rating,
             win_rate,
             total_cases,
-            wins,
-            losses,
-            tribunal,
+            update.wins,
+            update.losses,
+            update.tribunal,
         ],
     )
 
@@ -172,38 +181,16 @@ def list_leaderboard(
     return result.to_dict("records")
 
 
-def insert_rating_snapshot(  # noqa: PLR0913
-    con: Backend,
-    *,
-    advogado_id: str,
-    comunicacao_id: str,
-    oab_number: str,
-    oab_state: str,
-    mu_before: float,
-    sigma_before: float,
-    mu_after: float,
-    sigma_after: float,
-    wins: int,
-    losses: int,
-) -> None:
+def insert_rating_snapshot(con: Backend, snapshot: RatingSnapshot) -> None:
     """Record a rating snapshot in ratings_history.
 
     Called after each OpenSkill update to maintain a full audit trail.
 
     Args:
         con: Database connection.
-        advogado_id: UUIDv5 lawyer ID (OAB+UF based).
-        comunicacao_id: Communication that triggered this rating update.
-        oab_number: Lawyer OAB number.
-        oab_state: Lawyer OAB state.
-        mu_before: Mu before this update.
-        sigma_before: Sigma before this update.
-        mu_after: Mu after this update.
-        sigma_after: Sigma after this update.
-        wins: Total wins after this update.
-        losses: Total losses after this update.
+        snapshot: Snapshot data to record.
     """
-    rating_after = mu_after - 3 * sigma_after
+    rating_after = snapshot.mu_after - 3 * snapshot.sigma_after
 
     try:
         con.con.execute(
@@ -218,24 +205,24 @@ def insert_rating_snapshot(  # noqa: PLR0913
             ON CONFLICT (advogado_id, comunicacao_id) DO NOTHING
             """,
             [
-                advogado_id,
-                comunicacao_id,
-                oab_number,
-                oab_state,
-                mu_before,
-                sigma_before,
-                mu_after,
-                sigma_after,
+                snapshot.advogado_id,
+                snapshot.comunicacao_id,
+                snapshot.oab_number,
+                snapshot.oab_state,
+                snapshot.mu_before,
+                snapshot.sigma_before,
+                snapshot.mu_after,
+                snapshot.sigma_after,
                 rating_after,
-                wins,
-                losses,
+                snapshot.wins,
+                snapshot.losses,
             ],
         )
     except (duckdb.Error, ValueError, TypeError) as e:
         # Non-fatal — don't break the rating pipeline for history logging
         logger.warning(
             "rating_snapshot_failed",
-            advogado_id=advogado_id,
-            comunicacao_id=comunicacao_id,
+            advogado_id=snapshot.advogado_id,
+            comunicacao_id=snapshot.comunicacao_id,
             error=str(e),
         )

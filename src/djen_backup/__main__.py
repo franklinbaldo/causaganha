@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
@@ -251,48 +252,56 @@ def show_banner():
 # ── Commands ────────────────────────────────────────────────────────
 
 
-def _run_pipeline(  # noqa: PLR0913
-    *,
-    start_date: str | None,
-    end_date: str | None,
-    tribunal: str | None,
-    deadline_minutes: int,
-    max_items: int,
-    workers: int,
-    manifest_file: Path,
-    dry_run: bool,
-    fail_fast: bool,
-    publish_live_status: bool,
-    skip_if_mostly_complete: bool,
-    use_proxy: bool,
-    check_only: bool = False,
-    upload_only: bool = False,
-    mode_label: str = "Sync",
-) -> None:
+@dataclass
+class PipelineRunConfig:
+    """All options for a single pipeline run, shared by main/check/upload commands."""
+
+    start_date: str | None
+    end_date: str | None
+    tribunal: str | None
+    deadline_minutes: int
+    max_items: int
+    workers: int
+    manifest_file: Path
+    dry_run: bool
+    fail_fast: bool
+    publish_live_status: bool
+    skip_if_mostly_complete: bool
+    use_proxy: bool
+    check_only: bool = field(default=False)
+    upload_only: bool = field(default=False)
+    mode_label: str = field(default="Sync")
+
+
+def _run_pipeline(run_cfg: PipelineRunConfig) -> None:
     """Shared pipeline runner for main/check/upload subcommands."""
     env_result = _load_local_env()
     show_banner()
     _show_env_hint(env_result)
 
     today = datetime.now(tz=UTC).date()
-    resolved_end = _parse_date(end_date) if end_date else today - timedelta(days=1)
-    resolved_start = _parse_date(start_date) if start_date else date(2020, 1, 1)
-    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
+    resolved_end = _parse_date(run_cfg.end_date) if run_cfg.end_date else today - timedelta(days=1)
+    resolved_start = _parse_date(run_cfg.start_date) if run_cfg.start_date else date(2020, 1, 1)
+    resolved_use_proxy = run_cfg.use_proxy or _env_truthy("DJEN_USE_PROXY")
     resolved_djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
 
     config_table = Table.grid(padding=(0, 2))
     config_table.add_column(style="bold cyan")
     config_table.add_column()
-    config_table.add_row("Mode:", f"[bold magenta]{mode_label}[/bold magenta]")
+    config_table.add_row("Mode:", f"[bold magenta]{run_cfg.mode_label}[/bold magenta]")
     config_table.add_row("End Date:", resolved_end.isoformat())
     config_table.add_row("Start Date:", resolved_start.isoformat())
-    config_table.add_row("Tribunal:", tribunal or "All")
-    config_table.add_row("Deadline:", f"{deadline_minutes} min")
-    config_table.add_row("Max Items:", str(max_items) if max_items else "Unlimited")
-    config_table.add_row("Workers:", str(workers))
-    config_table.add_row("Dry Run:", "[yellow]Yes[/yellow]" if dry_run else "[green]No[/green]")
-    config_table.add_row("Fail Fast:", "[red]Yes[/red]" if fail_fast else "[green]No[/green]")
-    config_table.add_row("Manifest:", str(manifest_file))
+    config_table.add_row("Tribunal:", run_cfg.tribunal or "All")
+    config_table.add_row("Deadline:", f"{run_cfg.deadline_minutes} min")
+    config_table.add_row("Max Items:", str(run_cfg.max_items) if run_cfg.max_items else "Unlimited")
+    config_table.add_row("Workers:", str(run_cfg.workers))
+    config_table.add_row(
+        "Dry Run:", "[yellow]Yes[/yellow]" if run_cfg.dry_run else "[green]No[/green]"
+    )
+    config_table.add_row(
+        "Fail Fast:", "[red]Yes[/red]" if run_cfg.fail_fast else "[green]No[/green]"
+    )
+    config_table.add_row("Manifest:", str(run_cfg.manifest_file))
     config_table.add_row("DJEN Mode:", "Proxy" if resolved_use_proxy else "Direct")
     config_table.add_row("DJEN URL:", resolved_djen_url)
 
@@ -312,42 +321,42 @@ def _run_pipeline(  # noqa: PLR0913
 
     observer = RichManifestObserver(progress)
 
-    config = SyncConfig(
+    sync_config = SyncConfig(
         start_date=resolved_end,
         lower_bound=resolved_start,
-        tribunal=tribunal,
-        deadline_minutes=deadline_minutes,
-        max_items=max_items,
-        workers=workers,
-        manifest_file=manifest_file,
+        tribunal=run_cfg.tribunal,
+        deadline_minutes=run_cfg.deadline_minutes,
+        max_items=run_cfg.max_items,
+        workers=run_cfg.workers,
+        manifest_file=run_cfg.manifest_file,
         djen_proxy_url=resolved_djen_url,
-        ia_auth=_resolve_ia_auth(dry_run=dry_run),
-        dry_run=dry_run,
-        fail_fast=fail_fast,
-        publish_live_status=publish_live_status,
-        skip_if_mostly_complete=skip_if_mostly_complete,
-        check_only=check_only,
-        upload_only=upload_only,
+        ia_auth=_resolve_ia_auth(dry_run=run_cfg.dry_run),
+        dry_run=run_cfg.dry_run,
+        fail_fast=run_cfg.fail_fast,
+        publish_live_status=run_cfg.publish_live_status,
+        skip_if_mostly_complete=run_cfg.skip_if_mostly_complete,
+        check_only=run_cfg.check_only,
+        upload_only=run_cfg.upload_only,
         observer=observer,
     )
 
     interrupted = False
     try:
         with Live(Group(progress), console=console, refresh_per_second=4):
-            exit_code = asyncio.run(run_sync(config))
+            exit_code = asyncio.run(run_sync(sync_config))
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
         exit_code = 130
         interrupted = True
 
     final_manifest = SyncManifest()
-    final_manifest.load_from_disk(manifest_file)
+    final_manifest.load_from_disk(run_cfg.manifest_file)
     final_counts = final_manifest.counts()
 
     _show_run_summary(
         exit_code,
-        dry_run=dry_run,
-        tribunal=tribunal,
+        dry_run=run_cfg.dry_run,
+        tribunal=run_cfg.tribunal,
         counts=final_counts,
         interrupted=interrupted,
     )
@@ -355,7 +364,7 @@ def _run_pipeline(  # noqa: PLR0913
 
 
 @app.callback(invoke_without_command=True)
-def main(  # noqa: PLR0913
+def main(
     ctx: typer.Context,
     start_date: str | None = typer.Option(
         None, "--start-date", help="Oldest date to scan (YYYY-MM-DD)."
@@ -399,19 +408,21 @@ def main(  # noqa: PLR0913
     if ctx.invoked_subcommand:
         return
     _run_pipeline(
-        start_date=start_date,
-        end_date=end_date,
-        tribunal=tribunal,
-        deadline_minutes=deadline_minutes,
-        max_items=max_items,
-        workers=workers,
-        manifest_file=manifest_file,
-        dry_run=dry_run,
-        fail_fast=fail_fast,
-        publish_live_status=publish_live_status,
-        skip_if_mostly_complete=skip_if_mostly_complete,
-        use_proxy=use_proxy,
-        mode_label="Full Sync",
+        PipelineRunConfig(
+            start_date=start_date,
+            end_date=end_date,
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=max_items,
+            workers=workers,
+            manifest_file=manifest_file,
+            dry_run=dry_run,
+            fail_fast=fail_fast,
+            publish_live_status=publish_live_status,
+            skip_if_mostly_complete=skip_if_mostly_complete,
+            use_proxy=use_proxy,
+            mode_label="Full Sync",
+        )
     )
 
 
@@ -429,20 +440,22 @@ def check(
 ) -> None:
     """Check-only: verify DJEN availability of unknown entries. No downloads."""
     _run_pipeline(
-        start_date=start_date,
-        end_date=end_date,
-        tribunal=tribunal,
-        deadline_minutes=deadline_minutes,
-        max_items=0,
-        workers=workers,
-        manifest_file=manifest_file,
-        dry_run=False,
-        fail_fast=fail_fast,
-        publish_live_status=False,
-        skip_if_mostly_complete=False,
-        use_proxy=use_proxy,
-        check_only=True,
-        mode_label="Check Only",
+        PipelineRunConfig(
+            start_date=start_date,
+            end_date=end_date,
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=0,
+            workers=workers,
+            manifest_file=manifest_file,
+            dry_run=False,
+            fail_fast=fail_fast,
+            publish_live_status=False,
+            skip_if_mostly_complete=False,
+            use_proxy=use_proxy,
+            check_only=True,
+            mode_label="Check Only",
+        )
     )
 
 
@@ -459,20 +472,22 @@ def upload(
 ) -> None:
     """Upload-only: download and upload already-available entries. No checks."""
     _run_pipeline(
-        start_date=None,
-        end_date=None,
-        tribunal=tribunal,
-        deadline_minutes=deadline_minutes,
-        max_items=max_items,
-        workers=workers,
-        manifest_file=manifest_file,
-        dry_run=False,
-        fail_fast=fail_fast,
-        publish_live_status=False,
-        skip_if_mostly_complete=False,
-        use_proxy=use_proxy,
-        upload_only=True,
-        mode_label="Upload Only",
+        PipelineRunConfig(
+            start_date=None,
+            end_date=None,
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=max_items,
+            workers=workers,
+            manifest_file=manifest_file,
+            dry_run=False,
+            fail_fast=fail_fast,
+            publish_live_status=False,
+            skip_if_mostly_complete=False,
+            use_proxy=use_proxy,
+            upload_only=True,
+            mode_label="Upload Only",
+        )
     )
 
 

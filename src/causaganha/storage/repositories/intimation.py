@@ -82,7 +82,7 @@ def get_unanalyzed_intimations(
     intimations = con.table("intimations")
 
     result = (
-        intimations.filter(_.analyzed == False)  # noqa: E712
+        intimations.filter(~_.analyzed)
         .filter(_.link.notnull())
         .order_by(_.data_disponibilizacao.desc())
         .limit(limit)

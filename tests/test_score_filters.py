@@ -45,7 +45,7 @@ def _insert_intimation(con, *, iid: int, tribunal: str) -> None:
     )
 
 
-def _insert_analysis(  # noqa: PLR0913
+def _insert_analysis(
     con,
     *,
     intimation_id: int,

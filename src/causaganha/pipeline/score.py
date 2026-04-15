@@ -16,6 +16,8 @@ from causaganha.storage.repositories.analysis import (
 )
 from causaganha.storage.repositories.intimation import get_lawyer_name
 from causaganha.storage.repositories.rating import (
+    LawyerRatingUpdate,
+    RatingSnapshot,
     get_lawyer_rating,
     insert_rating_snapshot,
     update_lawyer_rating,
@@ -188,57 +190,65 @@ async def calculate_ratings(
                 # Winner
                 update_lawyer_rating(
                     con,
-                    oab_number=winner_oab,
-                    oab_state=winner_state,
-                    lawyer_name=winner_name,
-                    mu=effective_winner.mu,
-                    sigma=effective_winner.sigma,
-                    wins=winner_wins + 1,
-                    losses=winner_losses,
-                    tribunal=tribunal,
+                    LawyerRatingUpdate(
+                        oab_number=winner_oab,
+                        oab_state=winner_state,
+                        lawyer_name=winner_name,
+                        mu=effective_winner.mu,
+                        sigma=effective_winner.sigma,
+                        wins=winner_wins + 1,
+                        losses=winner_losses,
+                        tribunal=tribunal,
+                    ),
                 )
 
                 # Record winner snapshot
                 insert_rating_snapshot(
                     con,
-                    advogado_id=f"{winner_oab}:{winner_state}:{tribunal}",
-                    comunicacao_id=str(analysis["id"]),
-                    oab_number=winner_oab,
-                    oab_state=winner_state,
-                    mu_before=winner_rating.mu,
-                    sigma_before=winner_rating.sigma,
-                    mu_after=effective_winner.mu,
-                    sigma_after=effective_winner.sigma,
-                    wins=winner_wins + 1,
-                    losses=winner_losses,
+                    RatingSnapshot(
+                        advogado_id=f"{winner_oab}:{winner_state}:{tribunal}",
+                        comunicacao_id=str(analysis["id"]),
+                        oab_number=winner_oab,
+                        oab_state=winner_state,
+                        mu_before=winner_rating.mu,
+                        sigma_before=winner_rating.sigma,
+                        mu_after=effective_winner.mu,
+                        sigma_after=effective_winner.sigma,
+                        wins=winner_wins + 1,
+                        losses=winner_losses,
+                    ),
                 )
 
                 # Loser
                 update_lawyer_rating(
                     con,
-                    oab_number=loser_oab,
-                    oab_state=loser_state,
-                    lawyer_name=loser_name,
-                    mu=effective_loser.mu,
-                    sigma=effective_loser.sigma,
-                    wins=loser_wins,
-                    losses=loser_losses + 1,
-                    tribunal=tribunal,
+                    LawyerRatingUpdate(
+                        oab_number=loser_oab,
+                        oab_state=loser_state,
+                        lawyer_name=loser_name,
+                        mu=effective_loser.mu,
+                        sigma=effective_loser.sigma,
+                        wins=loser_wins,
+                        losses=loser_losses + 1,
+                        tribunal=tribunal,
+                    ),
                 )
 
                 # Record loser snapshot
                 insert_rating_snapshot(
                     con,
-                    advogado_id=f"{loser_oab}:{loser_state}:{tribunal}",
-                    comunicacao_id=str(analysis["id"]),
-                    oab_number=loser_oab,
-                    oab_state=loser_state,
-                    mu_before=loser_rating.mu,
-                    sigma_before=loser_rating.sigma,
-                    mu_after=effective_loser.mu,
-                    sigma_after=effective_loser.sigma,
-                    wins=loser_wins,
-                    losses=loser_losses + 1,
+                    RatingSnapshot(
+                        advogado_id=f"{loser_oab}:{loser_state}:{tribunal}",
+                        comunicacao_id=str(analysis["id"]),
+                        oab_number=loser_oab,
+                        oab_state=loser_state,
+                        mu_before=loser_rating.mu,
+                        sigma_before=loser_rating.sigma,
+                        mu_after=effective_loser.mu,
+                        sigma_after=effective_loser.sigma,
+                        wins=loser_wins,
+                        losses=loser_losses + 1,
+                    ),
                 )
 
                 # Mark as rated

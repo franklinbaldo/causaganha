@@ -400,7 +400,7 @@ class EmbeddingStorage:
 
         # Use DuckDB's native list_cosine_similarity for fast vector search
         # Query only chunk_index=0 to get one result per text
-        query_sql = f"""  # noqa: S608
+        query_sql = f"""
             SELECT
                 texto_id,
                 chunk_index,

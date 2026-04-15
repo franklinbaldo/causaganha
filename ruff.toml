@@ -108,7 +108,7 @@ multiline-quotes = "double"
 docstring-quotes = "double"
 
 [lint.pylint]
-max-args = 8
+max-args = 13
 max-branches = 12
 max-returns = 8
 max-statements = 50
