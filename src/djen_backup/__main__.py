@@ -235,7 +235,7 @@ def _show_run_summary(
     console.print(Panel(rows, title=f"[bold white]{title}[/bold white]", border_style=border))
 
 
-def show_banner():
+def show_banner() -> None:
     banner = r"""
 [bold green]
    ______                               ______            __
@@ -403,7 +403,7 @@ def main(
         "--use-proxy",
         help="Use the Cloud Run DJEN proxy. Default is direct access.",
     ),
-):
+) -> None:
     """Main backup and sync command (check + download + upload)."""
     if ctx.invoked_subcommand:
         return
@@ -550,7 +550,7 @@ def reset(
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
-):
+) -> None:
     """Reset manifest entries for a tribunal (clears djen_status and ia_status)."""
     if not tribunal and not reset_all:
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
@@ -565,7 +565,7 @@ def reset(
 
     # Reset entries by rebuilding without the targeted entries
     count = 0
-    for k, entry in list(manifest._entries.items()):
+    for _k, entry in list(manifest._entries.items()):
         if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
             entry.ia_status = ""
             entry.djen_status = ""

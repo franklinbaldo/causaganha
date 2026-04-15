@@ -15,6 +15,49 @@ ignore = [
 [lint.per-file-ignores]
 "vulture_whitelist.py" = ["B018", "F821"]
 "src/djen_backup/engine.py" = ["B023"]
+# generate-data.py: filename uses a dash (required by existing callers); both
+# functions are intentionally monolithic data-generation routines that would
+# need substantial refactoring to reduce cyclomatic complexity.
+"scripts/web/generate-data.py" = ["N999", "C901", "PLR0912", "PLR0915"]
+
+# ── Tests ──────────────────────────────────────────────────────────────────
+# assert is idiomatic pytest; no docstrings/type-hints required; private access
+# and magic-value comparisons are normal in test code.
+"tests/**/*.py" = [
+    "S101",             # assert
+    "D100", "D103", "D104", "D205",  # missing docstrings
+    "ANN001", "ANN201", "ANN202", "ANN401",  # missing type annotations
+    "PLR2004",          # magic value comparison
+    "ARG001",           # unused function argument (fixtures pass unused args)
+    "INP001",           # implicit namespace package
+    "PLC0415",          # import outside top-level (test helpers use local imports)
+    "SLF001",           # private member access
+    "E402",             # module import not at top (dynamic imports in tests)
+    "SIM108",           # ternary expressions not required
+]
+
+# ── Scripts ────────────────────────────────────────────────────────────────
+# Pipeline/utility scripts: print() is intentional output; monolithic structure
+# is acceptable; no public API so docstrings and type hints not required.
+# E402 covers sys.path manipulation that must precede imports in entry scripts.
+"scripts/**/*.py" = [
+    "T201",             # print (intentional pipeline output)
+    "D100", "D103",     # missing docstrings (internal scripts)
+    "ANN001", "ANN201", "ANN202",  # missing type annotations
+    "E402",             # module import not at top (sys.path setup before imports)
+    "C901",             # too complex (monolithic data-pipeline functions)
+    "PLR2004",          # magic value comparison
+    "PLR0912",          # too many branches
+    "PLR0915",          # too many statements
+    "PLR0911",          # too many return statements
+    "SLF001",           # private member access
+    "EXE001",           # shebang not executable (CI runs via uv run, not directly)
+    "PLW1510",          # subprocess.run without explicit check=
+]
+
+# ── Experiments ────────────────────────────────────────────────────────────
+# Research/exploratory notebooks — not production code; all rules relaxed.
+"experiments/**/*.py" = ["ALL"]
 
 [lint.mccabe]
 max-complexity = 10
